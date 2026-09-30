@@ -1,0 +1,25 @@
+name: systematic-debugging
+version: 0.1.0
+category: foundation
+description: General evidence-driven debugging and fault-isolation methodology.
+scope:
+  includes: [reproduction, failure boundaries, hypothesis testing]
+  excludes: [domain procedure truth, unsupported causal claims]
+dependencies:
+  required: []
+  optional: [project test tooling]
+inputs: [observed failure, artifacts, authorized test context]
+outputs: [failure boundary, evidence-labeled hypotheses, next checks]
+protocols: []
+interfaces: []
+network_functions: []
+evidence_levels: [OBSERVED, DERIVED, INFERRED, HYPOTHESIS, CONFIRMED]
+upstream:
+  repository: https://github.com/sickn33/agentic-awesome-skills
+  path: skills/systematic-debugging
+  commit: 465ad05638fbe1d9e7f98671393396b6d9246393
+  license: MIT License
+  local_modifications: Embedded upstream files are unmodified; CoreNet wrapper files are local additions outside upstream/.
+testing:
+  fixtures: []
+  expected_results: [embedded upstream integrity validation]

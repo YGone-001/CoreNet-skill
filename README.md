@@ -4,7 +4,13 @@
 
 ## Current status
 
-**Implemented: repository foundation only.** Architecture, contracts, schemas, a reusable template, and lightweight validation are present. No telecom protocol decoder, field extraction, procedure logic, source-code mapping, packet analysis, or end-to-end troubleshooting capability is implemented yet. All technology-specific Skills above are **planned**, not available.
+**Implemented:** repository foundation, agent governance, audited upstream
+snapshots, and six CoreNet Foundation Skill wrappers. The wrappers provide
+general investigation methods only; they are not telecom-adapted. **Not yet
+implemented:** telecom Foundation extensions, protocol-specific packet analysis,
+NAS, S1AP, NGAP, GTP, PFCP, SIP/SDP/RTP domain semantics, Diameter Skills, SBI
+logic, EPC/IMS/5GC procedures, implementation-specific mappings, or end-to-end
+orchestration.
 
 ## Why modular Skills
 
@@ -39,7 +45,7 @@ All future troubleshooting output must separate observations, deterministic deri
 ```text
 ├── docs/                 # frozen architecture, contracts, rules, roadmap
 ├── shared/               # schemas and documented future shared assets
-├── skills/               # planned layer directories; no real Skill yet
+├── skills/               # Foundation wrappers; later-layer Skills remain planned
 ├── templates/skill-template/  # reusable contract-complete Skill skeleton
 ├── scripts/              # validation and original generic helper scripts
 └── tests/                # schema, structure, and fixture checks
@@ -62,4 +68,8 @@ Keep Scope and Non-Goals explicit, use lowercase kebab-case names, preserve arti
 
 ## Roadmap
 
-The repository foundation establishes the baseline. Future milestones are: Foundation Skills; Packet and Protocol Core; Diameter; IMS; EPC; 5GC Core Procedures; Advanced 5GC Interfaces; Implementation Awareness; and End-to-End Root Cause Analysis. Each milestone's gates and dependencies are frozen in [docs/ROADMAP.md](docs/ROADMAP.md).
+The repository foundation and six Foundation wrappers establish the baseline.
+Future milestones are Packet and Protocol Core, Diameter, IMS, EPC, 5GC Core
+Procedures, Advanced 5GC Interfaces, Implementation Awareness, and End-to-End
+Root Cause Analysis. Each milestone's gates and dependencies are frozen in
+[docs/ROADMAP.md](docs/ROADMAP.md).

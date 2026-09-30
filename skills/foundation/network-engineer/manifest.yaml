@@ -1,0 +1,25 @@
+name: network-engineer
+version: 0.1.0
+category: foundation
+description: General IP and transport-network investigation methodology.
+scope:
+  includes: [routing, DNS, reachability, transport and path analysis]
+  excludes: [application semantics, telecom procedure diagnosis]
+dependencies:
+  required: []
+  optional: [standard host networking tools]
+inputs: [topology context, authorized network artifacts]
+outputs: [evidence-labeled path findings, reproducible checks]
+protocols: []
+interfaces: []
+network_functions: []
+evidence_levels: [OBSERVED, DERIVED, INFERRED, HYPOTHESIS, CONFIRMED]
+upstream:
+  repository: https://github.com/sickn33/agentic-awesome-skills
+  path: skills/network-engineer
+  commit: 465ad05638fbe1d9e7f98671393396b6d9246393
+  license: MIT License
+  local_modifications: Embedded upstream files are unmodified; CoreNet wrapper files are local additions outside upstream/.
+testing:
+  fixtures: []
+  expected_results: [embedded upstream integrity validation]

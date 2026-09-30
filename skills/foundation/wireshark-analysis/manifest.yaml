@@ -1,0 +1,25 @@
+name: wireshark-analysis
+version: 0.1.0
+category: foundation
+description: General reproducible packet-capture analysis methodology.
+scope:
+  includes: [capture inspection, filtering methodology, stream inspection]
+  excludes: [protocol procedure semantics, telecom root-cause ownership]
+dependencies:
+  required: []
+  optional: [Wireshark, tshark]
+inputs: [authorized packet captures, investigation context]
+outputs: [evidence-labeled observations, reproducible extraction steps]
+protocols: []
+interfaces: []
+network_functions: []
+evidence_levels: [OBSERVED, DERIVED, INFERRED, HYPOTHESIS, CONFIRMED]
+upstream:
+  repository: https://github.com/sickn33/agentic-awesome-skills
+  path: skills/wireshark-analysis
+  commit: 465ad05638fbe1d9e7f98671393396b6d9246393
+  license: MIT License
+  local_modifications: Embedded upstream files are unmodified; CoreNet wrapper files are local additions outside upstream/.
+testing:
+  fixtures: []
+  expected_results: [embedded upstream integrity validation]

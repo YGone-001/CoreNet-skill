@@ -5,3 +5,4 @@
 # Immutable upstream snapshot bytes must not undergo line-ending conversion.
 third_party/agentic-awesome-skills/LICENSE -text
 third_party/agentic-awesome-skills/skills/** -text
+skills/foundation/**/upstream/** -text

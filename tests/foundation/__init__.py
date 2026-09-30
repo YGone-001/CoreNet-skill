@@ -1,0 +1,1 @@
+"""Foundation Skill contract tests."""

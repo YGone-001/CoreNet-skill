@@ -1,0 +1,25 @@
+name: protocol-reverse-engineering
+version: 0.1.0
+category: foundation
+description: General methodology for investigating unknown protocol structures.
+scope:
+  includes: [field boundary analysis, differential comparison, uncertainty documentation]
+  excludes: [protocol dictionaries, telecom-specific dissector implementation]
+dependencies:
+  required: []
+  optional: [packet capture tooling]
+inputs: [authorized samples, captures, investigation context]
+outputs: [evidence-labeled structural findings, hypotheses, next checks]
+protocols: []
+interfaces: []
+network_functions: []
+evidence_levels: [OBSERVED, DERIVED, INFERRED, HYPOTHESIS, CONFIRMED]
+upstream:
+  repository: https://github.com/sickn33/agentic-awesome-skills
+  path: skills/protocol-reverse-engineering
+  commit: 465ad05638fbe1d9e7f98671393396b6d9246393
+  license: MIT License
+  local_modifications: Embedded upstream files are unmodified; CoreNet wrapper files are local additions outside upstream/.
+testing:
+  fixtures: []
+  expected_results: [embedded upstream integrity validation]
