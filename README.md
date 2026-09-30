@@ -4,10 +4,10 @@
 
 ## Current status
 
-**Implemented:** repository foundation, agent governance, audited upstream
-snapshots, six CoreNet Foundation Skill wrappers, and telecom core-network
-Foundation extensions. The extensions provide investigation context only. **Not
-yet implemented:** protocol-specific packet analysis,
+**Implemented:** accepted repository foundation, agent governance, audited
+upstream snapshots, six CoreNet Foundation Skills, telecom core-network
+Foundation extensions, and GitHub Actions validation. The extensions provide
+investigation context only. **Not yet implemented:** protocol-specific packet analysis,
 NAS, S1AP, NGAP, GTP, PFCP, SIP/SDP/RTP domain semantics, Diameter Skills, SBI
 logic, EPC/IMS/5GC procedures, implementation-specific mappings, or end-to-end
 orchestration.
@@ -68,7 +68,9 @@ Keep Scope and Non-Goals explicit, use lowercase kebab-case names, preserve arti
 
 ## Roadmap
 
-The repository foundation and six Foundation wrappers establish the baseline.
+The repository foundation and six accepted Foundation Skills establish the
+stable investigation-method baseline; GitHub Actions reproduces repository
+validation remotely.
 Future milestones are Packet and Protocol Core, Diameter, IMS, EPC, 5GC Core
 Procedures, Advanced 5GC Interfaces, Implementation Awareness, and End-to-End
 Root Cause Analysis. Each milestone's gates and dependencies are frozen in

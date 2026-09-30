@@ -1,0 +1,33 @@
+name: Validate Foundation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate repository contract
+        run: python scripts/validate-repository.py
+      - name: Validate upstream snapshots
+        run: python scripts/validate-upstream-snapshots.py
+      - name: Validate Foundation Skills
+        run: python scripts/validate-foundation-skills.py
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Compile validation scripts
+        run: python -m compileall scripts
+      - name: Check committed whitespace
+        run: git diff --check HEAD^ HEAD
