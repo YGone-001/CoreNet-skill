@@ -1,6 +1,8 @@
 # Source Governance
 
-The repository foundation includes no imported Skill implementation or third-party content.
+The repository may stage raw third-party snapshots under `third_party/` before
+CoreNet-native contract integration. Such snapshots are not installed Skills and
+must remain distinguishable from locally authored material.
 
 Before importing or adapting material, maintainers must review its content, license, commit, compatibility, security impact, and relevance to this repository. Never fabricate license information or strip attribution. Preserve provenance in the imported Skill's `UPSTREAM.md`:
 
