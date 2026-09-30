@@ -53,10 +53,24 @@ def validate_embedded(skill: Path, staged: Path | None = None) -> list[str]:
                 errors.append(f"{name}: {wrapper} has a runtime third_party reference")
             if "../" in wrapper_text:
                 errors.append(f"{name}: {wrapper} has a path escaping the standalone package")
+            if re.search(r"(?i)[a-z]:[\\/]users[\\/]", wrapper_text):
+                errors.append(f"{name}: {wrapper} has an absolute workstation path")
+    extension = skill / "extensions" / "telecom-core-network.md"
+    if not extension.is_file():
+        errors.append(f"{name}: missing telecom core-network extension")
+    else:
+        extension_text = extension.read_text(encoding="utf-8")
+        for heading in ("## Evidence-Safe Examples", "## Handoff to Higher Layers"):
+            if heading not in extension_text:
+                errors.append(f"{name}: extension is missing {heading}")
+        if "third_party/" in extension_text or "../" in extension_text:
+            errors.append(f"{name}: extension has a path escaping the standalone package")
+        if re.search(r"(?i)[a-z]:[\\/]users[\\/]", extension_text):
+            errors.append(f"{name}: extension has an absolute workstation path")
     if not (skill / "manifest.yaml").is_file() or not (skill / "upstream-manifest.json").is_file():
         return errors
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", name), ("version", "0.1.0"), ("category", "foundation")):
+    for key, expected in (("name", name), ("version", "0.2.0"), ("category", "foundation")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"{name}: manifest {key} is not {expected}")
     if not re.search(r"(?m)^\s*required:\s*\[\]\s*$", manifest):
@@ -66,6 +80,8 @@ def validate_embedded(skill: Path, staged: Path | None = None) -> list[str]:
             errors.append(f"{name}: manifest {key} must be empty")
     if not re.search(rf"(?m)^\s+commit:\s*{PINNED_COMMIT}\s*$", manifest):
         errors.append(f"{name}: manifest pinned commit is incorrect")
+    if (skill / "SKILL.md").is_file() and "extensions/telecom-core-network.md" not in (skill / "SKILL.md").read_text(encoding="utf-8"):
+        errors.append(f"{name}: SKILL.md does not activate the telecom extension")
     try:
         embedded = json.loads((skill / "upstream-manifest.json").read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:

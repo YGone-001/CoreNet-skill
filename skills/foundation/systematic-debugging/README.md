@@ -6,4 +6,4 @@ Use it for reproductions, evidence collection, hypothesis tests, and distinguish
 
 The complete standalone package includes the CoreNet wrapper, manifest, provenance records, integrity record, and immutable `upstream/` material. It has no repository-root runtime dependency.
 
-Telecom-specific extensions are not included yet. See `UPSTREAM.md` for the pinned source provenance.
+The telecom/core-network Foundation extension is implemented for investigation context only; protocol and domain semantics remain out of scope. Upstream remains unchanged and the package remains standalone.

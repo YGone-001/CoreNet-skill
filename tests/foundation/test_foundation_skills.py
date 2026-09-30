@@ -56,3 +56,33 @@ class FoundationSkillTests(unittest.TestCase):
             wrapper = root / "skills/foundation/c-pro/SKILL.md"
             wrapper.write_text(wrapper.read_text(encoding="utf-8") + "\n../outside\n", encoding="utf-8")
             self.assertTrue(any("escaping the standalone package" in error for error in VALIDATOR.validate(root)))
+
+    def test_missing_extension_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            (root / "skills/foundation/c-pro/extensions/telecom-core-network.md").unlink()
+            self.assertTrue(any("missing telecom" in error for error in VALIDATOR.validate(root)))
+
+    def test_extension_workstation_path_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            extension = root / "skills/foundation/c-pro/extensions/telecom-core-network.md"
+            extension.write_text(extension.read_text(encoding="utf-8") + "\nC:\\Users\\example\\capture.pcapng\n", encoding="utf-8")
+            self.assertTrue(any("extension has an absolute workstation path" in error for error in VALIDATOR.validate(root)))
+
+    def test_wrong_version_and_ownership_are_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/foundation/c-pro/manifest.yaml"
+            text = manifest.read_text(encoding="utf-8").replace("version: 0.2.0", "version: 0.1.0").replace("protocols: []", "protocols: [example]")
+            manifest.write_text(text, encoding="utf-8")
+            errors = VALIDATOR.validate(root)
+            self.assertTrue(any("version" in error for error in errors))
+            self.assertTrue(any("protocols" in error for error in errors))
+
+    def test_mandatory_dependency_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/foundation/c-pro/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("required: []", "required: [network-engineer]"), encoding="utf-8")
+            self.assertTrue(any("mandatory dependencies" in error for error in VALIDATOR.validate(root)))

@@ -6,4 +6,4 @@ Use it for capture navigation, filtering, stream inspection, and evidence preser
 
 The package contains the CoreNet `SKILL.md`, this README, `manifest.yaml`, provenance records, `upstream-manifest.json`, and immutable upstream material in `upstream/`. Copy the whole directory to use it standalone; no repository-root files are needed. The upstream source is pinned in `UPSTREAM.md`.
 
-Telecom-specific extensions are not included yet. Review `upstream/` for generic source guidance and preserve capture privacy and authorization constraints.
+The telecom/core-network Foundation extension is implemented for investigation context only; protocol and domain semantics remain out of scope. Upstream remains unchanged and the package remains standalone.

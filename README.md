@@ -5,9 +5,9 @@
 ## Current status
 
 **Implemented:** repository foundation, agent governance, audited upstream
-snapshots, and six CoreNet Foundation Skill wrappers. The wrappers provide
-general investigation methods only; they are not telecom-adapted. **Not yet
-implemented:** telecom Foundation extensions, protocol-specific packet analysis,
+snapshots, six CoreNet Foundation Skill wrappers, and telecom core-network
+Foundation extensions. The extensions provide investigation context only. **Not
+yet implemented:** protocol-specific packet analysis,
 NAS, S1AP, NGAP, GTP, PFCP, SIP/SDP/RTP domain semantics, Diameter Skills, SBI
 logic, EPC/IMS/5GC procedures, implementation-specific mappings, or end-to-end
 orchestration.

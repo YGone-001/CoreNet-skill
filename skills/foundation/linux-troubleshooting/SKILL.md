@@ -32,6 +32,8 @@ No CoreNet Skill dependency. Standard Linux tools are optional external tools.
 4. Preserve direct evidence and distinguish it from interpretations.
 5. Escalate protocol or implementation questions outside this Skill's scope.
 
+When the task concerns EPC, IMS, 5GC, mobile-core signaling, or a core-network host, also read `extensions/telecom-core-network.md`.
+
 ## Evidence Rules
 
 Logs and command output are `OBSERVED`; deterministic summaries are `DERIVED`. A service restart or open socket does not confirm application behavior or root cause.

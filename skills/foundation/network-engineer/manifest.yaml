@@ -1,10 +1,10 @@
 name: network-engineer
-version: 0.1.0
+version: 0.2.0
 category: foundation
 description: General IP and transport-network investigation methodology.
 scope:
-  includes: [routing, DNS, reachability, transport and path analysis]
-  excludes: [application semantics, telecom procedure diagnosis]
+  includes: [routing, DNS, reachability, transport and path analysis, telecom network context]
+  excludes: [protocol semantics, domain procedures, implementation ownership, telecom procedure diagnosis]
 dependencies:
   required: []
   optional: [standard host networking tools]

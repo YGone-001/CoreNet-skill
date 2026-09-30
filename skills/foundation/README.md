@@ -5,4 +5,6 @@ Six CoreNet Foundation wrappers are implemented: `wireshark-analysis`,
 `linux-troubleshooting`, and `c-pro`. Each preserves its audited upstream source
 under `upstream/` and remains independently usable.
 
-Telecom-specific extensions are deferred. Protocol Skills are not implemented.
+All six wrappers include telecom-core-network extensions for investigation
+methodology only. Protocol Skills retain responsibility for semantics, and the
+audited upstream snapshots remain immutable.

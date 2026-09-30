@@ -32,6 +32,8 @@ No CoreNet Skill dependency. Compiler, debugger, or sanitizer tooling is optiona
 4. Test one hypothesis at a time with focused diagnostics.
 5. Validate any change with the relevant build or test artifact.
 
+When the task concerns EPC, IMS, 5GC, mobile-core signaling, or a core-network host, also read `extensions/telecom-core-network.md`.
+
 ## Evidence Rules
 
 Compiler output, debugger state, and test results are `OBSERVED`; deterministic analysis is `DERIVED`. Do not present a suspected defect as confirmed without validation.

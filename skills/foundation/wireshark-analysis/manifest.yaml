@@ -1,10 +1,10 @@
 name: wireshark-analysis
-version: 0.1.0
+version: 0.2.0
 category: foundation
 description: General reproducible packet-capture analysis methodology.
 scope:
-  includes: [capture inspection, filtering methodology, stream inspection]
-  excludes: [protocol procedure semantics, telecom root-cause ownership]
+  includes: [capture inspection, filtering methodology, stream inspection, telecom core-network capture context]
+  excludes: [protocol semantics, domain procedures, implementation ownership, telecom root-cause ownership]
 dependencies:
   required: []
   optional: [Wireshark, tshark]

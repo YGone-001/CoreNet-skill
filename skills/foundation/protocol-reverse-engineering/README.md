@@ -6,4 +6,4 @@ Use it for structural comparison, boundary discovery, and documenting uncertaint
 
 The package contains a CoreNet wrapper, manifest, provenance records, integrity manifest, and immutable `upstream/` source. Copy the complete directory for standalone use; it needs no repository-root files.
 
-Telecom-specific extensions are not included yet. The pinned upstream source and its metadata are recorded in `UPSTREAM.md`.
+The telecom/core-network Foundation extension is implemented for investigation context only; protocol and domain semantics remain out of scope. Upstream remains unchanged and the package remains standalone.

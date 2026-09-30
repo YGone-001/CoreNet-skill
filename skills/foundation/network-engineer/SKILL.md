@@ -32,6 +32,8 @@ No CoreNet Skill dependency. Standard host networking tools are optional externa
 4. Correlate direct artifacts before interpreting failures.
 5. Report whether the boundary is network/transport-level or needs deeper analysis.
 
+When the task concerns EPC, IMS, 5GC, mobile-core signaling, or a core-network host, also read `extensions/telecom-core-network.md`.
+
 ## Evidence Rules
 
 Command output and captures are `OBSERVED`; repeatable calculations are `DERIVED`. Reachability does not confirm higher-layer correctness. Keep causal claims as inference or hypothesis until proven.

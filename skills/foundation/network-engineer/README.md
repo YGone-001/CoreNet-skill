@@ -6,4 +6,4 @@ Use it for routing, DNS, reachability, transport behavior, MTU, NAT, firewall, l
 
 The complete standalone package includes local CoreNet contracts, integrity records, and immutable `upstream/` material. No repository-root files or other Skills are required.
 
-Telecom-specific extensions are not included yet. Upstream provenance is recorded in `UPSTREAM.md`.
+The telecom/core-network Foundation extension is implemented for investigation context only; protocol and domain semantics remain out of scope. Upstream remains unchanged and the package remains standalone.

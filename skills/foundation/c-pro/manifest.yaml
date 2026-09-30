@@ -1,10 +1,10 @@
 name: c-pro
-version: 0.1.0
+version: 0.2.0
 category: foundation
 description: General C systems-programming and debugging methodology.
 scope:
-  includes: [memory ownership, diagnostics, debugger and sanitizer workflows]
-  excludes: [product source mappings, protocol parser knowledge]
+  includes: [memory ownership, diagnostics, debugger and sanitizer workflows, telecom systems context]
+  excludes: [product source mappings, protocol semantics, domain procedures, implementation ownership]
 dependencies:
   required: []
   optional: [compiler, debugger, sanitizers]

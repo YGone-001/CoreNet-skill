@@ -6,4 +6,4 @@ Use it for processes, services, logs, resources, sockets, filesystems, and host 
 
 The package includes local CoreNet contracts, integrity data, and immutable `upstream/` material; copy the complete directory for standalone use without repository-root files.
 
-Telecom-specific extensions are not included yet. Pinned upstream provenance is in `UPSTREAM.md`.
+The telecom/core-network Foundation extension is implemented for investigation context only; protocol and domain semantics remain out of scope. Upstream remains unchanged and the package remains standalone.

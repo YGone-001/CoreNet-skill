@@ -32,6 +32,8 @@ No CoreNet Skill dependency. Wireshark or tshark is optional when available.
 4. Separate observed packets from deterministic derivations and interpretation.
 5. State the investigation boundary and request deeper expertise where needed.
 
+When the task concerns EPC, IMS, 5GC, mobile-core signaling, or a core-network host, also read `extensions/telecom-core-network.md`.
+
 ## Evidence Rules
 
 Directly visible packet fields are `OBSERVED`; deterministic extraction or correlation is `DERIVED`. Interpretation is not confirmation. Keep uncertainty explicit; do not claim a cause without sufficient validation.

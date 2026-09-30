@@ -1,10 +1,10 @@
 name: protocol-reverse-engineering
-version: 0.1.0
+version: 0.2.0
 category: foundation
 description: General methodology for investigating unknown protocol structures.
 scope:
-  includes: [field boundary analysis, differential comparison, uncertainty documentation]
-  excludes: [protocol dictionaries, telecom-specific dissector implementation]
+  includes: [field boundary analysis, differential comparison, uncertainty documentation, telecom signaling investigation context]
+  excludes: [protocol dictionaries, domain procedures, implementation ownership, telecom-specific dissector implementation]
 dependencies:
   required: []
   optional: [packet capture tooling]

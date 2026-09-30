@@ -1,10 +1,10 @@
 name: linux-troubleshooting
-version: 0.1.0
+version: 0.2.0
 category: foundation
 description: General Linux host and service troubleshooting methodology.
 scope:
-  includes: [processes, services, logs, resources, host networking]
-  excludes: [product-specific configuration, protocol semantic diagnosis]
+  includes: [processes, services, logs, resources, host networking, telecom host investigation context]
+  excludes: [product-specific configuration, protocol semantics, domain procedures, implementation ownership]
 dependencies:
   required: []
   optional: [standard Linux tools]

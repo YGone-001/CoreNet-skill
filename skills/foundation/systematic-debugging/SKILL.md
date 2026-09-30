@@ -32,6 +32,8 @@ No CoreNet Skill dependency. Project-specific test tools are optional external i
 4. Form one testable hypothesis at a time and validate it with minimal change.
 5. Keep mitigation distinct from a confirmed repair.
 
+When the task concerns EPC, IMS, 5GC, mobile-core signaling, or a core-network host, also read `extensions/telecom-core-network.md`.
+
 ## Evidence Rules
 
 Use `OBSERVED`, `DERIVED`, `INFERRED`, `HYPOTHESIS`, and `CONFIRMED` only when supported. A likely explanation is not a confirmed cause.

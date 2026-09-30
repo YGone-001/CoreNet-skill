@@ -1,10 +1,10 @@
 name: systematic-debugging
-version: 0.1.0
+version: 0.2.0
 category: foundation
 description: General evidence-driven debugging and fault-isolation methodology.
 scope:
-  includes: [reproduction, failure boundaries, hypothesis testing]
-  excludes: [domain procedure truth, unsupported causal claims]
+  includes: [reproduction, failure boundaries, hypothesis testing, telecom multi-node investigation context]
+  excludes: [protocol semantics, domain procedure truth, implementation ownership, unsupported causal claims]
 dependencies:
   required: []
   optional: [project test tooling]

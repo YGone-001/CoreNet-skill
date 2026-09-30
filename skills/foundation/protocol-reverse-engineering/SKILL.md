@@ -32,6 +32,8 @@ No CoreNet Skill dependency. Capture tooling or a dissector may be optional exte
 4. Record field boundaries and candidate meanings separately from observations.
 5. Stop at the evidence boundary and request additional samples when needed.
 
+When the task concerns EPC, IMS, 5GC, mobile-core signaling, or a core-network host, also read `extensions/telecom-core-network.md`.
+
 ## Evidence Rules
 
 Observed bytes and artifacts are `OBSERVED`; deterministic offsets or comparisons are `DERIVED`. Candidate meanings remain `INFERRED` or `HYPOTHESIS` until independently confirmed.
