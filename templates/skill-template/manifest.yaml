@@ -1,0 +1,34 @@
+name: example-skill
+version: 0.1.0
+category: foundation
+description: Minimal standalone Skill contract example.
+scope:
+  includes:
+    - Replace with supported work.
+  excludes:
+    - Replace with explicit non-goals.
+dependencies:
+  required: []
+  optional: []
+inputs:
+  - Declared input artifact.
+outputs:
+  - Evidence-labeled result.
+protocols: []
+interfaces: []
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: No upstream material imported.
+testing:
+  fixtures: []
+  expected_results: []

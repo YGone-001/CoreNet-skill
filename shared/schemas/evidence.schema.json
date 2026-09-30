@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/evidence.schema.json",
+  "title": "Evidence Record",
+  "type": "object",
+  "required": ["level", "statement", "source"],
+  "additionalProperties": false,
+  "properties": {
+    "level": {"type": "string", "enum": ["OBSERVED", "DERIVED", "INFERRED", "HYPOTHESIS", "CONFIRMED"]},
+    "statement": {"type": "string", "minLength": 1},
+    "source": {"type": "string", "minLength": 1},
+    "artifact_type": {"type": ["string", "null"], "enum": ["packet-capture", "log", "configuration", "source-code", "command-output", "other", null]},
+    "location": {"type": ["string", "null"]}, "observed_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}

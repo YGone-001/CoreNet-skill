@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-09-30T00:00:00Z",
+  "protocol": "EXAMPLE",
+  "interface": null,
+  "message_type": null,
+  "source": {"address": "192.0.2.10", "port": null, "network_function": null},
+  "destination": {"address": "192.0.2.20", "port": null, "network_function": null},
+  "evidence": {"level": "OBSERVED", "source": "example capture artifact"}
+}

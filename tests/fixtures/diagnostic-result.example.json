@@ -1,0 +1,11 @@
+{
+  "procedure": null,
+  "observations": ["An example observation exists."],
+  "derived_facts": [],
+  "inferences": [],
+  "hypotheses": [],
+  "failure_boundary": {"status": "UNKNOWN", "description": "Insufficient evidence.", "confidence": 0},
+  "root_cause": {"status": "UNCONFIRMED", "description": "No root cause has been confirmed.", "confidence": 0},
+  "evidence": [],
+  "next_checks": ["Collect relevant primary evidence."]
+}

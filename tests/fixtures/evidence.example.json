@@ -1,0 +1,6 @@
+{
+  "level": "OBSERVED",
+  "statement": "An example event is present in the primary artifact.",
+  "source": "example capture artifact",
+  "artifact_type": "packet-capture"
+}
