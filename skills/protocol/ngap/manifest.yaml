@@ -1,0 +1,64 @@
+name: ngap
+version: 0.1.0
+category: protocol
+description: >
+  Bounded NGAP semantic extraction: PDU/procedure/message identification,
+  UE NGAP context identifiers, NGAP Cause preservation, protocol-local
+  correlation, detailed NGAP events, and normalized trace-event projection.
+scope:
+  includes:
+    - NGAP PDU category and procedure/message identification for the bounded subset
+    - RAN-UE-NGAP-ID and AMF-UE-NGAP-ID extraction and protocol-local handling
+    - NGAP Cause category/value preservation
+    - deterministic UE-context correlation scoped by capture and SCTP association
+    - detailed NGAP event JSONL and shared trace-event projection
+    - tshark-assisted capture extraction and deterministic structured offline input
+  excludes:
+    - NAS-PDU decoding or any NAS semantic field (handoff to nas-5gs)
+    - 5GC registration, authentication, or PDU session procedure state
+    - radio or RRC diagnosis
+    - AMF or gNB implementation or source-code mapping
+    - end-to-end root cause determination
+dependencies:
+  required: []
+  optional:
+    - core-network-pcap >=0.1.0
+    - wireshark-analysis >=0.2.0
+    - protocol-reverse-engineering >=0.2.0
+    - systematic-debugging >=0.2.0
+    - tshark
+inputs:
+  - PCAP or PCAPNG capture containing NGAP over SCTP (requires user-installed tshark)
+  - structured NGAP fields JSONL (deterministic offline input, documented in references/field-reference.md)
+outputs:
+  - detailed NGAP event JSON Lines (schemas/ngap-event.schema.json)
+  - normalized trace-event JSON Lines projection (schemas/trace-event.schema.json)
+  - UE-context correlation summary JSON
+  - protocol-local NGAP timeline (text or JSON)
+protocols: [NGAP]
+interfaces: [N2]
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Protocol-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/extracted/ue-context-flow.jsonl
+    - examples/extracted/multi-association.jsonl
+    - examples/extracted/conflict-binding.jsonl
+    - examples/extracted/malformed.jsonl
+    - examples/extracted/missing-required.jsonl
+  expected_results:
+    - examples/expected/ue-context-events.jsonl
+    - examples/expected/ue-context-trace.jsonl
+    - examples/expected/multi-association-correlation.json
+    - examples/expected/conflict-binding-correlation.json

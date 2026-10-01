@@ -1,0 +1,43 @@
+# NGAP display filters
+# Verified against Wireshark/TShark 4.7.1 (v4.7.1-0-g667ab240e6de) via
+# `tshark -G fields` / `-G values`. Filter names are version-dependent;
+# re-verify before use on other Wireshark releases.
+
+# All NGAP over SCTP
+ngap
+
+# NGAP transport port (N2 default, not protocol-guaranteed)
+sctp.port == 38412
+
+# Supported UE-context / NAS-transport / release / paging procedures
+ngap.procedureCode == 15
+ngap.procedureCode == 46
+ngap.procedureCode == 4
+ngap.procedureCode == 14
+ngap.procedureCode == 42
+ngap.procedureCode == 41
+ngap.procedureCode == 24
+
+# UE-context identifiers
+ngap.RAN_UE_NGAP_ID
+ngap.AMF_UE_NGAP_ID
+ngap.RAN_UE_NGAP_ID == 1 && ngap.AMF_UE_NGAP_ID == 2
+
+# Cause CHOICE category and category-local values
+ngap.cause
+ngap.cause == 0
+ngap.radioNetwork
+ngap.transport
+ngap.nas
+ngap.protocol
+ngap.misc
+
+# NAS transport boundary (presence only; contents belong to nas-5gs)
+ngap.NAS_PDU
+
+# RRC establishment cause carried in InitialUEMessage
+ngap.RRCEstablishmentCause
+
+# SCTP correlation helpers (tshark-session-local ordinals)
+sctp.assoc_index
+sctp.data_sid

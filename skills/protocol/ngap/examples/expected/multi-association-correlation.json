@@ -1,0 +1,125 @@
+{
+  "conflicts": [],
+  "contexts": [
+    {
+      "association": "sctp-assoc-0",
+      "binding": {
+        "amf_ue_ngap_id": 2,
+        "basis": "both UE NGAP IDs observed in one frame",
+        "bound_frame": 21,
+        "evidence_level": "DERIVED",
+        "ran_ue_ngap_id": 1
+      },
+      "capture_file": "multi-association.jsonl",
+      "conflicts": [],
+      "context_key": "ngap-context:multi-association.jsonl:sctp-assoc-0:r1:a2",
+      "event_count": 3,
+      "events": [
+        {
+          "correlation_strength": "MEDIUM",
+          "frame_number": 20,
+          "message_type": "InitialUEMessage",
+          "observed": {
+            "amf_ue_ngap_id": null,
+            "derived_amf_ue_ngap_id": 2,
+            "ran_ue_ngap_id": 1
+          },
+          "pdu_type": "initiatingMessage",
+          "procedure_name": "InitialUEMessage",
+          "timestamp": "2024-01-02T03:04:40.000020Z"
+        },
+        {
+          "correlation_strength": "STRONG",
+          "frame_number": 21,
+          "message_type": "UplinkNASTransport",
+          "observed": {
+            "amf_ue_ngap_id": 2,
+            "ran_ue_ngap_id": 1
+          },
+          "pdu_type": "initiatingMessage",
+          "procedure_name": "UplinkNASTransport",
+          "timestamp": "2024-01-02T03:04:41.000021Z"
+        },
+        {
+          "correlation_strength": "STRONG",
+          "frame_number": 22,
+          "message_type": "InitialContextSetupFailure",
+          "observed": {
+            "amf_ue_ngap_id": 2,
+            "ran_ue_ngap_id": 1
+          },
+          "pdu_type": "unsuccessfulOutcome",
+          "procedure_name": "InitialContextSetup",
+          "timestamp": "2024-01-02T03:04:42.000022Z"
+        }
+      ],
+      "first_timestamp": "2024-01-02T03:04:40.000020Z",
+      "frame_numbers": [
+        20,
+        21,
+        22
+      ],
+      "last_timestamp": "2024-01-02T03:04:42.000022Z",
+      "observed_amf_ue_ngap_ids": [
+        2
+      ],
+      "observed_ran_ue_ngap_ids": [
+        1
+      ]
+    },
+    {
+      "association": "sctp-assoc-1",
+      "binding": {
+        "amf_ue_ngap_id": 9,
+        "basis": "both UE NGAP IDs observed in one frame",
+        "bound_frame": 31,
+        "evidence_level": "DERIVED",
+        "ran_ue_ngap_id": 1
+      },
+      "capture_file": "multi-association.jsonl",
+      "conflicts": [],
+      "context_key": "ngap-context:multi-association.jsonl:sctp-assoc-1:r1:a9",
+      "event_count": 2,
+      "events": [
+        {
+          "correlation_strength": "MEDIUM",
+          "frame_number": 30,
+          "message_type": "InitialUEMessage",
+          "observed": {
+            "amf_ue_ngap_id": null,
+            "derived_amf_ue_ngap_id": 9,
+            "ran_ue_ngap_id": 1
+          },
+          "pdu_type": "initiatingMessage",
+          "procedure_name": "InitialUEMessage",
+          "timestamp": "2024-01-02T03:04:50.000030Z"
+        },
+        {
+          "correlation_strength": "STRONG",
+          "frame_number": 31,
+          "message_type": "DownlinkNASTransport",
+          "observed": {
+            "amf_ue_ngap_id": 9,
+            "ran_ue_ngap_id": 1
+          },
+          "pdu_type": "initiatingMessage",
+          "procedure_name": "DownlinkNASTransport",
+          "timestamp": "2024-01-02T03:04:51.000031Z"
+        }
+      ],
+      "first_timestamp": "2024-01-02T03:04:50.000030Z",
+      "frame_numbers": [
+        30,
+        31
+      ],
+      "last_timestamp": "2024-01-02T03:04:51.000031Z",
+      "observed_amf_ue_ngap_ids": [
+        9
+      ],
+      "observed_ran_ue_ngap_ids": [
+        1
+      ]
+    }
+  ],
+  "non_ue_associated_events": []
+}

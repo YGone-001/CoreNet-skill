@@ -1,0 +1,105 @@
+{
+  "conflicts": [
+    {
+      "context_key": "ngap-context:conflict-binding.jsonl:sctp-assoc-0:r1:a2",
+      "evidence_level": "DERIVED",
+      "existing_binding": {
+        "amf_ue_ngap_id": 2,
+        "ran_ue_ngap_id": 1
+      },
+      "frame_number": 42,
+      "observed": {
+        "amf_ue_ngap_id": 9,
+        "ran_ue_ngap_id": 1
+      },
+      "resolution": "first-binding-retained",
+      "source": "correlation:conflict-binding.jsonl#frame=42"
+    }
+  ],
+  "contexts": [
+    {
+      "association": "sctp-assoc-0",
+      "binding": {
+        "amf_ue_ngap_id": 2,
+        "basis": "both UE NGAP IDs observed in one frame",
+        "bound_frame": 41,
+        "evidence_level": "DERIVED",
+        "ran_ue_ngap_id": 1
+      },
+      "capture_file": "conflict-binding.jsonl",
+      "conflicts": [
+        {
+          "context_key": "ngap-context:conflict-binding.jsonl:sctp-assoc-0:r1:a2",
+          "evidence_level": "DERIVED",
+          "existing_binding": {
+            "amf_ue_ngap_id": 2,
+            "ran_ue_ngap_id": 1
+          },
+          "frame_number": 42,
+          "observed": {
+            "amf_ue_ngap_id": 9,
+            "ran_ue_ngap_id": 1
+          },
+          "resolution": "first-binding-retained",
+          "source": "correlation:conflict-binding.jsonl#frame=42"
+        }
+      ],
+      "context_key": "ngap-context:conflict-binding.jsonl:sctp-assoc-0:r1:a2",
+      "event_count": 3,
+      "events": [
+        {
+          "correlation_strength": "MEDIUM",
+          "frame_number": 40,
+          "message_type": "InitialUEMessage",
+          "observed": {
+            "amf_ue_ngap_id": null,
+            "derived_amf_ue_ngap_id": 2,
+            "ran_ue_ngap_id": 1
+          },
+          "pdu_type": "initiatingMessage",
+          "procedure_name": "InitialUEMessage",
+          "timestamp": "2024-01-02T03:05:00.000040Z"
+        },
+        {
+          "correlation_strength": "STRONG",
+          "frame_number": 41,
+          "message_type": "UplinkNASTransport",
+          "observed": {
+            "amf_ue_ngap_id": 2,
+            "ran_ue_ngap_id": 1
+          },
+          "pdu_type": "initiatingMessage",
+          "procedure_name": "UplinkNASTransport",
+          "timestamp": "2024-01-02T03:05:01.000041Z"
+        },
+        {
+          "binding_conflict": true,
+          "correlation_strength": "STRONG",
+          "frame_number": 42,
+          "message_type": "DownlinkNASTransport",
+          "observed": {
+            "amf_ue_ngap_id": 9,
+            "ran_ue_ngap_id": 1
+          },
+          "pdu_type": "initiatingMessage",
+          "procedure_name": "DownlinkNASTransport",
+          "timestamp": "2024-01-02T03:05:02.000042Z"
+        }
+      ],
+      "first_timestamp": "2024-01-02T03:05:00.000040Z",
+      "frame_numbers": [
+        40,
+        41,
+        42
+      ],
+      "last_timestamp": "2024-01-02T03:05:02.000042Z",
+      "observed_amf_ue_ngap_ids": [
+        2
+      ],
+      "observed_ran_ue_ngap_ids": [
+        1
+      ]
+    }
+  ],
+  "non_ue_associated_events": []
+}

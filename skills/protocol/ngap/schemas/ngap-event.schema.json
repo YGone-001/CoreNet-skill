@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/ngap/ngap-event.schema.json",
+  "title": "Detailed NGAP Event",
+  "description": "One bounded NGAP semantic observation. Fields are emitted for every event; values that the source frame does not contain are null. NAS payload contents are never included.",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "frame_number",
+    "capture_file",
+    "pdu_type",
+    "pdu_type_basis",
+    "procedure_code",
+    "procedure_name",
+    "message_type",
+    "support_status",
+    "result",
+    "sender_role",
+    "amf_ue_ngap_id",
+    "ran_ue_ngap_id",
+    "cause",
+    "nas_pdu_present",
+    "nas_pdu_length",
+    "rrc_establishment_cause",
+    "user_location_information_present",
+    "paging_identity_present",
+    "evidence",
+    "derivations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {"type": "string", "format": "date-time"},
+    "frame_number": {"type": "integer", "minimum": 1},
+    "capture_file": {"type": "string", "minLength": 1},
+    "pdu_type": {"type": ["string", "null"], "enum": ["initiatingMessage", "successfulOutcome", "unsuccessfulOutcome", null]},
+    "pdu_type_basis": {"type": ["string", "null"], "enum": ["message-name", "structured-input", null]},
+    "procedure_code": {"type": "integer", "minimum": 0, "maximum": 255},
+    "procedure_name": {"type": ["string", "null"], "minLength": 1},
+    "message_type": {"type": ["string", "null"], "minLength": 1},
+    "support_status": {"type": "string", "enum": ["SUPPORTED", "UNSUPPORTED", "UNKNOWN"]},
+    "result": {"type": ["string", "null"], "enum": ["REQUEST", "SUCCESS", "FAILURE", "COMMAND", "COMPLETE", null]},
+    "sender_role": {"type": ["string", "null"], "enum": ["amf", "ng-ran", null]},
+    "amf_ue_ngap_id": {"type": ["integer", "null"]},
+    "ran_ue_ngap_id": {"type": ["integer", "null"]},
+    "cause": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "category": {"type": ["string", "null"], "minLength": 1},
+        "value": {"type": ["integer", "string", "null"]}
+      }
+    },
+    "nas_pdu_present": {"type": "boolean"},
+    "nas_pdu_length": {"type": ["integer", "null"], "minimum": 0},
+    "rrc_establishment_cause": {"type": ["integer", "string", "null"]},
+    "user_location_information_present": {"type": "boolean"},
+    "paging_identity_present": {"type": "boolean"},
+    "source": {"$ref": "#/$defs/endpoint"},
+    "destination": {"$ref": "#/$defs/endpoint"},
+    "sctp": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "association_id": {"type": ["integer", "null"]},
+        "stream_id": {"type": ["integer", "null"]},
+        "srcport": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+        "dstport": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["level", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "level": {"type": "string", "const": "OBSERVED"},
+        "source": {"type": "string", "minLength": 1}
+      }
+    },
+    "derivations": {
+      "type": "array",
+      "items": {"type": "string", "enum": ["procedure_name", "message_type", "pdu_type", "result", "sender_role"]},
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "address": {"type": ["string", "null"], "minLength": 1},
+        "port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535}
+      }
+    }
+  }
+}

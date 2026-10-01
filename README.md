@@ -6,11 +6,16 @@
 
 **Implemented:** accepted repository foundation, agent governance, audited
 upstream snapshots, six CoreNet Foundation Skills, telecom core-network
-Foundation extensions, GitHub Actions validation, and the `core-network-pcap`
-capture normalization layer. The extensions provide investigation context only.
-**Not yet implemented:** protocol-specific semantics for NAS, S1AP, NGAP, GTP,
-PFCP, SIP/SDP/RTP, Diameter, or SBI; EPC/IMS/5GC Domain procedures,
-implementation-specific mappings, or end-to-end orchestration.
+Foundation extensions, GitHub Actions validation, the `core-network-pcap`
+capture normalization layer, and the bounded `ngap` Protocol Skill
+(UE-context signaling subset over N2: PDU/procedure/message identification,
+UE NGAP identifiers, Cause preservation, protocol-local correlation, and
+trace projection). The extensions provide investigation context only.
+**Not yet implemented:** NAS-5GS semantics, full NGAP coverage (handover,
+path switch, NG setup, PDU session resource semantics, and later-Release
+extensions), remaining protocol Skills (NAS-EPS, S1AP, GTP, PFCP, SIP,
+Diameter, SBI), EPC/IMS/5GC Domain procedures, implementation-specific
+mappings, or end-to-end orchestration.
 
 ## Why modular Skills
 

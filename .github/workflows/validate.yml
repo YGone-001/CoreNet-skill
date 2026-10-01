@@ -27,9 +27,11 @@ jobs:
         run: python scripts/validate-foundation-skills.py
       - name: Validate core-network-pcap
         run: python scripts/validate-core-network-pcap.py
+      - name: Validate ngap
+        run: python scripts/validate-ngap.py
       - name: Run unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Compile validation scripts
-        run: python -m compileall scripts
+        run: python -m compileall scripts skills/protocol/core-network-pcap/scripts skills/protocol/ngap/scripts
       - name: Check committed whitespace
         run: git diff --check HEAD^ HEAD

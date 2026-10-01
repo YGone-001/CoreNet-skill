@@ -1,0 +1,7 @@
+{"frame.number":"1","frame.time_epoch":"1704164645.000001","ngap.procedureCode":"15"}
+this line is not JSON
+{"frame.number":"0","frame.time_epoch":"1704164645.000002","ngap.procedureCode":"15"}
+{"frame.number":"2","frame.time_epoch":"1704164645.000003","ngap.procedureCode":"999"}
+{"frame.number":"3","frame.time_epoch":"1704164645.000004","ngap.procedureCode":"15","ngap.RAN_UE_NGAP_ID":"not-a-number"}
+{"frame.number":"4","frame.time_epoch":"1704164645.000005","ngap.procedureCode":"15","pdu_type":"bogusOutcome"}
+{"frame.number":"5","frame.time_epoch":"not-an-epoch","ngap.procedureCode":"15"}
