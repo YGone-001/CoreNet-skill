@@ -1,0 +1,6 @@
+{"frame.number":"1","frame.protocols":"eth:ip:udp:pfcp","frame.time_epoch":"1704164645.1234567","ip.dst":"198.51.100.20","ip.src":"192.0.2.10","udp.dstport":"8805","udp.srcport":"31000","udp.stream":"7"}
+{"frame.number":"2","frame.protocols":"eth:ipv6:udp","frame.time_epoch":"1704164646","ipv6.dst":"2001:db8::20","ipv6.src":"2001:db8::10","udp.dstport":"2152","udp.srcport":"32000"}
+{"frame.number":"3","frame.protocols":"eth:ip:sctp:ngap","frame.time_epoch":"1704164647.000001","ip.dst":"203.0.113.20","ip.src":"203.0.113.10","sctp.dstport":"38412","sctp.srcport":"38412"}
+{"frame.number":"4","frame.protocols":"eth:ip:tcp:http2","frame.time_epoch":"1704164648","ip.dst":"198.51.100.44","ip.src":"192.0.2.44","tcp.dstport":"443","tcp.srcport":"33000","tcp.stream":"3"}
+{"frame.number":"5","frame.protocols":"eth:vendorfoo","frame.time_epoch":"1704164649","ip.dst":"198.51.100.55","ip.src":"192.0.2.55"}
+{"frame.number":"6","frame.protocols":"eth:tcp","frame.time_epoch":"1704164650","tcp.dstport":"443","tcp.srcport":"34000","tcp.stream":"4"}

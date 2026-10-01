@@ -4,7 +4,7 @@
 | --- | --- | --- | --- | --- |
 | Repository Foundation | Freeze architecture, contracts, schemas, template, and validation. | None | Repository baseline inspected. | All acceptance gates pass. |
 | Foundation Skills | Accepted reusable investigation-method Skills. | Foundation contracts and source review. | Repository foundation complete. | Six standalone Foundation Skills are accepted and tested. |
-| Packet and Protocol Core | `core-network-pcap`, NAS, S1AP, NGAP, GTP, PFCP, SIP, RTP, and SBI foundations. | Foundation methods. | Approved protocol scope and fixtures. | Protocol-local contracts and evidence tests pass. |
+| Packet and Protocol Core | `core-network-pcap` capture normalization is implemented; NAS, S1AP, NGAP, GTP, PFCP, SIP, RTP, and SBI semantics remain planned. | Foundation methods. | Approved protocol scope and fixtures. | Protocol-local contracts and evidence tests pass. |
 | Diameter | `diameter-core`, `diameter-epc`, `diameter-ims`, `diameter-charging`. | Protocol conventions. | Cross-domain ownership reviewed. | No IMS ownership leakage; tests pass. |
 | IMS | IMS registration, session, and media/QoS domains. | SIP/SDP/RTP and Diameter IMS/charging. | Diameter work complete. | Procedure Skills satisfy evidence contract. |
 | EPC | `epc-procedures` and related domain work. | NAS-EPS, S1AP, GTPv2, Diameter EPC. | Required dependencies complete. | Reusable protocol dependencies remain independent. |
@@ -13,5 +13,6 @@
 | Implementation Awareness | Core network service function development mappings. | Stable protocol and domain Skills. | Implementation provenance approved. | Mappings cite exact supported versions/source evidence. |
 | End-to-End Root Cause Analysis | Evidence-safe orchestration. | All applicable lower layers. | Diagnostic-result contract proven. | Failure boundaries and confidence are validated. |
 
-The repository foundation and Foundation Skills are accepted. Packet and
-Protocol Core and every later milestone remain future work.
+The repository foundation and Foundation Skills are accepted. The
+`core-network-pcap` entry capability is implemented; the remaining Packet and
+Protocol Core work and every later milestone remain future work.

@@ -6,11 +6,11 @@
 
 **Implemented:** accepted repository foundation, agent governance, audited
 upstream snapshots, six CoreNet Foundation Skills, telecom core-network
-Foundation extensions, and GitHub Actions validation. The extensions provide
-investigation context only. **Not yet implemented:** protocol-specific packet analysis,
-NAS, S1AP, NGAP, GTP, PFCP, SIP/SDP/RTP domain semantics, Diameter Skills, SBI
-logic, EPC/IMS/5GC procedures, implementation-specific mappings, or end-to-end
-orchestration.
+Foundation extensions, GitHub Actions validation, and the `core-network-pcap`
+capture normalization layer. The extensions provide investigation context only.
+**Not yet implemented:** protocol-specific semantics for NAS, S1AP, NGAP, GTP,
+PFCP, SIP/SDP/RTP, Diameter, or SBI; EPC/IMS/5GC Domain procedures,
+implementation-specific mappings, or end-to-end orchestration.
 
 ## Why modular Skills
 

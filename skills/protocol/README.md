@@ -1,3 +1,7 @@
 # Protocol Skills
 
-Reserved for protocol-local encoding and correlation Skills. No protocol analysis is implemented in the repository foundation.
+Implemented: `core-network-pcap`, a common capture-ingestion, metadata
+classification, and protocol-neutral trace-event normalization package. It does
+not implement protocol message semantics or procedure diagnosis.
+
+Planned: NAS, S1AP, NGAP, GTP, PFCP, SIP, Diameter, and SBI Protocol Skills.

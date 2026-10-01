@@ -1,0 +1,44 @@
+name: core-network-pcap
+version: 0.1.0
+category: protocol
+description: Capture ingestion, dissector classification, and protocol-neutral trace-event normalization.
+scope:
+  includes:
+    - PCAP and PCAPNG ingestion through tshark
+    - deterministic extracted-field JSONL normalization
+    - capture inventory and endpoint metadata
+    - transport and dissector-stack classification
+    - normalized trace-event provenance
+  excludes:
+    - protocol-specific IE or AVP semantics
+    - telecom procedure correctness
+    - subscriber lifecycle diagnosis
+    - domain workflows
+    - product source-code mapping
+    - root-cause orchestration
+dependencies:
+  required: []
+  optional:
+    - wireshark-analysis >=0.2.0
+    - network-engineer >=0.2.0
+    - systematic-debugging >=0.2.0
+    - tshark
+inputs:
+  - PCAP or PCAPNG capture file
+  - tshark extracted-field JSON Lines
+outputs:
+  - capture inventory JSON
+  - normalized trace-event JSON Lines
+protocols: []
+interfaces: []
+network_functions: []
+evidence_levels: [OBSERVED, DERIVED, INFERRED, HYPOTHESIS, CONFIRMED]
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Protocol-layer package; no upstream material imported.
+testing:
+  fixtures: [examples/extracted/frames.jsonl, examples/extracted/malformed.jsonl, examples/extracted/missing-required.jsonl]
+  expected_results: [examples/expected/events.jsonl]
