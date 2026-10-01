@@ -200,6 +200,10 @@ When a schema defines an output contract, do not silently add incompatible field
 
 Prefer the simplest reproducible tooling. Python standard library is preferred when sufficient; dependencies must be justified. Do not commit generated artifacts accidentally. Scripts must provide meaningful exit codes and fail loudly on contract violations.
 
+## Documentation and Commit Wording
+
+Repository-authored content must not contain numbered lifecycle markers: commit messages, documentation, code, fixtures, and other project files must not include wording such as "Phase 1", "phase2", "PHASE 3", "Milestone B1", or similar stage labels, in any letter case and with or without a separator. Capability status is described directly; stage and milestone numbering belongs to task coordination outside the repository. Frozen upstream snapshots (the `third_party/` tree and package-local `upstream/` directories) are exempt from this rule. Package validators enforce the marker ban over CoreNet-authored files.
+
 ## Security and Fixture Hygiene
 
 Never commit credentials, tokens, passwords, private keys, subscriber production secrets, real authentication vectors, confidential production packet captures, or personally identifying subscriber data unless explicitly sanitized and authorized. Use synthetic or sanitized fixtures. Illustrative telecom identifiers may include 001010000000001, 10000000001, internet, and ims; label them as illustrative.
