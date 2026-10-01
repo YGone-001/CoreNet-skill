@@ -8,10 +8,13 @@
 upstream snapshots, six CoreNet Foundation Skills, telecom core-network
 Foundation extensions, GitHub Actions validation, the `core-network-pcap`
 capture normalization layer, the bounded `ngap` Protocol Skill
-(UE-context signaling subset over N2), and the bounded `nas-5gs` Protocol
+(UE-context signaling subset over N2), the bounded `nas-5gs` Protocol
 Skill (5GMM registration/identity/authentication/security-mode/service/status
 subset over N1 with security-envelope classification, privacy defaults, and
-5GSM recognition deferred). The extensions provide investigation context only.
+5GSM recognition deferred), and the `cross-protocol-evidence` Correlation
+Skill (provenance-key joins of extracted protocol events into a unified
+observed-evidence timeline; no protocol ownership, no verdicts). The
+extensions provide investigation context only.
 **Not yet implemented:** 5GSM PDU session semantics, complete 5G Registration
 Domain logic, full NGAP coverage (handover, path switch, NG setup, PDU session
 resource semantics, later-Release extensions), remaining protocol Skills

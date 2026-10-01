@@ -1,0 +1,61 @@
+name: cross-protocol-evidence
+version: 0.1.0
+category: correlation
+description: >
+  Correlation-layer capability joining already-extracted NGAP and NAS-5GS
+  protocol events into deterministic evidence groups and a unified
+  observed-evidence timeline by shared capture provenance.
+scope:
+  includes:
+    - provenance-key joins across protocol event JSONL (capture_file plus frame_number)
+    - deterministic correlation strength classification (STRONG, MEDIUM, WEAK)
+    - missing-evidence visibility in groups and timelines
+    - unified observed-evidence timeline (text and JSON)
+    - preservation of foreign protocol metadata without interpretation
+  excludes:
+    - PCAP, NAS, or NGAP parsing (protocol Skills remain authoritative)
+    - subscriber, session, or registration correlation
+    - registration success or failure determination
+    - root-cause or diagnosis output
+    - protocol ownership of NGAP or NAS-5GS semantics
+dependencies:
+  required: []
+  optional:
+    - ngap >=0.1.0
+    - nas-5gs >=0.1.0
+    - core-network-pcap >=0.1.0
+inputs:
+  - NGAP detailed event JSON Lines (from the ngap Protocol Skill)
+  - NAS-5GS detailed event JSON Lines (from the nas-5gs Protocol Skill)
+outputs:
+  - correlation-event JSON Lines (schemas/correlation-event.schema.json)
+  - unified observed-evidence timeline (text or JSON)
+protocols: []
+interfaces: []
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Correlation-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/ngap-input/join-flow.jsonl
+    - examples/ngap-input/ngap-only.jsonl
+    - examples/ngap-input/out-of-order.jsonl
+    - examples/ngap-input/duplicates.jsonl
+    - examples/nas-input/join-flow.jsonl
+    - examples/nas-input/nas-only.jsonl
+  expected_results:
+    - examples/expected/join-flow-correlation.jsonl
+    - examples/expected/ngap-only-correlation.jsonl
+    - examples/expected/nas-only-correlation.jsonl
+    - examples/expected/out-of-order-correlation.jsonl
+    - examples/expected/duplicates-correlation.jsonl

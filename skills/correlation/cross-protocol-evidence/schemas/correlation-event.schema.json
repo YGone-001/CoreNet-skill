@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.dev/schemas/correlation/correlation-event.schema.json",
+  "title": "Cross-Protocol Correlation Event",
+  "description": "One deterministic correlation group joining already-extracted protocol events by shared capture provenance. Embedded events are foreign protocol evidence preserved verbatim; this layer never decodes them and never issues success, failure, or root-cause verdicts.",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "capture_file",
+    "frame_number",
+    "frame_numbers",
+    "protocol_sources",
+    "events",
+    "correlation_strength",
+    "evidence"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {"type": "string", "format": "date-time"},
+    "capture_file": {"type": "string", "minLength": 1},
+    "frame_number": {"type": "integer", "minimum": 1},
+    "frame_numbers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "integer", "minimum": 1}
+    },
+    "protocol_sources": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "enum": ["NGAP", "NAS-5GS"]}
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["protocol", "timestamp", "frame_number", "capture_file"],
+        "properties": {
+          "protocol": {"type": "string", "enum": ["NGAP", "NAS-5GS"]},
+          "timestamp": {"type": "string"},
+          "frame_number": {"type": "integer", "minimum": 1},
+          "capture_file": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "correlation_strength": {"type": "string", "enum": ["STRONG", "MEDIUM", "WEAK"]},
+    "evidence": {
+      "type": "object",
+      "required": ["level", "basis"],
+      "additionalProperties": false,
+      "properties": {
+        "level": {"type": "string", "const": "DERIVED"},
+        "basis": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

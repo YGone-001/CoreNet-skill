@@ -15,6 +15,6 @@
 
 The repository foundation and Foundation Skills are accepted. The
 `core-network-pcap` entry capability, the bounded `ngap` UE-context
-semantic Skill, and the bounded `nas-5gs` 5GMM semantic Skill are
-implemented; the remaining Packet and Protocol Core work and every later
-milestone remain future work.
+semantic Skill, the bounded `nas-5gs` 5GMM semantic Skill, and the
+`cross-protocol-evidence` Correlation Skill are implemented; the remaining
+Packet and Protocol Core work and every later milestone remain future work.

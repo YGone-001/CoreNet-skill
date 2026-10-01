@@ -40,11 +40,11 @@ def main() -> int:
     for relative in TEMPLATE_FILES:
         if not (template / relative).is_file():
             fail(errors, f"missing template file: templates/skill-template/{relative}")
-    for layer in ("foundation", "protocol", "domain", "implementation", "orchestration"):
+    for layer in ("foundation", "protocol", "correlation", "domain", "implementation", "orchestration"):
         if not (ROOT / "skills" / layer).is_dir():
             fail(errors, f"missing skill layer: skills/{layer}")
     for path in (ROOT / "skills").rglob("*"):
-        if path.is_dir() and path.parent.name in {"skills", "foundation", "protocol", "domain", "implementation", "orchestration"} and path.name not in {"foundation", "protocol", "domain", "implementation", "orchestration"}:
+        if path.is_dir() and path.parent.name in {"skills", "foundation", "protocol", "correlation", "domain", "implementation", "orchestration"} and path.name not in {"foundation", "protocol", "correlation", "domain", "implementation", "orchestration"}:
             if not SKILL_NAME.fullmatch(path.name):
                 fail(errors, f"invalid Skill directory name: {path.relative_to(ROOT)}")
             for required in ("SKILL.md", "README.md", "manifest.yaml"):
