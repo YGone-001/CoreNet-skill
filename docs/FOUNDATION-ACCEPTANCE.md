@@ -25,11 +25,14 @@ Foundation answers: **How should we investigate?**
 
 Protocol answers: **What does the protocol message mean?**
 
-Domain answers: **How does the telecom procedure work?**
+Correlation answers: **Which observations belong together?**
 
-Implementation answers: **How is it implemented in concrete software?**
+Domain answers: **How should the telecom procedure operate?**
 
-Orchestration answers: **Where did the end-to-end procedure first become abnormal?**
+Analysis Orchestration answers: **Where is the first abnormal evidence boundary?**
+
+Implementation-specific source analysis is an external, optional activity and is
+not a CoreNet Skill layer.
 
 Foundation therefore owns reusable investigation methods only. It does not own
 protocol message semantics, EPC/IMS/5GC procedure state, or product-specific
@@ -65,11 +68,14 @@ accepted Foundation boundary instead of expanding its ownership.
 ## Architecture evolution note
 
 A later repository architecture correction introduced the Correlation layer
-between Protocol and Domain/Procedure, formalizing the six-layer dependency
-direction Foundation → Protocol → Correlation → Domain/Procedure →
-Implementation → Orchestration. This changes nothing about the accepted
-Foundation contract recorded here: the Foundation packages remain unchanged at
-version 0.2.0 with their original acceptance baseline
-(`73a91d6dbcc95a9b8e1eb107181100813fcabecb`), and Foundation responsibility
-remains "How should we investigate?" The note is additive so the Foundation
-acceptance history stays traceable as it was accepted.
+between Protocol and Domain/Procedure. A subsequent architecture correction
+removed Implementation as a CoreNet Skill layer, so the canonical dependency
+direction is now Foundation → Protocol → Correlation → Domain/Procedure →
+Analysis Orchestration, with implementation-specific source analysis kept as
+an external, optional activity rather than repository ownership. These
+changes alter nothing about the accepted Foundation contract recorded here:
+the Foundation packages remain unchanged at version 0.2.0 with their original
+acceptance baseline (`73a91d6dbcc95a9b8e1eb107181100813fcabecb`), and
+Foundation responsibility remains "How should we investigate?" The note is
+additive so the Foundation acceptance history stays traceable as it was
+accepted.

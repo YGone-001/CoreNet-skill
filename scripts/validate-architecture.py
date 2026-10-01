@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the frozen six-layer architecture and Skill dependency direction.
+"""Validate the frozen five-layer architecture and Skill dependency direction.
 
 Centralized layer order (this module is the authoritative definition):
 
@@ -7,12 +7,17 @@ Centralized layer order (this module is the authoritative definition):
     protocol = 1
     correlation = 2
     domain = 3
-    implementation = 4
-    orchestration = 5
+    orchestration = 4
+
+Implementation is deliberately not a CoreNet Skill layer: implementation
+source analysis is an external, optional activity performed only when a
+user provides implementation evidence, never repository ownership.
 
 Checks:
 - every Skill directory under skills/<layer>/<skill>/ declares a manifest
   category equal to its parent layer;
+- skill layer directories are exactly the authorized five; any other
+  layer directory (for example a leftover implementation layer) fails;
 - local Skill dependencies (required and optional) only point to the same
   layer or a lower layer; higher-layer dependencies fail;
 - legitimate same-layer dependencies stay allowed, but dependency cycles
@@ -32,7 +37,7 @@ import re
 import sys
 from pathlib import Path
 
-LAYER_ORDER = ("foundation", "protocol", "correlation", "domain", "implementation", "orchestration")
+LAYER_ORDER = ("foundation", "protocol", "correlation", "domain", "orchestration")
 LAYER_RANK = {layer: rank for rank, layer in enumerate(LAYER_ORDER)}
 SKILL_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 DEPENDENCY_NAME = re.compile(r"^\s*([a-z0-9][a-z0-9-]{0,63})")
@@ -114,8 +119,14 @@ def read_manifest(path: Path) -> str | None:
 
 
 def check_skill_placement(root: Path, registry: dict[str, str], errors: list[str]) -> None:
-    """Every Skill directory must declare a category equal to its layer."""
+    """Skill layer directories must be exactly the authorized five."""
     skills_root = root / "skills"
+    for child in sorted(skills_root.iterdir()) if skills_root.is_dir() else []:
+        if child.is_dir() and child.name not in LAYER_ORDER:
+            errors.append(
+                f"unauthorized skill layer directory: skills/{child.name}; "
+                "implementation-specific Skills are not CoreNet ownership"
+            )
     for layer in LAYER_ORDER:
         layer_dir = skills_root / layer
         if not layer_dir.is_dir():

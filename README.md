@@ -26,19 +26,20 @@ implementation-specific mappings, or end-to-end orchestration.
 Each future Skill is designed to be downloaded and used independently. It must document its bounded responsibility, inputs, outputs, dependencies, evidence behavior, test coverage, and upstream provenance. This keeps reusable protocol expertise separate from domain procedures and implementation-specific knowledge.
 
 ```text
-Foundation → Protocol → Correlation → Domain / Procedure → Implementation → Orchestration
+Foundation → Protocol → Correlation → Domain / Procedure → Analysis Orchestration
 ```
 
 | Layer | Purpose |
 | --- | --- |
-| Foundation | Teach an agent how to investigate: Wireshark use, reverse engineering, systematic debugging, Linux, and C-oriented methods. |
+| Foundation | Teach an agent how to investigate and grade evidence: Wireshark use, reverse engineering, systematic debugging, Linux, and C-oriented methods. |
 | Protocol | Teach protocol-local encoding and correlation: NAS, NGAP, S1AP, GTP, PFCP, SIP, SDP/RTP, Diameter, and SBI. |
 | Correlation | Join already-extracted protocol evidence into deterministic groups and a unified observed-evidence timeline by shared capture provenance. |
 | Domain / procedure | Compose protocols into EPC, IMS, and 5GC procedures. |
-| Implementation | Map supported procedure/protocol behavior to evidence from Core network service function development. |
-| Orchestration | Combine independently valid Skills to establish an evidence-safe end-to-end failure boundary. |
+| Analysis Orchestration | Combine protocol evidence into investigation reports that localize the first abnormal evidence boundary with confidence-aware diagnosis. |
 
-Dependencies only point left, and a Skill may depend on the same layer when ownership remains acyclic and semantically correct. Lower layers never own higher-layer procedures, which prevents circular architecture and preserves reuse. Correlation is optional infrastructure for Domain Skills, not a mandatory wrapper around every Protocol Skill.
+Dependencies only point left, and a Skill may depend on the same layer when ownership remains acyclic and semantically correct. Lower layers never own higher-layer capabilities, which prevents circular architecture and preserves reuse. Correlation is optional infrastructure for Domain Skills, not a mandatory wrapper around every Protocol Skill.
+
+CoreNet Skill focuses on network signaling evidence analysis rather than implementation-specific source ownership. Implementation is not a Skill layer: when users provide implementation logs, source code, or configuration, agents may analyze them as external evidence, but the repository never owns Skills for Open5GS, free5GC, Kamailio, FreeSWITCH, RTPengine, or vendor-specific network functions.
 
 ## EPC, IMS, 5GC, and Diameter
 
@@ -81,7 +82,9 @@ Keep Scope and Non-Goals explicit, use lowercase kebab-case names, preserve arti
 The repository foundation and six accepted Foundation Skills establish the
 stable investigation-method baseline; GitHub Actions reproduces repository
 validation remotely.
-Future milestones are Packet and Protocol Core, Diameter, IMS, EPC, 5GC Core
-Procedures, Advanced 5GC Interfaces, Implementation Awareness, and End-to-End
-Root Cause Analysis. Each milestone's gates and dependencies are frozen in
+Future milestones are Packet and Protocol Core (continuing), Diameter, IMS,
+EPC, 5GC Core Procedures, Advanced 5GC Interfaces, and End-to-End Root Cause
+Analysis. Implementation-specific Skills are not planned: external
+implementation analysis is performed only when users provide implementation
+evidence. Each milestone's gates and dependencies are frozen in
 [docs/ROADMAP.md](docs/ROADMAP.md).

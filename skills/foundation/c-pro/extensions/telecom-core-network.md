@@ -23,5 +23,8 @@ practices; they do not map any protocol decoder, source tree, or product code.
 ## Handoff to Higher Layers
 
 This Skill cannot identify what a telecom field means or which product function
-owns a procedure. Future Protocol Skills provide field semantics; future
-Implementation Skills provide source-specific mappings.
+owns a procedure. Future Protocol Skills provide field semantics; Correlation
+and Domain Skills combine evidence into procedure-level diagnosis and failure
+boundaries. Implementation-specific source analysis stays external: it happens
+only when users provide implementation evidence and is never CoreNet Skill
+ownership.

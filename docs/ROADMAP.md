@@ -11,8 +11,7 @@
 | EPC | `epc-procedures` and related domain work. | NAS-EPS, S1AP, GTPv2, Diameter EPC. | Required dependencies complete. | Reusable protocol dependencies remain independent. |
 | 5GC Core Procedures | Registration/mobility and PDU session Skills. | NAS-5GS, NGAP, PFCP, GTP-U, SBI; the implemented `cross-protocol-evidence` Correlation Skill provides supporting infrastructure that a registration/mobility Domain Skill may consume. | Required contracts reviewed. | N1/N2/N3/N4/N11 coverage has tests. |
 | Advanced 5GC Interfaces | SBI, policy, interworking, roaming/exposure. | 5GC Core Procedures. | Functional grouping agreed. | Planned N5–N33 ownership is tested. |
-| Implementation Awareness | Core network service function development mappings. | Stable protocol and domain Skills. | Implementation provenance approved. | Mappings cite exact supported versions/source evidence. |
-| End-to-End Root Cause Analysis | Evidence-safe orchestration. | All applicable lower layers. | Diagnostic-result contract proven. | Failure boundaries and confidence are validated. |
+| End-to-End Root Cause Analysis | Evidence-safe analysis orchestration. | All applicable lower layers. | Diagnostic-result contract proven. | Failure boundaries and confidence are validated. |
 
 The repository foundation and Foundation Skills are accepted. The
 `core-network-pcap` entry capability, the bounded `ngap` UE-context
@@ -20,4 +19,6 @@ semantic Skill, the bounded `nas-5gs` 5GMM semantic Skill, and the
 `cross-protocol-evidence` Correlation Skill are implemented as supporting
 infrastructure between Protocol evidence and future Domain procedures.
 The 5GC registration/mobility Domain capability and every later milestone
-remain future work.
+remain future work. Implementation-specific Skills are not planned:
+external implementation analysis is performed only when users provide
+implementation evidence.

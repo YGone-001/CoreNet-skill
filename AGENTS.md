@@ -17,7 +17,7 @@ A lower-level instruction must never silently override a higher-level one. Destr
 
 ## Repository Identity and Current Capability
 
-CoreNet Skill is a modular, evidence-first AI Skill repository for mobile core-network signaling analysis, troubleshooting, protocol reasoning, implementation mapping, and future end-to-end fault isolation.
+CoreNet Skill is a modular, evidence-first AI Skill repository for mobile core-network signaling analysis, troubleshooting, protocol reasoning, cross-protocol correlation, procedure-level diagnosis, failure-boundary localization, and future end-to-end fault isolation. It focuses on network signaling evidence analysis rather than implementation-specific source ownership.
 
 Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, six accepted Foundation Skills, the `core-network-pcap` capture normalization layer, bounded `ngap` and `nas-5gs` Protocol Skills, and the `cross-protocol-evidence` Correlation Skill. It does **not** yet implement Domain procedure logic, implementation-specific source-code mappings, or end-to-end troubleshooting. Planned functionality must never be presented as implemented functionality.
 
@@ -43,26 +43,25 @@ Repository documentation and code-facing documentation remain English unless a f
 
 The only permitted conceptual dependency direction is:
 
-    Foundation -> Protocol -> Correlation -> Domain / Procedure -> Implementation -> Orchestration
+    Foundation -> Protocol -> Correlation -> Domain / Procedure -> Analysis Orchestration
 
 Equivalently, higher layers may depend on lower layers:
 
-    Foundation <- Protocol <- Correlation <- Domain <- Implementation <- Orchestration
+    Foundation <- Protocol <- Correlation <- Domain <- Analysis Orchestration
 
-Reverse ownership and circular dependencies are prohibited. A Skill may depend on a lower layer or on the same layer when ownership remains acyclic and semantically correct; it must not depend on a higher layer. Do not bypass these boundaries merely to reduce the number of files.
+Implementation is deliberately not a CoreNet Skill layer: implementation source analysis is an external, optional activity performed only when a user provides implementation evidence. Reverse ownership and circular dependencies are prohibited. A Skill may depend on a lower layer or on the same layer when ownership remains acyclic and semantically correct; it must not depend on a higher layer. Do not bypass these boundaries merely to reduce the number of files.
 
 ### Layer Responsibilities
 
 | Layer | Primary question | Responsibility |
 | --- | --- | --- |
-| Foundation | How should the problem be investigated? | Reusable investigation and engineering methods; it does not own telecom procedure semantics. |
-| Protocol | What does this protocol message mean? | Protocol-local encoding, fields, messages, identifiers, transactions, state, and correlation reusable by several domains. |
-| Correlation | Which already-extracted evidence items belong to the same observed context or evidence window? | Provenance-key joins, deterministic cross-protocol evidence grouping, cross-protocol ordering, correlation-strength classification, and missing-evidence visibility; it does not own protocol decoding, procedure verdicts, or root cause. |
-| Domain / Procedure | How does the telecom procedure work across network functions? | Cross-network-function telecom procedures, such as EPC, IMS, and 5GC; consumes Protocol and Correlation outputs. |
-| Implementation | How is behavior implemented in a particular network function? | Maps standardized behavior to source trees, modules, state machines, functions, configuration, and logs. |
-| Orchestration | Where did the end-to-end procedure first become abnormal? | Combines validated lower-layer results without duplicating their full knowledge bases. |
+| Foundation | How should evidence be investigated? | Reusable investigation and engineering methods, evidence grading, and Linux/network troubleshooting methodology; it does not own telecom procedure semantics. |
+| Protocol | What does the message and field mean? | Protocol-local encoding, fields, messages, identifiers, transactions, state, and correlation reusable by several domains. |
+| Correlation | Which observations belong together? | Provenance-key joins, deterministic cross-protocol evidence grouping, cross-protocol ordering, correlation-strength classification, and missing-evidence visibility; it does not own protocol decoding, procedure verdicts, or root cause. |
+| Domain / Procedure | How should the telecom procedure operate? | Cross-network-function telecom procedures, such as registration, session establishment, mobility, IMS registration, and voice call procedures; consumes Protocol and Correlation outputs. |
+| Analysis Orchestration | Where is the first abnormal evidence boundary? | Combines protocol evidence, produces investigation reports, and delivers confidence-aware diagnosis without duplicating lower-layer knowledge bases. |
 
-Correlation is optional infrastructure: a Domain Skill may consume Correlation outputs, but no Domain Skill is required to wrap every Protocol Skill through Correlation.
+Correlation is optional infrastructure: a Domain Skill may consume Correlation outputs, but no Domain Skill is required to wrap every Protocol Skill through Correlation. CoreNet Skill focuses on network signaling evidence analysis rather than implementation-specific source ownership.
 
 Examples of valid dependencies:
 
@@ -162,7 +161,7 @@ When packet-analysis functionality is authorized and implemented, prefer reprodu
 
 ### Source-Code Analysis Discipline
 
-Implementation-specific source analysis does not redefine protocol truth. Use this reasoning direction:
+Implementation-specific source analysis does not redefine protocol truth, and implementation internals are not CoreNet Skill ownership. When a user supplies implementation logs, source code, or configuration, an agent may analyze them as external evidence for the observed failure; the repository itself never owns implementation Skills for specific products. Use this reasoning direction:
 
     observed protocol behavior
     -> procedure interpretation

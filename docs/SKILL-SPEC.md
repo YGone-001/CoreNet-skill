@@ -25,7 +25,7 @@ Use this standard layout:
 
 ## Categories
 
-Valid manifest categories are `foundation`, `protocol`, `correlation`, `domain`, `implementation`, and `orchestration`, matching the frozen layer order. A Skill's category must equal the layer directory it lives under.
+Valid manifest categories are `foundation`, `protocol`, `correlation`, `domain`, and `orchestration`, matching the frozen layer order. A Skill's category must equal the layer directory it lives under. Implementation is not a CoreNet Skill category: implementation-specific source analysis is an external activity, never repository ownership.
 
 Correlation Skills carry additional contract expectations:
 

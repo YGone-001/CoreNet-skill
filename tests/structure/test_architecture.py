@@ -1,4 +1,4 @@
-"""Deterministic architecture validator tests (six-layer direction)."""
+"""Deterministic architecture validator tests (five-layer direction)."""
 
 from __future__ import annotations
 
@@ -41,12 +41,64 @@ def make_repo(directory: Path, skills: list[tuple[str, str, str, list[str], list
 
 class LayerDefinitionTests(unittest.TestCase):
     def test_layer_order_is_authoritative(self):
-        self.assertEqual(ARCH.LAYER_ORDER, ("foundation", "protocol", "correlation", "domain", "implementation", "orchestration"))
+        self.assertEqual(ARCH.LAYER_ORDER, ("foundation", "protocol", "correlation", "domain", "orchestration"))
         self.assertEqual(ARCH.LAYER_RANK["correlation"], 2)
         self.assertEqual(ARCH.LAYER_RANK["domain"], 3)
+        self.assertEqual(ARCH.LAYER_RANK["orchestration"], 4)
+        self.assertNotIn("implementation", ARCH.LAYER_ORDER)
 
     def test_repository_validator_layers_match_architecture(self):
         self.assertEqual(REPO_VALIDATOR.LAYERS, ARCH.LAYER_ORDER)
+
+
+class ArchitectureEvolutionTests(unittest.TestCase):
+    """The ownership model changed: implementation is no longer a layer."""
+
+    def test_implementation_category_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = make_repo(Path(directory), [("protocol", "misowned", "implementation", [], [])])
+            errors = ARCH.validate(root)
+            self.assertTrue(any("category/layer mismatch" in error for error in errors))
+
+    def test_previous_six_layer_tree_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = make_repo(Path(directory), [
+                ("protocol", "ngap", "protocol", [], []),
+                ("implementation", "amf-impl", "implementation", [], []),
+            ])
+            errors = ARCH.validate(root)
+            self.assertTrue(any("unauthorized skill layer directory: skills/implementation" in error for error in errors))
+            self.assertTrue(any("missing skill layer directory: skills/correlation" in error for error in errors))
+
+    def test_older_five_layer_tree_without_correlation_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = make_repo(Path(directory), [
+                ("foundation", "method", "foundation", [], []),
+                ("protocol", "ngap", "protocol", [], []),
+                ("domain", "registration", "domain", [], []),
+                ("orchestration", "orchestrator", "orchestration", [], []),
+            ])
+            errors = ARCH.validate(root)
+            self.assertTrue(any("missing skill layer directory: skills/correlation" in error for error in errors))
+
+    def test_current_five_layer_tree_is_accepted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = make_repo(Path(directory), [
+                ("foundation", "method", "foundation", [], []),
+                ("protocol", "ngap", "protocol", [], []),
+                ("correlation", "cross-protocol-evidence", "correlation", ["ngap"], []),
+                ("domain", "registration", "domain", ["cross-protocol-evidence"], []),
+                ("orchestration", "orchestrator", "orchestration", ["registration"], []),
+            ])
+            self.assertEqual(ARCH.validate(root), [])
+
+    def test_repository_validator_rejects_implementation_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = make_repo(Path(directory), [("protocol", "ngap", "protocol", [], [])])
+            (root / "skills" / "implementation").mkdir()
+            (root / "skills" / "implementation" / "amf-impl").mkdir()
+            errors = REPO_VALIDATOR.validate(root)
+            self.assertTrue(any("implementation" in error and "incomplete Skill" in error for error in errors))
 
 
 class DependencyDirectionTests(unittest.TestCase):
@@ -81,10 +133,11 @@ class DependencyDirectionTests(unittest.TestCase):
     def test_domain_to_protocol_passes(self):
         self.assertEqual(self.direction_errors("5gc-registration-mobility", "domain", "nas-5gs >=0.1.0"), [])
 
-    def test_implementation_to_domain_passes(self):
-        self.assertEqual(self.direction_errors("amf-impl", "implementation", "5gc-registration-mobility"), [])
+    def test_analysis_orchestration_to_domain_passes(self):
+        self.assertEqual(self.direction_errors("analyst", "orchestration", "5gc-registration-mobility"), [])
 
-    def test_orchestration_to_lower_passes(self):
+    def test_orchestration_consumes_domain_passes(self):
+        self.assertEqual(self.direction_errors("orchestrator", "orchestration", "5gc-registration-mobility"), [])
         self.assertEqual(self.direction_errors("orchestrator", "orchestration", "cross-protocol-evidence >=0.1.0"), [])
 
     def test_protocol_to_correlation_fails(self):

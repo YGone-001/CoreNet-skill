@@ -8,7 +8,7 @@
   "properties": {
     "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
     "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"},
-    "category": {"type": "string", "enum": ["foundation", "protocol", "correlation", "domain", "implementation", "orchestration"]},
+    "category": {"type": "string", "enum": ["foundation", "protocol", "correlation", "domain", "orchestration"]},
     "description": {"type": "string", "minLength": 1},
     "scope": {"type": "object", "required": ["includes", "excludes"], "additionalProperties": false, "properties": {"includes": {"type": "array", "items": {"type": "string"}}, "excludes": {"type": "array", "items": {"type": "string"}}}},
     "dependencies": {"type": "object", "required": ["required", "optional"], "additionalProperties": false, "properties": {"required": {"type": "array", "items": {"type": "string"}}, "optional": {"type": "array", "items": {"type": "string"}}}},

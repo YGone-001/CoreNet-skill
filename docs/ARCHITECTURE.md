@@ -2,24 +2,25 @@
 
 ## Purpose and dependency direction
 
-This repository is a modular collection of independently downloadable Skills for core-network investigation. The repository foundation freezes its boundaries; protocol Skills implement bounded protocol-local semantics, and the Correlation layer joins already-extracted protocol evidence.
+This repository is a modular collection of independently downloadable Skills for core-network signaling evidence analysis: protocol decoding knowledge, cross-protocol correlation, procedure-level diagnosis, and failure-boundary localization from observable evidence. CoreNet Skill focuses on network signaling evidence analysis rather than implementation-specific source ownership.
 
 ```text
-Foundation Skills → Protocol Skills → Correlation Skills → Domain / Procedure Skills → Implementation Skills → Orchestration Skills
+Foundation Skills → Protocol Skills → Correlation Skills → Domain / Procedure Skills → Analysis Orchestration Skills
 ```
 
-Dependencies flow only to the left. A higher layer may compose lower-layer contracts, but a lower layer must never import, own, or depend on a higher-layer procedure. A Skill may depend on the same layer when ownership remains acyclic and semantically correct (for example, `diameter-ims` depending on `diameter-core`). Circular ownership is prohibited.
+Dependencies flow only to the left. A higher layer may compose lower-layer contracts, but a lower layer must never import, own, or depend on a higher-layer capability. A Skill may depend on the same layer when ownership remains acyclic and semantically correct (for example, `diameter-ims` depending on `diameter-core`). Circular ownership is prohibited.
+
+Implementation is deliberately not a CoreNet Skill layer. The system answers "What happened in the network signaling?"; it does not primarily answer "Which source-code function in an implementation caused it?" Implementation source analysis remains an external optional activity, never repository ownership.
 
 ## Layers
 
 | Layer | Responsibility | May depend on |
 | --- | --- | --- |
-| Foundation | Reusable engineering investigation methods. | External standard tooling only |
+| Foundation | Reusable evidence investigation methods and grading. | External standard tooling only |
 | Protocol | Message encoding, fields, and protocol-local correlation. | Foundation |
 | Correlation | Provenance-key joins, deterministic cross-protocol evidence grouping, cross-protocol ordering, correlation-strength classification, and missing-evidence visibility. | Foundation, Protocol |
 | Domain / procedure | Cross-network-function telecom procedures; consumes Protocol and Correlation outputs. | Foundation, Protocol, Correlation |
-| Implementation | Maps behavior to a named implementation. | Foundation, Protocol, Correlation, Domain |
-| Orchestration | Locates an end-to-end failure boundary. | All lower layers |
+| Analysis Orchestration | Combining protocol evidence, producing investigation reports, and confidence-aware diagnosis that locates the first abnormal evidence boundary. | All lower layers |
 
 Examples of permitted ownership: `ims-registration` depends on `sip` and `diameter-ims`; `epc-procedures` depends on `nas-eps`, `s1ap`, and `diameter-epc`; `5gc-pdu-session` depends on `nas-5gs`, `ngap`, `pfcp`, and `sbi-http2`; `cross-protocol-evidence` depends on the `ngap` and `nas-5gs` event contracts; the future `5gc-registration-mobility` depends on `cross-protocol-evidence`, `ngap`, and `nas-5gs`; `diameter-ims` depends on same-layer `diameter-core`.
 
@@ -27,13 +28,19 @@ Examples of prohibited ownership: `sip` must not depend on `ims-registration`; `
 
 ## Correlation boundary
 
-Correlation answers: **Which already-extracted evidence items belong to the same observed context or evidence window?**
+Correlation answers: **Which observations belong together?**
 
 An allowed Correlation conclusion: "NGAP frame evidence and NAS-5GS evidence share capture_file X and frame_number 42 and therefore form a STRONG provenance join."
 
 Not allowed Correlation conclusions: "5G Registration succeeded." or "Registration failed at Authentication." Those require Domain semantics. The Correlation layer does not decode protocols, does not own procedure success or failure, does not own subscriber or session semantics unless explicitly supplied by a lower contract, and does not own root cause.
 
 Correlation is optional infrastructure for Domain Skills, not a mandatory wrapper: a Domain Skill may consume Correlation outputs, and no Domain Skill is required to route every Protocol Skill through Correlation.
+
+## Implementation ownership boundary
+
+CoreNet Skill does not own implementation-specific Skills. It must not create dedicated Skills for Open5GS, free5GC, Kamailio, FreeSWITCH, RTPengine, or vendor-specific network functions, and it holds no source models for them.
+
+External implementation context remains welcome as evidence. If a user provides AMF or SMF logs, Kamailio logs, source code, or configuration files, an agent may analyze them as external evidence for the observed failure. Allowed: "Given Open5GS AMF source and this failure PCAP, analyze possible implementation behavior." Not allowed: "CoreNet-skill contains an Open5GS implementation Skill." Implementation findings stay user-scoped analysis, never repository-owned expertise.
 
 ## Implemented catalog
 

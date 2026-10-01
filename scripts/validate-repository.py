@@ -10,9 +10,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-# Authoritative six-layer order; keep in sync with scripts/validate-architecture.py,
+# Authoritative five-layer order; keep in sync with scripts/validate-architecture.py,
 # whose consistency with this tuple is asserted in tests/structure.
-LAYERS = ("foundation", "protocol", "correlation", "domain", "implementation", "orchestration")
+# Implementation is not a CoreNet Skill layer: implementation source analysis
+# is an external activity, never repository ownership.
+LAYERS = ("foundation", "protocol", "correlation", "domain", "orchestration")
 REQUIRED_DIRS = ("docs", "skills", "shared", "templates", "scripts", "tests")
 REQUIRED_DOCS = ("ARCHITECTURE.md", "SKILL-SPEC.md", "TRACE-SCHEMA.md", "EVIDENCE-SCHEMA.md", "TESTING.md", "UPSTREAM.md", "NAMING.md", "ROADMAP.md")
 REQUIRED_SCHEMAS = ("skill-manifest.schema.json", "trace-event.schema.json", "evidence.schema.json", "diagnostic-result.schema.json")
@@ -25,41 +27,47 @@ def fail(errors: list[str], message: str) -> None:
     errors.append(message)
 
 
-def main() -> int:
+def validate(root: Path) -> list[str]:
+    """Validate repository layout against the contract; returns error list."""
     errors: list[str] = []
     for directory in REQUIRED_DIRS:
-        if not (ROOT / directory).is_dir():
+        if not (root / directory).is_dir():
             fail(errors, f"missing required directory: {directory}")
     for document in REQUIRED_DOCS:
-        if not (ROOT / "docs" / document).is_file():
+        if not (root / "docs" / document).is_file():
             fail(errors, f"missing required document: docs/{document}")
     for schema in REQUIRED_SCHEMAS:
-        path = ROOT / "shared" / "schemas" / schema
+        path = root / "shared" / "schemas" / schema
         try:
             json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            fail(errors, f"invalid schema {path.relative_to(ROOT)}: {exc}")
-    template = ROOT / "templates" / "skill-template"
+            fail(errors, f"invalid schema {path.relative_to(root)}: {exc}")
+    template = root / "templates" / "skill-template"
     for relative in TEMPLATE_FILES:
         if not (template / relative).is_file():
             fail(errors, f"missing template file: templates/skill-template/{relative}")
     for layer in LAYERS:
-        if not (ROOT / "skills" / layer).is_dir():
+        if not (root / "skills" / layer).is_dir():
             fail(errors, f"missing skill layer: skills/{layer}")
-    for path in (ROOT / "skills").rglob("*"):
+    for path in (root / "skills").rglob("*"):
         if path.is_dir() and path.parent.name in {"skills", *LAYERS} and path.name not in set(LAYERS):
             if not SKILL_NAME.fullmatch(path.name):
-                fail(errors, f"invalid Skill directory name: {path.relative_to(ROOT)}")
+                fail(errors, f"invalid Skill directory name: {path.relative_to(root)}")
             for required in ("SKILL.md", "README.md", "manifest.yaml"):
                 if not (path / required).is_file():
-                    fail(errors, f"incomplete Skill: {path.relative_to(ROOT)}/{required} is missing")
+                    fail(errors, f"incomplete Skill: {path.relative_to(root)}/{required} is missing")
     try:
-        tracked = subprocess.check_output(["git", "ls-files"], cwd=ROOT, text=True).splitlines()
+        tracked = subprocess.check_output(["git", "ls-files"], cwd=root, text=True).splitlines()
     except (OSError, subprocess.CalledProcessError):
         tracked = []
     for name in tracked:
         if any(part in name for part in GENERATED):
             fail(errors, f"forbidden generated file tracked: {name}")
+    return errors
+
+
+def main() -> int:
+    errors = validate(ROOT)
     if errors:
         print("Repository validation failed:", file=sys.stderr)
         print("\n".join(f"- {error}" for error in errors), file=sys.stderr)
