@@ -10,6 +10,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# Authoritative six-layer order; keep in sync with scripts/validate-architecture.py,
+# whose consistency with this tuple is asserted in tests/structure.
+LAYERS = ("foundation", "protocol", "correlation", "domain", "implementation", "orchestration")
 REQUIRED_DIRS = ("docs", "skills", "shared", "templates", "scripts", "tests")
 REQUIRED_DOCS = ("ARCHITECTURE.md", "SKILL-SPEC.md", "TRACE-SCHEMA.md", "EVIDENCE-SCHEMA.md", "TESTING.md", "UPSTREAM.md", "NAMING.md", "ROADMAP.md")
 REQUIRED_SCHEMAS = ("skill-manifest.schema.json", "trace-event.schema.json", "evidence.schema.json", "diagnostic-result.schema.json")
@@ -40,11 +43,11 @@ def main() -> int:
     for relative in TEMPLATE_FILES:
         if not (template / relative).is_file():
             fail(errors, f"missing template file: templates/skill-template/{relative}")
-    for layer in ("foundation", "protocol", "correlation", "domain", "implementation", "orchestration"):
+    for layer in LAYERS:
         if not (ROOT / "skills" / layer).is_dir():
             fail(errors, f"missing skill layer: skills/{layer}")
     for path in (ROOT / "skills").rglob("*"):
-        if path.is_dir() and path.parent.name in {"skills", "foundation", "protocol", "correlation", "domain", "implementation", "orchestration"} and path.name not in {"foundation", "protocol", "correlation", "domain", "implementation", "orchestration"}:
+        if path.is_dir() and path.parent.name in {"skills", *LAYERS} and path.name not in set(LAYERS):
             if not SKILL_NAME.fullmatch(path.name):
                 fail(errors, f"invalid Skill directory name: {path.relative_to(ROOT)}")
             for required in ("SKILL.md", "README.md", "manifest.yaml"):

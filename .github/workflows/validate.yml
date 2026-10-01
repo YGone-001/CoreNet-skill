@@ -21,6 +21,8 @@ jobs:
           python-version: "3.12"
       - name: Validate repository contract
         run: python scripts/validate-repository.py
+      - name: Validate architecture
+        run: python scripts/validate-architecture.py
       - name: Validate upstream snapshots
         run: python scripts/validate-upstream-snapshots.py
       - name: Validate Foundation Skills
