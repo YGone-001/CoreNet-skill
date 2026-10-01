@@ -1,0 +1,72 @@
+# NAS-5GS display filters (bounded 5GMM subset)
+# Verified against Wireshark/TShark 4.7.1 (v4.7.1-0-g667ab240e6de) via
+# `tshark -G fields` / `-G values`. Filter names are version-dependent;
+# re-verify before using other Wireshark releases.
+
+# All NAS-5GS traffic
+nas-5gs
+
+# 5GMM bounded-subset messages
+nas-5gs.mm.message_type == 65
+nas-5gs.mm.message_type == 66
+nas-5gs.mm.message_type == 67
+nas-5gs.mm.message_type == 68
+nas-5gs.mm.message_type == 91
+nas-5gs.mm.message_type == 92
+nas-5gs.mm.message_type == 86
+nas-5gs.mm.message_type == 87
+nas-5gs.mm.message_type == 88
+nas-5gs.mm.message_type == 89
+nas-5gs.mm.message_type == 90
+nas-5gs.mm.message_type == 93
+nas-5gs.mm.message_type == 94
+nas-5gs.mm.message_type == 95
+nas-5gs.mm.message_type == 76
+nas-5gs.mm.message_type == 77
+nas-5gs.mm.message_type == 78
+nas-5gs.mm.message_type == 100
+
+# 5GSM family (deferred recognition only; no session semantics here)
+nas-5gs.sm.message_type
+
+# Registration type values (initial, mobility updating, periodic updating, emergency)
+nas-5gs.mm.5gs_reg_type == 1
+nas-5gs.mm.5gs_reg_type == 2
+nas-5gs.mm.5gs_reg_type == 3
+nas-5gs.mm.5gs_reg_type == 4
+
+# Follow-on request bit
+nas-5gs.mm.for
+
+# NAS key set identifier (ngKSI context)
+nas-5gs.mm.nas_key_set_id
+
+# 5GMM cause values (protocol evidence; not a root-cause engine)
+nas-5gs.mm.5gmm_cause == 22
+nas-5gs.mm.5gmm_cause == 23
+nas-5gs.mm.5gmm_cause == 20
+nas-5gs.mm.5gmm_cause == 21
+nas-5gs.mm.5gmm_cause
+
+# Security envelope
+nas-5gs.security_header_type == 0
+nas-5gs.security_header_type == 2
+nas-5gs.security_header_type == 3
+nas-5gs.security_header_type == 4
+nas-5gs.security_header_type
+nas-5gs.security_parameter_index
+nas-5gs.seq_no
+nas-5gs.msg_auth_code
+
+# Selected NAS security algorithms (Security mode command)
+nas-5gs.mm.nas_sec_algo_enc
+nas-5gs.mm.nas_sec_algo_ip
+
+# Identity type (SUCI, 5G-GUTI, IMEI, 5G-S-TMSI, IMEISV)
+nas-5gs.mm.type_id == 1
+nas-5gs.mm.type_id == 2
+nas-5gs.mm.type_id
+
+# Service types (Service request)
+nas-5gs.mm.serv_type == 0
+nas-5gs.mm.serv_type

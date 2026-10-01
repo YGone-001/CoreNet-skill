@@ -61,11 +61,11 @@ class NgapValidatorTests(unittest.TestCase):
             reference.write_text(reference.read_text(encoding="utf-8") + "\nSee open5gs source.\n", encoding="utf-8")
             self.assertTrue(any("implementation mapping" in error for error in VALIDATOR.validate(root)))
 
-    def test_nas_5gs_creation_is_detected(self):
+    def test_domain_skill_creation_is_detected(self):
         temporary, root = self.fixture()
         with temporary:
-            (root / "skills/protocol/nas-5gs").mkdir()
-            self.assertTrue(any("nas-5gs" in error for error in VALIDATOR.validate(root)))
+            (root / "skills/domain/5gc-registration-mobility").mkdir(parents=True)
+            self.assertTrue(any("5gc-registration-mobility" in error for error in VALIDATOR.validate(root)))
 
     def test_subscriber_field_in_fixture_is_detected(self):
         temporary, root = self.fixture()

@@ -1,0 +1,76 @@
+name: nas-5gs
+version: 0.1.0
+category: protocol
+description: >
+  Bounded NAS-5GS 5GMM semantic extraction for N1 signaling: security
+  envelope classification, 5GMM message identification for the
+  registration/identity/authentication/security-mode/service/status
+  subset, bounded IE normalization, 5GSM recognition deferred, detailed
+  NAS events, and shared trace-event projection with privacy defaults.
+scope:
+  includes:
+    - 5GMM/5GSM family recognition via protocol-local evidence
+    - security envelope classification (plain, integrity protected, ciphered, new context)
+    - bounded 5GMM message semantics: Registration, Identity, Authentication, Security mode, Service, 5GMM status
+    - reviewed 5GMM cause code/name preservation
+    - registration type and follow-on request normalization
+    - identity privacy defaults (presence and type; redacted values)
+    - detailed NAS event JSONL and shared trace-event projection
+  excludes:
+    - 5GSM PDU session semantics (PDU session ID, DNN, QFI, SSC mode, 5GSM cause)
+    - complete 5G Registration procedure state or verdicts
+    - NAS key derivation, MAC verification, ciphering, AKA logic
+    - authentication secret emission in any mode
+    - NGAP context parsing or NGAP ownership
+    - AMF/UE implementation mapping or end-to-end root cause
+dependencies:
+  required: []
+  optional:
+    - core-network-pcap >=0.1.0
+    - ngap >=0.1.0
+    - wireshark-analysis >=0.2.0
+    - protocol-reverse-engineering >=0.2.0
+    - systematic-debugging >=0.2.0
+    - tshark
+inputs:
+  - PCAP/PCAPNG capture containing NAS-5GS (requires user-installed tshark)
+  - structured NAS-5GS fields JSONL (deterministic offline input; see references/field-reference.md)
+outputs:
+  - detailed NAS-5GS event JSON Lines (schemas/nas5gs-event.schema.json)
+  - shared trace-event JSON Lines projection (schemas/trace-event.schema.json)
+  - protocol-local NAS message timeline (text or JSON)
+protocols:
+  - NAS-5GS
+interfaces:
+  - N1
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Protocol-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/extracted/registration-flow.jsonl
+    - examples/extracted/rejection-flow.jsonl
+    - examples/extracted/service-flow.jsonl
+    - examples/extracted/protection-variants.jsonl
+    - examples/extracted/deferred-unknown.jsonl
+    - examples/extracted/mobility-types.jsonl
+    - examples/extracted/malformed.jsonl
+    - examples/extracted/missing-required.jsonl
+  expected_results:
+    - examples/expected/registration-flow-events.jsonl
+    - examples/expected/registration-flow-trace.jsonl
+    - examples/expected/rejection-flow-events.jsonl
+    - examples/expected/service-flow-events.jsonl
+    - examples/expected/protection-variants-events.jsonl
+    - examples/expected/deferred-unknown-events.jsonl
+    - examples/expected/mobility-types-events.jsonl

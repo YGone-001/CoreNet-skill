@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.dev/schemas/nas-5gs/nas5gs-event.schema.json",
+  "title": "Detailed NAS-5GS Event",
+  "description": "One bounded NAS-5GS (5GMM-focused) observation. Every emitted event carries all keys; values the frame does not contain are null. Subscriber identity values are redacted unless sensitive-identifier output was explicitly enabled, and authentication secret material is never emitted.",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "frame_number",
+    "capture_file",
+    "nas_family",
+    "protocol_discriminator",
+    "security",
+    "message_type_code",
+    "message_type",
+    "support_status",
+    "result",
+    "direction",
+    "direction_basis",
+    "procedure_family",
+    "registration",
+    "ngksi",
+    "identity",
+    "cause",
+    "authentication",
+    "security_mode",
+    "service",
+    "evidence",
+    "derivations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {"type": "string", "format": "date-time"},
+    "frame_number": {"type": "integer", "minimum": 1},
+    "capture_file": {"type": "string", "minLength": 1},
+    "nas_family": {"type": ["string", "null"], "enum": ["5GMM", "5GSM", null]},
+    "protocol_discriminator": {"type": ["integer", "null"], "const": 126},
+    "security": {
+      "type": "object",
+      "required": ["header_type", "header_name", "integrity_protected", "ciphered", "new_security_context", "sequence_number", "message_authentication_code_present", "security_parameter_index", "inner_message_available", "decode_basis"],
+      "additionalProperties": false,
+      "properties": {
+        "header_type": {"type": ["integer", "null"], "minimum": 0, "maximum": 4},
+        "header_name": {"type": ["string", "null"], "minLength": 1},
+        "integrity_protected": {"type": ["boolean", "null"]},
+        "ciphered": {"type": ["boolean", "null"]},
+        "new_security_context": {"type": ["boolean", "null"]},
+        "sequence_number": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+        "message_authentication_code_present": {"type": ["boolean", "null"]},
+        "security_parameter_index": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295},
+        "inner_message_available": {"type": ["boolean", "null"]},
+        "decode_basis": {"type": ["string", "null"], "enum": ["plain-message", "dissector-decoded", null]}
+      }
+    },
+    "message_type_code": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+    "message_type": {"type": ["string", "null"], "minLength": 1},
+    "support_status": {"type": "string", "enum": ["SUPPORTED", "UNSUPPORTED", "UNKNOWN", "DEFERRED"]},
+    "result": {"type": ["string", "null"], "enum": ["REQUEST", "ACCEPT", "COMPLETE", "REJECT", "RESPONSE", "FAILURE", "RESULT", "COMMAND", "STATUS", null]},
+    "direction": {"type": ["string", "null"], "enum": ["ue-to-amf", "amf-to-ue", null]},
+    "direction_basis": {"type": ["string", "null"], "enum": ["message-definition", "observed-carrier", null]},
+    "procedure_family": {"type": ["string", "null"], "enum": ["REGISTRATION", "IDENTITY", "AUTHENTICATION", "SECURITY_MODE", "SERVICE", "STATUS", null]},
+    "registration": {
+      "type": "object",
+      "required": ["type_code", "type_name", "follow_on_request"],
+      "additionalProperties": false,
+      "properties": {
+        "type_code": {"type": ["integer", "null"], "minimum": 0, "maximum": 7},
+        "type_name": {"type": ["string", "null"], "minLength": 1},
+        "follow_on_request": {"type": ["boolean", "null"]}
+      }
+    },
+    "ngksi": {
+      "type": "object",
+      "required": ["key_set_id"],
+      "additionalProperties": false,
+      "properties": {
+        "key_set_id": {"type": ["integer", "null"], "minimum": 0, "maximum": 7}
+      }
+    },
+    "identity": {
+      "type": "object",
+      "required": ["present", "type_code", "type_name", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "present": {"type": "boolean"},
+        "type_code": {"type": ["integer", "null"], "minimum": 0, "maximum": 7},
+        "type_name": {"type": ["string", "null"], "minLength": 1},
+        "value": {"type": ["string", "null"]}
+      }
+    },
+    "cause": {
+      "type": "object",
+      "required": ["code", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+        "name": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "authentication": {
+      "type": "object",
+      "required": ["rand_present", "autn_present", "res_present", "auts_present"],
+      "additionalProperties": false,
+      "properties": {
+        "rand_present": {"type": ["boolean", "null"]},
+        "autn_present": {"type": ["boolean", "null"]},
+        "res_present": {"type": ["boolean", "null"]},
+        "auts_present": {"type": ["boolean", "null"]}
+      }
+    },
+    "security_mode": {
+      "type": "object",
+      "required": ["ciphering_algorithm_code", "ciphering_algorithm_name", "integrity_algorithm_code", "integrity_algorithm_name"],
+      "additionalProperties": false,
+      "properties": {
+        "ciphering_algorithm_code": {"type": ["integer", "null"], "minimum": 0, "maximum": 7},
+        "ciphering_algorithm_name": {"type": ["string", "null"], "minLength": 1},
+        "integrity_algorithm_code": {"type": ["integer", "null"], "minimum": 0, "maximum": 7},
+        "integrity_algorithm_name": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "service": {
+      "type": "object",
+      "required": ["type_code", "type_name"],
+      "additionalProperties": false,
+      "properties": {
+        "type_code": {"type": ["integer", "null"], "minimum": 0, "maximum": 7},
+        "type_name": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["level", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "level": {"type": "string", "const": "OBSERVED"},
+        "source": {"type": "string", "minLength": 1}
+      }
+    },
+    "derivations": {
+      "type": "array",
+      "items": {"type": "string", "enum": ["nas_family", "message_type", "direction", "procedure_family", "result", "cause_name", "algorithm_names"]},
+      "uniqueItems": true
+    }
+  }
+}

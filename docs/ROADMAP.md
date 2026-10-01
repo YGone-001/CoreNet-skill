@@ -4,7 +4,7 @@
 | --- | --- | --- | --- | --- |
 | Repository Foundation | Freeze architecture, contracts, schemas, template, and validation. | None | Repository baseline inspected. | All acceptance gates pass. |
 | Foundation Skills | Accepted reusable investigation-method Skills. | Foundation contracts and source review. | Repository foundation complete. | Six standalone Foundation Skills are accepted and tested. |
-| Packet and Protocol Core | `core-network-pcap` capture normalization and a bounded `ngap` UE-context semantic Skill are implemented; NAS-5GS and remaining protocol semantics (NAS-EPS, S1AP, GTP, PFCP, SIP, RTP, SBI, full NGAP coverage) remain planned. | Foundation methods. | Approved protocol scope and fixtures. | Protocol-local contracts and evidence tests pass. |
+| Packet and Protocol Core | `core-network-pcap` capture normalization, a bounded `ngap` UE-context semantic Skill, and a bounded `nas-5gs` 5GMM semantic Skill are implemented; 5GSM PDU session semantics and remaining protocol semantics (NAS-EPS, S1AP, GTP, PFCP, SIP, RTP, SBI, full NGAP coverage) remain planned. | Foundation methods. | Approved protocol scope and fixtures. | Protocol-local contracts and evidence tests pass. |
 | Diameter | `diameter-core`, `diameter-epc`, `diameter-ims`, `diameter-charging`. | Protocol conventions. | Cross-domain ownership reviewed. | No IMS ownership leakage; tests pass. |
 | IMS | IMS registration, session, and media/QoS domains. | SIP/SDP/RTP and Diameter IMS/charging. | Diameter work complete. | Procedure Skills satisfy evidence contract. |
 | EPC | `epc-procedures` and related domain work. | NAS-EPS, S1AP, GTPv2, Diameter EPC. | Required dependencies complete. | Reusable protocol dependencies remain independent. |
@@ -14,6 +14,7 @@
 | End-to-End Root Cause Analysis | Evidence-safe orchestration. | All applicable lower layers. | Diagnostic-result contract proven. | Failure boundaries and confidence are validated. |
 
 The repository foundation and Foundation Skills are accepted. The
-`core-network-pcap` entry capability and the bounded `ngap` UE-context
-semantic Skill are implemented; the remaining Packet and Protocol Core work
-and every later milestone remain future work.
+`core-network-pcap` entry capability, the bounded `ngap` UE-context
+semantic Skill, and the bounded `nas-5gs` 5GMM semantic Skill are
+implemented; the remaining Packet and Protocol Core work and every later
+milestone remain future work.

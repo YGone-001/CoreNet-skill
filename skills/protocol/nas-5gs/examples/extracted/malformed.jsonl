@@ -1,0 +1,8 @@
+{"frame.number":"1","frame.time_epoch":"1704164645.000001","nas-5gs.mm.message_type":"65"}
+not JSON at all
+{"frame.number":"0","frame.time_epoch":"1704164645.000002","nas-5gs.mm.message_type":"65"}
+{"frame.number":"2","frame.time_epoch":"1704164645.000003","nas-5gs.security_header_type":"9","nas-5gs.mm.message_type":"65"}
+{"frame.number":"3","frame.time_epoch":"1704164645.000004","nas-5gs.security_header_type":"1","nas-5gs.mm.message_type":"65","nas-5gs.mm.nas_key_set_id":"9"}
+{"frame.number":"4","frame.time_epoch":"1704164645.000005","nas-5gs.security_header_type":"1","nas-5gs.mm.message_type":"65","nas-5gs.sm.message_type":"193"}
+{"frame.number":"5","frame.time_epoch":"1704164645.000006","nas-5gs.security_header_type":"1","nas-5gs.mm.message_type":"65","carrier_direction":"side-ways"}
+{"frame.number":"6","frame.time_epoch":"1704164645.000007","nas-5gs.security_header_type":"1","nas-5gs.mm.message_type":"300"}
