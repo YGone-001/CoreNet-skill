@@ -19,7 +19,7 @@ A lower-level instruction must never silently override a higher-level one. Destr
 
 CoreNet Skill is a modular, evidence-first AI Skill repository for mobile core-network signaling analysis, troubleshooting, protocol reasoning, implementation mapping, and future end-to-end fault isolation.
 
-Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, and lightweight validation. It does **not** yet implement protocol decoders, packet-field extraction, procedure logic, source-code mappings, packet analysis, or end-to-end troubleshooting. Planned functionality must never be presented as implemented functionality.
+Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, six accepted Foundation Skills, the `core-network-pcap` capture normalization layer, bounded `ngap` and `nas-5gs` Protocol Skills, and the `cross-protocol-evidence` Correlation Skill. It does **not** yet implement Domain procedure logic, implementation-specific source-code mappings, or end-to-end troubleshooting. Planned functionality must never be presented as implemented functionality.
 
 ## Authoritative Documentation
 
@@ -43,13 +43,13 @@ Repository documentation and code-facing documentation remain English unless a f
 
 The only permitted conceptual dependency direction is:
 
-    Foundation -> Protocol -> Domain / Procedure -> Implementation -> Orchestration
+    Foundation -> Protocol -> Correlation -> Domain / Procedure -> Implementation -> Orchestration
 
 Equivalently, higher layers may depend on lower layers:
 
-    Foundation <- Protocol <- Domain <- Implementation <- Orchestration
+    Foundation <- Protocol <- Correlation <- Domain <- Implementation <- Orchestration
 
-Reverse ownership and circular dependencies are prohibited. Do not bypass these boundaries merely to reduce the number of files.
+Reverse ownership and circular dependencies are prohibited. A Skill may depend on a lower layer or on the same layer when ownership remains acyclic and semantically correct; it must not depend on a higher layer. Do not bypass these boundaries merely to reduce the number of files.
 
 ### Layer Responsibilities
 
@@ -57,21 +57,29 @@ Reverse ownership and circular dependencies are prohibited. Do not bypass these 
 | --- | --- | --- |
 | Foundation | How should the problem be investigated? | Reusable investigation and engineering methods; it does not own telecom procedure semantics. |
 | Protocol | What does this protocol message mean? | Protocol-local encoding, fields, messages, identifiers, transactions, state, and correlation reusable by several domains. |
-| Domain / Procedure | How does the telecom procedure work across network functions? | Cross-network-function telecom procedures, such as EPC, IMS, and 5GC. |
+| Correlation | Which already-extracted evidence items belong to the same observed context or evidence window? | Provenance-key joins, deterministic cross-protocol evidence grouping, cross-protocol ordering, correlation-strength classification, and missing-evidence visibility; it does not own protocol decoding, procedure verdicts, or root cause. |
+| Domain / Procedure | How does the telecom procedure work across network functions? | Cross-network-function telecom procedures, such as EPC, IMS, and 5GC; consumes Protocol and Correlation outputs. |
 | Implementation | How is behavior implemented in a particular network function? | Maps standardized behavior to source trees, modules, state machines, functions, configuration, and logs. |
 | Orchestration | Where did the end-to-end procedure first become abnormal? | Combines validated lower-layer results without duplicating their full knowledge bases. |
+
+Correlation is optional infrastructure: a Domain Skill may consume Correlation outputs, but no Domain Skill is required to wrap every Protocol Skill through Correlation.
 
 Examples of valid dependencies:
 
     ims-registration -> sip -> diameter-ims
     epc-procedures -> nas-eps -> s1ap -> gtpv2 -> diameter-epc
     5gc-pdu-session -> nas-5gs -> ngap -> pfcp -> sbi-http2
+    cross-protocol-evidence -> ngap -> nas-5gs -> core-network-pcap
+    5gc-registration-mobility -> cross-protocol-evidence -> ngap -> nas-5gs (future)
+    diameter-ims -> diameter-core (same-layer Protocol composition)
 
 Examples of invalid dependencies:
 
     sip -> ims-registration
     diameter-core -> diameter-ims
     ngap -> 5gc-registration-mobility
+    ngap -> cross-protocol-evidence
+    cross-protocol-evidence -> 5gc-registration-mobility
 
 ### Diameter Is Cross-Domain
 
@@ -194,7 +202,7 @@ Prefer an original upstream snapshot plus local wrapper, extension, and tests ov
 
 ## Scope, Schema, and Tooling Discipline
 
-Obey the current task's explicit STOP boundary. Do not implement later work because it is related, convenient, or small. Foundation authorization does not authorize Protocol work; Protocol authorization does not authorize Domain procedure logic; authorization for one Skill does not authorize unrelated Skills.
+Obey the current task's explicit STOP boundary. Do not implement later work because it is related, convenient, or small. Foundation authorization does not authorize Protocol work; Protocol authorization does not authorize Correlation work; Correlation authorization does not authorize Domain procedure logic; authorization for one Skill does not authorize unrelated Skills.
 
 When a schema defines an output contract, do not silently add incompatible fields, remove required semantics, or change field meaning. Prefer backward-compatible extension. A schema-breaking change needs explicit task authorization and migration consideration.
 

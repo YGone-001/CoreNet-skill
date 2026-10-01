@@ -23,6 +23,20 @@ Use this standard layout:
 
 `SKILL.md`, `README.md`, and `manifest.yaml` are mandatory. Executable or rule-driven Skills require `tests/`. Telecom protocol and domain Skills require `references/`. Directories not needed by a bounded Skill may be omitted only when its README explains why.
 
+## Categories
+
+Valid manifest categories are `foundation`, `protocol`, `correlation`, `domain`, `implementation`, and `orchestration`, matching the frozen layer order. A Skill's category must equal the layer directory it lives under.
+
+Correlation Skills carry additional contract expectations:
+
+- Inputs must already be semantically extracted evidence; a Correlation Skill does not decode captures or protocol payloads.
+- Provenance must be preserved from the producing Skills through every join.
+- The correlation basis must be explicit in outputs (for example, shared capture provenance or a documented bounded window).
+- Correlation strength (STRONG/MEDIUM/WEAK) classifies evidence grouping, not causal confidence; it must never be presented as proof of cause.
+- A Correlation Skill owns no protocol semantics unless separately authorized and owns no Domain verdicts such as procedure success, failure, or root cause.
+
+Correlation Skills use the same package format as every other category; no separate or incompatible Skill structure exists.
+
 ## Content rules
 
 `SKILL.md` supplies agent-facing workflow instructions. `README.md` explains human-facing intent, installation, inputs, outputs, and limitations. `manifest.yaml` conforms conceptually to `shared/schemas/skill-manifest.schema.json`. Manifests use semantic versions; a breaking contract change increments the major version. Inputs and outputs must identify formats and optionality, and outputs must distinguish observations, derived facts, inferences, and hypotheses.

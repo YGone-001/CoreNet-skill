@@ -61,3 +61,15 @@ Packet normalization, protocol semantics, Diameter, EPC/IMS/5GC procedures,
 implementation mappings, and end-to-end orchestration remain future work. The
 Foundation freeze permits focused bug fixes, but later layers must depend on the
 accepted Foundation boundary instead of expanding its ownership.
+
+## Architecture evolution note
+
+A later repository architecture correction introduced the Correlation layer
+between Protocol and Domain/Procedure, formalizing the six-layer dependency
+direction Foundation → Protocol → Correlation → Domain/Procedure →
+Implementation → Orchestration. This changes nothing about the accepted
+Foundation contract recorded here: the Foundation packages remain unchanged at
+version 0.2.0 with their original acceptance baseline
+(`73a91d6dbcc95a9b8e1eb107181100813fcabecb`), and Foundation responsibility
+remains "How should we investigate?" The note is additive so the Foundation
+acceptance history stays traceable as it was accepted.

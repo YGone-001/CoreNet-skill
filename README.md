@@ -26,18 +26,19 @@ implementation-specific mappings, or end-to-end orchestration.
 Each future Skill is designed to be downloaded and used independently. It must document its bounded responsibility, inputs, outputs, dependencies, evidence behavior, test coverage, and upstream provenance. This keeps reusable protocol expertise separate from domain procedures and implementation-specific knowledge.
 
 ```text
-Foundation → Protocol → Domain / Procedure → Implementation → Orchestration
+Foundation → Protocol → Correlation → Domain / Procedure → Implementation → Orchestration
 ```
 
-| Layer | Future purpose |
+| Layer | Purpose |
 | --- | --- |
 | Foundation | Teach an agent how to investigate: Wireshark use, reverse engineering, systematic debugging, Linux, and C-oriented methods. |
 | Protocol | Teach protocol-local encoding and correlation: NAS, NGAP, S1AP, GTP, PFCP, SIP, SDP/RTP, Diameter, and SBI. |
+| Correlation | Join already-extracted protocol evidence into deterministic groups and a unified observed-evidence timeline by shared capture provenance. |
 | Domain / procedure | Compose protocols into EPC, IMS, and 5GC procedures. |
 | Implementation | Map supported procedure/protocol behavior to evidence from Core network service function development. |
 | Orchestration | Combine independently valid Skills to establish an evidence-safe end-to-end failure boundary. |
 
-Dependencies only point left. Lower layers never own higher-layer procedures, which prevents circular architecture and preserves reuse.
+Dependencies only point left, and a Skill may depend on the same layer when ownership remains acyclic and semantically correct. Lower layers never own higher-layer procedures, which prevents circular architecture and preserves reuse. Correlation is optional infrastructure for Domain Skills, not a mandatory wrapper around every Protocol Skill.
 
 ## EPC, IMS, 5GC, and Diameter
 
