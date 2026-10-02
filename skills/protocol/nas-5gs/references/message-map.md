@@ -1,9 +1,10 @@
 # NAS-5GS Message Map
 
-Reviewed 5GMM message-type identity table (TS 24.501; tool table of
-TShark 4.7.1 `nas-5gs.mm.message_type`). Names are preserved exactly as
-the reviewed table spells them. Support status is a Skill-local
-classification; recognition never implies semantic support.
+Reviewed message-type identity tables (TS 24.501 version 19.8.0 Release
+19; tool table of TShark 4.7.1 `nas-5gs.mm.message_type` and
+`nas-5gs.sm.message_type`). Names are preserved exactly as the reviewed
+table spells them. Support status is a Skill-local classification;
+recognition never implies semantic support.
 
 ## Supported bounded subset (5GMM)
 
@@ -27,6 +28,28 @@ classification; recognition never implies semantic support.
 | 77 | Service reject | SERVICE | amf-to-ue | REJECT | 5GMM cause |
 | 78 | Service accept | SERVICE | amf-to-ue | ACCEPT | envelope context |
 | 100 | 5GMM status | STATUS | either side (derived direction null) | STATUS | 5GMM cause |
+
+## Supported bounded subset (5GSM)
+
+5GSM logical peers are UE and SMF even though N1 transport passes
+through the AMF; direction is the logical protocol direction, not the
+carrier. Reviewed table: TS 24.501 19.8.0 table 9.7.2.
+
+| Code | Reviewed name | Procedure family | Logical direction | Local result | Bounded IE handling |
+| --- | --- | --- | --- | --- | --- |
+| 193 | PDU session establishment request | PDU_SESSION_ESTABLISHMENT | ue-to-smf | REQUEST | PDU session ID, PTI, request type, PDU session type, SSC mode, DNN, S-NSSAI, always-on request, EPCO presence |
+| 194 | PDU session establishment accept | PDU_SESSION_ESTABLISHMENT | smf-to-ue | ACCEPT | PDU session ID, PTI, selected PDU session type, selected SSC mode, DNN, PDU address, S-NSSAI, authorized QoS rules presence, QoS flow descriptions presence, QFI/5QI values, always-on indication, EPCO presence |
+| 195 | PDU session establishment reject | PDU_SESSION_ESTABLISHMENT | smf-to-ue | REJECT | PDU session ID, PTI, 5GSM cause |
+| 201 | PDU session modification request | PDU_SESSION_MODIFICATION | ue-to-smf | REQUEST | PDU session ID, PTI, QoS metadata presence |
+| 202 | PDU session modification reject | PDU_SESSION_MODIFICATION | smf-to-ue | REJECT | PDU session ID, PTI, 5GSM cause |
+| 203 | PDU session modification command | PDU_SESSION_MODIFICATION | smf-to-ue | COMMAND | PDU session ID, PTI, QoS rules/flow descriptions presence, QFI/5QI |
+| 204 | PDU session modification complete | PDU_SESSION_MODIFICATION | ue-to-smf | COMPLETE | PDU session ID, PTI |
+| 205 | PDU session modification command reject | PDU_SESSION_MODIFICATION | ue-to-smf | REJECT | PDU session ID, PTI, 5GSM cause |
+| 209 | PDU session release request | PDU_SESSION_RELEASE | ue-to-smf | REQUEST | PDU session ID, PTI |
+| 210 | PDU session release reject | PDU_SESSION_RELEASE | smf-to-ue | REJECT | PDU session ID, PTI, 5GSM cause |
+| 211 | PDU session release command | PDU_SESSION_RELEASE | smf-to-ue | COMMAND | PDU session ID, PTI, 5GSM cause |
+| 212 | PDU session release complete | PDU_SESSION_RELEASE | ue-to-smf | COMPLETE | PDU session ID, PTI |
+| 214 | 5GSM status | SESSION_MANAGEMENT_STATUS | either side (derived direction null) | STATUS | PDU session ID, PTI, 5GSM cause |
 
 ## Known but unsupported 5GMM messages (name only)
 
@@ -52,16 +75,20 @@ classification; recognition never implies semantic support.
 | 108 | Relay authentication request |
 | 109 | Relay authentication response |
 
-These are reported `UNSUPPORTED` with the reviewed name and no message
-semantics. UL/DL NAS transport (103/104) wraps 5GSM payloads; the 5GSM
-family itself is reported DEFERRED without session semantics.
+## Known but unsupported 5GSM messages (name only)
 
-## 5GSM (deferred)
+These are recognized by reviewed name and reported `UNSUPPORTED` with no
+session semantics; their procedures are deferred to later work.
 
-5GSM message types (PDU session establishment, modification, release,
-and related; reviewed tool table `nas-5gs.sm.message_type`, codes in the
-193+ range) set `nas_family: 5GSM` and `support_status: DEFERRED`. No
-5GSM message names, causes, or session identifiers are emitted.
+| Code | Reviewed name |
+| --- | --- |
+| 197 | PDU session authentication command |
+| 198 | PDU session authentication complete |
+| 199 | PDU session authentication result |
+| 216 | Service-level authentication command |
+| 217 | Service-level authentication complete |
+| 218 | Remote UE report |
+| 219 | Remote UE report response |
 
 ## Unknown values
 
@@ -85,3 +112,11 @@ code is preserved and no semantics are invented.
   never converted (SUCI is not SUPI; 5G-GUTI is not IMSI).
 - 5GMM cause handling follows the reviewed code/name table; unknown
   codes keep their numeric value with name null.
+- 5GSM cause handling follows the reviewed code/name table; unknown
+  codes keep their numeric value with name null. A 5GSM cause states a
+  session-level rejection reason and is never promoted to a root cause.
+- Request type, PDU session type, and SSC mode normalize to the reviewed
+  names; unknown or reserved values keep their code with name null.
+- PDU session identity and procedure transaction identity are distinct
+  protocol fields; neither is subscriber identity and neither is used to
+  join sessions across records.

@@ -1,3 +1,4 @@
-{"frame.number":"80","frame.time_epoch":"1704164740.000080","nas-5gs.security_header_type":"2","nas-5gs.sm.message_type":"193","nas-5gs.seq_no":"80","nas-5gs.msg_auth_code":"641452","nas-5gs.security_parameter_index":"65501"}
+{"frame.number":"80","frame.time_epoch":"1704164740.000080","nas-5gs.security_header_type":"1","nas-5gs.sm.message_type":"197","nas-5gs.seq_no":"80","nas-5gs.msg_auth_code":"641452","nas-5gs.security_parameter_index":"65501"}
 {"frame.number":"81","frame.time_epoch":"1704164741.000081","nas-5gs.security_header_type":"1","nas-5gs.mm.message_type":"69","nas-5gs.seq_no":"81","nas-5gs.msg_auth_code":"649371","nas-5gs.security_parameter_index":"65501"}
 {"frame.number":"82","frame.time_epoch":"1704164742.000082","nas-5gs.security_header_type":"1","nas-5gs.mm.message_type":"84","nas-5gs.seq_no":"82","nas-5gs.msg_auth_code":"657290","nas-5gs.security_parameter_index":"65501"}
+{"frame.number":"83","frame.time_epoch":"1704164743.000083","nas-5gs.security_header_type":"1","nas-5gs.sm.message_type":"250","nas-5gs.seq_no":"83","nas-5gs.msg_auth_code":"665209","nas-5gs.security_parameter_index":"65501"}

@@ -93,6 +93,60 @@ class Nas5gsValidatorTests(unittest.TestCase):
     def test_concrete_domain_package_does_not_change_nas_validation_scope(self):
         self.assertEqual(VALIDATOR.validate(ROOT), [])
 
+    def test_wrong_version_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/protocol/nas-5gs/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.2.0", "version: 0.1.0"), encoding="utf-8")
+            self.assertTrue(any("manifest version must be 0.2.0" in error for error in VALIDATOR.validate(root)))
+
+    def test_missing_5gsm_fixture_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            (root / "skills/protocol/nas-5gs/examples/extracted/sm-establishment-request.jsonl").unlink()
+            errors = VALIDATOR.validate(root)
+            self.assertTrue(
+                any("missing required package file" in error or "5GSM fixture is missing" in error for error in errors),
+                errors,
+            )
+
+    def test_foreign_protocol_semantics_are_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/protocol/nas-5gs/scripts/nas5gs_model.py"
+            model.write_text(model.read_text(encoding="utf-8") + "\nPFCP_SESSION_ESTABLISHMENT = 1\n", encoding="utf-8")
+            self.assertTrue(any("foreign protocol semantics" in error for error in VALIDATOR.validate(root)))
+
+    def test_session_field_fabrication_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/protocol/nas-5gs/scripts/nas5gs_model.py"
+            model.write_text(model.read_text(encoding="utf-8") + '\nFABRICATED = {"teid": None}\n', encoding="utf-8")
+            self.assertTrue(any("session field fabrication" in error for error in VALIDATOR.validate(root)))
+
+    def test_production_ip_fixture_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            fixture = root / "skills/protocol/nas-5gs/examples/extracted/sm-establishment-accept.jsonl"
+            fixture.write_text(
+                fixture.read_text(encoding="utf-8").replace("192.0.2.10", "10.44.12.9"),
+                encoding="utf-8",
+            )
+            self.assertTrue(any("non-documentation IP address" in error for error in VALIDATOR.validate(root)))
+
+    def test_repository_root_runtime_dependency_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            readme = root / "skills/protocol/nas-5gs/README.md"
+            readme.write_text(readme.read_text(encoding="utf-8") + "\nRun ../../../scripts/validate-repository.py\n", encoding="utf-8")
+            self.assertTrue(any("repository-root runtime reference" in error for error in VALIDATOR.validate(root)))
+
+    def test_forbidden_pdu_session_domain_package_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            (root / "skills/domain/5gc-pdu-session").mkdir(parents=True)
+            self.assertTrue(any("5gc-pdu-session" in error for error in VALIDATOR.validate(root)))
+
 
 if __name__ == "__main__":
     unittest.main()

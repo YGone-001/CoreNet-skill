@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract bounded NAS-5GS (5GMM) semantic events from a capture or JSONL.
+"""Extract bounded NAS-5GS (5GMM and 5GSM) semantic events from a capture or JSONL.
 
 Outputs detailed NAS-5GS JSONL events and, optionally, a shared trace-event
 projection. Subscriber identity values stay redacted by default; see

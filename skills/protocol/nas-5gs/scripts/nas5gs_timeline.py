@@ -2,7 +2,8 @@
 """Render a bounded protocol-local timeline from detailed NAS-5GS events.
 
 The timeline is a message listing, not a procedure verdict engine: it never
-labels REGISTRATION SUCCESS or REGISTRATION FAILURE from local sequencing.
+labels REGISTRATION SUCCESS, REGISTRATION FAILURE, PDU SESSION SUCCESS, or
+PDU SESSION FAILURE from local sequencing.
 """
 
 from __future__ import annotations
@@ -58,6 +59,10 @@ def timeline_entry(event: dict[str, object]) -> dict[str, object]:
     identity = event.get("identity") if isinstance(event.get("identity"), dict) else {}
     registration = event.get("registration") if isinstance(event.get("registration"), dict) else {}
     service = event.get("service") if isinstance(event.get("service"), dict) else {}
+    session = event.get("session_management") if isinstance(event.get("session_management"), dict) else {}
+    request_type = session.get("request_type") if isinstance(session.get("request_type"), dict) else {}
+    session_type = session.get("pdu_session_type") if isinstance(session.get("pdu_session_type"), dict) else {}
+    ssc_mode = session.get("ssc_mode") if isinstance(session.get("ssc_mode"), dict) else {}
     return {
         "timestamp": event.get("timestamp"),
         "frame_number": event.get("frame_number"),
@@ -73,6 +78,12 @@ def timeline_entry(event: dict[str, object]) -> dict[str, object]:
         "registration_type": registration.get("type_name"),
         "service_type": service.get("type_name"),
         "cause": event.get("cause"),
+        "pdu_session_id": session.get("pdu_session_id"),
+        "pti": session.get("pti"),
+        "request_type": request_type.get("name"),
+        "pdu_session_type": session_type.get("name"),
+        "ssc_mode": ssc_mode.get("name"),
+        "dnn": session.get("dnn"),
     }
 
 
@@ -84,12 +95,19 @@ def render_text(events: list[dict[str, object]]) -> str:
         if entry["ciphered"]:
             protection += "+ciphered"
         label = entry["message_type"] or f"{entry['support_status']}({entry['nas_family'] or '?'})"
-        lines.append(
+        line = (
             f"frame={_show(entry['frame_number'])} {entry['timestamp']} "
             f"{_show(entry['direction'])} {protection} {label} "
             f"reg={_show(entry['registration_type'])} svc={_show(entry['service_type'])} "
             f"id={_show(entry['identity_type'])} cause={_cause(event)}"
         )
+        if entry["nas_family"] == "5GSM":
+            line += (
+                f" psi={_show(entry['pdu_session_id'])} pti={_show(entry['pti'])}"
+                f" type={_show(entry['pdu_session_type'])} ssc={_show(entry['ssc_mode'])}"
+                f" dnn={_show(entry['dnn'])}"
+            )
+        lines.append(line)
     return "\n".join(lines) + "\n"
 
 

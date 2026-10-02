@@ -39,6 +39,26 @@ TIMELINE = load_script("nas5gs_timeline")
 EXTRACTED = PACKAGE / "examples" / "extracted"
 EXPECTED = PACKAGE / "examples" / "expected"
 
+# Fixtures that produce deterministic expected output (error fixtures excluded).
+FIXTURE_NAMES = (
+    "registration-flow",
+    "rejection-flow",
+    "service-flow",
+    "protection-variants",
+    "deferred-unknown",
+    "mobility-types",
+    "sm-establishment-request",
+    "sm-establishment-accept",
+    "sm-establishment-accept-multi-qfi",
+    "sm-establishment-reject",
+    "sm-modification",
+    "sm-release",
+    "sm-status",
+    "sm-recognition",
+    "sm-session-identity",
+    "sm-protection",
+)
+
 
 def events_of(name: str, include_sensitive: bool = False) -> list[dict]:
     return [
@@ -79,12 +99,21 @@ class MessageIdentityTests(unittest.TestCase):
         self.assertIsNone(identity.direction)
         self.assertIsNone(identity.result)
 
-    def test_5gsm_is_recognized_and_deferred(self):
+    def test_supported_5gsm_message_mapping(self):
         identity = MODEL.resolve_message(None, 193)
         self.assertEqual(identity.nas_family, "5GSM")
-        self.assertEqual(identity.support_status, "DEFERRED")
-        self.assertIsNone(identity.message_type)
-        self.assertIsNone(identity.result)
+        self.assertEqual(identity.support_status, "SUPPORTED")
+        self.assertEqual(identity.message_type, "PDU session establishment request")
+        self.assertEqual(identity.direction, "ue-to-smf")
+        self.assertEqual(identity.direction_basis, "message-definition")
+        self.assertEqual(identity.result, "REQUEST")
+        self.assertEqual(identity.procedure_family, "PDU_SESSION_ESTABLISHMENT")
+
+    def test_5gsm_directions_follow_reviewed_definitions(self):
+        self.assertEqual(MODEL.resolve_message(None, 194).direction, "smf-to-ue")
+        self.assertEqual(MODEL.resolve_message(None, 211).direction, "smf-to-ue")
+        self.assertEqual(MODEL.resolve_message(None, 212).direction, "ue-to-smf")
+        self.assertIsNone(MODEL.resolve_message(None, 214).direction)
 
     def test_both_message_types_is_ambiguous(self):
         with self.assertRaises(MODEL.InputError):
@@ -169,14 +198,14 @@ class RegistrationSemanticsTests(unittest.TestCase):
         event = events_of("rejection-flow.jsonl")[0]
         self.assertEqual(event["message_type"], "Registration reject")
         self.assertEqual(event["result"], "REJECT")
-        self.assertEqual(event["cause"], {"code": 22, "name": "Congestion"})
+        self.assertEqual(event["cause"], {"code": 22, "name": "Congestion", "family": "5GMM"})
 
     def test_unknown_cause_code_preserves_number(self):
         event = MODEL.normalize_record(
             {"frame.number": "6", "frame.time_epoch": "0", "nas-5gs.mm.message_type": "68", "nas-5gs.mm.5gmm_cause": "99"},
             "x.jsonl",
         )
-        self.assertEqual(event["cause"], {"code": 99, "name": None})
+        self.assertEqual(event["cause"], {"code": 99, "name": None, "family": "5GMM"})
 
 
 class IdentityPrivacyTests(unittest.TestCase):
@@ -240,7 +269,7 @@ class AuthenticationSafetyTests(unittest.TestCase):
     def test_authentication_failure_cause(self):
         event = events_of("rejection-flow.jsonl")[1]
         self.assertEqual(event["message_type"], "Authentication failure")
-        self.assertEqual(event["cause"], {"code": 21, "name": "Synch failure"})
+        self.assertEqual(event["cause"], {"code": 21, "name": "Synch failure", "family": "5GMM"})
         self.assertTrue(event["authentication"]["auts_present"])
         self.assertEqual(event["result"], "FAILURE")
 
@@ -270,7 +299,7 @@ class SecurityModeTests(unittest.TestCase):
     def test_security_mode_reject_cause(self):
         event = events_of("rejection-flow.jsonl")[2]
         self.assertEqual(event["message_type"], "Security mode reject")
-        self.assertEqual(event["cause"], {"code": 23, "name": "UE security capabilities mismatch"})
+        self.assertEqual(event["cause"], {"code": 23, "name": "UE security capabilities mismatch", "family": "5GMM"})
 
     def test_no_cryptographic_verification_claim(self):
         blob = json.dumps(events_of("registration-flow.jsonl"))
@@ -287,32 +316,171 @@ class ServiceTests(unittest.TestCase):
     def test_service_reject_cause(self):
         event = events_of("rejection-flow.jsonl")[3]
         self.assertEqual(event["message_type"], "Service reject")
-        self.assertEqual(event["cause"], {"code": 22, "name": "Congestion"})
+        self.assertEqual(event["cause"], {"code": 22, "name": "Congestion", "family": "5GMM"})
 
 
 class FamilyBoundaryTests(unittest.TestCase):
-    def test_deferred_5gsm(self):
+    def test_known_unsupported_5gsm_preserves_name_only(self):
         events = events_of("deferred-unknown.jsonl")
         event = events[0]
         self.assertEqual(event["nas_family"], "5GSM")
-        self.assertEqual(event["support_status"], "DEFERRED")
+        self.assertEqual(event["support_status"], "UNSUPPORTED")
+        self.assertEqual(event["message_type"], "PDU session authentication command")
+        self.assertIsNone(event["result"])
+        self.assertIsNone(event["procedure_family"])
+
+    def test_unknown_5gsm_message_stays_unknown(self):
+        events = events_of("deferred-unknown.jsonl")
+        event = events[3]
+        self.assertEqual(event["nas_family"], "5GSM")
+        self.assertEqual(event["support_status"], "UNKNOWN")
         self.assertIsNone(event["message_type"])
         self.assertIsNone(event["result"])
-        self.assertFalse(event["security"]["inner_message_available"])
-        blob = json.dumps(event)
-        for forbidden in ("pdu_session", "dnn", "qfi", "ssc_mode", "session_type"):
-            self.assertNotIn(forbidden, blob)
 
-    def test_no_session_fields_in_projection(self):
-        for event in events_of("deferred-unknown.jsonl"):
-            projected = MODEL.project_trace_event(event)
-            self.assertNotIn("session", projected)
-            self.assertNotIn("subscriber", projected)
+    def test_projection_never_fabricates_seid_or_teid(self):
+        for name in ("deferred-unknown.jsonl", "sm-establishment-accept.jsonl", "sm-establishment-request.jsonl"):
+            for event in events_of(name):
+                projected = MODEL.project_trace_event(event)
+                self.assertNotIn("subscriber", projected)
+                session = projected.get("session", {})
+                for forbidden in ("seid", "teid", "apn", "bearer_id"):
+                    self.assertNotIn(forbidden, session)
 
     def test_unknown_family_frame(self):
         event = events_of("protection-variants.jsonl")[1]
         self.assertEqual(event["support_status"], "UNKNOWN")
         self.assertIsNone(event["nas_family"])
+
+
+class ProtocolDiscriminatorTests(unittest.TestCase):
+    def test_5gmm_and_5gsm_discriminators_differ(self):
+        mm = events_of("registration-flow.jsonl")[0]
+        sm = events_of("sm-establishment-request.jsonl")[0]
+        self.assertEqual(mm["protocol_discriminator"], 126)
+        self.assertEqual(sm["protocol_discriminator"], 46)
+        self.assertNotEqual(mm["protocol_discriminator"], sm["protocol_discriminator"])
+
+    def test_observed_discriminator_preserved(self):
+        event = MODEL.normalize_record(
+            {"frame.number": "1", "frame.time_epoch": "0", "nas-5gs.epd": "46", "nas-5gs.sm.message_type": "193"},
+            "x.jsonl",
+        )
+        self.assertEqual(event["protocol_discriminator"], 46)
+
+    def test_conflicting_family_and_discriminator_fails_loudly(self):
+        with self.assertRaises(MODEL.InputError):
+            MODEL.normalize_record(
+                {"frame.number": "1", "frame.time_epoch": "0", "nas-5gs.epd": "126", "nas-5gs.sm.message_type": "193"},
+                "x.jsonl",
+            )
+
+
+class SessionManagementTests(unittest.TestCase):
+    def test_establishment_request_fields(self):
+        event = events_of("sm-establishment-request.jsonl")[0]
+        sm = event["session_management"]
+        self.assertEqual(event["message_type"], "PDU session establishment request")
+        self.assertEqual(sm["pdu_session_id"], 5)
+        self.assertEqual(sm["pti"], 1)
+        self.assertEqual(sm["request_type"], {"code": 1, "name": "initial request"})
+        self.assertEqual(sm["pdu_session_type"], {"code": 3, "name": "IPv4v6"})
+        self.assertEqual(sm["ssc_mode"], {"code": 1, "name": "SSC mode 1"})
+        self.assertEqual(sm["dnn"], "internet")
+        self.assertEqual(sm["snssai"], {"sst": 1, "sd": 1})
+
+    def test_establishment_accept_fields(self):
+        event = events_of("sm-establishment-accept.jsonl")[0]
+        sm = event["session_management"]
+        self.assertEqual(sm["pdu_address"], "192.0.2.10")
+        self.assertEqual(sm["dnn"], "internet")
+        self.assertTrue(sm["authorized_qos_rules"]["present"])
+        self.assertEqual(sm["authorized_qos_rules"]["rule_ids"], [1])
+        self.assertTrue(sm["qos_flow_descriptions"]["present"])
+        self.assertEqual(sm["qos_flow_descriptions"]["qfi_values"], [1])
+        self.assertEqual(sm["qos_flow_descriptions"]["five_qi_values"], [9])
+        self.assertEqual(sm["always_on"]["indicated"], True)
+
+    def test_establishment_reject_cause(self):
+        event = events_of("sm-establishment-reject.jsonl")[0]
+        self.assertEqual(event["message_type"], "PDU session establishment reject")
+        self.assertEqual(event["result"], "REJECT")
+        self.assertEqual(event["cause"], {"code": 27, "name": "Missing or unknown DNN", "family": "5GSM"})
+
+    def test_modification_messages(self):
+        events = events_of("sm-modification.jsonl")
+        self.assertEqual([e["message_type"] for e in events], [
+            "PDU session modification request",
+            "PDU session modification reject",
+            "PDU session modification command",
+            "PDU session modification complete",
+            "PDU session modification command reject",
+        ])
+        self.assertEqual(events[0]["procedure_family"], "PDU_SESSION_MODIFICATION")
+        self.assertEqual(events[3]["direction"], "ue-to-smf")
+
+    def test_release_messages(self):
+        events = events_of("sm-release.jsonl")
+        self.assertEqual([e["message_type"] for e in events], [
+            "PDU session release request",
+            "PDU session release reject",
+            "PDU session release command",
+            "PDU session release complete",
+        ])
+        self.assertEqual(events[2]["cause"]["name"], "Regular deactivation")
+
+    def test_5gsm_status(self):
+        event = events_of("sm-status.jsonl")[0]
+        self.assertEqual(event["message_type"], "5GSM status")
+        self.assertEqual(event["result"], "STATUS")
+        self.assertEqual(event["procedure_family"], "SESSION_MANAGEMENT_STATUS")
+        self.assertEqual(event["cause"]["name"], "Semantically incorrect message")
+
+    def test_unknown_values_stay_explicit(self):
+        events = events_of("sm-recognition.jsonl")
+        reserved = events[2]["session_management"]
+        self.assertEqual(reserved["pdu_session_type"], {"code": 6, "name": None})
+        self.assertEqual(reserved["ssc_mode"], {"code": 5, "name": None})
+        self.assertEqual(events[2]["cause"], {"code": 200, "name": None, "family": "5GSM"})
+
+    def test_pdu_session_id_and_pti_are_distinct(self):
+        sm = events_of("sm-establishment-request.jsonl")[0]["session_management"]
+        self.assertEqual(sm["pdu_session_id"], 5)
+        self.assertEqual(sm["pti"], 1)
+        self.assertNotEqual(sm["pdu_session_id"], sm["pti"])
+
+    def test_no_global_session_join(self):
+        events = events_of("sm-session-identity.jsonl")
+        self.assertEqual([e["session_management"]["pdu_session_id"] for e in events], [5, 6, 5])
+        self.assertEqual(len({e["frame_number"] for e in events}), 3)
+
+    def test_protected_inner_available_and_unavailable(self):
+        events = events_of("sm-protection.jsonl")
+        self.assertTrue(events[0]["security"]["inner_message_available"])
+        self.assertEqual(events[0]["security"]["decode_basis"], "dissector-decoded")
+        self.assertFalse(events[1]["security"]["inner_message_available"])
+        self.assertIsNone(events[1]["message_type"])
+
+    def test_malformed_session_metadata_fails_loudly(self):
+        with self.assertRaises(MODEL.InputError):
+            events_of("sm-malformed.jsonl")
+
+
+class SessionProjectionTests(unittest.TestCase):
+    def test_single_qfi_projected(self):
+        projected = MODEL.project_trace_event(events_of("sm-establishment-accept.jsonl")[0])
+        self.assertEqual(projected["session"], {"pdu_session_id": 5, "dnn": "internet", "qfi": 1})
+
+    def test_multiple_qfi_omits_qfi(self):
+        event = events_of("sm-establishment-accept-multi-qfi.jsonl")[0]
+        self.assertEqual(event["session_management"]["qos_flow_descriptions"]["qfi_values"], [1, 2, 3])
+        projected = MODEL.project_trace_event(event)
+        self.assertEqual(projected["session"], {"pdu_session_id": 5, "dnn": "internet"})
+        self.assertNotIn("qfi", projected["session"])
+
+    def test_5gmm_events_carry_no_session(self):
+        for event in events_of("registration-flow.jsonl"):
+            self.assertNotIn("session_management", event)
+            self.assertNotIn("session", MODEL.project_trace_event(event))
 
 
 class ProjectionTests(unittest.TestCase):
@@ -350,7 +518,7 @@ class ProjectionTests(unittest.TestCase):
 class FixtureAndDeterminismTests(unittest.TestCase):
     def test_expected_detailed_fixture_matches(self):
         with tempfile.TemporaryDirectory() as directory:
-            for name in ("registration-flow", "rejection-flow", "service-flow", "protection-variants", "deferred-unknown", "mobility-types"):
+            for name in FIXTURE_NAMES:
                 output = Path(directory) / f"{name}.jsonl"
                 EXTRACT.write_events(EXTRACTED / f"{name}.jsonl", "fields-jsonl", output, False, False)
                 expected = [json.loads(line) for line in (EXPECTED / f"{name}-events.jsonl").read_text(encoding="utf-8").splitlines()]
@@ -445,6 +613,16 @@ class TimelineTests(unittest.TestCase):
         self.assertIn("Congestion(22)", text)
         self.assertNotIn("SUCCESS", text.upper().replace("SUCCESSFUL", ""))
 
+    def test_5gsm_timeline_columns_and_no_verdict(self):
+        events = [json.loads(line) for line in (EXPECTED / "sm-release-events.jsonl").read_text(encoding="utf-8").splitlines()]
+        text = TIMELINE.render_text(events)
+        self.assertIn("PDU session release command", text)
+        self.assertIn("psi=5", text)
+        self.assertIn("Regular deactivation(36)", text)
+        upper = text.upper()
+        for forbidden in ("PDU SESSION SUCCESS", "PDU SESSION FAILURE", "SMF FAILURE", "UPF FAILURE"):
+            self.assertNotIn(forbidden, upper)
+
     def test_json_timeline_structure(self):
         events = [json.loads(line) for line in (EXPECTED / "registration-flow-events.jsonl").read_text(encoding="utf-8").splitlines()]
         document = json.loads(TIMELINE.render_json(events))
@@ -457,14 +635,25 @@ class TimelineTests(unittest.TestCase):
 class SchemaTests(unittest.TestCase):
     def test_expected_events_conform_structurally(self):
         schema = json.loads((PACKAGE / "schemas" / "nas5gs-event.schema.json").read_text(encoding="utf-8"))
-        for name in ("registration-flow-events", "rejection-flow-events", "service-flow-events", "protection-variants-events", "deferred-unknown-events", "mobility-types-events"):
-            for event in [json.loads(line) for line in (EXPECTED / f"{name}.jsonl").read_text(encoding="utf-8").splitlines()]:
-                self.assertEqual(set(event), set(schema["properties"]), name)
+        allowed = set(schema["properties"])
+        required = set(schema["required"])
+        for name in FIXTURE_NAMES:
+            for event in [json.loads(line) for line in (EXPECTED / f"{name}-events.jsonl").read_text(encoding="utf-8").splitlines()]:
+                self.assertTrue(required <= set(event), name)
+                self.assertTrue(set(event) <= allowed, name)
                 self.assertEqual(event["evidence"]["level"], "OBSERVED")
                 self.assertIn(event["support_status"], {"SUPPORTED", "UNSUPPORTED", "UNKNOWN", "DEFERRED"})
                 self.assertIsNone(event["identity"]["value"])
                 for derivation in event["derivations"]:
                     self.assertIn(derivation, schema["properties"]["derivations"]["items"]["enum"])
+
+    def test_session_management_only_on_5gsm(self):
+        for name in FIXTURE_NAMES:
+            for event in [json.loads(line) for line in (EXPECTED / f"{name}-events.jsonl").read_text(encoding="utf-8").splitlines()]:
+                if event["nas_family"] == "5GSM":
+                    self.assertIn("session_management", event, name)
+                else:
+                    self.assertNotIn("session_management", event, name)
 
     def test_trace_projection_conforms(self):
         schema = json.loads((PACKAGE / "schemas" / "trace-event.schema.json").read_text(encoding="utf-8"))

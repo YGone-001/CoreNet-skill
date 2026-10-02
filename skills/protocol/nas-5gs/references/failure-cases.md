@@ -3,57 +3,73 @@
 Protocol-local abnormal and inconclusive patterns this Skill reports,
 with the hard boundary between protocol evidence and causal claims.
 
-## Protocol-local abnormal patterns
+## Protocol-local abnormal patterns (5GMM)
 
 - Registration reject observed — message identity, local REJECT result,
   5GMM cause code and reviewed name preserved. The cause explains the
   NAS-level rejection as stated on the wire; it does not automatically
-  become the end-to-end infrastructure root cause. For example, cause
-  22 (Congestion) states congestion evidence, not which element or
-  operator decision congested.
+  become the end-to-end infrastructure root cause.
 - Service reject observed — 5GMM cause preserved. Paging failure, RRC
   failure, or AMF defects are not inferable from Service reject alone.
-- Security mode reject observed — 5GMM cause preserved (for example,
-  UE security capabilities mismatch). The stated mismatch reason is
-  protocol evidence, not a diagnosis of either implementation.
+- Security mode reject observed — 5GMM cause preserved.
 - Authentication failure observed — 5GMM cause and AUTS presence
-  recorded. Bad USIM, failed HPLMN authentication backend, clock skew,
-  or SQN issues are hypotheses requiring Domain/Implementation-layer
-  evidence, never conclusions from this Skill.
-- Authentication reject observed — recorded with envelope context. No
-  authentication backend logic exists here.
-- 5GMM status observed — treated as protocol-level error/status
-  evidence with its 5GMM cause; never promoted to an implementation
-  root cause.
-- Known unsupported message — recognized name (deregistration,
-  configuration update, notification, NAS transport, relay messages),
-  UNSUPPORTED status, no semantics.
+  recorded; backend, USIM, or clock-skew explanations are hypotheses
+  needing other evidence.
+- Authentication reject observed — recorded with envelope context.
+- 5GMM status observed — treated as protocol-level status evidence with
+  its 5GMM cause; never promoted to an implementation root cause.
+
+## Protocol-local abnormal patterns (5GSM)
+
+- PDU session establishment reject observed — message identity, local
+  REJECT result, and 5GSM cause code and reviewed name preserved. For
+  example cause 27 (Missing or unknown DNN) states a session-level
+  reason; it does not prove SMF, UPF, or AMF failure.
+- PDU session modification reject observed — 5GSM cause preserved.
+- PDU session modification command reject observed — 5GSM cause
+  preserved; the UE-side rejection is protocol evidence, not a
+  diagnosis of either implementation.
+- PDU session release reject observed — 5GSM cause preserved.
+- PDU session release command observed — an observed protocol action.
+  It is not proof of root cause; the command may reflect policy,
+  mobility, or error handling this Skill cannot see.
+- 5GSM status observed — treated as protocol-level status evidence with
+  its 5GSM cause; never promoted to an implementation root cause.
+- Reserved or unknown PDU session type / SSC mode / 5GSM cause — the
+  numeric value is preserved with a null name; no semantics are invented.
+- Known unsupported 5GSM message (for example PDU session authentication
+  command, remote UE report) — recognized name, UNSUPPORTED status, no
+  session semantics.
+- Unknown 5GSM message type — numeric code preserved, UNKNOWN status, no
+  invented identity.
+- QoS rules present but no stable QFI exposed — the presence flag is
+  preserved and the QFI list stays empty; no QFI is fabricated.
+- Protected envelope without decodable inner message — recorded as
+  `inner_message_available: false`. Ciphered contents are never guessed.
+- Malformed structured session metadata (PDU session identity or
+  procedure transaction identity outside 0..255) — fails loudly per
+  record; nothing is guessed into validity.
+
+## Shared inconclusive patterns
+
 - Unknown message type — numeric code preserved, UNKNOWN status, no
   invented identity.
-- 5GSM payload — recognized as DEFERRED family evidence; no session
-  semantics.
-- Protected envelope without decodable inner message — recorded as
-  `inner_message_available: false`. Ciphered contents are never guessed
-  from sequence numbers or timing.
-- Malformed structured metadata — missing or invalid required fields
-  fail loudly per record; nothing is guessed into validity.
-- Sensitive identity present — default output redacts values; an
-  opt-in export must be deliberate.
+- Sensitive identity present — default output redacts values; an opt-in
+  export must be deliberate.
 
 ## Cause is evidence, not root cause
 
-A 5GMM cause code is what the message stated. The chain from a stated
-cause to an end-to-end fault requires procedure context (Domain), core
-and radio evidence, and implementation knowledge:
+A 5GMM or 5GSM cause code is what the message stated. The chain from a
+stated cause to an end-to-end fault requires procedure context (Domain),
+core and radio evidence, and implementation knowledge:
 
-    observed 5GMM cause
+    observed cause
         -> protocol-local meaning (this Skill)
-        -> procedure interpretation (future Domain Skill)
-        -> implementation mapping (future Implementation Skill)
+        -> procedure interpretation (Domain Skill)
+        -> implementation mapping (external, when evidence is provided)
         -> candidate defect, then validation
 
-This Skill's output stops after the first arrow. Reports built from it
-must keep cause labels as protocol evidence.
+This Skill's output stops after the first arrow.
 
 ## Capture-window uncertainty
 
@@ -66,9 +82,6 @@ must keep cause labels as protocol evidence.
   dropped it, or the capture point never saw it.
 - A protected inner message may be undecodable in the capture yet
   perfectly decodable in the live network with security context.
-- Absence of a security-protected response is not proof of absence on
-  the air interface, especially at capture points that terminate the
-  protected segment.
 
 Reports must name the capture boundary and phrase missing outcomes as
 unobserved-in-capture.

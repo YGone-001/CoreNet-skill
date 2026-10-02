@@ -1,0 +1,2 @@
+{"frame.number":"260","frame.time_epoch":"1704164860.000260","nas-5gs.security_header_type":"2","nas-5gs.sm.message_type":"194","nas-5gs.pdu_session_id":"5","nas-5gs.proc_trans_id":"1","nas-5gs.sm.pdu_ses_type":"1","nas-5gs.cmn.dnn":"internet","nas-5gs.seq_no":"80","nas-5gs.msg_auth_code":"911111","nas-5gs.security_parameter_index":"65501"}
+{"frame.number":"261","frame.time_epoch":"1704164861.000261","nas-5gs.security_header_type":"2","nas-5gs.seq_no":"81","nas-5gs.msg_auth_code":"922222","nas-5gs.security_parameter_index":"65501"}

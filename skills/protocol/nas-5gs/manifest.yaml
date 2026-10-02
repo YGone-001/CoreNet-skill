@@ -1,28 +1,35 @@
 name: nas-5gs
-version: 0.1.0
+version: 0.2.0
 category: protocol
 description: >
-  Bounded NAS-5GS 5GMM semantic extraction for N1 signaling: security
-  envelope classification, 5GMM message identification for the
+  Bounded NAS-5GS semantic extraction for N1 signaling: security-envelope
+  classification, bounded 5GMM message identification for the
   registration/identity/authentication/security-mode/service/status
-  subset, bounded IE normalization, 5GSM recognition deferred, detailed
-  NAS events, and shared trace-event projection with privacy defaults.
+  subset, bounded 5GSM message identification for the PDU session
+  establishment/modification/release and 5GSM status subset, bounded IE
+  normalization, detailed NAS events, and shared trace-event projection
+  with privacy defaults.
 scope:
   includes:
     - 5GMM/5GSM family recognition via protocol-local evidence
     - security envelope classification (plain, integrity protected, ciphered, new context)
     - bounded 5GMM message semantics: Registration, Identity, Authentication, Security mode, Service, 5GMM status
-    - reviewed 5GMM cause code/name preservation
+    - bounded 5GSM message semantics: PDU session establishment, modification, release, 5GSM status
+    - reviewed 5GMM and 5GSM cause code/name preservation
+    - bounded 5GSM session-management fields (PDU session identity, procedure transaction identity, request type, PDU session type, SSC mode, DNN, S-NSSAI, PDU address, bounded QoS presence and QFI/5QI, always-on, EPCO presence)
     - registration type and follow-on request normalization
     - identity privacy defaults (presence and type; redacted values)
     - detailed NAS event JSONL and shared trace-event projection
   excludes:
-    - 5GSM PDU session semantics (PDU session ID, DNN, QFI, SSC mode, 5GSM cause)
+    - complete PDU session procedure state or success/failure verdicts
+    - deep QoS rule grammar, packet filter, precedence, and policy semantics
+    - NGAP PDU session resource semantics
+    - PFCP, GTP-U, and SBI/N11 semantics
     - complete 5G Registration procedure state or verdicts
     - NAS key derivation, MAC verification, ciphering, AKA logic
     - authentication secret emission in any mode
     - NGAP context parsing or NGAP ownership
-    - AMF/UE implementation mapping or end-to-end root cause
+    - AMF/SMF/UPF/gNB implementation mapping or end-to-end root cause
 dependencies:
   required: []
   optional:
@@ -66,6 +73,17 @@ testing:
     - examples/extracted/mobility-types.jsonl
     - examples/extracted/malformed.jsonl
     - examples/extracted/missing-required.jsonl
+    - examples/extracted/sm-establishment-request.jsonl
+    - examples/extracted/sm-establishment-accept.jsonl
+    - examples/extracted/sm-establishment-accept-multi-qfi.jsonl
+    - examples/extracted/sm-establishment-reject.jsonl
+    - examples/extracted/sm-modification.jsonl
+    - examples/extracted/sm-release.jsonl
+    - examples/extracted/sm-status.jsonl
+    - examples/extracted/sm-recognition.jsonl
+    - examples/extracted/sm-session-identity.jsonl
+    - examples/extracted/sm-protection.jsonl
+    - examples/extracted/sm-malformed.jsonl
   expected_results:
     - examples/expected/registration-flow-events.jsonl
     - examples/expected/registration-flow-trace.jsonl
@@ -74,3 +92,13 @@ testing:
     - examples/expected/protection-variants-events.jsonl
     - examples/expected/deferred-unknown-events.jsonl
     - examples/expected/mobility-types-events.jsonl
+    - examples/expected/sm-establishment-request-events.jsonl
+    - examples/expected/sm-establishment-accept-events.jsonl
+    - examples/expected/sm-establishment-accept-multi-qfi-events.jsonl
+    - examples/expected/sm-establishment-reject-events.jsonl
+    - examples/expected/sm-modification-events.jsonl
+    - examples/expected/sm-release-events.jsonl
+    - examples/expected/sm-status-events.jsonl
+    - examples/expected/sm-recognition-events.jsonl
+    - examples/expected/sm-session-identity-events.jsonl
+    - examples/expected/sm-protection-events.jsonl

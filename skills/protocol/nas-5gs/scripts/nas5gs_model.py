@@ -1,21 +1,31 @@
 #!/usr/bin/env python3
-"""Shared, standalone helpers for bounded NAS-5GS (5GMM) semantic extraction.
+"""Shared, standalone helpers for bounded NAS-5GS semantic extraction.
 
-Reviewed identity tables below were verified against the NAS-5GS dissector
-of Wireshark/TShark 4.7.1 (v4.7.1-0-g667ab240e6de) via `tshark -G fields`
-and `tshark -G values`, which implements 3GPP TS 24.501 message types,
-cause values, registration types, identity types, and NAS security
-algorithm identifiers. The intended specification basis is TS 24.501
-(Release 19); where a future specification edition diverges from the
-reviewed tool tables, the reviewed tool version is recorded and no
-release-specific mixture is claimed.
+Semantic support covers two bounded families of TS 24.501:
 
-Semantic support is intentionally bounded to the 5GMM registration /
-identity / authentication / security-mode / service / status subset.
-5GSM payloads are recognized and marked DEFERRED; known out-of-scope 5GMM
-messages are UNSUPPORTED with name only; unknown values stay UNKNOWN.
-This module never performs key derivation, MAC verification, ciphering,
-identity conversions, or identity-value emission by default.
+- 5GMM registration / identity / authentication / security-mode /
+  service / status (unchanged from the earlier bounded subset); and
+- 5GSM PDU session establishment / modification / release and 5GSM
+  status, added as a bounded, backward-compatible expansion.
+
+Reviewed tables were cross-checked against the NAS-5GS dissector of
+Wireshark/TShark 4.7.1 (v4.7.1-0-g667ab240e6de) and against the
+normative specifications. Message types, 5GSM causes, Request type, PDU
+session type, and SSC mode are taken from 3GPP TS 24.501 version 19.8.0
+Release 19 (tables 9.7.2, 9.11.4.2.1, 9.11.3.47.1, 9.11.4.11.1, and
+9.11.4.16.1). The extended protocol discriminator values are taken from
+3GPP TS 24.007 version 18.2.0 Release 18, table 11.2.3.1.1A.1: 5GMM uses
+0x7E and 5GSM uses 0x2E. Dissector output is tooling evidence, not
+normative truth; where a specification edition and the dissector
+disagree, the reviewed specification value is preserved and the tool
+version is recorded rather than reconciled.
+
+Bounded semantics only: supported 5GSM messages are SUPPORTED with
+message-local field handling; known out-of-scope 5GSM messages are
+UNSUPPORTED with name only; unknown values stay UNKNOWN. This module
+never performs key derivation, MAC verification, ciphering, identity
+conversions, or identity-value emission by default, and it never
+determines PDU session success, failure, or a root cause.
 """
 
 from __future__ import annotations
@@ -40,7 +50,13 @@ PROTOCOL = "NAS-5GS"
 INTERFACE = "N1"
 FAMILY_MM = "5GMM"
 FAMILY_SM = "5GSM"
-EXTENDED_PROTOCOL_DISCRIMINATOR = 0x7E
+
+# Extended protocol discriminator (TS 24.007 table 11.2.3.1.1A.1). The two
+# 5GS NAS protocols use distinct octet values: 5GMM 0x7E, 5GSM 0x2E.
+EPD_5GMM = 0x7E
+EPD_5GSM = 0x2E
+# Retained name for the 5GMM discriminator; existing 5GMM records keep it.
+EXTENDED_PROTOCOL_DISCRIMINATOR = EPD_5GMM
 
 FIELDS = (
     "frame.number",
@@ -51,6 +67,23 @@ FIELDS = (
     "nas-5gs.msg_auth_code",
     "nas-5gs.mm.message_type",
     "nas-5gs.sm.message_type",
+    "nas-5gs.pdu_session_id",
+    "nas-5gs.proc_trans_id",
+    "nas-5gs.mm.req_type",
+    "nas-5gs.sm.pdu_ses_type",
+    "nas-5gs.sm.sc_mode",
+    "nas-5gs.sm.sel_sc_mode",
+    "nas-5gs.cmn.dnn",
+    "nas-5gs.mm.sst",
+    "nas-5gs.mm.mm_sd",
+    "nas-5gs.sm.5gsm_cause",
+    "nas-5gs.sm.pdu_addr_inf_ipv4",
+    "nas-5gs.sm.pdu_addr_inf_ipv6",
+    "nas-5gs.sm.qos_rule_id",
+    "nas-5gs.sm.qfi",
+    "nas-5gs.sm.5qi",
+    "nas-5gs.sm.apsi",
+    "nas-5gs.sm.apsr",
     "nas-5gs.mm.5gs_reg_type",
     "nas-5gs.mm.for",
     "nas-5gs.mm.nas_key_set_id",
@@ -151,6 +184,136 @@ MESSAGE_RESULTS = {
     "Service accept": "ACCEPT",
     "Service reject": "REJECT",
     "5GMM status": "STATUS",
+}
+
+# Bounded 5GSM message types with semantic support (TS 24.501 19.8.0 table
+# 9.7.2 message identity, logical UE<->SMF direction, and bounded IE
+# handling only; no PDU session state). Direction is the single valid
+# logical direction for the message, or None when either side may send it
+# (5GSM status). 5GSM logical peers are UE and SMF even though N1 transport
+# passes through the AMF.
+SUPPORTED_SM_MESSAGES = {
+    193: ("PDU session establishment request", "ue-to-smf", "PDU_SESSION_ESTABLISHMENT"),
+    194: ("PDU session establishment accept", "smf-to-ue", "PDU_SESSION_ESTABLISHMENT"),
+    195: ("PDU session establishment reject", "smf-to-ue", "PDU_SESSION_ESTABLISHMENT"),
+    201: ("PDU session modification request", "ue-to-smf", "PDU_SESSION_MODIFICATION"),
+    202: ("PDU session modification reject", "smf-to-ue", "PDU_SESSION_MODIFICATION"),
+    203: ("PDU session modification command", "smf-to-ue", "PDU_SESSION_MODIFICATION"),
+    204: ("PDU session modification complete", "ue-to-smf", "PDU_SESSION_MODIFICATION"),
+    205: ("PDU session modification command reject", "ue-to-smf", "PDU_SESSION_MODIFICATION"),
+    209: ("PDU session release request", "ue-to-smf", "PDU_SESSION_RELEASE"),
+    210: ("PDU session release reject", "smf-to-ue", "PDU_SESSION_RELEASE"),
+    211: ("PDU session release command", "smf-to-ue", "PDU_SESSION_RELEASE"),
+    212: ("PDU session release complete", "ue-to-smf", "PDU_SESSION_RELEASE"),
+    214: ("5GSM status", None, "SESSION_MANAGEMENT_STATUS"),
+}
+
+# Known 5GSM message types outside the bounded subset: identity only,
+# recognized by reviewed name, never semantically expanded.
+KNOWN_UNSUPPORTED_SM_MESSAGES = {
+    197: "PDU session authentication command",
+    198: "PDU session authentication complete",
+    199: "PDU session authentication result",
+    216: "Service-level authentication command",
+    217: "Service-level authentication complete",
+    218: "Remote UE report",
+    219: "Remote UE report response",
+}
+
+# Local normalized result labels derived from reviewed 5GSM message
+# identity; they are not 3GPP wire values and not procedure verdicts.
+SM_MESSAGE_RESULTS = {
+    "PDU session establishment request": "REQUEST",
+    "PDU session establishment accept": "ACCEPT",
+    "PDU session establishment reject": "REJECT",
+    "PDU session modification request": "REQUEST",
+    "PDU session modification reject": "REJECT",
+    "PDU session modification command": "COMMAND",
+    "PDU session modification complete": "COMPLETE",
+    "PDU session modification command reject": "REJECT",
+    "PDU session release request": "REQUEST",
+    "PDU session release reject": "REJECT",
+    "PDU session release command": "COMMAND",
+    "PDU session release complete": "COMPLETE",
+    "5GSM status": "STATUS",
+}
+
+# Reviewed 5GSM cause values (TS 24.501 19.8.0 table 9.11.4.2.1). Only
+# reviewed values carry names; anything else stays UNKNOWN with its numeric
+# code preserved. A 5GSM cause is protocol evidence, never a root cause.
+SM_CAUSE_NAMES = {
+    8: "Operator determined barring",
+    26: "Insufficient resources",
+    27: "Missing or unknown DNN",
+    28: "Unknown PDU session type",
+    29: "User authentication or authorization failed",
+    31: "Request rejected, unspecified",
+    32: "Service option not supported",
+    33: "Requested service option not subscribed",
+    35: "PTI already in use",
+    36: "Regular deactivation",
+    37: "5GS QoS not accepted",
+    38: "Network failure",
+    39: "Reactivation requested",
+    41: "Semantic error in the TFT operation",
+    42: "Syntactical error in the TFT operation",
+    43: "Invalid PDU session identity",
+    44: "Semantic errors in packet filter(s)",
+    45: "Syntactical error in packet filter(s)",
+    46: "Out of LADN service area",
+    47: "PTI mismatch",
+    50: "PDU session type IPv4 only allowed",
+    51: "PDU session type IPv6 only allowed",
+    54: "PDU session does not exist",
+    57: "PDU session type IPv4v6 only allowed",
+    58: "PDU session type Unstructured only allowed",
+    61: "Unsupported 5QI value",
+    67: "PDU session type Ethernet only allowed",
+    68: "Insufficient resources for specific slice and DNN",
+    69: "Not supported SSC mode",
+    70: "Insufficient resources for specific slice",
+    81: "Missing or unknown DNN in a slice",
+    82: "Invalid PTI value",
+    83: "Maximum data rate per UE for user-plane integrity protection is too low",
+    84: "Semantic error in the QoS operation",
+    85: "Syntactical error in the QoS operation",
+    86: "Invalid mapped EPS bearer identity",
+    87: "UAS services not allowed",
+    95: "QoS differentiation for non-3GPP device identifier(s) not available",
+    96: "Semantically incorrect message",
+    97: "Invalid mandatory information",
+    98: "Message type non-existent or not implemented",
+    99: "Message type not compatible with the protocol state",
+    100: "Information element non-existent or not implemented",
+    101: "Conditional IE error",
+    111: "Message not compatible with the protocol state",
+    127: "Protocol error, unspecified",
+}
+
+# TS 24.501 19.8.0 table 9.11.3.47.1 (Request type value).
+REQUEST_TYPES = {
+    1: "initial request",
+    2: "existing PDU session",
+    3: "initial emergency request",
+    4: "existing emergency PDU session",
+    5: "modification request",
+    6: "MA PDU request",
+}
+
+# TS 24.501 19.8.0 table 9.11.4.11.1 (PDU session type value).
+PDU_SESSION_TYPES = {
+    1: "IPv4",
+    2: "IPv6",
+    3: "IPv4v6",
+    4: "Unstructured",
+    5: "Ethernet",
+}
+
+# TS 24.501 19.8.0 table 9.11.4.16.1 (SSC mode value).
+SSC_MODES = {
+    1: "SSC mode 1",
+    2: "SSC mode 2",
+    3: "SSC mode 3",
 }
 
 REGISTRATION_TYPES = {
@@ -302,14 +465,49 @@ def parse_int(value: object, field: str) -> int:
         raise InputError(f"{field} must be an integer") from exc
 
 
-def optional_int(value: object) -> int | None:
+def first_token(value: object) -> str | None:
+    """Return the first comma-separated token of a scalar field.
+
+    A dissector field that occurs more than once is exported comma-joined;
+    a scalar field keeps only its first token so a repeated field never
+    corrupts a single-valued property.
+    """
     text = clean(value)
+    if text is None:
+        return None
+    return text.split(",")[0].strip() or None
+
+
+def optional_int(value: object) -> int | None:
+    text = first_token(value)
     if text is None:
         return None
     try:
         return int(text)
     except ValueError:
         return None
+
+
+def int_list(value: object) -> list[int]:
+    """Parse a scalar or repeated field into an ordered integer list.
+
+    Repeated dissector output arrives comma-joined; structured input may
+    pass a JSON array instead. Order and duplicates are preserved so a
+    repeated field is never collapsed into one arbitrary value.
+    """
+    if value is None:
+        return []
+    items = [str(item) for item in value] if isinstance(value, (list, tuple)) else str(value).split(",")
+    result: list[int] = []
+    for item in items:
+        token = item.strip()
+        if not token:
+            continue
+        try:
+            result.append(int(token))
+        except ValueError as exc:
+            raise InputError("repeated numeric field must contain integers") from exc
+    return result
 
 
 def optional_bool(value: object) -> bool | None:
@@ -379,20 +577,46 @@ def resolve_security_header(value: int | None) -> dict[str, object]:
 def resolve_message(mm_code: int | None, sm_code: int | None) -> MessageIdentity:
     """Normalize 5GMM/5GSM identity from reviewed tables.
 
-    The 5GMM bounded subset is SUPPORTED with bounded semantics; known
-    out-of-scope 5GMM messages are UNSUPPORTED (name only); 5GSM payloads
-    are recognized as DEFERRED family observations; unknown values stay
-    UNKNOWN. Both message types at once is an ambiguous, invalid record.
+    The 5GMM bounded subset and the 5GSM bounded subset are SUPPORTED with
+    bounded semantics; known out-of-scope messages of either family are
+    UNSUPPORTED (name only); unknown values stay UNKNOWN. Both message
+    types at once is an ambiguous, invalid record.
     """
     derivations: list[str] = []
     if mm_code is not None and sm_code is not None:
         raise InputError("both 5GMM and 5GSM message types observed; ambiguous record")
     if sm_code is not None:
         derivations.append("nas_family")
+        if sm_code in SUPPORTED_SM_MESSAGES:
+            name, direction, procedure = SUPPORTED_SM_MESSAGES[sm_code]
+            derivations.extend(["message_type", "direction", "procedure_family", "result"])
+            return MessageIdentity(
+                nas_family=FAMILY_SM,
+                message_type=name,
+                support_status=SUPPORTED,
+                procedure_family=procedure,
+                direction=direction,
+                direction_basis="message-definition",
+                result=SM_MESSAGE_RESULTS[name],
+                derivations=tuple(sorted(derivations)),
+            )
+        known = KNOWN_UNSUPPORTED_SM_MESSAGES.get(sm_code)
+        if known is not None:
+            derivations.append("message_type")
+            return MessageIdentity(
+                nas_family=FAMILY_SM,
+                message_type=known,
+                support_status=UNSUPPORTED,
+                procedure_family=None,
+                direction=None,
+                direction_basis=None,
+                result=None,
+                derivations=tuple(sorted(derivations)),
+            )
         return MessageIdentity(
             nas_family=FAMILY_SM,
             message_type=None,
-            support_status=DEFERRED,
+            support_status=UNKNOWN,
             procedure_family=None,
             direction=None,
             direction_basis=None,
@@ -449,6 +673,64 @@ def resolve_message(mm_code: int | None, sm_code: int | None) -> MessageIdentity
     )
 
 
+def normalize_session_management(record: dict[str, object]) -> dict[str, object]:
+    """Normalize bounded 5GSM session-management fields from one record.
+
+    Only fields TS 24.501 defines and the reviewed dissector exposes are
+    read; absent values stay null and nothing is inferred. A repeated QFI
+    or 5QI field is preserved as an ordered list rather than collapsed into
+    one arbitrary value. The PDU session identity and the procedure
+    transaction identity stay distinct fields.
+    """
+    request_code = optional_int(record.get("nas-5gs.mm.req_type"))
+    session_type_code = optional_int(record.get("nas-5gs.sm.pdu_ses_type"))
+    if session_type_code is None:
+        session_type_code = optional_int(record.get("nas-5gs.sm.pdu_session_type"))
+    ssc_code = optional_int(record.get("nas-5gs.sm.sc_mode"))
+    if ssc_code is None:
+        ssc_code = optional_int(record.get("nas-5gs.sm.sel_sc_mode"))
+
+    pdu_session_id = optional_int(record.get("nas-5gs.pdu_session_id"))
+    if pdu_session_id is not None and not 0 <= pdu_session_id <= 255:
+        raise InputError("nas-5gs.pdu_session_id must be within 0..255")
+    pti = optional_int(record.get("nas-5gs.proc_trans_id"))
+    if pti is not None and not 0 <= pti <= 255:
+        raise InputError("nas-5gs.proc_trans_id must be within 0..255")
+
+    qfi_values = int_list(record.get("nas-5gs.sm.qfi"))
+    five_qi_values = int_list(record.get("nas-5gs.sm.5qi"))
+    rule_ids = int_list(record.get("nas-5gs.sm.qos_rule_id"))
+
+    qos_rules_present = optional_bool(record.get("qos_rules_present"))
+    if qos_rules_present is None:
+        qos_rules_present = bool(rule_ids)
+    flow_descriptions_present = optional_bool(record.get("qos_flow_descriptions_present"))
+    if flow_descriptions_present is None:
+        flow_descriptions_present = bool(qfi_values or five_qi_values)
+
+    pdu_address = first_token(record.get("nas-5gs.sm.pdu_addr_inf_ipv4"))
+    if pdu_address is None:
+        pdu_address = first_token(record.get("pdu_address"))
+
+    return {
+        "pdu_session_id": pdu_session_id,
+        "pti": pti,
+        "request_type": {"code": request_code, "name": REQUEST_TYPES.get(request_code) if request_code is not None else None},
+        "pdu_session_type": {"code": session_type_code, "name": PDU_SESSION_TYPES.get(session_type_code) if session_type_code is not None else None},
+        "ssc_mode": {"code": ssc_code, "name": SSC_MODES.get(ssc_code) if ssc_code is not None else None},
+        "dnn": first_token(record.get("nas-5gs.cmn.dnn")),
+        "snssai": {"sst": optional_int(record.get("nas-5gs.mm.sst")), "sd": optional_int(record.get("nas-5gs.mm.mm_sd"))},
+        "pdu_address": pdu_address,
+        "always_on": {
+            "requested": optional_bool(record.get("nas-5gs.sm.apsr")),
+            "indicated": optional_bool(record.get("nas-5gs.sm.apsi")),
+        },
+        "authorized_qos_rules": {"present": bool(qos_rules_present), "rule_ids": rule_ids},
+        "qos_flow_descriptions": {"present": bool(flow_descriptions_present), "qfi_values": qfi_values, "five_qi_values": five_qi_values},
+        "epco_present": optional_bool(record.get("epco_present")),
+    }
+
+
 def normalize_record(record: object, capture_file: str, include_sensitive: bool = False) -> dict[str, object]:
     """Project one structured NAS-5GS observation into the detailed event.
 
@@ -497,8 +779,14 @@ def normalize_record(record: object, capture_file: str, include_sensitive: bool 
     else:
         reg_name = REGISTRATION_TYPES.get(reg_code) if reg_code is not None else None
 
-    cause_code = optional_int(record.get("nas-5gs.mm.5gmm_cause"))
-    cause_name = CAUSE_NAMES.get(cause_code) if cause_code is not None else None
+    if identity.nas_family == FAMILY_SM:
+        cause_code = optional_int(record.get("nas-5gs.sm.5gsm_cause"))
+        cause_name = SM_CAUSE_NAMES.get(cause_code) if cause_code is not None else None
+        cause_family = FAMILY_SM
+    else:
+        cause_code = optional_int(record.get("nas-5gs.mm.5gmm_cause"))
+        cause_name = CAUSE_NAMES.get(cause_code) if cause_code is not None else None
+        cause_family = FAMILY_MM
     extra_derivations: list[str] = []
     if cause_name is not None:
         extra_derivations.append("cause_name")
@@ -545,10 +833,18 @@ def normalize_record(record: object, capture_file: str, include_sensitive: bool 
     }
 
     carrier_direction = clean(record.get("carrier_direction"))
-    if carrier_direction is not None and carrier_direction not in {"ue-to-amf", "amf-to-ue"}:
-        raise InputError("carrier_direction must be ue-to-amf or amf-to-ue")
+    if carrier_direction is not None and carrier_direction not in {"ue-to-amf", "amf-to-ue", "ue-to-smf", "smf-to-ue"}:
+        raise InputError("carrier_direction must be a documented logical direction")
     direction = carrier_direction if carrier_direction is not None else identity.direction
     direction_basis = "observed-carrier" if carrier_direction is not None else identity.direction_basis
+
+    observed_epd = optional_int(record.get("nas-5gs.epd"))
+    if observed_epd is not None and not 0 <= observed_epd <= 255:
+        raise InputError("nas-5gs.epd must be within 0..255")
+    derived_epd = EPD_5GSM if identity.nas_family == FAMILY_SM else EPD_5GMM
+    if observed_epd is not None and identity.nas_family in (FAMILY_MM, FAMILY_SM) and observed_epd != derived_epd:
+        raise InputError("observed extended protocol discriminator conflicts with the observed NAS family")
+    protocol_discriminator = observed_epd if observed_epd is not None else derived_epd
 
     source_ref = f"capture:{capture_file}#frame={frame_number}; message-type={mm_code if mm_code is not None else sm_code}"
     event: dict[str, object] = {
@@ -556,7 +852,7 @@ def normalize_record(record: object, capture_file: str, include_sensitive: bool 
         "frame_number": frame_number,
         "capture_file": capture_file,
         "nas_family": identity.nas_family,
-        "protocol_discriminator": EXTENDED_PROTOCOL_DISCRIMINATOR,
+        "protocol_discriminator": protocol_discriminator,
         "security": security,
         "message_type_code": mm_code if mm_code is not None else sm_code,
         "message_type": identity.message_type,
@@ -577,22 +873,27 @@ def normalize_record(record: object, capture_file: str, include_sensitive: bool 
             "type_name": identity_type_name,
             "value": sensitive_value,
         },
-        "cause": {"code": cause_code, "name": cause_name},
+        "cause": {"code": cause_code, "name": cause_name, "family": cause_family},
         "authentication": auth_meta,
         "security_mode": security_mode_meta,
         "service": service_meta,
         "evidence": {"level": "OBSERVED", "source": source_ref},
         "derivations": tuple(sorted(set(identity.derivations) | set(extra_derivations))),
     }
+    if identity.nas_family == FAMILY_SM:
+        event["session_management"] = normalize_session_management(record)
     return event
 
 
 def project_trace_event(event: dict[str, object]) -> dict[str, object]:
     """Project a detailed NAS event into the shared trace-event contract.
 
-    Subscriber fields are never populated (identity privacy) and session
-    fields are never populated (5GSM deferred); generic fields only carry
-    semantically correct values.
+    Subscriber fields are never populated (identity privacy). Session
+    fields are populated only from directly observed 5GSM evidence and only
+    when unambiguous: ``pdu_session_id`` from the observed PDU session
+    identity, ``dnn`` from an observed DNN, and ``qfi`` only when exactly
+    one QFI is represented. SEID and TEID are never derived from NAS, and
+    APN is never fabricated from DNN.
     """
     projected: dict[str, object] = {
         "timestamp": event["timestamp"],
@@ -614,6 +915,21 @@ def project_trace_event(event: dict[str, object]) -> dict[str, object]:
             "cause": cause.get("name") if cause.get("name") is not None else cause.get("code"),
             "code": cause.get("code"),
         }
+    session_management = event.get("session_management")
+    if isinstance(session_management, dict):
+        session: dict[str, object] = {}
+        pdu_session_id = session_management.get("pdu_session_id")
+        if pdu_session_id is not None:
+            session["pdu_session_id"] = pdu_session_id
+        dnn = session_management.get("dnn")
+        if dnn is not None:
+            session["dnn"] = dnn
+        flow_descriptions = session_management.get("qos_flow_descriptions")
+        qfi_values = flow_descriptions.get("qfi_values") if isinstance(flow_descriptions, dict) else None
+        if isinstance(qfi_values, list) and len(qfi_values) == 1:
+            session["qfi"] = qfi_values[0]
+        if session:
+            projected["session"] = session
     return projected
 
 
@@ -643,7 +959,13 @@ def tshark_version() -> str:
 
 
 def build_tshark_fields_command(capture: Path) -> list[str]:
-    command = ["tshark", "-n", "-r", str(capture), "-T", "fields", "-E", "header=y", "-E", "separator=/t", "-E", "quote=d", "-E", "occurrence=f", "-Y", "nas-5gs"]
+    """Build the bounded field-extraction command.
+
+    ``occurrence=a`` exports every occurrence of a repeated field
+    comma-joined, so a PDU session with several QFIs is never collapsed
+    into one arbitrary value; single-occurrence fields are unaffected.
+    """
+    command = ["tshark", "-n", "-r", str(capture), "-T", "fields", "-E", "header=y", "-E", "separator=/t", "-E", "quote=d", "-E", "occurrence=a", "-Y", "nas-5gs"]
     for field in FIELDS:
         command.extend(["-e", field])
     return command

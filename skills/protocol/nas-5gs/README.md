@@ -1,19 +1,22 @@
 # nas-5gs
 
 `nas-5gs` is a standalone Protocol-layer package for bounded NAS-5GS
-semantic extraction on the N1 interface (UE to AMF). Version 0.1.0
-implements the 5GMM registration, identity, authentication, security
-mode, service, and status subset with security-envelope classification,
-privacy defaults, and shared trace-event projection. It recognizes 5GSM
-payloads and defers their semantics, and it never performs NAS
-cryptography or decides procedure outcomes.
+semantic extraction on the N1 interface. Version 0.2.0 implements the
+5GMM registration, identity, authentication, security mode, service, and
+status subset plus the 5GSM PDU session establishment, modification, and
+release subset and 5GSM status, with security-envelope classification,
+bounded session-management normalization, privacy defaults, and shared
+trace-event projection. It never performs NAS cryptography and never
+decides procedure outcomes.
 
-Reviewed basis: 3GPP TS 24.501 (Release 19 lineage) as implemented by
-the NAS-5GS dissector of Wireshark/TShark 4.7.1 (v4.7.1-0-g667ab240e6de).
-All identity tables (message types, 5GMM causes, registration types,
-identity types, security algorithms) were verified with `tshark -G
-fields` and `tshark -G values`; other Wireshark versions were not
-reviewed.
+Reviewed basis: 3GPP TS 24.501 version 19.8.0 Release 19 (message types,
+5GMM and 5GSM causes, registration types, identity types, request type,
+PDU session type, SSC mode) and 3GPP TS 24.007 version 18.2.0 Release 18
+(extended protocol discriminator: 5GMM 0x7E, 5GSM 0x2E), cross-checked
+against the NAS-5GS dissector of Wireshark/TShark 4.7.1
+(v4.7.1-0-g667ab240e6de). Where a specification edition and the
+dissector disagree, the reviewed specification value is preserved and
+the tool version is recorded.
 
 ## Package structure
 
@@ -24,14 +27,16 @@ reviewed.
   sensitive-identity opt-in.
 - `scripts/nas5gs_timeline.py`: protocol-local message timeline (text or
   JSON); never labels procedure success or failure.
-- `schemas/nas5gs-event.schema.json`: detailed event contract.
+- `schemas/nas5gs-event.schema.json`: detailed event contract, including
+  the optional 5GSM `session_management` object.
 - `schemas/trace-event.schema.json`: byte-identical copy of the shared
   trace-event schema.
 - `references/`: protocol model, message map, field reference, security
   envelope, identity privacy, failure cases.
-- `filters/wireshark.txt`: 46 display filters verified on 4.7.1.
+- `filters/wireshark.txt`: display filters verified on 4.7.1.
 - `examples/extracted/`: synthetic structured fixtures (no payloads, no
-  real identities, no authentication material).
+  real identities, no authentication material, documentation address
+  ranges only).
 - `examples/expected/`: deterministic expected outputs.
 - `tests/`: package-local test entry point.
 
@@ -54,21 +59,22 @@ risk in references/identity-privacy.md.
 
 ## Output and limits
 
-Detailed events carry frame provenance, the security envelope (header
-type, derived protection state, sequence number, MAC presence, security
-parameter index, inner-message availability with decode basis),
-message identity with support status and local result label, direction
-with basis, bounded IEs (registration type, follow-on request, ngKSI,
-identity type, 5GMM cause, selected algorithms, service type), and an
-OBSERVED evidence record with enumerated derivations.
+Detailed events carry frame provenance, the security envelope, message
+identity with family, support status, local result label and extended
+protocol discriminator, direction with basis, bounded 5GMM IEs, and an
+OBSERVED evidence record with enumerated derivations. 5GSM events
+additionally carry a `session_management` object: PDU session identity,
+procedure transaction identity, request type, PDU session type, SSC
+mode, DNN, S-NSSAI, PDU address, always-on flags, bounded QoS presence
+with QFI/5QI values, EPCO presence, and the 5GSM cause.
 
-Boundaries: 5GSM payloads are DEFERRED (no session identifiers); known
-out-of-scope 5GMM messages are UNSUPPORTED names; unknown codes stay
-UNKNOWN; ciphered inner messages stay unavailable instead of guessed;
-authentication vectors are never emitted; subscriber fields stay
-unpopulated in the shared projection. A Registration reject cause is
-protocol evidence of the stated NAS-level reason, not an end-to-end
-root cause.
+Boundaries: unknown codes stay UNKNOWN; known out-of-scope messages stay
+UNSUPPORTED names; ciphered inner messages stay unavailable instead of
+guessed; a PDU session with several QFIs keeps all of them and the
+generic projection omits `qfi` rather than fabricating one; SEID/TEID are
+never derived from NAS; authentication vectors are never emitted;
+subscriber fields stay unpopulated. A 5GSM cause is protocol evidence of
+the stated session-level reason, not an end-to-end root cause.
 
 ## Standalone validation
 

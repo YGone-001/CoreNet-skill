@@ -4,6 +4,12 @@ The 5GS NAS security header classifies the protection state of a message
 independently of its inner semantics. This Skill preserves that state
 and nothing more.
 
+The same envelope model applies to both 5GMM and 5GSM. 5GSM messages may
+also be carried under NAS security protection, and this package reuses
+one envelope implementation for both families rather than duplicating it.
+Whether the inner message is a 5GMM or a 5GSM message does not change the
+envelope fields or the inner-availability rules below.
+
 ## Classification
 
 Observed security header type (reviewed TShark 4.7.1 table

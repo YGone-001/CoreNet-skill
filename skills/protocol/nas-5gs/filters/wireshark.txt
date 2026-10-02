@@ -1,10 +1,15 @@
-# NAS-5GS display filters (bounded 5GMM subset)
-# Verified against Wireshark/TShark 4.7.1 (v4.7.1-0-g667ab240e6de) via
-# `tshark -G fields` / `-G values`. Filter names are version-dependent;
-# re-verify before using other Wireshark releases.
+# NAS-5GS display filters (bounded 5GMM and 5GSM subsets)
+# Verified against the NAS-5GS dissector of Wireshark/TShark 4.7.1
+# (v4.7.1-0-g667ab240e6de) as published in the Wireshark display filter
+# reference. Filter names are version-dependent; re-verify before using
+# other Wireshark releases.
 
 # All NAS-5GS traffic
 nas-5gs
+
+# Extended protocol discriminator (5GMM 0x7E, 5GSM 0x2E)
+nas-5gs.epd == 0x7e
+nas-5gs.epd == 0x2e
 
 # 5GMM bounded-subset messages
 nas-5gs.mm.message_type == 65
@@ -26,8 +31,49 @@ nas-5gs.mm.message_type == 77
 nas-5gs.mm.message_type == 78
 nas-5gs.mm.message_type == 100
 
-# 5GSM family (deferred recognition only; no session semantics here)
+# 5GSM family
 nas-5gs.sm.message_type
+
+# 5GSM bounded-subset messages
+nas-5gs.sm.message_type == 193
+nas-5gs.sm.message_type == 194
+nas-5gs.sm.message_type == 195
+nas-5gs.sm.message_type == 201
+nas-5gs.sm.message_type == 202
+nas-5gs.sm.message_type == 203
+nas-5gs.sm.message_type == 204
+nas-5gs.sm.message_type == 205
+nas-5gs.sm.message_type == 209
+nas-5gs.sm.message_type == 210
+nas-5gs.sm.message_type == 211
+nas-5gs.sm.message_type == 212
+nas-5gs.sm.message_type == 214
+
+# 5GSM header fields (PDU session identity and PTI are distinct)
+nas-5gs.pdu_session_id
+nas-5gs.proc_trans_id
+
+# 5GSM session-selection fields
+nas-5gs.mm.req_type
+nas-5gs.sm.pdu_ses_type
+nas-5gs.sm.sc_mode
+nas-5gs.sm.sel_sc_mode
+nas-5gs.cmn.dnn
+nas-5gs.mm.sst
+nas-5gs.mm.mm_sd
+
+# 5GSM QoS and always-on fields
+nas-5gs.sm.qos_rule_id
+nas-5gs.sm.qfi
+nas-5gs.sm.5qi
+nas-5gs.sm.apsr
+nas-5gs.sm.apsi
+
+# 5GSM cause values (protocol evidence; not a root-cause engine)
+nas-5gs.sm.5gsm_cause
+nas-5gs.sm.5gsm_cause == 27
+nas-5gs.sm.5gsm_cause == 31
+nas-5gs.sm.5gsm_cause == 36
 
 # Registration type values (initial, mobility updating, periodic updating, emergency)
 nas-5gs.mm.5gs_reg_type == 1

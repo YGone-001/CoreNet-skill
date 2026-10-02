@@ -54,11 +54,20 @@ Unknown identity type codes stay UNKNOWN with their numeric value.
 The shared trace-event schema has subscriber fields. This Skill leaves
 them unpopulated in every mode, including opt-in; identity evidence
 lives only in the detailed NAS event's `identity` object, so generic
-projections stay safe to share. Session fields are never populated in
-v0.1.0 because 5GSM semantics are deferred.
+projections stay safe to share.
+
+Session fields are populated only from directly observed 5GSM evidence
+and only when unambiguous: `pdu_session_id` from the observed PDU session
+identity, `dnn` from an observed DNN, and `qfi` only when exactly one QFI
+is represented. SEID and TEID are never derived from NAS, and APN is
+never fabricated from DNN. Session identifiers such as PDU session
+identity, procedure transaction identity, QFI, and DNN are protocol and
+session evidence, not subscriber identities.
 
 ## Synthetic data only
 
 Examples, fixtures, and documentation use unmistakably synthetic values
-(documentation ranges only). Real IMSI, SUPI, SUCI, MSISDN, GUTI, or
-authentication material must never be committed to this repository.
+(documentation ranges only, for example 192.0.2.0/24, 198.51.100.0/24,
+203.0.113.0/24, and 2001:db8::/32). Real IMSI, SUPI, SUCI, MSISDN, GUTI,
+production PDU addresses, or authentication material must never be
+committed to this repository.
