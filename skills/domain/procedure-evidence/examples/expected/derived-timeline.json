@@ -1,0 +1,30 @@
+{
+  "timeline": [
+    {
+      "confidence": "HIGH",
+      "evidence_basis": "DERIVED",
+      "expected_evidence": [
+        "An initial message from the UE side is present in the capture group"
+      ],
+      "expected_message_types": [
+        "GenericInitialMessage"
+      ],
+      "expected_protocols": [
+        "NGAP",
+        "NAS-5GS"
+      ],
+      "limitations": [
+        "Derived from cross-protocol-evidence grouping; see that package for its own boundaries"
+      ],
+      "missing_evidence": [],
+      "observation_group": "capture-group-1",
+      "observed_evidence": [
+        "NGAP and NAS-5GS observations grouped at capture-group-1 frame 10 by the correlation layer"
+      ],
+      "procedure_name": "example-signaling-procedure",
+      "procedure_version": "1.0",
+      "stage_id": "stage-01",
+      "stage_name": "initial contact"
+    }
+  ]
+}

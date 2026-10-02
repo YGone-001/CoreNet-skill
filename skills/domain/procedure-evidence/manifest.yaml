@@ -1,0 +1,53 @@
+name: procedure-evidence
+version: 0.1.0
+category: domain
+description: >
+  Generic procedure evidence framework for future Domain/Procedure Skills:
+  expected observation points, stage representation, observed and missing
+  evidence, evidence confidence, and a procedure timeline abstraction. It
+  implements no telecom procedure.
+scope:
+  includes:
+    - procedure evidence record model with expected, observed, and missing evidence
+    - generic stage representation (expected observation point)
+    - evidence confidence classification with observed/derived separation
+    - ordered procedure timeline rendering (text and JSON)
+  excludes:
+    - any concrete telecom procedure (registration, attach, IMS, mobility, voice)
+    - NAS or NGAP decoding or protocol field interpretation
+    - subscriber or session identity handling
+    - success, failure, or root-cause verdicts
+    - implementation-specific source mapping
+dependencies:
+  required: []
+  optional:
+    - cross-protocol-evidence >=0.1.0
+inputs:
+  - procedure evidence JSONL (one stage record per line, schemas/procedure-evidence.schema.json)
+outputs:
+  - ordered procedure evidence timeline (text or JSON)
+protocols: []
+interfaces: []
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Domain-layer framework package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/stages/observed-flow.jsonl
+    - examples/stages/missing-evidence.jsonl
+    - examples/stages/derived-flow.jsonl
+    - examples/stages/malformed.jsonl
+  expected_results:
+    - examples/expected/observed-timeline.txt
+    - examples/expected/missing-timeline.txt
+    - examples/expected/derived-timeline.json

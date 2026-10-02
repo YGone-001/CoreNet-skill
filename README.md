@@ -13,8 +13,10 @@ Skill (5GMM registration/identity/authentication/security-mode/service/status
 subset over N1 with security-envelope classification, privacy defaults, and
 5GSM recognition deferred), and the `cross-protocol-evidence` Correlation
 Skill (provenance-key joins of extracted protocol events into a unified
-observed-evidence timeline; no protocol ownership, no verdicts). The
-extensions provide investigation context only.
+observed-evidence timeline; no protocol ownership, no verdicts), and the
+`procedure-evidence` Domain framework (generic stage and evidence model
+with missing-evidence visibility; no concrete telecom procedure
+implemented). The extensions provide investigation context only.
 **Not yet implemented:** 5GSM PDU session semantics, complete 5G Registration
 Domain logic, full NGAP coverage (handover, path switch, NG setup, PDU session
 resource semantics, later-Release extensions), remaining protocol Skills
@@ -34,7 +36,7 @@ Foundation → Protocol → Correlation → Domain / Procedure → Analysis Orch
 | Foundation | Teach an agent how to investigate and grade evidence: Wireshark use, reverse engineering, systematic debugging, Linux, and C-oriented methods. |
 | Protocol | Teach protocol-local encoding and correlation: NAS, NGAP, S1AP, GTP, PFCP, SIP, SDP/RTP, Diameter, and SBI. |
 | Correlation | Join already-extracted protocol evidence into deterministic groups and a unified observed-evidence timeline by shared capture provenance. |
-| Domain / procedure | Compose protocols into EPC, IMS, and 5GC procedures. |
+| Domain / procedure | Compose protocol evidence and correlation output into procedure-stage analysis for EPC, IMS, and 5GC procedures. Domain Skills consume protocol evidence and correlation output; they do not replace protocol decoding or correlation. |
 | Analysis Orchestration | Combine protocol evidence into investigation reports that localize the first abnormal evidence boundary with confidence-aware diagnosis. |
 
 Dependencies only point left, and a Skill may depend on the same layer when ownership remains acyclic and semantically correct. Lower layers never own higher-layer capabilities, which prevents circular architecture and preserves reuse. Correlation is optional infrastructure for Domain Skills, not a mandatory wrapper around every Protocol Skill.

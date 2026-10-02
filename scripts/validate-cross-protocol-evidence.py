@@ -139,11 +139,9 @@ def validate(root: Path) -> list[str]:
             if path.parent.name in {"ngap-input", "nas-input", "expected"} and SENSITIVE_FIELD.search(text):
                 errors.append(f"sensitive field in fixture {name}")
 
-    domain_root = root / "skills/domain"
-    if domain_root.is_dir():
-        for child in sorted(domain_root.iterdir()):
-            if child.is_dir():
-                errors.append(f"domain Skill must not be created in this milestone: {child.name}")
+    # Domain-layer ownership is enforced by scripts/validate-architecture.py
+    # (layer direction: correlation must never depend on a Domain Skill); no
+    # domain-directory ban is needed here.
 
     for script in (skill / "scripts").glob("*.py"):
         try:

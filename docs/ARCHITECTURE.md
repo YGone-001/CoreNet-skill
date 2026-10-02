@@ -50,7 +50,9 @@ Implemented Correlation Skills: `cross-protocol-evidence` joins already-extracte
 
 Protocol candidates remain `nas-eps`, `s1ap`, `gtpv2`, `gtpu`, `pfcp`, `sip`, `sdp-rtp`, `diameter-core`, `diameter-epc`, `diameter-ims`, `diameter-charging`, and `sbi-http2`. These names are plans, not implementations.
 
-Domain candidates include `epc-procedures`; `ims-registration`, `ims-session`, and `ims-media-qos`; plus `5gc-registration-mobility`, `5gc-pdu-session`, `5gc-sbi`, `5gc-user-plane`, `5gc-policy`, `5gc-interworking`, and `5gc-roaming-exposure`. These names are plans, not implementations.
+Implemented Domain framework: `procedure-evidence` defines the common evidence model (expected observation points, generic stage representation, observed and missing evidence, evidence confidence) that concrete Domain Skills consume; it implements no telecom procedure.
+
+Domain candidates include `epc-procedures`; `ims-registration`, `ims-session`, and `ims-media-qos`; plus `5gc-registration-mobility`, `5gc-pdu-session`, `5gc-sbi`, `5gc-user-plane`, `5gc-policy`, `5gc-interworking`, and `5gc-roaming-exposure`. These names are plans, not implementations. Domain Skills consume protocol evidence and correlation output; they do not replace protocol decoding or correlation.
 
 Diameter is deliberately cross-domain: `diameter-core` owns base headers, AVP structure, Vendor-ID, Application-ID, Command-Code, identifiers, and result semantics. `diameter-epc` will own S6a/Gx and EPC-context Gy; `diameter-ims` will own Cx/Dx/Sh/Rx; and `diameter-charging` will own Ro/Gy credit-control semantics shared by EPC and IMS. Diameter is not owned by IMS.
 

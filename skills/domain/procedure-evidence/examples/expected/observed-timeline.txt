@@ -1,0 +1,18 @@
+stage=stage-01 [capture-group-1] initial contact (example-signaling-procedure 1.0) basis=OBSERVED confidence=HIGH
+  expected protocols: NGAP, NAS-5GS
+  expected message types: GenericInitialMessage
+  expected evidence: An initial message from the UE side is present in the capture group
+  observed evidence: GenericInitialMessage observed at capture-group-1 frame 10 (an NGAP initial message and its carried NAS-5GS message share the frame)
+stage=stage-02 [capture-group-1] context establishment (example-signaling-procedure 1.0) basis=OBSERVED confidence=MEDIUM
+  expected protocols: NGAP
+  expected message types: GenericSetupMessage
+  expected evidence: A setup message and its acknowledgment are present
+  observed evidence: GenericSetupMessage observed at capture-group-1 frame 30 (an NGAP context-setup message)
+  missing evidence: The setup acknowledgment was not observed in capture-group-1
+  limitation: Capture window ends before the acknowledgment could appear
+stage=stage-03 [capture-group-1] confirmation (example-signaling-procedure 1.0) basis=OBSERVED confidence=LOW
+  expected protocols: NAS-5GS
+  expected message types: GenericConfirmation
+  expected evidence: A confirmation message closes the procedure
+  missing evidence: No confirmation message was observed in capture-group-1
+  limitation: Absence in this capture is not absence on the network

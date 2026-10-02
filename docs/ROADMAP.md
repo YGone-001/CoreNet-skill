@@ -18,7 +18,9 @@ The repository foundation and Foundation Skills are accepted. The
 semantic Skill, the bounded `nas-5gs` 5GMM semantic Skill, and the
 `cross-protocol-evidence` Correlation Skill are implemented as supporting
 infrastructure between Protocol evidence and future Domain procedures.
-The 5GC registration/mobility Domain capability and every later milestone
-remain future work. Implementation-specific Skills are not planned:
-external implementation analysis is performed only when users provide
-implementation evidence.
+The `procedure-evidence` Domain framework (generic stage and evidence
+model, no concrete procedure) is implemented as preparation for future
+Domain Skills. The 5GC registration/mobility Domain capability and every
+later milestone remain future work. Implementation-specific Skills are
+not planned: external implementation analysis is performed only when
+users provide implementation evidence.

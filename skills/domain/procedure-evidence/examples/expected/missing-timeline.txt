@@ -1,0 +1,12 @@
+stage=stage-02 [capture-group-2] context establishment (example-signaling-procedure 1.0) basis=OBSERVED confidence=LOW
+  expected protocols: NGAP
+  expected message types: GenericSetupMessage, GenericSetupAcknowledgment
+  expected evidence: A setup message and its acknowledgment are present
+  missing evidence: The setup message was not observed in capture-group-2
+  missing evidence: The setup acknowledgment was not observed in capture-group-2
+  limitation: Capture-group-2 starts after the expected observation window
+stage=stage-03 [capture-group-2] confirmation (example-signaling-procedure 1.0) basis=OBSERVED confidence=LOW
+  expected protocols: NAS-5GS
+  expected message types: GenericConfirmation
+  expected evidence: A confirmation message closes the procedure
+  missing evidence: No confirmation message was observed in capture-group-2

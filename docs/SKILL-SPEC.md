@@ -37,6 +37,20 @@ Correlation Skills carry additional contract expectations:
 
 Correlation Skills use the same package format as every other category; no separate or incompatible Skill structure exists.
 
+Domain/Procedure Skills carry additional contract expectations:
+
+- Inputs are protocol evidence and correlation output; a Domain Skill does not replace protocol decoding or correlation.
+- Procedure stages are expected observation points, not verdicts; missing evidence stays missing evidence under the observation boundary.
+- No success, failure, or root-cause conclusions: outcome interpretation belongs to Analysis Orchestration.
+- A generic evidence framework may exist, but concrete telecom procedures require their own authorized milestone.
+
+Domain/Procedure Skills carry additional contract expectations:
+
+- Inputs are protocol evidence and correlation output; a Domain Skill does not replace protocol decoding or correlation.
+- Procedure stages are expected observation points, not verdicts; missing evidence stays missing evidence under the observation boundary.
+- No success, failure, or root-cause conclusions: outcome interpretation belongs to Analysis Orchestration.
+- A generic evidence framework may exist, but concrete telecom procedures require their own authorized milestone.
+
 ## Content rules
 
 `SKILL.md` supplies agent-facing workflow instructions. `README.md` explains human-facing intent, installation, inputs, outputs, and limitations. `manifest.yaml` conforms conceptually to `shared/schemas/skill-manifest.schema.json`. Manifests use semantic versions; a breaking contract change increments the major version. Inputs and outputs must identify formats and optionality, and outputs must distinguish observations, derived facts, inferences, and hypotheses.
