@@ -9,9 +9,52 @@ against causal overreach.
 - Unknown procedure code — `ngap.procedureCode` outside the reviewed
   38.413 table. Reported as UNKNOWN; no message semantics are attached.
 - Unsupported procedure — code inside the reviewed table but outside the
-  bounded 0.1.0 subset (handover, NG setup, PDU session resource families,
-  and similar). Reported as UNSUPPORTED with the reviewed procedure name
-  and no message mapping.
+  bounded subset (handover, path switch, NG setup, PDU Session Resource
+  Notify / Modify Indication, and similar). Reported as UNSUPPORTED with
+  the reviewed procedure name and no message mapping.
+
+## PDU Session resource patterns
+
+- Setup Response with a failed resource item —
+  `PDUSessionResourceFailedToSetupListSURes` carries one or more
+  `pdu_session_id` values with role FAILED while the message itself is a
+  `successfulOutcome`. Both facts are preserved; the failed item is not a
+  root cause.
+- Mixed success and failure in one response — a single
+  PDUSessionResourceSetupResponse (or Modify Response, or Initial Context
+  Setup Response) contains both SUCCESS and FAILED resource items. The
+  Skill reports the message-level result and the per-item roles; it never
+  collapses the message into an all-success or all-failure verdict.
+- Resource Cause observed but not attributable — an item Cause exists in
+  the capture yet the parent resource item cannot be proven from the
+  extraction format. The Cause is preserved in
+  `unbound_resource_metadata.cause_values` with an explicit limitation
+  instead of being attached to an arbitrary item.
+- QFI visible but not safely bound — repeated QFI values are observed
+  alongside repeated PDU Session IDs without structural proof of the
+  parent-child relationship. Every QFI is preserved in
+  `unbound_resource_metadata.qfi_values`; none is zipped to an item by
+  array position, and `session.qfi` is omitted.
+- Unsupported transfer semantics — a transfer container is present but its
+  encoded body is out of scope. Presence, reviewed kind, and length are
+  recorded; the payload is never parsed or dumped.
+- Unknown resource procedure — a procedure code outside the reviewed table
+  with a PDU Session resource payload is UNKNOWN; nothing is decoded.
+- Missing resource counterpart — a PDUSessionResourceReleaseCommand with no
+  Release Response inside the capture window. Reported as an unclosed
+  protocol-local outcome, never as a network-wide failure.
+- Partial capture — the capture starts after the request that would explain
+  a response, or ends before the counterpart. The observation window bounds
+  every missing-evidence conclusion.
+- Duplicate or retransmitted request — the same request identity observed
+  more than once is preserved as separate observations in input order; the
+  Skill does not deduplicate or pick a representative.
+- Association conflict — the same numeric UE / PDU Session identifiers on
+  two associations stay in separate contexts, as in `correlation.md`.
+- Malformed extracted metadata — required fields absent or not integers
+  (frame number, timestamp, procedure code, UE NGAP IDs, PDU Session ID,
+  resource list role). The extractor fails loudly per record; it never
+  guesses.
 - Malformed extracted metadata — required fields absent or not integers
   (frame number, timestamp, procedure code, UE NGAP IDs). The extractor
   fails loudly per record; it never guesses.

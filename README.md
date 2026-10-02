@@ -8,7 +8,9 @@
 upstream snapshots, six CoreNet Foundation Skills, telecom core-network
 Foundation extensions, GitHub Actions validation, the `core-network-pcap`
 capture normalization layer, the bounded `ngap` Protocol Skill
-(UE-context signaling subset over N2), the bounded `nas-5gs` Protocol
+(bounded UE-context signaling and PDU Session Resource
+setup/modify/release subset over N2, including resources embedded in
+Initial Context Setup), the bounded `nas-5gs` Protocol
 Skill (bounded 5GMM
 registration/identity/authentication/security-mode/service/status and
 bounded 5GSM PDU session establishment/modification/release/status
@@ -24,10 +26,10 @@ procedure-stage evidence, conditional branches, missing-evidence visibility,
 and lower-layer field findings; no end-to-end diagnosis). The extensions
 provide investigation context only.
 **Not yet implemented:** complete PDU session Domain procedure analysis
-(`5gc-pdu-session`), NGAP PDU Session Resource semantics, PFCP, GTP-U,
+(`5gc-pdu-session`), deep NGAP transfer-container decoding, NGAP handover
+and path-switch procedures, PFCP, GTP-U,
 SBI/N11, complete 5GC mobility
-coverage, full NGAP coverage (handover, path switch, NG setup, PDU session
-resource semantics, later-Release extensions), remaining protocol Skills
+coverage, remaining protocol Skills
 (NAS-EPS, S1AP, GTP, PFCP, SIP, Diameter, SBI), EPC/IMS Domain procedures,
 implementation-specific mappings, or end-to-end orchestration.
 

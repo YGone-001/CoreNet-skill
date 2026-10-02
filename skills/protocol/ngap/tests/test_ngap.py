@@ -34,6 +34,18 @@ TIMELINE = load_script("ngap_timeline")
 EXTRACTED = PACKAGE / "examples" / "extracted"
 EXPECTED = PACKAGE / "examples" / "expected"
 
+# Fixtures exercising the bounded PDU Session resource capability.
+RESOURCE_FIXTURES = (
+    "pdu-session-setup",
+    "pdu-session-modify",
+    "pdu-session-release",
+    "initial-context-resources",
+    "pdu-session-qfi",
+    "pdu-session-identity",
+    "pdu-session-recognition",
+    "pdu-session-ordering",
+)
+
 
 def jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -312,15 +324,30 @@ class NgapSchemaTests(unittest.TestCase):
 
     def test_detailed_events_conform_structurally(self):
         schema = json.loads((PACKAGE / "schemas" / "ngap-event.schema.json").read_text(encoding="utf-8"))
+        allowed = set(schema["properties"])
         for event in jsonl(EXPECTED / "ue-context-events.jsonl"):
             self.assertTrue(self.EVENT_REQUIRED.issubset(event), event)
-            self.assertEqual(set(event), set(schema["properties"]))
+            self.assertTrue(set(event) <= allowed, event)
             self.assertEqual(event["evidence"]["level"], "OBSERVED")
             self.assertIn(event["support_status"], {"SUPPORTED", "UNSUPPORTED", "UNKNOWN"})
             self.assertIn(event["pdu_type"], {None, "initiatingMessage", "successfulOutcome", "unsuccessfulOutcome"})
             self.assertTrue(isinstance(event["derivations"], list))
             for item in event["derivations"]:
                 self.assertIn(item, schema["properties"]["derivations"]["items"]["enum"])
+
+    def test_resource_events_conform_structurally(self):
+        schema = json.loads((PACKAGE / "schemas" / "ngap-event.schema.json").read_text(encoding="utf-8"))
+        allowed = set(schema["properties"])
+        item_properties = set(schema["$defs"]["resourceItem"]["properties"])
+        item_required = set(schema["$defs"]["resourceItem"]["required"])
+        for name in RESOURCE_FIXTURES:
+            for event in jsonl(EXPECTED / f"{name}-events.jsonl"):
+                self.assertTrue(set(event) <= allowed, name)
+                self.assertTrue(self.EVENT_REQUIRED.issubset(event), name)
+                for item in event.get("pdu_session_resources", []):
+                    self.assertTrue(item_required.issubset(item), item)
+                    self.assertTrue(set(item) <= item_properties, item)
+                    self.assertIn(item["binding_basis"], {"structured-input", "single-resource-message", "single-list-message", "unbound"})
 
     def test_trace_projection_conforms_structurally(self):
         for projected in jsonl(EXPECTED / "ue-context-trace.jsonl"):
@@ -369,6 +396,192 @@ class NgapStandaloneTests(unittest.TestCase):
             timeline = subprocess.run([sys.executable, str(scripts / "ngap_timeline.py"), str(events)], capture_output=True, text=True)
             self.assertEqual(timeline.returncode, 0, timeline.stderr)
             self.assertIn("UEContextReleaseRequest", timeline.stdout)
+
+
+class NgapPduSessionResourceTests(unittest.TestCase):
+    def test_version_is_expanded(self):
+        manifest = (PACKAGE / "manifest.yaml").read_text(encoding="utf-8")
+        self.assertIn("version: 0.2.0", manifest)
+        self.assertIn("protocols: [NGAP]", manifest)
+        self.assertIn("interfaces: [N2]", manifest)
+
+    def test_new_procedures_recognized(self):
+        setup = MODEL.resolve_procedure(29, "PDUSessionResourceSetupRequest")
+        self.assertEqual((setup.procedure_name, setup.message_type, setup.result, setup.sender_role), ("PDUSessionResourceSetup", "PDUSessionResourceSetupRequest", "REQUEST", "amf"))
+        response = MODEL.resolve_procedure(29, "PDUSessionResourceSetupResponse")
+        self.assertEqual((response.pdu_type, response.result, response.sender_role), ("successfulOutcome", "SUCCESS", "ng-ran"))
+        modify = MODEL.resolve_procedure(26, "PDUSessionResourceModifyRequest")
+        self.assertEqual((modify.message_type, modify.sender_role), ("PDUSessionResourceModifyRequest", "amf"))
+        release = MODEL.resolve_procedure(28, "PDUSessionResourceReleaseCommand")
+        self.assertEqual((release.result, release.sender_role), ("COMMAND", "amf"))
+        released = MODEL.resolve_procedure(28, "PDUSessionResourceReleaseResponse")
+        self.assertEqual(released.result, "SUCCESS")
+
+    def test_no_setup_failure_message_is_invented(self):
+        messages = {message for _name, branches in MODEL.SUPPORTED_PROCEDURES.values() for message in branches.values()}
+        for invented in ("PDUSessionResourceSetupFailure", "PDUSessionResourceModifyFailure", "PDUSessionResourceReleaseFailure"):
+            self.assertNotIn(invented, messages)
+
+    def test_setup_request_multiple_resources(self):
+        event = events_for("pdu-session-setup.jsonl")[1]
+        self.assertEqual(event["message_type"], "PDUSessionResourceSetupRequest")
+        ids = [item["pdu_session_id"] for item in event["pdu_session_resources"]]
+        self.assertEqual(ids, [10, 11])
+        self.assertEqual([item["resource_list_role"] for item in event["pdu_session_resources"]], ["REQUEST", "REQUEST"])
+        self.assertEqual(event["pdu_session_resources"][0]["snssai"], {"sst": 1, "sd": None})
+
+    def test_setup_response_single_success_and_failed(self):
+        events = events_for("pdu-session-setup.jsonl")
+        success = events[2]
+        self.assertEqual(success["pdu_session_resources"][0]["resource_list_role"], "SUCCESS")
+        failed = events[3]
+        self.assertEqual(failed["pdu_session_resources"][0]["resource_list_role"], "FAILED")
+
+    def test_mixed_outcome_is_preserved(self):
+        event = events_for("pdu-session-setup.jsonl")[4]
+        self.assertEqual(event["result"], "SUCCESS")
+        self.assertEqual(event["pdu_type"], "successfulOutcome")
+        outcomes = {item["pdu_session_id"]: item["resource_list_role"] for item in event["pdu_session_resources"]}
+        self.assertEqual(outcomes, {10: "SUCCESS", 11: "FAILED"})
+        # message-level SUCCESS must never be flattened into an all-success verdict
+        self.assertIn("FAILED", [item["resource_list_role"] for item in event["pdu_session_resources"]])
+
+    def test_item_cause_and_message_cause_are_separate(self):
+        bound = events_for("pdu-session-setup.jsonl")[5]
+        self.assertIsNone(bound["cause"])
+        self.assertEqual(bound["pdu_session_resources"][0]["cause"], {"category": "radioNetwork", "value": 3})
+        unbound = events_for("pdu-session-setup.jsonl")[6]
+        self.assertEqual(unbound["pdu_session_resources"][0]["cause"], None)
+        self.assertEqual(unbound["unbound_resource_metadata"]["cause_values"], [{"category": "transport", "value": 2}])
+
+    def test_modify_procedure(self):
+        events = events_for("pdu-session-modify.jsonl")
+        self.assertEqual(events[0]["message_type"], "PDUSessionResourceModifyRequest")
+        self.assertEqual(events[1]["pdu_session_resources"][0]["resource_operation"], "MODIFY")
+        self.assertEqual(events[2]["pdu_session_resources"][0]["qfi_values"], [5, 9])
+        self.assertEqual(events[3]["pdu_session_resources"][0]["resource_list_role"], "FAILED")
+        mixed = {item["pdu_session_id"]: item["resource_list_role"] for item in events[4]["pdu_session_resources"]}
+        self.assertEqual(mixed, {10: "SUCCESS", 11: "FAILED"})
+
+    def test_release_procedure(self):
+        events = events_for("pdu-session-release.jsonl")
+        self.assertEqual(events[0]["message_type"], "PDUSessionResourceReleaseCommand")
+        self.assertEqual(events[0]["pdu_session_resources"][0]["resource_list_role"], "COMMAND")
+        self.assertEqual([item["pdu_session_id"] for item in events[1]["pdu_session_resources"]], [10, 11])
+        self.assertEqual(events[2]["message_type"], "PDUSessionResourceReleaseResponse")
+        self.assertEqual(events[2]["pdu_session_resources"][0]["resource_list_role"], "RESPONSE")
+        # release command without a response stays an open boundary in the capture
+        self.assertEqual(events[3]["message_type"], "PDUSessionResourceReleaseCommand")
+
+    def test_initial_context_setup_resources(self):
+        events = events_for("initial-context-resources.jsonl")
+        request = events[1]
+        self.assertEqual(request["message_type"], "InitialContextSetupRequest")
+        self.assertEqual(request["result"], "REQUEST")
+        self.assertEqual([item["pdu_session_id"] for item in request["pdu_session_resources"]], [10, 11])
+        self.assertEqual(request["pdu_session_resources"][0]["resource_operation"], "INITIAL_CONTEXT_SETUP")
+        response = events[3]
+        self.assertEqual(response["message_type"], "InitialContextSetupResponse")
+        self.assertEqual(response["result"], "SUCCESS")
+        outcomes = {item["pdu_session_id"]: item["resource_list_role"] for item in response["pdu_session_resources"]}
+        self.assertEqual(outcomes, {10: "SUCCESS", 11: "FAILED"})
+
+    def test_qfi_single_and_multi(self):
+        events = events_for("pdu-session-qfi.jsonl")
+        single = events[0]
+        self.assertEqual(single["pdu_session_resources"][0]["qfi_values"], [5])
+        self.assertEqual(single["pdu_session_resources"][0]["binding_basis"], "single-resource-message")
+        multi = events[1]
+        self.assertEqual(multi["pdu_session_resources"][0]["qfi_values"], [5, 9])
+        explicit = events[2]
+        self.assertEqual([item["qfi_values"] for item in explicit["pdu_session_resources"]], [[5], [9]])
+
+    def test_ambiguous_flattened_qfi_is_not_zipped(self):
+        event = events_for("pdu-session-qfi.jsonl")[3]
+        self.assertEqual([item["qfi_values"] for item in event["pdu_session_resources"]], [[], []])
+        unbound = event["unbound_resource_metadata"]
+        self.assertEqual(unbound["qfi_values"], [5, 9])
+        self.assertTrue(any("not safely attributable" in limitation for limitation in unbound["limitations"]))
+
+    def test_same_session_id_across_ue_contexts_stays_separate(self):
+        events = events_for("pdu-session-identity.jsonl")
+        self.assertEqual([(e["ran_ue_ngap_id"], e["amf_ue_ngap_id"]) for e in events], [(1, 2), (2, 3), (1, 2)])
+        self.assertEqual([e["pdu_session_resources"][0]["pdu_session_id"] for e in events], [10, 10, 10])
+        summary = CORRELATE.correlate(events)
+        keys = sorted(context["context_key"] for context in summary["contexts"])
+        self.assertEqual(len(keys), 3)
+        self.assertEqual(len({context["capture_file"] + context["association"] for context in summary["contexts"]}), 2)
+
+    def test_recognition_beyond_supported_scope(self):
+        events = events_for("pdu-session-recognition.jsonl")
+        self.assertEqual(events[0]["procedure_name"], "PDUSessionResourceNotify")
+        self.assertEqual(events[0]["support_status"], "UNSUPPORTED")
+        self.assertNotIn("pdu_session_resources", events[0])
+        self.assertEqual(events[1]["procedure_name"], "PDUSessionResourceModifyIndication")
+        self.assertEqual(events[1]["support_status"], "UNSUPPORTED")
+        self.assertEqual(events[2]["support_status"], "UNKNOWN")
+
+    def test_ordering_and_duplicates_preserved(self):
+        events = events_for("pdu-session-ordering.jsonl")
+        self.assertEqual([event["frame_number"] for event in events], [171, 170, 172])
+        duplicate = events[2]
+        self.assertEqual(duplicate["message_type"], "PDUSessionResourceSetupRequest")
+        self.assertEqual(duplicate["pdu_session_resources"][0]["pdu_session_id"], 10)
+
+    def test_no_foreign_protocol_fields(self):
+        for name in RESOURCE_FIXTURES:
+            blob = json.dumps(events_for(f"{name}.jsonl"))
+            for forbidden in ("teid", "seid", "dnn", "pti", "bearer_id", "apn"):
+                self.assertNotIn(forbidden, blob, name)
+
+    def test_no_nas_payload_or_asn1_decoder(self):
+        model_text = (SCRIPTS / "ngap_model.py").read_text(encoding="utf-8").lower()
+        for forbidden in ("pyasn1", "asn1tools", "asn1crypto", "import asn1"):
+            self.assertNotIn(forbidden, model_text)
+
+    def test_trace_projection_single_session_and_qfi(self):
+        events = events_for("pdu-session-qfi.jsonl")
+        projected = MODEL.project_trace_event(events[0])
+        self.assertEqual(projected["session"], {"pdu_session_id": 10, "qfi": 5})
+
+    def test_trace_projection_omits_multi_session_and_ambiguous_qfi(self):
+        events = events_for("pdu-session-qfi.jsonl")
+        multi_session = MODEL.project_trace_event(events[3])
+        self.assertNotIn("session", multi_session)
+        multi_qfi = MODEL.project_trace_event(events[1])
+        self.assertEqual(multi_qfi["session"], {"pdu_session_id": 10})
+        self.assertNotIn("qfi", multi_qfi["session"])
+        two_items = MODEL.project_trace_event(events[2])
+        self.assertNotIn("session", two_items)
+
+    def test_malformed_resource_input_fails_loudly(self):
+        with self.assertRaises(MODEL.InputError):
+            MODEL.normalize_record({
+                "frame.number": "1", "frame.time_epoch": "0", "ngap.procedureCode": "29",
+                "pdu_session_resources": [{"pdu_session_id": "300"}],
+            }, "x.jsonl")
+        with self.assertRaises(MODEL.InputError):
+            MODEL.normalize_record({
+                "frame.number": "1", "frame.time_epoch": "0", "ngap.procedureCode": "29",
+                "pdu_session_resources": "not-an-array",
+            }, "x.jsonl")
+
+    def test_expected_resource_fixtures_match(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name in RESOURCE_FIXTURES:
+                output = Path(directory) / f"{name}.jsonl"
+                EXTRACT.write_events(EXTRACTED / f"{name}.jsonl", "fields-jsonl", output, True)
+                self.assertEqual(jsonl(output), jsonl(EXPECTED / f"{name}-events.jsonl"), name)
+
+    def test_resource_timeline_renders_outcomes(self):
+        events = jsonl(EXPECTED / "pdu-session-setup-events.jsonl")
+        text = TIMELINE.render_text(events)
+        self.assertIn("10:SUCCESS", text)
+        self.assertIn("11:FAILED", text)
+        self.assertIn("unbound-resource-metadata=yes", text)
+        upper = text.upper()
+        for forbidden in ("PDU SESSION SUCCESS", "PDU SESSION FAILURE", "SMF FAILURE", "GNB FAILURE", "UPF FAILURE"):
+            self.assertNotIn(forbidden, upper)
 
 
 if __name__ == "__main__":

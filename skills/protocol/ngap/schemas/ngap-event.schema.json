@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://core-net-skill.dev/schemas/ngap/ngap-event.schema.json",
   "title": "Detailed NGAP Event",
-  "description": "One bounded NGAP semantic observation. Fields are emitted for every event; values that the source frame does not contain are null. NAS payload contents are never included.",
+  "description": "One bounded NGAP semantic observation. Fields are emitted for every event; values that the source frame does not contain are null. NAS payload contents are never included. The optional pdu_session_resources array carries bounded PDU Session resource evidence; a message-level successfulOutcome never implies that every embedded resource succeeded.",
   "type": "object",
   "required": [
     "timestamp",
@@ -38,23 +38,38 @@
     "procedure_name": {"type": ["string", "null"], "minLength": 1},
     "message_type": {"type": ["string", "null"], "minLength": 1},
     "support_status": {"type": "string", "enum": ["SUPPORTED", "UNSUPPORTED", "UNKNOWN"]},
-    "result": {"type": ["string", "null"], "enum": ["REQUEST", "SUCCESS", "FAILURE", "COMMAND", "COMPLETE", null]},
+    "result": {
+      "type": ["string", "null"],
+      "enum": ["REQUEST", "SUCCESS", "FAILURE", "COMMAND", "COMPLETE", null],
+      "description": "Message/PDU-level normalized label only. It never means that every embedded PDU Session resource succeeded; per-resource outcomes live in pdu_session_resources."
+    },
     "sender_role": {"type": ["string", "null"], "enum": ["amf", "ng-ran", null]},
     "amf_ue_ngap_id": {"type": ["integer", "null"]},
     "ran_ue_ngap_id": {"type": ["integer", "null"]},
-    "cause": {
-      "type": ["object", "null"],
-      "additionalProperties": false,
-      "properties": {
-        "category": {"type": ["string", "null"], "minLength": 1},
-        "value": {"type": ["integer", "string", "null"]}
-      }
-    },
+    "cause": {"$ref": "#/$defs/cause"},
     "nas_pdu_present": {"type": "boolean"},
     "nas_pdu_length": {"type": ["integer", "null"], "minimum": 0},
     "rrc_establishment_cause": {"type": ["integer", "string", "null"]},
     "user_location_information_present": {"type": "boolean"},
     "paging_identity_present": {"type": "boolean"},
+    "pdu_session_resources": {
+      "type": "array",
+      "description": "Optional bounded PDU Session resource items. Present only when resource evidence was observed; multiple items and mixed success/failed items are preserved as-is.",
+      "items": {"$ref": "#/$defs/resourceItem"}
+    },
+    "unbound_resource_metadata": {
+      "type": "object",
+      "description": "Nested resource metadata observed in this message but not safely attributable to a specific resource item.",
+      "required": ["qfi_values", "cause_values", "pdu_session_ids", "resource_list_roles", "limitations"],
+      "additionalProperties": false,
+      "properties": {
+        "qfi_values": {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 63}},
+        "cause_values": {"type": "array", "items": {"$ref": "#/$defs/cause"}},
+        "pdu_session_ids": {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 255}},
+        "resource_list_roles": {"type": "array", "items": {"type": "string"}},
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
     "source": {"$ref": "#/$defs/endpoint"},
     "destination": {"$ref": "#/$defs/endpoint"},
     "sctp": {
@@ -89,6 +104,60 @@
       "properties": {
         "address": {"type": ["string", "null"], "minLength": 1},
         "port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535}
+      }
+    },
+    "cause": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "category": {"type": ["string", "null"], "minLength": 1},
+        "value": {"type": ["integer", "string", "null"]}
+      }
+    },
+    "resourceItem": {
+      "type": "object",
+      "description": "One bounded PDU Session resource observation inside an NGAP message.",
+      "required": [
+        "pdu_session_id",
+        "resource_operation",
+        "resource_list_role",
+        "snssai",
+        "nas_pdu_present",
+        "nas_pdu_length",
+        "transfer",
+        "qfi_values",
+        "cause",
+        "binding_basis"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "pdu_session_id": {"type": "integer", "minimum": 0, "maximum": 255},
+        "resource_operation": {"type": ["string", "null"], "enum": ["SETUP", "MODIFY", "RELEASE", "INITIAL_CONTEXT_SETUP", null]},
+        "resource_list_role": {"type": ["string", "null"], "enum": ["REQUEST", "SUCCESS", "FAILED", "COMMAND", "RESPONSE", null]},
+        "snssai": {
+          "type": "object",
+          "required": ["sst", "sd"],
+          "additionalProperties": false,
+          "properties": {
+            "sst": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+            "sd": {"type": ["string", "null"]}
+          }
+        },
+        "nas_pdu_present": {"type": "boolean"},
+        "nas_pdu_length": {"type": ["integer", "null"], "minimum": 0},
+        "transfer": {
+          "type": "object",
+          "required": ["present", "kind", "length"],
+          "additionalProperties": false,
+          "properties": {
+            "present": {"type": "boolean"},
+            "kind": {"type": ["string", "null"], "minLength": 1},
+            "length": {"type": ["integer", "null"], "minimum": 0}
+          }
+        },
+        "qfi_values": {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 63}},
+        "cause": {"$ref": "#/$defs/cause"},
+        "binding_basis": {"type": "string", "enum": ["structured-input", "single-resource-message", "single-list-message", "unbound"]}
       }
     }
   }

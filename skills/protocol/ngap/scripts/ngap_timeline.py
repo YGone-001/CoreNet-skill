@@ -55,6 +55,26 @@ def _cause(cause: object) -> str:
 
 
 def timeline_entry(event: dict[str, object]) -> dict[str, object]:
+    resources = event.get("pdu_session_resources")
+    session_ids: list[object] = []
+    outcomes: list[str] = []
+    bound_qfis: list[int] = []
+    transfer_present = False
+    if isinstance(resources, list):
+        for item in resources:
+            if not isinstance(item, dict):
+                continue
+            session_id = item.get("pdu_session_id")
+            if session_id is not None:
+                session_ids.append(session_id)
+            role = item.get("resource_list_role")
+            if role is not None:
+                outcomes.append(f"{session_id}:{role}")
+            if isinstance(item.get("qfi_values"), list):
+                bound_qfis.extend(item["qfi_values"])
+            transfer = item.get("transfer")
+            if isinstance(transfer, dict) and transfer.get("present"):
+                transfer_present = True
     return {
         "timestamp": event.get("timestamp"),
         "frame_number": event.get("frame_number"),
@@ -67,6 +87,11 @@ def timeline_entry(event: dict[str, object]) -> dict[str, object]:
         "ran_ue_ngap_id": event.get("ran_ue_ngap_id"),
         "amf_ue_ngap_id": event.get("amf_ue_ngap_id"),
         "cause": event.get("cause"),
+        "pdu_session_ids": session_ids,
+        "resource_outcomes": outcomes,
+        "bound_qfi_values": bound_qfis,
+        "transfer_present": transfer_present,
+        "unbound_resource_metadata": event.get("unbound_resource_metadata"),
     }
 
 
@@ -74,12 +99,22 @@ def render_text(events: list[dict[str, object]]) -> str:
     lines = []
     for event in events:
         entry = timeline_entry(event)
-        lines.append(
+        line = (
             f"frame={_id(entry['frame_number'])} {entry['timestamp']} "
             f"{entry['pdu_type'] or '-'} {entry['message_type'] or entry['procedure_name'] or (entry['support_status'] or 'UNKNOWN')} "
             f"ran={_id(entry['ran_ue_ngap_id'])} amf={_id(entry['amf_ue_ngap_id'])} "
             f"result={entry['result'] or '-'} cause={_cause(entry['cause'])}"
         )
+        if entry["pdu_session_ids"] or entry["resource_outcomes"]:
+            line += (
+                f" psi={entry['pdu_session_ids'] or '-'}"
+                f" resources={entry['resource_outcomes'] or '-'}"
+                f" qfi={entry['bound_qfi_values'] or '-'}"
+                f" transfer={'yes' if entry['transfer_present'] else 'no'}"
+            )
+        if entry["unbound_resource_metadata"]:
+            line += " unbound-resource-metadata=yes"
+        lines.append(line)
     return "\n".join(lines) + "\n"
 
 

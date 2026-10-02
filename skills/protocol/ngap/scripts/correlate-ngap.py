@@ -176,6 +176,12 @@ class Correlator:
                 "observed": observed,
                 "correlation_strength": strength,
             }
+            # PDU Session resource evidence is preserved verbatim when present;
+            # it never establishes or merges a UE context.
+            if event.get("pdu_session_resources") is not None:
+                entry["pdu_session_resources"] = event["pdu_session_resources"]
+            if event.get("unbound_resource_metadata") is not None:
+                entry["unbound_resource_metadata"] = event["unbound_resource_metadata"]
             if (context["context_key"], event.get("frame_number")) in conflict_frames:
                 entry["binding_conflict"] = True
             context["events"].append(entry)

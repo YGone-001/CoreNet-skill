@@ -63,6 +63,26 @@ Weak evidence — timestamp or endpoint proximity alone — is not used to
 merge UE contexts. Non-UE-associated messages (no UE NGAP IDs, for example
 Paging) are listed separately and never attached to a UE context.
 
+## PDU Session ID inside a UE context
+
+PDU Session resource evidence is subordinate to the UE context. A PDU
+Session ID may organise resource evidence inside an already-established
+context, but it never establishes UE identity by itself and is never used
+to derive or merge a binding.
+
+Two consequences:
+
+- The same numeric PDU Session ID in two different UE contexts stays in
+  two different contexts. This Skill reports both; it does not merge them.
+- The same numeric RAN-UE-NGAP-ID and/or PDU Session ID on two different
+  SCTP associations stays separate, because association scoping is applied
+  before any PDU Session consideration.
+
+The correlator preserves each member event's `pdu_session_resources` and
+`unbound_resource_metadata` verbatim. It does not build a PDU Session
+lifecycle, does not match requests to responses, and does not correlate
+sessions across unrelated UE contexts.
+
 ## Conflicts and capture windows
 
 Conflicts are DERIVED findings listing: the contradicting frame, the pair

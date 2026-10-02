@@ -1,43 +1,81 @@
-# NGAP display filters
-# Verified against Wireshark/TShark 4.7.1 (v4.7.1-0-g667ab240e6de) via
-# `tshark -G fields` / `-G values`. Filter names are version-dependent;
-# re-verify before use on other Wireshark releases.
+# NGAP display filters (bounded UE-context and PDU Session resource subsets)
+# Field names verified against the NGAP dissector of Wireshark/TShark 4.7.1
+# as published in the Wireshark display-filter reference. The reviewed
+# environment had no local tshark installation, so the PDU Session resource
+# filters below are published-reference verified, not locally re-dumped.
+# Filter names are version-dependent; re-verify before using other releases.
 
-# All NGAP over SCTP
+# All NGAP traffic
 ngap
 
-# NGAP transport port (N2 default, not protocol-guaranteed)
-sctp.port == 38412
-
-# Supported UE-context / NAS-transport / release / paging procedures
+# UE-context and NAS transport messages
 ngap.procedureCode == 15
 ngap.procedureCode == 46
 ngap.procedureCode == 4
 ngap.procedureCode == 14
-ngap.procedureCode == 42
 ngap.procedureCode == 41
+ngap.procedureCode == 42
 ngap.procedureCode == 24
+ngap.procedureCode == 9
+ngap.procedureCode == 19
 
-# UE-context identifiers
+# PDU Session resource procedures
+ngap.procedureCode == 29
+ngap.procedureCode == 26
+ngap.procedureCode == 28
+
+# UE NGAP identifiers
 ngap.RAN_UE_NGAP_ID
 ngap.AMF_UE_NGAP_ID
-ngap.RAN_UE_NGAP_ID == 1 && ngap.AMF_UE_NGAP_ID == 2
 
-# Cause CHOICE category and category-local values
+# PDU Session identity and QFI
+ngap.pDUSessionID
+ngap.qosFlowIdentifier
+ngap.fiveQI
+
+# Resource list indicators (operation / list role)
+ngap.PDUSessionResourceSetupListSUReq
+ngap.PDUSessionResourceSetupListSURes
+ngap.PDUSessionResourceFailedToSetupListSURes
+ngap.PDUSessionResourceSetupListCxtReq
+ngap.PDUSessionResourceSetupListCxtRes
+ngap.PDUSessionResourceFailedToSetupListCxtRes
+ngap.PDUSessionResourceModifyListModReq
+ngap.PDUSessionResourceModifyListModRes
+ngap.PDUSessionResourceFailedToModifyListModRes
+ngap.PDUSessionResourceToReleaseListRelCmd
+ngap.PDUSessionResourceReleasedListRelRes
+
+# Transfer containers (presence only; never parsed)
+ngap.pDUSessionResourceSetupRequestTransfer
+ngap.pDUSessionResourceSetupResponseTransfer
+ngap.pDUSessionResourceSetupUnsuccessfulTransfer
+ngap.pDUSessionResourceModifyRequestTransfer
+ngap.pDUSessionResourceModifyResponseTransfer
+ngap.pDUSessionResourceModifyUnsuccessfulTransfer
+ngap.pDUSessionResourceReleaseCommandTransfer
+ngap.pDUSessionResourceReleaseResponseTransfer
+
+# PDU Session NAS-PDU (presence only; NAS semantics belong to nas-5gs)
+ngap.pDUSessionNAS_PDU
+
+# Cause (protocol evidence; not a root-cause engine)
 ngap.cause
-ngap.cause == 0
 ngap.radioNetwork
 ngap.transport
 ngap.nas
 ngap.protocol
 ngap.misc
+ngap.radioNetwork == 3
 
-# NAS transport boundary (presence only; contents belong to nas-5gs)
+# NAS-PDU presence at message level
 ngap.NAS_PDU
 
-# RRC establishment cause carried in InitialUEMessage
-ngap.RRCEstablishmentCause
+# Paging identity presence
+ngap.UEPagingIdentity
+ngap.fiveG_TMSI
 
-# SCTP correlation helpers (tshark-session-local ordinals)
-sctp.assoc_index
-sctp.data_sid
+# RRC establishment cause and location metadata
+ngap.RRCEstablishmentCause
+ngap.UserLocationInformation
+ngap.TAC

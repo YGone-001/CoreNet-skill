@@ -62,6 +62,29 @@ FIELDS = (
     "ngap.TAC",
     "ngap.UEPagingIdentity",
     "ngap.fiveG_TMSI",
+    # PDU Session resource evidence (bounded; no transfer decoding).
+    "ngap.pDUSessionID",
+    "ngap.pDUSessionNAS_PDU",
+    "ngap.qosFlowIdentifier",
+    "ngap.PDUSessionResourceSetupListSUReq",
+    "ngap.PDUSessionResourceSetupListSURes",
+    "ngap.PDUSessionResourceFailedToSetupListSURes",
+    "ngap.PDUSessionResourceSetupListCxtReq",
+    "ngap.PDUSessionResourceSetupListCxtRes",
+    "ngap.PDUSessionResourceFailedToSetupListCxtRes",
+    "ngap.PDUSessionResourceModifyListModReq",
+    "ngap.PDUSessionResourceModifyListModRes",
+    "ngap.PDUSessionResourceFailedToModifyListModRes",
+    "ngap.PDUSessionResourceToReleaseListRelCmd",
+    "ngap.PDUSessionResourceReleasedListRelRes",
+    "ngap.pDUSessionResourceSetupRequestTransfer",
+    "ngap.pDUSessionResourceSetupResponseTransfer",
+    "ngap.pDUSessionResourceSetupUnsuccessfulTransfer",
+    "ngap.pDUSessionResourceModifyRequestTransfer",
+    "ngap.pDUSessionResourceModifyResponseTransfer",
+    "ngap.pDUSessionResourceModifyUnsuccessfulTransfer",
+    "ngap.pDUSessionResourceReleaseCommandTransfer",
+    "ngap.pDUSessionResourceReleaseResponseTransfer",
 )
 
 PDU_INITIATING = "initiatingMessage"
@@ -83,6 +106,18 @@ SUPPORTED_PROCEDURES = {
     15: ("InitialUEMessage", {PDU_INITIATING: "InitialUEMessage"}),
     19: ("NASNonDeliveryIndication", {PDU_INITIATING: "NASNonDeliveryIndication"}),
     24: ("Paging", {PDU_INITIATING: "Paging"}),
+    26: ("PDUSessionResourceModify", {
+        PDU_INITIATING: "PDUSessionResourceModifyRequest",
+        PDU_SUCCESSFUL: "PDUSessionResourceModifyResponse",
+    }),
+    28: ("PDUSessionResourceRelease", {
+        PDU_INITIATING: "PDUSessionResourceReleaseCommand",
+        PDU_SUCCESSFUL: "PDUSessionResourceReleaseResponse",
+    }),
+    29: ("PDUSessionResourceSetup", {
+        PDU_INITIATING: "PDUSessionResourceSetupRequest",
+        PDU_SUCCESSFUL: "PDUSessionResourceSetupResponse",
+    }),
     41: ("UEContextRelease", {
         PDU_INITIATING: "UEContextReleaseCommand",
         PDU_SUCCESSFUL: "UEContextReleaseComplete",
@@ -102,6 +137,12 @@ MESSAGE_RESULTS = {
     "DownlinkNASTransport": "REQUEST",
     "UplinkNASTransport": "REQUEST",
     "Paging": "REQUEST",
+    "PDUSessionResourceSetupRequest": "REQUEST",
+    "PDUSessionResourceSetupResponse": "SUCCESS",
+    "PDUSessionResourceModifyRequest": "REQUEST",
+    "PDUSessionResourceModifyResponse": "SUCCESS",
+    "PDUSessionResourceReleaseCommand": "COMMAND",
+    "PDUSessionResourceReleaseResponse": "SUCCESS",
     "UEContextReleaseCommand": "COMMAND",
     "UEContextReleaseComplete": "COMPLETE",
     "UEContextReleaseRequest": "REQUEST",
@@ -120,10 +161,72 @@ MESSAGE_SENDER_ROLES = {
     "ErrorIndication": None,
     "NASNonDeliveryIndication": "ng-ran",
     "Paging": "amf",
+    "PDUSessionResourceSetupRequest": "amf",
+    "PDUSessionResourceSetupResponse": "ng-ran",
+    "PDUSessionResourceModifyRequest": "amf",
+    "PDUSessionResourceModifyResponse": "ng-ran",
+    "PDUSessionResourceReleaseCommand": "amf",
+    "PDUSessionResourceReleaseResponse": "ng-ran",
     "UEContextReleaseCommand": "amf",
     "UEContextReleaseComplete": "ng-ran",
     "UEContextReleaseRequest": "ng-ran",
 }
+
+# --- PDU Session resource evidence -------------------------------------
+#
+# Reviewed against 3GPP TS 38.413 version 19.4.0 Release 19 and the
+# published Wireshark NGAP display-filter reference. NGAP reports failed
+# PDU Session resources through a FAILED-TO-SETUP / FAILED-TO-MODIFY item
+# list inside a successfulOutcome response; TS 38.413 defines no
+# "PDUSessionResourceSetupFailure" message.
+RESOURCE_OPERATIONS = ("SETUP", "MODIFY", "RELEASE", "INITIAL_CONTEXT_SETUP")
+RESOURCE_LIST_ROLES = ("REQUEST", "SUCCESS", "FAILED", "COMMAND", "RESPONSE")
+
+# Resource-list indicator field -> (operation, list role).
+RESOURCE_LIST_FIELDS = {
+    "ngap.PDUSessionResourceSetupListSUReq": ("SETUP", "REQUEST"),
+    "ngap.PDUSessionResourceSetupListSURes": ("SETUP", "SUCCESS"),
+    "ngap.PDUSessionResourceFailedToSetupListSURes": ("SETUP", "FAILED"),
+    "ngap.PDUSessionResourceSetupListCxtReq": ("INITIAL_CONTEXT_SETUP", "REQUEST"),
+    "ngap.PDUSessionResourceSetupListCxtRes": ("INITIAL_CONTEXT_SETUP", "SUCCESS"),
+    "ngap.PDUSessionResourceFailedToSetupListCxtRes": ("INITIAL_CONTEXT_SETUP", "FAILED"),
+    "ngap.PDUSessionResourceModifyListModReq": ("MODIFY", "REQUEST"),
+    "ngap.PDUSessionResourceModifyListModRes": ("MODIFY", "SUCCESS"),
+    "ngap.PDUSessionResourceFailedToModifyListModRes": ("MODIFY", "FAILED"),
+    "ngap.PDUSessionResourceToReleaseListRelCmd": ("RELEASE", "COMMAND"),
+    "ngap.PDUSessionResourceReleasedListRelRes": ("RELEASE", "RESPONSE"),
+}
+
+# Reviewed message identity -> resource operation (message-definition basis).
+RESOURCE_OPERATION_BY_MESSAGE = {
+    "PDUSessionResourceSetupRequest": "SETUP",
+    "PDUSessionResourceSetupResponse": "SETUP",
+    "PDUSessionResourceModifyRequest": "MODIFY",
+    "PDUSessionResourceModifyResponse": "MODIFY",
+    "PDUSessionResourceReleaseCommand": "RELEASE",
+    "PDUSessionResourceReleaseResponse": "RELEASE",
+    "InitialContextSetupRequest": "INITIAL_CONTEXT_SETUP",
+    "InitialContextSetupResponse": "INITIAL_CONTEXT_SETUP",
+}
+
+# Transfer-container field -> reviewed transfer kind. Presence and length
+# only; the encoded transfer body is never parsed by this Skill.
+TRANSFER_FIELDS = {
+    "ngap.pDUSessionResourceSetupRequestTransfer": "setup-request-transfer",
+    "ngap.pDUSessionResourceSetupResponseTransfer": "setup-response-transfer",
+    "ngap.pDUSessionResourceSetupUnsuccessfulTransfer": "setup-unsuccessful-transfer",
+    "ngap.pDUSessionResourceModifyRequestTransfer": "modify-request-transfer",
+    "ngap.pDUSessionResourceModifyResponseTransfer": "modify-response-transfer",
+    "ngap.pDUSessionResourceModifyUnsuccessfulTransfer": "modify-unsuccessful-transfer",
+    "ngap.pDUSessionResourceReleaseCommandTransfer": "release-command-transfer",
+    "ngap.pDUSessionResourceReleaseResponseTransfer": "release-response-transfer",
+}
+
+# Structured-input binding bases recorded on every resource item.
+BINDING_STRUCTURED = "structured-input"
+BINDING_SINGLE_ITEM = "single-resource-message"
+BINDING_SINGLE_LIST = "single-list-message"
+BINDING_UNBOUND = "unbound"
 
 # Cause CHOICE categories as reviewed from the TS 38.413 cause vocabulary.
 CAUSE_CATEGORIES = {
@@ -462,6 +565,247 @@ def sctp_metadata(record: dict[str, object]) -> dict[str, object] | None:
     }
 
 
+def repeated_tokens(value: object) -> list[str]:
+    """Ordered tokens from a repeated field (comma-joined text or JSON array).
+
+    A repeated dissector field is exported comma-joined; structured input may
+    pass a JSON array. Order and duplicates are preserved.
+    """
+    if value is None:
+        return []
+    items = [str(item) for item in value] if isinstance(value, (list, tuple)) else str(value).split(",")
+    return [token.strip() for token in items if token.strip()]
+
+
+def repeated_ints(value: object) -> list[int]:
+    result: list[int] = []
+    for token in repeated_tokens(value):
+        try:
+            result.append(int(token))
+        except ValueError as exc:
+            raise InputError("repeated numeric field must contain integers") from exc
+    return result
+
+
+def optional_bool(value: object) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes"}:
+        return True
+    if text in {"0", "false", "no"}:
+        return False
+    raise InputError("boolean field must be true/false or 0/1")
+
+
+def byte_length(raw: str | None) -> int | None:
+    """Octet length of an exported byte sequence; the bytes are never kept."""
+    if raw is None:
+        return None
+    digits = raw.replace(":", "").replace(" ", "")
+    return len(digits) // 2 if digits else 0
+
+
+def transfer_metadata(record: dict[str, object]) -> dict[str, object]:
+    """Presence, reviewed kind, and length of observed transfer containers."""
+    kinds: list[str] = []
+    total = 0
+    for field, kind in TRANSFER_FIELDS.items():
+        raw = clean(record.get(field))
+        if raw is None:
+            continue
+        if kind not in kinds:
+            kinds.append(kind)
+        length = byte_length(raw)
+        total += length if length is not None else 0
+    if not kinds:
+        return {"present": False, "kind": None, "length": None}
+    return {"present": True, "kind": kinds[0] if len(kinds) == 1 else "multiple", "length": total}
+
+
+def _empty_item(session_id: int, operation: str | None, role: str | None, basis: str) -> dict[str, object]:
+    return {
+        "pdu_session_id": session_id,
+        "resource_operation": operation,
+        "resource_list_role": role,
+        "snssai": {"sst": None, "sd": None},
+        "nas_pdu_present": False,
+        "nas_pdu_length": None,
+        "transfer": {"present": False, "kind": None, "length": None},
+        "qfi_values": [],
+        "cause": None,
+        "binding_basis": basis,
+    }
+
+
+def _structured_items(record: dict[str, object]) -> list[dict[str, object]] | None:
+    """Parse the explicit structured resource array (hierarchy preserved)."""
+    raw = record.get("pdu_session_resources")
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        raise InputError("pdu_session_resources must be an array")
+    items: list[dict[str, object]] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            raise InputError("each pdu_session_resources entry must be an object")
+        session_id = optional_int(entry.get("pdu_session_id"))
+        if session_id is None:
+            raise InputError("resource item requires pdu_session_id")
+        if not 0 <= session_id <= 255:
+            raise InputError("resource pdu_session_id must be within 0..255")
+        operation = clean(entry.get("resource_operation"))
+        if operation is not None and operation not in RESOURCE_OPERATIONS:
+            raise InputError("resource_operation must be a reviewed operation")
+        role = clean(entry.get("resource_list_role"))
+        if role is not None and role not in RESOURCE_LIST_ROLES:
+            raise InputError("resource_list_role must be a reviewed role")
+        sst = optional_int(entry.get("snssai_sst"))
+        if sst is not None and not 0 <= sst <= 255:
+            raise InputError("snssai_sst must be within 0..255")
+        cause = None
+        cause_category = clean(entry.get("cause_category"))
+        cause_value = entry.get("cause_value")
+        if cause_category is not None or cause_value is not None:
+            cause = {
+                "category": cause_category,
+                "value": optional_int(cause_value) if cause_value is not None else None,
+            }
+        nas_present = optional_bool(entry.get("nas_pdu_present"))
+        nas_length = optional_int(entry.get("nas_pdu_length"))
+        if nas_present is None:
+            nas_present = nas_length is not None
+        items.append({
+            "pdu_session_id": session_id,
+            "resource_operation": operation,
+            "resource_list_role": role,
+            "snssai": {"sst": sst, "sd": clean(entry.get("snssai_sd"))},
+            "nas_pdu_present": bool(nas_present),
+            "nas_pdu_length": nas_length if nas_present else None,
+            "transfer": {
+                "present": bool(optional_bool(entry.get("transfer_present"))),
+                "kind": clean(entry.get("transfer_kind")),
+                "length": optional_int(entry.get("transfer_length")),
+            },
+            "qfi_values": repeated_ints(entry.get("qfi_values")),
+            "cause": cause,
+            "binding_basis": BINDING_STRUCTURED,
+        })
+    return items
+
+
+def resolve_pdu_session_resources(
+    record: dict[str, object], message_type: str | None
+) -> tuple[list[dict[str, object]] | None, dict[str, object] | None]:
+    """Derive PDU Session resource items and unbound nested metadata.
+
+    Items come from the explicit structured array when present. Otherwise
+    flattened dissector fields are used only when the binding is provable:
+    a single observed resource list attributes every PDU session identity to
+    that list, and nested QFI / NAS-PDU / transfer values are attached only
+    when exactly one resource item exists. Everything else is preserved as
+    unbound evidence rather than zipped by position.
+    """
+    structured = _structured_items(record)
+    operation_default = RESOURCE_OPERATION_BY_MESSAGE.get(message_type) if message_type else None
+    observed_lists = [
+        (field, RESOURCE_LIST_FIELDS[field]) for field in RESOURCE_LIST_FIELDS if clean(record.get(field)) is not None
+    ]
+    flat_ids = repeated_ints(record.get("ngap.pDUSessionID"))
+    flat_qfis = repeated_ints(record.get("ngap.qosFlowIdentifier"))
+    flat_nas = clean(record.get("ngap.pDUSessionNAS_PDU"))
+    flat_transfer = transfer_metadata(record)
+
+    if structured is None and not observed_lists and not flat_ids and not flat_qfis and flat_nas is None:
+        return None, None
+
+    limitations: list[str] = []
+    unbound_qfis: list[int] = []
+    unbound_causes: list[dict[str, object]] = []
+    unbound_ids: list[int] = []
+    roles_observed: list[str] = []
+    for _field, (_operation, role) in observed_lists:
+        if role not in roles_observed:
+            roles_observed.append(role)
+
+    if structured is not None:
+        items = structured
+        for item in items:
+            if item["resource_operation"] is None:
+                item["resource_operation"] = operation_default
+        bound_ids = {item["pdu_session_id"] for item in items}
+        unbound_ids = [session_id for session_id in flat_ids if session_id not in bound_ids]
+        if unbound_ids:
+            limitations.append("structured resource items do not cover every observed PDU session identity")
+    else:
+        items = []
+        distinct_roles = sorted({role for _field, (_operation, role) in observed_lists})
+        if flat_ids and len(distinct_roles) == 1:
+            role = distinct_roles[0]
+            operation = observed_lists[0][1][0]
+            for session_id in flat_ids:
+                items.append(_empty_item(session_id, operation, role, BINDING_SINGLE_LIST))
+        elif flat_ids:
+            if len(distinct_roles) > 1:
+                limitations.append(
+                    "multiple resource lists observed; PDU session identities cannot be attributed to one list without structural evidence"
+                )
+            else:
+                limitations.append("PDU session identities observed without a reviewed resource list indicator")
+            for session_id in flat_ids:
+                items.append(_empty_item(session_id, operation_default, None, BINDING_UNBOUND))
+        elif distinct_roles:
+            limitations.append("a resource list was observed but no PDU session identity was exported")
+
+        if len(items) == 1:
+            item = items[0]
+            item["qfi_values"] = flat_qfis
+            item["nas_pdu_present"] = flat_nas is not None
+            item["nas_pdu_length"] = byte_length(flat_nas) if flat_nas is not None else None
+            if flat_transfer["present"]:
+                item["transfer"] = dict(flat_transfer)
+            if flat_qfis or flat_nas is not None or flat_transfer["present"]:
+                item["binding_basis"] = BINDING_SINGLE_ITEM
+        else:
+            if flat_qfis:
+                unbound_qfis = list(flat_qfis)
+                limitations.append("QFI values observed but not safely attributable to a specific PDU session resource item")
+            if flat_nas is not None:
+                limitations.append("a PDU session NAS-PDU was observed but not safely attributable to a specific resource item")
+            if flat_transfer["present"]:
+                limitations.append("transfer container(s) observed but not safely attributable to a specific resource item")
+
+    explicit_unbound_qfis = repeated_ints(record.get("unbound_qfi_values"))
+    for value in explicit_unbound_qfis:
+        if value not in unbound_qfis:
+            unbound_qfis.append(value)
+    explicit_cause = record.get("unbound_cause")
+    if isinstance(explicit_cause, dict):
+        unbound_causes.append({
+            "category": clean(explicit_cause.get("category")),
+            "value": optional_int(explicit_cause.get("value")),
+        })
+    if unbound_qfis or unbound_causes:
+        limitations.append("nested resource metadata observed without a provable parent resource item")
+
+    for extra in repeated_tokens(record.get("unbound_limitations")):
+        if extra not in limitations:
+            limitations.append(extra)
+
+    unbound: dict[str, object] | None = None
+    if unbound_qfis or unbound_causes or unbound_ids or len(roles_observed) > 1 or limitations:
+        unbound = {
+            "qfi_values": unbound_qfis,
+            "cause_values": unbound_causes,
+            "pdu_session_ids": unbound_ids,
+            "resource_list_roles": roles_observed,
+            "limitations": limitations,
+        }
+    return items, unbound
+
+
 def normalize_record(record: object, capture_file: str) -> dict[str, object]:
     """Project one structured NGAP observation into the detailed event."""
     if not isinstance(record, dict):
@@ -538,6 +882,11 @@ def normalize_record(record: object, capture_file: str) -> dict[str, object]:
         event["destination"] = destination
     if sctp is not None:
         event["sctp"] = sctp
+    resources, unbound = resolve_pdu_session_resources(record, identity.message_type)
+    if resources is not None:
+        event["pdu_session_resources"] = resources
+    if unbound is not None:
+        event["unbound_resource_metadata"] = unbound
     return event
 
 
@@ -574,6 +923,24 @@ def project_trace_event(event: dict[str, object]) -> dict[str, object]:
         projected["result"] = {"status": event.get("result"), "cause": cause_text, "code": code}
     elif event.get("result") is not None:
         projected["result"] = {"status": event.get("result"), "cause": None, "code": None}
+    resources = event.get("pdu_session_resources")
+    if isinstance(resources, list) and resources:
+        session: dict[str, object] = {}
+        session_ids = [
+            item["pdu_session_id"]
+            for item in resources
+            if isinstance(item, dict) and item.get("pdu_session_id") is not None
+        ]
+        if len(session_ids) == 1:
+            session["pdu_session_id"] = session_ids[0]
+        bound_qfis: list[int] = []
+        for item in resources:
+            if isinstance(item, dict) and isinstance(item.get("qfi_values"), list):
+                bound_qfis.extend(item["qfi_values"])
+        if len(bound_qfis) == 1:
+            session["qfi"] = bound_qfis[0]
+        if session:
+            projected["session"] = session
     return projected
 
 
@@ -603,7 +970,14 @@ def tshark_version() -> str:
 
 
 def build_tshark_fields_command(capture: Path) -> list[str]:
-    command = ["tshark", "-n", "-r", str(capture), "-T", "fields", "-E", "header=y", "-E", "separator=/t", "-E", "quote=d", "-E", "occurrence=f", "-Y", "ngap"]
+    """Build the bounded field-extraction command.
+
+    ``occurrence=a`` exports every occurrence of a repeated field
+    comma-joined, so multiple PDU Session resources and QFI values are never
+    truncated to the first occurrence; single-occurrence fields are
+    unaffected.
+    """
+    command = ["tshark", "-n", "-r", str(capture), "-T", "fields", "-E", "header=y", "-E", "separator=/t", "-E", "quote=d", "-E", "occurrence=a", "-Y", "ngap"]
     for field in FIELDS:
         command.extend(["-e", field])
     return command

@@ -1,45 +1,41 @@
 # ngap
 
 `ngap` is a standalone Protocol-layer package for bounded NGAP semantic
-extraction on the N2 interface (NG-RAN to AMF, NGAP over SCTP). It
-identifies PDU category, elementary procedure, and concrete message for a
-reviewed subset, extracts RAN-UE-NGAP-ID / AMF-UE-NGAP-ID as distinct UE
-context identifiers, preserves NGAP Cause category/value, correlates
-frames into UE contexts deterministically, and emits both detailed NGAP
-events and a shared trace-event projection. It does not decode NAS and
-does not diagnose procedures.
+extraction on the N2 interface (NG-RAN to AMF, NGAP over SCTP). Version
+0.2.0 implements the UE-context, NAS-transport, Initial Context, release,
+and paging subset plus bounded PDU Session Resource Setup, Modify, and
+Release semantics and PDU Session resources embedded in Initial Context
+Setup. It never decodes NAS payloads, never parses transfer containers,
+and never decides whether a PDU Session procedure succeeded.
 
-Reviewed basis: 3GPP TS 38.413 as implemented by the Wireshark/TShark
-4.7.1 NGAP dissector (procedure-code and cause vocabularies verified with
-`tshark -G fields` / `-G values`). Other Wireshark versions may name
-fields or Info-column text differently; nothing here claims coverage of
-every NGAP Release.
-
-## Prerequisites
-
-Python 3 standard library is sufficient for structured offline input.
-Direct capture parsing additionally requires a user-installed `tshark`
-(Wireshark); this package never installs it and never requires network
-access.
+Reviewed basis: 3GPP TS 38.413 version 19.4.0 Release 19, cross-checked
+against the NGAP dissector of Wireshark/TShark 4.7.1
+(v4.7.1-0-g667ab240e6de). The reviewed environment had no local tshark
+installation, so the new field names were taken from the published
+Wireshark NGAP display-filter reference rather than re-dumped with
+`tshark -G fields`; that verification debt is recorded in
+`references/field-reference.md`.
 
 ## Package structure
 
-- `scripts/ngap_model.py`: shared, standalone normalization helpers and
-  reviewed identity tables.
-- `scripts/extract-ngap.py`: capture or JSONL input to detailed NGAP
-  events, with optional trace projection.
-- `scripts/correlate-ngap.py`: protocol-local UE-context correlation with
-  binding and conflict reporting.
-- `scripts/ngap_timeline.py`: protocol-local timeline (text or JSON).
-- `schemas/ngap-event.schema.json`: detailed event contract.
-- `schemas/trace-event.schema.json`: byte-identical copy of the repository
-  shared trace-event schema.
+- `scripts/ngap_model.py`: shared standalone normalization helpers,
+  reviewed procedure tables, and the bounded PDU Session resource model.
+- `scripts/extract-ngap.py`: capture or structured JSONL input to detailed
+  NGAP events, with optional trace projection.
+- `scripts/correlate-ngap.py`: deterministic UE-context correlation
+  summary, scoped by capture and SCTP association.
+- `scripts/ngap_timeline.py`: protocol-local message timeline (text or
+  JSON); never labels a PDU Session or UE procedure as succeeded or failed.
+- `schemas/ngap-event.schema.json`: detailed event contract, including the
+  optional `pdu_session_resources` array and `unbound_resource_metadata`.
+- `schemas/trace-event.schema.json`: byte-identical copy of the shared
+  trace-event schema.
 - `references/`: protocol model, procedure map, field reference,
-  correlation rules, failure cases.
-- `filters/wireshark.txt`: verified NGAP display filters with version
-  basis.
-- `examples/extracted/`: synthetic structured fixtures; no packet payloads.
-- `examples/expected/`: deterministic expected outputs for the fixtures.
+  correlation, failure cases.
+- `filters/wireshark.txt`: display filters verified on 4.7.1.
+- `examples/extracted/`: synthetic structured fixtures (documentation
+  address ranges only, no subscriber identities, no capture payloads).
+- `examples/expected/`: deterministic expected outputs.
 - `tests/`: package-local test entry point.
 
 ## Usage
@@ -53,43 +49,42 @@ python scripts/ngap_timeline.py ngap-events.jsonl --format text
 ```
 
 Inputs are validated before extraction; existing outputs are refused
-unless `--force` is given. Detailed events, trace projection, correlation
-summaries, and timelines are deterministic: identical input yields
-byte-identical output.
+unless `--force` is given; outputs are deterministic (identical input,
+identical bytes).
 
-## Output and limits
+## PDU Session resource evidence
 
-Detailed events carry frame provenance, PDU category with its resolution
-basis, procedure/message identity, support status, local result and
-sender-role labels, UE NGAP IDs, Cause, NAS-PDU presence and length, SCTP
-metadata, and an OBSERVED evidence record with enumerated derivations.
-The trace projection writes only semantically correct shared fields —
-NGAP-specific identifiers stay in the detailed event and never enter
-generic subscriber, session, or dialog fields.
+A single NGAP message may carry several PDU Session resources, and a
+response may carry successful and failed items at the same time. The
+detailed event therefore models resources as an array:
 
-Supported subset (0.1.0): InitialUEMessage, UplinkNASTransport,
-DownlinkNASTransport, InitialContextSetup (request/response/failure),
-UEContextReleaseRequest, UEContextRelease (command/complete), Paging,
-plus identity-only handling of ErrorIndication and
-NASNonDeliveryIndication. Everything else reports UNSUPPORTED (reviewed
-name, no semantics) or UNKNOWN (no invented identity). Handover, path
-switch, NG setup, PDU session resource semantics, and all later-Release
-extensions are deferred.
+- `pdu_session_resources[]`: `pdu_session_id`, `resource_operation`,
+  `resource_list_role`, `snssai`, `nas_pdu_present`, `nas_pdu_length`,
+  `transfer` (presence/kind/length), `qfi_values`, `cause`, and
+  `binding_basis`.
+- `unbound_resource_metadata`: QFI / Cause / PDU Session identity values
+  observed in the message but not safely attributable to one item, with
+  explicit limitations.
 
-PDU category resolution: tshark does not expose the NGAP PDU category as a
-filterable field, so it is resolved from an explicit structured-input
-value or from exact Info-column message matching (`pdu_type_basis`
-records which). If neither resolves it, `pdu_type` stays null and the
-event remains valid.
+The message-level `result` stays a message/PDU-level label. It never means
+that every embedded resource succeeded; a `successfulOutcome`
+`PDUSessionResourceSetupResponse` may still contain a
+`PDUSessionResourceFailedToSetupListSURes` item.
 
-A UEContextReleaseRequest observed from the NG-RAN side supports only
-that the release path was initiated from the observed NG-RAN signaling
-side. It is not proof that the NG-RAN caused any user-visible failure.
-Missing outcomes inside a capture window are reported as unobserved, not
-as network behavior.
+Structured input binds items explicitly through the
+`pdu_session_resources` array. Flattened dissector output is used only
+when the binding is provable: a single observed resource list attributes
+every PDU Session identity to that list, and nested QFI / NAS-PDU /
+transfer values attach only when exactly one resource item exists.
+Repeated fields are never zipped by array position.
+
+Boundaries: NAS payload contents are never decoded; transfer containers
+are never parsed; `session.teid`, `session.seid`, `session.dnn`,
+`session.apn`, and `session.bearer_id` are never populated from NGAP;
+`session.pdu_session_id` and `session.qfi` are projected only when
+exactly one value is unambiguously represented.
 
 ## Standalone validation
 
 Copy this directory anywhere and run `python tests/test_ngap.py`. No
-repository-root runtime files are required; the package-local schemas and
-references are self-sufficient.
+repository-root runtime files are required.

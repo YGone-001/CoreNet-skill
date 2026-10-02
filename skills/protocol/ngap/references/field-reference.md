@@ -2,9 +2,13 @@
 
 Each extracted field: normalized name, semantic meaning, source tshark
 field(s), optionality in the detailed event, evidence level, and version
-caveats. Reviewed against TShark 4.7.1 (v4.7.1-0-g667ab240e6de) via
-`tshark -G fields` / `-G values`; other Wireshark versions may differ and
-were not reviewed.
+caveats. Procedure-code and cause vocabularies were verified against TShark
+4.7.1 (v4.7.1-0-g667ab240e6de) via `tshark -G fields` / `-G values`. The
+PDU Session resource fields added in 0.2.0 could not be re-dumped locally —
+the reviewed environment has no tshark installation — so their names were
+taken from the published Wireshark NGAP display-filter reference. That is
+**verification debt**, not local introspection, and no field name was
+invented. Other Wireshark versions may differ and were not reviewed.
 
 ## Frame and capture provenance
 
@@ -95,6 +99,36 @@ Presence is recorded; TAC/TMSI values are not emitted.
 
 `sctp.assoc_index` is a TShark-session-local ordinal, not a 3GPP
 identifier; it is used only to scope correlation within one capture.
+
+## PDU Session resource fields
+
+Added in 0.2.0. Field names come from the published Wireshark NGAP
+display-filter reference (local `tshark -G fields` was not available in the
+reviewed environment). Nesting is **not** guaranteed by the flattened
+export; see the binding column.
+
+| Field | Meaning | Source field(s) | Nesting / binding | Evidence |
+| --- | --- | --- | --- | --- |
+| pdu_session_resources[].pdu_session_id | PDU Session identity (0..255) | structured `pdu_session_resources[].pdu_session_id`, or ngap.pDUSessionID | structured-input, or single-list-message when exactly one list indicator is present | OBSERVED |
+| pdu_session_resources[].resource_operation | SETUP / MODIFY / RELEASE / INITIAL_CONTEXT_SETUP | derived from message identity | DERIVED | DERIVED |
+| pdu_session_resources[].resource_list_role | REQUEST / SUCCESS / FAILED / COMMAND / RESPONSE | structured input, or the single observed list indicator | null when several lists are observed and the role is not provable | OBSERVED (indicator) / DERIVED (label) |
+| pdu_session_resources[].snssai.sst / .sd | slice service type and differentiator | structured `snssai_sst` / `snssai_sd` only | structured-input only; no verified dissector field name was available in the reviewed environment | OBSERVED (structured input) |
+| pdu_session_resources[].nas_pdu_present / .nas_pdu_length | PDU Session NAS-PDU presence and octet length | structured item, or ngap.pDUSessionNAS_PDU when exactly one item exists | length is DERIVED from the exported octets; contents are never kept | OBSERVED / DERIVED |
+| pdu_session_resources[].transfer.present / .kind / .length | transfer container presence, reviewed kind, octet length | ngap.pDUSessionResource*Transfer fields, or structured item | body never parsed; `kind` is null or `multiple` when not singular | OBSERVED / DERIVED |
+| pdu_session_resources[].qfi_values | QFI values bound to that item | structured item `qfi_values`, or ngap.qosFlowIdentifier when exactly one item exists | a repeated field is kept as an ordered list and never zipped by position | OBSERVED |
+| pdu_session_resources[].cause | item-level NGAP Cause | structured `cause_category` / `cause_value` only | the item Cause normally lives inside the encoded unsuccessful transfer, so it is bound only from structured input | OBSERVED (structured input) |
+| pdu_session_resources[].binding_basis | structured-input / single-resource-message / single-list-message / unbound | derived | makes the association basis auditable per item | DERIVED |
+| unbound_resource_metadata.qfi_values | QFI values with no provable parent item | ngap.qosFlowIdentifier when the binding is ambiguous, or structured `unbound_qfi_values` | never silently discarded | OBSERVED |
+| unbound_resource_metadata.cause_values | item-level Causes with no provable parent item | structured `unbound_cause` | never attached to an arbitrary item | OBSERVED (structured input) |
+| unbound_resource_metadata.pdu_session_ids | observed PDU Session identities not covered by items | ngap.pDUSessionID not covered by the structured array | — | OBSERVED |
+| unbound_resource_metadata.resource_list_roles | list roles observed in the message | resource list indicators | — | OBSERVED |
+| unbound_resource_metadata.limitations | explicit reasons the nested values stay unbound | derived | — | DERIVED |
+
+Resource-list indicator fields and the operation/role they represent are
+tabulated in `procedure-map.md`. `ngap.pDUSessionID` is a repeated field, so
+the extractor requests all occurrences; the flattened export still does not
+prove which list an identity came from, which is why multiple list
+indicators leave item roles null.
 
 ## Evidence and derivations bookkeeping
 

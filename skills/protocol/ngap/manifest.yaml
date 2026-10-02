@@ -1,21 +1,28 @@
 name: ngap
-version: 0.1.0
+version: 0.2.0
 category: protocol
 description: >
   Bounded NGAP semantic extraction: PDU/procedure/message identification,
-  UE NGAP context identifiers, NGAP Cause preservation, protocol-local
-  correlation, detailed NGAP events, and normalized trace-event projection.
+  UE NGAP context identifiers, NGAP Cause preservation, bounded PDU Session
+  resource evidence (setup, modify, release, and resources embedded in
+  Initial Context Setup), protocol-local correlation, detailed NGAP events,
+  and normalized trace-event projection.
 scope:
   includes:
     - NGAP PDU category and procedure/message identification for the bounded subset
     - RAN-UE-NGAP-ID and AMF-UE-NGAP-ID extraction and protocol-local handling
     - NGAP Cause category/value preservation
+    - bounded PDU Session resource items with PDU Session ID, list role, S-NSSAI, NAS-PDU presence, transfer presence/type, bound QFI values, and item Cause
+    - PDU Session resource evidence embedded in Initial Context Setup request and response
     - deterministic UE-context correlation scoped by capture and SCTP association
     - detailed NGAP event JSONL and shared trace-event projection
     - tshark-assisted capture extraction and deterministic structured offline input
   excludes:
     - NAS-PDU decoding or any NAS semantic field (handoff to nas-5gs)
-    - 5GC registration, authentication, or PDU session procedure state
+    - generic ASN.1 transfer-container decoding
+    - 5GC registration, authentication, or complete PDU session procedure state
+    - PFCP, GTP-U/TEID, and SBI semantics
+    - NGAP handover and path-switch procedures
     - radio or RRC diagnosis
     - AMF or gNB implementation or source-code mapping
     - end-to-end root cause determination
@@ -57,8 +64,24 @@ testing:
     - examples/extracted/conflict-binding.jsonl
     - examples/extracted/malformed.jsonl
     - examples/extracted/missing-required.jsonl
+    - examples/extracted/pdu-session-setup.jsonl
+    - examples/extracted/pdu-session-modify.jsonl
+    - examples/extracted/pdu-session-release.jsonl
+    - examples/extracted/initial-context-resources.jsonl
+    - examples/extracted/pdu-session-qfi.jsonl
+    - examples/extracted/pdu-session-identity.jsonl
+    - examples/extracted/pdu-session-recognition.jsonl
+    - examples/extracted/pdu-session-ordering.jsonl
   expected_results:
     - examples/expected/ue-context-events.jsonl
     - examples/expected/ue-context-trace.jsonl
     - examples/expected/multi-association-correlation.json
     - examples/expected/conflict-binding-correlation.json
+    - examples/expected/pdu-session-setup-events.jsonl
+    - examples/expected/pdu-session-modify-events.jsonl
+    - examples/expected/pdu-session-release-events.jsonl
+    - examples/expected/initial-context-resources-events.jsonl
+    - examples/expected/pdu-session-qfi-events.jsonl
+    - examples/expected/pdu-session-identity-events.jsonl
+    - examples/expected/pdu-session-recognition-events.jsonl
+    - examples/expected/pdu-session-ordering-events.jsonl

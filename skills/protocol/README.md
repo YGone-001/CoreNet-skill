@@ -5,15 +5,23 @@ classification, and protocol-neutral trace-event normalization package. It does
 not implement protocol message semantics or procedure diagnosis.
 
 Implemented: `ngap`, the first telecom signaling-semantic Protocol Skill.
-Version 0.1.0 supports a bounded UE-context subset of NGAP over N2:
+Version 0.2.0 supports a bounded UE-context subset of NGAP over N2:
 InitialUEMessage, UplinkNASTransport, DownlinkNASTransport,
 InitialContextSetup (request/response/failure), UEContextReleaseRequest,
 UEContextRelease (command/complete), and Paging, plus identity-only
 handling of ErrorIndication and NASNonDeliveryIndication. It extracts
 RAN-UE-NGAP-ID and AMF-UE-NGAP-ID, preserves NGAP Cause category/value,
 correlates frames into UE contexts scoped by capture and SCTP association,
-and projects detailed events into the shared trace-event schema. It does
-not decode NAS, does not model 5GC registration, and does not claim
+and projects detailed events into the shared trace-event schema. Version
+0.2.0 adds bounded PDU Session resource evidence: PDU Session Resource
+Setup (request/response), Modify (request/response), Release
+(command/response), and PDU Session resources embedded in Initial Context
+Setup, modelled as an array of resource items with PDU Session ID, list
+role, S-NSSAI, NAS-PDU presence, transfer presence/type, bound QFI values,
+item Cause, and an explicit binding basis; unsafely bound nested values are
+preserved as unbound evidence. It does not decode NAS, does not parse
+transfer containers, does not own PFCP/GTP-U/SBI semantics, does not model
+PDU Session or registration procedure state, and does not claim
 full-Release NGAP coverage.
 
 Implemented: `nas-5gs`, the first user-plane-of-trust Protocol Skill on
