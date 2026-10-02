@@ -1,0 +1,50 @@
+{
+  "capture_file": "stream-isolation.jsonl",
+  "limitations": [],
+  "open_transactions": [],
+  "transactions": [
+    {
+      "capture_file": "stream-isolation.jsonl",
+      "connection_context": "tcp-stream:0",
+      "correlation_strength": "STRONG",
+      "limitations": [],
+      "method": "POST",
+      "operation": "CreateSMContext",
+      "path": "/nsmf-pdusession/v1/sm-contexts",
+      "request_frames": [
+        201
+      ],
+      "response_frames": [
+        202
+      ],
+      "service": "Nsmf_PDUSession",
+      "sm_context_ref": "ctx-A1",
+      "status": 201,
+      "stream_id": 1,
+      "transaction_key": "sbi-tx:stream-isolation.jsonl:tcp-stream:0:stream1",
+      "transport_error": null
+    },
+    {
+      "capture_file": "stream-isolation.jsonl",
+      "connection_context": "tcp-stream:1",
+      "correlation_strength": "STRONG",
+      "limitations": [],
+      "method": "POST",
+      "operation": "ReleaseSMContext",
+      "path": "/nsmf-pdusession/v1/sm-contexts/ctx-B1/release",
+      "request_frames": [
+        203
+      ],
+      "response_frames": [
+        204
+      ],
+      "service": "Nsmf_PDUSession",
+      "sm_context_ref": "ctx-B1",
+      "status": 204,
+      "stream_id": 1,
+      "transaction_key": "sbi-tx:stream-isolation.jsonl:tcp-stream:1:stream1",
+      "transport_error": null
+    }
+  ],
+  "unbound_events": []
+}

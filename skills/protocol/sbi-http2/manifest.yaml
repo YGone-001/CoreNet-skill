@@ -1,0 +1,95 @@
+name: sbi-http2
+version: 0.1.0
+category: protocol
+description: >
+  Bounded 3GPP SBI and HTTP/2 semantic extraction for N11 Nsmf_PDUSession:
+  connection context and stream identity, Create/Update/Release SM Context
+  operations, SM Context reference tracking, bounded PDU Session ID / DNN /
+  S-NSSAI metadata, multipart Content-ID binding for N1/N2 binary parts,
+  ProblemDetails and service error evidence, HTTP/2 transport errors (RST_STREAM,
+  GOAWAY), subscriber identity privacy defaults, protocol-local request/response
+  transaction correlation, detailed events, and normalized trace-event projection.
+scope:
+  includes:
+    - HTTP/2 stream identification scoped by connection context (tcp.stream or connection_id)
+    - HTTP/2 request/response headers, methods, paths, status codes, and content types
+    - HTTP/2 transport errors (RST_STREAM, GOAWAY) and control frames
+    - 3GPP SBI Nsmf_PDUSession operations: Create SM Context, Update SM Context, Release SM Context
+    - SM Context resource reference tracking (Location response header, request path)
+    - bounded session management metadata (PDU Session ID, DNN, S-NSSAI, Request Type, Access Type, RAT Type, UP connection state, N2 SM Info Type)
+    - multipart/related structure with explicit Content-ID binding for N1 SM and N2 SM binary references
+    - ProblemDetails and service-specific error data (status, cause, title, invalid parameters)
+    - subscriber identity privacy defaults (presence/type only, raw values redacted)
+    - Authorization header stripping (tokens never persisted)
+    - TLS-encrypted payload limitation representation
+    - endpoint-scoped request/response transaction correlation
+    - detailed SBI HTTP/2 event JSONL and shared trace-event projection
+    - deterministic structured offline input and tshark-assisted capture extraction
+  excludes:
+    - raw HTTP/2 binary frame parsing, HPACK decoding, Huffman decoding, or TCP reassembly in Python
+    - TLS decryption, key extraction, or certificate/private-key handling
+    - NAS decoding or interpretation of N1 binary parts (owned by nas-5gs)
+    - NGAP decoding or interpretation of N2 binary parts (owned by ngap)
+    - cross-protocol joins to PFCP (SEID), GTP-U (TEID), or NGAP UE IDs
+    - other SBI services (Namf_Communication, Nausf_UEAuthentication, Nudm_SDM, Npcf_SMPolicyControl, etc.)
+    - complete PDU Session procedure state or end-to-end outcome determination
+    - network function (AMF, SMF, SCP) implementation blame or source-code mapping
+    - end-to-end root cause determination
+dependencies:
+  required: []
+  optional:
+    - core-network-pcap >=0.1.0
+    - wireshark-analysis >=0.2.0
+    - protocol-reverse-engineering >=0.2.0
+    - systematic-debugging >=0.2.0
+    - tshark
+inputs:
+  - PCAP or PCAPNG capture containing HTTP/2 over TCP/TLS (requires user-installed tshark)
+  - structured SBI HTTP/2 fields JSONL (deterministic offline input, documented in references/field-reference.md)
+outputs:
+  - detailed SBI HTTP/2 event JSON Lines (schemas/sbi-http2-event.schema.json)
+  - normalized trace-event JSON Lines projection (schemas/trace-event.schema.json)
+  - SBI HTTP/2 transaction correlation summary JSON (schemas/sbi-http2-correlation.schema.json)
+  - protocol-local SBI timeline (text or JSON)
+protocols:
+  - HTTP/2
+  - 3GPP-SBI
+interfaces:
+  - N11
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Protocol-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/extracted/create-sm-context.jsonl
+    - examples/extracted/update-sm-context.jsonl
+    - examples/extracted/release-sm-context.jsonl
+    - examples/extracted/multipart-binding.jsonl
+    - examples/extracted/stream-isolation.jsonl
+    - examples/extracted/transactions.jsonl
+    - examples/extracted/error-handling.jsonl
+    - examples/extracted/recognition.jsonl
+    - examples/extracted/privacy.jsonl
+    - examples/extracted/malformed.jsonl
+  expected_results:
+    - examples/expected/create-sm-context-events.jsonl
+    - examples/expected/update-sm-context-events.jsonl
+    - examples/expected/release-sm-context-events.jsonl
+    - examples/expected/multipart-binding-events.jsonl
+    - examples/expected/stream-isolation-events.jsonl
+    - examples/expected/stream-isolation-correlation.json
+    - examples/expected/transactions-events.jsonl
+    - examples/expected/transactions-correlation.json
+    - examples/expected/error-handling-events.jsonl
+    - examples/expected/recognition-events.jsonl
+    - examples/expected/privacy-events.jsonl

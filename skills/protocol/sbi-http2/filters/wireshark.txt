@@ -1,0 +1,69 @@
+# HTTP/2 and 3GPP SBI display filters — bounded N11 subset
+# Field names verified against the HTTP/2, MIME multipart, and JSON dissectors
+# of Wireshark/TShark as published in the Wireshark display-filter reference.
+# The reviewed environment had no local tshark installation, so these names
+# are published-reference verified, not locally re-dumped; re-verify before
+# using another Wireshark release.
+
+# All HTTP/2 frames
+http2
+
+# Stream identification
+http2.streamid
+http2.streamid != 0
+
+# HTTP/2 frame types
+http2.type == 0
+http2.type == 1
+http2.type == 3
+http2.type == 4
+http2.type == 7
+
+# HTTP/2 pseudo-headers and headers
+http2.headers.method
+http2.headers.path
+http2.headers.status
+http2.headers.scheme
+http2.headers.authority
+http2.header.name
+http2.header.value
+
+# SBI service path matching
+http2.headers.path contains "/nsmf-pdusession/"
+http2.headers.path contains "/sm-contexts"
+
+# Common SBI status codes
+http2.headers.status == 200
+http2.headers.status == 201
+http2.headers.status == 204
+http2.headers.status == 400
+http2.headers.status == 403
+http2.headers.status == 404
+http2.headers.status == 500
+http2.headers.status == 503
+
+# Transport control and error frames
+http2.rst_stream.error
+http2.goaway.last_streamid
+http2.goaway.error
+
+# Multipart body structure (MIME multipart dissector)
+mime_multipart
+mime_multipart.part
+mime_multipart.header.name
+mime_multipart.header.value
+mime_multipart.header.value contains "application/vnd.3gpp.5gnas"
+mime_multipart.header.value contains "application/vnd.3gpp.ngap"
+
+# JSON payload structure
+json
+json.member_name
+json.value.string
+
+# TCP transport context and stream isolation
+tcp.stream
+tcp.srcport
+tcp.dstport
+
+# TLS ALPN indicator for HTTP/2
+tls.handshake.extensions_alpn_str == "h2"

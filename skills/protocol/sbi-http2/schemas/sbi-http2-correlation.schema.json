@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.dev/schemas/sbi-http2/sbi-http2-correlation.schema.json",
+  "title": "SBI HTTP/2 Transaction Correlation Summary",
+  "description": "Protocol-local SBI HTTP/2 request/response transaction correlation. Transactions are scoped by capture, HTTP/2 connection context, and stream ID; stream ID alone never correlates transactions across connections. The transaction key is DERIVED and is not a standardized 3GPP identifier. This summary never models complete PDU Session lifecycle and never states that a procedure or user plane succeeded.",
+  "type": "object",
+  "required": ["capture_file", "transactions", "open_transactions", "unbound_events", "limitations"],
+  "additionalProperties": false,
+  "properties": {
+    "capture_file": {"type": ["string", "null"]},
+    "transactions": {"type": "array", "items": {"$ref": "#/$defs/transaction"}},
+    "open_transactions": {"type": "array", "items": {"$ref": "#/$defs/transaction"}},
+    "unbound_events": {"type": "array", "items": {"$ref": "#/$defs/unboundEvent"}},
+    "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "transaction": {
+      "type": "object",
+      "required": [
+        "transaction_key",
+        "capture_file",
+        "connection_context",
+        "stream_id",
+        "service",
+        "operation",
+        "method",
+        "path",
+        "status",
+        "sm_context_ref",
+        "request_frames",
+        "response_frames",
+        "correlation_strength",
+        "transport_error",
+        "limitations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "transaction_key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "DERIVED key of the form sbi-tx:<capture>:<connection-context>:stream<N>. Not a standardized 3GPP identifier."
+        },
+        "capture_file": {"type": ["string", "null"]},
+        "connection_context": {"type": "string", "minLength": 1},
+        "stream_id": {"type": "integer", "minimum": 0},
+        "service": {"type": ["string", "null"]},
+        "operation": {"type": ["string", "null"]},
+        "method": {"type": ["string", "null"]},
+        "path": {"type": ["string", "null"]},
+        "status": {"type": ["integer", "null"]},
+        "sm_context_ref": {"type": ["string", "null"]},
+        "request_frames": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+        "response_frames": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+        "correlation_strength": {
+          "type": "string",
+          "enum": ["STRONG", "PARTIAL", "WEAK"]
+        },
+        "transport_error": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "type": {"type": "string"},
+            "error_code": {"type": ["integer", "string", "null"]}
+          }
+        },
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "unboundEvent": {
+      "type": "object",
+      "required": ["frame_number", "timestamp", "stream_id", "support_status", "limitation"],
+      "additionalProperties": false,
+      "properties": {
+        "frame_number": {"type": ["integer", "null"], "minimum": 1},
+        "timestamp": {"type": ["string", "null"]},
+        "stream_id": {"type": ["integer", "null"]},
+        "support_status": {"type": ["string", "null"]},
+        "limitation": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

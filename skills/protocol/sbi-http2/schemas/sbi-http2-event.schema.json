@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.dev/schemas/sbi-http2/sbi-http2-event.schema.json",
+  "title": "Detailed SBI HTTP/2 Event",
+  "description": "One bounded 3GPP SBI / HTTP/2 observation on N11. HTTP/2 and SBI header/field evidence are OBSERVED wire facts; normalized operations, context references, and status classes are DERIVED. An HTTP 2xx response never proves end-to-end PDU Session success; an HTTP 4xx/5xx response or transport reset never proves an SMF bug or root cause. Subscriber identities and authorization tokens are redacted/stripped by default.",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "frame_number",
+    "capture_file",
+    "connection",
+    "http2",
+    "sbi",
+    "session_management",
+    "privacy",
+    "multipart_parts",
+    "problem_details",
+    "transport_error",
+    "support_status",
+    "result",
+    "evidence",
+    "derivations",
+    "limitations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {"type": "string", "format": "date-time"},
+    "frame_number": {"type": "integer", "minimum": 1},
+    "capture_file": {"type": "string", "minLength": 1},
+    "connection": {
+      "type": "object",
+      "required": ["tcp_stream", "connection_id", "source_address", "source_port", "destination_address", "destination_port"],
+      "additionalProperties": false,
+      "properties": {
+        "tcp_stream": {"type": ["integer", "null"], "minimum": 0},
+        "connection_id": {"type": ["string", "null"], "minLength": 1},
+        "source_address": {"type": ["string", "null"], "minLength": 1},
+        "source_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+        "destination_address": {"type": ["string", "null"], "minLength": 1},
+        "destination_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535}
+      }
+    },
+    "http2": {
+      "type": "object",
+      "required": ["stream_id", "frame_type", "method", "scheme", "authority", "path", "status", "content_type", "content_length"],
+      "additionalProperties": false,
+      "properties": {
+        "stream_id": {"type": ["integer", "null"], "minimum": 0},
+        "frame_type": {"type": ["string", "null"], "minLength": 1},
+        "method": {"type": ["string", "null"], "minLength": 1},
+        "scheme": {"type": ["string", "null"], "minLength": 1},
+        "authority": {"type": ["string", "null"], "minLength": 1},
+        "path": {"type": ["string", "null"], "minLength": 1},
+        "status": {"type": ["integer", "null"], "minimum": 100, "maximum": 599},
+        "content_type": {"type": ["string", "null"], "minLength": 1},
+        "content_length": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "sbi": {
+      "type": "object",
+      "required": ["service_name", "api_version", "operation", "resource", "sm_context_ref", "selected_headers"],
+      "additionalProperties": false,
+      "properties": {
+        "service_name": {"type": ["string", "null"], "minLength": 1},
+        "api_version": {"type": ["string", "null"], "minLength": 1},
+        "operation": {"type": ["string", "null"], "minLength": 1},
+        "resource": {"type": ["string", "null"], "minLength": 1},
+        "sm_context_ref": {"type": ["string", "null"], "minLength": 1},
+        "selected_headers": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        }
+      }
+    },
+    "session_management": {
+      "type": "object",
+      "required": ["pdu_session_id", "dnn", "snssai", "request_type", "access_type", "rat_type", "up_connection_state", "n2_sm_info_type"],
+      "additionalProperties": false,
+      "properties": {
+        "pdu_session_id": {"type": ["integer", "null"], "minimum": 1, "maximum": 255},
+        "dnn": {"type": ["string", "null"], "minLength": 1},
+        "snssai": {
+          "type": ["object", "null"],
+          "required": ["sst", "sd"],
+          "additionalProperties": false,
+          "properties": {
+            "sst": {"type": "integer", "minimum": 0, "maximum": 255},
+            "sd": {"type": ["string", "null"], "pattern": "^[A-Fa-f0-9]{6}$"}
+          }
+        },
+        "request_type": {"type": ["string", "null"], "minLength": 1},
+        "access_type": {"type": ["string", "null"], "minLength": 1},
+        "rat_type": {"type": ["string", "null"], "minLength": 1},
+        "up_connection_state": {"type": ["string", "null"], "minLength": 1},
+        "n2_sm_info_type": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "required": ["subscriber_identity_present", "subscriber_identity_type"],
+      "additionalProperties": false,
+      "properties": {
+        "subscriber_identity_present": {"type": "boolean"},
+        "subscriber_identity_type": {"type": ["string", "null"], "enum": ["SUPI", "GPSI", "PEI", null]}
+      }
+    },
+    "multipart_parts": {
+      "type": "array",
+      "description": "Bounded multipart body part metadata. Raw binary bytes or payloads are never persisted.",
+      "items": {
+        "type": "object",
+        "required": ["content_id", "content_type", "length", "semantic_role", "reference_basis"],
+        "additionalProperties": false,
+        "properties": {
+          "content_id": {"type": ["string", "null"], "minLength": 1},
+          "content_type": {"type": ["string", "null"], "minLength": 1},
+          "length": {"type": ["integer", "null"], "minimum": 0},
+          "semantic_role": {"type": ["string", "null"], "enum": ["JSON_METADATA", "N1_SM_INFO", "N2_SM_INFO", "UNRESOLVED", null]},
+          "reference_basis": {"type": ["string", "null"], "enum": ["ROOT_JSON", "EXPLICIT_CONTENT_ID", "UNREFERENCED", "AMBIGUOUS_CONTENT_ID", "MISSING_CONTENT_ID", null]}
+        }
+      }
+    },
+    "problem_details": {
+      "type": ["object", "null"],
+      "required": ["status", "cause", "title", "invalid_params", "service_error_type"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"type": ["integer", "null"], "minimum": 100, "maximum": 599},
+        "cause": {"type": ["string", "null"], "minLength": 1},
+        "title": {"type": ["string", "null"], "minLength": 1},
+        "invalid_params": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "required": ["param", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "param": {"type": "string", "minLength": 1},
+              "reason": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "service_error_type": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "transport_error": {
+      "type": ["object", "null"],
+      "required": ["type", "error_code", "last_stream_id", "debug_data_present"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"type": ["string", "null"], "enum": ["RST_STREAM", "GOAWAY", null]},
+        "error_code": {"type": ["integer", "string", "null"]},
+        "last_stream_id": {"type": ["integer", "null"], "minimum": 0},
+        "debug_data_present": {"type": ["boolean", "null"]}
+      }
+    },
+    "support_status": {"type": "string", "enum": ["SUPPORTED", "UNSUPPORTED", "UNKNOWN"]},
+    "result": {
+      "type": ["string", "null"],
+      "enum": ["REQUEST", "RESPONSE", "HTTP_ERROR", "RESET", "GOAWAY", "CONTROL", "PAYLOAD_UNAVAILABLE", null]
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["level", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "level": {"type": "string", "const": "OBSERVED"},
+        "source": {"type": "string", "minLength": 1}
+      }
+    },
+    "derivations": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "limitations": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

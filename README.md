@@ -25,7 +25,11 @@ transaction correlation), the bounded `gtpu` Protocol Skill
 Marker and Supported Extension Headers Notification, with TEID evidence
 scoped by directed outer endpoints, bounded PDU Session Container / QFI
 evidence, bounded inner packet metadata, and observed packet/byte stream
-summaries), and the `cross-protocol-evidence` Correlation
+summaries), the bounded `sbi-http2` Protocol Skill
+(bounded N11 Nsmf_PDUSession observation: Create SM Context, Update SM
+Context, Release SM Context, with HTTP/2 stream isolation scoped by
+connection context, Content-ID multipart binding, subscriber privacy
+redaction, bounded ProblemDetails, and HTTP/2 transport errors), and the `cross-protocol-evidence` Correlation
 Skill (provenance-key joins of extracted protocol events into a unified
 observed-evidence timeline; no protocol ownership, no verdicts), and the
 `procedure-evidence` Domain framework (generic stage and evidence model
@@ -35,11 +39,12 @@ procedure-stage evidence, conditional branches, missing-evidence visibility,
 and lower-layer field findings; no end-to-end diagnosis). The extensions
 provide investigation context only.
 **Not yet implemented:** complete PDU session Domain procedure analysis
-(`5gc-pdu-session`), deep NGAP transfer-container decoding, NGAP handover
-and path-switch procedures, SBI/N11, GTP-U on N9/S1-U/S5-S8-U, complete 5GC
-mobility coverage, remaining protocol Skills
-(NAS-EPS, S1AP, GTP, SIP, Diameter, SBI), EPC/IMS Domain procedures,
-implementation-specific mappings, or end-to-end orchestration.
+(`5gc-pdu-session`), cross-protocol PDU Session composition, deep NGAP
+transfer-container decoding, NGAP handover and path-switch procedures,
+remaining 5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, complete 5GC mobility
+coverage, remaining protocol Skills (NAS-EPS, S1AP, GTP, SIP, Diameter),
+EPC/IMS Domain procedures, implementation-specific mappings, or end-to-end
+orchestration.
 
 ## Why modular Skills
 
