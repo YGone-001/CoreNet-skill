@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.dev/schemas/pfcp/pfcp-correlation.schema.json",
+  "title": "PFCP Transaction Correlation Summary",
+  "description": "Protocol-local PFCP request/response transaction correlation. Transactions are scoped by capture, endpoint pair, sequence number and compatible message family; a sequence number alone never correlates two peers. The transaction key is DERIVED and is not a standardized PFCP identifier. This summary never models a PDU Session lifecycle and never states that a session or user-plane path works.",
+  "type": "object",
+  "required": ["capture_file", "transactions", "open_transactions", "unbound_events", "limitations"],
+  "additionalProperties": false,
+  "properties": {
+    "capture_file": {"type": ["string", "null"]},
+    "transactions": {"type": "array", "items": {"$ref": "#/$defs/transaction"}},
+    "open_transactions": {"type": "array", "items": {"$ref": "#/$defs/transaction"}},
+    "unbound_events": {"type": "array", "items": {"$ref": "#/$defs/unboundEvent"}},
+    "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "transaction": {
+      "type": "object",
+      "required": [
+        "transaction_key",
+        "capture_file",
+        "endpoint_pair",
+        "sequence_number",
+        "family",
+        "request_frames",
+        "response_frames",
+        "correlation_strength",
+        "message_types",
+        "header_seids",
+        "duplicate_request_candidates",
+        "limitations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "transaction_key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "DERIVED key of the form pfcp-tx:<capture>:<endpoint-pair>:seq<N>:<family>. Not a standardized PFCP identifier."
+        },
+        "capture_file": {"type": ["string", "null"]},
+        "endpoint_pair": {"type": "string", "minLength": 1},
+        "sequence_number": {"type": ["integer", "null"], "minimum": 0, "maximum": 16777215},
+        "family": {"type": ["string", "null"], "minLength": 1},
+        "request_frames": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+        "response_frames": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+        "correlation_strength": {
+          "type": "string",
+          "enum": ["STRONG", "MEDIUM", "WEAK"],
+          "description": "STRONG: exactly one request and one response. MEDIUM: both sides observed but at least one side carries more than one frame. WEAK: only one side observed in the capture."
+        },
+        "message_types": {"type": "array", "items": {"type": ["string", "null"]}},
+        "header_seids": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "duplicate_request_candidates": {
+          "type": "array",
+          "items": {"type": "integer", "minimum": 1},
+          "description": "Additional request frames sharing this transaction evidence; candidates only, original evidence is never removed."
+        },
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "unboundEvent": {
+      "type": "object",
+      "required": ["frame_number", "timestamp", "message_type", "support_status", "limitation"],
+      "additionalProperties": false,
+      "properties": {
+        "frame_number": {"type": ["integer", "null"], "minimum": 1},
+        "timestamp": {"type": ["string", "null"]},
+        "message_type": {"type": ["string", "null"]},
+        "support_status": {"type": ["string", "null"]},
+        "limitation": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

@@ -1,0 +1,101 @@
+# PFCP display filters (bounded N4 session-control subset)
+# Field names verified against the PFCP dissector of Wireshark/TShark as
+# published in the Wireshark display-filter reference. The reviewed
+# environment had no local tshark installation, so these names are
+# published-reference verified, not locally re-dumped; re-verify before
+# using another Wireshark release.
+
+# All PFCP
+pfcp
+
+# Header fields
+pfcp.msg_type
+pfcp.length
+pfcp.s
+pfcp.mp_flag
+pfcp.seid
+pfcp.seqno
+pfcp.mp
+
+# Node related messages
+pfcp.msg_type == 1
+pfcp.msg_type == 2
+pfcp.msg_type == 5
+pfcp.msg_type == 6
+
+# Session related messages
+pfcp.msg_type == 50
+pfcp.msg_type == 51
+pfcp.msg_type == 52
+pfcp.msg_type == 53
+pfcp.msg_type == 54
+pfcp.msg_type == 55
+
+# Node identity and recovery
+pfcp.node_id_ipv4
+pfcp.node_id_ipv6
+pfcp.node_id_fqdn
+pfcp.recovery_time_stamp
+
+# Cause (protocol evidence; not a root-cause engine)
+pfcp.cause
+pfcp.cause == 1
+pfcp.cause == 64
+pfcp.cause == 65
+
+# F-SEID (the reviewed reference exposes no field for the F-SEID's own
+# 64-bit SEID value; only the addresses and flags are filterable)
+pfcp.f_seid.ipv4
+pfcp.f_seid.ipv6
+pfcp.f_seid_flags.v4
+pfcp.f_seid_flags.v6
+
+# Rule identifiers
+pfcp.pdr_id
+pfcp.far_id
+pfcp.qer_id
+pfcp.urr_id
+pfcp.precedence
+
+# FAR apply action
+pfcp.apply_action.drop
+pfcp.apply_action.forw
+pfcp.apply_action.buff
+pfcp.apply_action.nocp
+pfcp.apply_action.dupl
+
+# Interfaces
+pfcp.source_interface
+pfcp.dst_interface
+
+# F-TEID (control-plane provisioning evidence only; no GTP-U claim)
+pfcp.f_teid.teid
+pfcp.f_teid.ipv4_addr
+pfcp.f_teid.ipv6_addr
+pfcp.f_teid.choose_id
+pfcp.f_teid_flags.ch
+pfcp.f_teid_flags.ch_id
+
+# Outer Header Creation
+pfcp.outer_hdr_creation.teid
+pfcp.outer_hdr_creation.ipv4
+pfcp.outer_hdr_creation.ipv6
+pfcp.outer_hdr_desc
+
+# Network Instance (never renamed to DNN/APN by this Skill)
+pfcp.network_instance
+
+# UE IP Address (documentation ranges only in fixtures)
+pfcp.ue_ip_addr_ipv4
+pfcp.ue_ip_addr_ipv6
+
+# QFI
+pfcp.qfi_value
+
+# Gate status and rates
+pfcp.gate_status.ulgate
+pfcp.gate_status.dlgate
+pfcp.ul_mbr
+pfcp.dl_mbr
+pfcp.ul_gbr
+pfcp.dl_gbr

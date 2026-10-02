@@ -1,0 +1,4 @@
+{"frame.number":"70","frame.time_epoch":"1704166070.000070","ip.src":"192.0.2.10","ip.dst":"192.0.2.20","udp.srcport":"8805","udp.dstport":"8805","pfcp.msg_type":"999","pfcp.seqno":"900","pfcp.version":"1"}
+{"frame.number":"71","frame.time_epoch":"1704166071.000071","ip.src":"192.0.2.10","ip.dst":"192.0.2.20","udp.srcport":"8805","udp.dstport":"8805","pfcp.msg_type":"50","pfcp.seqno":"901","pfcp.seid":"99999999999999999999999","pfcp.version":"1"}
+{"frame.number":"72","frame.time_epoch":"1704166072.000072","ip.src":"192.0.2.10","ip.dst":"192.0.2.20","udp.srcport":"8805","udp.dstport":"8805","pfcp.msg_type":"50","pfcp.seqno":"99999999","pfcp.version":"1"}
+{"frame.number":"73","frame.time_epoch":"1704166073.000073","ip.src":"192.0.2.10","ip.dst":"192.0.2.20","udp.srcport":"8805","udp.dstport":"8805","pfcp.msg_type":"50","pfcp.seqno":"902","pfcp.version":"1","cp_f_seid":{"seid":"not-a-number"}}

@@ -16,7 +16,11 @@ registration/identity/authentication/security-mode/service/status and
 bounded 5GSM PDU session establishment/modification/release/status
 subsets over N1 with security-envelope classification, bounded
 session-management normalization, privacy defaults, and 5GSM cause
-preservation), and the `cross-protocol-evidence` Correlation
+preservation), the bounded `pfcp` Protocol Skill
+(bounded N4 session-control subset: Heartbeat, Association Setup, Session
+Establishment/Modification/Deletion, header SEID and CP/UP F-SEID evidence,
+bounded PDR/FAR/QER/URR rule groups, PFCP Cause, and endpoint-scoped
+transaction correlation), and the `cross-protocol-evidence` Correlation
 Skill (provenance-key joins of extracted protocol events into a unified
 observed-evidence timeline; no protocol ownership, no verdicts), and the
 `procedure-evidence` Domain framework (generic stage and evidence model
@@ -27,10 +31,9 @@ and lower-layer field findings; no end-to-end diagnosis). The extensions
 provide investigation context only.
 **Not yet implemented:** complete PDU session Domain procedure analysis
 (`5gc-pdu-session`), deep NGAP transfer-container decoding, NGAP handover
-and path-switch procedures, PFCP, GTP-U,
-SBI/N11, complete 5GC mobility
+and path-switch procedures, GTP-U, SBI/N11, complete 5GC mobility
 coverage, remaining protocol Skills
-(NAS-EPS, S1AP, GTP, PFCP, SIP, Diameter, SBI), EPC/IMS Domain procedures,
+(NAS-EPS, S1AP, GTP, SIP, Diameter, SBI), EPC/IMS Domain procedures,
 implementation-specific mappings, or end-to-end orchestration.
 
 ## Why modular Skills

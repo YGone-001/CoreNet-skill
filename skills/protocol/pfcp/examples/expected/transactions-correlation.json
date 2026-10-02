@@ -1,0 +1,130 @@
+{
+  "capture_file": "transactions.jsonl",
+  "limitations": [
+    "some PFCP transactions are open inside the capture window; absence of a counterpart is not a network failure"
+  ],
+  "open_transactions": [
+    {
+      "capture_file": "transactions.jsonl",
+      "correlation_strength": "WEAK",
+      "duplicate_request_candidates": [
+        43
+      ],
+      "endpoint_pair": "192.0.2.10:8805<->192.0.2.20:8805",
+      "family": "SessionModification",
+      "header_seids": [
+        2002
+      ],
+      "limitations": [
+        "request observed without a matching response inside the capture window",
+        "partial capture boundary; this is not evidence of a network failure"
+      ],
+      "message_types": [
+        "PFCP Session Modification Request"
+      ],
+      "request_frames": [
+        42,
+        43
+      ],
+      "response_frames": [],
+      "sequence_number": 501,
+      "transaction_key": "pfcp-tx:transactions.jsonl:192.0.2.10:8805<->192.0.2.20:8805:seq501:SessionModification"
+    },
+    {
+      "capture_file": "transactions.jsonl",
+      "correlation_strength": "WEAK",
+      "duplicate_request_candidates": [],
+      "endpoint_pair": "198.51.100.10:8805<->198.51.100.20:8805",
+      "family": "SessionEstablishment",
+      "header_seids": [
+        0
+      ],
+      "limitations": [
+        "request observed without a matching response inside the capture window",
+        "partial capture boundary; this is not evidence of a network failure"
+      ],
+      "message_types": [
+        "PFCP Session Establishment Request"
+      ],
+      "request_frames": [
+        44
+      ],
+      "response_frames": [],
+      "sequence_number": 500,
+      "transaction_key": "pfcp-tx:transactions.jsonl:198.51.100.10:8805<->198.51.100.20:8805:seq500:SessionEstablishment"
+    },
+    {
+      "capture_file": "transactions.jsonl",
+      "correlation_strength": "WEAK",
+      "duplicate_request_candidates": [],
+      "endpoint_pair": "203.0.113.30:8805<->203.0.113.40:8805",
+      "family": "SessionDeletion",
+      "header_seids": [
+        4242
+      ],
+      "limitations": [
+        "request observed without a matching response inside the capture window",
+        "partial capture boundary; this is not evidence of a network failure"
+      ],
+      "message_types": [
+        "PFCP Session Deletion Request"
+      ],
+      "request_frames": [
+        45
+      ],
+      "response_frames": [],
+      "sequence_number": 600,
+      "transaction_key": "pfcp-tx:transactions.jsonl:203.0.113.30:8805<->203.0.113.40:8805:seq600:SessionDeletion"
+    },
+    {
+      "capture_file": "transactions.jsonl",
+      "correlation_strength": "WEAK",
+      "duplicate_request_candidates": [],
+      "endpoint_pair": "203.0.113.50:8805<->203.0.113.60:8805",
+      "family": "SessionDeletion",
+      "header_seids": [
+        4242
+      ],
+      "limitations": [
+        "request observed without a matching response inside the capture window",
+        "partial capture boundary; this is not evidence of a network failure"
+      ],
+      "message_types": [
+        "PFCP Session Deletion Request"
+      ],
+      "request_frames": [
+        46
+      ],
+      "response_frames": [],
+      "sequence_number": 601,
+      "transaction_key": "pfcp-tx:transactions.jsonl:203.0.113.50:8805<->203.0.113.60:8805:seq601:SessionDeletion"
+    }
+  ],
+  "transactions": [
+    {
+      "capture_file": "transactions.jsonl",
+      "correlation_strength": "STRONG",
+      "duplicate_request_candidates": [],
+      "endpoint_pair": "192.0.2.10:8805<->192.0.2.20:8805",
+      "family": "SessionEstablishment",
+      "header_seids": [
+        0,
+        1001
+      ],
+      "limitations": [],
+      "message_types": [
+        "PFCP Session Establishment Response",
+        "PFCP Session Establishment Request"
+      ],
+      "request_frames": [
+        40
+      ],
+      "response_frames": [
+        41
+      ],
+      "sequence_number": 500,
+      "transaction_key": "pfcp-tx:transactions.jsonl:192.0.2.10:8805<->192.0.2.20:8805:seq500:SessionEstablishment"
+    }
+  ],
+  "unbound_events": []
+}

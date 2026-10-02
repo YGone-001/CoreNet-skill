@@ -47,5 +47,19 @@ does not determine PDU session or registration outcomes, does not decode
 NGAP PDU session resources, PFCP, GTP-U, or SBI, does not perform NAS
 cryptography, and does not claim full-Release NAS coverage.
 
-Planned: `nas-eps`, `s1ap`, `gtpv2`, `gtpu`, `pfcp`, `sip`, `sdp-rtp`,
+Implemented: `pfcp`, the N4 session-control Protocol Skill. Version 0.1.0
+supports a bounded PFCP subset of TS 29.244 (Release 19): Heartbeat,
+Association Setup, and Session Establishment, Modification and Deletion
+request/response, with PFCP header preservation (version, S flag, MP flag,
+message type, message length, SEID, sequence number, priority), header
+SEID / CP F-SEID / UP F-SEID kept as distinct evidence, bounded PDR/FAR/QER/
+URR rule groups with explicit CREATE/UPDATE/REMOVE operations, bounded
+F-TEID and Outer Header Creation provisioning metadata, Network Instance,
+UE IP Address and QFI evidence, PFCP Cause preservation, and
+endpoint-scoped request/response transaction correlation. It does not parse
+raw PFCP bytes, does not inspect GTP-U traffic, does not interpret SBI,
+does not map a PFCP SEID to a NAS or NGAP PDU Session ID, and does not
+determine PDU session or user-plane success.
+
+Planned: `nas-eps`, `s1ap`, `gtpv2`, `gtpu`, `sip`, `sdp-rtp`,
 `diameter-core` and its domain layers, and `sbi-http2`.

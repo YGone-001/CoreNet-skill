@@ -1,0 +1,3 @@
+{"frame.number":"60","frame.time_epoch":"1704166060.000060","ip.src":"192.0.2.10","ip.dst":"192.0.2.20","udp.srcport":"8805","udp.dstport":"8805","pfcp.msg_type":"7","pfcp.length":"40","pfcp.s":"0","pfcp.seqno":"800","pfcp.version":"1","pfcp.node_id_ipv4":"192.0.2.10"}
+{"frame.number":"61","frame.time_epoch":"1704166061.000061","ip.src":"192.0.2.20","ip.dst":"192.0.2.10","udp.srcport":"8805","udp.dstport":"8805","pfcp.msg_type":"56","pfcp.length":"60","pfcp.s":"1","pfcp.seid":"0","pfcp.seqno":"801","pfcp.version":"1"}
+{"frame.number":"62","frame.time_epoch":"1704166062.000062","ip.src":"192.0.2.10","ip.dst":"192.0.2.20","udp.srcport":"8805","udp.dstport":"8805","pfcp.msg_type":"200","pfcp.length":"20","pfcp.s":"0","pfcp.seqno":"802","pfcp.version":"1"}

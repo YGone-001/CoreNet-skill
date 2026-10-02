@@ -1,0 +1,85 @@
+name: pfcp
+version: 0.1.0
+category: protocol
+description: >
+  Bounded PFCP semantic extraction for N4 session control: header fields,
+  transaction sequence numbers, header SEID / CP F-SEID / UP F-SEID as
+  distinct evidence, bounded PDR/FAR/QER/URR rule groups with explicit
+  operations, PFCP Cause preservation, protocol-local request/response
+  transaction correlation, detailed PFCP events, and normalized trace-event
+  projection.
+scope:
+  includes:
+    - PFCP message identity for the bounded N4 subset (Heartbeat, Association Setup, Session Establishment, Modification, Deletion)
+    - PFCP header fields (version, S flag, MP flag, message type, message length, SEID, sequence number, priority)
+    - header SEID, CP F-SEID and UP F-SEID as distinct evidence with the reviewed SEID=0 rule
+    - bounded PDR/FAR/QER/URR rule groups with CREATE/UPDATE/REMOVE operations and rule references
+    - bounded F-TEID and Outer Header Creation provisioning metadata
+    - bounded Network Instance, UE IP Address, and QFI evidence
+    - PFCP Cause code/name preservation
+    - endpoint-scoped request/response transaction correlation
+    - detailed PFCP event JSONL and shared trace-event projection
+    - tshark-assisted capture extraction and deterministic structured offline input
+  excludes:
+    - raw PFCP byte parsing or any hand-written binary decoder
+    - GTP-U / N3 packet analysis or tunnel liveness
+    - PFCP SEID to NAS/NGAP PDU Session ID mapping
+    - SBI / N11 / Nsmf_PDUSession / HTTP2 semantics
+    - complete PDU session procedure state or success determination
+    - Session Report and downlink-data-report semantics
+    - full PDI packet-filter matching semantics
+    - policy, PCC, ARP, or charging/usage-accounting semantics
+    - SMF or UPF implementation or source-code mapping
+    - end-to-end root cause determination
+dependencies:
+  required: []
+  optional:
+    - core-network-pcap >=0.1.0
+    - wireshark-analysis >=0.2.0
+    - protocol-reverse-engineering >=0.2.0
+    - systematic-debugging >=0.2.0
+    - tshark
+inputs:
+  - PCAP or PCAPNG capture containing PFCP over UDP (requires user-installed tshark)
+  - structured PFCP fields JSONL (deterministic offline input, documented in references/field-reference.md)
+outputs:
+  - detailed PFCP event JSON Lines (schemas/pfcp-event.schema.json)
+  - normalized trace-event JSON Lines projection (schemas/trace-event.schema.json)
+  - PFCP transaction correlation summary JSON (schemas/pfcp-correlation.schema.json)
+  - protocol-local PFCP timeline (text or JSON)
+protocols: [PFCP]
+interfaces: [N4]
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Protocol-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/extracted/node-signaling.jsonl
+    - examples/extracted/establishment.jsonl
+    - examples/extracted/modification.jsonl
+    - examples/extracted/deletion.jsonl
+    - examples/extracted/transactions.jsonl
+    - examples/extracted/rule-binding.jsonl
+    - examples/extracted/recognition.jsonl
+    - examples/extracted/addresses.jsonl
+    - examples/extracted/malformed.jsonl
+  expected_results:
+    - examples/expected/node-signaling-events.jsonl
+    - examples/expected/establishment-events.jsonl
+    - examples/expected/modification-events.jsonl
+    - examples/expected/deletion-events.jsonl
+    - examples/expected/transactions-events.jsonl
+    - examples/expected/transactions-correlation.json
+    - examples/expected/rule-binding-events.jsonl
+    - examples/expected/recognition-events.jsonl
+    - examples/expected/addresses-events.jsonl

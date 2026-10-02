@@ -1,0 +1,272 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.dev/schemas/pfcp/pfcp-event.schema.json",
+  "title": "Detailed PFCP Event",
+  "description": "One bounded PFCP (N4) session-control observation. Header SEID, CP F-SEID and UP F-SEID are distinct pieces of protocol evidence and are never collapsed. Rule groups are arrays because one message may carry several PDR/FAR/QER/URR groups. A message-level result label never means that every embedded rule succeeded and never means a PDU session or user-plane path works.",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "frame_number",
+    "capture_file",
+    "header",
+    "support_status",
+    "result",
+    "direction",
+    "direction_basis",
+    "node",
+    "session",
+    "cause",
+    "rule_operations",
+    "unbound_ie_metadata",
+    "evidence",
+    "derivations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {"type": "string", "format": "date-time"},
+    "frame_number": {"type": "integer", "minimum": 1},
+    "capture_file": {"type": "string", "minLength": 1},
+    "header": {
+      "type": "object",
+      "required": ["version", "s_flag", "mp_flag", "message_type_code", "message_type", "message_length", "seid", "sequence_number", "priority", "seid_expected_zero"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"type": ["integer", "null"], "minimum": 0, "maximum": 7},
+        "s_flag": {"type": ["boolean", "null"]},
+        "mp_flag": {"type": ["boolean", "null"]},
+        "message_type_code": {"type": "integer", "minimum": 0, "maximum": 255},
+        "message_type": {"type": ["string", "null"], "minLength": 1},
+        "message_length": {"type": ["integer", "null"], "minimum": 0},
+        "seid": {"type": ["integer", "null"], "minimum": 0},
+        "sequence_number": {"type": ["integer", "null"], "minimum": 0, "maximum": 16777215},
+        "priority": {"type": ["integer", "null"], "minimum": 0, "maximum": 15},
+        "seid_expected_zero": {
+          "type": "boolean",
+          "description": "True when the reviewed message definition requires a zero header SEID (TS 29.244 clause 7.2.2.4.2, PFCP Session Establishment Request). The observed value is never corrected; a non-zero value stays visible."
+        }
+      }
+    },
+    "support_status": {"type": "string", "enum": ["SUPPORTED", "UNSUPPORTED", "UNKNOWN"]},
+    "result": {
+      "type": ["string", "null"],
+      "enum": ["REQUEST", "RESPONSE", null],
+      "description": "Message-level label only. It never means the PFCP session or the user plane succeeded."
+    },
+    "direction": {"type": ["string", "null"], "enum": ["control-plane-to-user-plane", "user-plane-to-control-plane", null]},
+    "direction_basis": {"type": ["string", "null"], "enum": ["message-definition", "observed-carrier", null]},
+    "source": {"$ref": "#/$defs/endpoint"},
+    "destination": {"$ref": "#/$defs/endpoint"},
+    "node": {
+      "type": "object",
+      "required": ["node_id", "recovery_time_stamp"],
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {"$ref": "#/$defs/nodeId"},
+        "recovery_time_stamp": {"type": ["string", "null"]}
+      }
+    },
+    "session": {
+      "type": "object",
+      "required": ["cp_f_seid", "up_f_seid"],
+      "additionalProperties": false,
+      "properties": {
+        "cp_f_seid": {"$ref": "#/$defs/fSeid"},
+        "up_f_seid": {"$ref": "#/$defs/fSeid"}
+      }
+    },
+    "cause": {"$ref": "#/$defs/cause"},
+    "rule_operations": {
+      "type": ["object", "null"],
+      "description": "Bounded session-rule evidence. Arrays, never singular fields, because one message may carry several grouped rules.",
+      "required": ["pdrs", "fars", "qers", "urrs"],
+      "additionalProperties": false,
+      "properties": {
+        "pdrs": {"type": "array", "items": {"$ref": "#/$defs/pdrItem"}},
+        "fars": {"type": "array", "items": {"$ref": "#/$defs/farItem"}},
+        "qers": {"type": "array", "items": {"$ref": "#/$defs/qerItem"}},
+        "urrs": {"type": "array", "items": {"$ref": "#/$defs/urrItem"}}
+      }
+    },
+    "unbound_ie_metadata": {
+      "type": ["object", "null"],
+      "description": "Repeated nested PFCP values observed in this message but not safely attributable to one grouped rule.",
+      "required": ["pdr_ids", "far_ids", "qer_ids", "urr_ids", "teids", "qfis", "causes", "limitations"],
+      "additionalProperties": false,
+      "properties": {
+        "pdr_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "far_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "qer_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "urr_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "teids": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "qfis": {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 63}},
+        "causes": {"type": "array", "items": {"$ref": "#/$defs/cause"}},
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["level", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "level": {"type": "string", "const": "OBSERVED"},
+        "source": {"type": "string", "minLength": 1}
+      }
+    },
+    "derivations": {
+      "type": "array",
+      "items": {"type": "string", "enum": ["message_type", "message_kind", "family", "direction"]},
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "address": {"type": ["string", "null"], "minLength": 1},
+        "port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535}
+      }
+    },
+    "nodeId": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "ipv4": {"type": ["string", "null"], "minLength": 1},
+        "ipv6": {"type": ["string", "null"], "minLength": 1},
+        "fqdn": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "fSeid": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "seid": {"type": ["integer", "null"], "minimum": 0},
+        "ipv4": {"type": ["string", "null"], "minLength": 1},
+        "ipv6": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "cause": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+        "name": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "fTeid": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "teid": {"type": ["integer", "null"], "minimum": 0},
+        "ipv4": {"type": ["string", "null"], "minLength": 1},
+        "ipv6": {"type": ["string", "null"], "minLength": 1},
+        "choose": {"type": ["boolean", "null"]},
+        "choose_id": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "pdrItem": {
+      "type": "object",
+      "description": "One bounded PDR observation.",
+      "required": ["id", "operation", "binding_basis", "precedence", "pdi_present", "source_interface", "f_teid", "ue_ip", "network_instance", "qfi_values", "far_ids", "qer_ids", "urr_ids"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "integer", "minimum": 0},
+        "operation": {"type": ["string", "null"], "enum": ["CREATE", "UPDATE", "REMOVE", null]},
+        "binding_basis": {"type": "string", "enum": ["structured-input", "single-rule-message", "unbound"]},
+        "precedence": {"type": ["integer", "null"], "minimum": 0},
+        "pdi_present": {"type": "boolean"},
+        "source_interface": {"type": ["string", "null"], "minLength": 1},
+        "f_teid": {"$ref": "#/$defs/fTeid"},
+        "ue_ip": {
+          "type": "object",
+          "required": ["ipv4", "ipv6"],
+          "additionalProperties": false,
+          "properties": {
+            "ipv4": {"type": ["string", "null"], "minLength": 1},
+            "ipv6": {"type": ["string", "null"], "minLength": 1}
+          }
+        },
+        "network_instance": {"type": ["string", "null"], "minLength": 1},
+        "qfi_values": {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 63}},
+        "far_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "qer_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "urr_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}}
+      }
+    },
+    "farItem": {
+      "type": "object",
+      "description": "One bounded FAR observation.",
+      "required": ["id", "operation", "binding_basis", "apply_action", "forwarding_parameters_present", "destination_interface", "network_instance", "outer_header_creation"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "integer", "minimum": 0},
+        "operation": {"type": ["string", "null"], "enum": ["CREATE", "UPDATE", "REMOVE", null]},
+        "binding_basis": {"type": "string", "enum": ["structured-input", "single-rule-message", "unbound"]},
+        "apply_action": {
+          "type": "object",
+          "required": ["drop", "forward", "buffer", "notify_cp", "duplicate"],
+          "additionalProperties": false,
+          "properties": {
+            "drop": {"type": ["boolean", "null"]},
+            "forward": {"type": ["boolean", "null"]},
+            "buffer": {"type": ["boolean", "null"]},
+            "notify_cp": {"type": ["boolean", "null"]},
+            "duplicate": {"type": ["boolean", "null"]}
+          }
+        },
+        "forwarding_parameters_present": {"type": "boolean"},
+        "destination_interface": {"type": ["string", "null"], "minLength": 1},
+        "network_instance": {"type": ["string", "null"], "minLength": 1},
+        "outer_header_creation": {
+          "type": "object",
+          "required": ["present", "description", "teid", "ipv4", "ipv6"],
+          "additionalProperties": false,
+          "properties": {
+            "present": {"type": "boolean"},
+            "description": {"type": ["string", "null"], "minLength": 1},
+            "teid": {"type": ["integer", "null"], "minimum": 0},
+            "ipv4": {"type": ["string", "null"], "minLength": 1},
+            "ipv6": {"type": ["string", "null"], "minLength": 1}
+          }
+        }
+      }
+    },
+    "qerItem": {
+      "type": "object",
+      "description": "One bounded QER observation.",
+      "required": ["id", "operation", "binding_basis", "gate_status", "qfi", "ul_mbr", "dl_mbr", "ul_gbr", "dl_gbr"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "integer", "minimum": 0},
+        "operation": {"type": ["string", "null"], "enum": ["CREATE", "UPDATE", "REMOVE", null]},
+        "binding_basis": {"type": "string", "enum": ["structured-input", "single-rule-message", "unbound"]},
+        "gate_status": {
+          "type": "object",
+          "required": ["ul", "dl"],
+          "additionalProperties": false,
+          "properties": {
+            "ul": {"type": ["integer", "null"], "minimum": 0, "maximum": 15},
+            "dl": {"type": ["integer", "null"], "minimum": 0, "maximum": 15}
+          }
+        },
+        "qfi": {"type": ["integer", "null"], "minimum": 0, "maximum": 63},
+        "ul_mbr": {"type": ["integer", "null"], "minimum": 0},
+        "dl_mbr": {"type": ["integer", "null"], "minimum": 0},
+        "ul_gbr": {"type": ["integer", "null"], "minimum": 0},
+        "dl_gbr": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "urrItem": {
+      "type": "object",
+      "description": "One bounded URR observation. No charging or usage-accounting semantics.",
+      "required": ["id", "operation", "binding_basis", "measurement_present"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "integer", "minimum": 0},
+        "operation": {"type": ["string", "null"], "enum": ["CREATE", "UPDATE", "REMOVE", null]},
+        "binding_basis": {"type": "string", "enum": ["structured-input", "single-rule-message", "unbound"]},
+        "measurement_present": {"type": "boolean"}
+      }
+    }
+  }
+}
