@@ -1,0 +1,81 @@
+name: gtpu
+version: 0.1.0
+category: protocol
+description: >
+  Bounded GTP-U semantic extraction for N3 user-plane evidence: message
+  identification, GTP-U header preservation, TEID evidence scoped by
+  directed outer endpoints, bounded PDU Session Container / QFI evidence,
+  extension header arrays, Error Indication and End Marker evidence, bounded
+  inner packet metadata, observed packet/byte stream summaries, detailed
+  GTP-U events, and normalized trace-event projection.
+scope:
+  includes:
+    - GTP-U message identity for the bounded N3 subset (G-PDU, Echo Request/Response, Error Indication, End Marker, Supported Extension Headers Notification)
+    - GTP-U header fields (version, PT, E/S/PN flags, message type, length, TEID, sequence number, N-PDU number, next extension header)
+    - TEID evidence scoped by capture, outer source endpoint, outer destination endpoint and direction
+    - bounded PDU Session Container evidence (PDU type, QFI, RQI, PPI)
+    - extension header arrays with reviewed type names
+    - bounded inner packet metadata (IP version, addresses, protocol, L4 ports, length, opacity)
+    - observed G-PDU packet and byte counts per directed context
+    - tshark-assisted capture extraction and deterministic structured offline input
+  excludes:
+    - any byte-level GTP-U decoder or manual header/extension-header parsing
+    - PFCP, NGAP or NAS tunnel/session correlation
+    - SBI / N11 / Nsmf_PDUSession semantics
+    - packet-loss inference from sequence numbers
+    - delivery or end-to-end user-plane success determination
+    - application protocol decoding or application payload persistence
+    - radio delivery verification
+    - GTP-U on N9, S1-U or S5/S8-U
+    - complete PDU session Domain state
+    - vendor implementation or source-code mapping
+    - end-to-end root cause determination
+dependencies:
+  required: []
+  optional:
+    - core-network-pcap >=0.1.0
+    - wireshark-analysis >=0.2.0
+    - protocol-reverse-engineering >=0.2.0
+    - systematic-debugging >=0.2.0
+    - tshark
+inputs:
+  - PCAP or PCAPNG capture containing GTP-U over UDP (requires user-installed tshark)
+  - structured GTP-U fields JSONL (deterministic offline input, documented in references/field-reference.md)
+outputs:
+  - detailed GTP-U event JSON Lines (schemas/gtpu-event.schema.json)
+  - normalized trace-event JSON Lines projection (schemas/trace-event.schema.json)
+  - directed stream observation summary JSON (schemas/gtpu-stream.schema.json)
+  - protocol-local GTP-U timeline (text or JSON)
+protocols: [GTP-U]
+interfaces: [N3]
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Protocol-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/extracted/g-pdu-basic.jsonl
+    - examples/extracted/pdu-session-container.jsonl
+    - examples/extracted/teid-scope.jsonl
+    - examples/extracted/control-messages.jsonl
+    - examples/extracted/recognition.jsonl
+    - examples/extracted/inner-packets.jsonl
+    - examples/extracted/ordering.jsonl
+    - examples/extracted/malformed.jsonl
+  expected_results:
+    - examples/expected/g-pdu-basic-events.jsonl
+    - examples/expected/pdu-session-container-events.jsonl
+    - examples/expected/teid-scope-events.jsonl
+    - examples/expected/control-messages-events.jsonl
+    - examples/expected/recognition-events.jsonl
+    - examples/expected/inner-packets-events.jsonl
+    - examples/expected/ordering-events.jsonl

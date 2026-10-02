@@ -1,0 +1,71 @@
+# GTP-U (GTPv1-U) display filters — bounded N3 subset
+# Field names verified against the GTP dissector of Wireshark/TShark as
+# published in the Wireshark display-filter reference. The reviewed
+# environment had no local tshark installation, so these names are
+# published-reference verified, not locally re-dumped; re-verify before
+# using another Wireshark release.
+
+# All GTP (includes GTP-U and GTP-C; this Skill interprets the GTP-U subset)
+gtp
+
+# GTP-U messages
+gtp.message == 255
+gtp.message == 1
+gtp.message == 2
+gtp.message == 26
+gtp.message == 254
+gtp.message == 31
+
+# Header fields
+gtp.flags.version
+gtp.flags.payload
+gtp.flags.e
+gtp.flags.s
+gtp.flags.pn
+gtp.message
+gtp.length
+gtp.teid
+gtp.seq_number
+gtp.npdu_number
+gtp.next
+
+# TEID (tunnel endpoint identifier; never a subscriber or session identity)
+gtp.teid == 0
+gtp.teid != 0
+
+# Extension headers
+gtp.ext_hdr
+gtp.ext_hdr_type
+gtp.ext_hdr.length
+gtp.ext_hdr.next
+gtp.unknown_extension_header
+gtp.num_ext_hdr_types
+
+# PDU Session Container (extension header type 0x85, per TS 38.415)
+gtp.ext_hdr.pdu_ses_con.pdu_type
+gtp.ext_hdr.pdu_ses_con.qos_flow_id
+gtp.ext_hdr.pdu_ses_con.rqi
+gtp.ext_hdr.pdu_ses_con.ppp
+gtp.ext_hdr.pdu_ses_con.ppi
+
+# Echo and path management
+gtp.recovery
+
+# Error Indication affected tunnel evidence (distinct from the header TEID)
+gtp.teid_data
+
+# Outer transport
+udp.port == 2152
+ip.src
+ip.dst
+ipv6.src
+ipv6.dst
+
+# Inner packet scope: the dissector re-dissects the encapsulated packet, so
+# inner addresses are filtered with the ordinary ip/ipv6 fields scoped by
+# gtp. There is no dedicated inner-address display filter.
+gtp && ip
+gtp && ipv6
+gtp && ip.proto == 6
+gtp && ip.proto == 17
+gtp && ip.proto == 50

@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.dev/schemas/gtpu/gtpu-stream.schema.json",
+  "title": "GTP-U Directed Stream Summary",
+  "description": "Observed directed user-plane traffic context for one capture, outer endpoint pair and TEID. This is an observation summary, not PDU Session state and not a delivery or success verdict. Packet and byte counts are counts of what was observed at the capture point.",
+  "type": "object",
+  "required": ["capture_file", "streams", "unbound_events", "limitations"],
+  "additionalProperties": false,
+  "properties": {
+    "capture_file": {"type": ["string", "null"]},
+    "streams": {"type": "array", "items": {"$ref": "#/$defs/stream"}},
+    "unbound_events": {"type": "array", "items": {"$ref": "#/$defs/unboundEvent"}},
+    "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "stream": {
+      "type": "object",
+      "required": [
+        "stream_key",
+        "capture_file",
+        "outer_source",
+        "outer_destination",
+        "udp_source_port",
+        "udp_destination_port",
+        "teid",
+        "first_frame",
+        "last_frame",
+        "first_timestamp",
+        "last_timestamp",
+        "observed_g_pdu_packet_count",
+        "observed_payload_byte_count",
+        "byte_count_definition",
+        "qfi_values",
+        "sequence_numbers",
+        "sequence_discontinuity_candidate",
+        "end_marker_frames",
+        "error_indication_refs",
+        "duplicate_observation_candidates",
+        "limitations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "stream_key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "DERIVED directed key of the form gtpu-path:<capture>:<src>:<dst>:teid<id>. Not a standardized GTP-U identifier."
+        },
+        "capture_file": {"type": ["string", "null"]},
+        "outer_source": {"type": ["string", "null"]},
+        "outer_destination": {"type": ["string", "null"]},
+        "udp_source_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+        "udp_destination_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+        "teid": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295},
+        "first_frame": {"type": ["integer", "null"], "minimum": 1},
+        "last_frame": {"type": ["integer", "null"], "minimum": 1},
+        "first_timestamp": {"type": ["string", "null"]},
+        "last_timestamp": {"type": ["string", "null"]},
+        "observed_g_pdu_packet_count": {"type": "integer", "minimum": 0},
+        "observed_payload_byte_count": {"type": "integer", "minimum": 0},
+        "byte_count_definition": {
+          "type": "string",
+          "const": "sum of the GTP-U Length field (payload octets following the mandatory header part)",
+          "description": "One stable definition, per TS 29.281 clause 5.1. Never mixed with frame or packet byte counts."
+        },
+        "qfi_values": {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 63}},
+        "sequence_numbers": {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 65535}},
+        "sequence_discontinuity_candidate": {
+          "type": ["boolean", "null"],
+          "description": "A non-conclusive candidate flag. It is never a packet-loss conclusion."
+        },
+        "end_marker_frames": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+        "error_indication_refs": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+        "duplicate_observation_candidates": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "unboundEvent": {
+      "type": "object",
+      "required": ["frame_number", "timestamp", "message_type", "support_status", "limitation"],
+      "additionalProperties": false,
+      "properties": {
+        "frame_number": {"type": ["integer", "null"], "minimum": 1},
+        "timestamp": {"type": ["string", "null"]},
+        "message_type": {"type": ["string", "null"]},
+        "support_status": {"type": ["string", "null"]},
+        "limitation": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

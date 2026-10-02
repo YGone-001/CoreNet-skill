@@ -1,0 +1,4 @@
+{"frame.number":"80","frame.time_epoch":"1704167070.000080","ip.src":"192.0.2.10","ip.dst":"192.0.2.20","gtp.message":"300","gtp.teid":"1"}
+{"frame.number":"81","frame.time_epoch":"1704167071.000081","ip.src":"192.0.2.10","ip.dst":"192.0.2.20","gtp.message":"255","gtp.teid":"99999999999"}
+{"frame.number":"82","frame.time_epoch":"1704167072.000082","ip.src":"192.0.2.10","ip.dst":"192.0.2.20","gtp.message":"255","gtp.teid":"1","gtp.seq_number":"70000"}
+{"frame.number":"83","frame.time_epoch":"1704167073.000083","ip.src":"192.0.2.10","ip.dst":"192.0.2.20","gtp.message":"255","gtp.teid":"1","inner_packet":{"ip_version":4,"payload":"deadbeef"}}

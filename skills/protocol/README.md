@@ -61,5 +61,19 @@ raw PFCP bytes, does not inspect GTP-U traffic, does not interpret SBI,
 does not map a PFCP SEID to a NAS or NGAP PDU Session ID, and does not
 determine PDU session or user-plane success.
 
-Planned: `nas-eps`, `s1ap`, `gtpv2`, `gtpu`, `sip`, `sdp-rtp`,
+Implemented: `gtpu`, the N3 user-plane observation Protocol Skill. Version
+0.1.0 supports a bounded GTP-U subset of TS 29.281 (Release 19) with the
+PDU Session Container content reviewed against TS 38.415 (Release 19):
+G-PDU, Echo Request, Echo Response, Error Indication, End Marker and
+Supported Extension Headers Notification, with GTP-U header preservation
+(version, PT, E/S/PN flags, message type, length, TEID, sequence number,
+N-PDU number, next extension header), TEID evidence scoped by directed
+outer endpoints, bounded PDU Session Container evidence (PDU type, QFI,
+RQI, PPI), extension header arrays, bounded inner packet metadata, and
+observed packet/byte stream summaries. It proves only what was observed at
+one capture point: it does not claim UE or application delivery, does not
+infer packet loss from sequence numbers, does not decode application
+payloads, and does not correlate GTP-U TEIDs to PFCP, NGAP or NAS.
+
+Planned: `nas-eps`, `s1ap`, `gtpv2`, `sip`, `sdp-rtp`,
 `diameter-core` and its domain layers, and `sbi-http2`.

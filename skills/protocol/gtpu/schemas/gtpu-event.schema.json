@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.dev/schemas/gtpu/gtpu-event.schema.json",
+  "title": "Detailed GTP-U Event",
+  "description": "One bounded GTP-U (N3) observation. Header fields are OBSERVED wire evidence; normalized names and the directed tunnel key are DERIVED. Observing a G-PDU proves only that the packet was observed at this capture point: it never proves UE delivery, application delivery, remote acceptance, or end-to-end user-plane success. No packet-loss conclusion is produced from sequence numbers, and application payload bytes are never emitted.",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "frame_number",
+    "capture_file",
+    "header",
+    "support_status",
+    "result",
+    "outer",
+    "extension_headers",
+    "pdu_session_container",
+    "inner_packet",
+    "error_indication",
+    "end_marker",
+    "recovery",
+    "advertised_extension_header_count",
+    "advertised_extension_headers",
+    "unbound_metadata",
+    "limitations",
+    "evidence",
+    "derivations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {"type": "string", "format": "date-time"},
+    "frame_number": {"type": "integer", "minimum": 1},
+    "capture_file": {"type": "string", "minLength": 1},
+    "header": {
+      "type": "object",
+      "required": ["version", "protocol_type", "e_flag", "s_flag", "pn_flag", "message_type_code", "message_type", "message_length", "teid", "sequence_number", "n_pdu_number", "next_extension_header", "teid_expected_zero"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"type": ["integer", "null"], "minimum": 0, "maximum": 7},
+        "protocol_type": {"type": ["integer", "null"], "minimum": 0, "maximum": 1},
+        "e_flag": {"type": ["boolean", "null"]},
+        "s_flag": {"type": ["boolean", "null"]},
+        "pn_flag": {"type": ["boolean", "null"]},
+        "message_type_code": {"type": "integer", "minimum": 0, "maximum": 255},
+        "message_type": {"type": ["string", "null"], "minLength": 1},
+        "message_length": {"type": ["integer", "null"], "minimum": 0},
+        "teid": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295},
+        "sequence_number": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+        "n_pdu_number": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+        "next_extension_header": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+        "teid_expected_zero": {
+          "type": "boolean",
+          "description": "True when the reviewed message definition requires an all-zeroes TEID (Echo Request/Response, Error Indication, Supported Extension Headers Notification). The observed value is never corrected."
+        }
+      }
+    },
+    "support_status": {"type": "string", "enum": ["SUPPORTED", "UNSUPPORTED", "UNKNOWN"]},
+    "result": {
+      "type": ["string", "null"],
+      "enum": ["REQUEST", "RESPONSE", null],
+      "description": "Message-role label only, and only for the reviewed Echo pair. It never means a tunnel or user-plane path works."
+    },
+    "outer": {
+      "type": "object",
+      "required": ["source_address", "destination_address", "source_port", "destination_port"],
+      "additionalProperties": false,
+      "properties": {
+        "source_address": {"type": ["string", "null"], "minLength": 1},
+        "destination_address": {"type": ["string", "null"], "minLength": 1},
+        "source_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+        "destination_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535}
+      }
+    },
+    "extension_headers": {
+      "type": "array",
+      "description": "Ordered extension header chain. Arrays, never a singular field, because a G-PDU may carry several extension headers.",
+      "items": {
+        "type": "object",
+        "required": ["type", "name", "length", "next", "binding_basis"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {"type": "integer", "minimum": 0, "maximum": 255},
+          "name": {"type": ["string", "null"], "minLength": 1},
+          "length": {"type": ["integer", "null"], "minimum": 0},
+          "next": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+          "binding_basis": {"type": "string", "enum": ["structured-input", "single-source-order", "unbound"]}
+        }
+      }
+    },
+    "pdu_session_container": {
+      "type": ["object", "null"],
+      "description": "Bounded 5GS PDU Session Container evidence. Present only when a container was observed and its values are safely attributable.",
+      "required": ["present", "pdu_type", "pdu_type_name", "qfi", "rqi", "ppi", "binding_basis"],
+      "additionalProperties": false,
+      "properties": {
+        "present": {"type": "boolean"},
+        "pdu_type": {"type": ["integer", "null"], "minimum": 0, "maximum": 15},
+        "pdu_type_name": {"type": ["string", "null"], "minLength": 1},
+        "qfi": {"type": ["integer", "null"], "minimum": 0, "maximum": 63},
+        "rqi": {"type": ["boolean", "null"]},
+        "ppi": {"type": ["integer", "null"], "minimum": 0, "maximum": 7},
+        "binding_basis": {"type": "string", "enum": ["structured-input", "single-source-order", "unbound"]}
+      }
+    },
+    "inner_packet": {
+      "type": ["object", "null"],
+      "description": "Bounded encapsulated packet metadata. Transport metadata only: application payload bytes and application protocol interpretation are never included.",
+      "required": ["present", "ip_version", "source_address", "destination_address", "protocol", "source_port", "destination_port", "length", "opaque", "binding_basis"],
+      "additionalProperties": false,
+      "properties": {
+        "present": {"type": "boolean"},
+        "ip_version": {"type": ["integer", "null"], "enum": [4, 6, null]},
+        "source_address": {"type": ["string", "null"], "minLength": 1},
+        "destination_address": {"type": ["string", "null"], "minLength": 1},
+        "protocol": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+        "source_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+        "destination_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+        "length": {"type": ["integer", "null"], "minimum": 0},
+        "opaque": {"type": "boolean"},
+        "binding_basis": {"type": "string", "enum": ["structured-input"]}
+      }
+    },
+    "error_indication": {
+      "type": ["object", "null"],
+      "description": "Error Indication evidence. The header TEID and the affected tunnel TEID are separate observations and are never conflated.",
+      "required": ["affected_teid", "peer_address", "header_teid"],
+      "additionalProperties": false,
+      "properties": {
+        "affected_teid": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295},
+        "peer_address": {"type": ["string", "null"], "minLength": 1},
+        "header_teid": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295}
+      }
+    },
+    "end_marker": {
+      "type": ["object", "null"],
+      "description": "End Marker evidence for one directed TEID context. It is signalling evidence, never proof that a tunnel teardown completed end to end.",
+      "required": ["teid"],
+      "additionalProperties": false,
+      "properties": {
+        "teid": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295}
+      }
+    },
+    "recovery": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+    "advertised_extension_header_count": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+    "advertised_extension_headers": {
+      "type": "array",
+      "description": "Extension header types advertised by a Supported Extension Headers Notification. An advertisement is not proof that a tunnel is using them.",
+      "items": {
+        "type": "object",
+        "required": ["type", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {"type": "integer", "minimum": 0, "maximum": 255},
+          "name": {"type": ["string", "null"], "minLength": 1}
+        }
+      }
+    },
+    "unbound_metadata": {
+      "type": ["object", "null"],
+      "description": "Repeated nested values observed in this message but not safely attributable to a single container.",
+      "required": ["pdu_session_container_values", "limitations"],
+      "additionalProperties": false,
+      "properties": {
+        "pdu_session_container_values": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["pdu_type", "qfi"],
+            "additionalProperties": false,
+            "properties": {
+              "pdu_type": {"type": ["integer", "null"], "minimum": 0, "maximum": 15},
+              "qfi": {"type": ["integer", "null"], "minimum": 0, "maximum": 63}
+            }
+          }
+        },
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "external_source_role": {"type": "string", "minLength": 1},
+    "external_destination_role": {"type": "string", "minLength": 1},
+    "evidence": {
+      "type": "object",
+      "required": ["level", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "level": {"type": "string", "const": "OBSERVED"},
+        "source": {"type": "string", "minLength": 1}
+      }
+    },
+    "derivations": {
+      "type": "array",
+      "items": {"type": "string", "enum": ["message_type", "message_class"]},
+      "uniqueItems": true
+    }
+  }
+}

@@ -20,7 +20,12 @@ preservation), the bounded `pfcp` Protocol Skill
 (bounded N4 session-control subset: Heartbeat, Association Setup, Session
 Establishment/Modification/Deletion, header SEID and CP/UP F-SEID evidence,
 bounded PDR/FAR/QER/URR rule groups, PFCP Cause, and endpoint-scoped
-transaction correlation), and the `cross-protocol-evidence` Correlation
+transaction correlation), the bounded `gtpu` Protocol Skill
+(bounded N3 user-plane observation: G-PDU, Echo, Error Indication, End
+Marker and Supported Extension Headers Notification, with TEID evidence
+scoped by directed outer endpoints, bounded PDU Session Container / QFI
+evidence, bounded inner packet metadata, and observed packet/byte stream
+summaries), and the `cross-protocol-evidence` Correlation
 Skill (provenance-key joins of extracted protocol events into a unified
 observed-evidence timeline; no protocol ownership, no verdicts), and the
 `procedure-evidence` Domain framework (generic stage and evidence model
@@ -31,8 +36,8 @@ and lower-layer field findings; no end-to-end diagnosis). The extensions
 provide investigation context only.
 **Not yet implemented:** complete PDU session Domain procedure analysis
 (`5gc-pdu-session`), deep NGAP transfer-container decoding, NGAP handover
-and path-switch procedures, GTP-U, SBI/N11, complete 5GC mobility
-coverage, remaining protocol Skills
+and path-switch procedures, SBI/N11, GTP-U on N9/S1-U/S5-S8-U, complete 5GC
+mobility coverage, remaining protocol Skills
 (NAS-EPS, S1AP, GTP, SIP, Diameter, SBI), EPC/IMS Domain procedures,
 implementation-specific mappings, or end-to-end orchestration.
 
