@@ -22,7 +22,7 @@ Implementation is deliberately not a CoreNet Skill layer. The system answers "Wh
 | Domain / procedure | Cross-network-function telecom procedures; consumes Protocol and Correlation outputs. | Foundation, Protocol, Correlation |
 | Analysis Orchestration | Combining protocol evidence, producing investigation reports, and confidence-aware diagnosis that locates the first abnormal evidence boundary. | All lower layers |
 
-Examples of permitted ownership: `ims-registration` depends on `sip` and `diameter-ims`; `epc-procedures` depends on `nas-eps`, `s1ap`, and `diameter-epc`; `5gc-pdu-session` depends on `nas-5gs`, `ngap`, `pfcp`, and `sbi-http2`; `cross-protocol-evidence` depends on the `ngap` and `nas-5gs` event contracts; the future `5gc-registration-mobility` depends on `cross-protocol-evidence`, `ngap`, and `nas-5gs`; `diameter-ims` depends on same-layer `diameter-core`.
+Examples of permitted ownership: `ims-registration` depends on `sip` and `diameter-ims`; `epc-procedures` depends on `nas-eps`, `s1ap`, and `diameter-epc`; `5gc-pdu-session` depends on `nas-5gs`, `ngap`, `pfcp`, and `sbi-http2`; `cross-protocol-evidence` depends on the `ngap` and `nas-5gs` event contracts; `5gc-registration-mobility` depends on `cross-protocol-evidence`, `ngap`, and `nas-5gs`; `diameter-ims` depends on same-layer `diameter-core`.
 
 Examples of prohibited ownership: `sip` must not depend on `ims-registration`; `diameter-core` must not depend on `diameter-ims`; `ngap` must not depend on `5gc-registration-mobility` or on `cross-protocol-evidence`; `cross-protocol-evidence` must not depend on `5gc-registration-mobility`.
 
@@ -50,9 +50,9 @@ Implemented Correlation Skills: `cross-protocol-evidence` joins already-extracte
 
 Protocol candidates remain `nas-eps`, `s1ap`, `gtpv2`, `gtpu`, `pfcp`, `sip`, `sdp-rtp`, `diameter-core`, `diameter-epc`, `diameter-ims`, `diameter-charging`, and `sbi-http2`. These names are plans, not implementations.
 
-Implemented Domain framework: `procedure-evidence` defines the common evidence model (expected observation points, generic stage representation, observed and missing evidence, evidence confidence) that concrete Domain Skills consume; it implements no telecom procedure.
+Implemented Domain capabilities: `procedure-evidence` defines the common evidence model (expected observation points, generic stage representation, observed and missing evidence, evidence confidence), and `5gc-registration-mobility` provides bounded N1/N2 registration and access procedure-stage analysis from already-extracted NGAP/NAS evidence. The latter identifies conditional branches, protocol-defined outcomes, missing evidence, and procedure-local deviations; it does not decode lower-layer protocols or produce root-cause conclusions.
 
-Domain candidates include `epc-procedures`; `ims-registration`, `ims-session`, and `ims-media-qos`; plus `5gc-registration-mobility`, `5gc-pdu-session`, `5gc-sbi`, `5gc-user-plane`, `5gc-policy`, `5gc-interworking`, and `5gc-roaming-exposure`. These names are plans, not implementations. Domain Skills consume protocol evidence and correlation output; they do not replace protocol decoding or correlation.
+Domain candidates include `epc-procedures`; `ims-registration`, `ims-session`, and `ims-media-qos`; plus `5gc-pdu-session`, `5gc-sbi`, `5gc-user-plane`, `5gc-policy`, `5gc-interworking`, and `5gc-roaming-exposure`. These names are plans, not implementations. Domain Skills consume protocol evidence and correlation output; they do not replace protocol decoding or correlation.
 
 Diameter is deliberately cross-domain: `diameter-core` owns base headers, AVP structure, Vendor-ID, Application-ID, Command-Code, identifiers, and result semantics. `diameter-epc` will own S6a/Gx and EPC-context Gy; `diameter-ims` will own Cx/Dx/Sh/Rx; and `diameter-charging` will own Ro/Gy credit-control semantics shared by EPC and IMS. Diameter is not owned by IMS.
 

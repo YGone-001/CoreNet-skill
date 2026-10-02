@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.dev/schemas/domain/5gc-registration-analysis.schema.json",
+  "title": "5GC Registration Mobility Analysis Summary",
+  "description": "Bounded procedure-level analysis of one or more 5GC registration/mobility procedure instances, formed from already-extracted NGAP, NAS-5GS, and correlation evidence. The analysis reports procedure stages, terminal protocol observations, procedure-local deviations, and the lower-layer fields supporting them. It carries no root_cause, implementation, vendor, or product_bug fields, and a procedure-local deviation is never an end-to-end root cause.",
+  "type": "object",
+  "required": ["analysis_version", "procedure_family", "analyses", "unbound_records"],
+  "additionalProperties": false,
+  "properties": {
+    "analysis_version": {"type": "string", "minLength": 1},
+    "procedure_family": {"type": "string", "const": "5gc-registration-mobility"},
+    "analyses": {"type": "array", "items": {"$ref": "#/$defs/instanceAnalysis"}},
+    "unbound_records": {"type": "array", "items": {"type": "object"}},
+    "correlation_conflicts": {"type": "array", "items": {"type": "object"}}
+  },
+  "$defs": {
+    "instanceAnalysis": {
+      "type": "object",
+      "required": ["instance_id", "procedure_instance", "context", "observation_window", "events", "stage_records", "deviations", "field_findings", "terminal", "confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "instance_id": {"type": "string", "minLength": 1},
+        "procedure_instance": {
+          "type": "object",
+          "required": ["instance_id", "identifier_basis", "note"],
+          "additionalProperties": false,
+          "properties": {
+            "instance_id": {"type": "string", "minLength": 1},
+            "identifier_basis": {"type": "string", "const": "DERIVED"},
+            "note": {"type": "string", "minLength": 1}
+          }
+        },
+        "context": {
+          "type": "object",
+          "required": ["capture_file", "association", "ngap_context"],
+          "additionalProperties": false,
+          "properties": {
+            "capture_file": {"type": "string", "minLength": 1},
+            "association": {"type": "string", "minLength": 1},
+            "ngap_context": {
+              "type": "object",
+              "required": ["amf_ue_ngap_id", "ran_ue_ngap_id", "association"],
+              "additionalProperties": false,
+              "properties": {
+                "amf_ue_ngap_id": {"type": ["integer", "null"]},
+                "ran_ue_ngap_id": {"type": ["integer", "null"]},
+                "association": {"type": "string"}
+              }
+            }
+          }
+        },
+        "observation_window": {
+          "type": "object",
+          "required": ["first_timestamp", "last_timestamp", "first_frame", "last_frame"],
+          "additionalProperties": false,
+          "properties": {
+            "first_timestamp": {"type": ["string", "null"]},
+            "last_timestamp": {"type": ["string", "null"]},
+            "first_frame": {"type": ["integer", "null"], "minimum": 1},
+            "last_frame": {"type": ["integer", "null"], "minimum": 1}
+          }
+        },
+        "events": {"type": "array", "items": {"type": "object"}},
+        "stage_records": {"type": "array", "items": {"type": "object"}},
+        "deviations": {"type": "array", "items": {"$ref": "#/$defs/deviation"}},
+        "field_findings": {"type": "array", "items": {"$ref": "#/$defs/fieldFinding"}},
+        "terminal": {
+          "type": "object",
+          "required": ["observation", "message_type", "frame_number", "timestamp", "evidence_level"],
+          "additionalProperties": false,
+          "properties": {
+            "observation": {"type": "string", "enum": ["REGISTRATION_COMPLETE_OBSERVED", "REGISTRATION_REJECT_OBSERVED", "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW"]},
+            "message_type": {"type": ["string", "null"]},
+            "frame_number": {"type": ["integer", "null"], "minimum": 1},
+            "timestamp": {"type": ["string", "null"]},
+            "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]}
+          }
+        },
+        "confidence": {"type": "string", "enum": ["HIGH", "MEDIUM", "LOW"]}
+      }
+    },
+    "deviation": {
+      "type": "object",
+      "required": ["type", "stage_id", "description", "evidence_level", "limitation"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"type": "string", "enum": ["PROTOCOL_REJECT_OBSERVED", "UNSUCCESSFUL_OUTCOME_OBSERVED", "MISSING_EXPECTED_COUNTERPART", "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE", "CORRELATION_CONFLICT", "PROTECTED_INNER_MESSAGE_UNAVAILABLE", "PARTIAL_CAPTURE", "OUT_OF_ORDER_EVIDENCE", "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"]},
+        "stage_id": {"type": ["string", "null"]},
+        "description": {"type": "string", "minLength": 1},
+        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
+        "limitation": {"type": "string", "minLength": 1}
+      }
+    },
+    "fieldFinding": {
+      "type": "object",
+      "required": ["protocol", "message_type", "field_name", "observed_value", "normalized_value", "frame_number", "capture_file", "evidence_level", "interpretation", "limitations"],
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {"type": "string", "minLength": 1},
+        "message_type": {"type": ["string", "null"], "minLength": 1},
+        "field_name": {"type": "string", "minLength": 1},
+        "observed_value": {},
+        "normalized_value": {},
+        "frame_number": {"type": ["integer", "null"], "minimum": 1},
+        "capture_file": {"type": ["string", "null"], "minLength": 1},
+        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
+        "interpretation": {"type": "string", "minLength": 1},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

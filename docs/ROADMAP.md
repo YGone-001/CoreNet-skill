@@ -9,7 +9,7 @@
 | Diameter | `diameter-core`, `diameter-epc`, `diameter-ims`, `diameter-charging`. | Protocol conventions. | Cross-domain ownership reviewed. | No IMS ownership leakage; tests pass. |
 | IMS | IMS registration, session, and media/QoS domains. | SIP/SDP/RTP and Diameter IMS/charging. | Diameter work complete. | Procedure Skills satisfy evidence contract. |
 | EPC | `epc-procedures` and related domain work. | NAS-EPS, S1AP, GTPv2, Diameter EPC. | Required dependencies complete. | Reusable protocol dependencies remain independent. |
-| 5GC Core Procedures | Registration/mobility and PDU session Skills. | NAS-5GS, NGAP, PFCP, GTP-U, SBI; the implemented `cross-protocol-evidence` Correlation Skill provides supporting infrastructure that a registration/mobility Domain Skill may consume. | Required contracts reviewed. | N1/N2/N3/N4/N11 coverage has tests. |
+| 5GC Core Procedures | `5gc-registration-mobility` provides bounded N1/N2 registration and access procedure analysis; PDU session and broader mobility work remain planned. | NAS-5GS, NGAP, PFCP, GTP-U, SBI; the implemented `cross-protocol-evidence` Correlation Skill provides supporting infrastructure that the bounded registration/mobility Skill consumes. | Required contracts reviewed. | N1/N2/N3/N4/N11 coverage has tests. |
 | Advanced 5GC Interfaces | SBI, policy, interworking, roaming/exposure. | 5GC Core Procedures. | Functional grouping agreed. | Planned N5–N33 ownership is tested. |
 | End-to-End Root Cause Analysis | Evidence-safe analysis orchestration. | All applicable lower layers. | Diagnostic-result contract proven. | Failure boundaries and confidence are validated. |
 
@@ -19,8 +19,8 @@ semantic Skill, the bounded `nas-5gs` 5GMM semantic Skill, and the
 `cross-protocol-evidence` Correlation Skill are implemented as supporting
 infrastructure between Protocol evidence and future Domain procedures.
 The `procedure-evidence` Domain framework (generic stage and evidence
-model, no concrete procedure) is implemented as preparation for future
-Domain Skills. The 5GC registration/mobility Domain capability and every
-later milestone remain future work. Implementation-specific Skills are
-not planned: external implementation analysis is performed only when
-users provide implementation evidence.
+model) and the bounded `5gc-registration-mobility` N1/N2 procedure
+analysis Skill are implemented. PDU session semantics, full mobility,
+and every later capability remain future work. Implementation-specific
+Skills are not planned: external implementation analysis is performed
+only when users provide implementation evidence.

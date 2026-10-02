@@ -1,0 +1,67 @@
+name: 5gc-registration-mobility
+version: 0.1.0
+category: domain
+description: >
+  Bounded N1/N2 procedure-level analysis of 5GC registration and access
+  signaling: conditional stage evaluation over already-extracted NGAP and
+  NAS-5GS events, protocol-defined reject and unsuccessful-outcome
+  recognition, missing-evidence visibility, procedure-local deviation
+  classification, and lower-layer field findings. No protocol decoding,
+  no verdicts, no implementation mapping.
+scope:
+  includes:
+    - procedure instance formation from NGAP UE-context evidence with frame-provenance NAS joins
+    - conditional evaluation of initiation, identity, authentication, security-mode, decision, completion, N2 context, release, paging, and service-access stages
+    - protocol-defined reject and unsuccessful outcome recognition with cause propagation
+    - procedure-local deviation classification and lower-layer field findings
+    - generic procedure-evidence stage records and an analysis summary JSON
+  excludes:
+    - 5GSM PDU session semantics
+    - complete mobility coverage (handover, path switch)
+    - NAS or NGAP decoding or protocol field interpretation
+    - subscriber or session identity handling
+    - success, failure, or root-cause verdicts; implementation blame
+    - Open5GS, free5GC, or vendor-specific source mapping
+dependencies:
+  required: []
+  optional:
+    - procedure-evidence >=0.1.0
+    - cross-protocol-evidence >=0.1.0
+    - ngap >=0.1.0
+    - nas-5gs >=0.1.0
+    - core-network-pcap >=0.1.0
+inputs:
+  - NGAP detailed event JSONL (from the ngap Skill)
+  - NAS-5GS detailed event JSONL (from the nas-5gs Skill)
+  - cross-protocol-evidence correlation-event JSONL (optional, preferred for NAS joins)
+outputs:
+  - generic procedure-evidence stage JSONL
+  - 5GC registration/mobility analysis summary JSON
+protocols: []
+interfaces:
+  - N1
+  - N2
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Domain-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/inputs/full-registration
+    - examples/inputs/two-ue
+    - examples/inputs/registration-reject
+    - examples/inputs/binding-conflict
+    - examples/inputs/out-of-order
+  expected_results:
+    - examples/expected/full-registration-analysis.json
+    - examples/expected/two-ue-analysis.json
+    - examples/expected/registration-reject-analysis.json

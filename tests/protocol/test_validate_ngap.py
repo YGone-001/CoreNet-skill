@@ -61,11 +61,8 @@ class NgapValidatorTests(unittest.TestCase):
             reference.write_text(reference.read_text(encoding="utf-8") + "\nSee open5gs source.\n", encoding="utf-8")
             self.assertTrue(any("implementation mapping" in error for error in VALIDATOR.validate(root)))
 
-    def test_domain_skill_creation_is_detected(self):
-        temporary, root = self.fixture()
-        with temporary:
-            (root / "skills/domain/5gc-registration-mobility").mkdir(parents=True)
-            self.assertTrue(any("5gc-registration-mobility" in error for error in VALIDATOR.validate(root)))
+    def test_concrete_domain_package_does_not_change_ngap_validation_scope(self):
+        self.assertEqual(VALIDATOR.validate(ROOT), [])
 
     def test_subscriber_field_in_fixture_is_detected(self):
         temporary, root = self.fixture()

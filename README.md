@@ -15,10 +15,13 @@ subset over N1 with security-envelope classification, privacy defaults, and
 Skill (provenance-key joins of extracted protocol events into a unified
 observed-evidence timeline; no protocol ownership, no verdicts), and the
 `procedure-evidence` Domain framework (generic stage and evidence model
-with missing-evidence visibility; no concrete telecom procedure
-implemented). The extensions provide investigation context only.
-**Not yet implemented:** 5GSM PDU session semantics, complete 5G Registration
-Domain logic, full NGAP coverage (handover, path switch, NG setup, PDU session
+with missing-evidence visibility), and the bounded
+`5gc-registration-mobility` Domain Skill (N1/N2 registration and access
+procedure-stage evidence, conditional branches, missing-evidence visibility,
+and lower-layer field findings; no end-to-end diagnosis). The extensions
+provide investigation context only.
+**Not yet implemented:** 5GSM PDU session semantics, complete 5GC mobility
+coverage, full NGAP coverage (handover, path switch, NG setup, PDU session
 resource semantics, later-Release extensions), remaining protocol Skills
 (NAS-EPS, S1AP, GTP, PFCP, SIP, Diameter, SBI), EPC/IMS/5GC Domain procedures,
 implementation-specific mappings, or end-to-end orchestration.

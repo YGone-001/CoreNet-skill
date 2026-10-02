@@ -90,11 +90,8 @@ class Nas5gsValidatorTests(unittest.TestCase):
             )
             self.assertTrue(any("authentication secret material" in error for error in VALIDATOR.validate(root)))
 
-    def test_domain_skill_creation_is_detected(self):
-        temporary, root = self.fixture()
-        with temporary:
-            (root / "skills/domain/5gc-registration-mobility").mkdir(parents=True)
-            self.assertTrue(any("5gc-registration-mobility" in error for error in VALIDATOR.validate(root)))
+    def test_concrete_domain_package_does_not_change_nas_validation_scope(self):
+        self.assertEqual(VALIDATOR.validate(ROOT), [])
 
 
 if __name__ == "__main__":

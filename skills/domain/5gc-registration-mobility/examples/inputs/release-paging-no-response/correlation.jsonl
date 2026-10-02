@@ -1,0 +1,8 @@
+{"correlation_strength":"STRONG","events":[{"capture_file":"reg.pcapng","frame_number":10,"protocol":"NGAP"},{"capture_file":"reg.pcapng","frame_number":10,"protocol":"NAS-5GS"}]}
+{"correlation_strength":"STRONG","events":[{"capture_file":"reg.pcapng","frame_number":11,"protocol":"NGAP"},{"capture_file":"reg.pcapng","frame_number":11,"protocol":"NAS-5GS"}]}
+{"correlation_strength":"STRONG","events":[{"capture_file":"reg.pcapng","frame_number":12,"protocol":"NGAP"},{"capture_file":"reg.pcapng","frame_number":12,"protocol":"NAS-5GS"}]}
+{"correlation_strength":"STRONG","events":[{"capture_file":"reg.pcapng","frame_number":13,"protocol":"NGAP"},{"capture_file":"reg.pcapng","frame_number":13,"protocol":"NAS-5GS"}]}
+{"correlation_strength":"STRONG","events":[{"capture_file":"reg.pcapng","frame_number":20,"protocol":"NGAP"},{"capture_file":"reg.pcapng","frame_number":20,"protocol":"NAS-5GS"}]}
+{"correlation_strength":"STRONG","events":[{"capture_file":"reg.pcapng","frame_number":21,"protocol":"NGAP"},{"capture_file":"reg.pcapng","frame_number":21,"protocol":"NAS-5GS"}]}
+{"correlation_strength":"STRONG","events":[{"capture_file":"reg.pcapng","frame_number":22,"protocol":"NGAP"},{"capture_file":"reg.pcapng","frame_number":22,"protocol":"NAS-5GS"}]}
+{"correlation_strength":"STRONG","events":[{"capture_file":"reg.pcapng","frame_number":30,"protocol":"NGAP"},{"capture_file":"reg.pcapng","frame_number":30,"protocol":"NAS-5GS"}]}

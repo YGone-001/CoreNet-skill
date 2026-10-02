@@ -1,0 +1,115 @@
+{
+  "model_version": "1.0.0",
+  "procedure_family": "5gc-registration-mobility",
+  "normative_basis": "3GPP TS 23.502 Release 19 version 19.9.0 (5G System procedures), with TS 24.501 Release 19 lineage (NAS-5GS) and TS 38.413 (NGAP) semantics supplied through the nas-5gs and ngap Skill contracts; reviewed against the Wireshark/TShark 4.7.1 tool basis used by those packages",
+  "stages": [
+    {
+      "stage_id": "registration-initiation",
+      "stage_name": "Registration initiation",
+      "conditional": false,
+      "trigger": {
+        "any_of": [
+          {"protocol": "NGAP", "message_type": "InitialUEMessage"},
+          {"protocol": "NAS-5GS", "message_type": "Registration request"}
+        ]
+      },
+      "basis": "TS 23.502 registration procedure initiation over N1/N2"
+    },
+    {
+      "stage_id": "identity",
+      "stage_name": "Identity procedure",
+      "conditional": true,
+      "trigger": {"any_of": [{"protocol": "NAS-5GS", "message_type": "Identity request"}]},
+      "expected_outcomes": {"any_of": [{"protocol": "NAS-5GS", "message_type": "Identity response"}]},
+      "basis": "TS 23.502 identity procedure; entered only when the network requests an identity"
+    },
+    {
+      "stage_id": "authentication",
+      "stage_name": "Authentication procedure",
+      "conditional": true,
+      "trigger": {"any_of": [{"protocol": "NAS-5GS", "message_type": "Authentication request"}]},
+      "expected_outcomes": {"any_of": [
+        {"protocol": "NAS-5GS", "message_type": "Authentication response"},
+        {"protocol": "NAS-5GS", "message_type": "Authentication reject"},
+        {"protocol": "NAS-5GS", "message_type": "Authentication failure"},
+        {"protocol": "NAS-5GS", "message_type": "Authentication result"}
+      ]},
+      "basis": "TS 23.502 authentication; conditional on existing context"
+    },
+    {
+      "stage_id": "security-mode",
+      "stage_name": "NAS security establishment",
+      "conditional": true,
+      "trigger": {"any_of": [{"protocol": "NAS-5GS", "message_type": "Security mode command"}]},
+      "expected_outcomes": {"any_of": [
+        {"protocol": "NAS-5GS", "message_type": "Security mode complete"},
+        {"protocol": "NAS-5GS", "message_type": "Security mode reject"}
+      ]},
+      "basis": "TS 24.501 security mode control; conditional on existing security context"
+    },
+    {
+      "stage_id": "registration-decision",
+      "stage_name": "Registration decision",
+      "conditional": false,
+      "trigger": {"any_of": [
+        {"protocol": "NAS-5GS", "message_type": "Registration accept"},
+        {"protocol": "NAS-5GS", "message_type": "Registration reject"}
+      ]},
+      "basis": "TS 23.502 registration decision by the network"
+    },
+    {
+      "stage_id": "registration-completion",
+      "stage_name": "Registration completion",
+      "conditional": true,
+      "trigger": {"any_of": [{"protocol": "NAS-5GS", "message_type": "Registration accept"}]},
+      "expected_outcomes": {"any_of": [{"protocol": "NAS-5GS", "message_type": "Registration complete"}]},
+      "basis": "TS 24.501 registration procedure: Registration complete follows Registration accept"
+    },
+    {
+      "stage_id": "n2-context-establishment",
+      "stage_name": "N2 context establishment",
+      "conditional": true,
+      "trigger": {"any_of": [{"protocol": "NGAP", "message_type": "InitialContextSetupRequest"}]},
+      "expected_outcomes": {"any_of": [
+        {"protocol": "NGAP", "message_type": "InitialContextSetupResponse"},
+        {"protocol": "NGAP", "message_type": "InitialContextSetupFailure"}
+      ]},
+      "basis": "TS 38.413 Initial Context Setup"
+    },
+    {
+      "stage_id": "context-release",
+      "stage_name": "UE context release",
+      "conditional": true,
+      "trigger": {"any_of": [
+        {"protocol": "NGAP", "message_type": "UEContextReleaseRequest"},
+        {"protocol": "NGAP", "message_type": "UEContextReleaseCommand"}
+      ]},
+      "expected_outcomes": {"any_of": [{"protocol": "NGAP", "message_type": "UEContextReleaseComplete"}]},
+      "basis": "TS 38.413 UE Context Release; the AMF-initiated command path does not require a prior request"
+    },
+    {
+      "stage_id": "paging",
+      "stage_name": "Paging",
+      "conditional": true,
+      "trigger": {"any_of": [{"protocol": "NGAP", "message_type": "Paging"}]},
+      "expected_outcomes": {"none_required": true},
+      "basis": "TS 23.502 paging; the access-network observation does not include the UE air-interface response"
+    },
+    {
+      "stage_id": "service-access",
+      "stage_name": "Service access",
+      "conditional": true,
+      "trigger": {"any_of": [{"protocol": "NAS-5GS", "message_type": "Service request"}]},
+      "expected_outcomes": {"any_of": [
+        {"protocol": "NAS-5GS", "message_type": "Service accept"},
+        {"protocol": "NAS-5GS", "message_type": "Service reject"}
+      ]},
+      "basis": "TS 23.502 service-request procedure; see service-access-model.json for the conditional accept rule"
+    }
+  ],
+  "notes": [
+    "Identity, authentication, and security-mode stages are conditional: their absence is never a deviation; their trigger observation activates the expected outcomes.",
+    "A UEContextReleaseRequest is not guaranteed to precede a UEContextReleaseCommand; either may initiate the observed release path.",
+    "Paging states no air-interface outcome expectation: absence of a following service request is missing evidence under the observation boundary."
+  ]
+}

@@ -170,7 +170,7 @@ def validate(root: Path) -> list[str]:
                 if SECRET_FIELD.search(text):
                     errors.append(f"authentication secret material in fixture {name}")
 
-    for forbidden in ("5gc-registration-mobility", "5gsm-pdu-session"):
+    for forbidden in ("5gsm-pdu-session",):
         if (root / "skills" / "protocol" / forbidden).exists() or (root / "skills" / "domain" / forbidden).exists():
             errors.append(f"{forbidden} must not be created in this milestone")
 

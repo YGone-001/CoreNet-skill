@@ -1,0 +1,51 @@
+{
+  "model_version": "1.0.0",
+  "procedure_family": "5gc-registration-mobility",
+  "service_access_model": {
+    "trigger": {"protocol": "NAS-5GS", "message_type": "Service request"},
+    "outcomes": {
+      "required_in_every_context": false,
+      "observed_outcomes": [
+        {"protocol": "NAS-5GS", "message_type": "Service accept"},
+        {"protocol": "NAS-5GS", "message_type": "Service reject"}
+      ]
+    },
+    "rules": [
+      {
+        "id": "service-reject-observed",
+        "condition": "Service reject observed",
+        "finding": "PROTOCOL_REJECT_OBSERVED with the 5GMM Cause supplied by nas-5gs",
+        "basis": "TS 24.501 service-request procedure: Service reject carries a 5GMM cause"
+      },
+      {
+        "id": "service-accept-observed",
+        "condition": "Service accept observed",
+        "finding": "Service-access accept observation recorded; no further completion expectation is asserted",
+        "basis": "TS 23.502 service-request procedure: Service accept concludes the observed service-access exchange"
+      },
+      {
+        "id": "no-outcome-in-window",
+        "condition": "Service request observed and neither Service accept nor Service reject appears before capture end",
+        "finding": "MISSING_EXPECTED_COUNTERPART with the capture-boundary limitation; the accept is not asserted as mandatory in every context",
+        "basis": "TS 23.502 service-request handling depends on context; only the reject/accept observations are definitive"
+      }
+    ]
+  },
+  "paging_model": {
+    "trigger": {"protocol": "NGAP", "message_type": "Paging"},
+    "rules": [
+      {
+        "id": "paging-observed",
+        "condition": "Paging observed",
+        "finding": "Paging observation recorded; paging itself is not evidence that the UE responded",
+        "basis": "TS 23.502 paging: the N2 observation does not include the air-interface response"
+      },
+      {
+        "id": "paging-no-response-in-window",
+        "condition": "Paging observed and no subsequent service/access evidence appears before capture end",
+        "finding": "MISSING_EXPECTED_COUNTERPART reported as 'paging response evidence not observed within the available observation window'; paging failure is never concluded",
+        "basis": "TS 23.502 paging: the UE response occurs on the air interface, outside the N1/N2 capture scope"
+      }
+    ]
+  }
+}

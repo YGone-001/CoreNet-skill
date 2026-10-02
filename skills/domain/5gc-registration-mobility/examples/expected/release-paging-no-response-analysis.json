@@ -1,0 +1,677 @@
+{
+  "analyses": [
+    {
+      "confidence": "MEDIUM",
+      "context": {
+        "association": "sctp-assoc-0",
+        "capture_file": "reg.pcapng",
+        "ngap_context": {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-0",
+          "ran_ue_ngap_id": 1
+        }
+      },
+      "deviations": [
+        {
+          "description": "The Authentication procedure branch was entered (trigger at frame 11) but none of its expected outcomes was observed",
+          "evidence_level": "DERIVED",
+          "limitation": "Capture termination may explain the missing evidence",
+          "stage_id": "authentication",
+          "type": "MISSING_EXPECTED_COUNTERPART"
+        }
+      ],
+      "events": [
+        {
+          "cause": {
+            "code": null,
+            "name": null
+          },
+          "frame_number": 10,
+          "message_type": "Registration request",
+          "protocol": "NAS-5GS",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:10.00Z"
+        },
+        {
+          "cause": null,
+          "frame_number": 10,
+          "message_type": "InitialUEMessage",
+          "protocol": "NGAP",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:10.00Z"
+        },
+        {
+          "cause": {
+            "code": null,
+            "name": null
+          },
+          "frame_number": 11,
+          "message_type": "Authentication request",
+          "protocol": "NAS-5GS",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:11.00Z"
+        },
+        {
+          "cause": null,
+          "frame_number": 11,
+          "message_type": "UplinkNASTransport",
+          "protocol": "NGAP",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:11.00Z"
+        },
+        {
+          "cause": {
+            "code": null,
+            "name": null
+          },
+          "frame_number": 12,
+          "message_type": "Registration accept",
+          "protocol": "NAS-5GS",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:12.00Z"
+        },
+        {
+          "cause": null,
+          "frame_number": 12,
+          "message_type": "DownlinkNASTransport",
+          "protocol": "NGAP",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:12.00Z"
+        },
+        {
+          "cause": {
+            "code": null,
+            "name": null
+          },
+          "frame_number": 13,
+          "message_type": "Registration complete",
+          "protocol": "NAS-5GS",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:13.00Z"
+        },
+        {
+          "cause": null,
+          "frame_number": 13,
+          "message_type": "UplinkNASTransport",
+          "protocol": "NGAP",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:13.00Z"
+        },
+        {
+          "cause": {
+            "category": "misc",
+            "value": 1
+          },
+          "frame_number": 20,
+          "message_type": "UEContextReleaseRequest",
+          "protocol": "NGAP",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:20.00Z"
+        },
+        {
+          "cause": null,
+          "frame_number": 21,
+          "message_type": "UEContextReleaseCommand",
+          "protocol": "NGAP",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:21.00Z"
+        },
+        {
+          "cause": null,
+          "frame_number": 22,
+          "message_type": "UEContextReleaseComplete",
+          "protocol": "NGAP",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:22.00Z"
+        }
+      ],
+      "field_findings": [
+        {
+          "capture_file": "reg.pcapng",
+          "evidence_level": "OBSERVED",
+          "field_name": "NGAP cause",
+          "frame_number": 20,
+          "interpretation": "NGAP cause carried by the observed message; procedure evidence, never attribution",
+          "limitations": [],
+          "message_type": "UEContextReleaseRequest",
+          "normalized_value": "misc:1",
+          "observed_value": {
+            "category": "misc",
+            "value": 1
+          },
+          "protocol": "NGAP"
+        }
+      ],
+      "instance": {
+        "amf_ue_ngap_id": 2,
+        "association": "sctp-assoc-0",
+        "capture_file": "reg.pcapng",
+        "nas_events": [
+          {
+            "capture_file": "reg.pcapng",
+            "cause": {
+              "code": null,
+              "name": null
+            },
+            "frame_number": 10,
+            "identity": {
+              "value": null
+            },
+            "message_type": "Registration request",
+            "nas_family": "5GMM",
+            "registration": {
+              "type_name": null
+            },
+            "security": {
+              "header_type": 2,
+              "inner_message_available": true
+            },
+            "security_mode": {
+              "ciphering_algorithm_name": null,
+              "integrity_algorithm_name": null
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:10.00Z"
+          },
+          {
+            "capture_file": "reg.pcapng",
+            "cause": {
+              "code": null,
+              "name": null
+            },
+            "frame_number": 11,
+            "identity": {
+              "value": null
+            },
+            "message_type": "Authentication request",
+            "nas_family": "5GMM",
+            "registration": {
+              "type_name": null
+            },
+            "security": {
+              "header_type": 2,
+              "inner_message_available": true
+            },
+            "security_mode": {
+              "ciphering_algorithm_name": null,
+              "integrity_algorithm_name": null
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:11.00Z"
+          },
+          {
+            "capture_file": "reg.pcapng",
+            "cause": {
+              "code": null,
+              "name": null
+            },
+            "frame_number": 12,
+            "identity": {
+              "value": null
+            },
+            "message_type": "Registration accept",
+            "nas_family": "5GMM",
+            "registration": {
+              "type_name": null
+            },
+            "security": {
+              "header_type": 2,
+              "inner_message_available": true
+            },
+            "security_mode": {
+              "ciphering_algorithm_name": null,
+              "integrity_algorithm_name": null
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:12.00Z"
+          },
+          {
+            "capture_file": "reg.pcapng",
+            "cause": {
+              "code": null,
+              "name": null
+            },
+            "frame_number": 13,
+            "identity": {
+              "value": null
+            },
+            "message_type": "Registration complete",
+            "nas_family": "5GMM",
+            "registration": {
+              "type_name": null
+            },
+            "security": {
+              "header_type": 2,
+              "inner_message_available": true
+            },
+            "security_mode": {
+              "ciphering_algorithm_name": null,
+              "integrity_algorithm_name": null
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:13.00Z"
+          }
+        ],
+        "ngap_events": [
+          {
+            "amf_ue_ngap_id": null,
+            "capture_file": "reg.pcapng",
+            "cause": null,
+            "frame_number": 10,
+            "input_order": 0,
+            "message_type": "InitialUEMessage",
+            "pdu_type": "initiatingMessage",
+            "procedure_name": "InitialUEMessage",
+            "protocol": "NGAP",
+            "ran_ue_ngap_id": 1,
+            "sctp": {
+              "association_id": 0,
+              "dstport": 38412,
+              "srcport": 31000,
+              "stream_id": 0
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:10.00Z"
+          },
+          {
+            "amf_ue_ngap_id": 2,
+            "capture_file": "reg.pcapng",
+            "cause": null,
+            "frame_number": 11,
+            "input_order": 1,
+            "message_type": "UplinkNASTransport",
+            "pdu_type": "initiatingMessage",
+            "procedure_name": "UplinkNASTransport",
+            "protocol": "NGAP",
+            "ran_ue_ngap_id": 1,
+            "sctp": {
+              "association_id": 0,
+              "dstport": 38412,
+              "srcport": 31000,
+              "stream_id": 0
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:11.00Z"
+          },
+          {
+            "amf_ue_ngap_id": 2,
+            "capture_file": "reg.pcapng",
+            "cause": null,
+            "frame_number": 12,
+            "input_order": 2,
+            "message_type": "DownlinkNASTransport",
+            "pdu_type": "initiatingMessage",
+            "procedure_name": "DownlinkNASTransport",
+            "protocol": "NGAP",
+            "ran_ue_ngap_id": 1,
+            "sctp": {
+              "association_id": 0,
+              "dstport": 38412,
+              "srcport": 31000,
+              "stream_id": 0
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:12.00Z"
+          },
+          {
+            "amf_ue_ngap_id": 2,
+            "capture_file": "reg.pcapng",
+            "cause": null,
+            "frame_number": 13,
+            "input_order": 3,
+            "message_type": "UplinkNASTransport",
+            "pdu_type": "initiatingMessage",
+            "procedure_name": "UplinkNASTransport",
+            "protocol": "NGAP",
+            "ran_ue_ngap_id": 1,
+            "sctp": {
+              "association_id": 0,
+              "dstport": 38412,
+              "srcport": 31000,
+              "stream_id": 0
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:13.00Z"
+          },
+          {
+            "amf_ue_ngap_id": 2,
+            "capture_file": "reg.pcapng",
+            "cause": {
+              "category": "misc",
+              "value": 1
+            },
+            "frame_number": 20,
+            "input_order": 4,
+            "message_type": "UEContextReleaseRequest",
+            "pdu_type": "initiatingMessage",
+            "procedure_name": "UEContextReleaseRequest",
+            "protocol": "NGAP",
+            "ran_ue_ngap_id": 1,
+            "sctp": {
+              "association_id": 0,
+              "dstport": 38412,
+              "srcport": 31000,
+              "stream_id": 0
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:20.00Z"
+          },
+          {
+            "amf_ue_ngap_id": 2,
+            "capture_file": "reg.pcapng",
+            "cause": null,
+            "frame_number": 21,
+            "input_order": 5,
+            "message_type": "UEContextReleaseCommand",
+            "pdu_type": "initiatingMessage",
+            "procedure_name": "UEContextRelease",
+            "protocol": "NGAP",
+            "ran_ue_ngap_id": 1,
+            "sctp": {
+              "association_id": 0,
+              "dstport": 38412,
+              "srcport": 31000,
+              "stream_id": 0
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:21.00Z"
+          },
+          {
+            "amf_ue_ngap_id": 2,
+            "capture_file": "reg.pcapng",
+            "cause": null,
+            "frame_number": 22,
+            "input_order": 6,
+            "message_type": "UEContextReleaseComplete",
+            "pdu_type": "successfulOutcome",
+            "procedure_name": "UEContextRelease",
+            "protocol": "NGAP",
+            "ran_ue_ngap_id": 1,
+            "sctp": {
+              "association_id": 0,
+              "dstport": 38412,
+              "srcport": 31000,
+              "stream_id": 0
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:22.00Z"
+          }
+        ],
+        "ran_ue_ngap_id": 1
+      },
+      "instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+      "observation_window": {
+        "first_frame": 10,
+        "first_timestamp": "2024-01-02T03:04:10.00Z",
+        "last_frame": 22,
+        "last_timestamp": "2024-01-02T03:04:22.00Z"
+      },
+      "procedure_instance": {
+        "identifier_basis": "DERIVED",
+        "instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+        "note": "Local analysis identifier 5gc-reg:<capture>:<association>:<ran-id>; not a standardized 3GPP identifier and not subscriber identity"
+      },
+      "stage_records": [
+        {
+          "confidence": "MEDIUM",
+          "evidence_basis": "OBSERVED",
+          "expected_evidence": [],
+          "limitations": [],
+          "missing_evidence": [],
+          "observation_group": "reg.pcapng",
+          "observed_evidence": [
+            "NAS-5GS Registration request observed at frame 10 (2024-01-02T03:04:10.00Z)"
+          ],
+          "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+          "procedure_version": "1.0.0",
+          "stage": {
+            "expected_message_types": [
+              "InitialUEMessage",
+              "Registration request"
+            ],
+            "expected_protocols": [
+              "NAS-5GS",
+              "NGAP"
+            ],
+            "stage_id": "registration-initiation",
+            "stage_name": "Registration initiation"
+          }
+        },
+        {
+          "confidence": "LOW",
+          "evidence_basis": "DERIVED",
+          "expected_evidence": [
+            "NAS-5GS Authentication response",
+            "NAS-5GS Authentication reject",
+            "NAS-5GS Authentication failure",
+            "NAS-5GS Authentication result"
+          ],
+          "limitations": [
+            "Capture termination may explain the missing evidence if the counterpart falls outside the observation window"
+          ],
+          "missing_evidence": [
+            "NAS-5GS Authentication response evidence was not observed within the available observation window",
+            "NAS-5GS Authentication reject evidence was not observed within the available observation window",
+            "NAS-5GS Authentication failure evidence was not observed within the available observation window",
+            "NAS-5GS Authentication result evidence was not observed within the available observation window"
+          ],
+          "observation_group": "reg.pcapng",
+          "observed_evidence": [
+            "NAS-5GS Authentication request observed at frame 11 (2024-01-02T03:04:11.00Z)"
+          ],
+          "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+          "procedure_version": "1.0.0",
+          "stage": {
+            "expected_message_types": [
+              "Authentication failure",
+              "Authentication reject",
+              "Authentication request",
+              "Authentication response",
+              "Authentication result"
+            ],
+            "expected_protocols": [
+              "NAS-5GS"
+            ],
+            "stage_id": "authentication",
+            "stage_name": "Authentication procedure"
+          }
+        },
+        {
+          "confidence": "MEDIUM",
+          "evidence_basis": "OBSERVED",
+          "expected_evidence": [],
+          "limitations": [],
+          "missing_evidence": [],
+          "observation_group": "reg.pcapng",
+          "observed_evidence": [
+            "NAS-5GS Registration accept observed at frame 12 (2024-01-02T03:04:12.00Z)"
+          ],
+          "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+          "procedure_version": "1.0.0",
+          "stage": {
+            "expected_message_types": [
+              "Registration accept",
+              "Registration reject"
+            ],
+            "expected_protocols": [
+              "NAS-5GS"
+            ],
+            "stage_id": "registration-decision",
+            "stage_name": "Registration decision"
+          }
+        },
+        {
+          "confidence": "HIGH",
+          "evidence_basis": "OBSERVED",
+          "expected_evidence": [
+            "NAS-5GS Registration complete"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observation_group": "reg.pcapng",
+          "observed_evidence": [
+            "NAS-5GS Registration accept observed at frame 12 (2024-01-02T03:04:12.00Z)",
+            "NAS-5GS Registration complete observed at frame 13 (2024-01-02T03:04:13.00Z)"
+          ],
+          "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+          "procedure_version": "1.0.0",
+          "stage": {
+            "expected_message_types": [
+              "Registration accept",
+              "Registration complete"
+            ],
+            "expected_protocols": [
+              "NAS-5GS"
+            ],
+            "stage_id": "registration-completion",
+            "stage_name": "Registration completion"
+          }
+        },
+        {
+          "confidence": "HIGH",
+          "evidence_basis": "OBSERVED",
+          "expected_evidence": [
+            "NGAP UEContextReleaseComplete"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observation_group": "reg.pcapng",
+          "observed_evidence": [
+            "NGAP UEContextReleaseRequest observed at frame 20 (2024-01-02T03:04:20.00Z)",
+            "NGAP UEContextReleaseComplete observed at frame 22 (2024-01-02T03:04:22.00Z)"
+          ],
+          "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+          "procedure_version": "1.0.0",
+          "stage": {
+            "expected_message_types": [
+              "UEContextReleaseCommand",
+              "UEContextReleaseComplete",
+              "UEContextReleaseRequest"
+            ],
+            "expected_protocols": [
+              "NGAP"
+            ],
+            "stage_id": "context-release",
+            "stage_name": "UE context release"
+          }
+        }
+      ],
+      "terminal": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 13,
+        "message_type": "Registration complete",
+        "observation": "REGISTRATION_COMPLETE_OBSERVED",
+        "timestamp": "2024-01-02T03:04:13.00Z"
+      }
+    },
+    {
+      "confidence": "LOW",
+      "context": {
+        "association": "sctp-assoc-0",
+        "capture_file": "reg.pcapng",
+        "ngap_context": {
+          "amf_ue_ngap_id": null,
+          "association": "sctp-assoc-0",
+          "ran_ue_ngap_id": null
+        }
+      },
+      "deviations": [
+        {
+          "description": "The observation window begins after the procedure's initiation evidence; the capture starts mid-procedure",
+          "evidence_level": "DERIVED",
+          "limitation": "Earlier procedure stages may exist outside the capture",
+          "stage_id": "registration-initiation",
+          "type": "PARTIAL_CAPTURE"
+        }
+      ],
+      "events": [
+        {
+          "cause": null,
+          "frame_number": 30,
+          "message_type": "Paging",
+          "protocol": "NGAP",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:30.00Z"
+        }
+      ],
+      "field_findings": [],
+      "instance": {
+        "amf_ue_ngap_id": null,
+        "association": "sctp-assoc-0",
+        "capture_file": "reg.pcapng",
+        "nas_events": [],
+        "ngap_events": [
+          {
+            "amf_ue_ngap_id": null,
+            "capture_file": "reg.pcapng",
+            "cause": null,
+            "frame_number": 30,
+            "input_order": 7,
+            "message_type": "Paging",
+            "pdu_type": "initiatingMessage",
+            "procedure_name": "Paging",
+            "protocol": "NGAP",
+            "ran_ue_ngap_id": null,
+            "sctp": {
+              "association_id": 0,
+              "dstport": 38412,
+              "srcport": 31000,
+              "stream_id": 0
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:30.00Z"
+          }
+        ],
+        "ran_ue_ngap_id": null
+      },
+      "instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r?",
+      "observation_window": {
+        "first_frame": 30,
+        "first_timestamp": "2024-01-02T03:04:30.00Z",
+        "last_frame": 30,
+        "last_timestamp": "2024-01-02T03:04:30.00Z"
+      },
+      "procedure_instance": {
+        "identifier_basis": "DERIVED",
+        "instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r?",
+        "note": "Local analysis identifier 5gc-reg:<capture>:<association>:<ran-id>; not a standardized 3GPP identifier and not subscriber identity"
+      },
+      "stage_records": [
+        {
+          "confidence": "MEDIUM",
+          "evidence_basis": "OBSERVED",
+          "expected_evidence": [],
+          "limitations": [],
+          "missing_evidence": [],
+          "observation_group": "reg.pcapng",
+          "observed_evidence": [
+            "NGAP Paging observed at frame 30 (2024-01-02T03:04:30.00Z)"
+          ],
+          "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r?",
+          "procedure_version": "1.0.0",
+          "stage": {
+            "expected_message_types": [
+              "Paging"
+            ],
+            "expected_protocols": [
+              "NGAP"
+            ],
+            "stage_id": "paging",
+            "stage_name": "Paging"
+          }
+        }
+      ],
+      "terminal": {
+        "evidence_level": "DERIVED",
+        "frame_number": null,
+        "message_type": null,
+        "observation": "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW",
+        "timestamp": null
+      }
+    }
+  ],
+  "analysis_version": "1.0.0",
+  "correlation_conflicts": [],
+  "procedure_family": "5gc-registration-mobility",
+  "unbound_records": []
+}

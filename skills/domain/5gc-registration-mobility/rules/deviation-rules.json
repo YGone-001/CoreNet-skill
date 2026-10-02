@@ -1,0 +1,58 @@
+{
+  "model_version": "1.0.0",
+  "procedure_family": "5gc-registration-mobility",
+  "deviation_types": [
+    {
+      "type": "PROTOCOL_REJECT_OBSERVED",
+      "description": "A protocol-defined reject message was observed (Registration reject, Authentication reject, Security mode reject, Service reject)",
+      "evidence_level": "OBSERVED"
+    },
+    {
+      "type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
+      "description": "A protocol unsuccessful outcome was observed (InitialContextSetupFailure; Authentication failure)",
+      "evidence_level": "OBSERVED"
+    },
+    {
+      "type": "MISSING_EXPECTED_COUNTERPART",
+      "description": "An entered procedure branch's expected counterpart was not observed within the observation window",
+      "evidence_level": "DERIVED"
+    },
+    {
+      "type": "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
+      "description": "A lower layer reported an UNKNOWN or UNSUPPORTED message or value",
+      "evidence_level": "OBSERVED"
+    },
+    {
+      "type": "CORRELATION_CONFLICT",
+      "description": "A lower layer reported a conflicting identifier binding or correlation uncertainty",
+      "evidence_level": "DERIVED"
+    },
+    {
+      "type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+      "description": "A security-protected NAS envelope carried no decodable inner message",
+      "evidence_level": "OBSERVED"
+    },
+    {
+      "type": "PARTIAL_CAPTURE",
+      "description": "The observation window begins mid-procedure or ends before expected evidence could appear",
+      "evidence_level": "DERIVED"
+    },
+    {
+      "type": "OUT_OF_ORDER_EVIDENCE",
+      "description": "Input records arrived in non-chronological order; ordering was normalized",
+      "evidence_level": "DERIVED"
+    },
+    {
+      "type": "DUPLICATE_OR_RETRANSMITTED_EVIDENCE",
+      "description": "Repeated identical signaling observations were preserved as duplicate or retransmission evidence",
+      "evidence_level": "DERIVED"
+    }
+  ],
+  "forbidden_types": [
+    "ROOT_CAUSE",
+    "IMPLEMENTATION_BUG",
+    "GNB_FAILURE",
+    "AMF_FAILURE"
+  ],
+  "boundary": "Every deviation is procedure-local. A deviation is not end-to-end root cause; implementation blame is never derivable from these observations."
+}

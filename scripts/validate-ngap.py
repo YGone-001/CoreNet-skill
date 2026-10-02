@@ -135,8 +135,8 @@ def validate(root: Path) -> list[str]:
             if path.parent.name == "extracted" and SUBSCRIBER_FIELD.search(text):
                 errors.append(f"subscriber identity field in fixture {relative}")
 
-    if (root / "skills/domain/5gc-registration-mobility").exists():
-        errors.append("5gc-registration-mobility must not exist; ngap owns no Domain semantics")
+    # Concrete Domain packages are governed by validate-architecture.py.
+    # This Protocol validator remains focused on ngap's own ownership.
 
     for script in (skill / "scripts").glob("*.py"):
         try:

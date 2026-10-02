@@ -1,0 +1,273 @@
+{
+  "analyses": [
+    {
+      "confidence": "LOW",
+      "context": {
+        "association": "sctp-assoc-0",
+        "capture_file": "reg.pcapng",
+        "ngap_context": {
+          "amf_ue_ngap_id": 3,
+          "association": "sctp-assoc-0",
+          "ran_ue_ngap_id": 2
+        }
+      },
+      "deviations": [
+        {
+          "description": "The observation window begins after the procedure's initiation evidence; the capture starts mid-procedure",
+          "evidence_level": "DERIVED",
+          "limitation": "Earlier procedure stages may exist outside the capture",
+          "stage_id": "registration-initiation",
+          "type": "PARTIAL_CAPTURE"
+        },
+        {
+          "description": "The Service access branch was entered (trigger at frame 20) but none of its expected outcomes was observed",
+          "evidence_level": "DERIVED",
+          "limitation": "Capture termination may explain the missing evidence",
+          "stage_id": "service-access",
+          "type": "MISSING_EXPECTED_COUNTERPART"
+        }
+      ],
+      "events": [
+        {
+          "cause": {
+            "code": null,
+            "name": null
+          },
+          "frame_number": 20,
+          "message_type": "Service request",
+          "protocol": "NAS-5GS",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:20.00Z"
+        },
+        {
+          "cause": null,
+          "frame_number": 20,
+          "message_type": "UplinkNASTransport",
+          "protocol": "NGAP",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:20.00Z"
+        }
+      ],
+      "field_findings": [],
+      "instance": {
+        "amf_ue_ngap_id": 3,
+        "association": "sctp-assoc-0",
+        "capture_file": "reg.pcapng",
+        "nas_events": [
+          {
+            "capture_file": "reg.pcapng",
+            "cause": {
+              "code": null,
+              "name": null
+            },
+            "frame_number": 20,
+            "identity": {
+              "value": null
+            },
+            "message_type": "Service request",
+            "nas_family": "5GMM",
+            "registration": {
+              "type_name": null
+            },
+            "security": {
+              "header_type": 2,
+              "inner_message_available": true
+            },
+            "security_mode": {
+              "ciphering_algorithm_name": null,
+              "integrity_algorithm_name": null
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:20.00Z"
+          }
+        ],
+        "ngap_events": [
+          {
+            "amf_ue_ngap_id": 3,
+            "capture_file": "reg.pcapng",
+            "cause": null,
+            "frame_number": 20,
+            "input_order": 1,
+            "message_type": "UplinkNASTransport",
+            "pdu_type": "initiatingMessage",
+            "procedure_name": "UplinkNASTransport",
+            "protocol": "NGAP",
+            "ran_ue_ngap_id": 2,
+            "sctp": {
+              "association_id": 0,
+              "dstport": 38412,
+              "srcport": 31000,
+              "stream_id": 0
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:20.00Z"
+          }
+        ],
+        "ran_ue_ngap_id": 2
+      },
+      "instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r2",
+      "observation_window": {
+        "first_frame": 20,
+        "first_timestamp": "2024-01-02T03:04:20.00Z",
+        "last_frame": 20,
+        "last_timestamp": "2024-01-02T03:04:20.00Z"
+      },
+      "procedure_instance": {
+        "identifier_basis": "DERIVED",
+        "instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r2",
+        "note": "Local analysis identifier 5gc-reg:<capture>:<association>:<ran-id>; not a standardized 3GPP identifier and not subscriber identity"
+      },
+      "stage_records": [
+        {
+          "confidence": "LOW",
+          "evidence_basis": "DERIVED",
+          "expected_evidence": [
+            "NAS-5GS Service accept",
+            "NAS-5GS Service reject"
+          ],
+          "limitations": [
+            "Capture termination may explain the missing evidence if the counterpart falls outside the observation window"
+          ],
+          "missing_evidence": [
+            "NAS-5GS Service accept evidence was not observed within the available observation window",
+            "NAS-5GS Service reject evidence was not observed within the available observation window"
+          ],
+          "observation_group": "reg.pcapng",
+          "observed_evidence": [
+            "NAS-5GS Service request observed at frame 20 (2024-01-02T03:04:20.00Z)"
+          ],
+          "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r2",
+          "procedure_version": "1.0.0",
+          "stage": {
+            "expected_message_types": [
+              "Service accept",
+              "Service reject",
+              "Service request"
+            ],
+            "expected_protocols": [
+              "NAS-5GS"
+            ],
+            "stage_id": "service-access",
+            "stage_name": "Service access"
+          }
+        }
+      ],
+      "terminal": {
+        "evidence_level": "DERIVED",
+        "frame_number": null,
+        "message_type": null,
+        "observation": "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW",
+        "timestamp": null
+      }
+    },
+    {
+      "confidence": "LOW",
+      "context": {
+        "association": "sctp-assoc-0",
+        "capture_file": "reg.pcapng",
+        "ngap_context": {
+          "amf_ue_ngap_id": null,
+          "association": "sctp-assoc-0",
+          "ran_ue_ngap_id": null
+        }
+      },
+      "deviations": [
+        {
+          "description": "The observation window begins after the procedure's initiation evidence; the capture starts mid-procedure",
+          "evidence_level": "DERIVED",
+          "limitation": "Earlier procedure stages may exist outside the capture",
+          "stage_id": "registration-initiation",
+          "type": "PARTIAL_CAPTURE"
+        }
+      ],
+      "events": [
+        {
+          "cause": null,
+          "frame_number": 10,
+          "message_type": "Paging",
+          "protocol": "NGAP",
+          "support_status": "SUPPORTED",
+          "timestamp": "2024-01-02T03:04:10.00Z"
+        }
+      ],
+      "field_findings": [],
+      "instance": {
+        "amf_ue_ngap_id": null,
+        "association": "sctp-assoc-0",
+        "capture_file": "reg.pcapng",
+        "nas_events": [],
+        "ngap_events": [
+          {
+            "amf_ue_ngap_id": null,
+            "capture_file": "reg.pcapng",
+            "cause": null,
+            "frame_number": 10,
+            "input_order": 0,
+            "message_type": "Paging",
+            "pdu_type": "initiatingMessage",
+            "procedure_name": "Paging",
+            "protocol": "NGAP",
+            "ran_ue_ngap_id": null,
+            "sctp": {
+              "association_id": 0,
+              "dstport": 38412,
+              "srcport": 31000,
+              "stream_id": 0
+            },
+            "support_status": "SUPPORTED",
+            "timestamp": "2024-01-02T03:04:10.00Z"
+          }
+        ],
+        "ran_ue_ngap_id": null
+      },
+      "instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r?",
+      "observation_window": {
+        "first_frame": 10,
+        "first_timestamp": "2024-01-02T03:04:10.00Z",
+        "last_frame": 10,
+        "last_timestamp": "2024-01-02T03:04:10.00Z"
+      },
+      "procedure_instance": {
+        "identifier_basis": "DERIVED",
+        "instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r?",
+        "note": "Local analysis identifier 5gc-reg:<capture>:<association>:<ran-id>; not a standardized 3GPP identifier and not subscriber identity"
+      },
+      "stage_records": [
+        {
+          "confidence": "MEDIUM",
+          "evidence_basis": "OBSERVED",
+          "expected_evidence": [],
+          "limitations": [],
+          "missing_evidence": [],
+          "observation_group": "reg.pcapng",
+          "observed_evidence": [
+            "NGAP Paging observed at frame 10 (2024-01-02T03:04:10.00Z)"
+          ],
+          "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r?",
+          "procedure_version": "1.0.0",
+          "stage": {
+            "expected_message_types": [
+              "Paging"
+            ],
+            "expected_protocols": [
+              "NGAP"
+            ],
+            "stage_id": "paging",
+            "stage_name": "Paging"
+          }
+        }
+      ],
+      "terminal": {
+        "evidence_level": "DERIVED",
+        "frame_number": null,
+        "message_type": null,
+        "observation": "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW",
+        "timestamp": null
+      }
+    }
+  ],
+  "analysis_version": "1.0.0",
+  "correlation_conflicts": [],
+  "procedure_family": "5gc-registration-mobility",
+  "unbound_records": []
+}

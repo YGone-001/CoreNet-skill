@@ -37,9 +37,11 @@ jobs:
         run: python scripts/validate-cross-protocol-evidence.py
       - name: Validate procedure-evidence
         run: python scripts/validate-procedure-evidence.py
+      - name: Validate 5gc-registration-mobility
+        run: python scripts/validate-5gc-registration-mobility.py
       - name: Run unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Compile validation scripts
-        run: python -m compileall scripts skills/protocol/core-network-pcap/scripts skills/protocol/ngap/scripts skills/protocol/nas-5gs/scripts
+        run: python -m compileall scripts skills/protocol/core-network-pcap/scripts skills/protocol/ngap/scripts skills/protocol/nas-5gs/scripts skills/correlation/cross-protocol-evidence/scripts skills/domain/procedure-evidence/scripts skills/domain/5gc-registration-mobility/scripts
       - name: Check committed whitespace
         run: git diff --check HEAD^ HEAD
