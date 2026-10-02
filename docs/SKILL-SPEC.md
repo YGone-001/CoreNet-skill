@@ -41,14 +41,9 @@ Domain/Procedure Skills carry additional contract expectations:
 
 - Inputs are protocol evidence and correlation output; a Domain Skill does not replace protocol decoding or correlation.
 - Procedure stages are expected observation points, not verdicts; missing evidence stays missing evidence under the observation boundary.
-- No success, failure, or root-cause conclusions: outcome interpretation belongs to Analysis Orchestration.
-- A generic evidence framework may exist, but concrete telecom procedures require their own authorized milestone.
-
-Domain/Procedure Skills carry additional contract expectations:
-
-- Inputs are protocol evidence and correlation output; a Domain Skill does not replace protocol decoding or correlation.
-- Procedure stages are expected observation points, not verdicts; missing evidence stays missing evidence under the observation boundary.
-- No success, failure, or root-cause conclusions: outcome interpretation belongs to Analysis Orchestration.
+- A Domain Skill MAY determine: observed procedure branches; protocol-defined rejection; unsuccessful protocol outcomes; expected-but-not-observed procedure evidence; procedure-local deviation; and the exact lower-layer message or field supporting that deviation.
+- A Domain Skill MUST NOT determine: implementation-specific blame; end-to-end root cause; cross-domain final diagnosis; unsupported causation from a message initiator; causal conclusions beyond available evidence. Procedure-local deviation is not end-to-end root cause.
+- Analysis Orchestration remains responsible for composing multiple Domain analyses, selecting the first abnormal evidence boundary across the end-to-end path, producing the final combined investigation report, and root-cause reasoning when sufficient independent evidence exists.
 - A generic evidence framework may exist, but concrete telecom procedures require their own authorized milestone.
 
 ## Content rules
