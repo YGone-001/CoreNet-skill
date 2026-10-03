@@ -25,7 +25,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-ANALYSIS_VERSION = "0.1.0"
+ANALYSIS_VERSION = "0.2.0"
 PROCEDURE_NAME = "5gc-pdu-session"
 
 EXIT_MALFORMED_INPUT = 5
@@ -43,16 +43,29 @@ DEVIATION_DELIVERY_FAILURE = "DELIVERY_FAILURE_NOTIFICATION_OBSERVED"
 DEVIATION_MISSING_COUNTERPART = "MISSING_EXPECTED_COUNTERPART"
 DEVIATION_CORRELATION_AMBIGUITY = "CORRELATION_AMBIGUITY"
 DEVIATION_CORRELATION_CONFLICT = "CORRELATION_CONFLICT"
+DEVIATION_FIELD_CONFLICT = "FIELD_CONFLICT"
 DEVIATION_OUT_OF_ORDER = "OUT_OF_ORDER_EVIDENCE"
 DEVIATION_PARTIAL_CAPTURE = "PARTIAL_CAPTURE"
 DEVIATION_PROTECTED_UNAVAILABLE = "PROTECTED_OR_UNAVAILABLE_PAYLOAD"
 DEVIATION_UNKNOWN_VALUE = "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE"
 DEVIATION_DUPLICATE = "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"
 
+# Establishment Terminal Observations
 TERMINAL_ACCEPT = "ESTABLISHMENT_ACCEPT_OBSERVED"
 TERMINAL_REJECT = "ESTABLISHMENT_REJECT_OBSERVED"
 TERMINAL_NONE = "NO_N1_TERMINAL_OBSERVATION"
 TERMINAL_PARTIAL = "PARTIAL_CAPTURE"
+
+# Modification Terminal Observations
+TERMINAL_MOD_COMPLETE = "MODIFICATION_COMPLETE_OBSERVED"
+TERMINAL_MOD_REJECT = "MODIFICATION_REJECT_OBSERVED"
+TERMINAL_MOD_COMMAND_REJECT = "MODIFICATION_COMMAND_REJECT_OBSERVED"
+TERMINAL_MOD_NONE = "NO_N1_TERMINAL_OBSERVATION"
+TERMINAL_MOD_PARTIAL = "PARTIAL_CAPTURE"
+
+TRIGGER_UE_REQUESTED = "UE_REQUESTED"
+TRIGGER_NETWORK_REQUESTED = "NETWORK_REQUESTED"
+TRIGGER_UNKNOWN = "UNKNOWN"
 
 STAGES_ORDER = [
     "session_request",
@@ -92,6 +105,46 @@ STAGE_EXPECTED_MESSAGES = {
     "n1_n2_delivery": ["N1N2MessageTransfer", "N1N2Transfer Failure Notification"],
     "session_decision": ["PduSessionEstablishmentAccept", "PduSessionEstablishmentReject"],
     "user_plane_observation": ["G-PDU", "EchoRequest", "EchoResponse", "ErrorIndication", "EndMarker"],
+}
+
+MOD_STAGES_ORDER = [
+    "modification_initiation",
+    "sm_context_update",
+    "user_plane_control_update",
+    "access_resource_update",
+    "n1_n2_delivery",
+    "modification_completion",
+    "post_modification_observation",
+]
+
+MOD_STAGE_NAMES = {
+    "modification_initiation": "Modification Initiation",
+    "sm_context_update": "SM Context Update",
+    "user_plane_control_update": "User Plane Control Update",
+    "access_resource_update": "Access Resource Update",
+    "n1_n2_delivery": "N1/N2 Delivery",
+    "modification_completion": "Modification Completion",
+    "post_modification_observation": "Post-Modification Observation",
+}
+
+MOD_STAGE_EXPECTED_PROTOCOLS = {
+    "modification_initiation": ["NAS-5GS"],
+    "sm_context_update": ["3GPP-SBI"],
+    "user_plane_control_update": ["PFCP"],
+    "access_resource_update": ["NGAP"],
+    "n1_n2_delivery": ["3GPP-SBI"],
+    "modification_completion": ["NAS-5GS"],
+    "post_modification_observation": ["GTP-U"],
+}
+
+MOD_STAGE_EXPECTED_MESSAGES = {
+    "modification_initiation": ["PduSessionModificationRequest", "PduSessionModificationCommand"],
+    "sm_context_update": ["UpdateSMContext"],
+    "user_plane_control_update": ["SessionModificationRequest", "SessionModificationResponse"],
+    "access_resource_update": ["PDUSessionResourceModifyRequest", "PDUSessionResourceModifyResponse"],
+    "n1_n2_delivery": ["N1N2MessageTransfer", "N1N2Transfer Failure Notification"],
+    "modification_completion": ["PduSessionModificationComplete", "PduSessionModificationReject", "PduSessionModificationCommandReject"],
+    "post_modification_observation": ["G-PDU", "EchoRequest", "EchoResponse", "ErrorIndication", "EndMarker"],
 }
 
 
@@ -270,6 +323,1022 @@ def _make_generic_stage_record(
     }
 
 
+def evaluate_modification_attempts(
+    inst: dict[str, Any],
+    est_context: dict[str, Any],
+    capture_file: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Evaluate repeated modification attempts for an established PDU Session instance.
+
+    Returns (modification_attempts, generic_stage_records).
+    """
+    psi = inst["pdu_session_id"]
+    inst_id = inst["instance_id"]
+    nas_evs = sorted(inst.get("nas_events", []), key=_event_sort_key)
+    ngap_evs = sorted(inst.get("ngap_events", []), key=_event_sort_key)
+    pfcp_evs = sorted(inst.get("pfcp_events", []), key=_event_sort_key)
+    gtpu_evs = sorted(inst.get("gtpu_events", []), key=_event_sort_key)
+    sbi_evs = sorted(inst.get("sbi_events", []), key=_event_sort_key)
+
+    nas_mod_msgs = {
+        "PduSessionModificationRequest",
+        "PduSessionModificationCommand",
+        "PduSessionModificationComplete",
+        "PduSessionModificationReject",
+        "PduSessionModificationCommandReject",
+    }
+    nas_mod = [
+        e for e in nas_evs
+        if e.get("message_type") in nas_mod_msgs
+        or (e.get("security", {}).get("inner_message_available") is False and "modification" in str(e).lower())
+        or e.get("plain_payload_unavailable") is True
+    ]
+
+    sbi_update_evs = [
+        e for e in sbi_evs
+        if (
+            e.get("sbi", {}).get("operation") == "UpdateSMContext"
+            or "update-sm-context" in str(e.get("http2", {}).get("path", "")).lower()
+            or "/modify" in str(e.get("http2", {}).get("path", "")).lower()
+            or (e.get("tls_encrypted") and "modify" in str(e.get("capture_file", "")).lower())
+        )
+    ]
+
+    pfcp_mod = [
+        e for e in pfcp_evs
+        if "Modification" in str(e.get("header", {}).get("message_type", ""))
+        or e.get("header", {}).get("message_type") in (52, 53)
+    ]
+
+    ngap_mod = [
+        e for e in ngap_evs
+        if "ResourceModify" in str(e.get("message_type", ""))
+    ]
+
+    if not nas_mod and not sbi_update_evs and not pfcp_mod and not ngap_mod:
+        return [], []
+
+    # Find earliest frame of modification signaling
+    all_mod_core_frames = [
+        e["frame_number"] for e in (nas_mod + sbi_update_evs + pfcp_mod + ngap_mod)
+        if e.get("frame_number") is not None
+    ]
+    min_mod_frame = min(all_mod_core_frames) if all_mod_core_frames else 0
+
+    sbi_mod = list(sbi_update_evs)
+    for e in sbi_evs:
+        op = e.get("sbi", {}).get("operation")
+        if op in ("N1N2MessageTransfer", "N1N2Transfer Failure Notification"):
+            # Check if this delivery event occurs during or after modification initiation
+            if e.get("frame_number", 0) >= min_mod_frame and e not in sbi_mod:
+                sbi_mod.append(e)
+
+    # Cluster events into modification attempts
+    attempts_data: list[dict[str, Any]] = []
+
+    if nas_mod:
+        for ev in nas_mod:
+            mtype = ev.get("message_type")
+            sm = ev.get("session_management", {}) if isinstance(ev.get("session_management"), dict) else {}
+            pti = sm.get("procedure_transaction_identity") if sm.get("procedure_transaction_identity") is not None else sm.get("pti")
+            f_num = ev.get("frame_number", 0)
+
+            if mtype == "PduSessionModificationRequest":
+                active_same_pti = next((a for a in attempts_data if not a["is_completed"] and a["pti"] is not None and a["pti"] == pti), None)
+                if active_same_pti:
+                    has_req = any(e.get("message_type") == "PduSessionModificationRequest" for e in active_same_pti["nas_events"])
+                    if has_req:
+                        active_same_pti["nas_events"].append(ev)
+                        active_same_pti["is_duplicate"] = True
+                        active_same_pti["end_frame"] = max(active_same_pti["end_frame"], f_num)
+                    else:
+                        active_same_pti["nas_events"].append(ev)
+                        active_same_pti["end_frame"] = max(active_same_pti["end_frame"], f_num)
+                else:
+                    active_any = [a for a in attempts_data if not a["is_completed"]]
+                    is_ambig = any(a["pti"] == pti for a in active_any)
+                    attempts_data.append({
+                        "attempt_idx": len(attempts_data) + 1,
+                        "trigger_type": TRIGGER_UE_REQUESTED,
+                        "pti": pti,
+                        "nas_events": [ev],
+                        "sbi_events": [],
+                        "pfcp_events": [],
+                        "ngap_events": [],
+                        "gtpu_events": [],
+                        "is_ambiguous": is_ambig,
+                        "is_duplicate": False,
+                        "is_late_capture": False,
+                        "is_completed": False,
+                        "start_frame": f_num,
+                        "end_frame": f_num,
+                    })
+
+            elif mtype == "PduSessionModificationCommand":
+                active = next((a for a in attempts_data if not a["is_completed"] and (a["pti"] == pti or (a["pti"] is not None and (pti == 0 or pti is None)))), None)
+                if not active:
+                    active = next((a for a in attempts_data if not a["is_completed"] and not any(e.get("message_type") == "PduSessionModificationCommand" for e in a["nas_events"])), None)
+                if active:
+                    active["nas_events"].append(ev)
+                    active["end_frame"] = max(active["end_frame"], f_num)
+                else:
+                    attempts_data.append({
+                        "attempt_idx": len(attempts_data) + 1,
+                        "trigger_type": TRIGGER_NETWORK_REQUESTED,
+                        "pti": pti,
+                        "nas_events": [ev],
+                        "sbi_events": [],
+                        "pfcp_events": [],
+                        "ngap_events": [],
+                        "gtpu_events": [],
+                        "is_ambiguous": False,
+                        "is_duplicate": False,
+                        "is_late_capture": False,
+                        "is_completed": False,
+                        "start_frame": f_num,
+                        "end_frame": f_num,
+                    })
+
+            elif mtype in ("PduSessionModificationComplete", "PduSessionModificationReject", "PduSessionModificationCommandReject"):
+                active = next((a for a in attempts_data if not a["is_completed"] and (a["pti"] == pti or a["pti"] is None or pti == 0 or pti is None)), None)
+                if not active:
+                    active = next((a for a in attempts_data if not a["is_completed"]), None)
+                if active:
+                    active["nas_events"].append(ev)
+                    active["is_completed"] = True
+                    active["end_frame"] = max(active["end_frame"], f_num)
+                else:
+                    attempts_data.append({
+                        "attempt_idx": len(attempts_data) + 1,
+                        "trigger_type": TRIGGER_UNKNOWN,
+                        "pti": pti,
+                        "nas_events": [ev],
+                        "sbi_events": [],
+                        "pfcp_events": [],
+                        "ngap_events": [],
+                        "gtpu_events": [],
+                        "is_ambiguous": False,
+                        "is_duplicate": False,
+                        "is_late_capture": True,
+                        "is_completed": True,
+                        "start_frame": f_num,
+                        "end_frame": f_num,
+                    })
+
+            else:
+                active = next((a for a in attempts_data if not a["is_completed"]), None)
+                if active:
+                    active["nas_events"].append(ev)
+                    active["end_frame"] = max(active["end_frame"], f_num)
+                else:
+                    attempts_data.append({
+                        "attempt_idx": len(attempts_data) + 1,
+                        "trigger_type": TRIGGER_UNKNOWN,
+                        "pti": pti,
+                        "nas_events": [ev],
+                        "sbi_events": [],
+                        "pfcp_events": [],
+                        "ngap_events": [],
+                        "gtpu_events": [],
+                        "is_ambiguous": False,
+                        "is_duplicate": False,
+                        "is_late_capture": False,
+                        "is_completed": False,
+                        "start_frame": f_num,
+                        "end_frame": f_num,
+                    })
+    else:
+        attempts_data.append({
+            "attempt_idx": 1,
+            "trigger_type": TRIGGER_NETWORK_REQUESTED,
+            "pti": None,
+            "nas_events": [],
+            "sbi_events": [],
+            "pfcp_events": [],
+            "ngap_events": [],
+            "gtpu_events": [],
+            "is_ambiguous": False,
+            "is_duplicate": False,
+            "is_late_capture": False,
+            "is_completed": False,
+            "start_frame": 1,
+            "end_frame": 1000000,
+        })
+
+    # Associate other plane events
+    if len(attempts_data) == 1:
+        attempts_data[0]["sbi_events"].extend(sbi_mod)
+        attempts_data[0]["pfcp_events"].extend(pfcp_mod)
+        attempts_data[0]["ngap_events"].extend(ngap_mod)
+    else:
+        for ev in sbi_mod + pfcp_mod + ngap_mod:
+            f = ev.get("frame_number", 0)
+            ev_pti = None
+            if "pti" in ev:
+                ev_pti = ev["pti"]
+            elif "session_management" in ev and isinstance(ev["session_management"], dict):
+                ev_pti = ev["session_management"].get("pti")
+            matched_att = None
+            if ev_pti is not None:
+                matched_att = next((a for a in attempts_data if a["pti"] == ev_pti), None)
+            if not matched_att:
+                for a in attempts_data:
+                    if a["start_frame"] <= f <= a["end_frame"]:
+                        matched_att = a
+                        break
+            if not matched_att:
+                preceding = [a for a in attempts_data if a["start_frame"] <= f]
+                if preceding:
+                    matched_att = max(preceding, key=lambda a: a["start_frame"])
+                else:
+                    matched_att = attempts_data[0]
+
+            if ev in sbi_mod:
+                matched_att["sbi_events"].append(ev)
+            elif ev in pfcp_mod:
+                matched_att["pfcp_events"].append(ev)
+            elif ev in ngap_mod:
+                matched_att["ngap_events"].append(ev)
+
+    for att in attempts_data:
+        att["gtpu_events"] = [e for e in gtpu_evs if e.get("frame_number", 0) >= att["start_frame"]]
+
+    modification_attempts: list[dict[str, Any]] = []
+    mod_generic_stages: list[dict[str, Any]] = []
+
+    has_release = (
+        any("release" in str(e.get("message_type", "")).lower() for e in nas_evs)
+        or any("deletion" in str(e.get("header", {}).get("message_type", "")).lower() for e in pfcp_evs)
+        or any("release" in str(e.get("message_type", "")).lower() for e in ngap_evs)
+    )
+
+    for att in attempts_data:
+        att_idx = att["attempt_idx"]
+        att_id = f"mod-{att_idx}"
+        trigger_type = att["trigger_type"]
+        pti = att["pti"]
+        att_nas = sorted(att["nas_events"], key=_event_sort_key)
+        att_sbi = sorted(att["sbi_events"], key=_event_sort_key)
+        att_pfcp = sorted(att["pfcp_events"], key=_event_sort_key)
+        att_ngap = sorted(att["ngap_events"], key=_event_sort_key)
+        att_gtpu = sorted(att["gtpu_events"], key=_event_sort_key)
+
+        deviations: list[dict[str, Any]] = []
+        field_findings: list[dict[str, Any]] = []
+        stages_summary: list[dict[str, Any]] = []
+        att_limitations: list[str] = [
+            "Bounded to observed modification signaling in capture window",
+            "No source code or network function internal execution state analyzed",
+        ]
+        if has_release:
+            att_limitations.append("PDU session release signaling observed but release procedure analysis is deferred in this version")
+
+        # --- Stage 1: modification_initiation ---
+        init_ev = next((e for e in att_nas if e.get("message_type") in ("PduSessionModificationRequest", "PduSessionModificationCommand")), None)
+        if trigger_type == TRIGGER_UE_REQUESTED:
+            req_ev = next((e for e in att_nas if e.get("message_type") == "PduSessionModificationRequest"), None)
+            if req_ev:
+                st_init_status = "OBSERVED"
+                st_init_obs = [f"PduSessionModificationRequest observed at frame {req_ev['frame_number']} (PTI={pti})"]
+                st_init_miss: list[str] = []
+                st_init_lim: list[str] = []
+            else:
+                st_init_status = "MISSING"
+                st_init_obs = []
+                st_init_miss = ["PduSessionModificationRequest not observed within capture window"]
+                st_init_lim = ["Capture window began after modification initiation"]
+                deviations.append({
+                    "type": DEVIATION_PARTIAL_CAPTURE,
+                    "stage_id": "modification_initiation",
+                    "description": "Modification request not captured; observation window begins mid-procedure",
+                    "evidence_level": "DERIVED",
+                    "limitation": "Initiating signaling not available in capture",
+                })
+        elif trigger_type == TRIGGER_NETWORK_REQUESTED:
+            cmd_ev = next((e for e in att_nas if e.get("message_type") == "PduSessionModificationCommand"), None)
+            if cmd_ev:
+                st_init_status = "OBSERVED"
+                st_init_obs = [f"Network-initiated modification via PduSessionModificationCommand observed at frame {cmd_ev['frame_number']}"]
+                st_init_miss = []
+                st_init_lim = []
+            elif att_sbi or att_pfcp or att_ngap:
+                st_init_status = "OBSERVED"
+                st_init_obs = ["Network-initiated modification control signaling observed"]
+                st_init_miss = []
+                st_init_lim = []
+            else:
+                st_init_status = "MISSING"
+                st_init_obs = []
+                st_init_miss = ["Network-initiated modification signaling not observed"]
+                st_init_lim = ["No initiation signaling observed"]
+        else:
+            if init_ev:
+                st_init_status = "OBSERVED"
+                st_init_obs = [f"Modification initiation message {init_ev.get('message_type')} observed at frame {init_ev['frame_number']}"]
+                st_init_miss = []
+                st_init_lim = []
+            else:
+                st_init_status = "MISSING"
+                st_init_obs = []
+                st_init_miss = ["Modification initiation not observed"]
+                st_init_lim = ["Capture window began after initiation"]
+                if att.get("is_late_capture"):
+                    deviations.append({
+                        "type": DEVIATION_PARTIAL_CAPTURE,
+                        "stage_id": "modification_initiation",
+                        "description": "Procedure response observed before initiation request; capture begins late",
+                        "evidence_level": "DERIVED",
+                        "limitation": "Earlier procedure stages exist outside the capture",
+                    })
+
+        if att.get("is_duplicate"):
+            deviations.append({
+                "type": DEVIATION_DUPLICATE,
+                "stage_id": "modification_initiation",
+                "description": f"Duplicate or retransmitted PduSessionModificationRequest observed (PTI={pti})",
+                "evidence_level": "OBSERVED",
+                "limitation": "Signaling retransmission observed; likely response delay or packet duplication",
+            })
+
+        prot_nas = next((e for e in att_nas if e.get("security", {}).get("inner_message_available") is False or e.get("ciphered") is True or e.get("plain_payload_unavailable") is True), None)
+        if prot_nas:
+            deviations.append({
+                "type": DEVIATION_PROTECTED_UNAVAILABLE,
+                "stage_id": "modification_initiation",
+                "description": f"NAS message at frame {prot_nas['frame_number']} is ciphered and inner payload is unavailable",
+                "evidence_level": "OBSERVED",
+                "limitation": "Plaintext NAS payload unavailable without security context deciphering",
+            })
+
+        stages_summary.append({
+            "stage_id": "modification_initiation",
+            "stage_name": MOD_STAGE_NAMES["modification_initiation"],
+            "status": st_init_status,
+            "expected_evidence": ["NAS-5GS PduSessionModificationRequest", "NAS-5GS PduSessionModificationCommand"],
+            "observed_evidence": st_init_obs,
+            "missing_evidence": st_init_miss,
+            "limitations": st_init_lim,
+        })
+
+        # --- Stage 2: sm_context_update ---
+        upd_ev = next((e for e in att_sbi if e.get("sbi", {}).get("operation") == "UpdateSMContext" or "update-sm-context" in str(e.get("http2", {}).get("path", "")).lower() or "/modify" in str(e.get("http2", {}).get("path", "")).lower()), None)
+        tls_sbi = next((e for e in att_sbi if e.get("tls_encrypted")), None)
+
+        if tls_sbi:
+            st_upd_status = "MISSING"
+            st_upd_obs = []
+            st_upd_miss = ["UpdateSMContext payload encrypted under TLS without key material"]
+            st_upd_lim = ["TLS encryption prevents cleartext inspection"]
+            deviations.append({
+                "type": DEVIATION_PROTECTED_UNAVAILABLE,
+                "stage_id": "sm_context_update",
+                "description": f"SBI HTTP/2 frame at frame {tls_sbi['frame_number']} is encrypted under TLS without key material",
+                "evidence_level": "OBSERVED",
+                "limitation": "TLS encryption prevents application layer inspection",
+            })
+        elif upd_ev:
+            status_code = upd_ev.get("http2", {}).get("status")
+            prob = upd_ev.get("problem_details")
+            if (status_code is not None and status_code >= 400) or prob is not None:
+                st_upd_status = "OBSERVED"
+                prob_cause = prob.get("cause") if isinstance(prob, dict) else f"HTTP {status_code}"
+                st_upd_obs = [f"Nsmf_PDUSession UpdateSMContext returned HTTP {status_code} at frame {upd_ev['frame_number']} with ProblemDetails ({prob_cause})"]
+                st_upd_miss = []
+                st_upd_lim = ["SM context update rejected by SMF"]
+                deviations.append({
+                    "type": DEVIATION_NEGATIVE_OUTCOME,
+                    "stage_id": "sm_context_update",
+                    "description": f"Nsmf_PDUSession UpdateSMContext returned HTTP {status_code} with ProblemDetails cause {prob_cause}",
+                    "evidence_level": "OBSERVED",
+                    "limitation": "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable",
+                })
+            else:
+                st_upd_status = "OBSERVED"
+                st_upd_obs = [f"Nsmf_PDUSession UpdateSMContext accepted (HTTP {status_code}) at frame {upd_ev['frame_number']}"]
+                st_upd_miss = []
+                st_upd_lim = []
+        else:
+            st_upd_status = "MISSING"
+            st_upd_obs = []
+            st_upd_miss = ["Nsmf_PDUSession UpdateSMContext not observed within capture window"]
+            st_upd_lim = ["SBI signaling absent or encrypted under TLS without key material"]
+
+        stages_summary.append({
+            "stage_id": "sm_context_update",
+            "stage_name": MOD_STAGE_NAMES["sm_context_update"],
+            "status": st_upd_status,
+            "expected_evidence": ["3GPP-SBI UpdateSMContext"],
+            "observed_evidence": st_upd_obs,
+            "missing_evidence": st_upd_miss,
+            "limitations": st_upd_lim,
+        })
+
+        # --- Stage 3: user_plane_control_update ---
+        pfcp_resp = next((e for e in att_pfcp if "Response" in str(e.get("header", {}).get("message_type", ""))), None)
+        pfcp_reqs = [e for e in att_pfcp if "Request" in str(e.get("header", {}).get("message_type", ""))]
+        pfcp_req = pfcp_reqs[0] if pfcp_reqs else None
+
+        if len(pfcp_reqs) > 1:
+            seqs = [e.get("header", {}).get("sequence_number") for e in pfcp_reqs]
+            if len(seqs) != len(set(seqs)) or len(pfcp_reqs) > 1:
+                deviations.append({
+                    "type": DEVIATION_DUPLICATE,
+                    "stage_id": "user_plane_control_update",
+                    "description": f"Duplicate PFCP Session Modification Request observed (seq_no={seqs[0]})",
+                    "evidence_level": "OBSERVED",
+                    "limitation": "PFCP transaction retransmission observed",
+                })
+
+        if pfcp_resp is not None or pfcp_req is not None:
+            cause_obj = pfcp_resp.get("cause") if isinstance(pfcp_resp, dict) else None
+            cause_code = cause_obj.get("code") if isinstance(cause_obj, dict) else None
+            cause_name = cause_obj.get("name") if isinstance(cause_obj, dict) else str(cause_code)
+
+            if cause_code is not None and cause_code != 1:
+                st_upc_status = "OBSERVED"
+                st_upc_obs = [f"PFCP Session Modification Response at frame {pfcp_resp['frame_number']} reported non-accepted cause {cause_name} (code {cause_code})"]
+                st_upc_miss = []
+                st_upc_lim = ["PFCP modification rejected by UPF"]
+                deviations.append({
+                    "type": DEVIATION_NEGATIVE_OUTCOME,
+                    "stage_id": "user_plane_control_update",
+                    "description": f"PFCP Session Modification Response reported non-accepted cause {cause_name} (code {cause_code})",
+                    "evidence_level": "OBSERVED",
+                    "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
+                })
+            elif pfcp_resp is None and pfcp_req is not None:
+                st_upc_status = "OBSERVED"
+                st_upc_obs = [f"PFCP Session Modification Request observed at frame {pfcp_req['frame_number']}"]
+                st_upc_miss = ["PFCP Session Modification Response not observed within capture window"]
+                st_upc_lim = ["Capture window truncated before PFCP response arrived"]
+                deviations.append({
+                    "type": DEVIATION_MISSING_COUNTERPART,
+                    "stage_id": "user_plane_control_update",
+                    "description": f"PFCP Session Modification Request at frame {pfcp_req['frame_number']} missing expected Response",
+                    "evidence_level": "DERIVED",
+                    "limitation": "Capture window ended before PFCP response arrived or response lost in transit",
+                })
+            else:
+                st_upc_status = "OBSERVED"
+                st_upc_obs = [f"PFCP Session Modification accepted at frame {pfcp_resp['frame_number']}"]
+                st_upc_miss = []
+                st_upc_lim = []
+        else:
+            st_upc_status = "MISSING"
+            st_upc_obs = []
+            st_upc_miss = ["PFCP Session Modification signaling not observed within capture window"]
+            st_upc_lim = ["N4 interface traffic not captured at this vantage point"]
+
+        stages_summary.append({
+            "stage_id": "user_plane_control_update",
+            "stage_name": MOD_STAGE_NAMES["user_plane_control_update"],
+            "status": st_upc_status,
+            "expected_evidence": ["PFCP SessionModificationResponse"],
+            "observed_evidence": st_upc_obs,
+            "missing_evidence": st_upc_miss,
+            "limitations": st_upc_lim,
+        })
+
+        # --- Stage 4: access_resource_update ---
+        ngap_resp = next((e for e in att_ngap if "ResourceModifyResponse" in str(e.get("message_type", "")) or "ResourceModifyConfirm" in str(e.get("message_type", ""))), None)
+        ngap_req = next((e for e in att_ngap if "ResourceModifyRequest" in str(e.get("message_type", "")) or "ResourceModifyIndication" in str(e.get("message_type", ""))), None)
+
+        if ngap_resp is not None or ngap_req is not None:
+            target_item_failed = False
+            target_cause_str = "unspecified"
+            target_item_found = False
+
+            if ngap_resp:
+                for res in ngap_resp.get("pdu_session_resources", []):
+                    if res.get("pdu_session_id") == psi:
+                        target_item_found = True
+                        st = str(res.get("item_status", "")).upper()
+                        if st in ("FAILED", "UNSUCCESSFUL") or "failed" in str(res).lower() or res.get("cause"):
+                            target_item_failed = True
+                            target_cause_str = res.get("cause", {}).get("name") if isinstance(res.get("cause"), dict) else str(res.get("cause", "unspecified"))
+
+            if target_item_failed:
+                st_aru_status = "OBSERVED"
+                st_aru_obs = [f"NGAP PDUSessionResourceModifyResponse at frame {ngap_resp['frame_number']} reported failed resource item for PDU Session ID {psi} ({target_cause_str})"]
+                st_aru_miss = []
+                st_aru_lim = ["RAN-side resource modification failed"]
+                deviations.append({
+                    "type": DEVIATION_RESOURCE_FAILED,
+                    "stage_id": "access_resource_update",
+                    "description": f"NGAP PDUSessionResourceModifyResponse reported failed resource item for PDU Session ID {psi} ({target_cause_str})",
+                    "evidence_level": "OBSERVED",
+                    "limitation": "RAN-side resource modification failed; radio admission or configuration cause reported by gNB",
+                })
+            elif ngap_resp is None and ngap_req is not None:
+                st_aru_status = "OBSERVED"
+                st_aru_obs = [f"NGAP PDUSessionResourceModifyRequest observed at frame {ngap_req['frame_number']}"]
+                st_aru_miss = ["NGAP PDUSessionResourceModifyResponse not observed within capture window"]
+                st_aru_lim = ["Capture window truncated before NGAP response arrived"]
+                deviations.append({
+                    "type": DEVIATION_MISSING_COUNTERPART,
+                    "stage_id": "access_resource_update",
+                    "description": f"NGAP PDUSessionResourceModifyRequest at frame {ngap_req['frame_number']} missing expected Response",
+                    "evidence_level": "DERIVED",
+                    "limitation": "Capture window ended before NGAP response arrived",
+                })
+            else:
+                st_aru_status = "OBSERVED"
+                f_num = ngap_resp["frame_number"] if ngap_resp else ngap_req["frame_number"]
+                st_aru_obs = [f"NGAP PDUSessionResourceModify confirmed at frame {f_num} for PDU Session ID {psi}"]
+                st_aru_miss = []
+                st_aru_lim = []
+        else:
+            st_aru_status = "MISSING"
+            st_aru_obs = []
+            st_aru_miss = ["NGAP PDU Session Resource Modify signaling not observed within capture window"]
+            st_aru_lim = ["N2 interface traffic not captured at this vantage point"]
+
+        stages_summary.append({
+            "stage_id": "access_resource_update",
+            "stage_name": MOD_STAGE_NAMES["access_resource_update"],
+            "status": st_aru_status,
+            "expected_evidence": ["NGAP PDUSessionResourceModifyResponse"],
+            "observed_evidence": st_aru_obs,
+            "missing_evidence": st_aru_miss,
+            "limitations": st_aru_lim,
+        })
+
+        # --- Stage 5: n1_n2_delivery ---
+        fn_ev = next((e for e in att_sbi if e.get("sbi", {}).get("operation") == "N1N2Transfer Failure Notification" or "failure-notify" in str(e.get("http2", {}).get("path", "")).lower()), None)
+        tr_ev = next((e for e in att_sbi if e.get("sbi", {}).get("operation") == "N1N2MessageTransfer" or "n1-n2-messages" in str(e.get("http2", {}).get("path", "")).lower()), None)
+
+        if fn_ev:
+            st_del_status = "OBSERVED"
+            fn_cause = fn_ev.get("cause") or fn_ev.get("sbi", {}).get("cause") or "delivery_failed"
+            st_del_obs = [f"Namf_Communication N1N2Transfer Failure Notification observed at frame {fn_ev['frame_number']} ({fn_cause})"]
+            st_del_miss = []
+            st_del_lim = ["AMF reported N1/N2 delivery failure to UE/RAN"]
+            deviations.append({
+                "type": DEVIATION_DELIVERY_FAILURE,
+                "stage_id": "n1_n2_delivery",
+                "description": f"Namf_Communication N1N2Transfer Failure Notification reported delivery failure ({fn_cause})",
+                "evidence_level": "OBSERVED",
+                "limitation": "AMF reported N1/N2 delivery failure; communication transfer aborted",
+            })
+        elif tr_ev:
+            st_code = tr_ev.get("http2", {}).get("status")
+            if st_code == 202:
+                st_del_status = "PENDING"
+                st_del_obs = [f"Namf_Communication N1N2MessageTransfer accepted asynchronously (HTTP 202) at frame {tr_ev['frame_number']}"]
+                st_del_miss = []
+                st_del_lim = ["N1/N2 message transfer accepted asynchronously (HTTP 202); delivery not yet confirmed"]
+            elif st_code is not None and st_code >= 400:
+                st_del_status = "OBSERVED"
+                st_del_obs = [f"Namf_Communication N1N2MessageTransfer returned HTTP {st_code} at frame {tr_ev['frame_number']}"]
+                st_del_miss = []
+                st_del_lim = ["N1/N2 transfer rejected by AMF"]
+                deviations.append({
+                    "type": DEVIATION_NEGATIVE_OUTCOME,
+                    "stage_id": "n1_n2_delivery",
+                    "description": f"Namf_Communication N1N2MessageTransfer returned HTTP {st_code}",
+                    "evidence_level": "OBSERVED",
+                    "limitation": "N1/N2 transfer rejected by AMF",
+                })
+            else:
+                st_del_status = "OBSERVED"
+                st_del_obs = [f"Namf_Communication N1N2MessageTransfer accepted (HTTP {st_code}) at frame {tr_ev['frame_number']}"]
+                st_del_miss = []
+                st_del_lim = []
+        else:
+            st_del_status = "NOT_APPLICABLE"
+            st_del_obs = []
+            st_del_miss = []
+            st_del_lim = ["N1/N2 transfer service operation not utilized in this modification branch"]
+
+        stages_summary.append({
+            "stage_id": "n1_n2_delivery",
+            "stage_name": MOD_STAGE_NAMES["n1_n2_delivery"],
+            "status": st_del_status,
+            "expected_evidence": ["3GPP-SBI N1N2MessageTransfer"],
+            "observed_evidence": st_del_obs,
+            "missing_evidence": st_del_miss,
+            "limitations": st_del_lim,
+        })
+
+        # --- Stage 6: modification_completion ---
+        comp_ev = next((e for e in att_nas if e.get("message_type") == "PduSessionModificationComplete"), None)
+        rej_ev = next((e for e in att_nas if e.get("message_type") == "PduSessionModificationReject"), None)
+        cmd_rej_ev = next((e for e in att_nas if e.get("message_type") == "PduSessionModificationCommandReject"), None)
+
+        if comp_ev:
+            st_comp_status = "OBSERVED"
+            st_comp_obs = [f"PduSessionModificationComplete observed at frame {comp_ev['frame_number']}"]
+            st_comp_miss = []
+            st_comp_lim = []
+            terminal_obs = {
+                "observation": TERMINAL_MOD_COMPLETE,
+                "protocol_observations": ["PduSessionModificationComplete observed"],
+                "message_type": "PduSessionModificationComplete",
+                "frame_number": comp_ev["frame_number"],
+                "timestamp": comp_ev["timestamp"],
+                "evidence_level": "OBSERVED",
+            }
+        elif rej_ev:
+            st_comp_status = "OBSERVED"
+            r_cause = rej_ev.get("cause")
+            c_name = r_cause.get("name") if isinstance(r_cause, dict) else str(r_cause)
+            st_comp_obs = [f"PduSessionModificationReject observed at frame {rej_ev['frame_number']} with cause {c_name}"]
+            st_comp_miss = []
+            st_comp_lim = ["5GSM procedure rejected by network"]
+            deviations.append({
+                "type": DEVIATION_PROTOCOL_REJECT,
+                "stage_id": "modification_completion",
+                "description": f"NAS PduSessionModificationReject observed with cause {c_name}",
+                "evidence_level": "OBSERVED",
+                "limitation": "5GSM procedure rejected by network; session remains in established state with prior parameters",
+            })
+            terminal_obs = {
+                "observation": TERMINAL_MOD_REJECT,
+                "protocol_observations": [f"PduSessionModificationReject observed with cause {c_name}"],
+                "message_type": "PduSessionModificationReject",
+                "frame_number": rej_ev["frame_number"],
+                "timestamp": rej_ev["timestamp"],
+                "evidence_level": "OBSERVED",
+            }
+        elif cmd_rej_ev:
+            st_comp_status = "OBSERVED"
+            r_cause = cmd_rej_ev.get("cause")
+            c_name = r_cause.get("name") if isinstance(r_cause, dict) else str(r_cause)
+            st_comp_obs = [f"PduSessionModificationCommandReject observed at frame {cmd_rej_ev['frame_number']} with cause {c_name}"]
+            st_comp_miss = []
+            st_comp_lim = ["5GSM command rejected by UE"]
+            deviations.append({
+                "type": DEVIATION_PROTOCOL_REJECT,
+                "stage_id": "modification_completion",
+                "description": f"NAS PduSessionModificationCommandReject observed with cause {c_name}",
+                "evidence_level": "OBSERVED",
+                "limitation": "5GSM command rejected by UE; session remains in established state with prior parameters",
+            })
+            terminal_obs = {
+                "observation": TERMINAL_MOD_COMMAND_REJECT,
+                "protocol_observations": [f"PduSessionModificationCommandReject observed with cause {c_name}"],
+                "message_type": "PduSessionModificationCommandReject",
+                "frame_number": cmd_rej_ev["frame_number"],
+                "timestamp": cmd_rej_ev["timestamp"],
+                "evidence_level": "OBSERVED",
+            }
+        else:
+            st_comp_status = "MISSING"
+            st_comp_obs = []
+            st_comp_miss = ["Terminal NAS modification response (Complete / Reject / CommandReject) not observed within capture window"]
+            st_comp_lim = ["Capture ended before procedure completion or terminal NAS frame dropped"]
+            req_ev = next((e for e in att_nas if e.get("message_type") in ("PduSessionModificationRequest", "PduSessionModificationCommand")), None)
+            if req_ev:
+                deviations.append({
+                    "type": DEVIATION_MISSING_COUNTERPART,
+                    "stage_id": "modification_completion",
+                    "description": f"Modification initiated at frame {req_ev['frame_number']} but no terminal NAS completion or reject message observed within capture window",
+                    "evidence_level": "DERIVED",
+                    "limitation": "Capture window truncated before modification completion",
+                })
+            terminal_obs = {
+                "observation": TERMINAL_MOD_NONE,
+                "protocol_observations": ["No terminal N1 modification response observed within capture window"],
+                "message_type": None,
+                "frame_number": None,
+                "timestamp": None,
+                "evidence_level": "DERIVED",
+            }
+
+        stages_summary.append({
+            "stage_id": "modification_completion",
+            "stage_name": MOD_STAGE_NAMES["modification_completion"],
+            "status": st_comp_status,
+            "expected_evidence": ["NAS-5GS PduSessionModificationComplete", "NAS-5GS PduSessionModificationReject"],
+            "observed_evidence": st_comp_obs,
+            "missing_evidence": st_comp_miss,
+            "limitations": st_comp_lim,
+        })
+
+        # --- Stage 7: post_modification_observation ---
+        traffic_observed = any(
+            e.get("message_type") == "G-PDU" or e.get("header", {}).get("message_type") == 255
+            for e in att_gtpu
+        )
+        end_marker_observed = any(
+            "EndMarker" in str(e.get("message_type", "")) or e.get("header", {}).get("message_type") == 254
+            for e in att_gtpu
+        )
+        error_indication_observed = any(
+            "ErrorIndication" in str(e.get("message_type", "")) or e.get("header", {}).get("message_type") == 26
+            for e in att_gtpu
+        )
+
+        post_tunnel = None
+        if att_gtpu:
+            first_gt = att_gtpu[0]
+            post_tunnel = {
+                "teid": first_gt.get("header", {}).get("teid"),
+                "ip_address": first_gt.get("outer", {}).get("destination_address"),
+            }
+
+        post_qfis: list[int] = []
+        for e in att_gtpu:
+            q = e.get("header", {}).get("qfi") if isinstance(e.get("header"), dict) else e.get("qfi")
+            if q is not None and q not in post_qfis:
+                post_qfis.append(q)
+
+        if traffic_observed:
+            st_pmo_status = "OBSERVED"
+            st_pmo_obs = [f"Post-modification GTP-U user-plane packets observed: {len(att_gtpu)} packets"]
+            st_pmo_miss = []
+            st_pmo_lim = []
+        else:
+            st_pmo_status = "MISSING"
+            st_pmo_obs = ["No matching GTP-U user-plane packets observed in capture window after modification"]
+            st_pmo_miss = ["No post-modification GTP-U user-plane traffic observed"]
+            st_pmo_lim = ["User plane traffic idle or vantage point does not observe N3 interface post-modification"]
+
+        stages_summary.append({
+            "stage_id": "post_modification_observation",
+            "stage_name": MOD_STAGE_NAMES["post_modification_observation"],
+            "status": st_pmo_status,
+            "expected_evidence": ["GTP-U G-PDU"],
+            "observed_evidence": st_pmo_obs,
+            "missing_evidence": st_pmo_miss,
+            "limitations": st_pmo_lim,
+        })
+
+        # Generic stage records for this attempt
+        for st_rec in stages_summary:
+            st_id = st_rec["stage_id"]
+            mod_generic_stages.append(_make_generic_stage_record(
+                f"{inst_id}:mod{att_idx}",
+                capture_file,
+                f"mod{att_idx}_{st_id}",
+                f"Attempt {att_idx} {MOD_STAGE_NAMES[st_id]}",
+                MOD_STAGE_EXPECTED_PROTOCOLS[st_id],
+                MOD_STAGE_EXPECTED_MESSAGES[st_id],
+                st_rec["expected_evidence"],
+                st_rec["observed_evidence"],
+                st_rec["missing_evidence"],
+                "OBSERVED",
+                "HIGH" if st_rec["status"] == "OBSERVED" else "LOW",
+                st_rec["limitations"],
+            ))
+
+        # --- Field Findings & Conflict Detection ---
+        nas_mod_qfi: int | None = None
+        for ev in att_nas:
+            sm = ev.get("session_management", {})
+            if isinstance(sm, dict):
+                qdesc = sm.get("qos_flow_descriptions", {})
+                if isinstance(qdesc, dict) and qdesc.get("qfi_values"):
+                    nas_mod_qfi = qdesc["qfi_values"][0]
+                    field_findings.append({
+                        "plane": "N1",
+                        "field_name": "qfi",
+                        "observed_value": nas_mod_qfi,
+                        "frame_number": ev["frame_number"],
+                        "capture_file": ev["capture_file"],
+                        "evidence_level": "OBSERVED",
+                        "interpretation": "Modified QoS Flow Identifier on N1",
+                        "limitations": [],
+                    })
+            if isinstance(ev.get("cause"), dict) and ev.get("cause", {}).get("code") is not None:
+                field_findings.append({
+                    "plane": "N1",
+                    "field_name": "cause",
+                    "observed_value": ev["cause"],
+                    "frame_number": ev["frame_number"],
+                    "capture_file": ev["capture_file"],
+                    "evidence_level": "OBSERVED",
+                    "interpretation": "5GSM modification cause code",
+                    "limitations": [],
+                })
+
+        ngap_mod_qfi: int | None = None
+        for ev in att_ngap:
+            for item in ev.get("pdu_session_resources", []):
+                if item.get("pdu_session_id") == psi:
+                    q = item.get("qos_flow_per_tnl_information", {}).get("qfi") or item.get("qfi")
+                    if q is not None:
+                        ngap_mod_qfi = q
+                        field_findings.append({
+                            "plane": "N2",
+                            "field_name": "qfi",
+                            "observed_value": ngap_mod_qfi,
+                            "frame_number": ev["frame_number"],
+                            "capture_file": ev["capture_file"],
+                            "evidence_level": "OBSERVED",
+                            "interpretation": "Modified QoS Flow Identifier on N2",
+                            "limitations": [],
+                        })
+                    tli = item.get("transport_layer_information") or item.get("up_transport_layer_information")
+                    if isinstance(tli, dict):
+                        new_teid = tli.get("g_tp_teid") or tli.get("teid")
+                        old_teid = est_context.get("established_tunnel", {}).get("teid") if isinstance(est_context.get("established_tunnel"), dict) else None
+                        if new_teid is not None and old_teid is not None and new_teid != old_teid:
+                            field_findings.append({
+                                "plane": "N2",
+                                "field_name": "f_teid",
+                                "observed_value": f"Old: {old_teid} -> New: {new_teid}",
+                                "frame_number": ev["frame_number"],
+                                "capture_file": ev["capture_file"],
+                                "evidence_level": "OBSERVED",
+                                "interpretation": "F-TEID tunnel endpoint updated in modification",
+                                "limitations": [],
+                            })
+
+        pfcp_mod_qfi: int | None = None
+        for ev in att_pfcp:
+            rules = ev.get("rule_operations")
+            if isinstance(rules, dict):
+                for op_name in ("create_pdr", "create_far", "create_qer", "create_urr", "update_far", "update_qer", "update_pdr", "remove_pdr", "remove_far", "remove_qer"):
+                    if rules.get(op_name):
+                        field_findings.append({
+                            "plane": "N4",
+                            "field_name": f"rule_operation_{op_name}",
+                            "observed_value": rules[op_name],
+                            "frame_number": ev["frame_number"],
+                            "capture_file": ev["capture_file"],
+                            "evidence_level": "OBSERVED",
+                            "interpretation": f"PFCP rule operation {op_name}",
+                            "limitations": [],
+                        })
+                for qer in rules.get("qers", []):
+                    q = qer.get("qfi")
+                    if q is not None:
+                        pfcp_mod_qfi = q
+                        field_findings.append({
+                            "plane": "N4",
+                            "field_name": "qfi",
+                            "observed_value": pfcp_mod_qfi,
+                            "frame_number": ev["frame_number"],
+                            "capture_file": ev["capture_file"],
+                            "evidence_level": "OBSERVED",
+                            "interpretation": "Modified QoS Flow Identifier on N4",
+                            "limitations": [],
+                        })
+            if isinstance(ev.get("cause"), dict):
+                field_findings.append({
+                    "plane": "N4",
+                    "field_name": "cause",
+                    "observed_value": ev["cause"],
+                    "frame_number": ev["frame_number"],
+                    "capture_file": ev["capture_file"],
+                    "evidence_level": "OBSERVED",
+                    "interpretation": "PFCP modification response cause",
+                    "limitations": [],
+                })
+
+        for ev in att_sbi:
+            prob = ev.get("problem_details")
+            if isinstance(prob, dict):
+                field_findings.append({
+                    "plane": "N11",
+                    "field_name": "problem_details",
+                    "observed_value": prob,
+                    "frame_number": ev["frame_number"],
+                    "capture_file": ev["capture_file"],
+                    "evidence_level": "OBSERVED",
+                    "interpretation": "3GPP ProblemDetails payload in modification",
+                    "limitations": [],
+                })
+
+        # Cross-plane QFI conflict check
+        if nas_mod_qfi is not None and ngap_mod_qfi is not None and nas_mod_qfi != ngap_mod_qfi:
+            field_findings.append({
+                "plane": "N1",
+                "field_name": "qfi",
+                "observed_value": f"NAS: {nas_mod_qfi} vs NGAP: {ngap_mod_qfi}",
+                "frame_number": None,
+                "capture_file": capture_file,
+                "evidence_level": "DERIVED",
+                "interpretation": "FIELD_CONFLICT: NAS authorized QFI differs from NGAP configured QFI in modification",
+                "limitations": ["Cross-plane QoS flow identifier mismatch observed"],
+            })
+            deviations.append({
+                "type": DEVIATION_FIELD_CONFLICT,
+                "stage_id": "access_resource_update",
+                "description": f"Conflicting QFI: NAS authorized QFI {nas_mod_qfi} while NGAP configured QFI {ngap_mod_qfi}",
+                "evidence_level": "DERIVED",
+                "limitation": "QFI mismatch across N1 and N2 planes in modification",
+            })
+
+        if nas_mod_qfi is not None and pfcp_mod_qfi is not None and nas_mod_qfi != pfcp_mod_qfi:
+            field_findings.append({
+                "plane": "N1",
+                "field_name": "qfi",
+                "observed_value": f"NAS: {nas_mod_qfi} vs PFCP: {pfcp_mod_qfi}",
+                "frame_number": None,
+                "capture_file": capture_file,
+                "evidence_level": "DERIVED",
+                "interpretation": "FIELD_CONFLICT: NAS authorized QFI differs from PFCP provisioned QFI in modification",
+                "limitations": ["Cross-plane QoS flow identifier mismatch observed"],
+            })
+            deviations.append({
+                "type": DEVIATION_FIELD_CONFLICT,
+                "stage_id": "user_plane_control_update",
+                "description": f"Conflicting QFI: NAS authorized QFI {nas_mod_qfi} while PFCP provisioned QFI {pfcp_mod_qfi}",
+                "evidence_level": "DERIVED",
+                "limitation": "QFI mismatch across N1 and N4 planes in modification",
+            })
+
+        # Ambiguity check
+        if att.get("is_ambiguous"):
+            deviations.append({
+                "type": DEVIATION_CORRELATION_AMBIGUITY,
+                "stage_id": "modification_initiation",
+                "description": "Concurrent modification attempts for same PDU Session without distinct transaction identity",
+                "evidence_level": "DERIVED",
+                "limitation": "Signaling overlap prevents deterministic correlation",
+            })
+
+        # Earliest observed deviation
+        earliest_dev: dict[str, Any] | None = None
+        if deviations:
+            def mod_dev_sort_key(d: dict[str, Any]) -> tuple[int, int]:
+                s_id = d.get("stage_id")
+                idx = MOD_STAGES_ORDER.index(s_id) if s_id in MOD_STAGES_ORDER else len(MOD_STAGES_ORDER)
+                return (idx, 0)
+            earliest_dev = sorted(deviations, key=mod_dev_sort_key)[0]
+
+        # Association strength
+        if att.get("is_ambiguous"):
+            att_assoc_strength = "AMBIGUOUS"
+            att_assoc_basis = "ambiguous_overlapping_requests"
+        elif att_nas and (att_sbi or att_pfcp or att_ngap):
+            att_assoc_strength = "STRONG"
+            att_assoc_basis = "established_context_and_pti" if pti is not None else "established_context_and_control_signaling"
+        elif att_nas or att_sbi or att_pfcp or att_ngap:
+            att_assoc_strength = "SUPPORTED"
+            att_assoc_basis = "established_context_and_pti" if pti is not None else "established_context_and_control_signaling"
+        else:
+            att_assoc_strength = "UNBOUND"
+            att_assoc_basis = "no_safely_associated_signaling"
+
+        plane_bindings = {
+            "n1": {
+                "strength": "STRONG" if att_nas else "UNBOUND",
+                "basis": "ue_context_pdu_session_id_pti",
+                "event_count": len(att_nas),
+                "message_types": [e.get("message_type") for e in att_nas],
+            } if att_nas else None,
+            "n2": {
+                "strength": "STRONG" if att_ngap else "UNBOUND",
+                "basis": "ue_context_and_pdu_session_id",
+                "event_count": len(att_ngap),
+                "message_types": [e.get("message_type") for e in att_ngap],
+            } if att_ngap else None,
+            "n3": {
+                "strength": "STRONG" if traffic_observed else "UNBOUND",
+                "basis": "f_teid_matching",
+                "event_count": len(att_gtpu),
+                "traffic_observed": traffic_observed,
+            } if att_gtpu else None,
+            "n4": {
+                "strength": "SUPPORTED" if att_pfcp else "UNBOUND",
+                "basis": "pfcp_session_seid_continuity",
+                "event_count": len(att_pfcp),
+                "message_types": [e.get("header", {}).get("message_type") for e in att_pfcp],
+            } if att_pfcp else None,
+            "n11": {
+                "strength": "SUPPORTED" if att_sbi else "UNBOUND",
+                "basis": "sm_context_ref_continuity",
+                "event_count": len(att_sbi),
+                "operations": [e.get("sbi", {}).get("operation") for e in att_sbi if e.get("sbi", {}).get("operation")],
+            } if att_sbi else None,
+        }
+
+        modification_attempts.append({
+            "attempt_id": att_id,
+            "trigger_type": trigger_type,
+            "procedure_transaction_identity": pti,
+            "association_basis": att_assoc_basis,
+            "association_strength": att_assoc_strength,
+            "stages": stages_summary,
+            "terminal_observation": terminal_obs,
+            "deviations": deviations,
+            "earliest_observed_deviation": earliest_dev,
+            "field_findings": field_findings,
+            "plane_bindings": plane_bindings,
+            "pre_modification_context": {
+                "pdu_session_id": psi,
+                "established_qfi_values": est_context.get("established_qfi_values", []),
+                "established_tunnel": est_context.get("established_tunnel"),
+                "sm_context_ref": est_context.get("sm_context_ref"),
+                "pfcp_seid": est_context.get("pfcp_seid"),
+            },
+            "post_modification_observations": {
+                "traffic_observed": traffic_observed,
+                "qfi_values": post_qfis,
+                "tunnel": post_tunnel,
+                "end_marker_observed": end_marker_observed,
+                "error_indication_observed": error_indication_observed,
+            },
+            "unbound_evidence": [],
+            "limitations": att_limitations,
+        })
+
+    return modification_attempts, mod_generic_stages
+
+
 def analyze(
     nas_events: list[dict[str, Any]],
     ngap_events: list[dict[str, Any]],
@@ -346,6 +1415,8 @@ def analyze(
     for nas_ev in sorted(nas_events, key=_event_sort_key):
         key = (nas_ev["capture_file"], nas_ev["frame_number"])
         ctx = frame_to_context.get(key)
+        if ctx is None and len(ngap_contexts) == 1 and ngap_contexts[0]["capture_file"] == nas_ev["capture_file"]:
+            ctx = ngap_contexts[0]
         nas_with_ctx.append((nas_ev, ctx))
 
     # 3. Identify Candidate Procedure Instances: (capture, ue_context, pdu_session_id)
@@ -586,6 +1657,7 @@ def analyze(
         deviations: list[dict[str, Any]] = []
         field_findings: list[dict[str, Any]] = []
         stages_summary: list[dict[str, Any]] = []
+        sm_ref: str | None = None
         inst_limitations: list[str] = [
             "Bounded to observed signaling window in capture artifact",
             "No source code or network function internal execution state analyzed",
@@ -1356,6 +2428,49 @@ def analyze(
         else:
             inst_assoc_strength = "AMBIGUOUS"
 
+        # Collect established context for modification evaluation
+        est_qfis: list[int] = []
+        if nas_qfi is not None:
+            est_qfis.append(nas_qfi)
+        if ngap_qfi is not None and ngap_qfi not in est_qfis:
+            est_qfis.append(ngap_qfi)
+
+        est_tunnel: dict[str, Any] | None = None
+        if gtpu_evs:
+            first_g = gtpu_evs[0]
+            est_tunnel = {
+                "teid": first_g.get("header", {}).get("teid"),
+                "ip_address": first_g.get("outer", {}).get("destination_address"),
+            }
+
+        pfcp_seid_val = None
+        for p_ev in pfcp_evs:
+            hdr = p_ev.get("header", {})
+            if isinstance(hdr, dict) and hdr.get("seid") is not None:
+                pfcp_seid_val = hdr.get("seid")
+                break
+
+        mod_attempts, mod_generic_stages = evaluate_modification_attempts(
+            inst=inst,
+            est_context={
+                "pdu_session_id": psi,
+                "established_qfi_values": est_qfis,
+                "established_tunnel": est_tunnel,
+                "sm_context_ref": sm_ref,
+                "pfcp_seid": pfcp_seid_val,
+            },
+            capture_file=capture_file,
+        )
+        all_generic_stages.extend(mod_generic_stages)
+
+        has_rel = (
+            any("release" in str(e.get("message_type", "")).lower() for e in nas_evs)
+            or any("deletion" in str(e.get("header", {}).get("message_type", "")).lower() for e in pfcp_evs)
+            or any("release" in str(e.get("message_type", "")).lower() for e in ngap_evs)
+        )
+        if has_rel and "PDU session release signaling observed but release procedure analysis is deferred in this version" not in inst_limitations:
+            inst_limitations.append("PDU session release signaling observed but release procedure analysis is deferred in this version")
+
         instance_analyses.append({
             "instance_id": inst_id,
             "association_basis": "ngap_ue_context_and_pdu_session_id",
@@ -1380,6 +2495,7 @@ def analyze(
             },
             "unbound_evidence": [],
             "limitations": inst_limitations,
+            "modification_attempts": mod_attempts,
         })
 
     # 8. Unbound Evidence Collection across planes

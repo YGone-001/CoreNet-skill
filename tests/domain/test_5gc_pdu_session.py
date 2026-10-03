@@ -166,6 +166,95 @@ class PduSessionValidatorTests(unittest.TestCase):
         self.assertEqual(len(by_psi[10]["deviations"]), 0)
         self.assertTrue(any(d["type"] == "RESOURCE_FAILED_ITEM_OBSERVED" for d in by_psi[11]["deviations"]))
 
+    def test_version_remains_010_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/domain/5gc-pdu-session/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.2.0", "version: 0.1.0"), encoding="utf-8")
+            self.assert_error(root, "version must be 0.2.0")
+
+    def test_static_modification_object_instead_of_array_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            schema_path = root / "skills/domain/5gc-pdu-session/schemas/5gc-pdu-session-analysis.schema.json"
+            schema = json.loads(schema_path.read_text(encoding="utf-8"))
+            schema["$defs"]["instanceAnalysis"]["properties"]["modification_attempts"] = {"type": "object"}
+            schema_path.write_text(json.dumps(schema), encoding="utf-8")
+            self.assert_error(root, "modification_attempts property must be an array")
+
+    def test_two_attempts_collapsed_into_one_prevented(self):
+        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/two-sequential-modifications-analysis.json"
+        doc = json.loads(sample.read_text(encoding="utf-8"))
+        inst = doc["instances"][0]
+        self.assertEqual(len(inst["modification_attempts"]), 2)
+        att1, att2 = inst["modification_attempts"][0], inst["modification_attempts"][1]
+        self.assertNotEqual(att1["attempt_id"], att2["attempt_id"])
+        self.assertEqual(att1["procedure_transaction_identity"], 2)
+        self.assertEqual(att2["procedure_transaction_identity"], 3)
+
+    def test_pti_used_globally_prevented(self):
+        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/same-pti-two-ues-modify-analysis.json"
+        doc = json.loads(sample.read_text(encoding="utf-8"))
+        self.assertEqual(len(doc["instances"]), 2)
+        inst1, inst2 = doc["instances"][0], doc["instances"][1]
+        self.assertNotEqual(inst1["instance_id"], inst2["instance_id"])
+        self.assertEqual(inst1["modification_attempts"][0]["procedure_transaction_identity"], 5)
+        self.assertEqual(inst2["modification_attempts"][0]["procedure_transaction_identity"], 5)
+
+    def test_qfi_used_as_identity_key_prevented(self):
+        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/qfi-cross-plane-conflict-analysis.json"
+        doc = json.loads(sample.read_text(encoding="utf-8"))
+        self.assertEqual(len(doc["instances"]), 1)
+        inst = doc["instances"][0]
+        self.assertTrue(any(d["type"] == "FIELD_CONFLICT" for d in inst["modification_attempts"][0]["deviations"]))
+
+    def test_timestamp_only_modification_binding_prevented(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/domain/5gc-pdu-session/scripts/pdu_session_model.py"
+            model.write_text(model.read_text(encoding="utf-8") + "\ndef match_by_timestamp_only(): pass\n", encoding="utf-8")
+            self.assert_error(root, "timestamp-only identity join antipattern")
+
+    def test_network_requested_branch_does_not_require_ue_request(self):
+        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/network-requested-no-ue-request-analysis.json"
+        doc = json.loads(sample.read_text(encoding="utf-8"))
+        inst = doc["instances"][0]
+        self.assertEqual(len(inst["modification_attempts"]), 1)
+        attempt = inst["modification_attempts"][0]
+        self.assertEqual(attempt["trigger_type"], "NETWORK_REQUESTED")
+        init_stage = next(s for s in attempt["stages"] if s["stage_id"] == "modification_initiation")
+        self.assertEqual(init_stage["status"], "OBSERVED")
+        self.assertEqual(len(init_stage["missing_evidence"]), 0)
+        self.assertEqual(attempt["terminal_observation"]["observation"], "MODIFICATION_COMPLETE_OBSERVED")
+        self.assertEqual(len(attempt["deviations"]), 0)
+
+    def test_pfcp_accepted_not_promoted_to_modification_success(self):
+        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/pfcp-modification-accepted-analysis.json"
+        doc = json.loads(sample.read_text(encoding="utf-8"))
+        attempt = doc["instances"][0]["modification_attempts"][0]
+        user_plane_stage = next(s for s in attempt["stages"] if s["stage_id"] == "user_plane_control_update")
+        self.assertEqual(user_plane_stage["status"], "OBSERVED")
+        completion_stage = next(s for s in attempt["stages"] if s["stage_id"] == "modification_completion")
+        self.assertEqual(completion_stage["status"], "MISSING")
+        self.assertNotEqual(attempt["terminal_observation"]["observation"], "MODIFICATION_COMPLETE_OBSERVED")
+        self.assertEqual(attempt["terminal_observation"]["observation"], "NO_N1_TERMINAL_OBSERVATION")
+
+    def test_no_gtpu_not_promoted_to_user_plane_failure(self):
+        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/fteid-changed-no-gtpu-analysis.json"
+        text = sample.read_text(encoding="utf-8")
+        self.assertNotIn("USER_PLANE_FAILED", text)
+        doc = json.loads(text)
+        attempt = doc["instances"][0]["modification_attempts"][0]
+        pmo_stage = next(s for s in attempt["stages"] if s["stage_id"] == "post_modification_observation")
+        self.assertEqual(pmo_stage["status"], "MISSING")
+
+    def test_release_lifecycle_detected_if_added(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/domain/5gc-pdu-session/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8") + "\nstages:\n  - pdu_session_release\n", encoding="utf-8")
+            self.assert_error(root, "Release Domain remains excluded")
+
 
 if __name__ == "__main__":
     unittest.main()

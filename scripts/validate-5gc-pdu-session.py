@@ -24,13 +24,52 @@ REQUIRED = (
     "tests/test_5gc_pdu_session.py",
 )
 
-SCENARIOS = {
+ESTABLISHMENT_SCENARIOS = {
     "normal-establishment", "establishment-reject", "create-sm-context-error",
     "pfcp-negative-cause", "ngap-failed-resource", "ngap-mixed-resources",
     "namf-pending-202", "namf-failure-notification", "no-gtpu-traffic",
     "multi-ue-same-psi", "sbi-ambiguity", "teid-reuse-different-endpoints",
     "address-and-qfi-conflict", "partial-capture",
 }
+
+MODIFICATION_SCENARIOS = {
+    "ue-requested-modification",
+    "network-requested-modification",
+    "network-requested-no-ue-request",
+    "two-sequential-modifications",
+    "concurrent-distinct-pti-modifications",
+    "ambiguous-concurrent-modifications",
+    "same-pti-two-ues-modify",
+    "update-sm-context-error",
+    "pfcp-modification-accepted",
+    "pfcp-modification-negative-cause",
+    "pfcp-rule-create",
+    "pfcp-rule-update",
+    "pfcp-rule-remove",
+    "ngap-resource-modify-success",
+    "ngap-resource-modify-failed-item",
+    "ngap-mixed-modify-items",
+    "namf-modify-transfer-200",
+    "namf-modify-pending-202",
+    "namf-modify-failure-notification",
+    "nas-modification-reject",
+    "nas-command-reject",
+    "fteid-unchanged-post-modification",
+    "fteid-changed-matching-gtpu",
+    "fteid-changed-no-gtpu",
+    "same-teid-different-endpoints-modify",
+    "qfi-updated-qer",
+    "qfi-cross-plane-conflict",
+    "duplicate-nas-modify-request",
+    "duplicate-pfcp-modify-request",
+    "late-capture-modification",
+    "truncated-capture-modification",
+    "tls-unavailable-sbi-modify",
+    "protected-nas-inner-unavailable-modify",
+    "release-events-after-modification",
+}
+
+SCENARIOS = ESTABLISHMENT_SCENARIOS | MODIFICATION_SCENARIOS
 
 CAPTURE_SUFFIXES = {".pcap", ".pcapng", ".cap"}
 TEXT_SUFFIXES = {".md", ".py", ".yaml", ".json", ".jsonl", ".txt"}
@@ -41,6 +80,9 @@ IMPLEMENTATION_MAPPING = re.compile(r"(?is)(?:open5gs|free5gc|openairinterface|s
 RAW_DECODER = re.compile(r"(?i)def\s+(?:parse|decode)[a-z0-9_]*(?:nas|ngap|pfcp|gtp|packet|payload)|(?:raw_)?(?:nas|ngap|pfcp|gtpu)_payload\s*=")
 LIFECYCLE_MARKER = re.compile(r"(?i)\bphase\s*[0-9]+\b|\bmilestone\s*[a-z]?[0-9]+\b")
 FORBIDDEN_SCHEMA_FIELDS = re.compile(r"(?i)root_?cause|culprit|implementation|vendor|product_?bug")
+TIMESTAMP_ONLY_JOIN = re.compile(r"(?i)\b(?:match|join|correlate)_by_timestamp_only\b")
+GLOBAL_PTI_JOIN = re.compile(r"(?i)\b(?:global_pti|pti_only_join|join_by_pti_only)\b")
+QFI_IDENTITY_JOIN = re.compile(r"(?i)\b(?:qfi_identity|join_by_qfi|qfi_only_join)\b")
 
 
 def digest(path: Path) -> str:
@@ -75,7 +117,7 @@ def validate(root: Path) -> list[str]:
         return errors
 
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "5gc-pdu-session"), ("version", "0.1.0"), ("category", "domain")):
+    for key, expected in (("name", "5gc-pdu-session"), ("version", "0.2.0"), ("category", "domain")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
 
@@ -87,6 +129,11 @@ def validate(root: Path) -> list[str]:
         errors.append("manifest network_functions must remain empty")
     if set(manifest_block_or_flow(manifest, "interfaces")) != {"N1", "N2", "N3", "N4", "N11"}:
         errors.append("manifest interfaces must be N1, N2, N3, N4, N11")
+
+    # Release Domain remains excluded
+    manifest_stages = manifest_block_or_flow(manifest, "stages")
+    if any("release" in st.lower() for st in manifest_stages):
+        errors.append("manifest stages must not include release lifecycle stages; Release Domain remains excluded")
 
     # Check that expected lower Skill dependencies are declared in optional dependencies
     optional_deps = " ".join(manifest_block_or_flow(manifest, "optional"))
@@ -111,10 +158,32 @@ def validate(root: Path) -> list[str]:
             "instance_id", "association_basis", "association_strength", "ue_context",
             "pdu_session_id", "stages", "terminal_observation", "deviations",
             "earliest_observed_deviation", "field_findings", "plane_bindings",
-            "unbound_evidence", "limitations"
+            "modification_attempts", "unbound_evidence", "limitations"
         ):
             if field not in instance_properties:
                 errors.append(f"analysis schema must define instance {field}")
+
+        # Check modification_attempts property is array
+        mod_prop = instance_properties.get("modification_attempts", {})
+        if mod_prop.get("type") != "array":
+            errors.append("analysis schema modification_attempts property must be an array")
+
+        # Check modificationAttempt definition exists with required properties
+        mod_def = schema.get("$defs", {}).get("modificationAttempt", {})
+        if not mod_def:
+            errors.append("analysis schema must define $defs/modificationAttempt")
+        else:
+            mod_props = mod_def.get("properties", {})
+            for field in (
+                "attempt_id", "trigger_type", "procedure_transaction_identity",
+                "association_basis", "association_strength", "stages",
+                "terminal_observation", "deviations", "earliest_observed_deviation",
+                "field_findings", "plane_bindings", "pre_modification_context",
+                "post_modification_observations", "unbound_evidence", "limitations"
+            ):
+                if field not in mod_props:
+                    errors.append(f"modificationAttempt definition must define {field}")
+
         forbidden = [field for field in properties if FORBIDDEN_SCHEMA_FIELDS.search(field)]
         if forbidden:
             errors.append(f"analysis schema must not include causal or implementation fields: {forbidden}")
@@ -124,7 +193,7 @@ def validate(root: Path) -> list[str]:
     input_root = skill / "examples/inputs"
     actual_scenarios = {path.name for path in input_root.iterdir() if path.is_dir()} if input_root.is_dir() else set()
     if actual_scenarios != SCENARIOS:
-        errors.append(f"synthetic input scenarios must cover all 14 bounded cases; found: {actual_scenarios}")
+        errors.append(f"synthetic input scenarios must cover all 48 bounded cases; found: {actual_scenarios}")
 
     for scenario in sorted(SCENARIOS):
         sdir = input_root / scenario
@@ -134,6 +203,32 @@ def validate(root: Path) -> list[str]:
         for suffix in ("analysis.json", "stages.jsonl"):
             if not (skill / "examples/expected" / f"{scenario}-{suffix}").is_file():
                 errors.append(f"missing expected {suffix} fixture for {scenario}")
+
+    # Explicit fixture existence checks required by contract
+    required_fixtures = {
+        "two-sequential-modifications": "sequential-attempt",
+        "ue-requested-modification": "UE-requested",
+        "network-requested-modification": "network-requested",
+        "network-requested-no-ue-request": "branch-conditional",
+        "same-pti-two-ues-modify": "PTI isolation",
+        "pfcp-modification-accepted": "PFCP Modification",
+        "ngap-resource-modify-success": "NGAP Modify",
+        "update-sm-context-error": "SBI Update",
+        "qfi-cross-plane-conflict": "QFI-conflict",
+        "fteid-changed-matching-gtpu": "changed-F-TEID",
+        "fteid-changed-no-gtpu": "no-GTPU neutral",
+    }
+    for fix_name, fix_desc in required_fixtures.items():
+        if fix_name not in SCENARIOS:
+            errors.append(f"missing required {fix_desc} fixture: {fix_name}")
+
+    # Verify no-gtpu fixtures remain neutral and do not invent USER_PLANE_FAILED
+    for no_gtpu_fix in ("no-gtpu-traffic", "fteid-changed-no-gtpu"):
+        expected_path = skill / f"examples/expected/{no_gtpu_fix}-analysis.json"
+        if expected_path.is_file():
+            fix_text = expected_path.read_text(encoding="utf-8")
+            if "USER_PLANE_FAILED" in fix_text:
+                errors.append(f"{no_gtpu_fix} must remain neutral observation and not assert USER_PLANE_FAILED")
 
     for path in skill.rglob("*"):
         if not path.is_file():
@@ -158,6 +253,13 @@ def validate(root: Path) -> list[str]:
             errors.append(f"implementation or vendor source mapping in {name}")
         if path.suffix == ".py" and RAW_DECODER.search(text):
             errors.append(f"raw protocol decoding code in {name}")
+        if path.parent.name != "tests" and path.suffix == ".py":
+            if TIMESTAMP_ONLY_JOIN.search(text):
+                errors.append(f"timestamp-only identity join antipattern in {name}")
+            if GLOBAL_PTI_JOIN.search(text):
+                errors.append(f"PTI-only global join antipattern in {name}")
+            if QFI_IDENTITY_JOIN.search(text):
+                errors.append(f"QFI-only identity join antipattern in {name}")
 
     for script_dir in (skill / "scripts", skill / "tests"):
         for script in script_dir.glob("*.py"):

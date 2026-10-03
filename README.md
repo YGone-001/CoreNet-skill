@@ -38,13 +38,12 @@ observed-evidence timeline; no protocol ownership, no verdicts), and the
 with missing-evidence visibility), the bounded `5gc-registration-mobility`
 Domain Skill (N1/N2 registration and access procedure-stage evidence, conditional
 branches, missing-evidence visibility, and lower-layer field findings; no end-to-end
-diagnosis), and the bounded `5gc-pdu-session` Domain Skill (v0.1.0, bounded
-5GC PDU Session Establishment procedure analysis across N1/N2/N3/N4/N11
-composing already-extracted NAS, NGAP, PFCP, GTP-U, and SBI evidence; no complete
+diagnosis), and the bounded `5gc-pdu-session` Domain Skill (v0.2.0, bounded
+5GC PDU Session Establishment and Modification procedure analysis across N1/N2/N3/N4/N11
+composing already-extracted NAS, NGAP, PFCP, GTP-U, and SBI evidence; no Release
 lifecycle, no root-cause verdicts, no implementation mapping). The extensions
 provide investigation context only.
-**Not yet implemented:** complete PDU session Modification and Release
-lifecycles, deep NGAP transfer-container decoding, NGAP handover and path-switch
+**Not yet implemented:** PDU session Release lifecycle, deep NGAP transfer-container decoding, NGAP handover and path-switch
 procedures, remaining 5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, complete 5GC
 mobility coverage, remaining protocol Skills (NAS-EPS, S1AP, GTP, SIP, Diameter),
 EPC/IMS Domain procedures, implementation-specific mappings, or end-to-end

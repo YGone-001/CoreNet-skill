@@ -61,6 +61,36 @@ def render_text(analysis: dict[str, object]) -> str:
             lines.append("  Field Findings:")
             for f in inst["field_findings"]:
                 lines.append(f"    * [{f.get('plane')}] {f.get('field_name')} = {f.get('observed_value')}: {f.get('interpretation')}")
+        if inst.get("modification_attempts"):
+            lines.append("  Modification Attempts:")
+            for att in inst["modification_attempts"]:
+                att_id = att.get("attempt_id")
+                trig = att.get("trigger_type")
+                pti_val = att.get("procedure_transaction_identity")
+                assoc = att.get("association_strength")
+                term_att = att.get("terminal_observation", {})
+                lines.append(
+                    f"    - Attempt {att_id} [Trigger={trig}, PTI={pti_val}, Assoc={assoc}] "
+                    f"-> Terminal: {term_att.get('observation')}"
+                )
+                lines.append("      Stages:")
+                for st in att.get("stages", []):
+                    st_line = f"        * {st.get('stage_id')} [{st.get('status')}]: "
+                    if st.get("observed_evidence"):
+                        st_line += "; ".join(st["observed_evidence"])
+                    elif st.get("missing_evidence"):
+                        st_line += "; ".join(st["missing_evidence"])
+                    else:
+                        st_line += "no evidence recorded"
+                    lines.append(st_line)
+                if att.get("deviations"):
+                    lines.append("      Deviations:")
+                    for dev in att["deviations"]:
+                        lines.append(f"        * {dev.get('type')} ({dev.get('stage_id')}): {dev.get('description')}")
+                if att.get("field_findings"):
+                    lines.append("      Field Findings:")
+                    for f in att["field_findings"]:
+                        lines.append(f"        * [{f.get('plane')}] {f.get('field_name')} = {f.get('observed_value')}: {f.get('interpretation')}")
 
     unbound = analysis.get("unbound_evidence", {})
     if isinstance(unbound, dict):
@@ -86,6 +116,7 @@ def render_json(analysis: dict[str, object]) -> str:
             "deviations": inst.get("deviations"),
             "earliest_observed_deviation": inst.get("earliest_observed_deviation"),
             "plane_bindings": inst.get("plane_bindings"),
+            "modification_attempts": inst.get("modification_attempts", []),
         })
 
     return json.dumps({

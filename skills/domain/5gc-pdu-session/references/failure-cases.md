@@ -52,3 +52,37 @@ This reference catalog documents the protocol deviations, terminal rejections, a
 ## 9. Correlation Ambiguity (Multi-UE Same PDU Session ID)
 - **Observation**: Two active UEs allocate PSI=10. An SBI event arrives for PSI=10 without unredacted subscriber identity.
 - **Result**: SBI event preserved in `unbound_evidence.unbound_n11` with `CORRELATION_AMBIGUITY`. Neither UE instance is falsely bound.
+
+## 10. NAS Modification Reject
+- **Observation**: Terminal signaling on N1 contains `PduSessionModificationReject`.
+- **Fields**: 5GSM Cause (e.g. Cause 43 `INVALID_PDU_SESSION_IDENTITY`, Cause 59 `UNSUPPORTED_QOS_PARAMETER`).
+- **Terminal Observation**: `MODIFICATION_REJECT_OBSERVED`.
+- **Deviation**: `PROTOCOL_REJECT_OBSERVED` at stage `modification_completion`.
+- **Boundary**: Core network rejected UE-requested modification over N1.
+
+## 11. NAS Modification Command Reject
+- **Observation**: UE responds to network command with `PduSessionModificationCommandReject`.
+- **Fields**: 5GSM Cause (e.g. Cause 43 `INVALID_PDU_SESSION_IDENTITY`).
+- **Terminal Observation**: `MODIFICATION_COMMAND_REJECT_OBSERVED`.
+- **Deviation**: `PROTOCOL_REJECT_OBSERVED` at stage `modification_completion`.
+- **Boundary**: UE rejected network-requested modification command over N1.
+
+## 12. N11 Update SM Context Error
+- **Observation**: SMF responds to `UpdateSMContext` with HTTP 4xx/5xx ProblemDetails.
+- **Deviation**: `PROTOCOL_NEGATIVE_OUTCOME_OBSERVED` at stage `sm_context_update`.
+- **Boundary**: SMF rejected modification at the SBI layer.
+
+## 13. PFCP Session Modification Negative Cause
+- **Observation**: UPF responds with PFCP `SessionModificationResponse` containing negative cause (e.g. Cause 69 `Rule creation/modification failure`).
+- **Deviation**: `PROTOCOL_NEGATIVE_OUTCOME_OBSERVED` at stage `user_plane_control_update`.
+- **Boundary**: UPF rejected modification of user-plane control rules.
+
+## 14. NGAP Resource Modify Failed Item
+- **Observation**: gNB responds to `PDUSessionResourceModifyRequest` with `PDUSessionResourceFailedToModifyListModRes` containing target PDU Session ID.
+- **Deviation**: `RESOURCE_FAILED_ITEM_OBSERVED` at stage `access_resource_update`.
+- **Boundary**: RAN rejected resource modification for the specific session.
+
+## 15. Cross-Plane QFI / F-TEID Conflict
+- **Observation**: NAS authorized QFI differs from PFCP provisioned QFI or NGAP configured QFI.
+- **Deviation**: `FIELD_CONFLICT` recorded at relevant modification stage.
+- **Boundary**: Signaling mismatch across core network planes.

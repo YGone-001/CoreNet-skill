@@ -205,6 +205,7 @@
         "Bounded to observed signaling window in capture artifact",
         "No source code or network function internal execution state analyzed"
       ],
+      "modification_attempts": [],
       "pdu_session_id": 1,
       "plane_bindings": {
         "n1": {
@@ -381,7 +382,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.1.0",
+  "procedure_version": "0.2.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

@@ -16,7 +16,7 @@ This identifier is marked `DERIVED`. It is never represented as a standardized 3
 
 ## Multi-UE Isolation Rule
 
-When multiple UEs execute PDU Session Establishment with identical PDU Session IDs and overlapping timestamps in the same capture:
+When multiple UEs execute PDU Session Establishment or Modification with identical PDU Session IDs and overlapping timestamps in the same capture:
 - They **MUST** remain separate procedure instances.
 - Timestamp proximity alone **MUST NEVER** merge them into a single procedure instance.
 
@@ -38,45 +38,41 @@ Each plane binding is classified by an explicit procedure-local association stre
 
 ---
 
+## Modification Attempt Association
+
+PDU Session Modification introduces repeated attempt modeling within an established PDU Session instance.
+
+### 1. NAS Procedure Transaction Identity (PTI)
+- **Role**: Disambiguates concurrent or sequential transactions initiated by the UE or network.
+- **Strict UE-Context Scoping**: NAS PTI is scoped strictly to its UE context and PDU Session ID. A PTI value of `5` on UE 1 and a PTI value of `5` on UE 2 are independent transactions and never collide or merge.
+- **Value 0**: PTI value 0 represents an unassigned transaction (e.g. network-initiated commands or legacy procedures).
+
+### 2. Continuity with Established Context
+- **PFCP Continuity**: PFCP Session Modification requests must use the CP/UP SEID established during Session Establishment.
+- **SM Context Continuity**: N11 UpdateSMContext requests must target the `sm_context_ref` URI returned in the 201 Created response of CreateSMContext.
+- **F-TEID Continuity and Update**: User-plane control modifications may update existing F-TEIDs or provision new F-TEIDs. GTP-U packets following modification are matched against the active F-TEID.
+
+### 3. Concurrent and Ambiguous Attempts
+- If multiple modification requests appear for the same PDU Session with distinct PTIs, they are tracked as concurrent distinct attempts.
+- If overlapping modification requests appear without distinct PTIs or clear separation, they are classified with `association_strength: "AMBIGUOUS"` and `CORRELATION_AMBIGUITY`.
+
+---
+
 ## Plane-to-Plane Evidence Bridges
 
 ### 1. N1 <-> N2 (NAS <-> NGAP) Bridge
-- **Anchor**: NAS-5GS messages are transported over N2 within NGAP signaling (`InitialUEMessage`, `UplinkNASTransport`, `DownlinkNASTransport`, `InitialContextSetupRequest`).
-- **Mechanism**: Same-frame provenance (`frame_number`) establishes the link between the NAS PDU Session Establishment message and the NGAP UE context (`ran_ue_ngap_id`, `amf_ue_ngap_id`, `sctp_association`).
+- **Anchor**: NAS-5GS messages are transported over N2 within NGAP signaling (`InitialUEMessage`, `UplinkNASTransport`, `DownlinkNASTransport`, `InitialContextSetupRequest`, `PDUSessionResourceModifyRequest`).
+- **Mechanism**: Same-frame provenance (`frame_number`) establishes the link between the NAS message and the NGAP UE context (`ran_ue_ngap_id`, `amf_ue_ngap_id`, `sctp_association`). When only one NGAP context exists in the capture, NAS messages on that capture safely associate with it.
 - **Strength**: `STRONG`.
 
 ### 2. N1 <-> N4 (NAS <-> PFCP) Bridge
 - **Standardized Direct Equivalence**: NONE. PDU Session ID is not a PFCP identifier.
-- **Supporting Bridge**: Exact observed **NAS accepted PDU Address** <-> **PFCP allocated UE IP Address**.
-  - Must be directly observed on both planes (not inferred).
-  - Address family (IPv4 / IPv6) and address value must match byte-for-byte.
-  - Candidate match must be unique within the capture context.
-- **Strength**: `SUPPORTED`, marked with basis `ue_ip_address_exact_match`.
+- **Supporting Bridge**: Exact observed **NAS accepted PDU Address** <-> **PFCP allocated UE IP Address**, and established SEID continuity.
+- **Strength**: `SUPPORTED`, marked with basis `ue_ip_address_exact_match` or `pfcp_session_seid_continuity`.
 
 ### 3. N4 <-> N3 (PFCP <-> GTP-U) Bridge
-- **Mechanism**: PFCP `SessionEstablishmentResponse` allocates an uplink or downlink `F-TEID` (containing both `TEID` and `IPv4/IPv6 address`).
+- **Mechanism**: PFCP `SessionEstablishmentResponse` or `SessionModificationResponse` allocates an uplink or downlink `F-TEID` (containing both `TEID` and `IPv4/IPv6 address`).
 - **Verification Rule**: Matching GTP-U traffic requires BOTH:
   1. Outer GTP-U destination/source IP matches the F-TEID IP address.
   2. GTP-U header TEID matches the F-TEID TEID.
-- **TEID Reuse Protection**: Matching on TEID alone is strictly prohibited. If two different UPF endpoints use the same numeric TEID, only the stream matching the provisioned endpoint IP is associated.
-- **Strength**: `STRONG`, marked with basis `f_teid_endpoint_and_teid_match`.
-
-### 4. N1 <-> N11 (NAS <-> SBI-HTTP2) Bridge
-- **Privacy Constraint**: `sbi-http2` sanitizes subscriber identities (`supi`, `pei`, `imsi`).
-- **Single Candidate Rule**: If exactly ONE active UE instance in the capture context matches the SBI `pdu_session_id`, `dnn`, and `s_nssai`, and timing aligns, a candidate association is recorded with strength `SUPPORTED`.
-- **Ambiguity Rule**: If TWO OR MORE candidate UE instances have the same `pdu_session_id`, the SBI event **MUST NOT** be assigned to either instance. It is placed in `unbound_evidence.unbound_n11` with limitation `CORRELATION_AMBIGUITY`.
-
-### 5. N2 <-> N3 (NGAP <-> GTP-U) Bridge
-- If NGAP does not expose clear GTP-U tunnel transport identifiers, no direct NGAP <-> GTP-U bridge is fabricated. The user plane connects to control plane strictly through the PFCP F-TEID bridge.
-
----
-
-## Unbound Evidence Preservation
-
-Any protocol event that cannot be safely bound to a procedure instance is preserved in `unbound_evidence`:
-- `unbound_n1`: Unbound NAS 5GSM messages.
-- `unbound_n2`: Unbound NGAP PDU session resources.
-- `unbound_n3`: Unbound GTP-U streams (unknown TEID or endpoint mismatch).
-- `unbound_n4`: Unbound PFCP sessions (no matching UE IP or context).
-- `unbound_n11`: Unbound SBI HTTP/2 transactions (ambiguous PSI or missing transfer ref).
-- `ambiguous_events`: Events with multiple conflicting candidate associations.
+- **Isolation Rule**: TEID reuse across different IP endpoints prevents false cross-endpoint binding.

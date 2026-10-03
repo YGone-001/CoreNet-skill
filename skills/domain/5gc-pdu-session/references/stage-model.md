@@ -1,6 +1,8 @@
 # PDU Session Procedure Stage Model
 
-The bounded 5GC PDU Session Establishment procedure is evaluated across seven stages.
+## Establishment Procedure Stage Model
+
+The bounded 5GC PDU Session Establishment procedure is evaluated across seven stages:
 
 | Stage ID | Stage Name | Interface | Protocols | Expected Messages / Operations | Conditionality |
 | --- | --- | --- | --- | --- | --- |
@@ -58,3 +60,37 @@ The bounded 5GC PDU Session Establishment procedure is evaluated across seven st
 - **Semantics**:
   - If matching G-PDU packets are observed: `GTPU_TRAFFIC_OBSERVED` with packet and byte counts.
   - If no matching G-PDU packets are observed within the capture window: Reported as "no matching N3 G-PDU evidence observed within the available capture window". **Never** reported as `USER_PLANE_FAILED`.
+
+---
+
+## Modification Procedure Stage Model
+
+Each repeated modification attempt for an established PDU Session is evaluated across seven bounded modification stages:
+
+| Stage ID | Stage Name | Interface | Protocols | Expected Messages / Operations | Conditionality |
+| --- | --- | --- | --- | --- | --- |
+| `modification_initiation` | Modification Initiation | N1 | NAS-5GS | `PduSessionModificationRequest`, `PduSessionModificationCommand` | Expected on N1 initiation; branch-conditional |
+| `sm_context_update` | SM Context Update | N11 | 3GPP-SBI | `UpdateSMContext` | Expected for N11 context updates |
+| `user_plane_control_update` | User Plane Control Update | N4 | PFCP | `SessionModificationRequest`, `SessionModificationResponse` | Expected for UPF rule/tunnel modifications |
+| `access_resource_update` | Access Resource Update | N2 | NGAP | `PDUSessionResourceModifyRequest`, `PDUSessionResourceModifyResponse` | Expected for RAN resource modification |
+| `n1_n2_delivery` | N1/N2 Delivery | N11 | 3GPP-SBI | `N1N2MessageTransfer`, `N1N2Transfer Failure Notification` | Conditional / Asynchronous transfer |
+| `modification_completion` | Modification Completion | N1 | NAS-5GS | `PduSessionModificationComplete`, `PduSessionModificationReject`, `PduSessionModificationCommandReject` | Terminal N1 modification signaling |
+| `post_modification_observation` | Post-Modification Observation | N3 | GTP-U | `G-PDU`, `EndMarker`, `ErrorIndication` | Observation of user-plane traffic post-modification |
+
+### Modification Stage Semantics
+
+1. **`modification_initiation`**:
+   - In UE-requested branch: `PduSessionModificationRequest` observed.
+   - In network-requested branch: `PduSessionModificationCommand` observed. UE request is NOT expected.
+2. **`sm_context_update`**:
+   - `Nsmf_PDUSession_UpdateSMContext` request and response. Evaluates HTTP status (200 OK vs ProblemDetails 4xx/5xx).
+3. **`user_plane_control_update`**:
+   - PFCP `SessionModificationRequest` and `SessionModificationResponse`. Evaluates rule operations (PDR/FAR/URR/QER create, update, remove) and PFCP Cause.
+4. **`access_resource_update`**:
+   - NGAP `PDUSessionResourceModifyRequest` and `PDUSessionResourceModifyResponse`. Evaluates outcomes per PDU Session ID item.
+5. **`n1_n2_delivery`**:
+   - Reusable Namf delivery semantics. HTTP 202 remains `PENDING`. Failure Notification produces `DELIVERY_FAILURE_NOTIFICATION_OBSERVED`.
+6. **`modification_completion`**:
+   - N1 terminal signaling: `PduSessionModificationComplete` (`MODIFICATION_COMPLETE_OBSERVED`), `PduSessionModificationReject` (`MODIFICATION_REJECT_OBSERVED`), or `PduSessionModificationCommandReject` (`MODIFICATION_COMMAND_REJECT_OBSERVED`).
+7. **`post_modification_observation`**:
+   - Observation of GTP-U G-PDUs on N3 following modification. Evaluates updated F-TEID bindings. Missing G-PDUs are reported neutrally as missing observation evidence, never as user-plane failure.

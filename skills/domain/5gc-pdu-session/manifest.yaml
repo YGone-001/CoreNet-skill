@@ -1,26 +1,27 @@
 name: 5gc-pdu-session
-version: 0.1.0
+version: 0.2.0
 category: domain
 description: >
-  Bounded 5GC PDU Session Establishment procedure-level analysis composing
+  Bounded 5GC PDU Session Establishment and Modification procedure-level analysis composing
   N1 (NAS-5GS), N2 (NGAP), N3 (GTP-U), N4 (PFCP), and N11 (SBI-HTTP2) evidence:
   instance formation anchored by NGAP UE-context and PDU Session ID, partial-order
-  stage evaluation, protocol reject and negative cause recognition, multi-UE
-  isolation, ambiguous N11 preservation, F-TEID directed endpoint tunnel binding,
-  item-scoped NGAP resource outcomes, procedure-local deviation classification,
-  lower-layer field findings, and generic procedure-evidence stage records.
-  No protocol decoding, no verdicts, no implementation mapping.
+  stage evaluation, repeated modification attempt modeling, protocol reject and
+  negative cause recognition, multi-UE isolation, ambiguous N11 preservation,
+  F-TEID directed endpoint tunnel binding, item-scoped NGAP resource outcomes,
+  procedure-local deviation classification, lower-layer field findings, and generic
+  procedure-evidence stage records. No protocol decoding, no verdicts, no implementation mapping.
 scope:
   includes:
     - procedure instance formation from NGAP UE context and PDU Session ID with frame-provenance NAS joins
     - evaluation of bounded establishment stages: SESSION_REQUEST, SM_CONTEXT_CONTROL, USER_PLANE_CONTROL, ACCESS_RESOURCE_CONTROL, N1_N2_DELIVERY, SESSION_DECISION, USER_PLANE_OBSERVATION
+    - evaluation of bounded modification stages: MODIFICATION_INITIATION, SM_CONTEXT_UPDATE, USER_PLANE_CONTROL_UPDATE, ACCESS_RESOURCE_UPDATE, N1_N2_DELIVERY, MODIFICATION_COMPLETION, POST_MODIFICATION_OBSERVATION
+    - repeated modification attempt modeling (0..N attempts per established session) with UE-requested and network-requested triggers
     - multi-plane evidence association across N1, N2, N3, N4, and N11
     - protocol-defined reject, negative cause, and pending recognition
     - multi-UE isolation and ambiguous/unbound evidence preservation
     - procedure-local deviation classification and lower-layer field findings
     - generic procedure-evidence stage records and analysis summary JSON
   excludes:
-    - PDU Session Modification lifecycle
     - PDU Session Release lifecycle
     - handover and path switch
     - UPF relocation
@@ -71,46 +72,148 @@ upstream:
   local_modifications: Original CoreNet Domain-layer package; no upstream material imported.
 testing:
   fixtures:
-    - examples/inputs/normal-establishment
-    - examples/inputs/establishment-reject
+    - examples/inputs/address-and-qfi-conflict
+    - examples/inputs/ambiguous-concurrent-modifications
+    - examples/inputs/concurrent-distinct-pti-modifications
     - examples/inputs/create-sm-context-error
-    - examples/inputs/pfcp-negative-cause
-    - examples/inputs/ngap-failed-resource
-    - examples/inputs/ngap-mixed-resources
-    - examples/inputs/namf-pending-202
-    - examples/inputs/namf-failure-notification
-    - examples/inputs/no-gtpu-traffic
+    - examples/inputs/duplicate-nas-modify-request
+    - examples/inputs/duplicate-pfcp-modify-request
+    - examples/inputs/establishment-reject
+    - examples/inputs/fteid-changed-matching-gtpu
+    - examples/inputs/fteid-changed-no-gtpu
+    - examples/inputs/fteid-unchanged-post-modification
+    - examples/inputs/late-capture-modification
     - examples/inputs/multi-ue-same-psi
+    - examples/inputs/namf-failure-notification
+    - examples/inputs/namf-modify-failure-notification
+    - examples/inputs/namf-modify-pending-202
+    - examples/inputs/namf-modify-transfer-200
+    - examples/inputs/namf-pending-202
+    - examples/inputs/nas-command-reject
+    - examples/inputs/nas-modification-reject
+    - examples/inputs/network-requested-modification
+    - examples/inputs/network-requested-no-ue-request
+    - examples/inputs/ngap-failed-resource
+    - examples/inputs/ngap-mixed-modify-items
+    - examples/inputs/ngap-mixed-resources
+    - examples/inputs/ngap-resource-modify-failed-item
+    - examples/inputs/ngap-resource-modify-success
+    - examples/inputs/no-gtpu-traffic
+    - examples/inputs/normal-establishment
+    - examples/inputs/partial-capture
+    - examples/inputs/pfcp-modification-accepted
+    - examples/inputs/pfcp-modification-negative-cause
+    - examples/inputs/pfcp-negative-cause
+    - examples/inputs/pfcp-rule-create
+    - examples/inputs/pfcp-rule-remove
+    - examples/inputs/pfcp-rule-update
+    - examples/inputs/protected-nas-inner-unavailable-modify
+    - examples/inputs/qfi-cross-plane-conflict
+    - examples/inputs/qfi-updated-qer
+    - examples/inputs/release-events-after-modification
+    - examples/inputs/same-pti-two-ues-modify
+    - examples/inputs/same-teid-different-endpoints-modify
     - examples/inputs/sbi-ambiguity
     - examples/inputs/teid-reuse-different-endpoints
-    - examples/inputs/address-and-qfi-conflict
-    - examples/inputs/partial-capture
+    - examples/inputs/tls-unavailable-sbi-modify
+    - examples/inputs/truncated-capture-modification
+    - examples/inputs/two-sequential-modifications
+    - examples/inputs/ue-requested-modification
+    - examples/inputs/update-sm-context-error
   expected_results:
-    - examples/expected/normal-establishment-analysis.json
-    - examples/expected/normal-establishment-stages.jsonl
-    - examples/expected/establishment-reject-analysis.json
-    - examples/expected/establishment-reject-stages.jsonl
+    - examples/expected/address-and-qfi-conflict-analysis.json
+    - examples/expected/address-and-qfi-conflict-stages.jsonl
+    - examples/expected/ambiguous-concurrent-modifications-analysis.json
+    - examples/expected/ambiguous-concurrent-modifications-stages.jsonl
+    - examples/expected/concurrent-distinct-pti-modifications-analysis.json
+    - examples/expected/concurrent-distinct-pti-modifications-stages.jsonl
     - examples/expected/create-sm-context-error-analysis.json
     - examples/expected/create-sm-context-error-stages.jsonl
-    - examples/expected/pfcp-negative-cause-analysis.json
-    - examples/expected/pfcp-negative-cause-stages.jsonl
-    - examples/expected/ngap-failed-resource-analysis.json
-    - examples/expected/ngap-failed-resource-stages.jsonl
-    - examples/expected/ngap-mixed-resources-analysis.json
-    - examples/expected/ngap-mixed-resources-stages.jsonl
-    - examples/expected/namf-pending-202-analysis.json
-    - examples/expected/namf-pending-202-stages.jsonl
-    - examples/expected/namf-failure-notification-analysis.json
-    - examples/expected/namf-failure-notification-stages.jsonl
-    - examples/expected/no-gtpu-traffic-analysis.json
-    - examples/expected/no-gtpu-traffic-stages.jsonl
+    - examples/expected/duplicate-nas-modify-request-analysis.json
+    - examples/expected/duplicate-nas-modify-request-stages.jsonl
+    - examples/expected/duplicate-pfcp-modify-request-analysis.json
+    - examples/expected/duplicate-pfcp-modify-request-stages.jsonl
+    - examples/expected/establishment-reject-analysis.json
+    - examples/expected/establishment-reject-stages.jsonl
+    - examples/expected/fteid-changed-matching-gtpu-analysis.json
+    - examples/expected/fteid-changed-matching-gtpu-stages.jsonl
+    - examples/expected/fteid-changed-no-gtpu-analysis.json
+    - examples/expected/fteid-changed-no-gtpu-stages.jsonl
+    - examples/expected/fteid-unchanged-post-modification-analysis.json
+    - examples/expected/fteid-unchanged-post-modification-stages.jsonl
+    - examples/expected/late-capture-modification-analysis.json
+    - examples/expected/late-capture-modification-stages.jsonl
     - examples/expected/multi-ue-same-psi-analysis.json
     - examples/expected/multi-ue-same-psi-stages.jsonl
+    - examples/expected/namf-failure-notification-analysis.json
+    - examples/expected/namf-failure-notification-stages.jsonl
+    - examples/expected/namf-modify-failure-notification-analysis.json
+    - examples/expected/namf-modify-failure-notification-stages.jsonl
+    - examples/expected/namf-modify-pending-202-analysis.json
+    - examples/expected/namf-modify-pending-202-stages.jsonl
+    - examples/expected/namf-modify-transfer-200-analysis.json
+    - examples/expected/namf-modify-transfer-200-stages.jsonl
+    - examples/expected/namf-pending-202-analysis.json
+    - examples/expected/namf-pending-202-stages.jsonl
+    - examples/expected/nas-command-reject-analysis.json
+    - examples/expected/nas-command-reject-stages.jsonl
+    - examples/expected/nas-modification-reject-analysis.json
+    - examples/expected/nas-modification-reject-stages.jsonl
+    - examples/expected/network-requested-modification-analysis.json
+    - examples/expected/network-requested-modification-stages.jsonl
+    - examples/expected/network-requested-no-ue-request-analysis.json
+    - examples/expected/network-requested-no-ue-request-stages.jsonl
+    - examples/expected/ngap-failed-resource-analysis.json
+    - examples/expected/ngap-failed-resource-stages.jsonl
+    - examples/expected/ngap-mixed-modify-items-analysis.json
+    - examples/expected/ngap-mixed-modify-items-stages.jsonl
+    - examples/expected/ngap-mixed-resources-analysis.json
+    - examples/expected/ngap-mixed-resources-stages.jsonl
+    - examples/expected/ngap-resource-modify-failed-item-analysis.json
+    - examples/expected/ngap-resource-modify-failed-item-stages.jsonl
+    - examples/expected/ngap-resource-modify-success-analysis.json
+    - examples/expected/ngap-resource-modify-success-stages.jsonl
+    - examples/expected/no-gtpu-traffic-analysis.json
+    - examples/expected/no-gtpu-traffic-stages.jsonl
+    - examples/expected/normal-establishment-analysis.json
+    - examples/expected/normal-establishment-stages.jsonl
+    - examples/expected/partial-capture-analysis.json
+    - examples/expected/partial-capture-stages.jsonl
+    - examples/expected/pfcp-modification-accepted-analysis.json
+    - examples/expected/pfcp-modification-accepted-stages.jsonl
+    - examples/expected/pfcp-modification-negative-cause-analysis.json
+    - examples/expected/pfcp-modification-negative-cause-stages.jsonl
+    - examples/expected/pfcp-negative-cause-analysis.json
+    - examples/expected/pfcp-negative-cause-stages.jsonl
+    - examples/expected/pfcp-rule-create-analysis.json
+    - examples/expected/pfcp-rule-create-stages.jsonl
+    - examples/expected/pfcp-rule-remove-analysis.json
+    - examples/expected/pfcp-rule-remove-stages.jsonl
+    - examples/expected/pfcp-rule-update-analysis.json
+    - examples/expected/pfcp-rule-update-stages.jsonl
+    - examples/expected/protected-nas-inner-unavailable-modify-analysis.json
+    - examples/expected/protected-nas-inner-unavailable-modify-stages.jsonl
+    - examples/expected/qfi-cross-plane-conflict-analysis.json
+    - examples/expected/qfi-cross-plane-conflict-stages.jsonl
+    - examples/expected/qfi-updated-qer-analysis.json
+    - examples/expected/qfi-updated-qer-stages.jsonl
+    - examples/expected/release-events-after-modification-analysis.json
+    - examples/expected/release-events-after-modification-stages.jsonl
+    - examples/expected/same-pti-two-ues-modify-analysis.json
+    - examples/expected/same-pti-two-ues-modify-stages.jsonl
+    - examples/expected/same-teid-different-endpoints-modify-analysis.json
+    - examples/expected/same-teid-different-endpoints-modify-stages.jsonl
     - examples/expected/sbi-ambiguity-analysis.json
     - examples/expected/sbi-ambiguity-stages.jsonl
     - examples/expected/teid-reuse-different-endpoints-analysis.json
     - examples/expected/teid-reuse-different-endpoints-stages.jsonl
-    - examples/expected/address-and-qfi-conflict-analysis.json
-    - examples/expected/address-and-qfi-conflict-stages.jsonl
-    - examples/expected/partial-capture-analysis.json
-    - examples/expected/partial-capture-stages.jsonl
+    - examples/expected/tls-unavailable-sbi-modify-analysis.json
+    - examples/expected/tls-unavailable-sbi-modify-stages.jsonl
+    - examples/expected/truncated-capture-modification-analysis.json
+    - examples/expected/truncated-capture-modification-stages.jsonl
+    - examples/expected/two-sequential-modifications-analysis.json
+    - examples/expected/two-sequential-modifications-stages.jsonl
+    - examples/expected/ue-requested-modification-analysis.json
+    - examples/expected/ue-requested-modification-stages.jsonl
+    - examples/expected/update-sm-context-error-analysis.json
+    - examples/expected/update-sm-context-error-stages.jsonl

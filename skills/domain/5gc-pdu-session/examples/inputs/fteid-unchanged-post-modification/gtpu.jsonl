@@ -1,0 +1,2 @@
+{"frame_number": 9, "timestamp": "2026-10-02T10:00:09.000000Z", "capture_file": "test.pcap", "message_type": "G-PDU", "header": {"teid": 5001, "message_type": 255, "message_length": 64}, "outer": {"destination_address": "192.0.2.10", "source_address": "192.0.2.20"}}
+{"frame_number": 13, "timestamp": "2026-10-02T10:00:13.000000Z", "message_type": "G-PDU", "header": {"teid": 5001, "message_type": 255, "message_length": 64}, "outer": {"destination_address": "192.0.2.10", "source_address": "192.0.2.20"}, "capture_file": "test.pcap"}

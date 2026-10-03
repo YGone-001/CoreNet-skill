@@ -1,8 +1,12 @@
-# 5GC PDU Session Establishment Procedure Model
+# 5GC PDU Session Procedure Model
 
 ## Normative Basis
 
-The procedure model is grounded in **3GPP TS 23.502 Release 19 (v19.5.0)**, clause 4.3.2.2 (*UE Requested PDU Session Establishment for non-roaming and roaming with local breakout*). It integrates supporting protocol-level evidence from:
+The procedure model is grounded in **3GPP TS 23.502 Release 19 (v19.5.0)**:
+- Clause 4.3.2.2 (*UE Requested PDU Session Establishment for non-roaming and roaming with local breakout*)
+- Clause 4.3.3 (*PDU Session Modification*)
+
+It integrates supporting protocol-level evidence from:
 - **3GPP TS 24.501** (NAS-5GS / 5GSM) on N1
 - **3GPP TS 38.413** (NGAP) on N2
 - **3GPP TS 29.244** (PFCP) on N4
@@ -35,18 +39,30 @@ The Domain Skill **never** performs raw byte decoding, **never** maps vendor or 
 
 ## Partial-Order Execution Model
 
-A valid PDU Session Establishment procedure in real networks does not strictly follow a single rigid linear sequence. Network latency, parallelized SBI requests, asynchronous AMF scheduling, and capture vantage points can reorder or interleave observed signaling frames across interfaces.
+A valid PDU Session procedure in real networks does not strictly follow a single rigid linear sequence. Network latency, parallelized SBI requests, asynchronous AMF scheduling, and capture vantage points can reorder or interleave observed signaling frames across interfaces.
 
-The procedure is modeled as a set of bounded stages with required causal precedence where normatively verified (e.g., Session Request precedes Session Decision; PFCP Establishment precedes N3 user-plane forwarding) while supporting conditional and asynchronous execution:
-- N11 SM Context creation and N4 PFCP Session establishment may proceed concurrently or sequentially depending on SMF deployment.
+The procedure is modeled as a set of bounded stages with required causal precedence where normatively verified while supporting conditional and asynchronous execution:
+- N11 SM Context creation/update and N4 PFCP Session control may proceed concurrently or sequentially depending on SMF deployment.
 - N1/N2 transfer may complete synchronously with HTTP 200 or asynchronously with HTTP 202 followed by later delivery.
-- User-plane packets on N3 may appear immediately after establishment, after delay, or not at all (idle sessions).
+- User-plane packets on N3 may appear immediately, after delay, or not at all (idle sessions).
+
+## Repeated Modification Attempt Model
+
+PDU Session Modification is an ongoing lifecycle event rather than a single static stage. One established PDU Session instance may experience zero, one, or multiple modification attempts over its operational lifetime.
+
+Each modification attempt is modeled as an independent element in `modification_attempts`:
+- **Attempt Identity**: Assigned a sequential identifier `mod-1`, `mod-2`, etc.
+- **Trigger Type**: Classified as `UE_REQUESTED` (initiated by NAS `PduSessionModificationRequest`), `NETWORK_REQUESTED` (initiated by SMF via NAS `PduSessionModificationCommand`, N11 `UpdateSMContext`, or PFCP `SessionModificationRequest`), or `UNKNOWN`.
+- **Branch Conditionality**: In a network-requested modification, the absence of a UE Modification Request is normal branch behavior and is never flagged as missing evidence or a deviation.
+- **Transaction Scoping**: NAS `procedure_transaction_identity` (PTI) is scoped strictly per UE context and PDU Session ID. Two distinct UEs utilizing identical PTI values remain completely isolated.
+- **Continuity**: Modification attempts require continuity with the established session context: the established PFCP SEID, the SM Context URI, and the PDU Session ID.
+- **Scope Limits**: Modification analysis covers QoS flow updates, F-TEID tunnel updates, and session parameter changes. PDU Session Release lifecycle, handover, and UPF relocation remain explicitly deferred.
 
 ## Evidence Planes
 
 The Domain Skill composes evidence across all five primary planes:
-1. **N1 Plane**: UE <-> AMF / SMF signaling (PDU Session Establishment Request, Accept, Reject).
-2. **N2 Plane**: gNB <-> AMF signaling (InitialContextSetup with embedded PDU sessions, PDU Session Resource Setup Request/Response/Failure).
-3. **N3 Plane**: gNB <-> UPF user-plane traffic (GTP-U G-PDU observation, Echo, Error Indication).
-4. **N4 Plane**: SMF <-> UPF session control (PFCP Session Establishment Request/Response, PDR/FAR/URR/QER rules, F-TEID allocation).
+1. **N1 Plane**: UE <-> AMF / SMF signaling (Establishment Request/Accept/Reject, Modification Request/Command/Complete/Reject/Command Reject).
+2. **N2 Plane**: gNB <-> AMF signaling (Resource Setup Request/Response, Resource Modify Request/Response/Failed Items).
+3. **N3 Plane**: gNB <-> UPF user-plane traffic (GTP-U G-PDU observation, Echo, Error Indication, post-modification traffic).
+4. **N4 Plane**: SMF <-> UPF session control (PFCP Session Establishment/Modification Request/Response, PDR/FAR/URR/QER rule operations, F-TEID allocation/update).
 5. **N11 Plane**: AMF <-> SMF service based interface (Nsmf_PDUSession CreateSMContext / UpdateSMContext, Namf_Communication N1N2MessageTransfer, N1N2Transfer Failure Notification).
