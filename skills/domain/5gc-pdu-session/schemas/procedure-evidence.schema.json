@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.dev/schemas/domain/procedure-evidence.schema.json",
+  "title": "Procedure Evidence Record",
+  "description": "One procedure stage observation record: an expected observation point with its expected, observed, and missing evidence. This framework reports evidence only; it carries no success, failure, or root-cause fields, and missing evidence is never an outcome.",
+  "type": "object",
+  "required": [
+    "procedure_name",
+    "procedure_version",
+    "observation_group",
+    "stage",
+    "expected_evidence",
+    "observed_evidence",
+    "missing_evidence",
+    "evidence_basis",
+    "confidence",
+    "limitations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "procedure_name": {"type": "string", "minLength": 1},
+    "procedure_version": {"type": "string", "minLength": 1},
+    "observation_group": {"type": "string", "minLength": 1},
+    "stage": {
+      "type": "object",
+      "required": ["stage_id", "stage_name", "expected_protocols", "expected_message_types"],
+      "additionalProperties": false,
+      "properties": {
+        "stage_id": {"type": "string", "minLength": 1},
+        "stage_name": {"type": "string", "minLength": 1},
+        "expected_protocols": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "expected_message_types": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "expected_evidence": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "observed_evidence": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "missing_evidence": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "evidence_basis": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
+    "confidence": {"type": "string", "enum": ["HIGH", "MEDIUM", "LOW"]},
+    "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  }
+}

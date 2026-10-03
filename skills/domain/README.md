@@ -1,8 +1,8 @@
 # Domain Skills
 
-Procedure-level EPC, IMS, and 5GC Skills that compose reusable Protocol and
-Correlation evidence. Implemented packages are `procedure-evidence`, the
-generic procedure-evidence framework, and `5gc-registration-mobility`, a
-bounded N1/N2 registration and access analysis Skill. The concrete package
-does not own NAS/NGAP decoding, implementation mapping, or end-to-end
-root-cause diagnosis.
+Implemented packages are `procedure-evidence`, the generic
+procedure-evidence framework, `5gc-registration-mobility`, a bounded N1/N2
+registration and access analysis Skill, and `5gc-pdu-session` (v0.1.0),
+performing bounded PDU Session Establishment procedure analysis across
+N1/N2/N3/N4/N11. The concrete packages do not own protocol decoding,
+implementation mapping, or end-to-end root-cause diagnosis.

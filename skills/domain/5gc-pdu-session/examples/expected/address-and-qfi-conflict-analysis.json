@@ -1,0 +1,393 @@
+{
+  "instances": [
+    {
+      "association_basis": "ngap_ue_context_and_pdu_session_id",
+      "association_strength": "STRONG",
+      "deviations": [
+        {
+          "description": "Conflicting UE IP address: NAS accepted 198.51.100.1 while PFCP allocated 198.51.100.2",
+          "evidence_level": "DERIVED",
+          "limitation": "Addresses observed across planes differ; possible multi-session confusion or misallocation",
+          "stage_id": "user_plane_control",
+          "type": "CORRELATION_CONFLICT"
+        },
+        {
+          "description": "Conflicting QFI: NAS authorized QFI 1 while NGAP configured QFI 5",
+          "evidence_level": "DERIVED",
+          "limitation": "QFI mismatch across N1 and N2 planes",
+          "stage_id": "access_resource_control",
+          "type": "CORRELATION_CONFLICT"
+        },
+        {
+          "description": "Conflicting DNN/Network Instance: NAS requested internet while PFCP provisioned ims",
+          "evidence_level": "DERIVED",
+          "limitation": "Data network identifier mismatch across N1 and N4 planes",
+          "stage_id": "user_plane_control",
+          "type": "CORRELATION_CONFLICT"
+        }
+      ],
+      "earliest_observed_deviation": {
+        "description": "Conflicting UE IP address: NAS accepted 198.51.100.1 while PFCP allocated 198.51.100.2",
+        "evidence_level": "DERIVED",
+        "limitation": "Addresses observed across planes differ; possible multi-session confusion or misallocation",
+        "stage_id": "user_plane_control",
+        "type": "CORRELATION_CONFLICT"
+      },
+      "field_findings": [
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 1,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 1,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "dnn",
+          "frame_number": 1,
+          "interpretation": "Requested/assigned Data Network Name",
+          "limitations": [],
+          "observed_value": "internet",
+          "plane": "N1"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 6,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 1,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_address",
+          "frame_number": 6,
+          "interpretation": "Accepted UE PDU IP address",
+          "limitations": [],
+          "observed_value": "198.51.100.1",
+          "plane": "N1"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "dnn",
+          "frame_number": 6,
+          "interpretation": "Requested/assigned Data Network Name",
+          "limitations": [],
+          "observed_value": "internet",
+          "plane": "N1"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "qfi",
+          "frame_number": 6,
+          "interpretation": "Authorized QoS Flow Identifier on N1",
+          "limitations": [],
+          "observed_value": 1,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "qfi",
+          "frame_number": 4,
+          "interpretation": "Configured QoS Flow Identifier on N2",
+          "limitations": [],
+          "observed_value": 5,
+          "plane": "N2"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "qfi",
+          "frame_number": 5,
+          "interpretation": "Configured QoS Flow Identifier on N2",
+          "limitations": [],
+          "observed_value": 5,
+          "plane": "N2"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "ue_ip_address",
+          "frame_number": 3,
+          "interpretation": "Allocated UE IP address in PFCP PDR",
+          "limitations": [],
+          "observed_value": "198.51.100.2",
+          "plane": "N4"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "network_instance",
+          "frame_number": 3,
+          "interpretation": "Network instance provisioned in PFCP PDR",
+          "limitations": [],
+          "observed_value": "ims",
+          "plane": "N4"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "f_teid",
+          "frame_number": 3,
+          "interpretation": "Fully Qualified Tunnel Endpoint Identifier provisioned in PFCP PDR",
+          "limitations": [],
+          "observed_value": {
+            "choose": false,
+            "choose_id": null,
+            "ipv4": "192.0.2.10",
+            "ipv6": null,
+            "teid": 5001
+          },
+          "plane": "N4"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "cause",
+          "frame_number": 3,
+          "interpretation": "PFCP transaction response cause",
+          "limitations": [],
+          "observed_value": {
+            "code": 1,
+            "name": "Request accepted"
+          },
+          "plane": "N4"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "DERIVED",
+          "field_name": "pdu_address",
+          "frame_number": null,
+          "interpretation": "FIELD_CONFLICT: NAS accepted PDU address differs from PFCP allocated UE IP address",
+          "limitations": [
+            "Cross-plane semantic attribute mismatch observed"
+          ],
+          "observed_value": "NAS: 198.51.100.1 vs PFCP: 198.51.100.2",
+          "plane": "N1"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "DERIVED",
+          "field_name": "qfi",
+          "frame_number": null,
+          "interpretation": "FIELD_CONFLICT: NAS authorized QFI differs from NGAP configured QFI",
+          "limitations": [
+            "Cross-plane QoS flow identifier mismatch observed"
+          ],
+          "observed_value": "NAS: 1 vs NGAP: 5",
+          "plane": "N1"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "DERIVED",
+          "field_name": "dnn",
+          "frame_number": null,
+          "interpretation": "FIELD_CONFLICT: NAS requested DNN differs from PFCP provisioned network instance",
+          "limitations": [
+            "Cross-plane network identifier mismatch observed"
+          ],
+          "observed_value": "NAS: internet vs PFCP: ims",
+          "plane": "N1"
+        }
+      ],
+      "instance_id": "5gc-pdu-session:sample.pcap:ran1-amf1:psi1",
+      "limitations": [
+        "Bounded to observed signaling window in capture artifact",
+        "No source code or network function internal execution state analyzed"
+      ],
+      "pdu_session_id": 1,
+      "plane_bindings": {
+        "n1": {
+          "basis": "frame_provenance_ngap_nas_join",
+          "event_count": 2,
+          "message_types": [
+            "PduSessionEstablishmentRequest",
+            "PduSessionEstablishmentAccept"
+          ],
+          "strength": "STRONG"
+        },
+        "n11": null,
+        "n2": {
+          "basis": "ngap_ue_context_and_resource_matching",
+          "event_count": 4,
+          "message_types": [
+            "InitialUEMessage",
+            "PDUSessionResourceSetupRequest",
+            "PDUSessionResourceSetupResponse",
+            "DownlinkNASTransport"
+          ],
+          "strength": "STRONG"
+        },
+        "n3": null,
+        "n4": {
+          "basis": "ue_ip_address_exact_match",
+          "cp_fseid": {
+            "ipv4": "192.0.2.1",
+            "ipv6": null,
+            "seid": 1001
+          },
+          "f_teid": {
+            "choose": false,
+            "choose_id": null,
+            "ipv4": "192.0.2.10",
+            "ipv6": null,
+            "teid": 5001
+          },
+          "header_seid": 1001,
+          "qfi_values": [
+            1
+          ],
+          "strength": "SUPPORTED",
+          "ue_ip_address": "198.51.100.2",
+          "up_fseid": {
+            "ipv4": "192.0.2.10",
+            "ipv6": null,
+            "seid": 2001
+          }
+        }
+      },
+      "stages": [
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentRequest"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "PduSessionEstablishmentRequest observed at frame 1 for PDU Session ID 1"
+          ],
+          "stage_id": "session_request",
+          "stage_name": "Session Request",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI CreateSMContext"
+          ],
+          "limitations": [
+            "SBI signaling absent or encrypted under TLS without key material"
+          ],
+          "missing_evidence": [
+            "Nsmf_PDUSession CreateSMContext not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "sm_context_control",
+          "stage_name": "SM Context Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "PFCP SessionEstablishmentResponse"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "PFCP Session Establishment accepted at frame 3"
+          ],
+          "stage_id": "user_plane_control",
+          "stage_name": "User Plane Control",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "NGAP PDUSessionResourceSetupResponse"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "NGAP PDUSessionResourceSetupResponse at frame 5 reported PDU Session ID 1 in setup/successful list"
+          ],
+          "stage_id": "access_resource_control",
+          "stage_name": "Access Resource Control",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI N1N2MessageTransfer"
+          ],
+          "limitations": [
+            "SBI N11 communication interface was not monitored in this capture"
+          ],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "N1/N2 signaling directly observed on radio/access interfaces without N11 transfer evidence"
+          ],
+          "stage_id": "n1_n2_delivery",
+          "stage_name": "N1/N2 Delivery",
+          "status": "NOT_APPLICABLE"
+        },
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentAccept",
+            "NAS-5GS PduSessionEstablishmentReject"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "PduSessionEstablishmentAccept observed at frame 6 with PDU address 198.51.100.1"
+          ],
+          "stage_id": "session_decision",
+          "stage_name": "Session Decision",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "GTP-U G-PDU"
+          ],
+          "limitations": [
+            "No matching N3 user-plane traffic was observed within the capture window; traffic may be idle, delayed, or outside the capture point"
+          ],
+          "missing_evidence": [
+            "no matching N3 G-PDU evidence observed within the available capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_observation",
+          "stage_name": "User Plane Observation",
+          "status": "MISSING"
+        }
+      ],
+      "terminal_observation": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 6,
+        "message_type": "PduSessionEstablishmentAccept",
+        "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+        "protocol_observations": [
+          "PduSessionEstablishmentAccept observed"
+        ],
+        "timestamp": "2026-03-01T10:00:00.600000Z"
+      },
+      "ue_context": {
+        "amf_ue_ngap_id": 1,
+        "ran_ue_ngap_id": 1,
+        "sctp_association": 1
+      },
+      "unbound_evidence": []
+    }
+  ],
+  "limitations": [
+    "Analysis is strictly bounded to procedure evidence observed in the provided capture window",
+    "No protocol packet decoding is performed; lower-layer event attributes are accepted as-is",
+    "No implementation-specific source code or network function internal state is inferred",
+    "Absence of evidence does not prove network function failure"
+  ],
+  "procedure_name": "5gc-pdu-session",
+  "procedure_version": "0.1.0",
+  "unbound_evidence": {
+    "ambiguous_events": [],
+    "unbound_n1": [],
+    "unbound_n11": [],
+    "unbound_n2": [],
+    "unbound_n3": [],
+    "unbound_n4": []
+  }
+}

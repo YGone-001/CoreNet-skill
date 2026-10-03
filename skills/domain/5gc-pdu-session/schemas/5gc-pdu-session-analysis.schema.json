@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.dev/schemas/domain/5gc-pdu-session-analysis.schema.json",
+  "title": "5GC PDU Session Analysis Summary",
+  "description": "Bounded procedure-level analysis of one or more 5GC PDU Session Establishment procedure instances, composed from already-extracted N1 (NAS-5GS), N2 (NGAP), N3 (GTP-U), N4 (PFCP), and N11 (SBI-HTTP2) evidence. The analysis reports procedure stages, terminal observations, procedure-local deviations, and lower-layer field findings. It carries no root_cause, culprit, implementation_failure, or vendor bug fields.",
+  "type": "object",
+  "required": [
+    "procedure_name",
+    "procedure_version",
+    "instances",
+    "unbound_evidence",
+    "limitations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "procedure_name": {"type": "string", "const": "5gc-pdu-session"},
+    "procedure_version": {"type": "string", "minLength": 1},
+    "instances": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/instanceAnalysis"}
+    },
+    "unbound_evidence": {
+      "type": "object",
+      "required": ["unbound_n1", "unbound_n2", "unbound_n3", "unbound_n4", "unbound_n11", "ambiguous_events"],
+      "additionalProperties": false,
+      "properties": {
+        "unbound_n1": {"type": "array", "items": {"type": "object"}},
+        "unbound_n2": {"type": "array", "items": {"type": "object"}},
+        "unbound_n3": {"type": "array", "items": {"type": "object"}},
+        "unbound_n4": {"type": "array", "items": {"type": "object"}},
+        "unbound_n11": {"type": "array", "items": {"type": "object"}},
+        "ambiguous_events": {"type": "array", "items": {"type": "object"}}
+      }
+    },
+    "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "instanceAnalysis": {
+      "type": "object",
+      "required": [
+        "instance_id",
+        "association_basis",
+        "association_strength",
+        "ue_context",
+        "pdu_session_id",
+        "stages",
+        "terminal_observation",
+        "deviations",
+        "earliest_observed_deviation",
+        "field_findings",
+        "plane_bindings",
+        "unbound_evidence",
+        "limitations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "instance_id": {"type": "string", "minLength": 1},
+        "association_basis": {"type": "string", "minLength": 1},
+        "association_strength": {"type": "string", "enum": ["STRONG", "SUPPORTED", "AMBIGUOUS", "UNBOUND"]},
+        "ue_context": {
+          "type": "object",
+          "required": ["ran_ue_ngap_id", "amf_ue_ngap_id", "sctp_association"],
+          "additionalProperties": false,
+          "properties": {
+            "ran_ue_ngap_id": {"type": ["integer", "null"]},
+            "amf_ue_ngap_id": {"type": ["integer", "null"]},
+            "sctp_association": {"type": ["string", "integer", "null"]}
+          }
+        },
+        "pdu_session_id": {"type": "integer", "minimum": 1, "maximum": 255},
+        "stages": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/stageRecord"}
+        },
+        "terminal_observation": {
+          "type": "object",
+          "required": ["observation", "protocol_observations", "message_type", "frame_number", "timestamp", "evidence_level"],
+          "additionalProperties": false,
+          "properties": {
+            "observation": {
+              "type": "string",
+              "enum": [
+                "ESTABLISHMENT_ACCEPT_OBSERVED",
+                "ESTABLISHMENT_REJECT_OBSERVED",
+                "NO_N1_TERMINAL_OBSERVATION",
+                "PARTIAL_CAPTURE"
+              ]
+            },
+            "protocol_observations": {
+              "type": "array",
+              "items": {"type": "string", "minLength": 1}
+            },
+            "message_type": {"type": ["string", "null"]},
+            "frame_number": {"type": ["integer", "null"], "minimum": 1},
+            "timestamp": {"type": ["string", "null"]},
+            "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]}
+          }
+        },
+        "deviations": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/deviation"}
+        },
+        "earliest_observed_deviation": {
+          "type": ["object", "null"],
+          "required": ["type", "stage_id", "description", "evidence_level", "limitation"],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "PROTOCOL_REJECT_OBSERVED",
+                "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+                "RESOURCE_FAILED_ITEM_OBSERVED",
+                "DELIVERY_FAILURE_NOTIFICATION_OBSERVED",
+                "MISSING_EXPECTED_COUNTERPART",
+                "CORRELATION_AMBIGUITY",
+                "CORRELATION_CONFLICT",
+                "OUT_OF_ORDER_EVIDENCE",
+                "PARTIAL_CAPTURE",
+                "PROTECTED_OR_UNAVAILABLE_PAYLOAD",
+                "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
+                "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"
+              ]
+            },
+            "stage_id": {"type": ["string", "null"]},
+            "description": {"type": "string", "minLength": 1},
+            "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
+            "limitation": {"type": "string", "minLength": 1}
+          }
+        },
+        "field_findings": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/fieldFinding"}
+        },
+        "plane_bindings": {
+          "type": "object",
+          "required": ["n1", "n2", "n3", "n4", "n11"],
+          "additionalProperties": false,
+          "properties": {
+            "n1": {"type": ["object", "null"]},
+            "n2": {"type": ["object", "null"]},
+            "n3": {"type": ["object", "null"]},
+            "n4": {"type": ["object", "null"]},
+            "n11": {"type": ["object", "null"]}
+          }
+        },
+        "unbound_evidence": {
+          "type": "array",
+          "items": {"type": "object"}
+        },
+        "limitations": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "stageRecord": {
+      "type": "object",
+      "required": ["stage_id", "stage_name", "status", "expected_evidence", "observed_evidence", "missing_evidence", "limitations"],
+      "additionalProperties": false,
+      "properties": {
+        "stage_id": {"type": "string", "minLength": 1},
+        "stage_name": {"type": "string", "minLength": 1},
+        "status": {"type": "string", "enum": ["OBSERVED", "MISSING", "NOT_APPLICABLE", "PENDING"]},
+        "expected_evidence": {"type": "array", "items": {"type": "string"}},
+        "observed_evidence": {"type": "array", "items": {"type": "string"}},
+        "missing_evidence": {"type": "array", "items": {"type": "string"}},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "deviation": {
+      "type": "object",
+      "required": ["type", "stage_id", "description", "evidence_level", "limitation"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "PROTOCOL_REJECT_OBSERVED",
+            "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+            "RESOURCE_FAILED_ITEM_OBSERVED",
+            "DELIVERY_FAILURE_NOTIFICATION_OBSERVED",
+            "MISSING_EXPECTED_COUNTERPART",
+            "CORRELATION_AMBIGUITY",
+            "CORRELATION_CONFLICT",
+            "OUT_OF_ORDER_EVIDENCE",
+            "PARTIAL_CAPTURE",
+            "PROTECTED_OR_UNAVAILABLE_PAYLOAD",
+            "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
+            "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"
+          ]
+        },
+        "stage_id": {"type": ["string", "null"]},
+        "description": {"type": "string", "minLength": 1},
+        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
+        "limitation": {"type": "string", "minLength": 1}
+      }
+    },
+    "fieldFinding": {
+      "type": "object",
+      "required": ["plane", "field_name", "observed_value", "frame_number", "evidence_level", "interpretation", "limitations"],
+      "additionalProperties": false,
+      "properties": {
+        "plane": {"type": "string", "enum": ["N1", "N2", "N3", "N4", "N11"]},
+        "field_name": {"type": "string", "minLength": 1},
+        "observed_value": {},
+        "frame_number": {"type": ["integer", "null"], "minimum": 1},
+        "capture_file": {"type": ["string", "null"], "minLength": 1},
+        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
+        "interpretation": {"type": "string", "minLength": 1},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

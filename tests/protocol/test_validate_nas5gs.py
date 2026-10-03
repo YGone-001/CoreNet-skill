@@ -141,10 +141,10 @@ class Nas5gsValidatorTests(unittest.TestCase):
             readme.write_text(readme.read_text(encoding="utf-8") + "\nRun ../../../scripts/validate-repository.py\n", encoding="utf-8")
             self.assertTrue(any("repository-root runtime reference" in error for error in VALIDATOR.validate(root)))
 
-    def test_forbidden_pdu_session_domain_package_is_detected(self):
+    def test_forbidden_pdu_session_protocol_package_is_detected(self):
         temporary, root = self.fixture()
         with temporary:
-            (root / "skills/domain/5gc-pdu-session").mkdir(parents=True)
+            (root / "skills/protocol/5gc-pdu-session").mkdir(parents=True)
             self.assertTrue(any("5gc-pdu-session" in error for error in VALIDATOR.validate(root)))
 
 

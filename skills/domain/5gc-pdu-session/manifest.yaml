@@ -1,0 +1,116 @@
+name: 5gc-pdu-session
+version: 0.1.0
+category: domain
+description: >
+  Bounded 5GC PDU Session Establishment procedure-level analysis composing
+  N1 (NAS-5GS), N2 (NGAP), N3 (GTP-U), N4 (PFCP), and N11 (SBI-HTTP2) evidence:
+  instance formation anchored by NGAP UE-context and PDU Session ID, partial-order
+  stage evaluation, protocol reject and negative cause recognition, multi-UE
+  isolation, ambiguous N11 preservation, F-TEID directed endpoint tunnel binding,
+  item-scoped NGAP resource outcomes, procedure-local deviation classification,
+  lower-layer field findings, and generic procedure-evidence stage records.
+  No protocol decoding, no verdicts, no implementation mapping.
+scope:
+  includes:
+    - procedure instance formation from NGAP UE context and PDU Session ID with frame-provenance NAS joins
+    - evaluation of bounded establishment stages: SESSION_REQUEST, SM_CONTEXT_CONTROL, USER_PLANE_CONTROL, ACCESS_RESOURCE_CONTROL, N1_N2_DELIVERY, SESSION_DECISION, USER_PLANE_OBSERVATION
+    - multi-plane evidence association across N1, N2, N3, N4, and N11
+    - protocol-defined reject, negative cause, and pending recognition
+    - multi-UE isolation and ambiguous/unbound evidence preservation
+    - procedure-local deviation classification and lower-layer field findings
+    - generic procedure-evidence stage records and analysis summary JSON
+  excludes:
+    - PDU Session Modification lifecycle
+    - PDU Session Release lifecycle
+    - handover and path switch
+    - UPF relocation
+    - NAS, NGAP, PFCP, GTP-U, or HTTP/2 byte-level decoding
+    - success, failure, or root-cause verdicts; implementation blame
+    - Open5GS, free5GC, or vendor-specific source mapping
+dependencies:
+  required: []
+  optional:
+    - procedure-evidence >=0.1.0
+    - cross-protocol-evidence >=0.1.0
+    - nas-5gs >=0.2.0
+    - ngap >=0.2.0
+    - pfcp >=0.1.0
+    - gtpu >=0.1.0
+    - sbi-http2 >=0.2.0
+    - core-network-pcap >=0.1.0
+inputs:
+  - NAS-5GS detailed event JSONL (from the nas-5gs Skill)
+  - NGAP detailed event JSONL (from the ngap Skill)
+  - PFCP detailed event JSONL (from the pfcp Skill)
+  - GTP-U detailed event JSONL (from the gtpu Skill)
+  - SBI-HTTP2 detailed event JSONL (from the sbi-http2 Skill)
+  - cross-protocol-evidence correlation-event JSONL (optional)
+outputs:
+  - generic procedure-evidence stage JSONL
+  - 5GC PDU session analysis summary JSON
+  - protocol-local PDU session timeline (text or JSON)
+protocols: []
+interfaces:
+  - N1
+  - N2
+  - N3
+  - N4
+  - N11
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Domain-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/inputs/normal-establishment
+    - examples/inputs/establishment-reject
+    - examples/inputs/create-sm-context-error
+    - examples/inputs/pfcp-negative-cause
+    - examples/inputs/ngap-failed-resource
+    - examples/inputs/ngap-mixed-resources
+    - examples/inputs/namf-pending-202
+    - examples/inputs/namf-failure-notification
+    - examples/inputs/no-gtpu-traffic
+    - examples/inputs/multi-ue-same-psi
+    - examples/inputs/sbi-ambiguity
+    - examples/inputs/teid-reuse-different-endpoints
+    - examples/inputs/address-and-qfi-conflict
+    - examples/inputs/partial-capture
+  expected_results:
+    - examples/expected/normal-establishment-analysis.json
+    - examples/expected/normal-establishment-stages.jsonl
+    - examples/expected/establishment-reject-analysis.json
+    - examples/expected/establishment-reject-stages.jsonl
+    - examples/expected/create-sm-context-error-analysis.json
+    - examples/expected/create-sm-context-error-stages.jsonl
+    - examples/expected/pfcp-negative-cause-analysis.json
+    - examples/expected/pfcp-negative-cause-stages.jsonl
+    - examples/expected/ngap-failed-resource-analysis.json
+    - examples/expected/ngap-failed-resource-stages.jsonl
+    - examples/expected/ngap-mixed-resources-analysis.json
+    - examples/expected/ngap-mixed-resources-stages.jsonl
+    - examples/expected/namf-pending-202-analysis.json
+    - examples/expected/namf-pending-202-stages.jsonl
+    - examples/expected/namf-failure-notification-analysis.json
+    - examples/expected/namf-failure-notification-stages.jsonl
+    - examples/expected/no-gtpu-traffic-analysis.json
+    - examples/expected/no-gtpu-traffic-stages.jsonl
+    - examples/expected/multi-ue-same-psi-analysis.json
+    - examples/expected/multi-ue-same-psi-stages.jsonl
+    - examples/expected/sbi-ambiguity-analysis.json
+    - examples/expected/sbi-ambiguity-stages.jsonl
+    - examples/expected/teid-reuse-different-endpoints-analysis.json
+    - examples/expected/teid-reuse-different-endpoints-stages.jsonl
+    - examples/expected/address-and-qfi-conflict-analysis.json
+    - examples/expected/address-and-qfi-conflict-stages.jsonl
+    - examples/expected/partial-capture-analysis.json
+    - examples/expected/partial-capture-stages.jsonl

@@ -253,8 +253,10 @@ def validate(root: Path) -> list[str]:
                     errors.append(f"non-documentation IP address {address} in fixture {name}")
 
     for forbidden in ("5gsm-pdu-session", "5gc-pdu-session"):
-        if (root / "skills" / "protocol" / forbidden).exists() or (root / "skills" / "domain" / forbidden).exists():
-            errors.append(f"{forbidden} must not be created in this milestone")
+        if (root / "skills" / "protocol" / forbidden).exists():
+            errors.append(f"{forbidden} must not be created as a protocol skill")
+    if (root / "skills" / "domain" / "5gsm-pdu-session").exists():
+        errors.append("5gsm-pdu-session must not be created")
 
     for directory in (skill / "scripts", skill / "tests"):
         for script in directory.glob("*.py"):
