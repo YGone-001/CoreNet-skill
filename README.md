@@ -44,12 +44,18 @@ analysis across N1/N2/N3/N4/N11 composing already-extracted NAS, NGAP, PFCP,
 GTP-U, and SBI evidence, with lifecycle generation handling so the same UE
 context re-using the same numeric PDU Session ID after an evidence-supported
 release boundary forms a distinct lifecycle generation; no root-cause verdicts,
-no implementation mapping). The extensions provide investigation context only.
+no implementation mapping), and the `5gc-failure-boundary` Analysis Orchestration
+Skill (v0.1.0, evidence-safe first abnormal boundary localization across the
+supported 5GC Domain analyses: diagnostic groups linked by exact common context,
+candidates drawn only from Domain-emitted deviations, provenance-based ordering
+with no severity ranking, and no root-cause or blame output). The extensions
+provide investigation context only.
 **Not yet implemented:** deep NGAP transfer-container decoding, NGAP handover and
 path-switch procedures, broader 5GC mobility (including UPF relocation), remaining
 5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (NAS-EPS,
 S1AP, GTPv2, SIP, SDP/RTP, Diameter), EPC/IMS Domain procedures,
-implementation-specific mappings, or end-to-end orchestration.
+implementation-specific mappings, or root-cause hypothesis reasoning and deeper
+diagnosis orchestration.
 
 ## Why modular Skills
 

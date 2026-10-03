@@ -1,0 +1,185 @@
+{
+  "analysis_name": "5gc-failure-boundary",
+  "analysis_version": "0.1.0",
+  "diagnostic_groups": [
+    {
+      "additional_evidence_needed": [
+        {
+          "candidate_id": "1-cand-1",
+          "reason": "candidates resolve to the same position with no deterministic source relationship ordering them",
+          "requirement": "exact frame or stage provenance that separates the tied candidates is required",
+          "second_candidate_id": "1-cand-2"
+        }
+      ],
+      "boundary_confidence": null,
+      "candidate_boundaries": [
+        {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": null,
+            "message_type": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-1",
+          "description": "PFCP Session Deletion Request at frame 11 missing expected Response",
+          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+          "evidence_level": "DERIVED",
+          "limitations": [
+            "Capture window ended before PFCP response arrived"
+          ],
+          "ordering_basis": {
+            "frame_number": null,
+            "observation_window": {
+              "end_frame": 11,
+              "start_frame": 11
+            },
+            "stage_position": null
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": "user_plane_teardown_control",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": "rel-1",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "PFCP Session Deletion Request at frame 11 missing expected Response",
+              "evidence_level": "DERIVED",
+              "limitation": "Capture window ended before PFCP response arrived",
+              "stage_id": "user_plane_teardown_control",
+              "type": "MISSING_EXPECTED_COUNTERPART"
+            },
+            "source_observation_window": {
+              "first_frame": 1,
+              "last_frame": 10
+            },
+            "source_terminal": {
+              "evidence_level": "OBSERVED",
+              "frame_number": 6,
+              "message_type": "PduSessionEstablishmentAccept",
+              "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+              "protocol_observations": [
+                "PduSessionEstablishmentAccept observed"
+              ],
+              "timestamp": "2024-01-02T03:04:06.00Z"
+            }
+          }
+        },
+        {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": null,
+            "message_type": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-2",
+          "description": "Release initiated at frame 10 but no terminal NAS release response observed within capture window",
+          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+          "evidence_level": "DERIVED",
+          "limitations": [
+            "Capture window truncated before release completion"
+          ],
+          "ordering_basis": {
+            "frame_number": null,
+            "observation_window": {
+              "end_frame": 11,
+              "start_frame": 11
+            },
+            "stage_position": null
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": "release_terminal",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": "rel-1",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "Release initiated at frame 10 but no terminal NAS release response observed within capture window",
+              "evidence_level": "DERIVED",
+              "limitation": "Capture window truncated before release completion",
+              "stage_id": "release_terminal",
+              "type": "MISSING_EXPECTED_COUNTERPART"
+            },
+            "source_observation_window": {
+              "first_frame": 1,
+              "last_frame": 10
+            },
+            "source_terminal": {
+              "evidence_level": "OBSERVED",
+              "frame_number": 6,
+              "message_type": "PduSessionEstablishmentAccept",
+              "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+              "protocol_observations": [
+                "PduSessionEstablishmentAccept observed"
+              ],
+              "timestamp": "2024-01-02T03:04:06.00Z"
+            }
+          }
+        }
+      ],
+      "diagnostic_id": "diag-1",
+      "downstream_observations": [],
+      "earlier_context": [],
+      "evidence_limitations": [],
+      "limitations": [
+        "No severity ranking is applied: first means earliest safely orderable boundary",
+        "Downstream observations are not caused by the selected boundary",
+        "NO_ABNORMAL_BOUNDARY_OBSERVED never means network or procedure success"
+      ],
+      "not_confirmed": [
+        "implementation cause not assessed",
+        "network-function blame not established",
+        "vendor defect not established",
+        "end-to-end root cause not established"
+      ],
+      "observation_scope": {
+        "capture_files": [
+          "test.pcap"
+        ],
+        "source_count": 1
+      },
+      "selected_boundary": null,
+      "selection_status": "AMBIGUOUS_FIRST_BOUNDARY",
+      "source_domain_instances": [
+        {
+          "capture_file": "test.pcap",
+          "pdu_session_id": 1,
+          "source_domain": "5gc-pdu-session",
+          "source_file": "pdu-session-analysis.json",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+        }
+      ],
+      "subject_link": {
+        "basis": "no_cross_domain_link_single_source",
+        "source_contexts": [
+          {
+            "amf_ue_ngap_id": 1,
+            "capture_file": "test.pcap",
+            "ran_ue_ngap_id": 1,
+            "sctp_association": 1,
+            "source_domain": "5gc-pdu-session",
+            "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+          }
+        ],
+        "strength": "UNBOUND"
+      },
+      "supporting_anomalies": []
+    }
+  ],
+  "limitations": [
+    "Analysis is bounded to the Domain analysis JSON supplied as input; no raw protocol events are interpreted",
+    "Boundary candidates come only from deviations already emitted by the source Domain Skills",
+    "First means the earliest safely orderable abnormal evidence boundary, never the most serious abnormality",
+    "Boundary confidence expresses confidence in the boundary selection and ordering, never causal confidence",
+    "No implementation-specific source code or network function internal state is inferred"
+  ],
+  "unbound_domain_analyses": [
+    {
+      "reason": "no evidence-safe cross-domain subject link exists for this analysis",
+      "source_domain": "5gc-pdu-session",
+      "source_file": "pdu-session-analysis.json",
+      "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+    }
+  ]
+}

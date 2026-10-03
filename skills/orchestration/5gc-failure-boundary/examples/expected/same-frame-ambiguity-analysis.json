@@ -1,0 +1,193 @@
+{
+  "analysis_name": "5gc-failure-boundary",
+  "analysis_version": "0.1.0",
+  "diagnostic_groups": [
+    {
+      "additional_evidence_needed": [
+        {
+          "candidate_id": "1-cand-1",
+          "reason": "candidates resolve to the same position with no deterministic source relationship ordering them",
+          "requirement": "exact frame or stage provenance that separates the tied candidates is required",
+          "second_candidate_id": "1-cand-2"
+        }
+      ],
+      "boundary_confidence": null,
+      "candidate_boundaries": [
+        {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": 4,
+            "message_type": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-1",
+          "description": "NGAP resource setup failed for PDU Session ID 1 with cause unspecified",
+          "deviation_type": "RESOURCE_FAILED_ITEM_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "RAN resource allocation failure; external radio or transport condition not observable"
+          ],
+          "ordering_basis": {
+            "frame_number": 4,
+            "observation_window": {
+              "end_frame": 4,
+              "start_frame": 1
+            },
+            "stage_position": 3
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": "access_resource_control",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "NGAP resource setup failed for PDU Session ID 1 with cause unspecified",
+              "evidence_level": "OBSERVED",
+              "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
+              "stage_id": "access_resource_control",
+              "type": "RESOURCE_FAILED_ITEM_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 1,
+              "last_frame": 4
+            },
+            "source_terminal": {
+              "evidence_level": "DERIVED",
+              "frame_number": null,
+              "message_type": null,
+              "observation": "NO_N1_TERMINAL_OBSERVATION",
+              "protocol_observations": [
+                "No terminal N1 session decision observed within capture window"
+              ],
+              "timestamp": null
+            }
+          }
+        },
+        {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": 4,
+            "message_type": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-2",
+          "description": "NGAP resource setup failed for PDU Session ID 2 with cause unspecified",
+          "deviation_type": "RESOURCE_FAILED_ITEM_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "RAN resource allocation failure; external radio or transport condition not observable"
+          ],
+          "ordering_basis": {
+            "frame_number": 4,
+            "observation_window": {
+              "end_frame": 4,
+              "start_frame": 2
+            },
+            "stage_position": 3
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": "access_resource_control",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi2",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "NGAP resource setup failed for PDU Session ID 2 with cause unspecified",
+              "evidence_level": "OBSERVED",
+              "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
+              "stage_id": "access_resource_control",
+              "type": "RESOURCE_FAILED_ITEM_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 2,
+              "last_frame": 4
+            },
+            "source_terminal": {
+              "evidence_level": "DERIVED",
+              "frame_number": null,
+              "message_type": null,
+              "observation": "NO_N1_TERMINAL_OBSERVATION",
+              "protocol_observations": [
+                "No terminal N1 session decision observed within capture window"
+              ],
+              "timestamp": null
+            }
+          }
+        }
+      ],
+      "diagnostic_id": "diag-1",
+      "downstream_observations": [],
+      "earlier_context": [],
+      "evidence_limitations": [],
+      "limitations": [
+        "No severity ranking is applied: first means earliest safely orderable boundary",
+        "Downstream observations are not caused by the selected boundary",
+        "NO_ABNORMAL_BOUNDARY_OBSERVED never means network or procedure success"
+      ],
+      "not_confirmed": [
+        "implementation cause not assessed",
+        "network-function blame not established",
+        "vendor defect not established",
+        "end-to-end root cause not established"
+      ],
+      "observation_scope": {
+        "capture_files": [
+          "test.pcap"
+        ],
+        "source_count": 2
+      },
+      "selected_boundary": null,
+      "selection_status": "AMBIGUOUS_FIRST_BOUNDARY",
+      "source_domain_instances": [
+        {
+          "capture_file": "test.pcap",
+          "pdu_session_id": 1,
+          "source_domain": "5gc-pdu-session",
+          "source_file": "pdu-session-analysis.json",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "pdu_session_id": 2,
+          "source_domain": "5gc-pdu-session",
+          "source_file": "pdu-session-analysis.json",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi2"
+        }
+      ],
+      "subject_link": {
+        "basis": "capture_sctp_association_and_ngap_ue_context_exact_match",
+        "source_contexts": [
+          {
+            "amf_ue_ngap_id": 1,
+            "capture_file": "test.pcap",
+            "ran_ue_ngap_id": 1,
+            "sctp_association": 1,
+            "source_domain": "5gc-pdu-session",
+            "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+          },
+          {
+            "amf_ue_ngap_id": 1,
+            "capture_file": "test.pcap",
+            "ran_ue_ngap_id": 1,
+            "sctp_association": 1,
+            "source_domain": "5gc-pdu-session",
+            "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi2"
+          }
+        ],
+        "strength": "STRONG"
+      },
+      "supporting_anomalies": []
+    }
+  ],
+  "limitations": [
+    "Analysis is bounded to the Domain analysis JSON supplied as input; no raw protocol events are interpreted",
+    "Boundary candidates come only from deviations already emitted by the source Domain Skills",
+    "First means the earliest safely orderable abnormal evidence boundary, never the most serious abnormality",
+    "Boundary confidence expresses confidence in the boundary selection and ordering, never causal confidence",
+    "No implementation-specific source code or network function internal state is inferred"
+  ],
+  "unbound_domain_analyses": []
+}

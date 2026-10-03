@@ -1,0 +1,213 @@
+{
+  "analysis_name": "5gc-failure-boundary",
+  "analysis_version": "0.1.0",
+  "diagnostic_groups": [
+    {
+      "additional_evidence_needed": [],
+      "boundary_confidence": "HIGH",
+      "candidate_boundaries": [
+        {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": 13,
+            "message_type": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-1",
+          "description": "NAS PduSessionModificationReject observed with cause RegularDeactivation",
+          "deviation_type": "PROTOCOL_REJECT_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "5GSM procedure rejected by network; session remains in established state with prior parameters"
+          ],
+          "ordering_basis": {
+            "frame_number": 13,
+            "observation_window": {
+              "end_frame": 21,
+              "start_frame": 13
+            },
+            "stage_position": null
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": "modification_completion",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": "mod-1",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi10:g1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "NAS PduSessionModificationReject observed with cause RegularDeactivation",
+              "evidence_level": "OBSERVED",
+              "limitation": "5GSM procedure rejected by network; session remains in established state with prior parameters",
+              "stage_id": "modification_completion",
+              "type": "PROTOCOL_REJECT_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 1,
+              "last_frame": 21
+            },
+            "source_terminal": {
+              "evidence_level": "OBSERVED",
+              "frame_number": 6,
+              "message_type": "PduSessionEstablishmentAccept",
+              "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+              "protocol_observations": [
+                "PduSessionEstablishmentAccept observed"
+              ],
+              "timestamp": "2024-01-02T03:04:06.00Z"
+            }
+          }
+        }
+      ],
+      "diagnostic_id": "diag-1",
+      "downstream_observations": [
+        {
+          "frame_number": 35,
+          "kind": "terminal_observation",
+          "message_type": "PduSessionEstablishmentAccept",
+          "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+          "relation": "OBSERVED_AFTER_BOUNDARY",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi10:g2"
+        }
+      ],
+      "earlier_context": [
+        {
+          "frame_number": 6,
+          "kind": "terminal_observation",
+          "message_type": "PduSessionEstablishmentAccept",
+          "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+          "relation": "OBSERVED_BEFORE_BOUNDARY",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi10:g1"
+        }
+      ],
+      "evidence_limitations": [],
+      "limitations": [
+        "No severity ranking is applied: first means earliest safely orderable boundary",
+        "Downstream observations are not caused by the selected boundary",
+        "NO_ABNORMAL_BOUNDARY_OBSERVED never means network or procedure success"
+      ],
+      "not_confirmed": [
+        "implementation cause not assessed",
+        "network-function blame not established",
+        "vendor defect not established",
+        "end-to-end root cause not established"
+      ],
+      "observation_scope": {
+        "capture_files": [
+          "test.pcap"
+        ],
+        "source_count": 2
+      },
+      "selected_boundary": {
+        "boundary_ref": {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": 13,
+            "message_type": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-1",
+          "description": "NAS PduSessionModificationReject observed with cause RegularDeactivation",
+          "deviation_type": "PROTOCOL_REJECT_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "5GSM procedure rejected by network; session remains in established state with prior parameters"
+          ],
+          "ordering_basis": {
+            "frame_number": 13,
+            "observation_window": {
+              "end_frame": 21,
+              "start_frame": 13
+            },
+            "stage_position": null
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": "modification_completion",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": "mod-1",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi10:g1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "NAS PduSessionModificationReject observed with cause RegularDeactivation",
+              "evidence_level": "OBSERVED",
+              "limitation": "5GSM procedure rejected by network; session remains in established state with prior parameters",
+              "stage_id": "modification_completion",
+              "type": "PROTOCOL_REJECT_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 1,
+              "last_frame": 21
+            },
+            "source_terminal": {
+              "evidence_level": "OBSERVED",
+              "frame_number": 6,
+              "message_type": "PduSessionEstablishmentAccept",
+              "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+              "protocol_observations": [
+                "PduSessionEstablishmentAccept observed"
+              ],
+              "timestamp": "2024-01-02T03:04:06.00Z"
+            }
+          }
+        },
+        "candidate_id": "1-cand-1"
+      },
+      "selection_status": "SELECTED",
+      "source_domain_instances": [
+        {
+          "capture_file": "test.pcap",
+          "pdu_session_id": 10,
+          "session_generation": 1,
+          "source_domain": "5gc-pdu-session",
+          "source_file": "pdu-session-analysis.json",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi10:g1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "lifecycle_boundary_basis": "pdu_session_release_complete_observed_before_re_establishment",
+          "pdu_session_id": 10,
+          "previous_generation": 1,
+          "reuse_status": "REESTABLISHED_AFTER_RELEASE_COMPLETE",
+          "session_generation": 2,
+          "source_domain": "5gc-pdu-session",
+          "source_file": "pdu-session-analysis.json",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi10:g2"
+        }
+      ],
+      "subject_link": {
+        "basis": "capture_sctp_association_and_ngap_ue_context_exact_match",
+        "source_contexts": [
+          {
+            "amf_ue_ngap_id": 1,
+            "capture_file": "test.pcap",
+            "ran_ue_ngap_id": 1,
+            "sctp_association": 1,
+            "source_domain": "5gc-pdu-session",
+            "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi10:g1"
+          },
+          {
+            "amf_ue_ngap_id": 1,
+            "capture_file": "test.pcap",
+            "ran_ue_ngap_id": 1,
+            "sctp_association": 1,
+            "source_domain": "5gc-pdu-session",
+            "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi10:g2"
+          }
+        ],
+        "strength": "STRONG"
+      },
+      "supporting_anomalies": []
+    }
+  ],
+  "limitations": [
+    "Analysis is bounded to the Domain analysis JSON supplied as input; no raw protocol events are interpreted",
+    "Boundary candidates come only from deviations already emitted by the source Domain Skills",
+    "First means the earliest safely orderable abnormal evidence boundary, never the most serious abnormality",
+    "Boundary confidence expresses confidence in the boundary selection and ordering, never causal confidence",
+    "No implementation-specific source code or network function internal state is inferred"
+  ],
+  "unbound_domain_analyses": []
+}

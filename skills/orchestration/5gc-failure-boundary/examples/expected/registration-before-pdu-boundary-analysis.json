@@ -1,0 +1,372 @@
+{
+  "analysis_name": "5gc-failure-boundary",
+  "analysis_version": "0.1.0",
+  "diagnostic_groups": [
+    {
+      "additional_evidence_needed": [],
+      "boundary_confidence": "HIGH",
+      "candidate_boundaries": [
+        {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": null,
+            "message_type": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-1",
+          "description": "Modification initiated at frame 14 but no terminal NAS completion or reject message observed within capture window",
+          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+          "evidence_level": "DERIVED",
+          "limitations": [
+            "Capture window truncated before modification completion"
+          ],
+          "ordering_basis": {
+            "frame_number": null,
+            "observation_window": {
+              "end_frame": 16,
+              "start_frame": 16
+            },
+            "stage_position": null
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": "modification_completion",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": "mod-1",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "Modification initiated at frame 14 but no terminal NAS completion or reject message observed within capture window",
+              "evidence_level": "DERIVED",
+              "limitation": "Capture window truncated before modification completion",
+              "stage_id": "modification_completion",
+              "type": "MISSING_EXPECTED_COUNTERPART"
+            },
+            "source_observation_window": {
+              "first_frame": 1,
+              "last_frame": 16
+            },
+            "source_terminal": {
+              "evidence_level": "OBSERVED",
+              "frame_number": 6,
+              "message_type": "PduSessionEstablishmentAccept",
+              "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+              "protocol_observations": [
+                "PduSessionEstablishmentAccept observed"
+              ],
+              "timestamp": "2024-01-02T03:04:06.00Z"
+            }
+          }
+        },
+        {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": 16,
+            "message_type": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-2",
+          "description": "PFCP Session Modification Response reported non-accepted cause ContextNotFound (code 64)",
+          "deviation_type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "UPF control-plane rejection; internal UPF decision basis not determined"
+          ],
+          "ordering_basis": {
+            "frame_number": 16,
+            "observation_window": {
+              "end_frame": 16,
+              "start_frame": 16
+            },
+            "stage_position": null
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": "user_plane_control_update",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": "mod-1",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "PFCP Session Modification Response reported non-accepted cause ContextNotFound (code 64)",
+              "evidence_level": "OBSERVED",
+              "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
+              "stage_id": "user_plane_control_update",
+              "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 1,
+              "last_frame": 16
+            },
+            "source_terminal": {
+              "evidence_level": "OBSERVED",
+              "frame_number": 6,
+              "message_type": "PduSessionEstablishmentAccept",
+              "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+              "protocol_observations": [
+                "PduSessionEstablishmentAccept observed"
+              ],
+              "timestamp": "2024-01-02T03:04:06.00Z"
+            }
+          }
+        },
+        {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": null,
+            "message_type": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-3",
+          "description": "No Registration accept or Registration reject was observed within the available observation window",
+          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+          "evidence_level": "DERIVED",
+          "limitations": [
+            "Capture termination may explain the missing evidence"
+          ],
+          "ordering_basis": {
+            "frame_number": null,
+            "observation_window": {
+              "end_frame": 12,
+              "start_frame": 10
+            },
+            "stage_position": null
+          },
+          "procedure_family": "5gc-registration-mobility",
+          "procedure_stage": "registration-decision",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-registration-mobility",
+          "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-1:r1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "No Registration accept or Registration reject was observed within the available observation window",
+              "evidence_level": "DERIVED",
+              "limitation": "Capture termination may explain the missing evidence",
+              "stage_id": "registration-decision",
+              "type": "MISSING_EXPECTED_COUNTERPART"
+            },
+            "source_observation_window": {
+              "first_frame": 10,
+              "last_frame": 12
+            },
+            "source_terminal": {
+              "evidence_level": "DERIVED",
+              "frame_number": null,
+              "message_type": null,
+              "observation": "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW",
+              "timestamp": null
+            }
+          }
+        },
+        {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": 12,
+            "message_type": null,
+            "timestamp": "2024-01-02T03:04:12.00Z"
+          },
+          "candidate_id": "1-cand-4",
+          "description": "NAS-5GS Authentication failure observed at frame 12",
+          "deviation_type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation"
+          ],
+          "ordering_basis": {
+            "frame_number": 12,
+            "observation_window": {
+              "end_frame": 12,
+              "start_frame": 10
+            },
+            "stage_position": null
+          },
+          "procedure_family": "5gc-registration-mobility",
+          "procedure_stage": null,
+          "selectability": "SELECTABLE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-registration-mobility",
+          "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-1:r1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "NAS-5GS Authentication failure observed at frame 12",
+              "evidence_level": "OBSERVED",
+              "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
+              "stage_id": null,
+              "type": "UNSUCCESSFUL_OUTCOME_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 10,
+              "last_frame": 12
+            },
+            "source_terminal": {
+              "evidence_level": "DERIVED",
+              "frame_number": null,
+              "message_type": null,
+              "observation": "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW",
+              "timestamp": null
+            }
+          }
+        }
+      ],
+      "diagnostic_id": "diag-1",
+      "downstream_observations": [
+        {
+          "candidate_id": "1-cand-1",
+          "description": "Modification initiated at frame 14 but no terminal NAS completion or reject message observed within capture window",
+          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+          "evidence_level": "DERIVED",
+          "relation": "OBSERVED_AFTER_BOUNDARY",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+        },
+        {
+          "candidate_id": "1-cand-2",
+          "description": "PFCP Session Modification Response reported non-accepted cause ContextNotFound (code 64)",
+          "deviation_type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "relation": "OBSERVED_AFTER_BOUNDARY",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+        },
+        {
+          "candidate_id": "1-cand-3",
+          "description": "No Registration accept or Registration reject was observed within the available observation window",
+          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+          "evidence_level": "DERIVED",
+          "relation": "OBSERVED_AFTER_BOUNDARY",
+          "source_domain": "5gc-registration-mobility",
+          "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-1:r1"
+        }
+      ],
+      "earlier_context": [
+        {
+          "frame_number": 6,
+          "kind": "terminal_observation",
+          "message_type": "PduSessionEstablishmentAccept",
+          "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+          "relation": "OBSERVED_BEFORE_BOUNDARY",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+        }
+      ],
+      "evidence_limitations": [],
+      "limitations": [
+        "No severity ranking is applied: first means earliest safely orderable boundary",
+        "Downstream observations are not caused by the selected boundary",
+        "NO_ABNORMAL_BOUNDARY_OBSERVED never means network or procedure success"
+      ],
+      "not_confirmed": [
+        "implementation cause not assessed",
+        "network-function blame not established",
+        "vendor defect not established",
+        "end-to-end root cause not established"
+      ],
+      "observation_scope": {
+        "capture_files": [
+          "test.pcap"
+        ],
+        "source_count": 2
+      },
+      "selected_boundary": {
+        "boundary_ref": {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": 12,
+            "message_type": null,
+            "timestamp": "2024-01-02T03:04:12.00Z"
+          },
+          "candidate_id": "1-cand-4",
+          "description": "NAS-5GS Authentication failure observed at frame 12",
+          "deviation_type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation"
+          ],
+          "ordering_basis": {
+            "frame_number": 12,
+            "observation_window": {
+              "end_frame": 12,
+              "start_frame": 10
+            },
+            "stage_position": null
+          },
+          "procedure_family": "5gc-registration-mobility",
+          "procedure_stage": null,
+          "selectability": "SELECTABLE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-registration-mobility",
+          "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-1:r1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "NAS-5GS Authentication failure observed at frame 12",
+              "evidence_level": "OBSERVED",
+              "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
+              "stage_id": null,
+              "type": "UNSUCCESSFUL_OUTCOME_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 10,
+              "last_frame": 12
+            },
+            "source_terminal": {
+              "evidence_level": "DERIVED",
+              "frame_number": null,
+              "message_type": null,
+              "observation": "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW",
+              "timestamp": null
+            }
+          }
+        },
+        "candidate_id": "1-cand-4"
+      },
+      "selection_status": "SELECTED",
+      "source_domain_instances": [
+        {
+          "capture_file": "test.pcap",
+          "pdu_session_id": 1,
+          "source_domain": "5gc-pdu-session",
+          "source_file": "pdu-session-analysis.json",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "source_domain": "5gc-registration-mobility",
+          "source_file": "registration-analysis.json",
+          "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-1:r1"
+        }
+      ],
+      "subject_link": {
+        "basis": "capture_sctp_association_and_ngap_ue_context_exact_match",
+        "source_contexts": [
+          {
+            "amf_ue_ngap_id": 1,
+            "capture_file": "test.pcap",
+            "ran_ue_ngap_id": 1,
+            "sctp_association": 1,
+            "source_domain": "5gc-pdu-session",
+            "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+          },
+          {
+            "amf_ue_ngap_id": 1,
+            "capture_file": "test.pcap",
+            "ran_ue_ngap_id": 1,
+            "sctp_association": "sctp-assoc-1",
+            "source_domain": "5gc-registration-mobility",
+            "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-1:r1"
+          }
+        ],
+        "strength": "STRONG"
+      },
+      "supporting_anomalies": []
+    }
+  ],
+  "limitations": [
+    "Analysis is bounded to the Domain analysis JSON supplied as input; no raw protocol events are interpreted",
+    "Boundary candidates come only from deviations already emitted by the source Domain Skills",
+    "First means the earliest safely orderable abnormal evidence boundary, never the most serious abnormality",
+    "Boundary confidence expresses confidence in the boundary selection and ordering, never causal confidence",
+    "No implementation-specific source code or network function internal state is inferred"
+  ],
+  "unbound_domain_analyses": []
+}

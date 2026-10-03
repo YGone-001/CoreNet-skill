@@ -40,15 +40,21 @@ def implemented_skill_names(root: Path) -> set[str]:
 
 
 def check_architecture_catalog(root: Path, errors: list[str]) -> None:
-    """docs/ARCHITECTURE.md must not describe an implemented Skill as a future candidate."""
+    """docs/ARCHITECTURE.md must not describe an implemented Skill as a future candidate.
+
+    Only lines phrased as the future catalog ("candidates remain ...",
+    "candidates include ...") are checked, so implementation descriptions that
+    merely mention the word candidate are not flagged.
+    """
     arch = root / "docs" / "ARCHITECTURE.md"
     if not arch.is_file():
         return
     implemented = implemented_skill_names(root)
     if not implemented:
         return
+    future_catalog = re.compile(r"(?i)candidates?\s+(?:remain|include)")
     for line in arch.read_text(encoding="utf-8").splitlines():
-        if "candidate" not in line.lower():
+        if not future_catalog.search(line):
             continue
         for name in sorted(implemented):
             if re.search(rf"`{re.escape(name)}`", line):

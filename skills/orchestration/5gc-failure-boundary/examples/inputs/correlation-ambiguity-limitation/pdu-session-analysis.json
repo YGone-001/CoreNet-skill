@@ -1,0 +1,535 @@
+{
+  "instances": [
+    {
+      "association_basis": "ngap_ue_context_and_pdu_session_id",
+      "association_strength": "STRONG",
+      "deviations": [
+        {
+          "description": "SBI transaction for PDU Session ID 10 observed across multiple concurrent UEs with sanitized subscriber identities; N11 evidence remains unbound to prevent false association",
+          "evidence_level": "DERIVED",
+          "limitation": "Redacted subscriber identity in SBI HTTP/2 prevents unique association",
+          "stage_id": "sm_context_control",
+          "type": "CORRELATION_AMBIGUITY"
+        }
+      ],
+      "earliest_observed_deviation": {
+        "description": "SBI transaction for PDU Session ID 10 observed across multiple concurrent UEs with sanitized subscriber identities; N11 evidence remains unbound to prevent false association",
+        "evidence_level": "DERIVED",
+        "limitation": "Redacted subscriber identity in SBI HTTP/2 prevents unique association",
+        "stage_id": "sm_context_control",
+        "type": "CORRELATION_AMBIGUITY"
+      },
+      "field_findings": [
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 1,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 10,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "dnn",
+          "frame_number": 1,
+          "interpretation": "Requested/assigned Data Network Name",
+          "limitations": [],
+          "observed_value": "internet",
+          "plane": "N1"
+        }
+      ],
+      "instance_id": "5gc-pdu-session:sample.pcap:ran1-amf1:psi10",
+      "limitations": [
+        "Bounded to observed signaling window in capture artifact",
+        "No source code or network function internal execution state analyzed"
+      ],
+      "modification_attempts": [],
+      "pdu_session_id": 10,
+      "plane_bindings": {
+        "n1": {
+          "basis": "frame_provenance_ngap_nas_join",
+          "event_count": 1,
+          "message_types": [
+            "PduSessionEstablishmentRequest"
+          ],
+          "strength": "STRONG"
+        },
+        "n11": null,
+        "n2": {
+          "basis": "ngap_ue_context_and_resource_matching",
+          "event_count": 1,
+          "message_types": [
+            "InitialUEMessage"
+          ],
+          "strength": "STRONG"
+        },
+        "n3": null,
+        "n4": null
+      },
+      "release_attempts": [],
+      "stages": [
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentRequest"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "PduSessionEstablishmentRequest observed at frame 1 for PDU Session ID 10"
+          ],
+          "stage_id": "session_request",
+          "stage_name": "Session Request",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI CreateSMContext"
+          ],
+          "limitations": [
+            "SBI signaling absent or encrypted under TLS without key material"
+          ],
+          "missing_evidence": [
+            "Nsmf_PDUSession CreateSMContext not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "sm_context_control",
+          "stage_name": "SM Context Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "PFCP SessionEstablishmentResponse"
+          ],
+          "limitations": [
+            "N4 interface traffic not captured at this vantage point"
+          ],
+          "missing_evidence": [
+            "PFCP Session Establishment signaling not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_control",
+          "stage_name": "User Plane Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "NGAP PDUSessionResourceSetupResponse"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "NGAP signaling observed for UE context across 1 events"
+          ],
+          "stage_id": "access_resource_control",
+          "stage_name": "Access Resource Control",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI N1N2MessageTransfer"
+          ],
+          "limitations": [
+            "SBI N11 communication interface was not monitored in this capture"
+          ],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "N1/N2 signaling directly observed on radio/access interfaces without N11 transfer evidence"
+          ],
+          "stage_id": "n1_n2_delivery",
+          "stage_name": "N1/N2 Delivery",
+          "status": "NOT_APPLICABLE"
+        },
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentAccept",
+            "NAS-5GS PduSessionEstablishmentReject"
+          ],
+          "limitations": [
+            "Capture terminated before terminal decision signaling was recorded"
+          ],
+          "missing_evidence": [
+            "Terminal PDU Session Establishment decision (Accept or Reject) not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "session_decision",
+          "stage_name": "Session Decision",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "GTP-U G-PDU"
+          ],
+          "limitations": [
+            "No matching N3 user-plane traffic was observed within the capture window; traffic may be idle, delayed, or outside the capture point"
+          ],
+          "missing_evidence": [
+            "no matching N3 G-PDU evidence observed within the available capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_observation",
+          "stage_name": "User Plane Observation",
+          "status": "MISSING"
+        }
+      ],
+      "terminal_observation": {
+        "evidence_level": "DERIVED",
+        "frame_number": null,
+        "message_type": null,
+        "observation": "NO_N1_TERMINAL_OBSERVATION",
+        "protocol_observations": [
+          "No terminal N1 session decision observed within capture window"
+        ],
+        "timestamp": null
+      },
+      "ue_context": {
+        "amf_ue_ngap_id": 1,
+        "ran_ue_ngap_id": 1,
+        "sctp_association": 1
+      },
+      "unbound_evidence": []
+    },
+    {
+      "association_basis": "ngap_ue_context_and_pdu_session_id",
+      "association_strength": "STRONG",
+      "deviations": [
+        {
+          "description": "SBI transaction for PDU Session ID 10 observed across multiple concurrent UEs with sanitized subscriber identities; N11 evidence remains unbound to prevent false association",
+          "evidence_level": "DERIVED",
+          "limitation": "Redacted subscriber identity in SBI HTTP/2 prevents unique association",
+          "stage_id": "sm_context_control",
+          "type": "CORRELATION_AMBIGUITY"
+        }
+      ],
+      "earliest_observed_deviation": {
+        "description": "SBI transaction for PDU Session ID 10 observed across multiple concurrent UEs with sanitized subscriber identities; N11 evidence remains unbound to prevent false association",
+        "evidence_level": "DERIVED",
+        "limitation": "Redacted subscriber identity in SBI HTTP/2 prevents unique association",
+        "stage_id": "sm_context_control",
+        "type": "CORRELATION_AMBIGUITY"
+      },
+      "field_findings": [
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 2,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 10,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "sample.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "dnn",
+          "frame_number": 2,
+          "interpretation": "Requested/assigned Data Network Name",
+          "limitations": [],
+          "observed_value": "internet",
+          "plane": "N1"
+        }
+      ],
+      "instance_id": "5gc-pdu-session:sample.pcap:ran2-amf2:psi10",
+      "limitations": [
+        "Bounded to observed signaling window in capture artifact",
+        "No source code or network function internal execution state analyzed"
+      ],
+      "modification_attempts": [],
+      "pdu_session_id": 10,
+      "plane_bindings": {
+        "n1": {
+          "basis": "frame_provenance_ngap_nas_join",
+          "event_count": 1,
+          "message_types": [
+            "PduSessionEstablishmentRequest"
+          ],
+          "strength": "STRONG"
+        },
+        "n11": null,
+        "n2": {
+          "basis": "ngap_ue_context_and_resource_matching",
+          "event_count": 1,
+          "message_types": [
+            "InitialUEMessage"
+          ],
+          "strength": "STRONG"
+        },
+        "n3": null,
+        "n4": null
+      },
+      "release_attempts": [],
+      "stages": [
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentRequest"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "PduSessionEstablishmentRequest observed at frame 2 for PDU Session ID 10"
+          ],
+          "stage_id": "session_request",
+          "stage_name": "Session Request",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI CreateSMContext"
+          ],
+          "limitations": [
+            "SBI signaling absent or encrypted under TLS without key material"
+          ],
+          "missing_evidence": [
+            "Nsmf_PDUSession CreateSMContext not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "sm_context_control",
+          "stage_name": "SM Context Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "PFCP SessionEstablishmentResponse"
+          ],
+          "limitations": [
+            "N4 interface traffic not captured at this vantage point"
+          ],
+          "missing_evidence": [
+            "PFCP Session Establishment signaling not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_control",
+          "stage_name": "User Plane Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "NGAP PDUSessionResourceSetupResponse"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "NGAP signaling observed for UE context across 1 events"
+          ],
+          "stage_id": "access_resource_control",
+          "stage_name": "Access Resource Control",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI N1N2MessageTransfer"
+          ],
+          "limitations": [
+            "SBI N11 communication interface was not monitored in this capture"
+          ],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "N1/N2 signaling directly observed on radio/access interfaces without N11 transfer evidence"
+          ],
+          "stage_id": "n1_n2_delivery",
+          "stage_name": "N1/N2 Delivery",
+          "status": "NOT_APPLICABLE"
+        },
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentAccept",
+            "NAS-5GS PduSessionEstablishmentReject"
+          ],
+          "limitations": [
+            "Capture terminated before terminal decision signaling was recorded"
+          ],
+          "missing_evidence": [
+            "Terminal PDU Session Establishment decision (Accept or Reject) not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "session_decision",
+          "stage_name": "Session Decision",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "GTP-U G-PDU"
+          ],
+          "limitations": [
+            "No matching N3 user-plane traffic was observed within the capture window; traffic may be idle, delayed, or outside the capture point"
+          ],
+          "missing_evidence": [
+            "no matching N3 G-PDU evidence observed within the available capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_observation",
+          "stage_name": "User Plane Observation",
+          "status": "MISSING"
+        }
+      ],
+      "terminal_observation": {
+        "evidence_level": "DERIVED",
+        "frame_number": null,
+        "message_type": null,
+        "observation": "NO_N1_TERMINAL_OBSERVATION",
+        "protocol_observations": [
+          "No terminal N1 session decision observed within capture window"
+        ],
+        "timestamp": null
+      },
+      "ue_context": {
+        "amf_ue_ngap_id": 2,
+        "ran_ue_ngap_id": 2,
+        "sctp_association": 1
+      },
+      "unbound_evidence": []
+    }
+  ],
+  "limitations": [
+    "Analysis is strictly bounded to procedure evidence observed in the provided capture window",
+    "No protocol packet decoding is performed; lower-layer event attributes are accepted as-is",
+    "No implementation-specific source code or network function internal state is inferred",
+    "Absence of evidence does not prove network function failure"
+  ],
+  "procedure_name": "5gc-pdu-session",
+  "procedure_version": "0.3.0",
+  "unbound_evidence": {
+    "ambiguous_events": [
+      {
+        "ambiguity_reason": "CORRELATION_AMBIGUITY: Multiple concurrent UE instances share PDU Session ID 10; redacted subscriber identities prevent deterministic assignment",
+        "capture_file": "sample.pcap",
+        "connection": {
+          "connection_id": "conn-0",
+          "destination_address": "192.0.2.2",
+          "destination_port": 443,
+          "source_address": "192.0.2.1",
+          "source_port": 50000,
+          "tcp_stream": 0
+        },
+        "derivations": [
+          "service_name",
+          "operation"
+        ],
+        "evidence": {
+          "level": "OBSERVED",
+          "source": "tshark-extracted"
+        },
+        "frame_number": 3,
+        "http2": {
+          "authority": null,
+          "content_length": 150,
+          "content_type": "application/json",
+          "frame_type": "HEADERS",
+          "method": null,
+          "path": "/nsmf-pdusession/v1/sm-contexts",
+          "scheme": null,
+          "status": 201,
+          "stream_id": 1
+        },
+        "limitations": [],
+        "multipart_parts": [],
+        "namf_communication": null,
+        "privacy": {
+          "subscriber_identity_present": false,
+          "subscriber_identity_type": null
+        },
+        "problem_details": null,
+        "result": "RESPONSE",
+        "sbi": {
+          "api_version": "v1",
+          "n1n2_transfer_ref": null,
+          "operation": "CreateSMContext",
+          "resource": "sm-contexts",
+          "selected_headers": {},
+          "service_name": "nsmf-pdusession",
+          "sm_context_ref": "/sm-ctx-ambiguous"
+        },
+        "session_management": {
+          "access_type": "3GPP_ACCESS",
+          "dnn": "internet",
+          "n2_sm_info_type": "PDU_RES_SETUP_REQ",
+          "pdu_session_id": 10,
+          "rat_type": "NR",
+          "request_type": "INITIAL_REQUEST",
+          "snssai": {
+            "sd": "000001",
+            "sst": 1
+          },
+          "up_connection_state": "ESTABLISHED"
+        },
+        "support_status": "SUPPORTED",
+        "timestamp": "2026-03-01T10:00:00.300000Z",
+        "transport_error": null
+      }
+    ],
+    "unbound_n1": [],
+    "unbound_n11": [
+      {
+        "capture_file": "sample.pcap",
+        "connection": {
+          "connection_id": "conn-0",
+          "destination_address": "192.0.2.2",
+          "destination_port": 443,
+          "source_address": "192.0.2.1",
+          "source_port": 50000,
+          "tcp_stream": 0
+        },
+        "derivations": [
+          "service_name",
+          "operation"
+        ],
+        "evidence": {
+          "level": "OBSERVED",
+          "source": "tshark-extracted"
+        },
+        "frame_number": 3,
+        "http2": {
+          "authority": null,
+          "content_length": 150,
+          "content_type": "application/json",
+          "frame_type": "HEADERS",
+          "method": null,
+          "path": "/nsmf-pdusession/v1/sm-contexts",
+          "scheme": null,
+          "status": 201,
+          "stream_id": 1
+        },
+        "limitations": [],
+        "multipart_parts": [],
+        "namf_communication": null,
+        "privacy": {
+          "subscriber_identity_present": false,
+          "subscriber_identity_type": null
+        },
+        "problem_details": null,
+        "result": "RESPONSE",
+        "sbi": {
+          "api_version": "v1",
+          "n1n2_transfer_ref": null,
+          "operation": "CreateSMContext",
+          "resource": "sm-contexts",
+          "selected_headers": {},
+          "service_name": "nsmf-pdusession",
+          "sm_context_ref": "/sm-ctx-ambiguous"
+        },
+        "session_management": {
+          "access_type": "3GPP_ACCESS",
+          "dnn": "internet",
+          "n2_sm_info_type": "PDU_RES_SETUP_REQ",
+          "pdu_session_id": 10,
+          "rat_type": "NR",
+          "request_type": "INITIAL_REQUEST",
+          "snssai": {
+            "sd": "000001",
+            "sst": 1
+          },
+          "up_connection_state": "ESTABLISHED"
+        },
+        "support_status": "SUPPORTED",
+        "timestamp": "2026-03-01T10:00:00.300000Z",
+        "transport_error": null
+      }
+    ],
+    "unbound_n2": [],
+    "unbound_n3": [],
+    "unbound_n4": []
+  }
+}

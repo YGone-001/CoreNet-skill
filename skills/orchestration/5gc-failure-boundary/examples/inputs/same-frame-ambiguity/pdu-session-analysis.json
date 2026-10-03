@@ -1,0 +1,412 @@
+{
+  "instances": [
+    {
+      "association_basis": "ngap_ue_context_and_pdu_session_id",
+      "association_strength": "STRONG",
+      "deviations": [
+        {
+          "description": "NGAP resource setup failed for PDU Session ID 1 with cause unspecified",
+          "evidence_level": "OBSERVED",
+          "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
+          "stage_id": "access_resource_control",
+          "type": "RESOURCE_FAILED_ITEM_OBSERVED"
+        }
+      ],
+      "earliest_observed_deviation": {
+        "description": "NGAP resource setup failed for PDU Session ID 1 with cause unspecified",
+        "evidence_level": "OBSERVED",
+        "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
+        "stage_id": "access_resource_control",
+        "type": "RESOURCE_FAILED_ITEM_OBSERVED"
+      },
+      "field_findings": [
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 1,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 1,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "cause",
+          "frame_number": 4,
+          "interpretation": "NGAP resource setup cause",
+          "limitations": [],
+          "observed_value": {
+            "name": "resources-not-available"
+          },
+          "plane": "N2"
+        }
+      ],
+      "instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
+      "limitations": [
+        "Bounded to observed signaling window in capture artifact",
+        "No source code or network function internal execution state analyzed"
+      ],
+      "modification_attempts": [],
+      "pdu_session_id": 1,
+      "plane_bindings": {
+        "n1": {
+          "basis": "frame_provenance_ngap_nas_join",
+          "event_count": 1,
+          "message_types": [
+            "PduSessionEstablishmentRequest"
+          ],
+          "strength": "STRONG"
+        },
+        "n11": null,
+        "n2": {
+          "basis": "ngap_ue_context_and_resource_matching",
+          "event_count": 2,
+          "message_types": [
+            "PDUSessionResourceSetupRequest",
+            "PDUSessionResourceSetupResponse"
+          ],
+          "strength": "STRONG"
+        },
+        "n3": null,
+        "n4": null
+      },
+      "release_attempts": [],
+      "stages": [
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentRequest"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "PduSessionEstablishmentRequest observed at frame 1 for PDU Session ID 1"
+          ],
+          "stage_id": "session_request",
+          "stage_name": "Session Request",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI CreateSMContext"
+          ],
+          "limitations": [
+            "SBI signaling absent or encrypted under TLS without key material"
+          ],
+          "missing_evidence": [
+            "Nsmf_PDUSession CreateSMContext not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "sm_context_control",
+          "stage_name": "SM Context Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "PFCP SessionEstablishmentResponse"
+          ],
+          "limitations": [
+            "N4 interface traffic not captured at this vantage point"
+          ],
+          "missing_evidence": [
+            "PFCP Session Establishment signaling not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_control",
+          "stage_name": "User Plane Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "NGAP PDUSessionResourceSetupResponse"
+          ],
+          "limitations": [
+            "Access radio/transport resource setup rejected by gNB"
+          ],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "NGAP PDUSessionResourceSetupResponse at frame 4 reported PDU Session ID 1 in failed list with cause unspecified"
+          ],
+          "stage_id": "access_resource_control",
+          "stage_name": "Access Resource Control",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI N1N2MessageTransfer"
+          ],
+          "limitations": [
+            "SBI N11 communication interface was not monitored in this capture"
+          ],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "N1/N2 signaling directly observed on radio/access interfaces without N11 transfer evidence"
+          ],
+          "stage_id": "n1_n2_delivery",
+          "stage_name": "N1/N2 Delivery",
+          "status": "NOT_APPLICABLE"
+        },
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentAccept",
+            "NAS-5GS PduSessionEstablishmentReject"
+          ],
+          "limitations": [
+            "Capture terminated before terminal decision signaling was recorded"
+          ],
+          "missing_evidence": [
+            "Terminal PDU Session Establishment decision (Accept or Reject) not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "session_decision",
+          "stage_name": "Session Decision",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "GTP-U G-PDU"
+          ],
+          "limitations": [
+            "No matching N3 user-plane traffic was observed within the capture window; traffic may be idle, delayed, or outside the capture point"
+          ],
+          "missing_evidence": [
+            "no matching N3 G-PDU evidence observed within the available capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_observation",
+          "stage_name": "User Plane Observation",
+          "status": "MISSING"
+        }
+      ],
+      "terminal_observation": {
+        "evidence_level": "DERIVED",
+        "frame_number": null,
+        "message_type": null,
+        "observation": "NO_N1_TERMINAL_OBSERVATION",
+        "protocol_observations": [
+          "No terminal N1 session decision observed within capture window"
+        ],
+        "timestamp": null
+      },
+      "ue_context": {
+        "amf_ue_ngap_id": 1,
+        "ran_ue_ngap_id": 1,
+        "sctp_association": 1
+      },
+      "unbound_evidence": []
+    },
+    {
+      "association_basis": "ngap_ue_context_and_pdu_session_id",
+      "association_strength": "STRONG",
+      "deviations": [
+        {
+          "description": "NGAP resource setup failed for PDU Session ID 2 with cause unspecified",
+          "evidence_level": "OBSERVED",
+          "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
+          "stage_id": "access_resource_control",
+          "type": "RESOURCE_FAILED_ITEM_OBSERVED"
+        }
+      ],
+      "earliest_observed_deviation": {
+        "description": "NGAP resource setup failed for PDU Session ID 2 with cause unspecified",
+        "evidence_level": "OBSERVED",
+        "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
+        "stage_id": "access_resource_control",
+        "type": "RESOURCE_FAILED_ITEM_OBSERVED"
+      },
+      "field_findings": [
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 2,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 2,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "cause",
+          "frame_number": 4,
+          "interpretation": "NGAP resource setup cause",
+          "limitations": [],
+          "observed_value": {
+            "name": "resources-not-available"
+          },
+          "plane": "N2"
+        }
+      ],
+      "instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi2",
+      "limitations": [
+        "Bounded to observed signaling window in capture artifact",
+        "No source code or network function internal execution state analyzed"
+      ],
+      "modification_attempts": [],
+      "pdu_session_id": 2,
+      "plane_bindings": {
+        "n1": {
+          "basis": "frame_provenance_ngap_nas_join",
+          "event_count": 1,
+          "message_types": [
+            "PduSessionEstablishmentRequest"
+          ],
+          "strength": "STRONG"
+        },
+        "n11": null,
+        "n2": {
+          "basis": "ngap_ue_context_and_resource_matching",
+          "event_count": 2,
+          "message_types": [
+            "PDUSessionResourceSetupRequest",
+            "PDUSessionResourceSetupResponse"
+          ],
+          "strength": "STRONG"
+        },
+        "n3": null,
+        "n4": null
+      },
+      "release_attempts": [],
+      "stages": [
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentRequest"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "PduSessionEstablishmentRequest observed at frame 2 for PDU Session ID 2"
+          ],
+          "stage_id": "session_request",
+          "stage_name": "Session Request",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI CreateSMContext"
+          ],
+          "limitations": [
+            "SBI signaling absent or encrypted under TLS without key material"
+          ],
+          "missing_evidence": [
+            "Nsmf_PDUSession CreateSMContext not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "sm_context_control",
+          "stage_name": "SM Context Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "PFCP SessionEstablishmentResponse"
+          ],
+          "limitations": [
+            "N4 interface traffic not captured at this vantage point"
+          ],
+          "missing_evidence": [
+            "PFCP Session Establishment signaling not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_control",
+          "stage_name": "User Plane Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "NGAP PDUSessionResourceSetupResponse"
+          ],
+          "limitations": [
+            "Access radio/transport resource setup rejected by gNB"
+          ],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "NGAP PDUSessionResourceSetupResponse at frame 4 reported PDU Session ID 2 in failed list with cause unspecified"
+          ],
+          "stage_id": "access_resource_control",
+          "stage_name": "Access Resource Control",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI N1N2MessageTransfer"
+          ],
+          "limitations": [
+            "SBI N11 communication interface was not monitored in this capture"
+          ],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "N1/N2 signaling directly observed on radio/access interfaces without N11 transfer evidence"
+          ],
+          "stage_id": "n1_n2_delivery",
+          "stage_name": "N1/N2 Delivery",
+          "status": "NOT_APPLICABLE"
+        },
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentAccept",
+            "NAS-5GS PduSessionEstablishmentReject"
+          ],
+          "limitations": [
+            "Capture terminated before terminal decision signaling was recorded"
+          ],
+          "missing_evidence": [
+            "Terminal PDU Session Establishment decision (Accept or Reject) not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "session_decision",
+          "stage_name": "Session Decision",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "GTP-U G-PDU"
+          ],
+          "limitations": [
+            "No matching N3 user-plane traffic was observed within the capture window; traffic may be idle, delayed, or outside the capture point"
+          ],
+          "missing_evidence": [
+            "no matching N3 G-PDU evidence observed within the available capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_observation",
+          "stage_name": "User Plane Observation",
+          "status": "MISSING"
+        }
+      ],
+      "terminal_observation": {
+        "evidence_level": "DERIVED",
+        "frame_number": null,
+        "message_type": null,
+        "observation": "NO_N1_TERMINAL_OBSERVATION",
+        "protocol_observations": [
+          "No terminal N1 session decision observed within capture window"
+        ],
+        "timestamp": null
+      },
+      "ue_context": {
+        "amf_ue_ngap_id": 1,
+        "ran_ue_ngap_id": 1,
+        "sctp_association": 1
+      },
+      "unbound_evidence": []
+    }
+  ],
+  "limitations": [
+    "Analysis is strictly bounded to procedure evidence observed in the provided capture window",
+    "No protocol packet decoding is performed; lower-layer event attributes are accepted as-is",
+    "No implementation-specific source code or network function internal state is inferred",
+    "Absence of evidence does not prove network function failure"
+  ],
+  "procedure_name": "5gc-pdu-session",
+  "procedure_version": "0.3.0",
+  "unbound_evidence": {
+    "ambiguous_events": [],
+    "unbound_n1": [],
+    "unbound_n11": [],
+    "unbound_n2": [],
+    "unbound_n3": [],
+    "unbound_n4": []
+  }
+}

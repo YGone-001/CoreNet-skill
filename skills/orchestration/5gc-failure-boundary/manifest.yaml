@@ -1,0 +1,125 @@
+name: 5gc-failure-boundary
+version: 0.1.0
+category: orchestration
+description: >
+  Bounded Analysis Orchestration Skill composing already-produced 5GC Domain
+  analysis JSON from 5gc-registration-mobility and 5gc-pdu-session into
+  evidence-safe diagnostic groups and identifying the earliest safely orderable
+  abnormal evidence boundary per group. Candidates come only from deviations
+  already emitted by the source Domain Skills; ordering relies on evidence
+  provenance, never severity; boundary confidence is selection confidence,
+  never causal confidence; and no root cause, network-function blame, vendor
+  defect, or implementation mapping is ever produced.
+scope:
+  includes:
+    - diagnostic group formation from exact common context (capture file, SCTP association, RAN-UE-NGAP-ID, AMF-UE-NGAP-ID) across supported Domain analyses
+    - multi-UE and multi-association isolation; no timestamp-only or numeric-ID-only subject joins
+    - PDU Session lifecycle generation preservation per source instance
+    - abnormal-boundary candidates from Domain-emitted deviations mapped exactly (protocol reject, unsuccessful outcome, negative outcome, failed resource item, delivery failure notification, missing expected counterpart, field conflict)
+    - evidence-limitation preservation (partial capture, correlation ambiguity/conflict, lifecycle ambiguity, protected payload, out-of-order, duplicate/retransmission)
+    - first-boundary selection by evidence ordering with SELECTED, NO_ABNORMAL_BOUNDARY_OBSERVED, AMBIGUOUS_FIRST_BOUNDARY, and INSUFFICIENT_COMPARABLE_EVIDENCE outcomes
+    - boundary-confidence classification (HIGH/MEDIUM/LOW) as selection confidence only
+    - neutral downstream observations (OBSERVED_AFTER_BOUNDARY, never caused-by)
+    - deterministic additional-evidence-needed statements for ambiguous or insufficient cases
+    - not-confirmed statements bounding what the analysis does not establish
+  excludes:
+    - implementation root-cause attribution and root-cause hypothesis ranking
+    - vendor or network-function blame
+    - source-code mapping
+    - handover, path switch, and UPF relocation
+    - IMS, EPC, policy, and charging procedures
+    - raw protocol event interpretation, PCAP parsing, and log parsing
+    - confidence-based causal hypothesis generation
+    - success, failure, or health verdicts for the network or procedures
+dependencies:
+  required: []
+  optional:
+    - 5gc-registration-mobility >=0.1.0
+    - 5gc-pdu-session >=0.3.0
+    - procedure-evidence >=0.1.0
+inputs:
+  - 5gc-registration-mobility analysis summary JSON (from the 5gc-registration-mobility Skill)
+  - 5gc-pdu-session analysis summary JSON (from the 5gc-pdu-session Skill)
+outputs:
+  - 5GC failure-boundary analysis summary JSON
+  - text investigation report
+protocols: []
+interfaces:
+  - N1
+  - N2
+  - N3
+  - N4
+  - N11
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Analysis Orchestration package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/inputs/auth-failure-before-reject
+    - examples/inputs/correlation-ambiguity-limitation
+    - examples/inputs/duplicate-identical-input
+    - examples/inputs/duplicate-only-limitation
+    - examples/inputs/incomparable-provenance
+    - examples/inputs/lifecycle-ambiguity-limitation
+    - examples/inputs/lifecycle-generations-distinct
+    - examples/inputs/malformed-domain-input
+    - examples/inputs/namf-202-then-failure-notification
+    - examples/inputs/ngap-boundary-before-nas-reject
+    - examples/inputs/ngap-failed-resource-boundary
+    - examples/inputs/no-deviations-anywhere
+    - examples/inputs/out-of-order-input-order
+    - examples/inputs/partial-capture-blocks-missing
+    - examples/inputs/pdu-no-abnormal-no-traffic
+    - examples/inputs/pdu-session-only
+    - examples/inputs/pfcp-boundary-downstream-neutral
+    - examples/inputs/pfcp-negative-boundary
+    - examples/inputs/protected-payload-limitation
+    - examples/inputs/registration-before-pdu-boundary
+    - examples/inputs/registration-complete-pdu-reject
+    - examples/inputs/registration-complete-sm-context-error
+    - examples/inputs/registration-missing-counterpart
+    - examples/inputs/registration-only
+    - examples/inputs/registration-reject-only
+    - examples/inputs/same-frame-ambiguity
+    - examples/inputs/same-ids-different-associations
+    - examples/inputs/two-ue-two-groups
+    - examples/inputs/unlinked-captures
+    - examples/inputs/valid-release-no-abnormal
+  expected_results:
+    - examples/expected/auth-failure-before-reject-analysis.json
+    - examples/expected/correlation-ambiguity-limitation-analysis.json
+    - examples/expected/duplicate-identical-input-analysis.json
+    - examples/expected/duplicate-only-limitation-analysis.json
+    - examples/expected/incomparable-provenance-analysis.json
+    - examples/expected/lifecycle-ambiguity-limitation-analysis.json
+    - examples/expected/lifecycle-generations-distinct-analysis.json
+    - examples/expected/malformed-domain-input-analysis.json
+    - examples/expected/namf-202-then-failure-notification-analysis.json
+    - examples/expected/ngap-boundary-before-nas-reject-analysis.json
+    - examples/expected/ngap-failed-resource-boundary-analysis.json
+    - examples/expected/no-deviations-anywhere-analysis.json
+    - examples/expected/out-of-order-input-order-analysis.json
+    - examples/expected/partial-capture-blocks-missing-analysis.json
+    - examples/expected/pdu-no-abnormal-no-traffic-analysis.json
+    - examples/expected/pdu-session-only-analysis.json
+    - examples/expected/pfcp-boundary-downstream-neutral-analysis.json
+    - examples/expected/pfcp-negative-boundary-analysis.json
+    - examples/expected/protected-payload-limitation-analysis.json
+    - examples/expected/registration-before-pdu-boundary-analysis.json
+    - examples/expected/registration-complete-pdu-reject-analysis.json
+    - examples/expected/registration-complete-sm-context-error-analysis.json
+    - examples/expected/registration-missing-counterpart-analysis.json
+    - examples/expected/registration-only-analysis.json
+    - examples/expected/registration-reject-only-analysis.json
+    - examples/expected/same-frame-ambiguity-analysis.json
+    - examples/expected/same-ids-different-associations-analysis.json
+    - examples/expected/two-ue-two-groups-analysis.json
+    - examples/expected/unlinked-captures-analysis.json
+    - examples/expected/valid-release-no-abnormal-analysis.json

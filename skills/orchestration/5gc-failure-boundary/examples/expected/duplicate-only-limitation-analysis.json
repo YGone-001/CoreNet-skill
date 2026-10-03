@@ -1,0 +1,83 @@
+{
+  "analysis_name": "5gc-failure-boundary",
+  "analysis_version": "0.1.0",
+  "diagnostic_groups": [
+    {
+      "additional_evidence_needed": [],
+      "boundary_confidence": null,
+      "candidate_boundaries": [],
+      "diagnostic_id": "diag-1",
+      "downstream_observations": [],
+      "earlier_context": [],
+      "evidence_limitations": [
+        {
+          "description": "Repeated PduSessionModificationRequest observed (PTI=2)",
+          "evidence_level": "OBSERVED",
+          "source_attempt_id": "mod-1",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
+          "stage_id": "modification_initiation",
+          "type": "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"
+        }
+      ],
+      "limitations": [
+        "No severity ranking is applied: first means earliest safely orderable boundary",
+        "Downstream observations are not caused by the selected boundary",
+        "NO_ABNORMAL_BOUNDARY_OBSERVED never means network or procedure success"
+      ],
+      "not_confirmed": [
+        "implementation cause not assessed",
+        "network-function blame not established",
+        "vendor defect not established",
+        "end-to-end root cause not established"
+      ],
+      "observation_scope": {
+        "capture_files": [
+          "test.pcap"
+        ],
+        "source_count": 1
+      },
+      "selected_boundary": null,
+      "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+      "source_domain_instances": [
+        {
+          "capture_file": "test.pcap",
+          "pdu_session_id": 1,
+          "source_domain": "5gc-pdu-session",
+          "source_file": "pdu-session-analysis.json",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+        }
+      ],
+      "subject_link": {
+        "basis": "no_cross_domain_link_single_source",
+        "source_contexts": [
+          {
+            "amf_ue_ngap_id": 1,
+            "capture_file": "test.pcap",
+            "ran_ue_ngap_id": 1,
+            "sctp_association": 1,
+            "source_domain": "5gc-pdu-session",
+            "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+          }
+        ],
+        "strength": "UNBOUND"
+      },
+      "supporting_anomalies": []
+    }
+  ],
+  "limitations": [
+    "Analysis is bounded to the Domain analysis JSON supplied as input; no raw protocol events are interpreted",
+    "Boundary candidates come only from deviations already emitted by the source Domain Skills",
+    "First means the earliest safely orderable abnormal evidence boundary, never the most serious abnormality",
+    "Boundary confidence expresses confidence in the boundary selection and ordering, never causal confidence",
+    "No implementation-specific source code or network function internal state is inferred"
+  ],
+  "unbound_domain_analyses": [
+    {
+      "reason": "no evidence-safe cross-domain subject link exists for this analysis",
+      "source_domain": "5gc-pdu-session",
+      "source_file": "pdu-session-analysis.json",
+      "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+    }
+  ]
+}

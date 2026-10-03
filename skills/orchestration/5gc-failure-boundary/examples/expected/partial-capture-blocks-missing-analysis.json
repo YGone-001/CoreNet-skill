@@ -1,0 +1,246 @@
+{
+  "analysis_name": "5gc-failure-boundary",
+  "analysis_version": "0.1.0",
+  "diagnostic_groups": [
+    {
+      "additional_evidence_needed": [
+        {
+          "candidate_id": "1-cand-1",
+          "reason": "MISSING_EXPECTED_COUNTERPART candidate is not orderable because the source Domain marks the observation window as partial",
+          "requirement": "a capture covering the expected response is required"
+        },
+        {
+          "candidate_id": "1-cand-2",
+          "reason": "MISSING_EXPECTED_COUNTERPART candidate is not orderable because the source Domain marks the observation window as partial",
+          "requirement": "a capture covering the expected response is required"
+        },
+        {
+          "candidate_id": "1-cand-3",
+          "reason": "MISSING_EXPECTED_COUNTERPART candidate is not orderable because the source Domain marks the observation window as partial",
+          "requirement": "a capture covering the expected response is required"
+        }
+      ],
+      "boundary_confidence": null,
+      "candidate_boundaries": [
+        {
+          "boundary_anchor": {
+            "capture_file": "reg.pcapng",
+            "frame_number": null,
+            "message_type": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-1",
+          "description": "No Registration accept or Registration reject was observed within the available observation window",
+          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+          "evidence_level": "DERIVED",
+          "limitations": [
+            "Capture termination may explain the missing evidence"
+          ],
+          "ordering_basis": {
+            "frame_number": null,
+            "observation_window": {
+              "end_frame": 11,
+              "start_frame": 10
+            },
+            "stage_position": 1
+          },
+          "procedure_family": "5gc-registration-mobility",
+          "procedure_stage": "registration-decision",
+          "selectability": "BLOCKED_BY_PARTIAL_CAPTURE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-registration-mobility",
+          "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "No Registration accept or Registration reject was observed within the available observation window",
+              "evidence_level": "DERIVED",
+              "limitation": "Capture termination may explain the missing evidence",
+              "stage_id": "registration-decision",
+              "type": "MISSING_EXPECTED_COUNTERPART"
+            },
+            "source_observation_window": {
+              "first_frame": 10,
+              "last_frame": 11
+            },
+            "source_terminal": {
+              "evidence_level": "DERIVED",
+              "frame_number": null,
+              "message_type": null,
+              "observation": "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW",
+              "timestamp": null
+            }
+          }
+        },
+        {
+          "boundary_anchor": {
+            "capture_file": "reg.pcapng",
+            "frame_number": null,
+            "message_type": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-2",
+          "description": "The Authentication procedure branch was entered (trigger at frame 10) but none of its expected outcomes was observed",
+          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+          "evidence_level": "DERIVED",
+          "limitations": [
+            "Capture termination may explain the missing evidence"
+          ],
+          "ordering_basis": {
+            "frame_number": null,
+            "observation_window": {
+              "end_frame": 11,
+              "start_frame": 10
+            },
+            "stage_position": 0
+          },
+          "procedure_family": "5gc-registration-mobility",
+          "procedure_stage": "authentication",
+          "selectability": "BLOCKED_BY_PARTIAL_CAPTURE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-registration-mobility",
+          "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "The Authentication procedure branch was entered (trigger at frame 10) but none of its expected outcomes was observed",
+              "evidence_level": "DERIVED",
+              "limitation": "Capture termination may explain the missing evidence",
+              "stage_id": "authentication",
+              "type": "MISSING_EXPECTED_COUNTERPART"
+            },
+            "source_observation_window": {
+              "first_frame": 10,
+              "last_frame": 11
+            },
+            "source_terminal": {
+              "evidence_level": "DERIVED",
+              "frame_number": null,
+              "message_type": null,
+              "observation": "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW",
+              "timestamp": null
+            }
+          }
+        },
+        {
+          "boundary_anchor": {
+            "capture_file": "reg.pcapng",
+            "frame_number": null,
+            "message_type": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-3",
+          "description": "The Registration completion branch was entered (trigger at frame 11) but none of its expected outcomes was observed",
+          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+          "evidence_level": "DERIVED",
+          "limitations": [
+            "Capture termination may explain the missing evidence"
+          ],
+          "ordering_basis": {
+            "frame_number": null,
+            "observation_window": {
+              "end_frame": 11,
+              "start_frame": 10
+            },
+            "stage_position": 2
+          },
+          "procedure_family": "5gc-registration-mobility",
+          "procedure_stage": "registration-completion",
+          "selectability": "BLOCKED_BY_PARTIAL_CAPTURE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-registration-mobility",
+          "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+          "supporting_evidence": {
+            "source_deviation": {
+              "description": "The Registration completion branch was entered (trigger at frame 11) but none of its expected outcomes was observed",
+              "evidence_level": "DERIVED",
+              "limitation": "Capture termination may explain the missing evidence",
+              "stage_id": "registration-completion",
+              "type": "MISSING_EXPECTED_COUNTERPART"
+            },
+            "source_observation_window": {
+              "first_frame": 10,
+              "last_frame": 11
+            },
+            "source_terminal": {
+              "evidence_level": "DERIVED",
+              "frame_number": null,
+              "message_type": null,
+              "observation": "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW",
+              "timestamp": null
+            }
+          }
+        }
+      ],
+      "diagnostic_id": "diag-1",
+      "downstream_observations": [],
+      "earlier_context": [],
+      "evidence_limitations": [
+        {
+          "description": "The observation window begins after the procedure's initiation evidence; the capture starts mid-procedure",
+          "evidence_level": "DERIVED",
+          "source_attempt_id": null,
+          "source_domain": "5gc-registration-mobility",
+          "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+          "stage_id": "registration-initiation",
+          "type": "PARTIAL_CAPTURE"
+        }
+      ],
+      "limitations": [
+        "No severity ranking is applied: first means earliest safely orderable boundary",
+        "Downstream observations are not caused by the selected boundary",
+        "NO_ABNORMAL_BOUNDARY_OBSERVED never means network or procedure success"
+      ],
+      "not_confirmed": [
+        "implementation cause not assessed",
+        "network-function blame not established",
+        "vendor defect not established",
+        "end-to-end root cause not established"
+      ],
+      "observation_scope": {
+        "capture_files": [
+          "reg.pcapng"
+        ],
+        "source_count": 1
+      },
+      "selected_boundary": null,
+      "selection_status": "INSUFFICIENT_COMPARABLE_EVIDENCE",
+      "source_domain_instances": [
+        {
+          "capture_file": "reg.pcapng",
+          "source_domain": "5gc-registration-mobility",
+          "source_file": "registration-analysis.json",
+          "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1"
+        }
+      ],
+      "subject_link": {
+        "basis": "no_cross_domain_link_single_source",
+        "source_contexts": [
+          {
+            "amf_ue_ngap_id": 2,
+            "capture_file": "reg.pcapng",
+            "ran_ue_ngap_id": 1,
+            "sctp_association": "sctp-assoc-0",
+            "source_domain": "5gc-registration-mobility",
+            "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1"
+          }
+        ],
+        "strength": "UNBOUND"
+      },
+      "supporting_anomalies": []
+    }
+  ],
+  "limitations": [
+    "Analysis is bounded to the Domain analysis JSON supplied as input; no raw protocol events are interpreted",
+    "Boundary candidates come only from deviations already emitted by the source Domain Skills",
+    "First means the earliest safely orderable abnormal evidence boundary, never the most serious abnormality",
+    "Boundary confidence expresses confidence in the boundary selection and ordering, never causal confidence",
+    "No implementation-specific source code or network function internal state is inferred"
+  ],
+  "unbound_domain_analyses": [
+    {
+      "reason": "no evidence-safe cross-domain subject link exists for this analysis",
+      "source_domain": "5gc-registration-mobility",
+      "source_file": "registration-analysis.json",
+      "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1"
+    }
+  ]
+}
