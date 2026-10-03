@@ -75,18 +75,22 @@ one capture point: it does not claim UE or application delivery, does not
 infer packet loss from sequence numbers, does not decode application
 payloads, and does not correlate GTP-U TEIDs to PFCP, NGAP or NAS.
 
-Implemented: `sbi-http2`, the N11 SBI/HTTP2 Protocol Skill. Version 0.1.0
-supports a bounded Nsmf_PDUSession subset of TS 29.502 (Release 19) over
-HTTP/2 per RFC 9113 / RFC 9110: Create SM Context, Update SM Context, and
-Release SM Context, with HTTP/2 stream isolation scoped by connection
-context (stream ID alone never identifies a transaction), Content-ID
+Implemented: `sbi-http2`, the N11 SBI/HTTP2 Protocol Skill. Version 0.2.0
+supports a bounded Nsmf_PDUSession subset of TS 29.502 (Release 19) and
+Namf_Communication N1/N2 delivery subset of TS 29.518 (Release 19) over
+HTTP/2 per RFC 9113 / RFC 9110: Create SM Context, Update SM Context,
+Release SM Context, Namf N1N2MessageTransfer, and N1N2Transfer Failure
+Notification, with HTTP/2 stream isolation scoped by connection
+context (stream ID alone never identifies a transaction), transfer
+resource reference tracking, URI path privacy sanitization, Content-ID
 multipart binding for N1 SM and N2 SM information parts, subscriber privacy
 defaults (SUPI, GPSI, PEI redacted by default), Authorization header
 stripping, bounded 3GPP ProblemDetails and service-error preservation,
-and HTTP/2 transport error handling (RST_STREAM, GOAWAY). It does not
-decode NAS or NGAP binaries, does not own PFCP or GTP-U semantics, does
-not perform TLS decryption, does not join cross-interface session state,
-and does not determine PDU session or SMF verdicts.
+HTTP/2 transport error handling (RST_STREAM, GOAWAY), and deterministic
+callback correlation. It does not decode NAS or NGAP binaries, does not
+own PFCP or GTP-U semantics, does not perform TLS decryption, does not join
+cross-interface session state, and does not determine PDU session or SMF/AMF
+verdicts.
 
 Planned: `nas-eps`, `s1ap`, `gtpv2`, `sip`, `sdp-rtp`,
 `diameter-core` and its domain layers, and remaining 5GC SBI services.

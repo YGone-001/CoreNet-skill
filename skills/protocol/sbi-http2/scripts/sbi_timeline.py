@@ -98,7 +98,12 @@ def format_text_line(event: dict[str, object]) -> str:
         action = "-"
 
     op = sb.get("operation") or sb.get("resource") or "-"
-    ref = f"ref={sb.get('sm_context_ref')}" if sb.get("sm_context_ref") else "ref=-"
+    if sb.get("sm_context_ref"):
+        ref = f"ref={sb.get('sm_context_ref')}"
+    elif sb.get("n1n2_transfer_ref"):
+        ref = f"ref={sb.get('n1n2_transfer_ref')}"
+    else:
+        ref = "ref=-"
 
     extra: list[str] = []
     if sm.get("pdu_session_id") is not None:
@@ -106,15 +111,21 @@ def format_text_line(event: dict[str, object]) -> str:
     if sm.get("dnn"):
         extra.append(f"dnn={sm['dnn']}")
 
-    n1_present = any(p.get("semantic_role") == "N1_SM_INFO" for p in parts if isinstance(p, dict))
-    n2_present = any(p.get("semantic_role") == "N2_SM_INFO" for p in parts if isinstance(p, dict))
+    n1_present = any(p.get("semantic_role") in ("N1_SM_INFO", "N1_MESSAGE") for p in parts if isinstance(p, dict))
+    n2_present = any(p.get("semantic_role") in ("N2_SM_INFO", "N2_INFO") for p in parts if isinstance(p, dict))
     if n1_present:
         extra.append("n1=yes")
     if n2_present:
         extra.append("n2=yes")
 
-    if prob.get("cause"):
+    namf = event.get("namf_communication") if isinstance(event.get("namf_communication"), dict) else {}
+    if namf.get("transfer_cause"):
+        extra.append(f"cause={namf['transfer_cause']}")
+    elif namf.get("failure_cause"):
+        extra.append(f"cause={namf['failure_cause']}")
+    elif prob.get("cause"):
         extra.append(f"cause={prob['cause']}")
+
     if trans.get("type"):
         extra.append(f"{trans['type']}({trans.get('error_code') or '-'})")
 
@@ -126,12 +137,13 @@ def timeline_entry(event: dict[str, object]) -> dict[str, object]:
     h2 = event.get("http2") if isinstance(event.get("http2"), dict) else {}
     sb = event.get("sbi") if isinstance(event.get("sbi"), dict) else {}
     sm = event.get("session_management") if isinstance(event.get("session_management"), dict) else {}
+    namf = event.get("namf_communication") if isinstance(event.get("namf_communication"), dict) else {}
     prob = event.get("problem_details") if isinstance(event.get("problem_details"), dict) else {}
     trans = event.get("transport_error") if isinstance(event.get("transport_error"), dict) else {}
     parts = event.get("multipart_parts") if isinstance(event.get("multipart_parts"), list) else []
 
-    n1_present = any(p.get("semantic_role") == "N1_SM_INFO" for p in parts if isinstance(p, dict))
-    n2_present = any(p.get("semantic_role") == "N2_SM_INFO" for p in parts if isinstance(p, dict))
+    n1_present = any(p.get("semantic_role") in ("N1_SM_INFO", "N1_MESSAGE") for p in parts if isinstance(p, dict))
+    n2_present = any(p.get("semantic_role") in ("N2_SM_INFO", "N2_INFO") for p in parts if isinstance(p, dict))
 
     return {
         "timestamp": event.get("timestamp"),
@@ -145,10 +157,13 @@ def timeline_entry(event: dict[str, object]) -> dict[str, object]:
         "operation": sb.get("operation"),
         "resource": sb.get("resource"),
         "sm_context_ref": sb.get("sm_context_ref"),
+        "n1n2_transfer_ref": sb.get("n1n2_transfer_ref"),
         "pdu_session_id": sm.get("pdu_session_id"),
         "dnn": sm.get("dnn"),
         "n1_sm_part_present": n1_present,
         "n2_sm_part_present": n2_present,
+        "transfer_cause": namf.get("transfer_cause"),
+        "failure_cause": namf.get("failure_cause"),
         "problem_cause": prob.get("cause"),
         "transport_error": trans.get("type"),
         "transport_error_code": trans.get("error_code"),

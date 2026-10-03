@@ -5,11 +5,13 @@ Reviewed basis:
 - 3GPP TS 29.500 version 19.7.0 Release 19 (Technical Realization of SBA)
 - 3GPP TS 29.501 version 19.5.0 Release 19 (Principles and Guidelines for Services Definition)
 - 3GPP TS 29.502 version 19.8.0 Release 19 (Session Management Services, Release 19 lineage)
+- 3GPP TS 29.518 version 19.8.0 Release 19 (Access and Mobility Management Services; Stage 3)
 - 3GPP TS 29.571 version 19.4.0 / 19.8.0 Release 19 (Common Data Types for SBI)
 - RFC 9113 (HTTP/2)
 - RFC 9110 (HTTP Semantics)
 
-Bounded semantics: Create SM Context, Update SM Context, and Release SM Context are
+Bounded semantics: Nsmf_PDUSession (Create SM Context, Update SM Context, and Release SM Context)
+and Namf_Communication (N1N2MessageTransfer and N1N2Transfer Failure Notification) are
 SUPPORTED. Other operations or services are UNSUPPORTED or UNKNOWN. Raw HTTP/2 parsing,
 HPACK decoding, TLS decryption, NAS decoding, and NGAP decoding are strictly forbidden.
 Stream IDs are always scoped by connection context.
@@ -25,6 +27,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 EXIT_TOOL_UNAVAILABLE = 3
 EXIT_TSHARK_FAILURE = 4
@@ -68,6 +71,27 @@ SERVICE_NSMF_PDUSESSION = "Nsmf_PDUSession"
 OP_CREATE_SM_CONTEXT = "CreateSMContext"
 OP_UPDATE_SM_CONTEXT = "UpdateSMContext"
 OP_RELEASE_SM_CONTEXT = "ReleaseSMContext"
+
+SERVICE_NAMF_COMMUNICATION = "Namf_Communication"
+OP_N1N2_MESSAGE_TRANSFER = "N1N2MessageTransfer"
+OP_N1N2_TRANSFER_FAILURE_NOTIFICATION = "N1N2TransferFailureNotification"
+
+NAMF_TRANSFER_CAUSES = {
+    "N1_N2_TRANSFER_INITIATED",
+    "WAITING_FOR_ASYNCHRONOUS_TRANSFER",
+    "ATTEMPTING_TO_REACH_UE",
+    "N1_MSG_NOT_TRANSFERRED",
+    "N2_MSG_NOT_TRANSFERRED",
+}
+
+NAMF_FAILURE_CAUSES = {
+    "UE_NOT_RESPONDING",
+    "UE_NOT_REACHABLE_FOR_SESSION",
+    "TEMPORARY_REJECT_REGISTRATION_ONGOING",
+    "TEMPORARY_REJECT_HANDOVER_ONGOING",
+    "AN_NOT_RESPONDING",
+    "FAILURE_CAUSE_UNSPECIFIED",
+}
 
 MEDIA_TYPE_5GNAS = "application/vnd.3gpp.5gnas"
 MEDIA_TYPE_NGAP = "application/vnd.3gpp.ngap"
@@ -177,8 +201,81 @@ def filter_safe_headers(headers: dict[str, Any] | None) -> dict[str, str]:
     return filtered
 
 
-def parse_sbi_uri(path: str | None, method: str | None) -> tuple[str | None, str | None, str | None, str | None, str | None, str]:
-    """Analyze HTTP path and method to determine SBI service, version, operation, and ref."""
+def sanitize_sbi_uri(uri: Any) -> tuple[str | None, bool, str | None, str | None]:
+    """Central URI sanitizer for identity-bearing SBI paths.
+
+    Strips query parameters containing sensitive tokens/secrets.
+    Detects and replaces /ue-contexts/{raw_id} with /ue-contexts/{ueContextId}.
+    Returns (sanitized_path, ue_context_id_present, ue_context_id_type, n1n2_transfer_ref).
+    """
+    if uri is None:
+        return None, False, None, None
+    raw_text = str(uri).strip()
+    if not raw_text:
+        return None, False, None, None
+
+    # Strip any query string
+    path_part = raw_text.split("?")[0].strip()
+
+    # Match /namf-comm/vX/ue-contexts/<id>/n1-n2-messages[/<msg-id>]
+    namf_match = re.search(
+        r"(?:https?://[^/]+)?(/namf-comm/(v[0-9]+)/ue-contexts/([^/]+)/n1-n2-messages(?:/([^/?#]+))?)",
+        path_part,
+    )
+    if namf_match:
+        api_ver = namf_match.group(2)
+        raw_id = namf_match.group(3)
+        msg_id = namf_match.group(4)
+
+        decoded_id = unquote(raw_id).strip()
+        lower_id = decoded_id.lower()
+
+        if lower_id.startswith(("imsi-", "supi-")) or (re.fullmatch(r"[0-9]{14,16}", decoded_id)):
+            id_type = "SUPI"
+        elif lower_id.startswith(("pei-", "imei-", "imeisv-")) or ("pei" in lower_id):
+            id_type = "PEI"
+        elif lower_id.startswith("guti-"):
+            id_type = "GUTI"
+        elif re.fullmatch(r"[a-zA-Z0-9_\-\.~%]+", decoded_id):
+            id_type = "GENERIC"
+        else:
+            id_type = "UNKNOWN"
+
+        sanitized_path = f"/namf-comm/{api_ver}/ue-contexts/{{ueContextId}}/n1-n2-messages"
+        transfer_ref = None
+        if msg_id:
+            sanitized_path += f"/{msg_id}"
+            transfer_ref = sanitized_path
+
+        return sanitized_path, True, id_type, transfer_ref
+
+    # Match generic /ue-contexts/<id>
+    generic_ue_match = re.search(r"(?:https?://[^/]+)?(/namf-comm/(v[0-9]+)/ue-contexts/([^/]+)(?:/.*)?)", path_part)
+    if generic_ue_match:
+        api_ver = generic_ue_match.group(2)
+        raw_id = generic_ue_match.group(3)
+        decoded_id = unquote(raw_id).strip()
+        lower_id = decoded_id.lower()
+        if lower_id.startswith(("imsi-", "supi-")) or (re.fullmatch(r"[0-9]{14,16}", decoded_id)):
+            id_type = "SUPI"
+        elif lower_id.startswith(("pei-", "imei-", "imeisv-")) or ("pei" in lower_id):
+            id_type = "PEI"
+        elif lower_id.startswith("guti-"):
+            id_type = "GUTI"
+        else:
+            id_type = "GENERIC"
+        sanitized = re.sub(r"/ue-contexts/[^/]+", "/ue-contexts/{ueContextId}", path_part)
+        return sanitized, True, id_type, None
+
+    return path_part, False, None, None
+
+
+def parse_sbi_uri(
+    path: str | None,
+    method: str | None,
+    json_body: dict[str, Any] | None = None,
+) -> tuple[str | None, str | None, str | None, str | None, str | None, str]:
+    """Analyze HTTP path, method, and optional body to determine SBI service, version, operation, and ref."""
     if not path:
         return None, None, None, None, None, "UNSUPPORTED"
 
@@ -221,8 +318,36 @@ def parse_sbi_uri(path: str | None, method: str | None) -> tuple[str | None, str
         ver = pdu_session_match.group(1) if pdu_session_match else None
         return SERVICE_NSMF_PDUSESSION, ver, "PduSessionService", clean_path, None, "UNSUPPORTED"
 
+    # Namf_Communication N1N2MessageTransfer
+    namf_n1n2_match = re.search(r"/namf-comm/(v[0-9]+)/ue-contexts/(?:\{ueContextId\}|[^/]+)/n1-n2-messages", clean_path)
+    if namf_n1n2_match:
+        api_version = namf_n1n2_match.group(1)
+        if method_upper == "POST":
+            return SERVICE_NAMF_COMMUNICATION, api_version, OP_N1N2_MESSAGE_TRANSFER, "ue-contexts/{ueContextId}/n1-n2-messages", None, "SUPPORTED"
+        return SERVICE_NAMF_COMMUNICATION, api_version, "UNKNOWN", "ue-contexts/{ueContextId}/n1-n2-messages", None, "UNSUPPORTED"
+
+    # Namf_Communication N1N2Transfer Failure Notification callback
+    is_failure_notif = False
+    if isinstance(json_body, dict):
+        if ("n1n2MsgDataUri" in json_body or "n1n2_msg_data_uri" in json_body) and "cause" in json_body:
+            is_failure_notif = True
+    if any(k in clean_path for k in ("n1-n2-failure-notify", "n1n2-failure-notify", "n1-n2-message-transfers/notify", "n1-n2-messages/notify")):
+        is_failure_notif = True
+
+    if is_failure_notif:
+        api_ver_match = re.search(r"/(v[0-9]+)/", clean_path)
+        api_version = api_ver_match.group(1) if api_ver_match else "v1"
+        if method_upper == "POST" or not method_upper:
+            return SERVICE_NAMF_COMMUNICATION, api_version, OP_N1N2_TRANSFER_FAILURE_NOTIFICATION, clean_path, None, "SUPPORTED"
+        return SERVICE_NAMF_COMMUNICATION, api_version, "UNKNOWN", clean_path, None, "UNSUPPORTED"
+
+    # Other Namf_Communication paths (unsupported operations)
+    if "/namf-comm/" in clean_path:
+        api_ver_match = re.search(r"/namf-comm/(v[0-9]+)/", clean_path)
+        api_version = api_ver_match.group(1) if api_ver_match else None
+        return SERVICE_NAMF_COMMUNICATION, api_version, None, clean_path, None, "UNSUPPORTED"
+
     known_services = {
-        "/namf-comm/": "Namf_Communication",
         "/namf-evts/": "Namf_EventExposure",
         "/nausf-auth/": "Nausf_UEAuthentication",
         "/nudm-sdm/": "Nudm_SDM",
@@ -260,6 +385,8 @@ def bind_multipart_parts(
     n1_content_id: str | None,
     n2_content_id: str | None,
     limitations: list[str],
+    n1_message_class: str | None = None,
+    n2_info_class: str | None = None,
 ) -> list[dict[str, Any]]:
     """Bind multipart body parts by Content-ID. Never bind by position."""
     if not raw_parts:
@@ -309,10 +436,10 @@ def bind_multipart_parts(
             continue
 
         if norm_n1 and cid == norm_n1:
-            part["semantic_role"] = "N1_SM_INFO"
+            part["semantic_role"] = "N1_SM_INFO" if (n1_message_class is None or n1_message_class == "SM") else "N1_MESSAGE"
             part["reference_basis"] = "EXPLICIT_CONTENT_ID"
         elif norm_n2 and cid == norm_n2:
-            part["semantic_role"] = "N2_SM_INFO"
+            part["semantic_role"] = "N2_SM_INFO" if (n2_info_class is None or n2_info_class == "SM") else "N2_INFO"
             part["reference_basis"] = "EXPLICIT_CONTENT_ID"
         elif "application/json" in ctype or cid == "jsonData":
             part["semantic_role"] = "JSON_METADATA"
@@ -366,7 +493,9 @@ def normalize_record(record: dict[str, Any], capture_file: str) -> dict[str, Any
 
     scheme = clean(record.get("scheme") or record.get("http2.headers.scheme"))
     authority = clean(record.get("authority") or record.get("http2.headers.authority"))
-    path = clean(record.get("path") or record.get("http2.headers.path"))
+    raw_path = clean(record.get("path") or record.get("http2.headers.path"))
+    sanitized_path, ue_ctx_present, ue_ctx_type, path_transfer_ref = sanitize_sbi_uri(raw_path)
+    path = sanitized_path
 
     raw_status = record.get("status") if record.get("status") is not None else record.get("http2.headers.status")
     status = parse_int(raw_status, "status", minimum=100, maximum=599)
@@ -384,6 +513,17 @@ def normalize_record(record: dict[str, Any], capture_file: str) -> dict[str, Any
             content_length = parse_int(selected_headers.get("content-length"))
     else:
         selected_headers = {}
+
+    loc_header = selected_headers.get("location") or clean(record.get("location"))
+    loc_transfer_ref = None
+    if loc_header:
+        sanitized_loc, loc_ue_present, loc_ue_type, loc_transfer_ref = sanitize_sbi_uri(loc_header)
+        if sanitized_loc:
+            selected_headers["location"] = sanitized_loc
+        if loc_ue_present:
+            ue_ctx_present = True
+            if not ue_ctx_type:
+                ue_ctx_type = loc_ue_type
 
     http2 = {
         "stream_id": stream_id,
@@ -405,21 +545,42 @@ def normalize_record(record: dict[str, Any], capture_file: str) -> dict[str, Any
     if tls_encrypted:
         limitations.append("HTTP/2/SBI payload unavailable due to encrypted/unavailable application data")
 
-    # SBI operation parsing
-    service_name, api_version, operation, resource, sm_context_ref, support_status = parse_sbi_uri(path, method_upper)
+    json_body = record.get("json_body") if isinstance(record.get("json_body"), dict) else {}
 
-    # If Location header is present on a response, extract smContextRef
-    loc_header = selected_headers.get("location") or clean(record.get("location"))
+    # SBI operation parsing
+    service_name, api_version, operation, resource, sm_context_ref, support_status = parse_sbi_uri(path, method_upper, json_body)
+    n1n2_transfer_ref = path_transfer_ref
+
+    if record.get("service_name"):
+        service_name = clean(record.get("service_name"))
+    if record.get("operation"):
+        operation = clean(record.get("operation"))
+
+    # If Location header is present on a response, extract smContextRef or n1n2_transfer_ref
     if loc_header and not sm_context_ref:
         loc_ref = extract_sm_context_ref_from_location(loc_header)
         if loc_ref:
             sm_context_ref = loc_ref
             derivations.append("sm_context_ref_from_location")
+    if loc_transfer_ref and not n1n2_transfer_ref:
+        n1n2_transfer_ref = loc_transfer_ref
+        derivations.append("n1n2_transfer_ref_from_location")
 
-    # JSON Body and Session Management / Privacy analysis
-    json_body = record.get("json_body") if isinstance(record.get("json_body"), dict) else {}
+    # If Failure Notification, extract n1n2_transfer_ref from n1n2MsgDataUri
+    notif_data_uri = clean(json_body.get("n1n2MsgDataUri") or json_body.get("n1n2_msg_data_uri") or record.get("n1n2MsgDataUri"))
+    if notif_data_uri:
+        sanitized_data_uri, notif_ue_present, notif_ue_type, notif_ref = sanitize_sbi_uri(notif_data_uri)
+        if notif_ref:
+            n1n2_transfer_ref = notif_ref
+        elif sanitized_data_uri:
+            n1n2_transfer_ref = sanitized_data_uri
+        derivations.append("n1n2_transfer_ref_from_notification_data_uri")
+        if notif_ue_present:
+            ue_ctx_present = True
+            if not ue_ctx_type:
+                ue_ctx_type = notif_ue_type
 
-    # Privacy: Check for SUPI, GPSI, PEI
+    # Privacy: Check for SUPI, GPSI, PEI in body/record or path
     subscriber_identity_present = False
     subscriber_identity_type: str | None = None
     for id_key, id_type in (("supi", "SUPI"), ("gpsi", "GPSI"), ("pei", "PEI")):
@@ -428,6 +589,12 @@ def normalize_record(record: dict[str, Any], capture_file: str) -> dict[str, Any
             subscriber_identity_type = id_type
             derivations.append(f"privacy_redaction_{id_key}")
             break
+
+    if ue_ctx_present:
+        subscriber_identity_present = True
+        if not subscriber_identity_type:
+            subscriber_identity_type = ue_ctx_type
+        derivations.append("privacy_redaction_ue_context_id")
 
     privacy = {
         "subscriber_identity_present": subscriber_identity_present,
@@ -461,6 +628,63 @@ def normalize_record(record: dict[str, Any], capture_file: str) -> dict[str, Any
             sm_context_ref = body_ref
             derivations.append("sm_context_ref_from_body")
 
+    # Bounded Namf_Communication Metadata
+    n1_class = None
+    n1_cid = None
+    n1_container = json_body.get("n1MessageContainer") or record.get("n1MessageContainer")
+    if isinstance(n1_container, dict):
+        n1_class = clean(n1_container.get("n1MessageClass") or record.get("n1MessageClass"))
+        content_obj = n1_container.get("n1MessageContent")
+        if isinstance(content_obj, dict):
+            n1_cid = clean(content_obj.get("contentId") or content_obj.get("content_id"))
+        elif clean(n1_container.get("contentId")):
+            n1_cid = clean(n1_container.get("contentId"))
+
+    n2_class = None
+    n2_cid = None
+    n2_container = json_body.get("n2InfoContainer") or record.get("n2InfoContainer")
+    if isinstance(n2_container, dict):
+        n2_class = clean(n2_container.get("n2InformationClass") or record.get("n2InformationClass"))
+        sm_info = n2_container.get("smInfo")
+        if isinstance(sm_info, dict):
+            if pdu_session_id is None:
+                pdu_session_id = parse_int(sm_info.get("pduSessionId") or sm_info.get("pdu_session_id"))
+            if not n2_sm_info_type:
+                n2_sm_info_type = clean(sm_info.get("n2SmInfoType") or sm_info.get("n2_sm_info_type"))
+            n2_content_obj = sm_info.get("n2InfoContent")
+            if isinstance(n2_content_obj, dict):
+                n2_cid = clean(n2_content_obj.get("contentId") or n2_content_obj.get("content_id"))
+        elif clean(n2_container.get("contentId")):
+            n2_cid = clean(n2_container.get("contentId"))
+
+    notif_uri = clean(json_body.get("n1n2FailureTxfNotifURI") or json_body.get("n1n2_failure_txf_notif_uri") or record.get("n1n2FailureTxfNotifURI"))
+    transfer_cause = None
+    failure_cause = None
+
+    if operation == OP_N1N2_MESSAGE_TRANSFER or (status is not None and (service_name == SERVICE_NAMF_COMMUNICATION or loc_transfer_ref)):
+        transfer_cause = clean(json_body.get("cause") or record.get("cause"))
+        if transfer_cause:
+            derivations.append(f"transfer_cause_{transfer_cause}")
+    elif operation == OP_N1N2_TRANSFER_FAILURE_NOTIFICATION:
+        failure_cause = clean(json_body.get("cause") or record.get("cause"))
+        if failure_cause:
+            derivations.append(f"failure_cause_{failure_cause}")
+
+    namf_communication = None
+    if service_name == SERVICE_NAMF_COMMUNICATION or operation in (OP_N1N2_MESSAGE_TRANSFER, OP_N1N2_TRANSFER_FAILURE_NOTIFICATION) or ue_ctx_present:
+        namf_communication = {
+            "ue_context_id_present": ue_ctx_present,
+            "ue_context_id_type": ue_ctx_type,
+            "n1_message_class": n1_class,
+            "n2_information_class": n2_class,
+            "n2_sm_info_type": n2_sm_info_type,
+            "n1_content_id": n1_cid,
+            "n2_content_id": n2_cid,
+            "failure_notification_uri_present": bool(notif_uri),
+            "transfer_cause": transfer_cause,
+            "failure_cause": failure_cause,
+        }
+
     session_management = {
         "pdu_session_id": pdu_session_id,
         "dnn": dnn,
@@ -477,17 +701,21 @@ def normalize_record(record: dict[str, Any], capture_file: str) -> dict[str, Any
     n1_obj = json_body.get("n1SmMsg") or record.get("n1SmMsg")
     if isinstance(n1_obj, dict):
         n1_ref = clean(n1_obj.get("contentId") or n1_obj.get("content_id"))
+    if not n1_ref and n1_cid:
+        n1_ref = n1_cid
 
     n2_ref = None
     n2_obj = json_body.get("n2SmInfo") or record.get("n2SmInfo")
     if isinstance(n2_obj, dict):
         n2_ref = clean(n2_obj.get("contentId") or n2_obj.get("content_id"))
+    if not n2_ref and n2_cid:
+        n2_ref = n2_cid
 
     raw_multipart = record.get("multipart_parts") or []
     if not isinstance(raw_multipart, list):
         raw_multipart = []
 
-    multipart_parts = bind_multipart_parts(raw_multipart, n1_ref, n2_ref, limitations)
+    multipart_parts = bind_multipart_parts(raw_multipart, n1_ref, n2_ref, limitations, n1_message_class=n1_class, n2_info_class=n2_class)
     if multipart_parts:
         derivations.append("multipart_content_id_binding")
 
@@ -556,11 +784,18 @@ def normalize_record(record: dict[str, Any], capture_file: str) -> dict[str, Any
         result = "GOAWAY"
     elif frame_type in ("SETTINGS", "PING", "WINDOW_UPDATE"):
         result = "CONTROL"
+    elif status == 202 and (operation == OP_N1N2_MESSAGE_TRANSFER or service_name == SERVICE_NAMF_COMMUNICATION or transfer_cause):
+        result = "N1N2_TRANSFER_ACCEPTED_PENDING"
+        derivations.append("n1n2_transfer_accepted_pending")
+    elif operation == OP_N1N2_TRANSFER_FAILURE_NOTIFICATION and method_upper == "POST":
+        result = "FAILURE_NOTIFICATION"
     elif status is not None:
         if status >= 400:
             result = "HTTP_ERROR"
         else:
             result = "RESPONSE"
+            if operation == OP_N1N2_TRANSFER_FAILURE_NOTIFICATION and status == 204:
+                derivations.append("failure_notification_acknowledged")
     elif method_upper is not None:
         result = "REQUEST"
     else:
@@ -579,6 +814,8 @@ def normalize_record(record: dict[str, Any], capture_file: str) -> dict[str, Any
         "sm_context_ref": sm_context_ref,
         "selected_headers": selected_headers,
     }
+    if n1n2_transfer_ref is not None:
+        sbi["n1n2_transfer_ref"] = n1n2_transfer_ref
 
     evidence = {
         "level": "OBSERVED",
@@ -603,6 +840,8 @@ def normalize_record(record: dict[str, Any], capture_file: str) -> dict[str, Any
         "derivations": sorted(set(derivations)),
         "limitations": sorted(set(limitations)),
     }
+    if namf_communication is not None:
+        event["namf_communication"] = namf_communication
 
     return event
 
@@ -672,6 +911,7 @@ def correlate_events(events: list[dict[str, Any]]) -> dict[str, Any]:
         path: str | None = None
         status: int | None = None
         sm_context_ref: str | None = None
+        n1n2_transfer_ref: str | None = None
         transport_error: dict[str, Any] | None = None
         tx_limitations: list[str] = []
 
@@ -680,7 +920,7 @@ def correlate_events(events: list[dict[str, Any]]) -> dict[str, Any]:
             h2 = ev.get("http2") or {}
             sb = ev.get("sbi") or {}
 
-            if ev.get("result") == "REQUEST" or (h2.get("method") and not h2.get("status")):
+            if ev.get("result") in ("REQUEST", "FAILURE_NOTIFICATION") or (h2.get("method") and not h2.get("status")):
                 if fn is not None:
                     request_frames.append(fn)
                 if not method:
@@ -693,15 +933,19 @@ def correlate_events(events: list[dict[str, Any]]) -> dict[str, Any]:
                     operation = sb.get("operation")
                 if not sm_context_ref:
                     sm_context_ref = sb.get("sm_context_ref")
+                if not n1n2_transfer_ref:
+                    n1n2_transfer_ref = sb.get("n1n2_transfer_ref")
 
-            elif ev.get("result") in ("RESPONSE", "HTTP_ERROR") or h2.get("status"):
+            elif ev.get("result") in ("RESPONSE", "HTTP_ERROR", "N1N2_TRANSFER_ACCEPTED_PENDING") or h2.get("status"):
                 if fn is not None:
                     response_frames.append(fn)
                 if status is None:
                     status = h2.get("status")
-                # Transition: response Location header can provide the newly assigned sm_context_ref
+                # Transition: response Location header can provide the newly assigned sm_context_ref or n1n2_transfer_ref
                 if not sm_context_ref and sb.get("sm_context_ref"):
                     sm_context_ref = sb.get("sm_context_ref")
+                if not n1n2_transfer_ref and sb.get("n1n2_transfer_ref"):
+                    n1n2_transfer_ref = sb.get("n1n2_transfer_ref")
                 if not service and sb.get("service_name"):
                     service = sb.get("service_name")
                 if not operation and sb.get("operation"):
@@ -716,63 +960,100 @@ def correlate_events(events: list[dict[str, Any]]) -> dict[str, Any]:
 
         tx_key = f"sbi-tx:{c_file}:{conn_ctx}:stream{sid}"
 
+        tx_record = {
+            "transaction_key": tx_key,
+            "capture_file": c_file,
+            "connection_context": conn_ctx,
+            "stream_id": sid,
+            "service": service,
+            "operation": operation,
+            "method": method,
+            "path": path,
+            "status": status,
+            "sm_context_ref": sm_context_ref,
+            "request_frames": request_frames,
+            "response_frames": response_frames,
+            "correlation_strength": "STRONG" if (request_frames and response_frames) else "PARTIAL",
+            "transport_error": transport_error,
+            "limitations": tx_limitations,
+        }
+        if n1n2_transfer_ref is not None:
+            tx_record["n1n2_transfer_ref"] = n1n2_transfer_ref
+
         if request_frames and response_frames:
-            correlation_strength = "STRONG"
-            tx_record = {
-                "transaction_key": tx_key,
-                "capture_file": c_file,
-                "connection_context": conn_ctx,
-                "stream_id": sid,
-                "service": service,
-                "operation": operation,
-                "method": method,
-                "path": path,
-                "status": status,
-                "sm_context_ref": sm_context_ref,
-                "request_frames": request_frames,
-                "response_frames": response_frames,
-                "correlation_strength": correlation_strength,
-                "transport_error": transport_error,
-                "limitations": tx_limitations,
-            }
             completed_transactions.append(tx_record)
         else:
-            correlation_strength = "PARTIAL"
             if request_frames and not response_frames:
                 tx_limitations.append("request observed without matching response frame in capture")
             elif response_frames and not request_frames:
                 tx_limitations.append("response observed without preceding request frame in capture")
-
-            tx_record = {
-                "transaction_key": tx_key,
-                "capture_file": c_file,
-                "connection_context": conn_ctx,
-                "stream_id": sid,
-                "service": service,
-                "operation": operation,
-                "method": method,
-                "path": path,
-                "status": status,
-                "sm_context_ref": sm_context_ref,
-                "request_frames": request_frames,
-                "response_frames": response_frames,
-                "correlation_strength": correlation_strength,
-                "transport_error": transport_error,
-                "limitations": tx_limitations,
-            }
             open_transactions.append(tx_record)
+
+    all_transactions = completed_transactions + open_transactions
+    unbound_callbacks: list[dict[str, Any]] = []
+
+    # Identify failure notification request events
+    for event in events:
+        sb = event.get("sbi") or {}
+        if sb.get("operation") == OP_N1N2_TRANSFER_FAILURE_NOTIFICATION and event.get("result") == "FAILURE_NOTIFICATION":
+            cb_fn = event.get("frame_number")
+            cb_ts = event.get("timestamp")
+            cb_ref = sb.get("n1n2_transfer_ref")
+            namf_obj = event.get("namf_communication") or {}
+            cb_cause = namf_obj.get("failure_cause")
+
+            cb_sid = event.get("http2", {}).get("stream_id")
+            cb_conn = connection_context(event)
+            cb_cfile = str(event.get("capture_file") or "unknown-capture")
+            stream_evs = groups.get((cb_cfile, cb_conn, cb_sid), [])
+            acknowledged = any(e.get("http2", {}).get("status") == 204 for e in stream_evs)
+
+            matched_tx = None
+            if cb_ref:
+                for tx in all_transactions:
+                    if tx.get("operation") == OP_N1N2_MESSAGE_TRANSFER:
+                        t_ref = tx.get("n1n2_transfer_ref")
+                        if t_ref and (t_ref == cb_ref or t_ref.endswith(f"/{cb_ref}") or cb_ref.endswith(f"/{t_ref}")):
+                            matched_tx = tx
+                            break
+
+            if matched_tx is not None:
+                matched_tx["failure_notification"] = {
+                    "frame_number": cb_fn,
+                    "timestamp": cb_ts,
+                    "cause": cb_cause or "FAILURE_CAUSE_UNSPECIFIED",
+                    "transfer_ref": cb_ref,
+                    "acknowledged": acknowledged,
+                }
+            else:
+                lim = (
+                    "failure notification has no matching prior transfer transaction reference in capture"
+                    if cb_ref
+                    else "failure notification lacks transfer resource reference"
+                )
+                unbound_callbacks.append({
+                    "frame_number": cb_fn,
+                    "timestamp": cb_ts,
+                    "cause": cb_cause,
+                    "transfer_ref": cb_ref,
+                    "limitation": lim,
+                })
 
     summary_limitations: list[str] = []
     if open_transactions:
         summary_limitations.append(f"{len(open_transactions)} open or partial transaction(s) observed")
 
-    return {
+    summary: dict[str, Any] = {
         "capture_file": capture_file,
         "transactions": completed_transactions,
         "open_transactions": open_transactions,
         "unbound_events": unbound_events,
         "limitations": summary_limitations,
     }
+    if unbound_callbacks:
+        summary["unbound_callbacks"] = unbound_callbacks
+
+    return summary
 
 
 def project_trace_event(event: dict[str, Any]) -> dict[str, Any]:
@@ -782,12 +1063,35 @@ def project_trace_event(event: dict[str, Any]) -> dict[str, Any]:
     sm = event.get("session_management") or {}
     conn = event.get("connection") or {}
     prob = event.get("problem_details") or {}
+    namf = event.get("namf_communication") or {}
 
     operation = sb.get("operation")
     method = h2.get("method")
     status = h2.get("status")
 
-    if operation:
+    if operation == OP_N1N2_TRANSFER_FAILURE_NOTIFICATION:
+        if method:
+            msg_type = "N1N2Transfer Failure Notification"
+        elif status == 204:
+            msg_type = "N1N2Transfer Failure Notification Acknowledged"
+        elif status:
+            msg_type = f"N1N2Transfer Failure Notification HTTP {status}"
+        else:
+            msg_type = "N1N2Transfer Failure Notification"
+    elif operation == OP_N1N2_MESSAGE_TRANSFER:
+        if method:
+            msg_type = "N1N2MessageTransfer Request"
+        elif status == 200:
+            msg_type = "N1N2MessageTransfer 200 OK"
+        elif status == 202:
+            msg_type = "N1N2MessageTransfer 202 Accepted"
+        elif status and status >= 400:
+            msg_type = f"N1N2MessageTransfer HTTP {status}"
+        elif status:
+            msg_type = "N1N2MessageTransfer Response"
+        else:
+            msg_type = "N1N2MessageTransfer"
+    elif operation:
         if method:
             msg_type = f"{operation} Request"
         elif status:
@@ -808,9 +1112,10 @@ def project_trace_event(event: dict[str, Any]) -> dict[str, Any]:
     if sm.get("dnn") is not None:
         session["dnn"] = sm["dnn"]
 
+    cause_val = prob.get("cause") or namf.get("transfer_cause") or namf.get("failure_cause")
     result: dict[str, Any] = {
         "status": event.get("result"),
-        "cause": prob.get("cause"),
+        "cause": cause_val,
         "code": prob.get("status") or status,
     }
 

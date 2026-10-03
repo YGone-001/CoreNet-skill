@@ -31,10 +31,13 @@ http2.header.value
 # SBI service path matching
 http2.headers.path contains "/nsmf-pdusession/"
 http2.headers.path contains "/sm-contexts"
+http2.headers.path contains "/namf-comm/"
+http2.headers.path contains "/n1-n2-messages"
 
 # Common SBI status codes
 http2.headers.status == 200
 http2.headers.status == 201
+http2.headers.status == 202
 http2.headers.status == 204
 http2.headers.status == 400
 http2.headers.status == 403

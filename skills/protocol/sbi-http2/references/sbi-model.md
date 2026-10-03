@@ -18,13 +18,16 @@ Where:
 ## Service Identification
 
 Service identification is established directly from the request URI path:
-- Requests targeting `/nsmf-pdusession/` identify the `Nsmf_PDUSession` service.
-- Requests targeting other 5GC services (e.g., `/namf-comm/`, `/nausf-auth/`, `/nudm-sdm/`,
+- Requests targeting `/nsmf-pdusession/` identify the `Nsmf_PDUSession` service. Bounded SM Context operations (`CreateSMContext`, `UpdateSMContext`, `ReleaseSMContext`) are `SUPPORTED`.
+- Requests targeting `/namf-comm/` for N1/N2 message transfer (`/namf-comm/{apiVersion}/ue-contexts/{ueContextId}/n1-n2-messages`) and consumer callbacks for N1N2 transfer failure notification are `SUPPORTED` under `Namf_Communication`. Remaining operations (UE Context Transfer, Registration Status Update, etc.) remain `UNSUPPORTED`.
+- Requests targeting other 5GC services (e.g., `/nausf-auth/`, `/nudm-sdm/`,
   `/npcf-smpolicycontrol/`, `/nnrf-disc/`) are recognized as SBI services but marked
   `UNSUPPORTED` in this bounded Skill version.
 - Requests with non-SBI paths are treated as generic HTTP/2 traffic (`UNSUPPORTED`).
 
 Service identity must **never** be inferred from port numbers, timing, or endpoint IP addresses alone.
+
+Paths containing subscriber identities (`/ue-contexts/{ueContextId}/`) are sanitized across all outputs.
 
 ## Safe Header Allowlist
 

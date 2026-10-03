@@ -20,6 +20,7 @@ REQUIRED = (
     "references/http2-model.md",
     "references/sbi-model.md",
     "references/nsmf-pdusession.md",
+    "references/namf-communication.md",
     "references/field-reference.md",
     "references/multipart-model.md",
     "references/privacy.md",
@@ -36,6 +37,10 @@ REQUIRED = (
     "examples/extracted/create-sm-context.jsonl",
     "examples/extracted/update-sm-context.jsonl",
     "examples/extracted/release-sm-context.jsonl",
+    "examples/extracted/namf-transfer.jsonl",
+    "examples/extracted/namf-failure-notification.jsonl",
+    "examples/extracted/namf-multipart-ambiguity.jsonl",
+    "examples/extracted/namf-error-handling.jsonl",
     "examples/extracted/multipart-binding.jsonl",
     "examples/extracted/stream-isolation.jsonl",
     "examples/extracted/transactions.jsonl",
@@ -46,6 +51,12 @@ REQUIRED = (
     "examples/expected/create-sm-context-events.jsonl",
     "examples/expected/update-sm-context-events.jsonl",
     "examples/expected/release-sm-context-events.jsonl",
+    "examples/expected/namf-transfer-events.jsonl",
+    "examples/expected/namf-transfer-correlation.json",
+    "examples/expected/namf-failure-notification-events.jsonl",
+    "examples/expected/namf-failure-notification-correlation.json",
+    "examples/expected/namf-multipart-ambiguity-events.jsonl",
+    "examples/expected/namf-error-handling-events.jsonl",
     "examples/expected/multipart-binding-events.jsonl",
     "examples/expected/stream-isolation-events.jsonl",
     "examples/expected/stream-isolation-correlation.json",
@@ -60,6 +71,10 @@ EXPECTED_EVENTS = (
     "examples/expected/create-sm-context-events.jsonl",
     "examples/expected/update-sm-context-events.jsonl",
     "examples/expected/release-sm-context-events.jsonl",
+    "examples/expected/namf-transfer-events.jsonl",
+    "examples/expected/namf-failure-notification-events.jsonl",
+    "examples/expected/namf-multipart-ambiguity-events.jsonl",
+    "examples/expected/namf-error-handling-events.jsonl",
     "examples/expected/multipart-binding-events.jsonl",
     "examples/expected/stream-isolation-events.jsonl",
     "examples/expected/transactions-events.jsonl",
@@ -137,7 +152,7 @@ def validate(root: Path) -> list[str]:
         return errors
 
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "sbi-http2"), ("version", "0.1.0"), ("category", "protocol")):
+    for key, expected in (("name", "sbi-http2"), ("version", "0.2.0"), ("category", "protocol")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
     if not re.search(r"(?m)^\s*required:\s*\[\]\s*$", manifest):
@@ -200,6 +215,10 @@ def validate(root: Path) -> list[str]:
     create_present = False
     update_present = False
     release_present = False
+    namf_transfer_present = False
+    namf_failure_present = False
+    n1n2_transfer_ref_present = False
+    n1n2_accepted_pending_present = False
     problem_details_present = False
     multipart_present = False
     stream_isolation_present = False
@@ -230,6 +249,16 @@ def validate(root: Path) -> list[str]:
                 update_present = True
             elif op == "ReleaseSMContext":
                 release_present = True
+            elif op == "N1N2MessageTransfer":
+                namf_transfer_present = True
+            elif op == "N1N2TransferFailureNotification":
+                namf_failure_present = True
+
+            if sbi.get("n1n2_transfer_ref") is not None:
+                n1n2_transfer_ref_present = True
+
+            if event.get("result") == "N1N2_TRANSFER_ACCEPTED_PENDING":
+                n1n2_accepted_pending_present = True
 
             if event.get("problem_details") is not None:
                 problem_details_present = True
@@ -244,6 +273,12 @@ def validate(root: Path) -> list[str]:
             ctx_key = conn.get("connection_id") or conn.get("tcp_stream")
             if stream_id is not None and ctx_key is not None:
                 observed_stream_contexts.setdefault(stream_id, set()).add(str(ctx_key))
+
+            path_str = str(h2.get("path") or "")
+            res_str = str(sbi.get("resource") or "")
+            loc_str = str((sbi.get("selected_headers") or {}).get("location") or "")
+            for raw_leak in re.finditer(r"/ue-contexts/(?!\{ueContextId\})(?!ctx-)[^/]+", f"{path_str} {res_str} {loc_str}"):
+                errors.append(f"unredacted subscriber identity in path/resource in {relative}: {raw_leak.group(0)}")
 
             trans = event.get("transport_error") or {}
             if trans.get("type") in ("RST_STREAM", "GOAWAY"):
@@ -264,6 +299,10 @@ def validate(root: Path) -> list[str]:
         (create_present, "at least one expected fixture must contain CreateSMContext"),
         (update_present, "at least one expected fixture must contain UpdateSMContext"),
         (release_present, "at least one expected fixture must contain ReleaseSMContext"),
+        (namf_transfer_present, "at least one expected fixture must contain N1N2MessageTransfer"),
+        (namf_failure_present, "at least one expected fixture must contain N1N2TransferFailureNotification"),
+        (n1n2_transfer_ref_present, "at least one expected fixture must contain n1n2_transfer_ref"),
+        (n1n2_accepted_pending_present, "at least one expected fixture must contain N1N2_TRANSFER_ACCEPTED_PENDING result"),
         (problem_details_present, "at least one expected fixture must contain ProblemDetails"),
         (multipart_present, "at least one expected fixture must contain multipart evidence"),
         (stream_isolation_present, "at least one expected fixture must contain stream isolation across connections"),

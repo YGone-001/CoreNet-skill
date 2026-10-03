@@ -4,7 +4,7 @@
 
 The field mappings below are verified against:
 - Published Wireshark display-filter reference for `http2`, `json`, `mime_multipart`, and `tcp`.
-- 3GPP TS 29.500, TS 29.501, TS 29.502, TS 29.571 (Release 19).
+- 3GPP TS 29.500, TS 29.501, TS 29.502, TS 29.518, TS 29.571 (Release 19).
 
 **Verification Debt:** In the current environment, local TShark was not available:
 `LOCAL TSHARK NOT RUN`. All fields are published-reference verified. If running in an
@@ -17,8 +17,8 @@ environment with TShark installed, verify with `tshark -G fields`.
 | `http2.stream_id` | `http2.streamid` | integer | Scoped by connection context |
 | `http2.frame_type` | `http2.type` | string | `HEADERS`, `DATA`, `RST_STREAM`, `GOAWAY`, `SETTINGS`, `PING` |
 | `http2.method` | `http2.headers.method` | string | `:method` pseudo-header (e.g. `POST`, `GET`) |
-| `http2.path` | `http2.headers.path` | string | `:path` pseudo-header |
-| `http2.status` | `http2.headers.status` | integer | `:status` pseudo-header (e.g. `201`, `200`, `400`) |
+| `http2.path` | `http2.headers.path` | string | `:path` pseudo-header (sanitized for identity-bearing paths) |
+| `http2.status` | `http2.headers.status` | integer | `:status` pseudo-header (e.g. `201`, `200`, `202`, `400`) |
 | `http2.scheme` | `http2.headers.scheme` | string | `:scheme` pseudo-header (`http`, `https`) |
 | `http2.authority` | `http2.headers.authority` | string | `:authority` pseudo-header (`host[:port]`) |
 | `http2.content_type` | `http2.header.value` (Content-Type) | string | Media type |
@@ -40,18 +40,34 @@ environment with TShark installed, verify with `tshark -G fields`.
 
 | Normalized Event Field | 3GPP Reference | Type | Notes |
 | :--- | :--- | :--- | :--- |
-| `sbi.service_name` | TS 29.502 | string | Normalized service identifier (`Nsmf_PDUSession`) |
-| `sbi.api_version` | TS 29.502 | string | API major version (`v1`) |
-| `sbi.operation` | TS 29.502 clause 5.2.2 | string | `CreateSMContext`, `UpdateSMContext`, `ReleaseSMContext` |
-| `sbi.resource` | TS 29.502 clause 6.1.3 | string | Resource path string |
+| `sbi.service_name` | TS 29.502 / TS 29.518 | string | `Nsmf_PDUSession`, `Namf_Communication` |
+| `sbi.api_version` | TS 29.502 / TS 29.518 | string | API major version (`v1`) |
+| `sbi.operation` | TS 29.502 / TS 29.518 | string | `CreateSMContext`, `UpdateSMContext`, `ReleaseSMContext`, `N1N2MessageTransfer`, `N1N2TransferFailureNotification` |
+| `sbi.resource` | TS 29.502 / TS 29.518 | string | Sanitized resource path string |
 | `sbi.sm_context_ref` | TS 29.502 clause 6.1.3 | string | SM Context reference from Location header or path |
+| `sbi.n1n2_transfer_ref` | TS 29.518 clause 6.1.3 | string | Sanitized N1/N2 transfer reference from Location or notification |
 | `sbi.selected_headers` | TS 29.500 clause 5.2 | object | Allowlisted safe headers |
+
+## Bounded Namf_Communication Fields
+
+| Normalized Event Field | 3GPP Reference | Type | Notes |
+| :--- | :--- | :--- | :--- |
+| `namf_communication.ue_context_id_present` | TS 29.518 clause 6.1.3 | boolean | True if `{ueContextId}` path parameter detected |
+| `namf_communication.ue_context_id_type` | Derived | string | `SUPI`, `PEI`, `GUTI`, `GENERIC`, `UNKNOWN` |
+| `namf_communication.n1_message_class` | TS 29.518 `n1MessageClass` | string | `SM`, `5GMM`, `LPP`, `SMS`, `UPDP`, `LCS` |
+| `namf_communication.n2_information_class` | TS 29.518 `n2InformationClass` | string | `SM`, `NRPPa`, `PWS`, `RAN`, `V2X` |
+| `namf_communication.n2_sm_info_type` | TS 29.518 `n2SmInfoType` | string | `PDU_RES_SETUP_REQ`, etc. |
+| `namf_communication.n1_content_id` | TS 29.518 `RefToBinaryData` | string | Referenced N1 binary part Content-ID |
+| `namf_communication.n2_content_id` | TS 29.518 `RefToBinaryData` | string | Referenced N2 binary part Content-ID |
+| `namf_communication.failure_notification_uri_present` | TS 29.518 `n1n2FailureTxfNotifURI` | boolean | True if consumer callback URI provided |
+| `namf_communication.transfer_cause` | TS 29.518 `cause` | string | `N1_N2_TRANSFER_INITIATED`, `WAITING_FOR_ASYNCHRONOUS_TRANSFER`, `ATTEMPTING_TO_REACH_UE`, etc. |
+| `namf_communication.failure_cause` | TS 29.518 `cause` | string | `UE_NOT_RESPONDING`, `AN_NOT_RESPONDING`, `UE_NOT_REACHABLE_FOR_SESSION`, etc. |
 
 ## Bounded Session Management Fields
 
 | Normalized Event Field | 3GPP Reference | Type | Notes |
 | :--- | :--- | :--- | :--- |
-| `session_management.pdu_session_id` | TS 29.502 `pduSessionId` | integer | 1..255 |
+| `session_management.pdu_session_id` | TS 29.502 / TS 29.518 | integer | 1..255 |
 | `session_management.dnn` | TS 29.502 `dnn` | string | Data Network Name |
 | `session_management.snssai` | TS 29.571 `Snssai` | object | `{sst: integer, sd: hex string}` |
 | `session_management.request_type` | TS 29.502 `requestType` | string | `INITIAL_REQUEST`, etc. |
@@ -64,8 +80,8 @@ environment with TShark installed, verify with `tshark -G fields`.
 
 | Normalized Event Field | Source | Default Behavior |
 | :--- | :--- | :--- |
-| `privacy.subscriber_identity_present` | JSON body (`supi`, `gpsi`, `pei`) | `true` if any identity member is present, else `false` |
-| `privacy.subscriber_identity_type` | Member name | `"SUPI"`, `"GPSI"`, or `"PEI"`; **raw identity values are REDACTED** |
+| `privacy.subscriber_identity_present` | JSON body or URI path | `true` if identity member or path parameter detected, else `false` |
+| `privacy.subscriber_identity_type` | Member name / path pattern | `"SUPI"`, `"GPSI"`, `"PEI"`, `"GUTI"`, `"GENERIC"`, `"UNKNOWN"`; **raw identity values are REDACTED** |
 
 ## Multipart / Related Fields
 

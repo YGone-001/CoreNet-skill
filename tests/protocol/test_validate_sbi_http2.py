@@ -41,10 +41,10 @@ class SbiHttp2ValidatorTests(unittest.TestCase):
         with temporary:
             manifest = root / "skills/protocol/sbi-http2/manifest.yaml"
             manifest.write_text(
-                manifest.read_text(encoding="utf-8").replace("version: 0.1.0", "version: 0.2.0"),
+                manifest.read_text(encoding="utf-8").replace("version: 0.2.0", "version: 0.3.0"),
                 encoding="utf-8",
             )
-            self.assertTrue(any("manifest version must be 0.1.0" in error for error in VALIDATOR.validate(root)))
+            self.assertTrue(any("manifest version must be 0.2.0" in error for error in VALIDATOR.validate(root)))
 
     def test_wrong_interface_is_detected(self):
         temporary, root = self.fixture()
@@ -252,6 +252,18 @@ class SbiHttp2ValidatorTests(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertTrue(any("repository-root runtime reference" in error for error in VALIDATOR.validate(root)))
+
+    def test_unredacted_ue_context_id_in_path_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            fixture = root / "skills/protocol/sbi-http2/examples/expected/namf-transfer-events.jsonl"
+            lines = fixture.read_text(encoding="utf-8").splitlines()
+            if lines:
+                ev = json.loads(lines[0])
+                ev["http2"]["path"] = "/namf-comm/v1/ue-contexts/imsi-001010000000001/n1-n2-messages"
+                lines[0] = json.dumps(ev)
+                fixture.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            self.assertTrue(any("unredacted subscriber identity in path" in error for error in VALIDATOR.validate(root)))
 
 
 if __name__ == "__main__":

@@ -1,28 +1,34 @@
 name: sbi-http2
-version: 0.1.0
+version: 0.2.0
 category: protocol
 description: >
-  Bounded 3GPP SBI and HTTP/2 semantic extraction for N11 Nsmf_PDUSession:
-  connection context and stream identity, Create/Update/Release SM Context
-  operations, SM Context reference tracking, bounded PDU Session ID / DNN /
+  Bounded 3GPP SBI and HTTP/2 semantic extraction for N11 Nsmf_PDUSession and
+  Namf_Communication N1/N2 delivery: connection context and stream identity,
+  Create/Update/Release SM Context operations, Namf N1N2MessageTransfer and
+  N1N2Transfer Failure Notification, SM Context and transfer resource reference
+  tracking, URI path privacy sanitization, bounded PDU Session ID / DNN /
   S-NSSAI metadata, multipart Content-ID binding for N1/N2 binary parts,
   ProblemDetails and service error evidence, HTTP/2 transport errors (RST_STREAM,
   GOAWAY), subscriber identity privacy defaults, protocol-local request/response
-  transaction correlation, detailed events, and normalized trace-event projection.
+  and callback correlation, detailed events, and normalized trace-event projection.
 scope:
   includes:
     - HTTP/2 stream identification scoped by connection context (tcp.stream or connection_id)
     - HTTP/2 request/response headers, methods, paths, status codes, and content types
     - HTTP/2 transport errors (RST_STREAM, GOAWAY) and control frames
     - 3GPP SBI Nsmf_PDUSession operations: Create SM Context, Update SM Context, Release SM Context
+    - 3GPP SBI Namf_Communication operations: N1N2MessageTransfer, N1N2Transfer Failure Notification
     - SM Context resource reference tracking (Location response header, request path)
+    - N1N2 message transfer resource reference tracking (Location response header, transfer path)
+    - URI path privacy sanitization for identity-bearing paths (/ue-contexts/{ueContextId}/)
     - bounded session management metadata (PDU Session ID, DNN, S-NSSAI, Request Type, Access Type, RAT Type, UP connection state, N2 SM Info Type)
-    - multipart/related structure with explicit Content-ID binding for N1 SM and N2 SM binary references
+    - multipart/related structure with explicit Content-ID binding for N1 and N2 binary references
     - ProblemDetails and service-specific error data (status, cause, title, invalid parameters)
-    - subscriber identity privacy defaults (presence/type only, raw values redacted)
+    - subscriber identity privacy defaults (presence/type only, raw values redacted from events and paths)
     - Authorization header stripping (tokens never persisted)
     - TLS-encrypted payload limitation representation
     - endpoint-scoped request/response transaction correlation
+    - deterministic transfer-to-failure-callback correlation by transfer reference
     - detailed SBI HTTP/2 event JSONL and shared trace-event projection
     - deterministic structured offline input and tshark-assisted capture extraction
   excludes:
@@ -31,7 +37,8 @@ scope:
     - NAS decoding or interpretation of N1 binary parts (owned by nas-5gs)
     - NGAP decoding or interpretation of N2 binary parts (owned by ngap)
     - cross-protocol joins to PFCP (SEID), GTP-U (TEID), or NGAP UE IDs
-    - other SBI services (Namf_Communication, Nausf_UEAuthentication, Nudm_SDM, Npcf_SMPolicyControl, etc.)
+    - remaining Namf_Communication operations (UE Context Transfer, Registration Status Update, subscriptions, etc.)
+    - other SBI services (Nausf_UEAuthentication, Nudm_SDM, Npcf_SMPolicyControl, etc.)
     - complete PDU Session procedure state or end-to-end outcome determination
     - network function (AMF, SMF, SCP) implementation blame or source-code mapping
     - end-to-end root cause determination
@@ -74,6 +81,10 @@ testing:
     - examples/extracted/create-sm-context.jsonl
     - examples/extracted/update-sm-context.jsonl
     - examples/extracted/release-sm-context.jsonl
+    - examples/extracted/namf-transfer.jsonl
+    - examples/extracted/namf-failure-notification.jsonl
+    - examples/extracted/namf-multipart-ambiguity.jsonl
+    - examples/extracted/namf-error-handling.jsonl
     - examples/extracted/multipart-binding.jsonl
     - examples/extracted/stream-isolation.jsonl
     - examples/extracted/transactions.jsonl
@@ -85,6 +96,12 @@ testing:
     - examples/expected/create-sm-context-events.jsonl
     - examples/expected/update-sm-context-events.jsonl
     - examples/expected/release-sm-context-events.jsonl
+    - examples/expected/namf-transfer-events.jsonl
+    - examples/expected/namf-transfer-correlation.json
+    - examples/expected/namf-failure-notification-events.jsonl
+    - examples/expected/namf-failure-notification-correlation.json
+    - examples/expected/namf-multipart-ambiguity-events.jsonl
+    - examples/expected/namf-error-handling-events.jsonl
     - examples/expected/multipart-binding-events.jsonl
     - examples/expected/stream-isolation-events.jsonl
     - examples/expected/stream-isolation-correlation.json

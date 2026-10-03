@@ -62,3 +62,28 @@ An individual SM Context resource is identified by its URI reference (`sm_contex
 - **`pdu_session_id`**: A UE-allocated integer (1..255) identifying the PDU session.
 - **`sm_context_ref`**: An SMF-allocated URI or resource identifier string.
 - They are completely different namespaces and must never be substituted for one another.
+
+## Namf N1N2 Transfer and Failure Callback Correlation
+
+### Transfer Resource Reference (`n1n2_transfer_ref`)
+
+When an AMF accepts an `N1N2MessageTransfer` request asynchronously, it returns HTTP `202 Accepted`
+with a `Location` header identifying the created transfer resource:
+`{apiRoot}/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages/{n1n2MsgId}`
+
+The correlation engine extracts and sanitizes this resource URI as `n1n2_transfer_ref`.
+
+### Deterministic Failure Callback Correlation
+
+An `N1N2Transfer Failure Notification` arrives on a separate HTTP stream or connection as an AMF-initiated
+callback containing `n1n2MsgDataUri` and a failure `cause`:
+1. **Deterministic Match**: When `n1n2MsgDataUri` matches the `n1n2_transfer_ref` of an earlier transfer transaction, the failure notification is attached to the transfer transaction as a `STRONG` protocol-local correlation.
+2. **No Timestamp-Only Join**: If no matching transfer transaction exists in the capture, or if transfer references do not match, the callback is reported in `unbound_callbacks` with an explicit limitation. The Skill **never** correlates callbacks by timestamp proximity alone.
+
+### Four Disjoint Identifier Namespaces
+
+CoreNet Skill strictly maintains four separate identifier namespaces:
+1. `sm_context_ref`: SMF-allocated SM Context resource URI
+2. `n1n2_transfer_ref`: AMF-allocated N1/N2 message transfer resource URI
+3. `pdu_session_id`: UE-allocated session identifier (1..255)
+4. `stream_id`: Connection-scoped HTTP/2 stream integer

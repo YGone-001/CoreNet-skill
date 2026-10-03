@@ -38,7 +38,7 @@ class ManifestAndSchemaTests(unittest.TestCase):
         self.assertTrue(manifest_path.is_file())
         text = manifest_path.read_text(encoding="utf-8")
         self.assertIn("name: sbi-http2", text)
-        self.assertIn("version: 0.1.0", text)
+        self.assertIn("version: 0.2.0", text)
         self.assertIn("category: protocol", text)
         self.assertIn("interfaces:\n  - N11", text)
         self.assertIn("protocols:\n  - HTTP/2\n  - 3GPP-SBI", text)
@@ -548,6 +548,313 @@ class RecognitionAndUnsupportedServicesTests(unittest.TestCase):
         ev = normalize_record(record, "test.pcap")
         self.assertIsNone(ev["sbi"]["service_name"])
         self.assertEqual(ev["support_status"], "UNSUPPORTED")
+
+
+class NamfCommunicationDeliveryTests(unittest.TestCase):
+    def test_n1n2_message_transfer_request_normalization(self):
+        record = {
+            "frame_number": 10,
+            "timestamp": "2026-10-02T10:10:00.000000Z",
+            "tcp_stream": 0,
+            "source_address": "192.0.2.20",
+            "source_port": 50000,
+            "destination_address": "192.0.2.10",
+            "destination_port": 80,
+            "stream_id": 1,
+            "frame_type": "HEADERS",
+            "method": "POST",
+            "path": "/namf-comm/v1/ue-contexts/imsi-001010000000001/n1-n2-messages",
+            "headers": {"content-type": "multipart/related; boundary=boundary-1"},
+            "json_body": {
+                "n1MessageContainer": {"n1MessageClass": "5GMM", "n1MessageContent": {"contentId": "n1-msg"}},
+                "n2InfoContainer": {
+                    "n2InformationClass": "SM",
+                    "smInfo": {
+                        "pduSessionId": 1,
+                        "n2SmInfoType": "PDU_RES_SETUP_REQ",
+                        "n2InfoContent": {"contentId": "n2-info"},
+                    },
+                },
+                "n1n2FailureTxfNotifURI": "http://smf.example.org/callback/v1/n1-n2-failure-notify",
+            },
+            "multipart_parts": [
+                {"content_id": "jsonData", "content_type": "application/json", "length": 220},
+                {"content_id": "n1-msg", "content_type": "application/vnd.3gpp.5gnas", "length": 45},
+                {"content_id": "n2-info", "content_type": "application/vnd.3gpp.ngap", "length": 65},
+            ],
+        }
+        ev = normalize_record(record, "namf-transfer.pcap")
+        self.assertEqual(ev["sbi"]["service_name"], "Namf_Communication")
+        self.assertEqual(ev["sbi"]["operation"], "N1N2MessageTransfer")
+        self.assertEqual(ev["sbi"]["resource"], "ue-contexts/{ueContextId}/n1-n2-messages")
+        self.assertEqual(ev["http2"]["path"], "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages")
+        self.assertEqual(ev["result"], "REQUEST")
+        self.assertEqual(ev["support_status"], "SUPPORTED")
+
+        namf = ev["namf_communication"]
+        self.assertIsNotNone(namf)
+        self.assertTrue(namf["ue_context_id_present"])
+        self.assertEqual(namf["ue_context_id_type"], "SUPI")
+        self.assertEqual(namf["n1_message_class"], "5GMM")
+        self.assertEqual(namf["n2_information_class"], "SM")
+        self.assertEqual(namf["n2_sm_info_type"], "PDU_RES_SETUP_REQ")
+        self.assertEqual(namf["n1_content_id"], "n1-msg")
+        self.assertEqual(namf["n2_content_id"], "n2-info")
+        self.assertTrue(namf["failure_notification_uri_present"])
+
+        parts = ev["multipart_parts"]
+        self.assertEqual(len(parts), 3)
+        part_roles = {p["content_id"]: p["semantic_role"] for p in parts}
+        self.assertEqual(part_roles["jsonData"], "JSON_METADATA")
+        self.assertEqual(part_roles["n1-msg"], "N1_MESSAGE")
+        self.assertEqual(part_roles["n2-info"], "N2_SM_INFO")
+
+        sm = ev["session_management"]
+        self.assertEqual(sm["pdu_session_id"], 1)
+        self.assertEqual(sm["n2_sm_info_type"], "PDU_RES_SETUP_REQ")
+
+    def test_n1n2_message_transfer_200_ok(self):
+        record = {
+            "frame_number": 11,
+            "timestamp": "2026-10-02T10:10:00.020000Z",
+            "tcp_stream": 0,
+            "source_address": "192.0.2.10",
+            "source_port": 80,
+            "destination_address": "192.0.2.20",
+            "destination_port": 50000,
+            "stream_id": 1,
+            "frame_type": "HEADERS",
+            "status": 200,
+            "headers": {"content-type": "application/json"},
+            "json_body": {"cause": "N1_N2_TRANSFER_INITIATED"},
+            "service_name": "Namf_Communication",
+            "operation": "N1N2MessageTransfer",
+        }
+        ev = normalize_record(record, "namf-transfer.pcap")
+        self.assertEqual(ev["result"], "RESPONSE")
+        self.assertEqual(ev["http2"]["status"], 200)
+        namf = ev["namf_communication"]
+        self.assertIsNotNone(namf)
+        self.assertEqual(namf["transfer_cause"], "N1_N2_TRANSFER_INITIATED")
+
+    def test_n1n2_message_transfer_202_accepted_pending(self):
+        record = {
+            "frame_number": 12,
+            "timestamp": "2026-10-02T10:10:01.025000Z",
+            "tcp_stream": 0,
+            "source_address": "192.0.2.10",
+            "source_port": 80,
+            "destination_address": "192.0.2.20",
+            "destination_port": 50000,
+            "stream_id": 3,
+            "frame_type": "HEADERS",
+            "status": 202,
+            "headers": {
+                "content-type": "application/json",
+                "location": "http://amf.example.org/namf-comm/v1/ue-contexts/imsi-001010000000002/n1-n2-messages/txfr-002",
+            },
+            "json_body": {"cause": "WAITING_FOR_ASYNCHRONOUS_TRANSFER"},
+        }
+        ev = normalize_record(record, "namf-transfer.pcap")
+        self.assertEqual(ev["result"], "N1N2_TRANSFER_ACCEPTED_PENDING")
+        self.assertIn("n1n2_transfer_accepted_pending", ev["derivations"])
+        self.assertEqual(
+            ev["sbi"]["n1n2_transfer_ref"],
+            "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages/txfr-002",
+        )
+        self.assertEqual(
+            ev["sbi"]["selected_headers"]["location"],
+            "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages/txfr-002",
+        )
+        self.assertEqual(ev["namf_communication"]["transfer_cause"], "WAITING_FOR_ASYNCHRONOUS_TRANSFER")
+
+    def test_n1n2_failure_notification_callback(self):
+        req_record = {
+            "frame_number": 20,
+            "timestamp": "2026-10-02T10:20:05.000000Z",
+            "tcp_stream": 0,
+            "source_address": "192.0.2.10",
+            "source_port": 80,
+            "destination_address": "192.0.2.20",
+            "destination_port": 50000,
+            "stream_id": 3,
+            "frame_type": "HEADERS",
+            "method": "POST",
+            "path": "/notification/n1-n2-failure-notify",
+            "headers": {"content-type": "application/json"},
+            "json_body": {
+                "cause": "UE_NOT_RESPONDING",
+                "n1n2MsgDataUri": "http://amf.example.org/namf-comm/v1/ue-contexts/imsi-001010000000001/n1-n2-messages/txfr-001",
+            },
+        }
+        ev_req = normalize_record(req_record, "namf-failure.pcap")
+        self.assertEqual(ev_req["sbi"]["service_name"], "Namf_Communication")
+        self.assertEqual(ev_req["sbi"]["operation"], "N1N2TransferFailureNotification")
+        self.assertEqual(ev_req["result"], "FAILURE_NOTIFICATION")
+        self.assertEqual(
+            ev_req["sbi"]["n1n2_transfer_ref"],
+            "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages/txfr-001",
+        )
+        self.assertEqual(ev_req["namf_communication"]["failure_cause"], "UE_NOT_RESPONDING")
+
+        rsp_record = {
+            "frame_number": 21,
+            "timestamp": "2026-10-02T10:20:05.010000Z",
+            "tcp_stream": 0,
+            "source_address": "192.0.2.20",
+            "source_port": 50000,
+            "destination_address": "192.0.2.10",
+            "destination_port": 80,
+            "stream_id": 3,
+            "frame_type": "HEADERS",
+            "status": 204,
+            "operation": "N1N2TransferFailureNotification",
+        }
+        ev_rsp = normalize_record(rsp_record, "namf-failure.pcap")
+        self.assertEqual(ev_rsp["result"], "RESPONSE")
+        self.assertIn("failure_notification_acknowledged", ev_rsp["derivations"])
+
+    def test_deterministic_transfer_to_callback_correlation(self):
+        ev_txfr_req = normalize_record({
+            "frame_number": 1,
+            "timestamp": "2026-10-02T10:20:00.000000Z",
+            "tcp_stream": 0,
+            "stream_id": 1,
+            "method": "POST",
+            "path": "/namf-comm/v1/ue-contexts/imsi-001010000000001/n1-n2-messages",
+            "json_body": {"n1MessageContainer": {"n1MessageClass": "5GMM"}},
+        }, "test.pcap")
+        ev_txfr_rsp = normalize_record({
+            "frame_number": 2,
+            "timestamp": "2026-10-02T10:20:00.030000Z",
+            "tcp_stream": 0,
+            "stream_id": 1,
+            "status": 202,
+            "headers": {"location": "http://amf.example.org/namf-comm/v1/ue-contexts/imsi-001010000000001/n1-n2-messages/txfr-001"},
+            "json_body": {"cause": "ATTEMPTING_TO_REACH_UE"},
+        }, "test.pcap")
+        ev_cb_req = normalize_record({
+            "frame_number": 3,
+            "timestamp": "2026-10-02T10:20:05.000000Z",
+            "tcp_stream": 0,
+            "stream_id": 3,
+            "method": "POST",
+            "path": "/notification/n1-n2-failure-notify",
+            "json_body": {
+                "cause": "UE_NOT_RESPONDING",
+                "n1n2MsgDataUri": "http://amf.example.org/namf-comm/v1/ue-contexts/imsi-001010000000001/n1-n2-messages/txfr-001",
+            },
+        }, "test.pcap")
+        ev_cb_rsp = normalize_record({
+            "frame_number": 4,
+            "timestamp": "2026-10-02T10:20:05.010000Z",
+            "tcp_stream": 0,
+            "stream_id": 3,
+            "status": 204,
+            "operation": "N1N2TransferFailureNotification",
+        }, "test.pcap")
+
+        summary = correlate_events([ev_txfr_req, ev_txfr_rsp, ev_cb_req, ev_cb_rsp])
+        txs = summary["transactions"]
+        self.assertEqual(len(txs), 2)
+        txfr_tx = next(t for t in txs if t["stream_id"] == 1)
+        self.assertIn("failure_notification", txfr_tx)
+        fn = txfr_tx["failure_notification"]
+        self.assertEqual(fn["frame_number"], 3)
+        self.assertEqual(fn["cause"], "UE_NOT_RESPONDING")
+        self.assertTrue(fn["acknowledged"])
+        self.assertEqual(summary.get("unbound_callbacks", []), [])
+
+    def test_unbound_callback_is_not_matched_by_timestamp(self):
+        ev_txfr_req = normalize_record({
+            "frame_number": 1,
+            "timestamp": "2026-10-02T10:20:00.000000Z",
+            "tcp_stream": 0,
+            "stream_id": 1,
+            "method": "POST",
+            "path": "/namf-comm/v1/ue-contexts/imsi-001010000000001/n1-n2-messages",
+            "json_body": {"n1MessageContainer": {"n1MessageClass": "5GMM"}},
+        }, "test.pcap")
+        ev_txfr_rsp = normalize_record({
+            "frame_number": 2,
+            "timestamp": "2026-10-02T10:20:00.030000Z",
+            "tcp_stream": 0,
+            "stream_id": 1,
+            "status": 202,
+            "headers": {"location": "http://amf.example.org/namf-comm/v1/ue-contexts/imsi-001010000000001/n1-n2-messages/txfr-001"},
+            "json_body": {"cause": "ATTEMPTING_TO_REACH_UE"},
+        }, "test.pcap")
+        ev_cb_req = normalize_record({
+            "frame_number": 3,
+            "timestamp": "2026-10-02T10:20:05.000000Z",
+            "tcp_stream": 0,
+            "stream_id": 3,
+            "method": "POST",
+            "path": "/notification/n1-n2-failure-notify",
+            "json_body": {
+                "cause": "AN_NOT_RESPONDING",
+                "n1n2MsgDataUri": "http://amf.example.org/namf-comm/v1/ue-contexts/imsi-001010000000001/n1-n2-messages/txfr-999",
+            },
+        }, "test.pcap")
+        summary = correlate_events([ev_txfr_req, ev_txfr_rsp, ev_cb_req])
+        txfr_tx = next(t for t in summary["transactions"] + summary["open_transactions"] if t["stream_id"] == 1)
+        self.assertNotIn("failure_notification", txfr_tx)
+        self.assertEqual(len(summary.get("unbound_callbacks", [])), 1)
+        self.assertEqual(summary["unbound_callbacks"][0]["cause"], "AN_NOT_RESPONDING")
+
+    def test_privacy_sanitizes_various_ue_context_ids(self):
+        for raw_id, expected_type in (
+            ("imsi-001010000000001", "SUPI"),
+            ("supi-001010000000002", "SUPI"),
+            ("001010000000003", "SUPI"),
+            ("imeisv-1234567890123456", "PEI"),
+            ("pei-987654321098765", "PEI"),
+            ("guti-5g-12345", "GUTI"),
+            ("ctx-generic-99", "GENERIC"),
+        ):
+            record = {
+                "frame_number": 1,
+                "timestamp": "2026-10-02T10:00:00.000000Z",
+                "tcp_stream": 0,
+                "stream_id": 1,
+                "method": "POST",
+                "path": f"/namf-comm/v1/ue-contexts/{raw_id}/n1-n2-messages",
+            }
+            ev = normalize_record(record, "test.pcap")
+            self.assertEqual(ev["http2"]["path"], "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages")
+            self.assertEqual(ev["sbi"]["resource"], "ue-contexts/{ueContextId}/n1-n2-messages")
+            self.assertEqual(ev["privacy"]["subscriber_identity_type"], expected_type)
+            self.assertNotIn(raw_id, json.dumps(ev))
+
+    def test_trace_projection_namf_events(self):
+        ev_req = normalize_record({
+            "frame_number": 1,
+            "timestamp": "2026-10-02T10:10:00.000000Z",
+            "tcp_stream": 0,
+            "stream_id": 1,
+            "method": "POST",
+            "path": "/namf-comm/v1/ue-contexts/imsi-001010000000001/n1-n2-messages",
+            "json_body": {"n1MessageContainer": {"n1MessageClass": "5GMM"}},
+        }, "test.pcap")
+        trace_req = project_trace_event(ev_req)
+        self.assertEqual(trace_req["protocol"], "3GPP-SBI")
+        self.assertEqual(trace_req["interface"], "N11")
+        self.assertEqual(trace_req["message_type"], "N1N2MessageTransfer Request")
+
+        ev_rsp = normalize_record({
+            "frame_number": 2,
+            "timestamp": "2026-10-02T10:10:00.020000Z",
+            "tcp_stream": 0,
+            "stream_id": 1,
+            "status": 202,
+            "operation": "N1N2MessageTransfer",
+            "headers": {"location": "http://amf.example.org/namf-comm/v1/ue-contexts/imsi-001010000000001/n1-n2-messages/txfr-001"},
+            "json_body": {"cause": "WAITING_FOR_ASYNCHRONOUS_TRANSFER"},
+        }, "test.pcap")
+        trace_rsp = project_trace_event(ev_rsp)
+        self.assertEqual(trace_rsp["protocol"], "3GPP-SBI")
+        self.assertEqual(trace_rsp["interface"], "N11")
+        self.assertEqual(trace_rsp["message_type"], "N1N2MessageTransfer 202 Accepted")
 
 
 class StandaloneCopyTests(unittest.TestCase):

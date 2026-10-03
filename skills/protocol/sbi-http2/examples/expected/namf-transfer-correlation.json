@@ -1,0 +1,94 @@
+{
+  "capture_file": "namf-transfer.jsonl",
+  "limitations": [],
+  "open_transactions": [],
+  "transactions": [
+    {
+      "capture_file": "namf-transfer.jsonl",
+      "connection_context": "tcp-stream:0",
+      "correlation_strength": "STRONG",
+      "limitations": [],
+      "method": "POST",
+      "operation": "N1N2MessageTransfer",
+      "path": "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages",
+      "request_frames": [
+        1
+      ],
+      "response_frames": [
+        2
+      ],
+      "service": "Namf_Communication",
+      "sm_context_ref": null,
+      "status": 200,
+      "stream_id": 1,
+      "transaction_key": "sbi-tx:namf-transfer.jsonl:tcp-stream:0:stream1",
+      "transport_error": null
+    },
+    {
+      "capture_file": "namf-transfer.jsonl",
+      "connection_context": "tcp-stream:0",
+      "correlation_strength": "STRONG",
+      "limitations": [],
+      "method": "POST",
+      "n1n2_transfer_ref": "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages/txfr-002",
+      "operation": "N1N2MessageTransfer",
+      "path": "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages",
+      "request_frames": [
+        3
+      ],
+      "response_frames": [
+        4
+      ],
+      "service": "Namf_Communication",
+      "sm_context_ref": null,
+      "status": 202,
+      "stream_id": 3,
+      "transaction_key": "sbi-tx:namf-transfer.jsonl:tcp-stream:0:stream3",
+      "transport_error": null
+    },
+    {
+      "capture_file": "namf-transfer.jsonl",
+      "connection_context": "tcp-stream:0",
+      "correlation_strength": "STRONG",
+      "limitations": [],
+      "method": "POST",
+      "n1n2_transfer_ref": "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages/txfr-003",
+      "operation": "N1N2MessageTransfer",
+      "path": "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages",
+      "request_frames": [
+        5
+      ],
+      "response_frames": [
+        6
+      ],
+      "service": "Namf_Communication",
+      "sm_context_ref": null,
+      "status": 202,
+      "stream_id": 5,
+      "transaction_key": "sbi-tx:namf-transfer.jsonl:tcp-stream:0:stream5",
+      "transport_error": null
+    },
+    {
+      "capture_file": "namf-transfer.jsonl",
+      "connection_context": "tcp-stream:0",
+      "correlation_strength": "STRONG",
+      "limitations": [],
+      "method": "POST",
+      "operation": "N1N2MessageTransfer",
+      "path": "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages",
+      "request_frames": [
+        7
+      ],
+      "response_frames": [
+        8
+      ],
+      "service": "Namf_Communication",
+      "sm_context_ref": null,
+      "status": 200,
+      "stream_id": 7,
+      "transaction_key": "sbi-tx:namf-transfer.jsonl:tcp-stream:0:stream7",
+      "transport_error": null
+    }
+  ],
+  "unbound_events": []
+}

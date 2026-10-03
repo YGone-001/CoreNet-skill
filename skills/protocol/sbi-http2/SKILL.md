@@ -5,14 +5,16 @@
 Answer WHAT 3GPP Service Based Interface (SBI) and HTTP/2 signaling traffic and fields
 were observed on the N11 interface: the HTTP/2 method, path, status, connection context,
 stream identity, Nsmf_PDUSession operation (Create SM Context, Update SM Context,
-Release SM Context), SM Context resource references, bounded PDU Session ID / DNN / S-NSSAI
-metadata, multipart Content-ID binding for N1/N2 binary parts, ProblemDetails / service
-error evidence, HTTP/2 transport errors (RST_STREAM, GOAWAY), and privacy-preserving
-identity handling.
+Release SM Context), Namf_Communication delivery operation (N1N2MessageTransfer,
+N1N2Transfer Failure Notification), SM Context and transfer resource references,
+bounded PDU Session ID / DNN / S-NSSAI metadata, multipart Content-ID binding for N1/N2
+binary parts, ProblemDetails / service error evidence, HTTP/2 transport errors (RST_STREAM,
+GOAWAY), and privacy-preserving identity handling.
 
-This is a Protocol-layer Skill bounded to N11 and the Nsmf_PDUSession service subset
-reviewed against 3GPP TS 29.500 version 19.7.0 Release 19, 3GPP TS 29.501 version 19.5.0
-Release 19, 3GPP TS 29.502 version 19.8.0 Release 19 (Release 19 lineage), and
+This is a Protocol-layer Skill bounded to N11, the Nsmf_PDUSession service subset, and the
+Namf_Communication N1/N2 delivery subset reviewed against 3GPP TS 29.500 version 19.7.0
+Release 19, 3GPP TS 29.501 version 19.5.0 Release 19, 3GPP TS 29.502 version 19.8.0
+Release 19 (Release 19 lineage), 3GPP TS 29.518 version 19.8.0 Release 19, and
 3GPP TS 29.571 version 19.4.0 / 19.8.0 Release 19, carried over HTTP/2 (RFC 9113)
 and HTTP Semantics (RFC 9110).
 
@@ -25,8 +27,15 @@ and HTTP Semantics (RFC 9110).
 - Identify 3GPP SBI Nsmf_PDUSession operations: Create SM Context (`POST /sm-contexts`),
   Update SM Context (`POST /sm-contexts/{smContextRef}/modify`), and Release SM Context
   (`POST /sm-contexts/{smContextRef}/release`).
+- Identify 3GPP SBI Namf_Communication operations: N1N2MessageTransfer
+  (`POST /namf-comm/{apiVersion}/ue-contexts/{ueContextId}/n1-n2-messages`) and
+  N1N2Transfer Failure Notification callback (`POST {n1n2FailureTxfNotifURI}`).
 - Track SM Context resource references (`sm_context_ref`) from the `Location` response header
   or resource URI path, maintaining authority / API-root scope.
+- Track N1N2 message transfer resource references (`n1n2_transfer_ref`) from the `Location`
+  response header or transfer path.
+- Sanitize identity-bearing URI paths (`/ue-contexts/{ueContextId}/`) by default, preventing
+  SUPI/PEI/IMSI values from leaking into paths, resources, or event fields.
 - Preserve bounded session management metadata: PDU Session ID, DNN, S-NSSAI (`sst`, `sd`),
   Request Type, Access Type, RAT Type, User Plane connection state, and N2 SM Information Type.
 - Support multipart/related structure with explicit Content-ID binding for N1 SM message
@@ -39,6 +48,7 @@ and HTTP Semantics (RFC 9110).
 - Strip and unconditionally reject `Authorization` header values and tokens.
 - Explicitly report when application payload is unavailable due to TLS encryption.
 - Correlate request/response transactions by connection and stream ID.
+- Correlate N1N2Transfer Failure Notification callbacks deterministically by `n1n2_transfer_ref`.
 - Project detailed events into the shared trace-event schema (`protocol: 3GPP-SBI`, `interface: N11`).
 
 ## Non-Goals
@@ -54,7 +64,8 @@ and HTTP Semantics (RFC 9110).
   proves only that the SBI request succeeded according to the API contract.
 - Do not blame network functions (AMF, SMF, SCP) or infer implementation software bugs.
   An HTTP 4xx/5xx status or ProblemDetails is protocol-level signaling.
-- Do not implement full-catalog SBI services (Namf_Communication, Nausf_UEAuthentication,
+- Do not implement remaining Namf_Communication operations (UE Context Transfer, Registration
+  Status Update, subscriptions, etc.) or full-catalog SBI services (Nausf_UEAuthentication,
   Nudm_SDM, Npcf_SMPolicyControl, etc.) in this version.
 - Do not claim end-to-end root cause.
 
@@ -121,8 +132,8 @@ validation.
 ## References
 
 Read `README.md`, `references/protocol-model.md`, `references/http2-model.md`,
-`references/sbi-model.md`, `references/nsmf-pdusession.md`, `references/field-reference.md`,
-`references/multipart-model.md`, `references/privacy.md`, `references/correlation.md`,
-and `references/failure-cases.md`.
+`references/sbi-model.md`, `references/nsmf-pdusession.md`, `references/namf-communication.md`,
+`references/field-reference.md`, `references/multipart-model.md`, `references/privacy.md`,
+`references/correlation.md`, and `references/failure-cases.md`.
 Reviewed basis: 3GPP TS 29.500 v19.7.0, TS 29.501 v19.5.0, TS 29.502 v19.8.0,
-TS 29.571 v19.4.0/v19.8.0, RFC 9113, RFC 9110.
+3GPP TS 29.518 v19.8.0, TS 29.571 v19.4.0/v19.8.0, RFC 9113, RFC 9110.

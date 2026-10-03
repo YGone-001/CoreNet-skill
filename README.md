@@ -26,10 +26,12 @@ Marker and Supported Extension Headers Notification, with TEID evidence
 scoped by directed outer endpoints, bounded PDU Session Container / QFI
 evidence, bounded inner packet metadata, and observed packet/byte stream
 summaries), the bounded `sbi-http2` Protocol Skill
-(bounded N11 Nsmf_PDUSession observation: Create SM Context, Update SM
-Context, Release SM Context, with HTTP/2 stream isolation scoped by
-connection context, Content-ID multipart binding, subscriber privacy
-redaction, bounded ProblemDetails, and HTTP/2 transport errors), and the `cross-protocol-evidence` Correlation
+(bounded N11 Nsmf_PDUSession and Namf_Communication N1/N2 delivery observation:
+Create SM Context, Update SM Context, Release SM Context, Namf N1N2MessageTransfer,
+and N1N2Transfer Failure Notification, with HTTP/2 stream isolation scoped by
+connection context, transfer reference tracking, URI path privacy sanitization,
+Content-ID multipart binding, subscriber privacy redaction, bounded ProblemDetails,
+HTTP/2 transport errors, and deterministic callback correlation), and the `cross-protocol-evidence` Correlation
 Skill (provenance-key joins of extracted protocol events into a unified
 observed-evidence timeline; no protocol ownership, no verdicts), and the
 `procedure-evidence` Domain framework (generic stage and evidence model

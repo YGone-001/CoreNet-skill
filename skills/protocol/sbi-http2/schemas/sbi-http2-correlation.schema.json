@@ -11,6 +11,7 @@
     "transactions": {"type": "array", "items": {"$ref": "#/$defs/transaction"}},
     "open_transactions": {"type": "array", "items": {"$ref": "#/$defs/transaction"}},
     "unbound_events": {"type": "array", "items": {"$ref": "#/$defs/unboundEvent"}},
+    "unbound_callbacks": {"type": "array", "items": {"$ref": "#/$defs/unboundCallback"}},
     "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
   },
   "$defs": {
@@ -49,6 +50,19 @@
         "path": {"type": ["string", "null"]},
         "status": {"type": ["integer", "null"]},
         "sm_context_ref": {"type": ["string", "null"]},
+        "n1n2_transfer_ref": {"type": ["string", "null"]},
+        "failure_notification": {
+          "type": ["object", "null"],
+          "required": ["frame_number", "timestamp", "cause", "transfer_ref", "acknowledged"],
+          "additionalProperties": false,
+          "properties": {
+            "frame_number": {"type": "integer", "minimum": 1},
+            "timestamp": {"type": "string"},
+            "cause": {"type": "string"},
+            "transfer_ref": {"type": "string"},
+            "acknowledged": {"type": "boolean"}
+          }
+        },
         "request_frames": {"type": "array", "items": {"type": "integer", "minimum": 1}},
         "response_frames": {"type": "array", "items": {"type": "integer", "minimum": 1}},
         "correlation_strength": {
@@ -75,6 +89,18 @@
         "timestamp": {"type": ["string", "null"]},
         "stream_id": {"type": ["integer", "null"]},
         "support_status": {"type": ["string", "null"]},
+        "limitation": {"type": "string", "minLength": 1}
+      }
+    },
+    "unboundCallback": {
+      "type": "object",
+      "required": ["frame_number", "timestamp", "cause", "transfer_ref", "limitation"],
+      "additionalProperties": false,
+      "properties": {
+        "frame_number": {"type": ["integer", "null"], "minimum": 1},
+        "timestamp": {"type": ["string", "null"]},
+        "cause": {"type": ["string", "null"]},
+        "transfer_ref": {"type": ["string", "null"]},
         "limitation": {"type": "string", "minLength": 1}
       }
     }

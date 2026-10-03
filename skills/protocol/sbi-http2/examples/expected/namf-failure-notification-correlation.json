@@ -1,0 +1,90 @@
+{
+  "capture_file": "namf-failure-notification.jsonl",
+  "limitations": [],
+  "open_transactions": [],
+  "transactions": [
+    {
+      "capture_file": "namf-failure-notification.jsonl",
+      "connection_context": "tcp-stream:0",
+      "correlation_strength": "STRONG",
+      "failure_notification": {
+        "acknowledged": true,
+        "cause": "UE_NOT_RESPONDING",
+        "frame_number": 3,
+        "timestamp": "2026-10-02T10:20:05.000000Z",
+        "transfer_ref": "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages/txfr-001"
+      },
+      "limitations": [],
+      "method": "POST",
+      "n1n2_transfer_ref": "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages/txfr-001",
+      "operation": "N1N2MessageTransfer",
+      "path": "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages",
+      "request_frames": [
+        1
+      ],
+      "response_frames": [
+        2
+      ],
+      "service": "Namf_Communication",
+      "sm_context_ref": null,
+      "status": 202,
+      "stream_id": 1,
+      "transaction_key": "sbi-tx:namf-failure-notification.jsonl:tcp-stream:0:stream1",
+      "transport_error": null
+    },
+    {
+      "capture_file": "namf-failure-notification.jsonl",
+      "connection_context": "tcp-stream:0",
+      "correlation_strength": "STRONG",
+      "limitations": [],
+      "method": "POST",
+      "n1n2_transfer_ref": "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages/txfr-001",
+      "operation": "N1N2TransferFailureNotification",
+      "path": "/notification/n1-n2-failure-notify",
+      "request_frames": [
+        3
+      ],
+      "response_frames": [
+        4
+      ],
+      "service": "Namf_Communication",
+      "sm_context_ref": null,
+      "status": 204,
+      "stream_id": 3,
+      "transaction_key": "sbi-tx:namf-failure-notification.jsonl:tcp-stream:0:stream3",
+      "transport_error": null
+    },
+    {
+      "capture_file": "namf-failure-notification.jsonl",
+      "connection_context": "tcp-stream:0",
+      "correlation_strength": "STRONG",
+      "limitations": [],
+      "method": "POST",
+      "n1n2_transfer_ref": "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages/txfr-999",
+      "operation": "N1N2TransferFailureNotification",
+      "path": "/notification/n1-n2-failure-notify",
+      "request_frames": [
+        5
+      ],
+      "response_frames": [
+        6
+      ],
+      "service": "Namf_Communication",
+      "sm_context_ref": null,
+      "status": 204,
+      "stream_id": 5,
+      "transaction_key": "sbi-tx:namf-failure-notification.jsonl:tcp-stream:0:stream5",
+      "transport_error": null
+    }
+  ],
+  "unbound_callbacks": [
+    {
+      "cause": "AN_NOT_RESPONDING",
+      "frame_number": 5,
+      "limitation": "failure notification has no matching prior transfer transaction reference in capture",
+      "timestamp": "2026-10-02T10:20:10.000000Z",
+      "transfer_ref": "/namf-comm/v1/ue-contexts/{ueContextId}/n1-n2-messages/txfr-999"
+    }
+  ],
+  "unbound_events": []
+}

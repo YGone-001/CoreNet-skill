@@ -61,3 +61,30 @@ When packet captures contain encrypted TLS application data without deciphering 
 - The Skill **MUST NOT** hallucinate missing HTTP/2 or SBI messages.
 - The limitation must state:
   `HTTP/2/SBI payload unavailable due to encrypted/unavailable application data`.
+
+## Namf N1N2 Delivery Failure Cases and Causes
+
+### HTTP 202 Accepted Is Not Delivery
+
+When an AMF responds to `N1N2MessageTransfer` with `202 Accepted`:
+- `cause` may indicate `WAITING_FOR_ASYNCHRONOUS_TRANSFER` or `ATTEMPTING_TO_REACH_UE`.
+- The result classification is `N1N2_TRANSFER_ACCEPTED_PENDING`.
+- This represents that the transfer request is queued or paging is underway; it **must not** be interpreted as `DELIVERED`, `SUCCESSFUL_N1`, `SUCCESSFUL_N2`, or `PDU_SESSION_SUCCESS`.
+
+### N1N2Transfer Failure Notification Causes
+
+When N1/N2 delivery fails, the AMF reports the condition to the NF service consumer via callback:
+
+| Failure Cause | Normative Reference | Meaning & Interpretation Boundary |
+| :--- | :--- | :--- |
+| `UE_NOT_RESPONDING` | TS 29.518 | AMF paged the UE or attempted delivery, but the UE did not respond. Direct delivery failure evidence; does not prove gNB hardware defect or AMF bug. |
+| `UE_NOT_REACHABLE_FOR_SESSION` | TS 29.518 | UE is unreachable for the specific session. Observed delivery boundary; not a root-cause verdict. |
+| `TEMPORARY_REJECT_REGISTRATION_ONGOING` | TS 29.518 | Delivery temporarily rejected because registration procedure is ongoing. |
+| `TEMPORARY_REJECT_HANDOVER_ONGOING` | TS 29.518 | Delivery temporarily rejected because handover is ongoing. |
+| `AN_NOT_RESPONDING` | TS 29.518 | Access Network did not respond. Observed delivery boundary; does not prove RAN crash. |
+| `FAILURE_CAUSE_UNSPECIFIED` | TS 29.518 | Delivery failed due to unspecified reason. |
+
+### Callback Response (204 No Content)
+
+- The NF service consumer acknowledges receipt of the failure notification with `204 No Content`.
+- This confirms notification transport receipt only; it does not resolve the delivery failure.

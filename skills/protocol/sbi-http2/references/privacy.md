@@ -18,9 +18,26 @@ SBI payloads (such as `SmContextCreateData`) frequently contain subscriber ident
 **Default Policy:**
 1. Detection: The parser detects the presence of any subscriber identity member.
 2. Metadata: `subscriber_identity_present = true`, and `subscriber_identity_type` records
-   which identity type was detected (`"SUPI"`, `"GPSI"`, or `"PEI"`).
+   which identity type was detected (`"SUPI"`, `"GPSI"`, `"PEI"`, `"GUTI"`, `"GENERIC"`, or `"UNKNOWN"`).
 3. Redaction: The actual identifier string value is **redacted and never persisted**
    in detailed event outputs, correlation files, timelines, or trace projections.
+
+### URI Path Sanitization (`/ue-contexts/{ueContextId}/`)
+
+Namf_Communication request paths carry UE context identities in the path:
+`{apiRoot}/namf-comm/{apiVersion}/ue-contexts/{ueContextId}/n1-n2-messages`
+
+The path parameter may contain:
+- SUPI (e.g., `imsi-001010000000001` or raw IMSI)
+- PEI (e.g., `imei-860000000000001` or `pei-...`)
+- GUTI (e.g., `guti-...`)
+- Generic context identifiers
+
+**Path Privacy Contract:**
+1. The central URI sanitizer replaces the raw identifier segment with the `{ueContextId}` placeholder across all user-facing outputs (`http2.path`, `sbi.resource`, timeline entries, trace `message_type`, and correlation records).
+2. Presence (`ue_context_id_present: true`) and classified type (`ue_context_id_type`) are recorded in event metadata.
+3. Raw identifier values are never persisted in any output artifact or log.
+4. Response `Location` headers and callback notification URIs (`n1n2MsgDataUri`) are also sanitized before being exposed as `n1n2_transfer_ref`.
 
 ### Generic Trace Projection
 

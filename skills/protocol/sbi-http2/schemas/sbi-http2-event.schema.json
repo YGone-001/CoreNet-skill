@@ -66,10 +66,39 @@
         "operation": {"type": ["string", "null"], "minLength": 1},
         "resource": {"type": ["string", "null"], "minLength": 1},
         "sm_context_ref": {"type": ["string", "null"], "minLength": 1},
+        "n1n2_transfer_ref": {"type": ["string", "null"], "minLength": 1},
         "selected_headers": {
           "type": "object",
           "additionalProperties": {"type": "string"}
         }
+      }
+    },
+    "namf_communication": {
+      "type": ["object", "null"],
+      "required": [
+        "ue_context_id_present",
+        "ue_context_id_type",
+        "n1_message_class",
+        "n2_information_class",
+        "n2_sm_info_type",
+        "n1_content_id",
+        "n2_content_id",
+        "failure_notification_uri_present",
+        "transfer_cause",
+        "failure_cause"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "ue_context_id_present": {"type": "boolean"},
+        "ue_context_id_type": {"type": ["string", "null"], "enum": ["SUPI", "PEI", "GUTI", "GENERIC", "UNKNOWN", null]},
+        "n1_message_class": {"type": ["string", "null"]},
+        "n2_information_class": {"type": ["string", "null"]},
+        "n2_sm_info_type": {"type": ["string", "null"]},
+        "n1_content_id": {"type": ["string", "null"]},
+        "n2_content_id": {"type": ["string", "null"]},
+        "failure_notification_uri_present": {"type": "boolean"},
+        "transfer_cause": {"type": ["string", "null"]},
+        "failure_cause": {"type": ["string", "null"]}
       }
     },
     "session_management": {
@@ -101,7 +130,7 @@
       "additionalProperties": false,
       "properties": {
         "subscriber_identity_present": {"type": "boolean"},
-        "subscriber_identity_type": {"type": ["string", "null"], "enum": ["SUPI", "GPSI", "PEI", null]}
+        "subscriber_identity_type": {"type": ["string", "null"], "enum": ["SUPI", "GPSI", "PEI", "GUTI", "GENERIC", "UNKNOWN", null]}
       }
     },
     "multipart_parts": {
@@ -115,7 +144,7 @@
           "content_id": {"type": ["string", "null"], "minLength": 1},
           "content_type": {"type": ["string", "null"], "minLength": 1},
           "length": {"type": ["integer", "null"], "minimum": 0},
-          "semantic_role": {"type": ["string", "null"], "enum": ["JSON_METADATA", "N1_SM_INFO", "N2_SM_INFO", "UNRESOLVED", null]},
+          "semantic_role": {"type": ["string", "null"], "enum": ["JSON_METADATA", "N1_SM_INFO", "N2_SM_INFO", "N1_MESSAGE", "N2_INFO", "UNRESOLVED", null]},
           "reference_basis": {"type": ["string", "null"], "enum": ["ROOT_JSON", "EXPLICIT_CONTENT_ID", "UNREFERENCED", "AMBIGUOUS_CONTENT_ID", "MISSING_CONTENT_ID", null]}
         }
       }
@@ -157,7 +186,7 @@
     "support_status": {"type": "string", "enum": ["SUPPORTED", "UNSUPPORTED", "UNKNOWN"]},
     "result": {
       "type": ["string", "null"],
-      "enum": ["REQUEST", "RESPONSE", "HTTP_ERROR", "RESET", "GOAWAY", "CONTROL", "PAYLOAD_UNAVAILABLE", null]
+      "enum": ["REQUEST", "RESPONSE", "HTTP_ERROR", "RESET", "GOAWAY", "CONTROL", "PAYLOAD_UNAVAILABLE", "N1N2_TRANSFER_ACCEPTED_PENDING", "FAILURE_NOTIFICATION", null]
     },
     "evidence": {
       "type": "object",
