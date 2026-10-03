@@ -357,6 +357,39 @@ class PduSessionValidatorTests(unittest.TestCase):
             (root / "skills/domain/pdu-session-release").mkdir(parents=True)
             self.assert_error(root, "separate Release Skill is forbidden")
 
+    def test_stale_release_exclusion_is_rejected(self):
+        # The manifest must not simultaneously declare release support under
+        # scope.includes and exclude the implemented PDU Session Release
+        # lifecycle under scope.excludes; the validator rejects that
+        # contradiction instead of letting it reach CI.
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/domain/5gc-pdu-session/manifest.yaml"
+            manifest.write_text(
+                manifest.read_text(encoding="utf-8").replace(
+                    "  excludes:\n    - handover and path switch",
+                    "  excludes:\n    - PDU Session Release lifecycle\n    - handover and path switch",
+                ),
+                encoding="utf-8",
+            )
+            self.assert_error(root, "must not exclude the implemented PDU Session Release lifecycle")
+
+    def test_missing_release_declaration_is_rejected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/domain/5gc-pdu-session/manifest.yaml"
+            text = manifest.read_text(encoding="utf-8")
+            lines = [
+                line for line in text.splitlines()
+                if "repeated release attempt modeling" not in line
+                and "bounded release stages" not in line
+                and "lifecycle generation split" not in line
+            ]
+            manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            errors = VALIDATOR.validate(root)
+            self.assertTrue(any("must declare bounded release attempt modeling" in e for e in errors), errors)
+            self.assertTrue(any("must declare lifecycle generation handling" in e for e in errors), errors)
+
 
 if __name__ == "__main__":
     unittest.main()

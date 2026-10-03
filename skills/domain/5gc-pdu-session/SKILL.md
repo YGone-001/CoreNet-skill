@@ -130,7 +130,8 @@ Optional: `procedure-evidence >=0.1.0`, `cross-protocol-evidence >=0.1.0`,
 
 1. Obtain structured event JSONL files from lower-layer Protocol Skills.
 2. Run `analyze_pdu_session.py` to evaluate procedure instances, stage progression,
-   repeated modification attempts, deviations, and field findings.
+   repeated Modification attempts, repeated Release attempts, lifecycle
+   generation and same-PSI reuse boundaries, deviations, and field findings.
 3. Check observation-window limitations: capture start and end bound every
    missing-evidence statement.
 4. Render `pdu_session_timeline.py` for chronological per-instance tracking.

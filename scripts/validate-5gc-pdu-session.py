@@ -175,6 +175,21 @@ def validate(root: Path) -> list[str]:
         if (root / "skills/domain" / forbidden_dir).is_dir():
             errors.append(f"separate Release Skill is forbidden; Release remains inside 5gc-pdu-session: {forbidden_dir}")
 
+    # Release lifecycle contract consistency: the manifest must declare what
+    # v0.3.0 implements and must not simultaneously exclude it.
+    scope_includes = " ".join(manifest_block_or_flow(manifest, "includes")).lower()
+    if "release attempt modeling" not in scope_includes or "release stages" not in scope_includes:
+        errors.append("manifest scope.includes must declare bounded release attempt modeling and release stages")
+    if "lifecycle generation" not in scope_includes:
+        errors.append("manifest scope.includes must declare lifecycle generation handling")
+    scope_excludes = manifest_block_or_flow(manifest, "excludes")
+    for entry in scope_excludes:
+        if re.search(r"(?i)pdu\s+session\s+release|release\s+lifecycle", entry):
+            errors.append(
+                "manifest scope.excludes must not exclude the implemented PDU Session Release lifecycle: "
+                f"{entry}"
+            )
+
     # Check that expected lower Skill dependencies are declared in optional dependencies
     optional_deps = " ".join(manifest_block_or_flow(manifest, "optional"))
     for exp_dep in ("nas-5gs", "ngap", "pfcp", "gtpu", "sbi-http2", "procedure-evidence"):

@@ -25,9 +25,10 @@ scope:
     - procedure-local deviation classification and lower-layer field findings
     - generic procedure-evidence stage records and analysis summary JSON
   excludes:
-    - PDU Session Release lifecycle
     - handover and path switch
     - UPF relocation
+    - complete UE deregistration Domain procedure
+    - implicit global UE-context teardown
     - NAS, NGAP, PFCP, GTP-U, or HTTP/2 byte-level decoding
     - success, failure, or root-cause verdicts; implementation blame
     - Open5GS, free5GC, or vendor-specific source mapping

@@ -30,8 +30,10 @@ mixing is claimed.
 ## Package Structure
 
 - `scripts/pdu_session_model.py`: standalone analysis engine (loaders, instance
-  formation, multi-plane binding, repeated modification attempt evaluation, deviations,
-  field findings, sanitization).
+  formation, multi-plane binding, repeated modification attempt evaluation,
+  repeated release attempt evaluation with `release_attempts`, lifecycle
+  generation split on same-PSI reuse after an evidence-supported release
+  boundary, deviations, field findings, sanitization).
 - `scripts/analyze_pdu_session.py`: CLI driver producing analysis summary JSON
   and generic procedure-evidence stage JSONL.
 - `scripts/pdu_session_timeline.py`: per-instance evidence timeline (text or JSON).
@@ -43,6 +45,7 @@ mixing is claimed.
 - `examples/inputs/`, `examples/expected/`: 88 synthetic scenarios covering normal
   establishment, rejections, negative causes, ambiguous SBI, TEID reuse, mixed NGAP
   resources, pending delivery, partial captures, repeated modification attempts,
+  repeated release attempts, lifecycle generation reuse,
   branch conditionality, PTI isolation, PFCP rule operations, and GTP-U observations.
 - `tests/`: package-local test suite (`test_5gc_pdu_session.py`).
 
@@ -74,10 +77,15 @@ python scripts/pdu_session_timeline.py analysis.json --format json
 
 The analysis summary reports, per procedure instance: the derived instance identifier
 (`5gc-pdu-session:<capture>:ran<id>-amf<id>:psi<id>`, explicitly DERIVED and not a
-standardized 3GPP identifier), NGAP UE context, PDU Session ID, stage evaluations,
-repeated modification attempts (0..N per instance), terminal observation (Accept,
-Reject, Command Reject, No Terminal Observation, or Partial Capture), deviations,
-earliest observed procedure-local deviation, field findings, and plane bindings.
+standardized 3GPP identifier, extended with a derived `:gN` lifecycle-generation
+suffix only when a lifecycle split applies), NGAP UE context, PDU Session ID, stage
+evaluations, repeated modification attempts and repeated release attempts
+(`modification_attempts`, `release_attempts`, each 0..N per lifecycle instance),
+lifecycle generation metadata (`session_generation`, `lifecycle_boundary_basis`,
+`previous_generation`, `reuse_status`) when a split or ambiguity applies, terminal
+observation (Accept, Reject, Command Reject, Release Complete, Release Reject,
+No Terminal Observation, or Partial Capture), deviations, earliest observed
+procedure-local deviation, field findings, and plane bindings.
 
 - PDU Session ID alone is not globally unique: different UEs allocate identical IDs.
 - PTI is strictly scoped to its UE context; concurrent attempts on different UEs with
