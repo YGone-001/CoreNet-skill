@@ -27,6 +27,34 @@ def fail(errors: list[str], message: str) -> None:
     errors.append(message)
 
 
+def implemented_skill_names(root: Path) -> set[str]:
+    """Derive the implemented Skill catalog from actual Skill directories."""
+    names: set[str] = set()
+    for layer in LAYERS:
+        layer_dir = root / "skills" / layer
+        if layer_dir.is_dir():
+            for child in layer_dir.iterdir():
+                if child.is_dir() and (child / "manifest.yaml").is_file():
+                    names.add(child.name)
+    return names
+
+
+def check_architecture_catalog(root: Path, errors: list[str]) -> None:
+    """docs/ARCHITECTURE.md must not describe an implemented Skill as a future candidate."""
+    arch = root / "docs" / "ARCHITECTURE.md"
+    if not arch.is_file():
+        return
+    implemented = implemented_skill_names(root)
+    if not implemented:
+        return
+    for line in arch.read_text(encoding="utf-8").splitlines():
+        if "candidate" not in line.lower():
+            continue
+        for name in sorted(implemented):
+            if re.search(rf"`{re.escape(name)}`", line):
+                fail(errors, f"docs/ARCHITECTURE.md lists implemented Skill `{name}` as a future candidate")
+
+
 def validate(root: Path) -> list[str]:
     """Validate repository layout against the contract; returns error list."""
     errors: list[str] = []
@@ -56,6 +84,7 @@ def validate(root: Path) -> list[str]:
             for required in ("SKILL.md", "README.md", "manifest.yaml"):
                 if not (path / required).is_file():
                     fail(errors, f"incomplete Skill: {path.relative_to(root)}/{required} is missing")
+    check_architecture_catalog(root, errors)
     try:
         tracked = subprocess.check_output(["git", "ls-files"], cwd=root, text=True).splitlines()
     except (OSError, subprocess.CalledProcessError):

@@ -22,7 +22,7 @@ Implementation is deliberately not a CoreNet Skill layer. The system answers "Wh
 | Domain / procedure | Cross-network-function telecom procedures; consumes Protocol and Correlation outputs. | Foundation, Protocol, Correlation |
 | Analysis Orchestration | Combining protocol evidence, producing investigation reports, and confidence-aware diagnosis that locates the first abnormal evidence boundary. | All lower layers |
 
-Examples of permitted ownership: `ims-registration` depends on `sip` and `diameter-ims`; `epc-procedures` depends on `nas-eps`, `s1ap`, and `diameter-epc`; `5gc-pdu-session` depends on `nas-5gs`, `ngap`, `pfcp`, and `sbi-http2`; `cross-protocol-evidence` depends on the `ngap` and `nas-5gs` event contracts; `5gc-registration-mobility` depends on `cross-protocol-evidence`, `ngap`, and `nas-5gs`; `diameter-ims` depends on same-layer `diameter-core`.
+Examples of permitted ownership: `ims-registration` depends on `sip` and `diameter-ims`; `epc-procedures` depends on `nas-eps`, `s1ap`, and `diameter-epc`; `5gc-pdu-session` depends on `nas-5gs`, `ngap`, `pfcp`, `gtpu`, and `sbi-http2`; `cross-protocol-evidence` depends on the `ngap` and `nas-5gs` event contracts; `5gc-registration-mobility` depends on `cross-protocol-evidence`, `ngap`, and `nas-5gs`; `diameter-ims` depends on same-layer `diameter-core`.
 
 Examples of prohibited ownership: `sip` must not depend on `ims-registration`; `diameter-core` must not depend on `diameter-ims`; `ngap` must not depend on `5gc-registration-mobility` or on `cross-protocol-evidence`; `cross-protocol-evidence` must not depend on `5gc-registration-mobility`.
 
@@ -44,30 +44,32 @@ External implementation context remains welcome as evidence. If a user provides 
 
 ## Implemented catalog
 
-Implemented Protocol Skills: `core-network-pcap` (capture ingestion, dissector classification, protocol-neutral trace-event normalization), `ngap` (bounded UE-context signaling semantics over N2), and `nas-5gs` (bounded 5GMM semantics over N1).
+Implemented Protocol Skills: `core-network-pcap` (capture ingestion, dissector classification, protocol-neutral trace-event normalization), `ngap` (bounded UE-context signaling semantics over N2, including the PDU Session Resource setup/modify/release subset and resources embedded in Initial Context Setup), `nas-5gs` (bounded 5GMM registration/identity/authentication/security-mode/service/status semantics and bounded 5GSM PDU session establishment/modification/release/status semantics over N1), `pfcp` (bounded N4 session-control semantics: Heartbeat, Association Setup, and Session Establishment/Modification/Deletion with header SEID and CP/UP F-SEID evidence, bounded PDR/FAR/QER/URR rule groups, PFCP Cause, and endpoint-scoped transaction correlation), `gtpu` (bounded N3 user-plane observation semantics: G-PDU, Echo, Error Indication, End Marker with TEID evidence scoped by directed outer endpoints and bounded PDU Session Container/QFI evidence), and `sbi-http2` (bounded N11 Nsmf_PDUSession and Namf_Communication semantics with HTTP/2 stream isolation scoped by connection context, transfer reference tracking, and deterministic callback correlation).
 
-Implemented Correlation Skills: `cross-protocol-evidence` joins already-extracted NGAP and NAS-5GS detailed events into deterministic evidence groups and a unified observed-evidence timeline by shared capture provenance.
+Implemented Correlation Skills: `cross-protocol-evidence` joins already-extracted protocol detailed events into deterministic evidence groups and a unified observed-evidence timeline by shared capture provenance. It is optional infrastructure for Domain Skills, not a mandatory wrapper.
 
-Protocol candidates remain `nas-eps`, `s1ap`, `gtpv2`, `gtpu`, `pfcp`, `sip`, `sdp-rtp`, `diameter-core`, `diameter-epc`, `diameter-ims`, `diameter-charging`, and `sbi-http2`. These names are plans, not implementations.
+Planned protocol work remains: `nas-eps`, `s1ap`, `gtpv2`, `sip`, `sdp-rtp`, `diameter-core`, `diameter-epc`, `diameter-ims`, and `diameter-charging`; broader SBI service semantics beyond the bounded Nsmf_PDUSession and Namf_Communication subset; NGAP handover and path-switch expansion; and GTP-U on N9/S1-U/S5-S8-U. These names are plans, not implementations.
 
-Implemented Domain capabilities: `procedure-evidence` defines the common evidence model (expected observation points, generic stage representation, observed and missing evidence, evidence confidence), and `5gc-registration-mobility` provides bounded N1/N2 registration and access procedure-stage analysis from already-extracted NGAP/NAS evidence. The latter identifies conditional branches, protocol-defined outcomes, missing evidence, and procedure-local deviations; it does not decode lower-layer protocols or produce root-cause conclusions.
+Implemented Domain capabilities: `procedure-evidence` defines the common evidence model (expected observation points, generic stage representation, observed and missing evidence, evidence confidence); `5gc-registration-mobility` provides bounded N1/N2 registration and access procedure-stage analysis from already-extracted NGAP/NAS evidence, identifying conditional branches, protocol-defined outcomes, missing evidence, and procedure-local deviations; and `5gc-pdu-session` (v0.3.0) provides bounded 5GC PDU Session Establishment, repeated Modification, and Release lifecycle analysis across N1/N2/N3/N4/N11, composing already-extracted NAS-5GS, NGAP, PFCP, GTP-U, and SBI-HTTP2 evidence with lifecycle generation handling: the same UE context re-using the same numeric PDU Session ID after an evidence-supported release boundary forms a distinct lifecycle generation, and reuse without a proven boundary is preserved as `LIFECYCLE_AMBIGUITY` rather than silently merged or split. Domain Skills do not decode lower-layer protocols and do not produce root-cause conclusions.
 
-Domain candidates include `epc-procedures`; `ims-registration`, `ims-session`, and `ims-media-qos`; plus `5gc-pdu-session`, `5gc-sbi`, `5gc-user-plane`, `5gc-policy`, `5gc-interworking`, and `5gc-roaming-exposure`. These names are plans, not implementations. Domain Skills consume protocol evidence and correlation output; they do not replace protocol decoding or correlation.
+Domain candidates remain broader 5GC mobility (handover, path switch, and UPF relocation), `epc-procedures`; `ims-registration`, `ims-session`, and `ims-media-qos`; plus `5gc-sbi`, `5gc-user-plane`, `5gc-policy`, `5gc-interworking`, and `5gc-roaming-exposure`. These names are plans, not implementations. Domain Skills consume protocol evidence and correlation output; they do not replace protocol decoding or correlation.
 
 Diameter is deliberately cross-domain: `diameter-core` owns base headers, AVP structure, Vendor-ID, Application-ID, Command-Code, identifiers, and result semantics. `diameter-epc` will own S6a/Gx and EPC-context Gy; `diameter-ims` will own Cx/Dx/Sh/Rx; and `diameter-charging` will own Ro/Gy credit-control semantics shared by EPC and IMS. Diameter is not owned by IMS.
 
 ## 5GC interface ownership plan
 
-| Interfaces | Planned functional grouping | Future owners |
+Implemented Skills appear without annotation; skills marked *(planned)* are not yet implemented.
+
+| Interfaces | Functional grouping | Owners |
 | --- | --- | --- |
 | N1, N2 | Access signaling and mobility | `nas-5gs`, `ngap`, `5gc-registration-mobility` |
-| N3 | RAN-to-UPF user plane | `gtpu`, `5gc-user-plane` |
+| N3 | RAN-to-UPF user plane | `gtpu`; session-side ownership by `5gc-pdu-session` |
 | N4 | SMF-to-UPF control | `pfcp`, `5gc-pdu-session` |
-| N5, N7, N15 | Policy control | `5gc-policy`, SBI support |
-| N6 | Data-network IP user plane | `5gc-user-plane` and IP-networking foundation |
-| N8, N10, N11, N12, N13, N14 | SBI service interactions | `sbi-http2`, `5gc-sbi`, registration/mobility or session domains |
-| N9 | UPF-to-UPF user plane | `gtpu`, `5gc-user-plane` |
-| N22, N24, N26, N27 | Selection, policy, and interworking | `5gc-policy`, `5gc-interworking` |
-| N32, N33 | Roaming, SEPP, NEF, and exposure | `5gc-roaming-exposure` |
+| N5, N7, N15 | Policy control | `5gc-policy` (planned), SBI support |
+| N6 | Data-network IP user plane | `5gc-user-plane` (planned) and IP-networking foundation |
+| N8, N10, N11, N12, N13, N14 | SBI service interactions | `sbi-http2`; `5gc-sbi` (planned), registration/mobility or session domains |
+| N9 | UPF-to-UPF user plane | `gtpu` on N9 (planned expansion); `5gc-user-plane` (planned) |
+| N22, N24, N26, N27 | Selection, policy, and interworking | `5gc-policy` (planned), `5gc-interworking` (planned) |
+| N32, N33 | Roaming, SEPP, NEF, and exposure | `5gc-roaming-exposure` (planned) |
 
 This grouping deliberately avoids a one-Skill-per-interface model. Specific interface ownership may be refined only without violating the layer direction above.
