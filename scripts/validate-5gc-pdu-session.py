@@ -67,6 +67,7 @@ MODIFICATION_SCENARIOS = {
     "tls-unavailable-sbi-modify",
     "protected-nas-inner-unavailable-modify",
     "release-events-after-modification",
+    "network-only-modification-transactions",
 }
 
 SCENARIOS = ESTABLISHMENT_SCENARIOS | MODIFICATION_SCENARIOS
@@ -176,7 +177,8 @@ def validate(root: Path) -> list[str]:
             mod_props = mod_def.get("properties", {})
             for field in (
                 "attempt_id", "trigger_type", "procedure_transaction_identity",
-                "association_basis", "association_strength", "stages",
+                "association_basis", "association_strength", "association_details",
+                "observation_window", "event_ownership", "stages",
                 "terminal_observation", "deviations", "earliest_observed_deviation",
                 "field_findings", "plane_bindings", "pre_modification_context",
                 "post_modification_observations", "unbound_evidence", "limitations"
@@ -193,7 +195,7 @@ def validate(root: Path) -> list[str]:
     input_root = skill / "examples/inputs"
     actual_scenarios = {path.name for path in input_root.iterdir() if path.is_dir()} if input_root.is_dir() else set()
     if actual_scenarios != SCENARIOS:
-        errors.append(f"synthetic input scenarios must cover all 48 bounded cases; found: {actual_scenarios}")
+        errors.append(f"synthetic input scenarios must cover all 49 bounded cases; found: {actual_scenarios}")
 
     for scenario in sorted(SCENARIOS):
         sdir = input_root / scenario
@@ -217,6 +219,8 @@ def validate(root: Path) -> list[str]:
         "qfi-cross-plane-conflict": "QFI-conflict",
         "fteid-changed-matching-gtpu": "changed-F-TEID",
         "fteid-changed-no-gtpu": "no-GTPU neutral",
+        "ambiguous-concurrent-modifications": "true concurrent cross-plane ambiguity",
+        "network-only-modification-transactions": "network-only partial capture",
     }
     for fix_name, fix_desc in required_fixtures.items():
         if fix_name not in SCENARIOS:
@@ -229,6 +233,52 @@ def validate(root: Path) -> list[str]:
             fix_text = expected_path.read_text(encoding="utf-8")
             if "USER_PLANE_FAILED" in fix_text:
                 errors.append(f"{no_gtpu_fix} must remain neutral observation and not assert USER_PLANE_FAILED")
+
+    # Post-modification GTP-U absence is conditional NOT_OBSERVED evidence, never
+    # a missing required counterpart.
+    no_gtpu_mod_expected = skill / "examples/expected/fteid-changed-no-gtpu-analysis.json"
+    if no_gtpu_mod_expected.is_file():
+        try:
+            doc = json.loads(no_gtpu_mod_expected.read_text(encoding="utf-8"))
+            for inst in doc.get("instances", []):
+                for attempt in inst.get("modification_attempts", []):
+                    pmo = next((s for s in attempt.get("stages", []) if s.get("stage_id") == "post_modification_observation"), None)
+                    if pmo is not None:
+                        if pmo.get("status") != "NOT_OBSERVED":
+                            errors.append("fteid-changed-no-gtpu post_modification_observation must use NOT_OBSERVED status")
+                        if pmo.get("missing_evidence"):
+                            errors.append("fteid-changed-no-gtpu post_modification_observation must not emit missing_evidence for idle user plane")
+            dev_types = {
+                d.get("type")
+                for inst in doc.get("instances", [])
+                for attempt in inst.get("modification_attempts", [])
+                for d in attempt.get("deviations", [])
+                if d.get("stage_id") == "post_modification_observation"
+            }
+            if "MISSING_EXPECTED_COUNTERPART" in dev_types:
+                errors.append("fteid-changed-no-gtpu must not emit a missing-counterpart deviation for idle user plane")
+        except json.JSONDecodeError as exc:
+            errors.append(f"fteid-changed-no-gtpu expected analysis is invalid JSON: {exc}")
+
+    # The concurrent-ambiguity fixture must keep two distinct attempts and an
+    # explicit CORRELATION_AMBIGUITY record with no forced attempt assignment.
+    ambiguity_expected = skill / "examples/expected/ambiguous-concurrent-modifications-analysis.json"
+    if ambiguity_expected.is_file():
+        try:
+            doc = json.loads(ambiguity_expected.read_text(encoding="utf-8"))
+            inst = doc["instances"][0]
+            if len(inst.get("modification_attempts", [])) != 2:
+                errors.append("ambiguous-concurrent-modifications must keep two distinct modification attempts")
+            ambiguous_records = [
+                r for r in inst.get("unbound_evidence", [])
+                if r.get("association_strength") == "AMBIGUOUS"
+            ]
+            if not ambiguous_records:
+                errors.append("ambiguous-concurrent-modifications must retain an AMBIGUOUS unbound modification record")
+            if not any(r.get("association_strength") == "AMBIGUOUS" and len(r.get("candidate_attempt_ids", [])) >= 2 for r in inst.get("unbound_evidence", [])):
+                errors.append("ambiguous-concurrent-modifications ambiguous record must list both candidate attempts")
+        except (json.JSONDecodeError, KeyError) as exc:
+            errors.append(f"ambiguous-concurrent-modifications expected analysis is invalid: {exc}")
 
     for path in skill.rglob("*"):
         if not path.is_file():

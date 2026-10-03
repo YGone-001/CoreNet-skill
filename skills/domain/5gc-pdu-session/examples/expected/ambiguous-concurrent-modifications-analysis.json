@@ -3,7 +3,29 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
-      "deviations": [],
+      "deviations": [
+        {
+          "description": "Modification event is session-bound but carries no attempt-specific identity while multiple concurrent modification attempts are compatible; no attempt selected (3GPP-SBI frame 12 in test.pcap)",
+          "evidence_level": "DERIVED",
+          "limitation": "Event preserved as session-level context; no attempt-specific assignment was made",
+          "stage_id": "sm_context_update",
+          "type": "CORRELATION_AMBIGUITY"
+        },
+        {
+          "description": "Modification event is session-bound but carries no attempt-specific identity while multiple concurrent modification attempts are compatible; no attempt selected (PFCP frame 13 in test.pcap)",
+          "evidence_level": "DERIVED",
+          "limitation": "Event preserved as session-level context; no attempt-specific assignment was made",
+          "stage_id": "user_plane_control_update",
+          "type": "CORRELATION_AMBIGUITY"
+        },
+        {
+          "description": "GTP-U packet matches the tunnel context of multiple concurrent modification attempts within overlapping observation windows; tunnel identity cannot select one attempt (GTP-U frame 14 in test.pcap)",
+          "evidence_level": "DERIVED",
+          "limitation": "Event preserved as session-level context; no attempt-specific assignment was made",
+          "stage_id": "post_modification_observation",
+          "type": "CORRELATION_AMBIGUITY"
+        }
+      ],
       "earliest_observed_deviation": null,
       "field_findings": [
         {
@@ -24,16 +46,6 @@
           "interpretation": "PDU Session ID allocated by UE",
           "limitations": [],
           "observed_value": 1,
-          "plane": "N1"
-        },
-        {
-          "capture_file": "test.pcap",
-          "evidence_level": "OBSERVED",
-          "field_name": "pdu_address",
-          "frame_number": 8,
-          "interpretation": "Accepted UE PDU IP address",
-          "limitations": [],
-          "observed_value": "10.45.0.2",
           "plane": "N1"
         },
         {
@@ -64,16 +76,6 @@
           "interpretation": "PDU Session ID allocated by UE",
           "limitations": [],
           "observed_value": 1,
-          "plane": "N1"
-        },
-        {
-          "capture_file": "test.pcap",
-          "evidence_level": "OBSERVED",
-          "field_name": "qfi",
-          "frame_number": 11,
-          "interpretation": "Authorized QoS Flow Identifier on N1",
-          "limitations": [],
-          "observed_value": 4,
           "plane": "N1"
         },
         {
@@ -151,6 +153,26 @@
           "limitations": [],
           "observed_value": 200,
           "plane": "N11"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "status",
+          "frame_number": 12,
+          "interpretation": "HTTP/2 response status code",
+          "limitations": [],
+          "observed_value": 200,
+          "plane": "N11"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "sm_context_ref",
+          "frame_number": 12,
+          "interpretation": "SM Context resource URI assigned by SMF",
+          "limitations": [],
+          "observed_value": "https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1",
+          "plane": "N11"
         }
       ],
       "instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
@@ -161,16 +183,26 @@
       "modification_attempts": [
         {
           "association_basis": "established_context_and_pti",
+          "association_details": {
+            "association_model": "candidate_set_with_control_windows",
+            "control_window": {
+              "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+              "end_frame": null,
+              "start_frame": 10
+            },
+            "cross_plane_binding": {
+              "n11_sm_context_update_bound": false,
+              "n2_resource_modify_bound": false,
+              "n4_session_modification_bound": false
+            },
+            "n1_anchor": {
+              "frame_number": 10,
+              "message_type": "PduSessionModificationRequest"
+            }
+          },
           "association_strength": "SUPPORTED",
           "attempt_id": "mod-1",
           "deviations": [
-            {
-              "description": "Duplicate or retransmitted PduSessionModificationRequest observed (PTI=2)",
-              "evidence_level": "OBSERVED",
-              "limitation": "Signaling retransmission observed; likely response delay or packet duplication",
-              "stage_id": "modification_initiation",
-              "type": "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"
-            },
             {
               "description": "Modification initiated at frame 10 but no terminal NAS completion or reject message observed within capture window",
               "evidence_level": "DERIVED",
@@ -180,34 +212,39 @@
             }
           ],
           "earliest_observed_deviation": {
-            "description": "Duplicate or retransmitted PduSessionModificationRequest observed (PTI=2)",
-            "evidence_level": "OBSERVED",
-            "limitation": "Signaling retransmission observed; likely response delay or packet duplication",
-            "stage_id": "modification_initiation",
-            "type": "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"
+            "description": "Modification initiated at frame 10 but no terminal NAS completion or reject message observed within capture window",
+            "evidence_level": "DERIVED",
+            "limitation": "Capture window truncated before modification completion",
+            "stage_id": "modification_completion",
+            "type": "MISSING_EXPECTED_COUNTERPART"
           },
-          "field_findings": [
-            {
-              "capture_file": "test.pcap",
-              "evidence_level": "OBSERVED",
-              "field_name": "qfi",
-              "frame_number": 11,
-              "interpretation": "Modified QoS Flow Identifier on N1",
-              "limitations": [],
-              "observed_value": 4,
-              "plane": "N1"
-            }
-          ],
+          "event_ownership": {
+            "exclusive_within_analysis": true,
+            "owned_event_count": 1,
+            "owned_event_refs": [
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 10,
+                "protocol": "NAS-5GS"
+              }
+            ]
+          },
+          "field_findings": [],
           "limitations": [
             "Bounded to observed modification signaling in capture window",
             "No source code or network function internal execution state analyzed"
           ],
+          "observation_window": {
+            "window_end_basis": "capture_window_end",
+            "window_end_frame": 14,
+            "window_start_basis": "latest_safely_bound_modification_control_or_terminal_event",
+            "window_start_frame": 10
+          },
           "plane_bindings": {
             "n1": {
               "basis": "ue_context_pdu_session_id_pti",
-              "event_count": 2,
+              "event_count": 1,
               "message_types": [
-                "PduSessionModificationRequest",
                 "PduSessionModificationRequest"
               ],
               "strength": "STRONG"
@@ -226,7 +263,7 @@
           },
           "pre_modification_context": {
             "established_qfi_values": [
-              4
+              1
             ],
             "established_tunnel": {
               "ip_address": "192.0.2.10",
@@ -234,7 +271,7 @@
             },
             "pdu_session_id": 1,
             "pfcp_seid": 1001,
-            "sm_context_ref": null
+            "sm_context_ref": "https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1"
           },
           "procedure_transaction_identity": 2,
           "stages": [
@@ -331,17 +368,230 @@
                 "GTP-U G-PDU"
               ],
               "limitations": [
-                "User plane traffic idle or vantage point does not observe N3 interface post-modification"
+                "Traffic may have been idle during the observation window",
+                "N3 may not be visible at the capture vantage point",
+                "Absence of post-modification GTP-U does not prove user-plane impairment"
               ],
-              "missing_evidence": [
-                "No post-modification GTP-U user-plane traffic observed"
-              ],
+              "missing_evidence": [],
               "observed_evidence": [
-                "No matching GTP-U user-plane packets observed in capture window after modification"
+                "No matching post-modification N3 packet observed within the capture window."
               ],
               "stage_id": "post_modification_observation",
               "stage_name": "Post-Modification Observation",
+              "status": "NOT_OBSERVED"
+            }
+          ],
+          "terminal_observation": {
+            "evidence_level": "DERIVED",
+            "frame_number": null,
+            "message_type": null,
+            "observation": "NO_N1_TERMINAL_OBSERVATION",
+            "protocol_observations": [
+              "No terminal N1 modification response observed within capture window"
+            ],
+            "timestamp": null
+          },
+          "trigger_type": "UE_REQUESTED",
+          "unbound_evidence": []
+        },
+        {
+          "association_basis": "established_context_and_pti",
+          "association_details": {
+            "association_model": "candidate_set_with_control_windows",
+            "control_window": {
+              "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+              "end_frame": null,
+              "start_frame": 11
+            },
+            "cross_plane_binding": {
+              "n11_sm_context_update_bound": false,
+              "n2_resource_modify_bound": false,
+              "n4_session_modification_bound": false
+            },
+            "n1_anchor": {
+              "frame_number": 11,
+              "message_type": "PduSessionModificationRequest"
+            }
+          },
+          "association_strength": "SUPPORTED",
+          "attempt_id": "mod-2",
+          "deviations": [
+            {
+              "description": "Modification initiated at frame 11 but no terminal NAS completion or reject message observed within capture window",
+              "evidence_level": "DERIVED",
+              "limitation": "Capture window truncated before modification completion",
+              "stage_id": "modification_completion",
+              "type": "MISSING_EXPECTED_COUNTERPART"
+            }
+          ],
+          "earliest_observed_deviation": {
+            "description": "Modification initiated at frame 11 but no terminal NAS completion or reject message observed within capture window",
+            "evidence_level": "DERIVED",
+            "limitation": "Capture window truncated before modification completion",
+            "stage_id": "modification_completion",
+            "type": "MISSING_EXPECTED_COUNTERPART"
+          },
+          "event_ownership": {
+            "exclusive_within_analysis": true,
+            "owned_event_count": 1,
+            "owned_event_refs": [
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 11,
+                "protocol": "NAS-5GS"
+              }
+            ]
+          },
+          "field_findings": [],
+          "limitations": [
+            "Bounded to observed modification signaling in capture window",
+            "No source code or network function internal execution state analyzed"
+          ],
+          "observation_window": {
+            "window_end_basis": "capture_window_end",
+            "window_end_frame": 14,
+            "window_start_basis": "latest_safely_bound_modification_control_or_terminal_event",
+            "window_start_frame": 11
+          },
+          "plane_bindings": {
+            "n1": {
+              "basis": "ue_context_pdu_session_id_pti",
+              "event_count": 1,
+              "message_types": [
+                "PduSessionModificationRequest"
+              ],
+              "strength": "STRONG"
+            },
+            "n11": null,
+            "n2": null,
+            "n3": null,
+            "n4": null
+          },
+          "post_modification_observations": {
+            "end_marker_observed": false,
+            "error_indication_observed": false,
+            "qfi_values": [],
+            "traffic_observed": false,
+            "tunnel": null
+          },
+          "pre_modification_context": {
+            "established_qfi_values": [
+              1
+            ],
+            "established_tunnel": {
+              "ip_address": "192.0.2.10",
+              "teid": 5001
+            },
+            "pdu_session_id": 1,
+            "pfcp_seid": 1001,
+            "sm_context_ref": "https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1"
+          },
+          "procedure_transaction_identity": 3,
+          "stages": [
+            {
+              "expected_evidence": [
+                "NAS-5GS PduSessionModificationRequest",
+                "NAS-5GS PduSessionModificationCommand"
+              ],
+              "limitations": [],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "PduSessionModificationRequest observed at frame 11 (PTI=3)"
+              ],
+              "stage_id": "modification_initiation",
+              "stage_name": "Modification Initiation",
+              "status": "OBSERVED"
+            },
+            {
+              "expected_evidence": [
+                "3GPP-SBI UpdateSMContext"
+              ],
+              "limitations": [
+                "SBI signaling absent or encrypted under TLS without key material"
+              ],
+              "missing_evidence": [
+                "Nsmf_PDUSession UpdateSMContext not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "sm_context_update",
+              "stage_name": "SM Context Update",
               "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "PFCP SessionModificationResponse"
+              ],
+              "limitations": [
+                "N4 interface traffic not captured at this vantage point"
+              ],
+              "missing_evidence": [
+                "PFCP Session Modification signaling not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "user_plane_control_update",
+              "stage_name": "User Plane Control Update",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "NGAP PDUSessionResourceModifyResponse"
+              ],
+              "limitations": [
+                "N2 interface traffic not captured at this vantage point"
+              ],
+              "missing_evidence": [
+                "NGAP PDU Session Resource Modify signaling not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "access_resource_update",
+              "stage_name": "Access Resource Update",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "3GPP-SBI N1N2MessageTransfer"
+              ],
+              "limitations": [
+                "N1/N2 transfer service operation not utilized in this modification branch"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [],
+              "stage_id": "n1_n2_delivery",
+              "stage_name": "N1/N2 Delivery",
+              "status": "NOT_APPLICABLE"
+            },
+            {
+              "expected_evidence": [
+                "NAS-5GS PduSessionModificationComplete",
+                "NAS-5GS PduSessionModificationReject"
+              ],
+              "limitations": [
+                "Capture ended before procedure completion or terminal NAS frame dropped"
+              ],
+              "missing_evidence": [
+                "Terminal NAS modification response (Complete / Reject / CommandReject) not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "modification_completion",
+              "stage_name": "Modification Completion",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "GTP-U G-PDU"
+              ],
+              "limitations": [
+                "Traffic may have been idle during the observation window",
+                "N3 may not be visible at the capture vantage point",
+                "Absence of post-modification GTP-U does not prove user-plane impairment"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "No matching post-modification N3 packet observed within the capture window."
+              ],
+              "stage_id": "post_modification_observation",
+              "stage_name": "Post-Modification Observation",
+              "status": "NOT_OBSERVED"
             }
           ],
           "terminal_observation": {
@@ -375,10 +625,12 @@
           "basis": "unambiguous_candidate_psi_and_dnn",
           "operations": [
             "CreateSMContext",
-            "N1N2MessageTransfer"
+            "N1N2MessageTransfer",
+            "UpdateSMContext"
           ],
           "status_codes": [
             201,
+            200,
             200
           ],
           "strength": "SUPPORTED"
@@ -394,9 +646,9 @@
         },
         "n3": {
           "basis": "f_teid_endpoint_and_teid_match",
-          "byte_count": 64,
+          "byte_count": 128,
           "endpoint": "192.0.2.10",
-          "packet_count": 1,
+          "packet_count": 2,
           "qfi_values": [],
           "strength": "STRONG",
           "teid": 5001
@@ -489,7 +741,7 @@
           "limitations": [],
           "missing_evidence": [],
           "observed_evidence": [
-            "PduSessionEstablishmentAccept observed at frame 8 with PDU address 10.45.0.2"
+            "PduSessionEstablishmentAccept observed at frame 8"
           ],
           "stage_id": "session_decision",
           "stage_name": "Session Decision",
@@ -504,7 +756,7 @@
           ],
           "missing_evidence": [],
           "observed_evidence": [
-            "GTP-U G-PDU traffic observed: 1 packets, 64 bytes for TEID 5001 to endpoint 192.0.2.10"
+            "GTP-U G-PDU traffic observed: 2 packets, 128 bytes for TEID 5001 to endpoint 192.0.2.10"
           ],
           "stage_id": "user_plane_observation",
           "stage_name": "User Plane Observation",
@@ -526,7 +778,50 @@
         "ran_ue_ngap_id": 1,
         "sctp_association": 1
       },
-      "unbound_evidence": []
+      "unbound_evidence": [
+        {
+          "association_strength": "AMBIGUOUS",
+          "candidate_attempt_ids": [
+            "mod-1",
+            "mod-2"
+          ],
+          "event_ref": {
+            "capture_file": "test.pcap",
+            "frame_number": 12,
+            "protocol": "3GPP-SBI"
+          },
+          "protocol": "3GPP-SBI",
+          "reason": "Modification event is session-bound but carries no attempt-specific identity while multiple concurrent modification attempts are compatible; no attempt selected"
+        },
+        {
+          "association_strength": "AMBIGUOUS",
+          "candidate_attempt_ids": [
+            "mod-1",
+            "mod-2"
+          ],
+          "event_ref": {
+            "capture_file": "test.pcap",
+            "frame_number": 13,
+            "protocol": "PFCP"
+          },
+          "protocol": "PFCP",
+          "reason": "Modification event is session-bound but carries no attempt-specific identity while multiple concurrent modification attempts are compatible; no attempt selected"
+        },
+        {
+          "association_strength": "AMBIGUOUS",
+          "candidate_attempt_ids": [
+            "mod-1",
+            "mod-2"
+          ],
+          "event_ref": {
+            "capture_file": "test.pcap",
+            "frame_number": 14,
+            "protocol": "GTP-U"
+          },
+          "protocol": "GTP-U",
+          "reason": "GTP-U packet matches the tunnel context of multiple concurrent modification attempts within overlapping observation windows; tunnel identity cannot select one attempt"
+        }
+      ]
     }
   ],
   "limitations": [

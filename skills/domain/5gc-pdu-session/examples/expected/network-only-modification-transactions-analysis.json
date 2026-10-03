@@ -29,39 +29,9 @@
         {
           "capture_file": "test.pcap",
           "evidence_level": "OBSERVED",
-          "field_name": "pdu_address",
-          "frame_number": 8,
-          "interpretation": "Accepted UE PDU IP address",
-          "limitations": [],
-          "observed_value": "10.45.0.2",
-          "plane": "N1"
-        },
-        {
-          "capture_file": "test.pcap",
-          "evidence_level": "OBSERVED",
           "field_name": "qfi",
           "frame_number": 8,
           "interpretation": "Authorized QoS Flow Identifier on N1",
-          "limitations": [],
-          "observed_value": 1,
-          "plane": "N1"
-        },
-        {
-          "capture_file": "test.pcap",
-          "evidence_level": "OBSERVED",
-          "field_name": "pdu_session_id",
-          "frame_number": 11,
-          "interpretation": "PDU Session ID allocated by UE",
-          "limitations": [],
-          "observed_value": 1,
-          "plane": "N1"
-        },
-        {
-          "capture_file": "test.pcap",
-          "evidence_level": "OBSERVED",
-          "field_name": "pdu_session_id",
-          "frame_number": 12,
-          "interpretation": "PDU Session ID allocated by UE",
           "limitations": [],
           "observed_value": 1,
           "plane": "N1"
@@ -146,7 +116,7 @@
           "capture_file": "test.pcap",
           "evidence_level": "OBSERVED",
           "field_name": "status",
-          "frame_number": 10,
+          "frame_number": 11,
           "interpretation": "HTTP/2 response status code",
           "limitations": [],
           "observed_value": 200,
@@ -156,7 +126,27 @@
           "capture_file": "test.pcap",
           "evidence_level": "OBSERVED",
           "field_name": "sm_context_ref",
-          "frame_number": 10,
+          "frame_number": 11,
+          "interpretation": "SM Context resource URI assigned by SMF",
+          "limitations": [],
+          "observed_value": "https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1",
+          "plane": "N11"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "status",
+          "frame_number": 14,
+          "interpretation": "HTTP/2 response status code",
+          "limitations": [],
+          "observed_value": 200,
+          "plane": "N11"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "sm_context_ref",
+          "frame_number": 14,
           "interpretation": "SM Context resource URI assigned by SMF",
           "limitations": [],
           "observed_value": "https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1",
@@ -168,231 +158,15 @@
         "Bounded to observed signaling window in capture artifact",
         "No source code or network function internal execution state analyzed"
       ],
-      "modification_attempts": [
-        {
-          "association_basis": "established_context_and_pti",
-          "association_details": {
-            "association_model": "candidate_set_with_control_windows",
-            "control_window": {
-              "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
-              "end_frame": 12,
-              "start_frame": 8
-            },
-            "cross_plane_binding": {
-              "n11_sm_context_update_bound": true,
-              "n2_resource_modify_bound": false,
-              "n4_session_modification_bound": false
-            },
-            "n1_anchor": {
-              "frame_number": 11,
-              "message_type": "PduSessionModificationCommand"
-            }
-          },
-          "association_strength": "STRONG",
-          "attempt_id": "mod-1",
-          "deviations": [],
-          "earliest_observed_deviation": null,
-          "event_ownership": {
-            "exclusive_within_analysis": true,
-            "owned_event_count": 3,
-            "owned_event_refs": [
-              {
-                "capture_file": "test.pcap",
-                "frame_number": 11,
-                "protocol": "NAS-5GS"
-              },
-              {
-                "capture_file": "test.pcap",
-                "frame_number": 12,
-                "protocol": "NAS-5GS"
-              },
-              {
-                "capture_file": "test.pcap",
-                "frame_number": 10,
-                "protocol": "3GPP-SBI"
-              }
-            ]
-          },
-          "field_findings": [],
-          "limitations": [
-            "Bounded to observed modification signaling in capture window",
-            "No source code or network function internal execution state analyzed"
-          ],
-          "observation_window": {
-            "window_end_basis": "capture_window_end",
-            "window_end_frame": 12,
-            "window_start_basis": "latest_safely_bound_modification_control_or_terminal_event",
-            "window_start_frame": 12
-          },
-          "plane_bindings": {
-            "n1": {
-              "basis": "ue_context_pdu_session_id_pti",
-              "event_count": 2,
-              "message_types": [
-                "PduSessionModificationCommand",
-                "PduSessionModificationComplete"
-              ],
-              "strength": "STRONG"
-            },
-            "n11": {
-              "basis": "sm_context_ref_continuity",
-              "event_count": 1,
-              "operations": [
-                "UpdateSMContext"
-              ],
-              "strength": "SUPPORTED"
-            },
-            "n2": null,
-            "n3": null,
-            "n4": null
-          },
-          "post_modification_observations": {
-            "end_marker_observed": false,
-            "error_indication_observed": false,
-            "qfi_values": [],
-            "traffic_observed": false,
-            "tunnel": null
-          },
-          "pre_modification_context": {
-            "established_qfi_values": [
-              1
-            ],
-            "established_tunnel": {
-              "ip_address": "192.0.2.10",
-              "teid": 5001
-            },
-            "pdu_session_id": 1,
-            "pfcp_seid": 1001,
-            "sm_context_ref": "https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1"
-          },
-          "procedure_transaction_identity": 0,
-          "stages": [
-            {
-              "expected_evidence": [
-                "NAS-5GS PduSessionModificationRequest",
-                "NAS-5GS PduSessionModificationCommand"
-              ],
-              "limitations": [],
-              "missing_evidence": [],
-              "observed_evidence": [
-                "Network-initiated modification via PduSessionModificationCommand observed at frame 11"
-              ],
-              "stage_id": "modification_initiation",
-              "stage_name": "Modification Initiation",
-              "status": "OBSERVED"
-            },
-            {
-              "expected_evidence": [
-                "3GPP-SBI UpdateSMContext"
-              ],
-              "limitations": [],
-              "missing_evidence": [],
-              "observed_evidence": [
-                "Nsmf_PDUSession UpdateSMContext accepted (HTTP 200) at frame 10"
-              ],
-              "stage_id": "sm_context_update",
-              "stage_name": "SM Context Update",
-              "status": "OBSERVED"
-            },
-            {
-              "expected_evidence": [
-                "PFCP SessionModificationResponse"
-              ],
-              "limitations": [
-                "N4 interface traffic not captured at this vantage point"
-              ],
-              "missing_evidence": [
-                "PFCP Session Modification signaling not observed within capture window"
-              ],
-              "observed_evidence": [],
-              "stage_id": "user_plane_control_update",
-              "stage_name": "User Plane Control Update",
-              "status": "MISSING"
-            },
-            {
-              "expected_evidence": [
-                "NGAP PDUSessionResourceModifyResponse"
-              ],
-              "limitations": [
-                "N2 interface traffic not captured at this vantage point"
-              ],
-              "missing_evidence": [
-                "NGAP PDU Session Resource Modify signaling not observed within capture window"
-              ],
-              "observed_evidence": [],
-              "stage_id": "access_resource_update",
-              "stage_name": "Access Resource Update",
-              "status": "MISSING"
-            },
-            {
-              "expected_evidence": [
-                "3GPP-SBI N1N2MessageTransfer"
-              ],
-              "limitations": [
-                "N1/N2 transfer service operation not utilized in this modification branch"
-              ],
-              "missing_evidence": [],
-              "observed_evidence": [],
-              "stage_id": "n1_n2_delivery",
-              "stage_name": "N1/N2 Delivery",
-              "status": "NOT_APPLICABLE"
-            },
-            {
-              "expected_evidence": [
-                "NAS-5GS PduSessionModificationComplete",
-                "NAS-5GS PduSessionModificationReject"
-              ],
-              "limitations": [],
-              "missing_evidence": [],
-              "observed_evidence": [
-                "PduSessionModificationComplete observed at frame 12"
-              ],
-              "stage_id": "modification_completion",
-              "stage_name": "Modification Completion",
-              "status": "OBSERVED"
-            },
-            {
-              "expected_evidence": [
-                "GTP-U G-PDU"
-              ],
-              "limitations": [
-                "Traffic may have been idle during the observation window",
-                "N3 may not be visible at the capture vantage point",
-                "Absence of post-modification GTP-U does not prove user-plane impairment"
-              ],
-              "missing_evidence": [],
-              "observed_evidence": [
-                "No matching post-modification N3 packet observed within the capture window."
-              ],
-              "stage_id": "post_modification_observation",
-              "stage_name": "Post-Modification Observation",
-              "status": "NOT_OBSERVED"
-            }
-          ],
-          "terminal_observation": {
-            "evidence_level": "OBSERVED",
-            "frame_number": 12,
-            "message_type": "PduSessionModificationComplete",
-            "observation": "MODIFICATION_COMPLETE_OBSERVED",
-            "protocol_observations": [
-              "PduSessionModificationComplete observed"
-            ],
-            "timestamp": "2026-10-02T10:00:12.000000Z"
-          },
-          "trigger_type": "NETWORK_REQUESTED",
-          "unbound_evidence": []
-        }
-      ],
+      "modification_attempts": [],
       "pdu_session_id": 1,
       "plane_bindings": {
         "n1": {
           "basis": "frame_provenance_ngap_nas_join",
-          "event_count": 4,
+          "event_count": 2,
           "message_types": [
             "PduSessionEstablishmentRequest",
-            "PduSessionEstablishmentAccept",
-            "PduSessionModificationCommand",
-            "PduSessionModificationComplete"
+            "PduSessionEstablishmentAccept"
           ],
           "strength": "STRONG"
         },
@@ -401,10 +175,12 @@
           "operations": [
             "CreateSMContext",
             "N1N2MessageTransfer",
+            "UpdateSMContext",
             "UpdateSMContext"
           ],
           "status_codes": [
             201,
+            200,
             200,
             200
           ],
@@ -516,7 +292,7 @@
           "limitations": [],
           "missing_evidence": [],
           "observed_evidence": [
-            "PduSessionEstablishmentAccept observed at frame 8 with PDU address 10.45.0.2"
+            "PduSessionEstablishmentAccept observed at frame 8"
           ],
           "stage_id": "session_decision",
           "stage_name": "Session Decision",
@@ -553,7 +329,30 @@
         "ran_ue_ngap_id": 1,
         "sctp_association": 1
       },
-      "unbound_evidence": []
+      "unbound_evidence": [
+        {
+          "association_strength": "UNBOUND",
+          "candidate_attempt_ids": [],
+          "event_ref": {
+            "capture_file": "test.pcap",
+            "frame_number": 11,
+            "protocol": "3GPP-SBI"
+          },
+          "protocol": "3GPP-SBI",
+          "reason": "UpdateSMContext modification transaction observed without a capturable N1 modification anchor; safe attempt construction impossible, transaction preserved as unbound modification evidence"
+        },
+        {
+          "association_strength": "UNBOUND",
+          "candidate_attempt_ids": [],
+          "event_ref": {
+            "capture_file": "test.pcap",
+            "frame_number": 14,
+            "protocol": "3GPP-SBI"
+          },
+          "protocol": "3GPP-SBI",
+          "reason": "UpdateSMContext modification transaction observed without a capturable N1 modification anchor; safe attempt construction impossible, transaction preserved as unbound modification evidence"
+        }
+      ]
     }
   ],
   "limitations": [

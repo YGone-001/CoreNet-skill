@@ -89,6 +89,7 @@ testing:
     - examples/inputs/namf-modify-pending-202
     - examples/inputs/namf-modify-transfer-200
     - examples/inputs/namf-pending-202
+    - examples/inputs/network-only-modification-transactions
     - examples/inputs/nas-command-reject
     - examples/inputs/nas-modification-reject
     - examples/inputs/network-requested-modification
@@ -155,6 +156,8 @@ testing:
     - examples/expected/namf-modify-transfer-200-stages.jsonl
     - examples/expected/namf-pending-202-analysis.json
     - examples/expected/namf-pending-202-stages.jsonl
+    - examples/expected/network-only-modification-transactions-analysis.json
+    - examples/expected/network-only-modification-transactions-stages.jsonl
     - examples/expected/nas-command-reject-analysis.json
     - examples/expected/nas-command-reject-stages.jsonl
     - examples/expected/nas-modification-reject-analysis.json

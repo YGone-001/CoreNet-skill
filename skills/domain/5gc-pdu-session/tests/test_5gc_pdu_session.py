@@ -50,6 +50,124 @@ def run_scenario(name: str, directory: Path) -> tuple[dict, list[dict]]:
     return json.loads(analysis_path.read_text(encoding="utf-8")), jsonl(stages_path)
 
 
+class ModificationAssociationSafetyTests(unittest.TestCase):
+    """Behavioral association-safety tests: these exercise the real analyzer
+    against the committed ambiguity and multi-attempt fixtures instead of
+    matching source-code tokens."""
+
+    @staticmethod
+    def _owned_refs(attempt):
+        return [
+            (ref["protocol"], ref["capture_file"], ref["frame_number"])
+            for ref in attempt["event_ownership"]["owned_event_refs"]
+        ]
+
+    def test_concurrent_ambiguity_keeps_attempts_distinct_and_events_unbound(self):
+        # Two distinct-PTI attempts plus an SBI, a PFCP, and a GTP-U event that
+        # carry no attempt-specific identity: none may be attached by position.
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("ambiguous-concurrent-modifications", Path(directory))
+            inst = analysis["instances"][0]
+            attempts = inst["modification_attempts"]
+            self.assertEqual(len(attempts), 2)
+            self.assertEqual({a["procedure_transaction_identity"] for a in attempts}, {2, 3})
+            cross_plane = {("3GPP-SBI", "test.pcap", 12), ("PFCP", "test.pcap", 13), ("GTP-U", "test.pcap", 14)}
+            owned = set()
+            for attempt in attempts:
+                owned.update(self._owned_refs(attempt))
+            self.assertEqual(cross_plane & owned, set(), "cross-plane events must not be owned by either attempt")
+            unbound = inst["unbound_evidence"]
+            unbound_refs = {(r["event_ref"]["protocol"], r["event_ref"]["capture_file"], r["event_ref"]["frame_number"]) for r in unbound}
+            self.assertTrue(cross_plane <= unbound_refs)
+            for record in unbound:
+                if record["association_strength"] == "AMBIGUOUS":
+                    self.assertEqual(set(record["candidate_attempt_ids"]), {"mod-1", "mod-2"})
+            self.assertTrue(any(d["type"] == "CORRELATION_AMBIGUITY" for d in inst["deviations"]))
+
+    def test_event_ownership_is_exclusive_across_attempts(self):
+        for scenario in ("two-sequential-modifications", "concurrent-distinct-pti-modifications", "ue-requested-modification"):
+            with self.subTest(scenario=scenario):
+                with tempfile.TemporaryDirectory() as directory:
+                    analysis, _ = run_scenario(scenario, Path(directory))
+                    for inst in analysis["instances"]:
+                        all_refs = []
+                        for attempt in inst["modification_attempts"]:
+                            all_refs.extend(self._owned_refs(attempt))
+                        self.assertEqual(len(all_refs), len(set(all_refs)), scenario)
+
+    def test_gtpu_does_not_bleed_across_sequential_attempts(self):
+        # Attempt 1 provisions tunnel 6001, attempt 2 provisions tunnel 6002.
+        # Packet A (frame 19) belongs to attempt 1 only, packet B (frame 29)
+        # to attempt 2 only; neither attempt may absorb the other's traffic.
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("two-sequential-modifications", Path(directory))
+            inst = analysis["instances"][0]
+            attempts = inst["modification_attempts"]
+            self.assertEqual(len(attempts), 2)
+            gtpu_a = {(19, 6001)}
+            gtpu_b = {(29, 6002)}
+            owned1 = {r[2] for r in self._owned_refs(attempts[0]) if r[0] == "GTP-U"}
+            owned2 = {r[2] for r in self._owned_refs(attempts[1]) if r[0] == "GTP-U"}
+            self.assertEqual(owned1, {19})
+            self.assertEqual(owned2, {29})
+            self.assertFalse(gtpu_b & {19} or gtpu_a & {29})
+            self.assertEqual(attempts[0]["observation_window"]["window_end_frame"], 19)
+            self.assertEqual(attempts[0]["observation_window"]["window_end_basis"], "next_modification_attempt_start_exclusive")
+
+    def test_no_post_modification_gtpu_is_conditional_not_observed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("fteid-changed-no-gtpu", Path(directory))
+            attempt = analysis["instances"][0]["modification_attempts"][0]
+            stage = next(s for s in attempt["stages"] if s["stage_id"] == "post_modification_observation")
+            self.assertEqual(stage["status"], "NOT_OBSERVED")
+            self.assertEqual(stage["missing_evidence"], [])
+            self.assertIn("No matching post-modification N3 packet observed within the capture window.", stage["observed_evidence"])
+            pmo_deviations = [d for d in attempt["deviations"] if d["stage_id"] == "post_modification_observation"]
+            self.assertEqual(pmo_deviations, [])
+
+    def test_network_only_transactions_not_collapsed_into_attempt(self):
+        # Two UpdateSMContext transactions without any N1 modification anchor:
+        # no attempt may be invented and no transactions merged.
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("network-only-modification-transactions", Path(directory))
+            inst = analysis["instances"][0]
+            self.assertEqual(inst["modification_attempts"], [])
+            unbound = inst["unbound_evidence"]
+            self.assertEqual(len(unbound), 2)
+            self.assertEqual({r["event_ref"]["frame_number"] for r in unbound}, {11, 14})
+            for record in unbound:
+                self.assertEqual(record["association_strength"], "UNBOUND")
+                self.assertIn("safe attempt construction impossible", record["reason"])
+
+    def test_n2_gtp_teid_not_labeled_f_teid(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("fteid-changed-matching-gtpu", Path(directory))
+            serialized = json.dumps(analysis)
+            self.assertNotIn("F-TEID tunnel endpoint updated", serialized)
+            attempt = analysis["instances"][0]["modification_attempts"][0]
+            teid_findings = [f for f in attempt["field_findings"] if f["field_name"] == "gtp_teid"]
+            self.assertTrue(teid_findings)
+            self.assertTrue(any(f["observed_value"].get("tunnel_role") == "N2_SIGNALED_TRANSPORT_ENDPOINT" for f in teid_findings))
+
+    def test_qfi_wording_is_evidence_bounded(self):
+        # Observed QFI without an explicit QER operation must use neutral
+        # wording; explicit update_qer keeps the operation wording.
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("qfi-updated-qer", Path(directory))
+            attempt = analysis["instances"][0]["modification_attempts"][0]
+            qfi_findings = [f for f in attempt["field_findings"] if f["field_name"] == "qfi"]
+            self.assertTrue(any("explicit PFCP QER operation" in f["interpretation"] for f in qfi_findings))
+            self.assertTrue(all("Modified QoS Flow Identifier" not in f["interpretation"] for f in qfi_findings))
+
+    def test_duplicate_wording_remains_non_causal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("duplicate-nas-modify-request", Path(directory))
+            serialized = json.dumps(analysis)
+            self.assertNotIn("likely response delay", serialized)
+            self.assertNotIn("packet duplication", serialized)
+            self.assertIn("duplicate/retransmission cause cannot be distinguished from this capture alone", serialized)
+
+
 class ScenarioExpectedTests(unittest.TestCase):
     """Every committed scenario reproduces its committed expected output."""
 

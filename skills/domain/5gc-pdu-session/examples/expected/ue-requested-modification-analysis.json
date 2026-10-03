@@ -224,18 +224,93 @@
       "modification_attempts": [
         {
           "association_basis": "established_context_and_pti",
+          "association_details": {
+            "association_model": "candidate_set_with_control_windows",
+            "control_window": {
+              "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+              "end_frame": 18,
+              "start_frame": 10
+            },
+            "cross_plane_binding": {
+              "n11_sm_context_update_bound": true,
+              "n2_resource_modify_bound": true,
+              "n4_session_modification_bound": true
+            },
+            "n1_anchor": {
+              "frame_number": 10,
+              "message_type": "PduSessionModificationRequest"
+            }
+          },
           "association_strength": "STRONG",
           "attempt_id": "mod-1",
           "deviations": [],
           "earliest_observed_deviation": null,
+          "event_ownership": {
+            "exclusive_within_analysis": true,
+            "owned_event_count": 10,
+            "owned_event_refs": [
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 10,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 17,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 18,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 11,
+                "protocol": "3GPP-SBI"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 16,
+                "protocol": "3GPP-SBI"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 12,
+                "protocol": "PFCP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 13,
+                "protocol": "PFCP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 14,
+                "protocol": "NGAP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 15,
+                "protocol": "NGAP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 19,
+                "protocol": "GTP-U"
+              }
+            ]
+          },
           "field_findings": [
             {
               "capture_file": "test.pcap",
               "evidence_level": "OBSERVED",
               "field_name": "qfi",
               "frame_number": 10,
-              "interpretation": "Modified QoS Flow Identifier on N1",
-              "limitations": [],
+              "interpretation": "QFI 2 observed during modification (N1 message)",
+              "limitations": [
+                "QFI observation during modification does not by itself prove allocation, creation, removal, or modification of the QoS flow"
+              ],
               "observed_value": 2,
               "plane": "N1"
             },
@@ -244,8 +319,10 @@
               "evidence_level": "OBSERVED",
               "field_name": "qfi",
               "frame_number": 17,
-              "interpretation": "Modified QoS Flow Identifier on N1",
-              "limitations": [],
+              "interpretation": "QFI 2 observed during modification (N1 message)",
+              "limitations": [
+                "QFI observation during modification does not by itself prove allocation, creation, removal, or modification of the QoS flow"
+              ],
               "observed_value": 2,
               "plane": "N1"
             },
@@ -254,8 +331,10 @@
               "evidence_level": "OBSERVED",
               "field_name": "qfi",
               "frame_number": 14,
-              "interpretation": "Modified QoS Flow Identifier on N2",
-              "limitations": [],
+              "interpretation": "QFI 2 observed during modification (N2 resource item)",
+              "limitations": [
+                "QFI observation during modification does not by itself prove allocation, creation, removal, or modification of the QoS flow"
+              ],
               "observed_value": 2,
               "plane": "N2"
             },
@@ -264,8 +343,10 @@
               "evidence_level": "OBSERVED",
               "field_name": "qfi",
               "frame_number": 15,
-              "interpretation": "Modified QoS Flow Identifier on N2",
-              "limitations": [],
+              "interpretation": "QFI 2 observed during modification (N2 resource item)",
+              "limitations": [
+                "QFI observation during modification does not by itself prove allocation, creation, removal, or modification of the QoS flow"
+              ],
               "observed_value": 2,
               "plane": "N2"
             },
@@ -274,8 +355,10 @@
               "evidence_level": "OBSERVED",
               "field_name": "qfi",
               "frame_number": 12,
-              "interpretation": "Modified QoS Flow Identifier on N4",
-              "limitations": [],
+              "interpretation": "QFI 2 observed during modification (N4 QER)",
+              "limitations": [
+                "QFI observation during modification does not by itself prove allocation, creation, removal, or modification of the QoS flow"
+              ],
               "observed_value": 2,
               "plane": "N4"
             },
@@ -297,6 +380,12 @@
             "Bounded to observed modification signaling in capture window",
             "No source code or network function internal execution state analyzed"
           ],
+          "observation_window": {
+            "window_end_basis": "capture_window_end",
+            "window_end_frame": 19,
+            "window_start_basis": "latest_safely_bound_modification_control_or_terminal_event",
+            "window_start_frame": 18
+          },
           "plane_bindings": {
             "n1": {
               "basis": "ue_context_pdu_session_id_pti",

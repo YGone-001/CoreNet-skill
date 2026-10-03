@@ -209,11 +209,113 @@ class PduSessionValidatorTests(unittest.TestCase):
         self.assertTrue(any(d["type"] == "FIELD_CONFLICT" for d in inst["modification_attempts"][0]["deviations"]))
 
     def test_timestamp_only_modification_binding_prevented(self):
-        temporary, root = self.fixture()
-        with temporary:
-            model = root / "skills/domain/5gc-pdu-session/scripts/pdu_session_model.py"
-            model.write_text(model.read_text(encoding="utf-8") + "\ndef match_by_timestamp_only(): pass\n", encoding="utf-8")
-            self.assert_error(root, "timestamp-only identity join antipattern")
+        # Behavioral validation: run the real analyzer against the committed
+        # concurrent-ambiguity fixture. Two distinct-PTI attempts stay intact,
+        # and the SBI/PFCP/GTP-U cross-plane events without attempt-specific
+        # identity are not assigned to any attempt by frame position or by
+        # first/nearest-attempt fallback.
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = PACKAGE_MODULE.run_scenario(
+                "ambiguous-concurrent-modifications", Path(directory),
+            )
+        inst = analysis["instances"][0]
+        attempts = inst["modification_attempts"]
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual({a["procedure_transaction_identity"] for a in attempts}, {2, 3})
+
+        cross_plane = {("3GPP-SBI", "test.pcap", 12), ("PFCP", "test.pcap", 13), ("GTP-U", "test.pcap", 14)}
+        owned = set()
+        for attempt in attempts:
+            for ref in attempt["event_ownership"]["owned_event_refs"]:
+                owned.add((ref["protocol"], ref["capture_file"], ref["frame_number"]))
+        self.assertEqual(cross_plane & owned, set(), "no first/nearest attempt fallback may own cross-plane events")
+
+        unbound_refs = {
+            (r["event_ref"]["protocol"], r["event_ref"]["capture_file"], r["event_ref"]["frame_number"])
+            for r in inst["unbound_evidence"]
+        }
+        self.assertTrue(cross_plane <= unbound_refs, "ambiguity record must exist for every cross-plane event")
+        self.assertTrue(any(d["type"] == "CORRELATION_AMBIGUITY" for d in inst["deviations"]))
+
+    def test_modification_event_ownership_is_exclusive(self):
+        # Gather every attempt-owned event reference per fixture; duplicates
+        # would mean one event belongs to multiple attempts (GTP-U bleed or
+        # double cross-plane assignment).
+        for scenario in ("two-sequential-modifications", "ue-requested-modification", "concurrent-distinct-pti-modifications"):
+            with self.subTest(scenario=scenario):
+                sample = ROOT / f"skills/domain/5gc-pdu-session/examples/expected/{scenario}-analysis.json"
+                doc = json.loads(sample.read_text(encoding="utf-8"))
+                for inst in doc["instances"]:
+                    owned_refs = []
+                    for attempt in inst["modification_attempts"]:
+                        for ref in attempt["event_ownership"]["owned_event_refs"]:
+                            owned_refs.append((ref["protocol"], ref["capture_file"], ref["frame_number"]))
+                    self.assertEqual(len(owned_refs), len(set(owned_refs)), scenario)
+
+    def test_gtpu_does_not_bleed_across_sequential_attempts(self):
+        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/two-sequential-modifications-analysis.json"
+        doc = json.loads(sample.read_text(encoding="utf-8"))
+        inst = doc["instances"][0]
+        att1, att2 = inst["modification_attempts"]
+        teids1 = {ref["frame_number"] for ref in att1["event_ownership"]["owned_event_refs"] if ref["protocol"] == "GTP-U"}
+        teids2 = {ref["frame_number"] for ref in att2["event_ownership"]["owned_event_refs"] if ref["protocol"] == "GTP-U"}
+        self.assertEqual(teids1, {19})
+        self.assertEqual(teids2, {29})
+        self.assertEqual(att1["observation_window"]["window_end_basis"], "next_modification_attempt_start_exclusive")
+        self.assertEqual(att2["observation_window"]["window_end_basis"], "capture_window_end")
+
+    def test_network_only_partial_capture_not_collapsed(self):
+        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/network-only-modification-transactions-analysis.json"
+        doc = json.loads(sample.read_text(encoding="utf-8"))
+        inst = doc["instances"][0]
+        self.assertEqual(inst["modification_attempts"], [])
+        unbound = inst["unbound_evidence"]
+        self.assertEqual(len(unbound), 2)
+        self.assertEqual({r["event_ref"]["frame_number"] for r in unbound}, {11, 14})
+        self.assertTrue(all(r["association_strength"] == "UNBOUND" for r in unbound))
+
+    def test_no_gtpu_not_promoted_to_user_plane_failure(self):
+        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/fteid-changed-no-gtpu-analysis.json"
+        text = sample.read_text(encoding="utf-8")
+        self.assertNotIn("USER_PLANE_FAILED", text)
+        doc = json.loads(text)
+        attempt = doc["instances"][0]["modification_attempts"][0]
+        pmo_stage = next(s for s in attempt["stages"] if s["stage_id"] == "post_modification_observation")
+        self.assertEqual(pmo_stage["status"], "NOT_OBSERVED")
+        self.assertEqual(pmo_stage["missing_evidence"], [])
+        pmo_deviations = [d for d in attempt["deviations"] if d["stage_id"] == "post_modification_observation"]
+        self.assertEqual(pmo_deviations, [])
+
+    def test_n2_teid_terminology_distinct_from_pfcp_f_teid(self):
+        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/fteid-changed-matching-gtpu-analysis.json"
+        text = sample.read_text(encoding="utf-8")
+        self.assertNotIn("F-TEID tunnel endpoint updated", text)
+        doc = json.loads(text)
+        attempt = doc["instances"][0]["modification_attempts"][0]
+        teid_findings = [f for f in attempt["field_findings"] if f["field_name"] == "gtp_teid"]
+        self.assertTrue(teid_findings)
+        self.assertTrue(any(
+            isinstance(f["observed_value"], dict) and f["observed_value"].get("tunnel_role") == "N2_SIGNALED_TRANSPORT_ENDPOINT"
+            for f in teid_findings
+        ))
+
+    def test_qfi_wording_evidence_bounded(self):
+        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/qfi-updated-qer-analysis.json"
+        doc = json.loads(sample.read_text(encoding="utf-8"))
+        attempt = doc["instances"][0]["modification_attempts"][0]
+        qfi_findings = [f for f in attempt["field_findings"] if f["field_name"] == "qfi"]
+        self.assertTrue(qfi_findings)
+        for finding in qfi_findings:
+            self.assertNotIn("Modified QoS Flow Identifier", finding["interpretation"])
+        self.assertTrue(any("explicit PFCP QER operation" in f["interpretation"] for f in qfi_findings))
+
+    def test_duplicate_wording_non_causal(self):
+        for scenario in ("duplicate-nas-modify-request", "duplicate-pfcp-modify-request"):
+            with self.subTest(scenario=scenario):
+                text = (ROOT / f"skills/domain/5gc-pdu-session/examples/expected/{scenario}-analysis.json").read_text(encoding="utf-8")
+                self.assertNotIn("likely response delay", text)
+                self.assertNotIn("packet duplication", text)
+                self.assertIn("duplicate/retransmission cause cannot be distinguished from this capture alone", text)
 
     def test_network_requested_branch_does_not_require_ue_request(self):
         sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/network-requested-no-ue-request-analysis.json"
@@ -239,14 +341,13 @@ class PduSessionValidatorTests(unittest.TestCase):
         self.assertNotEqual(attempt["terminal_observation"]["observation"], "MODIFICATION_COMPLETE_OBSERVED")
         self.assertEqual(attempt["terminal_observation"]["observation"], "NO_N1_TERMINAL_OBSERVATION")
 
-    def test_no_gtpu_not_promoted_to_user_plane_failure(self):
-        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/fteid-changed-no-gtpu-analysis.json"
+    def test_no_gtpu_not_promoted_to_user_plane_failure_old_missing_status(self):
+        sample = ROOT / "skills/domain/5gc-pdu-session/examples/expected/no-gtpu-traffic-analysis.json"
         text = sample.read_text(encoding="utf-8")
         self.assertNotIn("USER_PLANE_FAILED", text)
         doc = json.loads(text)
-        attempt = doc["instances"][0]["modification_attempts"][0]
-        pmo_stage = next(s for s in attempt["stages"] if s["stage_id"] == "post_modification_observation")
-        self.assertEqual(pmo_stage["status"], "MISSING")
+        stage = next(s for s in doc["instances"][0]["stages"] if s["stage_id"] == "user_plane_observation")
+        self.assertEqual(stage["status"], "MISSING")
 
     def test_release_lifecycle_detected_if_added(self):
         temporary, root = self.fixture()

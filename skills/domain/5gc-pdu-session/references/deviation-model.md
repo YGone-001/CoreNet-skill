@@ -47,3 +47,7 @@ Within a safely formed procedure instance or modification attempt, the analysis 
      - Report: `"no matching N3 G-PDU evidence observed within the available capture window"`.
      - **DO NOT** report: `"USER_PLANE_FAILED"`.
      - User plane may be idle, delayed, or routed outside the capture vantage point.
+3. **Post-Modification GTP-U Absence**:
+   - Post-modification GTP-U is conditional observation, not a mandatory procedure counterpart: a valid modification can finish while the user plane stays idle.
+   - When no matching packet exists within the attempt observation window, report stage status `NOT_OBSERVED` with empty `missing_evidence` and explicit limitations.
+   - **DO NOT** report it as a missing required GTP-U message or emit `MISSING_EXPECTED_COUNTERPART` for idle user plane.

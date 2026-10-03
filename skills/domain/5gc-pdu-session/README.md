@@ -7,10 +7,13 @@ It consumes already-extracted structured evidence from N1 (nas-5gs), N2 (ngap),
 N3 (gtpu), N4 (pfcp), and N11 (sbi-http2), plus optional cross-protocol-evidence
 correlation output. It forms evidence-safe procedure instances, evaluates the
 partial-order stage model across 7 establishment stages and 7 modification stages
-per repeated attempt, recognizes protocol-defined rejections and negative causes,
-reports missing evidence relative to the capture window, binds planes with explicit
-association strength, preserves ambiguous N11 evidence, scopes NAS PTI per UE context,
-and exposes lower-layer field findings and procedure-local deviations.
+per repeated attempt, associates cross-plane modification evidence through an
+explicit candidate model with per-attempt control and observation windows,
+recognizes protocol-defined rejections and negative causes, reports missing
+evidence relative to the capture window, binds planes with explicit association
+strength, preserves ambiguous and unbound modification evidence with
+`CORRELATION_AMBIGUITY` visibility, scopes NAS PTI per UE context, and exposes
+lower-layer field findings and procedure-local deviations.
 It decodes no raw packets, requires no unredacted subscriber identity, and never
 issues success, failure, or root-cause verdicts.
 
@@ -33,7 +36,7 @@ mixing is claimed.
   the generic procedure-evidence contract.
 - `references/`: procedure model, stage model, association model, deviation model,
   field findings, failure cases.
-- `examples/inputs/`, `examples/expected/`: 48 synthetic scenarios covering normal
+- `examples/inputs/`, `examples/expected/`: 49 synthetic scenarios covering normal
   establishment, rejections, negative causes, ambiguous SBI, TEID reuse, mixed NGAP
   resources, pending delivery, partial captures, repeated modification attempts,
   branch conditionality, PTI isolation, PFCP rule operations, and GTP-U observations.
@@ -78,8 +81,12 @@ earliest observed procedure-local deviation, field findings, and plane bindings.
 - Sanitized subscriber identities in SBI HTTP/2 mean identical PDU Session IDs across
   concurrent UEs remain unbound in `unbound_evidence` with `CORRELATION_AMBIGUITY`.
 - Matching GTP-U traffic to PFCP requires matching both header TEID and outer endpoint IP.
-- Missing GTP-U packets within the capture window are reported neutrally as missing
-  evidence, never as `USER_PLANE_FAILED`.
+- Post-modification GTP-U attaches to an attempt only inside its bounded observation
+  window AND with a tunnel identity match; packets with several compatible attempts
+  stay ambiguous and are never attached by temporal proximity.
+- Missing post-modification GTP-U packets are reported as conditional `NOT_OBSERVED`
+  evidence with limitations, never as a missing required counterpart and never as
+  `USER_PLANE_FAILED`.
 - HTTP 202 Accepted on N11 remains `PENDING`, never delivery success.
 - NGAP resource outcomes are evaluated per item; mixed success/failure is preserved.
 - PDU Session Release lifecycle remains deferred in this version.

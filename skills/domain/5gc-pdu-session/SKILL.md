@@ -28,7 +28,15 @@ implementation questions.
   6. `session_decision` (N1 NAS-5GS)
   7. `user_plane_observation` (N3 GTP-U)
 - Repeated modification attempt modeling (0..N attempts per established session)
-  with UE-requested and network-requested triggers.
+  with UE-requested and network-requested triggers. Attempts are formed only from
+  N1 NAS anchors; cross-plane events are associated through an explicit
+  candidate model with per-attempt control and observation windows. Frame
+  position, timestamp, or nearest-attempt proximity never selects one attempt
+  from several compatible candidates: ambiguous events remain attempt-unbound
+  with explicit `unbound_evidence` records and `CORRELATION_AMBIGUITY`
+  deviations, and every attempt-owned event is tracked by the deterministic
+  reference `(protocol, capture_file, frame_number)` under `event_ownership`
+  (one event never belongs to two attempts).
 - Evaluate the 7 bounded modification stages per attempt:
   1. `modification_initiation` (N1 NAS-5GS)
   2. `sm_context_update` (N11 3GPP-SBI)
@@ -48,7 +56,11 @@ implementation questions.
   with identical PDU Session IDs remain unbound in `unbound_evidence` with `CORRELATION_AMBIGUITY`.
 - F-TEID directed tunnel binding: N3 GTP-U binds to N4 PFCP only when both the
   outer endpoint IP and header TEID match the provisioned F-TEID. Post-modification
-  tunnel changes are evaluated against updated F-TEID bindings.
+  GTP-U additionally requires the attempt's bounded observation window plus a
+  tunnel identity match (TEID + endpoint) against the attempt's signaled or
+  established tunnel context, so concurrent and sequential attempts stay isolated.
+  N2 transport-layer GTP-TEID evidence is kept distinct from N4 PFCP F-TEID
+  provisioning and the two are never compared as a conflict.
 - Item-scoped NGAP resource outcomes: evaluate NGAP resource lists per PDU Session
   ID item, preserving mixed success and failed outcomes without message-level collapse.
 - Recognize protocol-defined rejections and negative causes across planes: 5GSM
@@ -56,6 +68,11 @@ implementation questions.
   Cause on N4, failed resource items on N2, and delivery failure notification on N11.
 - Detect cross-plane field conflicts (`FIELD_CONFLICT`) for UE IP address, QFI,
   and DNN/Network Instance, recording `CORRELATION_CONFLICT` deviations.
+- Conditional post-modification N3 observation: absence of GTP-U within the
+  attempt observation window is reported as `NOT_OBSERVED` with explicit
+  limitations, never as a missing required counterpart or user-plane failure.
+- QFI findings use evidence-bounded neutral wording unless PFCP explicitly
+  supplies a QER create/update/remove operation binding the QFI.
 - Emit generic procedure-evidence stage JSONL and a deterministic analysis
   summary JSON, plus a per-instance PDU session timeline.
 

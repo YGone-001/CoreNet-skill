@@ -29,16 +29,6 @@
         {
           "capture_file": "test.pcap",
           "evidence_level": "OBSERVED",
-          "field_name": "pdu_address",
-          "frame_number": 8,
-          "interpretation": "Accepted UE PDU IP address",
-          "limitations": [],
-          "observed_value": "10.45.0.2",
-          "plane": "N1"
-        },
-        {
-          "capture_file": "test.pcap",
-          "evidence_level": "OBSERVED",
           "field_name": "qfi",
           "frame_number": 8,
           "interpretation": "Authorized QoS Flow Identifier on N1",
@@ -60,7 +50,7 @@
           "capture_file": "test.pcap",
           "evidence_level": "OBSERVED",
           "field_name": "pdu_session_id",
-          "frame_number": 11,
+          "frame_number": 18,
           "interpretation": "PDU Session ID allocated by UE",
           "limitations": [],
           "observed_value": 1,
@@ -80,7 +70,7 @@
           "capture_file": "test.pcap",
           "evidence_level": "OBSERVED",
           "field_name": "pdu_session_id",
-          "frame_number": 21,
+          "frame_number": 28,
           "interpretation": "PDU Session ID allocated by UE",
           "limitations": [],
           "observed_value": 1,
@@ -114,6 +104,58 @@
           "evidence_level": "OBSERVED",
           "field_name": "cause",
           "frame_number": 4,
+          "interpretation": "PFCP transaction response cause",
+          "limitations": [],
+          "observed_value": {
+            "code": 1,
+            "name": "RequestAccepted"
+          },
+          "plane": "N4"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "f_teid",
+          "frame_number": 12,
+          "interpretation": "Fully Qualified Tunnel Endpoint Identifier provisioned in PFCP PDR",
+          "limitations": [],
+          "observed_value": {
+            "ipv4": "192.0.2.10",
+            "teid": 6001
+          },
+          "plane": "N4"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "cause",
+          "frame_number": 13,
+          "interpretation": "PFCP transaction response cause",
+          "limitations": [],
+          "observed_value": {
+            "code": 1,
+            "name": "RequestAccepted"
+          },
+          "plane": "N4"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "f_teid",
+          "frame_number": 22,
+          "interpretation": "Fully Qualified Tunnel Endpoint Identifier provisioned in PFCP PDR",
+          "limitations": [],
+          "observed_value": {
+            "ipv4": "192.0.2.10",
+            "teid": 6002
+          },
+          "plane": "N4"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "cause",
+          "frame_number": 23,
           "interpretation": "PFCP transaction response cause",
           "limitations": [],
           "observed_value": {
@@ -161,6 +203,46 @@
           "limitations": [],
           "observed_value": 200,
           "plane": "N11"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "status",
+          "frame_number": 11,
+          "interpretation": "HTTP/2 response status code",
+          "limitations": [],
+          "observed_value": 200,
+          "plane": "N11"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "sm_context_ref",
+          "frame_number": 11,
+          "interpretation": "SM Context resource URI assigned by SMF",
+          "limitations": [],
+          "observed_value": "https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1",
+          "plane": "N11"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "status",
+          "frame_number": 21,
+          "interpretation": "HTTP/2 response status code",
+          "limitations": [],
+          "observed_value": 200,
+          "plane": "N11"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "sm_context_ref",
+          "frame_number": 21,
+          "interpretation": "SM Context resource URI assigned by SMF",
+          "limitations": [],
+          "observed_value": "https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1",
+          "plane": "N11"
         }
       ],
       "instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
@@ -171,15 +253,154 @@
       "modification_attempts": [
         {
           "association_basis": "established_context_and_pti",
-          "association_strength": "SUPPORTED",
+          "association_details": {
+            "association_model": "candidate_set_with_control_windows",
+            "control_window": {
+              "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+              "end_frame": 18,
+              "start_frame": 10
+            },
+            "cross_plane_binding": {
+              "n11_sm_context_update_bound": true,
+              "n2_resource_modify_bound": true,
+              "n4_session_modification_bound": true
+            },
+            "n1_anchor": {
+              "frame_number": 10,
+              "message_type": "PduSessionModificationRequest"
+            }
+          },
+          "association_strength": "STRONG",
           "attempt_id": "mod-1",
           "deviations": [],
           "earliest_observed_deviation": null,
-          "field_findings": [],
+          "event_ownership": {
+            "exclusive_within_analysis": true,
+            "owned_event_count": 8,
+            "owned_event_refs": [
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 10,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 18,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 11,
+                "protocol": "3GPP-SBI"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 12,
+                "protocol": "PFCP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 13,
+                "protocol": "PFCP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 14,
+                "protocol": "NGAP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 15,
+                "protocol": "NGAP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 19,
+                "protocol": "GTP-U"
+              }
+            ]
+          },
+          "field_findings": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "gtp_teid",
+              "frame_number": 14,
+              "interpretation": "N2 transport-layer GTP-TEID observed in PDU Session Resource Modify signaling",
+              "limitations": [
+                "N2 transport-layer tunnel information is semantically distinct from N4 PFCP F-TEID provisioning and is never compared against it as a conflict"
+              ],
+              "observed_value": {
+                "teid": 6001,
+                "transport_layer_address": "192.0.2.10",
+                "tunnel_role": "N2_SIGNALED_TRANSPORT_ENDPOINT"
+              },
+              "plane": "N2"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": "gtp_teid",
+              "frame_number": 14,
+              "interpretation": "N2-signaled GTP-TEID changed between establishment and modification signaling within the same tunnel role",
+              "limitations": [
+                "Change derived by comparing N2-signaled values of the same semantic role only"
+              ],
+              "observed_value": "Establishment N2 GTP-TEID 5001 -> Modify N2 GTP-TEID 6001",
+              "plane": "N2"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "gtp_teid",
+              "frame_number": 15,
+              "interpretation": "N2 transport-layer GTP-TEID observed in PDU Session Resource Modify signaling",
+              "limitations": [
+                "N2 transport-layer tunnel information is semantically distinct from N4 PFCP F-TEID provisioning and is never compared against it as a conflict"
+              ],
+              "observed_value": {
+                "teid": 6001,
+                "transport_layer_address": "192.0.2.10",
+                "tunnel_role": "N2_SIGNALED_TRANSPORT_ENDPOINT"
+              },
+              "plane": "N2"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": "gtp_teid",
+              "frame_number": 15,
+              "interpretation": "N2-signaled GTP-TEID changed between establishment and modification signaling within the same tunnel role",
+              "limitations": [
+                "Change derived by comparing N2-signaled values of the same semantic role only"
+              ],
+              "observed_value": "Establishment N2 GTP-TEID 5001 -> Modify N2 GTP-TEID 6001",
+              "plane": "N2"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "cause",
+              "frame_number": 13,
+              "interpretation": "PFCP modification response cause",
+              "limitations": [],
+              "observed_value": {
+                "code": 1,
+                "name": "RequestAccepted"
+              },
+              "plane": "N4"
+            }
+          ],
           "limitations": [
             "Bounded to observed modification signaling in capture window",
             "No source code or network function internal execution state analyzed"
           ],
+          "observation_window": {
+            "window_end_basis": "next_modification_attempt_start_exclusive",
+            "window_end_frame": 19,
+            "window_start_basis": "latest_safely_bound_modification_control_or_terminal_event",
+            "window_start_frame": 18
+          },
           "plane_bindings": {
             "n1": {
               "basis": "ue_context_pdu_session_id_pti",
@@ -190,17 +411,48 @@
               ],
               "strength": "STRONG"
             },
-            "n11": null,
-            "n2": null,
-            "n3": null,
-            "n4": null
+            "n11": {
+              "basis": "sm_context_ref_continuity",
+              "event_count": 1,
+              "operations": [
+                "UpdateSMContext"
+              ],
+              "strength": "SUPPORTED"
+            },
+            "n2": {
+              "basis": "ue_context_and_pdu_session_id",
+              "event_count": 2,
+              "message_types": [
+                "PDUSessionResourceModifyRequest",
+                "PDUSessionResourceModifyResponse"
+              ],
+              "strength": "STRONG"
+            },
+            "n3": {
+              "basis": "f_teid_matching",
+              "event_count": 1,
+              "strength": "STRONG",
+              "traffic_observed": true
+            },
+            "n4": {
+              "basis": "pfcp_session_seid_continuity",
+              "event_count": 2,
+              "message_types": [
+                "SessionModificationRequest",
+                "SessionModificationResponse"
+              ],
+              "strength": "SUPPORTED"
+            }
           },
           "post_modification_observations": {
             "end_marker_observed": false,
             "error_indication_observed": false,
             "qfi_values": [],
-            "traffic_observed": false,
-            "tunnel": null
+            "traffic_observed": true,
+            "tunnel": {
+              "ip_address": "192.0.2.10",
+              "teid": 6001
+            }
           },
           "pre_modification_context": {
             "established_qfi_values": [
@@ -212,7 +464,7 @@
             },
             "pdu_session_id": 1,
             "pfcp_seid": 1001,
-            "sm_context_ref": null
+            "sm_context_ref": "https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1"
           },
           "procedure_transaction_identity": 2,
           "stages": [
@@ -234,46 +486,40 @@
               "expected_evidence": [
                 "3GPP-SBI UpdateSMContext"
               ],
-              "limitations": [
-                "SBI signaling absent or encrypted under TLS without key material"
+              "limitations": [],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "Nsmf_PDUSession UpdateSMContext accepted (HTTP 200) at frame 11"
               ],
-              "missing_evidence": [
-                "Nsmf_PDUSession UpdateSMContext not observed within capture window"
-              ],
-              "observed_evidence": [],
               "stage_id": "sm_context_update",
               "stage_name": "SM Context Update",
-              "status": "MISSING"
+              "status": "OBSERVED"
             },
             {
               "expected_evidence": [
                 "PFCP SessionModificationResponse"
               ],
-              "limitations": [
-                "N4 interface traffic not captured at this vantage point"
+              "limitations": [],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "PFCP Session Modification accepted at frame 13"
               ],
-              "missing_evidence": [
-                "PFCP Session Modification signaling not observed within capture window"
-              ],
-              "observed_evidence": [],
               "stage_id": "user_plane_control_update",
               "stage_name": "User Plane Control Update",
-              "status": "MISSING"
+              "status": "OBSERVED"
             },
             {
               "expected_evidence": [
                 "NGAP PDUSessionResourceModifyResponse"
               ],
-              "limitations": [
-                "N2 interface traffic not captured at this vantage point"
+              "limitations": [],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "NGAP PDUSessionResourceModify confirmed at frame 15 for PDU Session ID 1"
               ],
-              "missing_evidence": [
-                "NGAP PDU Session Resource Modify signaling not observed within capture window"
-              ],
-              "observed_evidence": [],
               "stage_id": "access_resource_update",
               "stage_name": "Access Resource Update",
-              "status": "MISSING"
+              "status": "OBSERVED"
             },
             {
               "expected_evidence": [
@@ -296,7 +542,7 @@
               "limitations": [],
               "missing_evidence": [],
               "observed_evidence": [
-                "PduSessionModificationComplete observed at frame 11"
+                "PduSessionModificationComplete observed at frame 18"
               ],
               "stage_id": "modification_completion",
               "stage_name": "Modification Completion",
@@ -306,44 +552,179 @@
               "expected_evidence": [
                 "GTP-U G-PDU"
               ],
-              "limitations": [
-                "User plane traffic idle or vantage point does not observe N3 interface post-modification"
-              ],
-              "missing_evidence": [
-                "No post-modification GTP-U user-plane traffic observed"
-              ],
+              "limitations": [],
+              "missing_evidence": [],
               "observed_evidence": [
-                "No matching GTP-U user-plane packets observed in capture window after modification"
+                "Post-modification GTP-U user-plane packets observed: 1 packets"
               ],
               "stage_id": "post_modification_observation",
               "stage_name": "Post-Modification Observation",
-              "status": "MISSING"
+              "status": "OBSERVED"
             }
           ],
           "terminal_observation": {
             "evidence_level": "OBSERVED",
-            "frame_number": 11,
+            "frame_number": 18,
             "message_type": "PduSessionModificationComplete",
             "observation": "MODIFICATION_COMPLETE_OBSERVED",
             "protocol_observations": [
               "PduSessionModificationComplete observed"
             ],
-            "timestamp": "2026-10-02T10:00:11.000000Z"
+            "timestamp": "2026-10-02T10:00:18.000000Z"
           },
           "trigger_type": "UE_REQUESTED",
           "unbound_evidence": []
         },
         {
           "association_basis": "established_context_and_pti",
-          "association_strength": "SUPPORTED",
+          "association_details": {
+            "association_model": "candidate_set_with_control_windows",
+            "control_window": {
+              "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+              "end_frame": 28,
+              "start_frame": 20
+            },
+            "cross_plane_binding": {
+              "n11_sm_context_update_bound": true,
+              "n2_resource_modify_bound": true,
+              "n4_session_modification_bound": true
+            },
+            "n1_anchor": {
+              "frame_number": 20,
+              "message_type": "PduSessionModificationRequest"
+            }
+          },
+          "association_strength": "STRONG",
           "attempt_id": "mod-2",
           "deviations": [],
           "earliest_observed_deviation": null,
-          "field_findings": [],
+          "event_ownership": {
+            "exclusive_within_analysis": true,
+            "owned_event_count": 8,
+            "owned_event_refs": [
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 20,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 28,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 21,
+                "protocol": "3GPP-SBI"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 22,
+                "protocol": "PFCP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 23,
+                "protocol": "PFCP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 24,
+                "protocol": "NGAP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 25,
+                "protocol": "NGAP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 29,
+                "protocol": "GTP-U"
+              }
+            ]
+          },
+          "field_findings": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "gtp_teid",
+              "frame_number": 24,
+              "interpretation": "N2 transport-layer GTP-TEID observed in PDU Session Resource Modify signaling",
+              "limitations": [
+                "N2 transport-layer tunnel information is semantically distinct from N4 PFCP F-TEID provisioning and is never compared against it as a conflict"
+              ],
+              "observed_value": {
+                "teid": 6002,
+                "transport_layer_address": "192.0.2.10",
+                "tunnel_role": "N2_SIGNALED_TRANSPORT_ENDPOINT"
+              },
+              "plane": "N2"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": "gtp_teid",
+              "frame_number": 24,
+              "interpretation": "N2-signaled GTP-TEID changed between establishment and modification signaling within the same tunnel role",
+              "limitations": [
+                "Change derived by comparing N2-signaled values of the same semantic role only"
+              ],
+              "observed_value": "Establishment N2 GTP-TEID 5001 -> Modify N2 GTP-TEID 6002",
+              "plane": "N2"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "gtp_teid",
+              "frame_number": 25,
+              "interpretation": "N2 transport-layer GTP-TEID observed in PDU Session Resource Modify signaling",
+              "limitations": [
+                "N2 transport-layer tunnel information is semantically distinct from N4 PFCP F-TEID provisioning and is never compared against it as a conflict"
+              ],
+              "observed_value": {
+                "teid": 6002,
+                "transport_layer_address": "192.0.2.10",
+                "tunnel_role": "N2_SIGNALED_TRANSPORT_ENDPOINT"
+              },
+              "plane": "N2"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": "gtp_teid",
+              "frame_number": 25,
+              "interpretation": "N2-signaled GTP-TEID changed between establishment and modification signaling within the same tunnel role",
+              "limitations": [
+                "Change derived by comparing N2-signaled values of the same semantic role only"
+              ],
+              "observed_value": "Establishment N2 GTP-TEID 5001 -> Modify N2 GTP-TEID 6002",
+              "plane": "N2"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "cause",
+              "frame_number": 23,
+              "interpretation": "PFCP modification response cause",
+              "limitations": [],
+              "observed_value": {
+                "code": 1,
+                "name": "RequestAccepted"
+              },
+              "plane": "N4"
+            }
+          ],
           "limitations": [
             "Bounded to observed modification signaling in capture window",
             "No source code or network function internal execution state analyzed"
           ],
+          "observation_window": {
+            "window_end_basis": "capture_window_end",
+            "window_end_frame": 29,
+            "window_start_basis": "latest_safely_bound_modification_control_or_terminal_event",
+            "window_start_frame": 28
+          },
           "plane_bindings": {
             "n1": {
               "basis": "ue_context_pdu_session_id_pti",
@@ -354,17 +735,48 @@
               ],
               "strength": "STRONG"
             },
-            "n11": null,
-            "n2": null,
-            "n3": null,
-            "n4": null
+            "n11": {
+              "basis": "sm_context_ref_continuity",
+              "event_count": 1,
+              "operations": [
+                "UpdateSMContext"
+              ],
+              "strength": "SUPPORTED"
+            },
+            "n2": {
+              "basis": "ue_context_and_pdu_session_id",
+              "event_count": 2,
+              "message_types": [
+                "PDUSessionResourceModifyRequest",
+                "PDUSessionResourceModifyResponse"
+              ],
+              "strength": "STRONG"
+            },
+            "n3": {
+              "basis": "f_teid_matching",
+              "event_count": 1,
+              "strength": "STRONG",
+              "traffic_observed": true
+            },
+            "n4": {
+              "basis": "pfcp_session_seid_continuity",
+              "event_count": 2,
+              "message_types": [
+                "SessionModificationRequest",
+                "SessionModificationResponse"
+              ],
+              "strength": "SUPPORTED"
+            }
           },
           "post_modification_observations": {
             "end_marker_observed": false,
             "error_indication_observed": false,
             "qfi_values": [],
-            "traffic_observed": false,
-            "tunnel": null
+            "traffic_observed": true,
+            "tunnel": {
+              "ip_address": "192.0.2.10",
+              "teid": 6002
+            }
           },
           "pre_modification_context": {
             "established_qfi_values": [
@@ -376,7 +788,7 @@
             },
             "pdu_session_id": 1,
             "pfcp_seid": 1001,
-            "sm_context_ref": null
+            "sm_context_ref": "https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1"
           },
           "procedure_transaction_identity": 3,
           "stages": [
@@ -398,46 +810,40 @@
               "expected_evidence": [
                 "3GPP-SBI UpdateSMContext"
               ],
-              "limitations": [
-                "SBI signaling absent or encrypted under TLS without key material"
+              "limitations": [],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "Nsmf_PDUSession UpdateSMContext accepted (HTTP 200) at frame 21"
               ],
-              "missing_evidence": [
-                "Nsmf_PDUSession UpdateSMContext not observed within capture window"
-              ],
-              "observed_evidence": [],
               "stage_id": "sm_context_update",
               "stage_name": "SM Context Update",
-              "status": "MISSING"
+              "status": "OBSERVED"
             },
             {
               "expected_evidence": [
                 "PFCP SessionModificationResponse"
               ],
-              "limitations": [
-                "N4 interface traffic not captured at this vantage point"
+              "limitations": [],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "PFCP Session Modification accepted at frame 23"
               ],
-              "missing_evidence": [
-                "PFCP Session Modification signaling not observed within capture window"
-              ],
-              "observed_evidence": [],
               "stage_id": "user_plane_control_update",
               "stage_name": "User Plane Control Update",
-              "status": "MISSING"
+              "status": "OBSERVED"
             },
             {
               "expected_evidence": [
                 "NGAP PDUSessionResourceModifyResponse"
               ],
-              "limitations": [
-                "N2 interface traffic not captured at this vantage point"
+              "limitations": [],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "NGAP PDUSessionResourceModify confirmed at frame 25 for PDU Session ID 1"
               ],
-              "missing_evidence": [
-                "NGAP PDU Session Resource Modify signaling not observed within capture window"
-              ],
-              "observed_evidence": [],
               "stage_id": "access_resource_update",
               "stage_name": "Access Resource Update",
-              "status": "MISSING"
+              "status": "OBSERVED"
             },
             {
               "expected_evidence": [
@@ -460,7 +866,7 @@
               "limitations": [],
               "missing_evidence": [],
               "observed_evidence": [
-                "PduSessionModificationComplete observed at frame 21"
+                "PduSessionModificationComplete observed at frame 28"
               ],
               "stage_id": "modification_completion",
               "stage_name": "Modification Completion",
@@ -470,29 +876,25 @@
               "expected_evidence": [
                 "GTP-U G-PDU"
               ],
-              "limitations": [
-                "User plane traffic idle or vantage point does not observe N3 interface post-modification"
-              ],
-              "missing_evidence": [
-                "No post-modification GTP-U user-plane traffic observed"
-              ],
+              "limitations": [],
+              "missing_evidence": [],
               "observed_evidence": [
-                "No matching GTP-U user-plane packets observed in capture window after modification"
+                "Post-modification GTP-U user-plane packets observed: 1 packets"
               ],
               "stage_id": "post_modification_observation",
               "stage_name": "Post-Modification Observation",
-              "status": "MISSING"
+              "status": "OBSERVED"
             }
           ],
           "terminal_observation": {
             "evidence_level": "OBSERVED",
-            "frame_number": 21,
+            "frame_number": 28,
             "message_type": "PduSessionModificationComplete",
             "observation": "MODIFICATION_COMPLETE_OBSERVED",
             "protocol_observations": [
               "PduSessionModificationComplete observed"
             ],
-            "timestamp": "2026-10-02T10:00:21.000000Z"
+            "timestamp": "2026-10-02T10:00:28.000000Z"
           },
           "trigger_type": "UE_REQUESTED",
           "unbound_evidence": []
@@ -517,28 +919,36 @@
           "basis": "unambiguous_candidate_psi_and_dnn",
           "operations": [
             "CreateSMContext",
-            "N1N2MessageTransfer"
+            "N1N2MessageTransfer",
+            "UpdateSMContext",
+            "UpdateSMContext"
           ],
           "status_codes": [
             201,
+            200,
+            200,
             200
           ],
           "strength": "SUPPORTED"
         },
         "n2": {
           "basis": "ngap_ue_context_and_resource_matching",
-          "event_count": 2,
+          "event_count": 6,
           "message_types": [
             "PDUSessionResourceSetupRequest",
-            "PDUSessionResourceSetupResponse"
+            "PDUSessionResourceSetupResponse",
+            "PDUSessionResourceModifyRequest",
+            "PDUSessionResourceModifyResponse",
+            "PDUSessionResourceModifyRequest",
+            "PDUSessionResourceModifyResponse"
           ],
           "strength": "STRONG"
         },
         "n3": {
           "basis": "f_teid_endpoint_and_teid_match",
-          "byte_count": 64,
+          "byte_count": 192,
           "endpoint": "192.0.2.10",
-          "packet_count": 1,
+          "packet_count": 3,
           "qfi_values": [],
           "strength": "STRONG",
           "teid": 5001
@@ -604,7 +1014,7 @@
           "limitations": [],
           "missing_evidence": [],
           "observed_evidence": [
-            "NGAP PDUSessionResourceSetupResponse at frame 6 reported PDU Session ID 1 in setup/successful list"
+            "NGAP PDUSessionResourceModifyResponse at frame 25 reported PDU Session ID 1 in setup/successful list"
           ],
           "stage_id": "access_resource_control",
           "stage_name": "Access Resource Control",
@@ -631,7 +1041,7 @@
           "limitations": [],
           "missing_evidence": [],
           "observed_evidence": [
-            "PduSessionEstablishmentAccept observed at frame 8 with PDU address 10.45.0.2"
+            "PduSessionEstablishmentAccept observed at frame 8"
           ],
           "stage_id": "session_decision",
           "stage_name": "Session Decision",
@@ -646,7 +1056,7 @@
           ],
           "missing_evidence": [],
           "observed_evidence": [
-            "GTP-U G-PDU traffic observed: 1 packets, 64 bytes for TEID 5001 to endpoint 192.0.2.10"
+            "GTP-U G-PDU traffic observed: 3 packets, 192 bytes for TEID 5001 to endpoint 192.0.2.10"
           ],
           "stage_id": "user_plane_observation",
           "stage_name": "User Plane Observation",

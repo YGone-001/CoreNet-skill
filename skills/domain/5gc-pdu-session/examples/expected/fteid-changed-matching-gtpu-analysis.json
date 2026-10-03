@@ -167,6 +167,23 @@
       "modification_attempts": [
         {
           "association_basis": "established_context_and_pti",
+          "association_details": {
+            "association_model": "candidate_set_with_control_windows",
+            "control_window": {
+              "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+              "end_frame": null,
+              "start_frame": 10
+            },
+            "cross_plane_binding": {
+              "n11_sm_context_update_bound": false,
+              "n2_resource_modify_bound": true,
+              "n4_session_modification_bound": true
+            },
+            "n1_anchor": {
+              "frame_number": 10,
+              "message_type": "PduSessionModificationRequest"
+            }
+          },
           "association_strength": "STRONG",
           "attempt_id": "mod-1",
           "deviations": [
@@ -185,25 +202,97 @@
             "stage_id": "modification_completion",
             "type": "MISSING_EXPECTED_COUNTERPART"
           },
+          "event_ownership": {
+            "exclusive_within_analysis": true,
+            "owned_event_count": 6,
+            "owned_event_refs": [
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 10,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 13,
+                "protocol": "PFCP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 14,
+                "protocol": "PFCP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 11,
+                "protocol": "NGAP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 12,
+                "protocol": "NGAP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 15,
+                "protocol": "GTP-U"
+              }
+            ]
+          },
           "field_findings": [
             {
               "capture_file": "test.pcap",
               "evidence_level": "OBSERVED",
-              "field_name": "f_teid",
+              "field_name": "gtp_teid",
               "frame_number": 11,
-              "interpretation": "F-TEID tunnel endpoint updated in modification",
-              "limitations": [],
-              "observed_value": "Old: 5001 -> New: 9002",
+              "interpretation": "N2 transport-layer GTP-TEID observed in PDU Session Resource Modify signaling",
+              "limitations": [
+                "N2 transport-layer tunnel information is semantically distinct from N4 PFCP F-TEID provisioning and is never compared against it as a conflict"
+              ],
+              "observed_value": {
+                "teid": 9002,
+                "transport_layer_address": "192.0.2.10",
+                "tunnel_role": "N2_SIGNALED_TRANSPORT_ENDPOINT"
+              },
+              "plane": "N2"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": "gtp_teid",
+              "frame_number": 11,
+              "interpretation": "N2-signaled GTP-TEID changed between establishment and modification signaling within the same tunnel role",
+              "limitations": [
+                "Change derived by comparing N2-signaled values of the same semantic role only"
+              ],
+              "observed_value": "Establishment N2 GTP-TEID 5001 -> Modify N2 GTP-TEID 9002",
               "plane": "N2"
             },
             {
               "capture_file": "test.pcap",
               "evidence_level": "OBSERVED",
-              "field_name": "f_teid",
+              "field_name": "gtp_teid",
               "frame_number": 12,
-              "interpretation": "F-TEID tunnel endpoint updated in modification",
-              "limitations": [],
-              "observed_value": "Old: 5001 -> New: 9002",
+              "interpretation": "N2 transport-layer GTP-TEID observed in PDU Session Resource Modify signaling",
+              "limitations": [
+                "N2 transport-layer tunnel information is semantically distinct from N4 PFCP F-TEID provisioning and is never compared against it as a conflict"
+              ],
+              "observed_value": {
+                "teid": 9002,
+                "transport_layer_address": "192.0.2.10",
+                "tunnel_role": "N2_SIGNALED_TRANSPORT_ENDPOINT"
+              },
+              "plane": "N2"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": "gtp_teid",
+              "frame_number": 12,
+              "interpretation": "N2-signaled GTP-TEID changed between establishment and modification signaling within the same tunnel role",
+              "limitations": [
+                "Change derived by comparing N2-signaled values of the same semantic role only"
+              ],
+              "observed_value": "Establishment N2 GTP-TEID 5001 -> Modify N2 GTP-TEID 9002",
               "plane": "N2"
             },
             {
@@ -224,6 +313,12 @@
             "Bounded to observed modification signaling in capture window",
             "No source code or network function internal execution state analyzed"
           ],
+          "observation_window": {
+            "window_end_basis": "capture_window_end",
+            "window_end_frame": 15,
+            "window_start_basis": "latest_safely_bound_modification_control_or_terminal_event",
+            "window_start_frame": 14
+          },
           "plane_bindings": {
             "n1": {
               "basis": "ue_context_pdu_session_id_pti",

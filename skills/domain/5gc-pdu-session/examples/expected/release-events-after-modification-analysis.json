@@ -162,16 +162,55 @@
       "modification_attempts": [
         {
           "association_basis": "established_context_and_pti",
+          "association_details": {
+            "association_model": "candidate_set_with_control_windows",
+            "control_window": {
+              "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+              "end_frame": 11,
+              "start_frame": 10
+            },
+            "cross_plane_binding": {
+              "n11_sm_context_update_bound": false,
+              "n2_resource_modify_bound": false,
+              "n4_session_modification_bound": false
+            },
+            "n1_anchor": {
+              "frame_number": 10,
+              "message_type": "PduSessionModificationRequest"
+            }
+          },
           "association_strength": "SUPPORTED",
           "attempt_id": "mod-1",
           "deviations": [],
           "earliest_observed_deviation": null,
+          "event_ownership": {
+            "exclusive_within_analysis": true,
+            "owned_event_count": 2,
+            "owned_event_refs": [
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 10,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 11,
+                "protocol": "NAS-5GS"
+              }
+            ]
+          },
           "field_findings": [],
           "limitations": [
             "Bounded to observed modification signaling in capture window",
             "No source code or network function internal execution state analyzed",
             "PDU session release signaling observed but release procedure analysis is deferred in this version"
           ],
+          "observation_window": {
+            "window_end_basis": "capture_window_end",
+            "window_end_frame": 21,
+            "window_start_basis": "latest_safely_bound_modification_control_or_terminal_event",
+            "window_start_frame": 11
+          },
           "plane_bindings": {
             "n1": {
               "basis": "ue_context_pdu_session_id_pti",
@@ -299,17 +338,17 @@
                 "GTP-U G-PDU"
               ],
               "limitations": [
-                "User plane traffic idle or vantage point does not observe N3 interface post-modification"
+                "Traffic may have been idle during the observation window",
+                "N3 may not be visible at the capture vantage point",
+                "Absence of post-modification GTP-U does not prove user-plane impairment"
               ],
-              "missing_evidence": [
-                "No post-modification GTP-U user-plane traffic observed"
-              ],
+              "missing_evidence": [],
               "observed_evidence": [
-                "No matching GTP-U user-plane packets observed in capture window after modification"
+                "No matching post-modification N3 packet observed within the capture window."
               ],
               "stage_id": "post_modification_observation",
               "stage_name": "Post-Modification Observation",
-              "status": "MISSING"
+              "status": "NOT_OBSERVED"
             }
           ],
           "terminal_observation": {

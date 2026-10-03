@@ -51,6 +51,16 @@ The Domain Skill exposes procedure-relevant protocol fields from already-extract
 
 ---
 
+## QFI Observation Wording During Modification
+
+A QFI value observed during a modification is not by itself evidence that the QoS flow was allocated, created, removed, or modified. Findings use neutral wording:
+
+- Preferred: `"QFI X observed during modification."`
+- Operation wording (`allocated`, `created`, `removed`, `modified`) is preserved only when PFCP explicitly supplies `CREATE QER` / `UPDATE QER` / `REMOVE QER` and the QFI is structurally bound to that QER operation.
+- Set differences between before/after QFI sets support only the derived statement `"QFI X newly observed after this bounded modification."` (`DERIVED`, with the limitation recorded); they never imply `QFI_CREATED` / `QFI_REMOVED` / `QFI_MODIFIED` on their own.
+
+---
+
 ## Field Conflict Handling (`FIELD_CONFLICT`)
 
 When multiple planes are safely associated, the Domain Skill compares semantic attributes. If conflicting values are observed, **both values are preserved** and recorded as a field finding with interpretation `FIELD_CONFLICT`:
@@ -64,7 +74,8 @@ When multiple planes are safely associated, the Domain Skill compares semantic a
    - NGAP configured `qfi` is `5`.
    - PFCP provisioned `qfi` is `9`.
    - Finding: Preserves conflicting values across N1, N2, and N4; flags `FIELD_CONFLICT`.
-3. **F-TEID / Tunnel Update Mismatch**:
-   - Updated F-TEID in PFCP / NGAP allocates new TEID `6001`.
-   - User plane continues observing old TEID `5001` or traffic without matching tunnel.
-   - Finding: Reports old vs new tunnel observation neutrally without assuming fault.
+3. **N2 GTP-TEID Change**:
+   - NGAP transport-layer tunnel information (`transportLayerAddress` + `GTP-TEID`) carries N2-signaled transport endpoint evidence with tunnel role `N2_SIGNALED_TRANSPORT_ENDPOINT`.
+   - A tunnel-change finding is produced only by comparing N2-signaled values of the same semantic role (for example establishment GTP-TEID `5001` -> modification GTP-TEID `6001`).
+   - N2 GTP-TEID values are never renamed to F-TEID and never compared against N4 PFCP F-TEID values as a conflict: F-TEID is a PFCP concept with its own structure and role, and uplink/downlink N3 TEIDs can legitimately differ.
+   - Finding: Reports the observed tunnel role, TEID, and transport address per plane without merging them into one undifferentiated finding.

@@ -40,21 +40,47 @@ Each plane binding is classified by an explicit procedure-local association stre
 
 ## Modification Attempt Association
 
-PDU Session Modification introduces repeated attempt modeling within an established PDU Session instance.
+PDU Session Modification introduces repeated attempt modeling within an established PDU Session instance. Attempts are formed and associated through an explicit candidate model; frame position, timestamp, or nearest-attempt proximity is never the sole reason an event is assigned to one attempt.
 
-### 1. NAS Procedure Transaction Identity (PTI)
-- **Role**: Disambiguates concurrent or sequential transactions initiated by the UE or network.
+### 1. N1 Attempt Anchors and PTI
+- Modification attempts are formed only from N1 NAS modification anchors (`PduSessionModificationRequest`, `PduSessionModificationCommand`, or terminal messages observed without their initiation).
+- **Role**: PTI disambiguates concurrent or sequential transactions initiated by the UE or network.
 - **Strict UE-Context Scoping**: NAS PTI is scoped strictly to its UE context and PDU Session ID. A PTI value of `5` on UE 1 and a PTI value of `5` on UE 2 are independent transactions and never collide or merge.
 - **Value 0**: PTI value 0 represents an unassigned transaction (e.g. network-initiated commands or legacy procedures).
+- PTI is never inherited by SBI, PFCP, NGAP, or GTP-U events merely because their frames are nearby.
 
-### 2. Continuity with Established Context
+### 2. Cross-Plane Candidate Model
+For each modification-related cross-plane event (SBI UpdateSMContext, PFCP Session Modification, NGAP PDU Session Resource Modify), the analysis builds an explicit candidate set from non-temporal constraints first:
+
+- already-bound PDU Session instance;
+- SM Context resource continuity (N11);
+- PFCP session/endpoint continuity (N4);
+- NGAP UE context plus target PDU Session resource identity (N2);
+- established or newly signaled tunnel identity (N3).
+
+Only after this does ordering bound each attempt's control window. Ordering may eliminate impossible candidates; it must never select one attempt from several compatible candidates.
+
+### 3. Control and Observation Windows
+- Each attempt carries a control window starting at its N1 anchor (network-requested attempts may include preceding control signaling back to the previous terminal or the establishment accept).
+- An attempt with an observed terminal (Complete / Reject / CommandReject) ends at that terminal. An attempt without an observed terminal stays open: a later attempt's start cannot prove this attempt ended.
+- Each attempt carries an observation window (`observation_window`) starting at the latest safely bound modification-control or terminal event, ending at the next sequential attempt's start (exclusive) or the capture end.
+- Every modification event resolves to exactly one of `STRONG`, `SUPPORTED`, `AMBIGUOUS`, or `UNBOUND`. Events with several compatible candidates remain attempt-unbound with an explicit record (`unbound_evidence`, `association_strength: AMBIGUOUS`, `candidate_attempt_ids`) and a `CORRELATION_AMBIGUITY` deviation. Nothing is dropped.
+
+### 4. Event Ownership
+Every attempt-owned event is tracked by the deterministic reference `(protocol, capture_file, frame_number)` under `event_ownership`. Within one analysis, one event never belongs to more than one modification attempt; ambiguous events are retained at session level instead.
+
+### 5. Network-Only or Partial Evidence
+When modification-family control transactions (N11/PFCP/N2) are observed without any N1 anchor, no attempt is invented. Each transaction is preserved as unbound modification evidence with the reason recorded. PFCP-only evidence does not by itself prove a UE-visible PDU Session Modification attempt.
+
+### 6. N3 GTP-U Attempt Binding
+- A GTP-U packet attaches to an attempt only when it lies inside the attempt's observation window AND matches a safely known tunnel context: TEID plus compatible outer endpoint address. TEID equality alone is insufficient.
+- If the modification provisions a new tunnel (N2 `transportLayerAddress` + GTP-TEID, or N4 PFCP F-TEID), the attempt uses the newly signaled tunnel endpoints.
+- If two attempts could own one packet (overlapping windows, shared tunnel), the packet stays `AMBIGUOUS`/unbound; it is never duplicated into both attempts and never attached by temporal proximity.
+
+### 7. Continuity with Established Context
 - **PFCP Continuity**: PFCP Session Modification requests must use the CP/UP SEID established during Session Establishment.
 - **SM Context Continuity**: N11 UpdateSMContext requests must target the `sm_context_ref` URI returned in the 201 Created response of CreateSMContext.
-- **F-TEID Continuity and Update**: User-plane control modifications may update existing F-TEIDs or provision new F-TEIDs. GTP-U packets following modification are matched against the active F-TEID.
-
-### 3. Concurrent and Ambiguous Attempts
-- If multiple modification requests appear for the same PDU Session with distinct PTIs, they are tracked as concurrent distinct attempts.
-- If overlapping modification requests appear without distinct PTIs or clear separation, they are classified with `association_strength: "AMBIGUOUS"` and `CORRELATION_AMBIGUITY`.
+- **F-TEID Continuity and Update**: User-plane control modifications may update existing F-TEIDs or provision new F-TEIDs. GTP-U packets following modification are matched against the attempt's tunnel context.
 
 ---
 

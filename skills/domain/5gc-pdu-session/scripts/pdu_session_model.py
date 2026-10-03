@@ -323,14 +323,161 @@ def _make_generic_stage_record(
     }
 
 
+def _event_ref(protocol: str, event: dict[str, Any]) -> dict[str, Any]:
+    """Deterministic reference for one input event: (protocol, capture_file, frame_number)."""
+    return {
+        "protocol": protocol,
+        "capture_file": str(event.get("capture_file", "")),
+        "frame_number": event.get("frame_number"),
+    }
+
+
+def _attempt_owned_refs(attempt: dict[str, Any]) -> list[dict[str, Any]]:
+    """All event references exclusively owned by one modification attempt."""
+    refs: list[dict[str, Any]] = []
+    for ev in attempt.get("nas_events", []):
+        refs.append(_event_ref("NAS-5GS", ev))
+    for ev in attempt.get("sbi_events", []):
+        refs.append(_event_ref("3GPP-SBI", ev))
+    for ev in attempt.get("pfcp_events", []):
+        refs.append(_event_ref("PFCP", ev))
+    for ev in attempt.get("ngap_events", []):
+        refs.append(_event_ref("NGAP", ev))
+    for ev in attempt.get("gtpu_events", []):
+        refs.append(_event_ref("GTP-U", ev))
+    return refs
+
+
+def _extract_tunnel_endpoints(
+    ngap_events: list[dict[str, Any]],
+    pfcp_events: list[dict[str, Any]],
+    psi: int,
+) -> list[dict[str, Any]]:
+    """Collect tunnel endpoint identities signaled for the target PDU Session.
+
+    N2 transport information (transportLayerAddress + GTP-TEID) and N4 PFCP
+    provisioned endpoints (PDR F-TEID / FAR outer header creation) are kept as
+    distinct semantic roles; they are never merged or directly compared.
+    """
+    tunnels: list[dict[str, Any]] = []
+    seen: set[tuple[str, Any, str]] = set()
+
+    def add(teid: Any, endpoint: Any, role: str, source: str, frame: Any) -> None:
+        if teid is None or endpoint is None:
+            return
+        key = (role, teid, endpoint)
+        if key in seen:
+            return
+        seen.add(key)
+        tunnels.append({"teid": teid, "endpoint": endpoint, "tunnel_role": role, "source": source, "frame_number": frame})
+
+    for ev in ngap_events:
+        for item in ev.get("pdu_session_resources", []):
+            if item.get("pdu_session_id") != psi:
+                continue
+            tli = item.get("transport_layer_information") or item.get("up_transport_layer_information")
+            if isinstance(tli, dict):
+                add(
+                    tli.get("g_tp_teid") or tli.get("teid"),
+                    tli.get("transport_layer_address") or tli.get("address"),
+                    "N2_SIGNALED_TRANSPORT_ENDPOINT",
+                    "NGAP transport_layer_information",
+                    ev.get("frame_number"),
+                )
+
+    for ev in pfcp_events:
+        rules = ev.get("rule_operations")
+        if not isinstance(rules, dict):
+            continue
+        for pdr in rules.get("pdrs", []):
+            f_teid = pdr.get("f_teid")
+            if isinstance(f_teid, dict):
+                add(
+                    f_teid.get("teid"),
+                    f_teid.get("ipv4") or f_teid.get("ipv6"),
+                    "N4_PFCP_PROVISIONED_ENDPOINT",
+                    f"PFCP PDR {pdr.get('pdr_id', pdr.get('id', '?'))} f_teid",
+                    ev.get("frame_number"),
+                )
+        for far in rules.get("fars", []):
+            ohc = far.get("outer_header_creation")
+            if isinstance(ohc, dict):
+                add(
+                    ohc.get("teid"),
+                    ohc.get("ipv4") or ohc.get("ipv6"),
+                    "N4_PFCP_PROVISIONED_ENDPOINT",
+                    f"PFCP FAR {far.get('far_id', far.get('id', '?'))} outer_header_creation",
+                    ev.get("frame_number"),
+                )
+
+    return tunnels
+
+
+def _gtpu_matches_tunnel(event: dict[str, Any], tunnel: dict[str, Any]) -> bool:
+    """GTP-U tunnel identity match: TEID plus a compatible endpoint address.
+
+    TEID equality alone is insufficient; the outer source or destination address
+    must equal the provisioned endpoint address.
+    """
+    header = event.get("header", {}) if isinstance(event.get("header"), dict) else {}
+    outer = event.get("outer", {}) if isinstance(event.get("outer"), dict) else {}
+    teid = header.get("teid")
+    if teid is None or teid != tunnel.get("teid"):
+        return False
+    endpoint = tunnel.get("endpoint")
+    if endpoint is None:
+        return False
+    return endpoint in (outer.get("destination_address"), outer.get("source_address"))
+
+
+def _unbound_modification_record(
+    protocol: str,
+    event: dict[str, Any],
+    reason: str,
+    candidate_attempt_ids: list[str],
+    strength: str,
+) -> dict[str, Any]:
+    return {
+        "event_ref": _event_ref(protocol, event),
+        "protocol": protocol,
+        "reason": reason,
+        "candidate_attempt_ids": candidate_attempt_ids,
+        "association_strength": strength,
+    }
+
+
+def _modification_stage_for_protocol(protocol: str) -> str:
+    return {
+        "NAS-5GS": "modification_initiation",
+        "3GPP-SBI": "sm_context_update",
+        "PFCP": "user_plane_control_update",
+        "NGAP": "access_resource_update",
+        "GTP-U": "post_modification_observation",
+    }.get(protocol, "modification_initiation")
+
+
 def evaluate_modification_attempts(
     inst: dict[str, Any],
     est_context: dict[str, Any],
     capture_file: str,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     """Evaluate repeated modification attempts for an established PDU Session instance.
 
-    Returns (modification_attempts, generic_stage_records).
+    Attempt association follows an explicit candidate model:
+    1. N1 NAS modification messages anchor attempts; PTI where the N1 message
+       actually carries a PTI is the attempt-scoped identity (never inherited by
+       SBI, PFCP, NGAP, or GTP-U events).
+    2. Cross-plane modification events are session-bound by protocol-local
+       continuity (SM Context resource, PFCP SEID/endpoint, NGAP UE context +
+       PDU Session resource identity); ordering only bounds each attempt's
+       control window and eliminates impossible candidates.
+    3. A cross-plane event resolves to exactly one attempt (unique compatible
+       window) or stays attempt-unbound with an explicit record; frame position
+       alone never selects one of several concurrent attempts.
+    4. GTP-U events attach only inside a per-attempt observation window AND with
+       tunnel identity (TEID plus compatible endpoint evidence).
+
+    Returns (modification_attempts, generic_stage_records, session_unbound_records).
     """
     psi = inst["pdu_session_id"]
     inst_id = inst["instance_id"]
@@ -375,193 +522,308 @@ def evaluate_modification_attempts(
         if "ResourceModify" in str(e.get("message_type", ""))
     ]
 
-    if not nas_mod and not sbi_update_evs and not pfcp_mod and not ngap_mod:
-        return [], []
-
-    # Find earliest frame of modification signaling
-    all_mod_core_frames = [
-        e["frame_number"] for e in (nas_mod + sbi_update_evs + pfcp_mod + ngap_mod)
-        if e.get("frame_number") is not None
+    sbi_delivery_evs = [
+        e for e in sbi_evs
+        if e.get("sbi", {}).get("operation") in ("N1N2MessageTransfer", "N1N2Transfer Failure Notification", "N1N2TransferFailureNotification")
+        or "n1-n2-messages" in str(e.get("http2", {}).get("path", "")).lower()
+        or "failure-notify" in str(e.get("http2", {}).get("path", "")).lower()
     ]
-    min_mod_frame = min(all_mod_core_frames) if all_mod_core_frames else 0
 
-    sbi_mod = list(sbi_update_evs)
-    for e in sbi_evs:
-        op = e.get("sbi", {}).get("operation")
-        if op in ("N1N2MessageTransfer", "N1N2Transfer Failure Notification"):
-            # Check if this delivery event occurs during or after modification initiation
-            if e.get("frame_number", 0) >= min_mod_frame and e not in sbi_mod:
-                sbi_mod.append(e)
+    session_unbound_records: list[dict[str, Any]] = []
 
-    # Cluster events into modification attempts
-    attempts_data: list[dict[str, Any]] = []
+    if not nas_mod and not sbi_update_evs and not pfcp_mod and not ngap_mod:
+        return [], [], []
 
-    if nas_mod:
-        for ev in nas_mod:
-            mtype = ev.get("message_type")
-            sm = ev.get("session_management", {}) if isinstance(ev.get("session_management"), dict) else {}
-            pti = sm.get("procedure_transaction_identity") if sm.get("procedure_transaction_identity") is not None else sm.get("pti")
-            f_num = ev.get("frame_number", 0)
+    def _nas_pti(ev: dict[str, Any]) -> int | None:
+        sm = ev.get("session_management") if isinstance(ev.get("session_management"), dict) else {}
+        if not sm:
+            return None
+        value = sm.get("procedure_transaction_identity")
+        if value is None:
+            value = sm.get("pti")
+        return value
 
-            if mtype == "PduSessionModificationRequest":
-                active_same_pti = next((a for a in attempts_data if not a["is_completed"] and a["pti"] is not None and a["pti"] == pti), None)
-                if active_same_pti:
-                    has_req = any(e.get("message_type") == "PduSessionModificationRequest" for e in active_same_pti["nas_events"])
-                    if has_req:
-                        active_same_pti["nas_events"].append(ev)
-                        active_same_pti["is_duplicate"] = True
-                        active_same_pti["end_frame"] = max(active_same_pti["end_frame"], f_num)
-                    else:
-                        active_same_pti["nas_events"].append(ev)
-                        active_same_pti["end_frame"] = max(active_same_pti["end_frame"], f_num)
-                else:
-                    active_any = [a for a in attempts_data if not a["is_completed"]]
-                    is_ambig = any(a["pti"] == pti for a in active_any)
-                    attempts_data.append({
-                        "attempt_idx": len(attempts_data) + 1,
-                        "trigger_type": TRIGGER_UE_REQUESTED,
-                        "pti": pti,
-                        "nas_events": [ev],
-                        "sbi_events": [],
-                        "pfcp_events": [],
-                        "ngap_events": [],
-                        "gtpu_events": [],
-                        "is_ambiguous": is_ambig,
-                        "is_duplicate": False,
-                        "is_late_capture": False,
-                        "is_completed": False,
-                        "start_frame": f_num,
-                        "end_frame": f_num,
-                    })
-
-            elif mtype == "PduSessionModificationCommand":
-                active = next((a for a in attempts_data if not a["is_completed"] and (a["pti"] == pti or (a["pti"] is not None and (pti == 0 or pti is None)))), None)
-                if not active:
-                    active = next((a for a in attempts_data if not a["is_completed"] and not any(e.get("message_type") == "PduSessionModificationCommand" for e in a["nas_events"])), None)
-                if active:
-                    active["nas_events"].append(ev)
-                    active["end_frame"] = max(active["end_frame"], f_num)
-                else:
-                    attempts_data.append({
-                        "attempt_idx": len(attempts_data) + 1,
-                        "trigger_type": TRIGGER_NETWORK_REQUESTED,
-                        "pti": pti,
-                        "nas_events": [ev],
-                        "sbi_events": [],
-                        "pfcp_events": [],
-                        "ngap_events": [],
-                        "gtpu_events": [],
-                        "is_ambiguous": False,
-                        "is_duplicate": False,
-                        "is_late_capture": False,
-                        "is_completed": False,
-                        "start_frame": f_num,
-                        "end_frame": f_num,
-                    })
-
-            elif mtype in ("PduSessionModificationComplete", "PduSessionModificationReject", "PduSessionModificationCommandReject"):
-                active = next((a for a in attempts_data if not a["is_completed"] and (a["pti"] == pti or a["pti"] is None or pti == 0 or pti is None)), None)
-                if not active:
-                    active = next((a for a in attempts_data if not a["is_completed"]), None)
-                if active:
-                    active["nas_events"].append(ev)
-                    active["is_completed"] = True
-                    active["end_frame"] = max(active["end_frame"], f_num)
-                else:
-                    attempts_data.append({
-                        "attempt_idx": len(attempts_data) + 1,
-                        "trigger_type": TRIGGER_UNKNOWN,
-                        "pti": pti,
-                        "nas_events": [ev],
-                        "sbi_events": [],
-                        "pfcp_events": [],
-                        "ngap_events": [],
-                        "gtpu_events": [],
-                        "is_ambiguous": False,
-                        "is_duplicate": False,
-                        "is_late_capture": True,
-                        "is_completed": True,
-                        "start_frame": f_num,
-                        "end_frame": f_num,
-                    })
-
-            else:
-                active = next((a for a in attempts_data if not a["is_completed"]), None)
-                if active:
-                    active["nas_events"].append(ev)
-                    active["end_frame"] = max(active["end_frame"], f_num)
-                else:
-                    attempts_data.append({
-                        "attempt_idx": len(attempts_data) + 1,
-                        "trigger_type": TRIGGER_UNKNOWN,
-                        "pti": pti,
-                        "nas_events": [ev],
-                        "sbi_events": [],
-                        "pfcp_events": [],
-                        "ngap_events": [],
-                        "gtpu_events": [],
-                        "is_ambiguous": False,
-                        "is_duplicate": False,
-                        "is_late_capture": False,
-                        "is_completed": False,
-                        "start_frame": f_num,
-                        "end_frame": f_num,
-                    })
-    else:
-        attempts_data.append({
-            "attempt_idx": 1,
-            "trigger_type": TRIGGER_NETWORK_REQUESTED,
-            "pti": None,
-            "nas_events": [],
+    def _new_attempt(ev: dict[str, Any], trigger: str, pti: int | None, late_capture: bool) -> dict[str, Any]:
+        return {
+            "attempt_idx": len(attempts_data) + 1,
+            "trigger_type": trigger,
+            "pti": pti,
+            "nas_events": [ev],
             "sbi_events": [],
             "pfcp_events": [],
             "ngap_events": [],
             "gtpu_events": [],
-            "is_ambiguous": False,
             "is_duplicate": False,
-            "is_late_capture": False,
-            "is_completed": False,
-            "start_frame": 1,
-            "end_frame": 1000000,
-        })
+            "is_late_capture": late_capture,
+            "is_completed": late_capture,
+            "anchor_frame": ev.get("frame_number", 0),
+            "anchor_message_type": ev.get("message_type"),
+            "terminal_frame": ev.get("frame_number", 0) if late_capture else None,
+            "anchor_timestamp": ev.get("timestamp"),
+            "terminal_timestamp": ev.get("timestamp") if late_capture else None,
+        }
 
-    # Associate other plane events
-    if len(attempts_data) == 1:
-        attempts_data[0]["sbi_events"].extend(sbi_mod)
-        attempts_data[0]["pfcp_events"].extend(pfcp_mod)
-        attempts_data[0]["ngap_events"].extend(ngap_mod)
-    else:
-        for ev in sbi_mod + pfcp_mod + ngap_mod:
-            f = ev.get("frame_number", 0)
-            ev_pti = None
-            if "pti" in ev:
-                ev_pti = ev["pti"]
-            elif "session_management" in ev and isinstance(ev["session_management"], dict):
-                ev_pti = ev["session_management"].get("pti")
-            matched_att = None
-            if ev_pti is not None:
-                matched_att = next((a for a in attempts_data if a["pti"] == ev_pti), None)
-            if not matched_att:
-                for a in attempts_data:
-                    if a["start_frame"] <= f <= a["end_frame"]:
-                        matched_att = a
-                        break
-            if not matched_att:
-                preceding = [a for a in attempts_data if a["start_frame"] <= f]
-                if preceding:
-                    matched_att = max(preceding, key=lambda a: a["start_frame"])
-                else:
-                    matched_att = attempts_data[0]
+    # Form attempts strictly from N1 NAS modification anchors (PTI-scoped identity)
+    attempts_data: list[dict[str, Any]] = []
 
-            if ev in sbi_mod:
-                matched_att["sbi_events"].append(ev)
-            elif ev in pfcp_mod:
-                matched_att["pfcp_events"].append(ev)
-            elif ev in ngap_mod:
-                matched_att["ngap_events"].append(ev)
+    if not nas_mod:
+        # No N1 anchor exists: modification-family control transactions are never
+        # collapsed into an invented attempt. PFCP-only or N11-only evidence does
+        # not by itself prove a UE-visible PDU Session Modification attempt.
+        for ev in sbi_update_evs:
+            session_unbound_records.append(_unbound_modification_record(
+                "3GPP-SBI", ev,
+                "UpdateSMContext modification transaction observed without a capturable N1 modification anchor; "
+                "safe attempt construction impossible, transaction preserved as unbound modification evidence",
+                [], "UNBOUND",
+            ))
+        for ev in pfcp_mod:
+            session_unbound_records.append(_unbound_modification_record(
+                "PFCP", ev,
+                "PFCP Session Modification transaction observed without a capturable N1 modification anchor; "
+                "PFCP-only evidence does not prove a UE-visible PDU Session Modification attempt",
+                [], "UNBOUND",
+            ))
+        for ev in ngap_mod:
+            session_unbound_records.append(_unbound_modification_record(
+                "NGAP", ev,
+                "NGAP PDU Session Resource Modify transaction observed without a capturable N1 modification anchor; "
+                "safe attempt construction impossible, transaction preserved as unbound modification evidence",
+                [], "UNBOUND",
+            ))
+        return [], [], session_unbound_records
 
+    for ev in nas_mod:
+        mtype = ev.get("message_type")
+        pti = _nas_pti(ev)
+        f_num = ev.get("frame_number", 0)
+        active = [a for a in attempts_data if not a["is_completed"]]
+        exact_pti = [
+            a for a in active
+            if pti is not None and pti != 0 and a["pti"] == pti
+        ] or [
+            a for a in active
+            if pti in (None, 0) and a["pti"] == pti
+        ]
+
+        if mtype == "PduSessionModificationRequest":
+            if exact_pti:
+                target = exact_pti[0]
+                target["nas_events"].append(ev)
+                if any(e.get("message_type") == "PduSessionModificationRequest" for e in target["nas_events"][:-1]):
+                    target["is_duplicate"] = True
+            elif pti in (None, 0) and len(active) == 1:
+                # PTI-less request while exactly one active attempt: unique
+                # compatible candidate by N1 context, not a temporal fallback.
+                active[0]["nas_events"].append(ev)
+            elif pti in (None, 0) and len(active) > 1:
+                session_unbound_records.append(_unbound_modification_record(
+                    "NAS-5GS", ev,
+                    "PduSessionModificationRequest without procedure transaction identity while multiple "
+                    "modification attempts are active; attempt assignment remains ambiguous",
+                    [f"mod-{a['attempt_idx']}" for a in active], "AMBIGUOUS",
+                ))
+            else:
+                attempts_data.append(_new_attempt(ev, TRIGGER_UE_REQUESTED, pti, False))
+
+        elif mtype == "PduSessionModificationCommand":
+            if exact_pti:
+                exact_pti[0]["nas_events"].append(ev)
+            elif pti in (None, 0) and len(active) == 1:
+                active[0]["nas_events"].append(ev)
+            elif pti in (None, 0) and len(active) > 1:
+                session_unbound_records.append(_unbound_modification_record(
+                    "NAS-5GS", ev,
+                    "PduSessionModificationCommand without procedure transaction identity while multiple "
+                    "modification attempts are active; attempt assignment remains ambiguous",
+                    [f"mod-{a['attempt_idx']}" for a in active], "AMBIGUOUS",
+                ))
+            else:
+                attempts_data.append(_new_attempt(ev, TRIGGER_NETWORK_REQUESTED, pti, False))
+
+        elif mtype in ("PduSessionModificationComplete", "PduSessionModificationReject", "PduSessionModificationCommandReject"):
+            if exact_pti:
+                target = exact_pti[0]
+            elif pti in (None, 0) and len(active) == 1:
+                target = active[0]
+            elif pti in (None, 0) and len(active) > 1:
+                session_unbound_records.append(_unbound_modification_record(
+                    "NAS-5GS", ev,
+                    f"{mtype} without procedure transaction identity while multiple modification attempts "
+                    "are active; terminal assignment remains ambiguous",
+                    [f"mod-{a['attempt_idx']}" for a in active], "AMBIGUOUS",
+                ))
+                continue
+            else:
+                # Terminal observed without its initiation: capture begins late.
+                attempts_data.append(_new_attempt(ev, TRIGGER_UNKNOWN, pti, True))
+                continue
+            target["nas_events"].append(ev)
+            target["is_completed"] = True
+            target["terminal_frame"] = f_num
+            target["terminal_timestamp"] = ev.get("timestamp")
+
+        else:
+            # Protected or partially-unavailable NAS modification payload.
+            if len(active) == 1:
+                active[0]["nas_events"].append(ev)
+            elif len(active) == 0:
+                attempts_data.append(_new_attempt(ev, TRIGGER_UNKNOWN, pti, False))
+            else:
+                session_unbound_records.append(_unbound_modification_record(
+                    "NAS-5GS", ev,
+                    "NAS modification payload unavailable while multiple modification attempts are active; "
+                    "attempt assignment remains ambiguous",
+                    [f"mod-{a['attempt_idx']}" for a in active], "AMBIGUOUS",
+                ))
+
+    attempts_data.sort(key=lambda a: (a["anchor_frame"], a["attempt_idx"]))
+    for idx, att in enumerate(attempts_data, start=1):
+        att["attempt_idx"] = idx
+        att["attempt_id"] = f"mod-{idx}"
+
+    # Control windows: ordering bounds each attempt's candidate set after
+    # session continuity has established membership. UE-anchored attempts begin
+    # at their N1 request; network-anchored attempts may legitimately include
+    # control signaling that precedes the N1 command, bounded by the previous
+    # attempt's terminal or the establishment accept.
+    est_accept_frame = est_context.get("establishment_accept_frame")
+    for idx, att in enumerate(attempts_data):
+        anchor = att["anchor_frame"]
+        if att["trigger_type"] == TRIGGER_NETWORK_REQUESTED:
+            lower = anchor
+            if idx > 0:
+                prev_terminal = attempts_data[idx - 1].get("terminal_frame")
+                if prev_terminal is not None:
+                    lower = min(lower, prev_terminal)
+            if est_accept_frame is not None:
+                lower = min(lower, est_accept_frame)
+            att["ctrl_start_frame"] = min(anchor, lower)
+        else:
+            att["ctrl_start_frame"] = anchor
+        next_anchor = next(
+            (a["anchor_frame"] for a in attempts_data if a["anchor_frame"] > anchor),
+            None,
+        )
+        if att.get("terminal_frame") is not None:
+            att["ctrl_end_frame"] = max(att["terminal_frame"], anchor)
+        else:
+            # No observed terminal: the attempt may still be active. A later
+            # attempt's start cannot prove this attempt ended, so the control
+            # window stays open; overlapping windows produce ambiguity instead
+            # of a forced single-candidate assignment.
+            att["ctrl_end_frame"] = None
+
+    def _ctrl_candidates(frame_num: int) -> list[dict[str, Any]]:
+        return [
+            a for a in attempts_data
+            if frame_num >= a["ctrl_start_frame"]
+            and (a["ctrl_end_frame"] is None or frame_num <= a["ctrl_end_frame"])
+        ]
+
+    # Associate cross-plane modification events via the candidate model.
+    # SBI/PFCP/NGAP events never inherit PTI from nearby N1 frames.
+    cross_plane_pools: list[tuple[str, str, list[dict[str, Any]]]] = [
+        ("3GPP-SBI", "sbi_events", sbi_update_evs),
+        ("PFCP", "pfcp_events", pfcp_mod),
+        ("NGAP", "ngap_events", ngap_mod),
+    ]
+    for protocol, list_key, pool in cross_plane_pools:
+        for ev in pool:
+            f_num = ev.get("frame_number", 0)
+            candidates = _ctrl_candidates(f_num)
+            if len(candidates) == 1:
+                candidates[0][list_key].append(ev)
+            elif len(candidates) > 1:
+                session_unbound_records.append(_unbound_modification_record(
+                    protocol, ev,
+                    "Modification event is session-bound but carries no attempt-specific identity while "
+                    "multiple concurrent modification attempts are compatible; no attempt selected",
+                    [a["attempt_id"] for a in candidates], "AMBIGUOUS",
+                ))
+            else:
+                session_unbound_records.append(_unbound_modification_record(
+                    protocol, ev,
+                    "Modification event is session-bound but lies outside every safely constructed "
+                    "modification attempt control window; no attempt selected",
+                    [], "UNBOUND",
+                ))
+
+    # N1/N2 delivery events join an attempt only through its control window;
+    # events outside every attempt window remain session-level delivery context.
+    for ev in sbi_delivery_evs:
+        f_num = ev.get("frame_number", 0)
+        candidates = _ctrl_candidates(f_num)
+        if len(candidates) == 1:
+            candidates[0]["sbi_events"].append(ev)
+        elif len(candidates) > 1:
+            session_unbound_records.append(_unbound_modification_record(
+                "3GPP-SBI", ev,
+                "N1/N2 delivery event is session-bound but carries no attempt-specific identity while "
+                "multiple concurrent modification attempts are compatible; no attempt selected",
+                [a["attempt_id"] for a in candidates], "AMBIGUOUS",
+            ))
+
+    # Per-attempt observation windows and tunnel-aware GTP-U attachment.
+    capture_end_frame = max(
+        [e.get("frame_number", 0) for e in (nas_evs + ngap_evs + pfcp_evs + gtpu_evs + sbi_evs)],
+        default=0,
+    )
+    established_tunnels = est_context.get("established_tunnels", [])
     for att in attempts_data:
-        att["gtpu_events"] = [e for e in gtpu_evs if e.get("frame_number", 0) >= att["start_frame"]]
+        bound_frames = [e.get("frame_number", 0) for e in (att["nas_events"] + att["sbi_events"] + att["pfcp_events"] + att["ngap_events"])]
+        att["obs_start_frame"] = max(bound_frames) if bound_frames else att["anchor_frame"]
+        if att.get("terminal_frame") is not None:
+            next_anchor = next(
+                (a["anchor_frame"] for a in attempts_data if a["anchor_frame"] > att["anchor_frame"]),
+                None,
+            )
+            if next_anchor is not None and next_anchor > att["obs_start_frame"]:
+                att["obs_end_frame"] = next_anchor - 1
+                att["obs_end_basis"] = "next_modification_attempt_start_exclusive"
+            else:
+                att["obs_end_frame"] = capture_end_frame
+                att["obs_end_basis"] = "capture_window_end"
+        else:
+            # No observed terminal: the attempt may still be active, so the
+            # observation window extends to the capture end. GTP-U attachment
+            # still requires tunnel identity inside this window.
+            att["obs_end_frame"] = capture_end_frame
+            att["obs_end_basis"] = "capture_window_end"
+        signaled = _extract_tunnel_endpoints(att["ngap_events"], att["pfcp_events"], psi)
+        att["tunnel_contexts"] = signaled if signaled else list(established_tunnels)
+        att["tunnel_basis"] = "attempt_signaled_tunnel_endpoints" if signaled else "established_active_tunnel"
+
+    for ev in gtpu_evs:
+        f_num = ev.get("frame_number", 0)
+        candidates = [
+            a for a in attempts_data
+            if a["obs_start_frame"] <= f_num <= a["obs_end_frame"]
+            and any(_gtpu_matches_tunnel(ev, t) for t in a["tunnel_contexts"])
+        ]
+        if len(candidates) == 1:
+            candidates[0]["gtpu_events"].append(ev)
+        elif len(candidates) > 1:
+            session_unbound_records.append(_unbound_modification_record(
+                "GTP-U", ev,
+                "GTP-U packet matches the tunnel context of multiple concurrent modification attempts "
+                "within overlapping observation windows; tunnel identity cannot select one attempt",
+                [a["attempt_id"] for a in candidates], "AMBIGUOUS",
+            ))
+        # Zero candidates: pre-modification or non-matching traffic remains
+        # session-level N3 context; it is never force-attached to an attempt.
+
+    # Event ownership invariant: one event reference belongs to at most one attempt.
+    owned_refs: list[tuple[str, str, Any]] = []
+    for att in attempts_data:
+        for ref in _attempt_owned_refs(att):
+            key = (ref["protocol"], ref["capture_file"], ref["frame_number"])
+            if key in owned_refs:
+                raise RuntimeError(
+                    "event ownership invariant violated: one event was assigned to multiple modification attempts "
+                    f"({ref['protocol']} frame {ref['frame_number']} in {ref['capture_file']})"
+                )
+            owned_refs.append(key)
 
     modification_attempts: list[dict[str, Any]] = []
     mod_generic_stages: list[dict[str, Any]] = []
@@ -655,9 +917,9 @@ def evaluate_modification_attempts(
             deviations.append({
                 "type": DEVIATION_DUPLICATE,
                 "stage_id": "modification_initiation",
-                "description": f"Duplicate or retransmitted PduSessionModificationRequest observed (PTI={pti})",
+                "description": f"Repeated PduSessionModificationRequest observed (PTI={pti})",
                 "evidence_level": "OBSERVED",
-                "limitation": "Signaling retransmission observed; likely response delay or packet duplication",
+                "limitation": "Repeated request observed; duplicate/retransmission cause cannot be distinguished from this capture alone",
             })
 
         prot_nas = next((e for e in att_nas if e.get("security", {}).get("inner_message_available") is False or e.get("ciphered") is True or e.get("plain_payload_unavailable") is True), None)
@@ -744,9 +1006,9 @@ def evaluate_modification_attempts(
                 deviations.append({
                     "type": DEVIATION_DUPLICATE,
                     "stage_id": "user_plane_control_update",
-                    "description": f"Duplicate PFCP Session Modification Request observed (seq_no={seqs[0]})",
+                    "description": f"Repeated PFCP Session Modification Request observed (seq_no={seqs[0]})",
                     "evidence_level": "OBSERVED",
-                    "limitation": "PFCP transaction retransmission observed",
+                    "limitation": "Repeated request observed; duplicate/retransmission cause cannot be distinguished from this capture alone",
                 })
 
         if pfcp_resp is not None or pfcp_req is not None:
@@ -1047,12 +1309,19 @@ def evaluate_modification_attempts(
             st_pmo_status = "OBSERVED"
             st_pmo_obs = [f"Post-modification GTP-U user-plane packets observed: {len(att_gtpu)} packets"]
             st_pmo_miss = []
-            st_pmo_lim = []
+            st_pmo_lim: list[str] = []
         else:
-            st_pmo_status = "MISSING"
-            st_pmo_obs = ["No matching GTP-U user-plane packets observed in capture window after modification"]
-            st_pmo_miss = ["No post-modification GTP-U user-plane traffic observed"]
-            st_pmo_lim = ["User plane traffic idle or vantage point does not observe N3 interface post-modification"]
+            # Post-modification GTP-U is a conditional observation, never a
+            # required procedure counterpart: a valid modification can finish
+            # while the user plane stays idle.
+            st_pmo_status = "NOT_OBSERVED"
+            st_pmo_obs = ["No matching post-modification N3 packet observed within the capture window."]
+            st_pmo_miss = []
+            st_pmo_lim = [
+                "Traffic may have been idle during the observation window",
+                "N3 may not be visible at the capture vantage point",
+                "Absence of post-modification GTP-U does not prove user-plane impairment",
+            ]
 
         stages_summary.append({
             "stage_id": "post_modification_observation",
@@ -1097,8 +1366,8 @@ def evaluate_modification_attempts(
                         "frame_number": ev["frame_number"],
                         "capture_file": ev["capture_file"],
                         "evidence_level": "OBSERVED",
-                        "interpretation": "Modified QoS Flow Identifier on N1",
-                        "limitations": [],
+                        "interpretation": f"QFI {nas_mod_qfi} observed during modification (N1 message)",
+                        "limitations": ["QFI observation during modification does not by itself prove allocation, creation, removal, or modification of the QoS flow"],
                     })
             if isinstance(ev.get("cause"), dict) and ev.get("cause", {}).get("code") is not None:
                 field_findings.append({
@@ -1115,34 +1384,50 @@ def evaluate_modification_attempts(
         ngap_mod_qfi: int | None = None
         for ev in att_ngap:
             for item in ev.get("pdu_session_resources", []):
-                if item.get("pdu_session_id") == psi:
-                    q = item.get("qos_flow_per_tnl_information", {}).get("qfi") or item.get("qfi")
-                    if q is not None:
-                        ngap_mod_qfi = q
+                if item.get("pdu_session_id") != psi:
+                    continue
+                q = item.get("qos_flow_per_tnl_information", {}).get("qfi") or item.get("qfi")
+                if q is not None:
+                    ngap_mod_qfi = q
+                    field_findings.append({
+                        "plane": "N2",
+                        "field_name": "qfi",
+                        "observed_value": ngap_mod_qfi,
+                        "frame_number": ev["frame_number"],
+                        "capture_file": ev["capture_file"],
+                        "evidence_level": "OBSERVED",
+                        "interpretation": f"QFI {ngap_mod_qfi} observed during modification (N2 resource item)",
+                        "limitations": ["QFI observation during modification does not by itself prove allocation, creation, removal, or modification of the QoS flow"],
+                    })
+                tli = item.get("transport_layer_information") or item.get("up_transport_layer_information")
+                if isinstance(tli, dict):
+                    new_teid = tli.get("g_tp_teid") or tli.get("teid")
+                    if new_teid is not None:
                         field_findings.append({
                             "plane": "N2",
-                            "field_name": "qfi",
-                            "observed_value": ngap_mod_qfi,
+                            "field_name": "gtp_teid",
+                            "observed_value": {
+                                "teid": new_teid,
+                                "transport_layer_address": tli.get("transport_layer_address") or tli.get("address"),
+                                "tunnel_role": "N2_SIGNALED_TRANSPORT_ENDPOINT",
+                            },
                             "frame_number": ev["frame_number"],
                             "capture_file": ev["capture_file"],
                             "evidence_level": "OBSERVED",
-                            "interpretation": "Modified QoS Flow Identifier on N2",
-                            "limitations": [],
+                            "interpretation": "N2 transport-layer GTP-TEID observed in PDU Session Resource Modify signaling",
+                            "limitations": ["N2 transport-layer tunnel information is semantically distinct from N4 PFCP F-TEID provisioning and is never compared against it as a conflict"],
                         })
-                    tli = item.get("transport_layer_information") or item.get("up_transport_layer_information")
-                    if isinstance(tli, dict):
-                        new_teid = tli.get("g_tp_teid") or tli.get("teid")
-                        old_teid = est_context.get("established_tunnel", {}).get("teid") if isinstance(est_context.get("established_tunnel"), dict) else None
-                        if new_teid is not None and old_teid is not None and new_teid != old_teid:
+                        est_n2_teid = est_context.get("established_n2_gtp_teid")
+                        if est_n2_teid is not None and new_teid != est_n2_teid:
                             field_findings.append({
                                 "plane": "N2",
-                                "field_name": "f_teid",
-                                "observed_value": f"Old: {old_teid} -> New: {new_teid}",
+                                "field_name": "gtp_teid",
+                                "observed_value": f"Establishment N2 GTP-TEID {est_n2_teid} -> Modify N2 GTP-TEID {new_teid}",
                                 "frame_number": ev["frame_number"],
                                 "capture_file": ev["capture_file"],
-                                "evidence_level": "OBSERVED",
-                                "interpretation": "F-TEID tunnel endpoint updated in modification",
-                                "limitations": [],
+                                "evidence_level": "DERIVED",
+                                "interpretation": "N2-signaled GTP-TEID changed between establishment and modification signaling within the same tunnel role",
+                                "limitations": ["Change derived by comparing N2-signaled values of the same semantic role only"],
                             })
 
         pfcp_mod_qfi: int | None = None
@@ -1165,6 +1450,13 @@ def evaluate_modification_attempts(
                     q = qer.get("qfi")
                     if q is not None:
                         pfcp_mod_qfi = q
+                        explicit_qer_ops = [op for op in ("create_qer", "update_qer", "remove_qer") if rules.get(op)]
+                        if explicit_qer_ops:
+                            interpretation = f"QFI {pfcp_mod_qfi} structurally bound to explicit PFCP QER operation ({', '.join(explicit_qer_ops)})"
+                            qer_limitations: list[str] = []
+                        else:
+                            interpretation = f"QFI {pfcp_mod_qfi} observed during modification (N4 QER)"
+                            qer_limitations = ["QFI observation during modification does not by itself prove allocation, creation, removal, or modification of the QoS flow"]
                         field_findings.append({
                             "plane": "N4",
                             "field_name": "qfi",
@@ -1172,8 +1464,8 @@ def evaluate_modification_attempts(
                             "frame_number": ev["frame_number"],
                             "capture_file": ev["capture_file"],
                             "evidence_level": "OBSERVED",
-                            "interpretation": "Modified QoS Flow Identifier on N4",
-                            "limitations": [],
+                            "interpretation": interpretation,
+                            "limitations": qer_limitations,
                         })
             if isinstance(ev.get("cause"), dict):
                 field_findings.append({
@@ -1240,16 +1532,6 @@ def evaluate_modification_attempts(
                 "limitation": "QFI mismatch across N1 and N4 planes in modification",
             })
 
-        # Ambiguity check
-        if att.get("is_ambiguous"):
-            deviations.append({
-                "type": DEVIATION_CORRELATION_AMBIGUITY,
-                "stage_id": "modification_initiation",
-                "description": "Concurrent modification attempts for same PDU Session without distinct transaction identity",
-                "evidence_level": "DERIVED",
-                "limitation": "Signaling overlap prevents deterministic correlation",
-            })
-
         # Earliest observed deviation
         earliest_dev: dict[str, Any] | None = None
         if deviations:
@@ -1260,10 +1542,7 @@ def evaluate_modification_attempts(
             earliest_dev = sorted(deviations, key=mod_dev_sort_key)[0]
 
         # Association strength
-        if att.get("is_ambiguous"):
-            att_assoc_strength = "AMBIGUOUS"
-            att_assoc_basis = "ambiguous_overlapping_requests"
-        elif att_nas and (att_sbi or att_pfcp or att_ngap):
+        if att_nas and (att_sbi or att_pfcp or att_ngap):
             att_assoc_strength = "STRONG"
             att_assoc_basis = "established_context_and_pti" if pti is not None else "established_context_and_control_signaling"
         elif att_nas or att_sbi or att_pfcp or att_ngap:
@@ -1306,12 +1585,47 @@ def evaluate_modification_attempts(
             } if att_sbi else None,
         }
 
+        attempt_owned_refs = _attempt_owned_refs(att)
+
         modification_attempts.append({
             "attempt_id": att_id,
             "trigger_type": trigger_type,
             "procedure_transaction_identity": pti,
             "association_basis": att_assoc_basis,
             "association_strength": att_assoc_strength,
+            "association_details": {
+                "association_model": "candidate_set_with_control_windows",
+                "n1_anchor": {
+                    "message_type": att.get("anchor_message_type"),
+                    "frame_number": att.get("anchor_frame"),
+                },
+                "control_window": {
+                    "start_frame": att.get("ctrl_start_frame"),
+                    "end_frame": att.get("ctrl_end_frame"),
+                    "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+                },
+                "cross_plane_binding": {
+                    "n2_resource_modify_bound": bool(att_ngap),
+                    "n4_session_modification_bound": bool(att_pfcp),
+                    "n11_sm_context_update_bound": any(
+                        (e.get("sbi", {}).get("operation") == "UpdateSMContext"
+                         or "update-sm-context" in str(e.get("http2", {}).get("path", "")).lower()
+                         or "/modify" in str(e.get("http2", {}).get("path", "")).lower())
+                        for e in att_sbi
+                    ),
+                },
+            },
+            "observation_window": {
+                "window_start_basis": "latest_safely_bound_modification_control_or_terminal_event",
+                "window_start_frame": att.get("obs_start_frame"),
+                "window_end_basis": att.get("obs_end_basis"),
+                "window_end_frame": att.get("obs_end_frame"),
+            },
+            "event_ownership": {
+                "owned_event_refs": attempt_owned_refs,
+                "owned_event_count": len(attempt_owned_refs),
+                "exclusive_within_analysis": True,
+            },
             "stages": stages_summary,
             "terminal_observation": terminal_obs,
             "deviations": deviations,
@@ -1336,7 +1650,7 @@ def evaluate_modification_attempts(
             "limitations": att_limitations,
         })
 
-    return modification_attempts, mod_generic_stages
+    return modification_attempts, mod_generic_stages, session_unbound_records
 
 
 def analyze(
@@ -2450,18 +2764,55 @@ def analyze(
                 pfcp_seid_val = hdr.get("seid")
                 break
 
-        mod_attempts, mod_generic_stages = evaluate_modification_attempts(
+        est_ngap_setup_events = [
+            e for e in ngap_evs
+            if "ResourceSetup" in str(e.get("message_type", "")) or "InitialContextSetup" in str(e.get("message_type", ""))
+        ]
+        est_pfcp_establishment = [
+            e for e in pfcp_evs
+            if "Establishment" in str(e.get("header", {}).get("message_type", ""))
+        ]
+        established_n2_teid = None
+        for setup_ev in est_ngap_setup_events:
+            for item in setup_ev.get("pdu_session_resources", []):
+                if item.get("pdu_session_id") != psi:
+                    continue
+                tli = item.get("transport_layer_information") or item.get("up_transport_layer_information")
+                if isinstance(tli, dict):
+                    established_n2_teid = tli.get("g_tp_teid") or tli.get("teid")
+                    break
+            if established_n2_teid is not None:
+                break
+
+        mod_attempts, mod_generic_stages, mod_unbound_records = evaluate_modification_attempts(
             inst=inst,
             est_context={
                 "pdu_session_id": psi,
                 "established_qfi_values": est_qfis,
                 "established_tunnel": est_tunnel,
+                "established_tunnels": _extract_tunnel_endpoints(est_ngap_setup_events, est_pfcp_establishment, psi),
+                "established_n2_gtp_teid": established_n2_teid,
+                "establishment_accept_frame": accept_ev["frame_number"] if accept_ev is not None else None,
                 "sm_context_ref": sm_ref,
                 "pfcp_seid": pfcp_seid_val,
             },
             capture_file=capture_file,
         )
         all_generic_stages.extend(mod_generic_stages)
+
+        for record in mod_unbound_records:
+            if record.get("association_strength") == "AMBIGUOUS":
+                ref = record.get("event_ref", {})
+                deviations.append({
+                    "type": DEVIATION_CORRELATION_AMBIGUITY,
+                    "stage_id": _modification_stage_for_protocol(str(record.get("protocol", ""))),
+                    "description": (
+                        f"{record.get('reason')} "
+                        f"({ref.get('protocol')} frame {ref.get('frame_number')} in {ref.get('capture_file')})"
+                    ),
+                    "evidence_level": "DERIVED",
+                    "limitation": "Event preserved as session-level context; no attempt-specific assignment was made",
+                })
 
         has_rel = (
             any("release" in str(e.get("message_type", "")).lower() for e in nas_evs)
@@ -2493,7 +2844,7 @@ def analyze(
                 "n4": n4_binding,
                 "n11": n11_binding,
             },
-            "unbound_evidence": [],
+            "unbound_evidence": mod_unbound_records,
             "limitations": inst_limitations,
             "modification_attempts": mod_attempts,
         })

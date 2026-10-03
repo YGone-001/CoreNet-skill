@@ -187,6 +187,50 @@
         "procedure_transaction_identity": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
         "association_basis": {"type": "string", "minLength": 1},
         "association_strength": {"type": "string", "enum": ["STRONG", "SUPPORTED", "AMBIGUOUS", "UNBOUND"]},
+        "association_details": {
+          "type": "object",
+          "required": ["association_model"],
+          "additionalProperties": true,
+          "properties": {
+            "association_model": {"type": "string", "minLength": 1},
+            "n1_anchor": {"type": "object"},
+            "control_window": {"type": "object"},
+            "cross_plane_binding": {"type": "object"}
+          }
+        },
+        "observation_window": {
+          "type": "object",
+          "required": ["window_start_basis", "window_start_frame", "window_end_basis", "window_end_frame"],
+          "additionalProperties": false,
+          "properties": {
+            "window_start_basis": {"type": "string", "minLength": 1},
+            "window_start_frame": {"type": ["integer", "null"], "minimum": 1},
+            "window_end_basis": {"type": "string", "minLength": 1},
+            "window_end_frame": {"type": ["integer", "null"], "minimum": 1}
+          }
+        },
+        "event_ownership": {
+          "type": "object",
+          "required": ["owned_event_refs", "owned_event_count"],
+          "additionalProperties": false,
+          "properties": {
+            "owned_event_refs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["protocol", "capture_file", "frame_number"],
+                "additionalProperties": false,
+                "properties": {
+                  "protocol": {"type": "string", "minLength": 1},
+                  "capture_file": {"type": "string"},
+                  "frame_number": {"type": ["integer", "null"], "minimum": 1}
+                }
+              }
+            },
+            "owned_event_count": {"type": "integer", "minimum": 0},
+            "exclusive_within_analysis": {"type": "boolean"}
+          }
+        },
         "stages": {
           "type": "array",
           "items": {"$ref": "#/$defs/stageRecord"}
@@ -305,7 +349,7 @@
       "properties": {
         "stage_id": {"type": "string", "minLength": 1},
         "stage_name": {"type": "string", "minLength": 1},
-        "status": {"type": "string", "enum": ["OBSERVED", "MISSING", "NOT_APPLICABLE", "PENDING"]},
+        "status": {"type": "string", "enum": ["OBSERVED", "MISSING", "NOT_APPLICABLE", "PENDING", "NOT_OBSERVED"]},
         "expected_evidence": {"type": "array", "items": {"type": "string"}},
         "observed_evidence": {"type": "array", "items": {"type": "string"}},
         "missing_evidence": {"type": "array", "items": {"type": "string"}},
