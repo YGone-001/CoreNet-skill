@@ -9,7 +9,7 @@
 | Diameter | `diameter-core`, `diameter-epc`, `diameter-ims`, `diameter-charging`. | Protocol conventions. | Cross-domain ownership reviewed. | No IMS ownership leakage; tests pass. |
 | IMS | IMS registration, session, and media/QoS domains. | SIP/SDP/RTP and Diameter IMS/charging. | Diameter work complete. | Procedure Skills satisfy evidence contract. |
 | EPC | `epc-procedures` and related domain work. | NAS-EPS, S1AP, GTPv2, Diameter EPC. | Required dependencies complete. | Reusable protocol dependencies remain independent. |
-| 5GC Core Procedures | `5gc-registration-mobility` provides bounded N1/N2 registration and access procedure analysis; `5gc-pdu-session` provides bounded PDU Session Establishment and Modification procedure analysis across N1/N2/N3/N4/N11; PDU session Release lifecycle and broader mobility work remain planned. | NAS-5GS, NGAP, PFCP, GTP-U, SBI; the implemented `cross-protocol-evidence` Correlation Skill provides supporting infrastructure that Domain Skills consume. | Required contracts reviewed. | N1/N2/N3/N4/N11 coverage has tests. |
+| 5GC Core Procedures | `5gc-registration-mobility` provides bounded N1/N2 registration and access procedure analysis; `5gc-pdu-session` provides bounded PDU Session Establishment, Modification, and Release lifecycle analysis across N1/N2/N3/N4/N11, including lifecycle generation handling for PDU Session ID reuse after an evidence-supported release boundary; broader mobility work (handover, path switch, UPF relocation) remains planned. | NAS-5GS, NGAP, PFCP, GTP-U, SBI; the implemented `cross-protocol-evidence` Correlation Skill provides supporting infrastructure that Domain Skills consume. | Required contracts reviewed. | N1/N2/N3/N4/N11 coverage has tests. |
 | Advanced 5GC Interfaces | SBI, policy, interworking, roaming/exposure. | 5GC Core Procedures. | Functional grouping agreed. | Planned N5–N33 ownership is tested. |
 | End-to-End Root Cause Analysis | Evidence-safe analysis orchestration. | All applicable lower layers. | Diagnostic-result contract proven. | Failure boundaries and confidence are validated. |
 
@@ -23,11 +23,11 @@ N11 Nsmf_PDUSession and Namf_Communication N1/N2 delivery observation Skill, and
 infrastructure between Protocol evidence and future Domain procedures. The
 `procedure-evidence` Domain framework (generic stage and evidence model), the
 bounded `5gc-registration-mobility` N1/N2 procedure analysis Skill, and the
-bounded `5gc-pdu-session` Establishment and Modification analysis Skill are implemented.
+bounded `5gc-pdu-session` Establishment, Modification, and Release analysis Skill are implemented.
 All five primary evidence planes (N1, N2, N3, N4, N11) required for
-PDU Session domain analysis are composed by `5gc-pdu-session` v0.2.0 for
-bounded PDU Session Establishment and repeated Modification procedure analysis;
-PDU session Release lifecycle, full NGAP mobility, the handover and path-switch procedures,
+PDU Session domain analysis are composed by `5gc-pdu-session` for
+bounded PDU Session Establishment, repeated Modification, and Release lifecycle analysis;
+full NGAP mobility, the handover and path-switch procedures,
 GTP-U on further interfaces, and every later capability remain future work.
 GTP-U v0.1.0 proves packet observations at the capture point only, never
 end-to-end user-plane validation. Implementation-specific Skills are not

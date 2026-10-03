@@ -257,6 +257,7 @@
           }
         }
       },
+      "release_attempts": [],
       "stages": [
         {
           "expected_evidence": [
@@ -382,7 +383,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.2.0",
+  "procedure_version": "0.3.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

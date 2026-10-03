@@ -1,0 +1,8 @@
+{"frame_number": 1, "timestamp": "2026-10-02T10:00:01.000000Z", "capture_file": "test.pcap", "message_type": "PduSessionEstablishmentRequest", "session_management": {"pdu_session_id": 10, "pti": 1}}
+{"frame_number": 8, "timestamp": "2026-10-02T10:00:08.000000Z", "capture_file": "test.pcap", "message_type": "PduSessionEstablishmentAccept", "session_management": {"pdu_session_id": 10, "pti": 1, "qos_flow_descriptions": {"qfi_values": [1]}, "pdu_address": "10.45.0.10"}}
+{"frame_number": 12, "timestamp": "2026-10-02T10:00:12.000000Z", "capture_file": "test.pcap", "message_type": "PduSessionReleaseCommand", "session_management": {"pdu_session_id": 10, "pti": 0}}
+{"frame_number": 13, "timestamp": "2026-10-02T10:00:13.000000Z", "capture_file": "test.pcap", "message_type": "PduSessionReleaseComplete", "session_management": {"pdu_session_id": 10, "pti": 0}}
+{"frame_number": 20, "timestamp": "2026-10-02T10:00:20.000000Z", "capture_file": "test.pcap", "message_type": "PduSessionEstablishmentRequest", "session_management": {"pdu_session_id": 10, "pti": 1}}
+{"frame_number": 27, "timestamp": "2026-10-02T10:00:27.000000Z", "capture_file": "test.pcap", "message_type": "PduSessionEstablishmentAccept", "session_management": {"pdu_session_id": 10, "pti": 1, "qos_flow_descriptions": {"qfi_values": [1]}, "pdu_address": "10.45.0.12"}}
+{"frame_number": 30, "timestamp": "2026-10-02T10:00:30.000000Z", "capture_file": "test.pcap", "message_type": "PduSessionModificationRequest", "session_management": {"pdu_session_id": 10, "pti": 2}}
+{"frame_number": 31, "timestamp": "2026-10-02T10:00:31.000000Z", "capture_file": "test.pcap", "message_type": "PduSessionModificationComplete", "session_management": {"pdu_session_id": 10, "pti": 2}}

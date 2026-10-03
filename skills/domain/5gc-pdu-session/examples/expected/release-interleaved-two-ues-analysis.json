@@ -1,0 +1,967 @@
+{
+  "instances": [
+    {
+      "association_basis": "ngap_ue_context_and_pdu_session_id",
+      "association_strength": "STRONG",
+      "deviations": [],
+      "earliest_observed_deviation": null,
+      "field_findings": [
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 1,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 10,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 5,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 10,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_address",
+          "frame_number": 5,
+          "interpretation": "Accepted UE PDU IP address",
+          "limitations": [],
+          "observed_value": "10.45.0.10",
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "qfi",
+          "frame_number": 5,
+          "interpretation": "Authorized QoS Flow Identifier on N1",
+          "limitations": [],
+          "observed_value": 1,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 10,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 10,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 12,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 10,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 13,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 10,
+          "plane": "N1"
+        }
+      ],
+      "instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi10",
+      "limitations": [
+        "Bounded to observed signaling window in capture artifact",
+        "No source code or network function internal execution state analyzed"
+      ],
+      "modification_attempts": [],
+      "pdu_session_id": 10,
+      "plane_bindings": {
+        "n1": {
+          "basis": "frame_provenance_ngap_nas_join",
+          "event_count": 5,
+          "message_types": [
+            "PduSessionEstablishmentRequest",
+            "PduSessionEstablishmentAccept",
+            "PduSessionReleaseRequest",
+            "PduSessionReleaseCommand",
+            "PduSessionReleaseComplete"
+          ],
+          "strength": "STRONG"
+        },
+        "n11": null,
+        "n2": {
+          "basis": "ngap_ue_context_and_resource_matching",
+          "event_count": 5,
+          "message_types": [
+            "InitialUEMessage",
+            "DownlinkNASTransport",
+            "UplinkNASTransport",
+            "DownlinkNASTransport",
+            "UplinkNASTransport"
+          ],
+          "strength": "STRONG"
+        },
+        "n3": null,
+        "n4": null
+      },
+      "release_attempts": [
+        {
+          "anchor_evidence": {
+            "frame_number": 10,
+            "message_type": "PduSessionReleaseRequest",
+            "timestamp": "2026-10-02T10:00:10.000000Z"
+          },
+          "association_basis": "ue_context_pdu_session_id_pti",
+          "association_details": {
+            "association_model": "candidate_set_with_control_windows",
+            "control_window": {
+              "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+              "end_frame": 13,
+              "start_frame": 5
+            },
+            "cross_plane_binding": {
+              "n11_sm_context_release_bound": false,
+              "n2_resource_release_bound": false,
+              "n4_session_deletion_bound": false
+            },
+            "n1_anchor": {
+              "frame_number": 10,
+              "message_type": "PduSessionReleaseRequest"
+            }
+          },
+          "association_strength": "SUPPORTED",
+          "attempt_id": "rel-1",
+          "deviations": [],
+          "earliest_observed_deviation": null,
+          "event_ownership": {
+            "exclusive_within_analysis": true,
+            "owned_event_count": 3,
+            "owned_event_refs": [
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 10,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 12,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 13,
+                "protocol": "NAS-5GS"
+              }
+            ]
+          },
+          "field_findings": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "release_message",
+              "frame_number": 10,
+              "interpretation": "PduSessionReleaseRequest observed on N1",
+              "limitations": [],
+              "observed_value": {
+                "message_type": "PduSessionReleaseRequest",
+                "pti": 4
+              },
+              "plane": "N1"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "release_message",
+              "frame_number": 12,
+              "interpretation": "PduSessionReleaseCommand observed on N1",
+              "limitations": [],
+              "observed_value": {
+                "message_type": "PduSessionReleaseCommand",
+                "pti": 4
+              },
+              "plane": "N1"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "release_message",
+              "frame_number": 13,
+              "interpretation": "PduSessionReleaseComplete observed on N1",
+              "limitations": [],
+              "observed_value": {
+                "message_type": "PduSessionReleaseComplete",
+                "pti": 4
+              },
+              "plane": "N1"
+            }
+          ],
+          "limitations": [
+            "Bounded to observed release signaling in capture window",
+            "No source code or network function internal execution state analyzed"
+          ],
+          "observation_window": {
+            "window_end_basis": "capture_window_end",
+            "window_end_frame": 13,
+            "window_start_basis": "latest_safely_bound_release_control_or_terminal_event",
+            "window_start_frame": 13
+          },
+          "plane_bindings": {
+            "n1": {
+              "basis": "ue_context_pdu_session_id_pti",
+              "event_count": 3,
+              "message_types": [
+                "PduSessionReleaseRequest",
+                "PduSessionReleaseCommand",
+                "PduSessionReleaseComplete"
+              ],
+              "strength": "STRONG"
+            },
+            "n11": null,
+            "n2": null,
+            "n3": null,
+            "n4": null
+          },
+          "post_release_observations": {
+            "end_marker_observed": false,
+            "error_indication_observed": false,
+            "traffic_observed": false,
+            "tunnel": null
+          },
+          "pre_release_context": {
+            "established_qfi_values": [
+              1
+            ],
+            "established_tunnel": null,
+            "pdu_session_id": 10,
+            "pfcp_seid": null,
+            "sm_context_ref": null
+          },
+          "procedure_transaction_identity": 4,
+          "stages": [
+            {
+              "expected_evidence": [
+                "NAS-5GS PduSessionReleaseRequest",
+                "NAS-5GS PduSessionReleaseCommand"
+              ],
+              "limitations": [],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "PduSessionReleaseRequest observed at frame 10 (PTI=4)"
+              ],
+              "stage_id": "release_initiation",
+              "stage_name": "Release Initiation",
+              "status": "OBSERVED"
+            },
+            {
+              "expected_evidence": [
+                "3GPP-SBI ReleaseSMContext",
+                "3GPP-SBI UpdateSMContext"
+              ],
+              "limitations": [
+                "ReleaseSMContext is branch-conditional and not expected in every release branch; SBI signaling may also be absent from this vantage point"
+              ],
+              "missing_evidence": [
+                "N11 release-related SM Context control not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "sm_context_release_control",
+              "stage_name": "SM Context Release Control",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "PFCP SessionDeletionResponse"
+              ],
+              "limitations": [
+                "PFCP deletion is branch-conditional and N4 may not be captured at this vantage point"
+              ],
+              "missing_evidence": [
+                "PFCP Session Deletion signaling not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "user_plane_teardown_control",
+              "stage_name": "User Plane Teardown Control",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "NGAP PDUSessionResourceReleaseResponse"
+              ],
+              "limitations": [
+                "N2 resource release is branch-conditional and may not be captured at this vantage point"
+              ],
+              "missing_evidence": [
+                "NGAP PDU Session Resource Release signaling not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "access_resource_release",
+              "stage_name": "Access Resource Release",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "3GPP-SBI N1N2MessageTransfer"
+              ],
+              "limitations": [
+                "N1/N2 transfer service operation not utilized in this release branch"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [],
+              "stage_id": "n1_n2_delivery",
+              "stage_name": "N1/N2 Delivery",
+              "status": "NOT_APPLICABLE"
+            },
+            {
+              "expected_evidence": [
+                "NAS-5GS PduSessionReleaseComplete",
+                "NAS-5GS PduSessionReleaseReject"
+              ],
+              "limitations": [
+                "Bounded N1 terminal release evidence; it does not independently prove PFCP deletion, NGAP resource release, SM Context removal, or that user-plane packets stopped"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "PduSessionReleaseComplete observed at frame 13"
+              ],
+              "stage_id": "release_terminal",
+              "stage_name": "Release Terminal",
+              "status": "OBSERVED"
+            },
+            {
+              "expected_evidence": [
+                "GTP-U G-PDU",
+                "GTP-U End Marker",
+                "GTP-U Error Indication"
+              ],
+              "limitations": [
+                "Traffic may have been idle during the observation window",
+                "N3 may not be visible at the capture vantage point",
+                "Absence of post-release traffic does not prove release success or teardown correctness"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "No matching post-release N3 packet observed within the capture window."
+              ],
+              "stage_id": "post_release_observation",
+              "stage_name": "Post-Release Observation",
+              "status": "NOT_OBSERVED"
+            }
+          ],
+          "terminal_observation": {
+            "evidence_level": "OBSERVED",
+            "frame_number": 13,
+            "message_type": "PduSessionReleaseComplete",
+            "observation": "RELEASE_COMPLETE_OBSERVED",
+            "protocol_observations": [
+              "PduSessionReleaseComplete observed"
+            ],
+            "timestamp": "2026-10-02T10:00:13.000000Z"
+          },
+          "trigger_type": "UE_REQUESTED",
+          "unbound_evidence": []
+        }
+      ],
+      "stages": [
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentRequest"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "PduSessionEstablishmentRequest observed at frame 1 for PDU Session ID 10"
+          ],
+          "stage_id": "session_request",
+          "stage_name": "Session Request",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI CreateSMContext"
+          ],
+          "limitations": [
+            "SBI signaling absent or encrypted under TLS without key material"
+          ],
+          "missing_evidence": [
+            "Nsmf_PDUSession CreateSMContext not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "sm_context_control",
+          "stage_name": "SM Context Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "PFCP SessionEstablishmentResponse"
+          ],
+          "limitations": [
+            "N4 interface traffic not captured at this vantage point"
+          ],
+          "missing_evidence": [
+            "PFCP Session Establishment signaling not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_control",
+          "stage_name": "User Plane Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "NGAP PDUSessionResourceSetupResponse"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "NGAP signaling observed for UE context across 5 events"
+          ],
+          "stage_id": "access_resource_control",
+          "stage_name": "Access Resource Control",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI N1N2MessageTransfer"
+          ],
+          "limitations": [
+            "SBI N11 communication interface was not monitored in this capture"
+          ],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "N1/N2 signaling directly observed on radio/access interfaces without N11 transfer evidence"
+          ],
+          "stage_id": "n1_n2_delivery",
+          "stage_name": "N1/N2 Delivery",
+          "status": "NOT_APPLICABLE"
+        },
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentAccept",
+            "NAS-5GS PduSessionEstablishmentReject"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "PduSessionEstablishmentAccept observed at frame 5 with PDU address 10.45.0.10"
+          ],
+          "stage_id": "session_decision",
+          "stage_name": "Session Decision",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "GTP-U G-PDU"
+          ],
+          "limitations": [
+            "No matching N3 user-plane traffic was observed within the capture window; traffic may be idle, delayed, or outside the capture point"
+          ],
+          "missing_evidence": [
+            "no matching N3 G-PDU evidence observed within the available capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_observation",
+          "stage_name": "User Plane Observation",
+          "status": "MISSING"
+        }
+      ],
+      "terminal_observation": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 5,
+        "message_type": "PduSessionEstablishmentAccept",
+        "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+        "protocol_observations": [
+          "PduSessionEstablishmentAccept observed"
+        ],
+        "timestamp": "2026-10-02T10:00:05.000000Z"
+      },
+      "ue_context": {
+        "amf_ue_ngap_id": 1,
+        "ran_ue_ngap_id": 1,
+        "sctp_association": 1
+      },
+      "unbound_evidence": []
+    },
+    {
+      "association_basis": "ngap_ue_context_and_pdu_session_id",
+      "association_strength": "STRONG",
+      "deviations": [],
+      "earliest_observed_deviation": null,
+      "field_findings": [
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 2,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 10,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 6,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 10,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_address",
+          "frame_number": 6,
+          "interpretation": "Accepted UE PDU IP address",
+          "limitations": [],
+          "observed_value": "10.45.0.11",
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "qfi",
+          "frame_number": 6,
+          "interpretation": "Authorized QoS Flow Identifier on N1",
+          "limitations": [],
+          "observed_value": 1,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 11,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 10,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 14,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 10,
+          "plane": "N1"
+        }
+      ],
+      "instance_id": "5gc-pdu-session:test.pcap:ran2-amf2:psi10",
+      "limitations": [
+        "Bounded to observed signaling window in capture artifact",
+        "No source code or network function internal execution state analyzed"
+      ],
+      "modification_attempts": [],
+      "pdu_session_id": 10,
+      "plane_bindings": {
+        "n1": {
+          "basis": "frame_provenance_ngap_nas_join",
+          "event_count": 4,
+          "message_types": [
+            "PduSessionEstablishmentRequest",
+            "PduSessionEstablishmentAccept",
+            "PduSessionReleaseCommand",
+            "PduSessionReleaseComplete"
+          ],
+          "strength": "STRONG"
+        },
+        "n11": null,
+        "n2": {
+          "basis": "ngap_ue_context_and_resource_matching",
+          "event_count": 4,
+          "message_types": [
+            "InitialUEMessage",
+            "DownlinkNASTransport",
+            "DownlinkNASTransport",
+            "UplinkNASTransport"
+          ],
+          "strength": "STRONG"
+        },
+        "n3": null,
+        "n4": null
+      },
+      "release_attempts": [
+        {
+          "anchor_evidence": {
+            "frame_number": 11,
+            "message_type": "PduSessionReleaseCommand",
+            "timestamp": "2026-10-02T10:00:11.000000Z"
+          },
+          "association_basis": "ue_context_pdu_session_id_pti",
+          "association_details": {
+            "association_model": "candidate_set_with_control_windows",
+            "control_window": {
+              "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+              "end_frame": 14,
+              "start_frame": 6
+            },
+            "cross_plane_binding": {
+              "n11_sm_context_release_bound": false,
+              "n2_resource_release_bound": false,
+              "n4_session_deletion_bound": false
+            },
+            "n1_anchor": {
+              "frame_number": 11,
+              "message_type": "PduSessionReleaseCommand"
+            }
+          },
+          "association_strength": "SUPPORTED",
+          "attempt_id": "rel-1",
+          "deviations": [],
+          "earliest_observed_deviation": null,
+          "event_ownership": {
+            "exclusive_within_analysis": true,
+            "owned_event_count": 2,
+            "owned_event_refs": [
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 11,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 14,
+                "protocol": "NAS-5GS"
+              }
+            ]
+          },
+          "field_findings": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "release_message",
+              "frame_number": 11,
+              "interpretation": "PduSessionReleaseCommand observed on N1",
+              "limitations": [],
+              "observed_value": {
+                "message_type": "PduSessionReleaseCommand",
+                "pti": 0
+              },
+              "plane": "N1"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "release_message",
+              "frame_number": 14,
+              "interpretation": "PduSessionReleaseComplete observed on N1",
+              "limitations": [],
+              "observed_value": {
+                "message_type": "PduSessionReleaseComplete",
+                "pti": 0
+              },
+              "plane": "N1"
+            }
+          ],
+          "limitations": [
+            "Bounded to observed release signaling in capture window",
+            "No source code or network function internal execution state analyzed"
+          ],
+          "observation_window": {
+            "window_end_basis": "capture_window_end",
+            "window_end_frame": 14,
+            "window_start_basis": "latest_safely_bound_release_control_or_terminal_event",
+            "window_start_frame": 14
+          },
+          "plane_bindings": {
+            "n1": {
+              "basis": "ue_context_pdu_session_id_pti",
+              "event_count": 2,
+              "message_types": [
+                "PduSessionReleaseCommand",
+                "PduSessionReleaseComplete"
+              ],
+              "strength": "STRONG"
+            },
+            "n11": null,
+            "n2": null,
+            "n3": null,
+            "n4": null
+          },
+          "post_release_observations": {
+            "end_marker_observed": false,
+            "error_indication_observed": false,
+            "traffic_observed": false,
+            "tunnel": null
+          },
+          "pre_release_context": {
+            "established_qfi_values": [
+              1
+            ],
+            "established_tunnel": null,
+            "pdu_session_id": 10,
+            "pfcp_seid": null,
+            "sm_context_ref": null
+          },
+          "procedure_transaction_identity": 0,
+          "stages": [
+            {
+              "expected_evidence": [
+                "NAS-5GS PduSessionReleaseRequest",
+                "NAS-5GS PduSessionReleaseCommand"
+              ],
+              "limitations": [],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "Network-initiated release via PduSessionReleaseCommand observed at frame 11"
+              ],
+              "stage_id": "release_initiation",
+              "stage_name": "Release Initiation",
+              "status": "OBSERVED"
+            },
+            {
+              "expected_evidence": [
+                "3GPP-SBI ReleaseSMContext",
+                "3GPP-SBI UpdateSMContext"
+              ],
+              "limitations": [
+                "ReleaseSMContext is branch-conditional and not expected in every release branch; SBI signaling may also be absent from this vantage point"
+              ],
+              "missing_evidence": [
+                "N11 release-related SM Context control not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "sm_context_release_control",
+              "stage_name": "SM Context Release Control",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "PFCP SessionDeletionResponse"
+              ],
+              "limitations": [
+                "PFCP deletion is branch-conditional and N4 may not be captured at this vantage point"
+              ],
+              "missing_evidence": [
+                "PFCP Session Deletion signaling not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "user_plane_teardown_control",
+              "stage_name": "User Plane Teardown Control",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "NGAP PDUSessionResourceReleaseResponse"
+              ],
+              "limitations": [
+                "N2 resource release is branch-conditional and may not be captured at this vantage point"
+              ],
+              "missing_evidence": [
+                "NGAP PDU Session Resource Release signaling not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "access_resource_release",
+              "stage_name": "Access Resource Release",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "3GPP-SBI N1N2MessageTransfer"
+              ],
+              "limitations": [
+                "N1/N2 transfer service operation not utilized in this release branch"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [],
+              "stage_id": "n1_n2_delivery",
+              "stage_name": "N1/N2 Delivery",
+              "status": "NOT_APPLICABLE"
+            },
+            {
+              "expected_evidence": [
+                "NAS-5GS PduSessionReleaseComplete",
+                "NAS-5GS PduSessionReleaseReject"
+              ],
+              "limitations": [
+                "Bounded N1 terminal release evidence; it does not independently prove PFCP deletion, NGAP resource release, SM Context removal, or that user-plane packets stopped"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "PduSessionReleaseComplete observed at frame 14"
+              ],
+              "stage_id": "release_terminal",
+              "stage_name": "Release Terminal",
+              "status": "OBSERVED"
+            },
+            {
+              "expected_evidence": [
+                "GTP-U G-PDU",
+                "GTP-U End Marker",
+                "GTP-U Error Indication"
+              ],
+              "limitations": [
+                "Traffic may have been idle during the observation window",
+                "N3 may not be visible at the capture vantage point",
+                "Absence of post-release traffic does not prove release success or teardown correctness"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "No matching post-release N3 packet observed within the capture window."
+              ],
+              "stage_id": "post_release_observation",
+              "stage_name": "Post-Release Observation",
+              "status": "NOT_OBSERVED"
+            }
+          ],
+          "terminal_observation": {
+            "evidence_level": "OBSERVED",
+            "frame_number": 14,
+            "message_type": "PduSessionReleaseComplete",
+            "observation": "RELEASE_COMPLETE_OBSERVED",
+            "protocol_observations": [
+              "PduSessionReleaseComplete observed"
+            ],
+            "timestamp": "2026-10-02T10:00:14.000000Z"
+          },
+          "trigger_type": "NETWORK_REQUESTED",
+          "unbound_evidence": []
+        }
+      ],
+      "stages": [
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentRequest"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "PduSessionEstablishmentRequest observed at frame 2 for PDU Session ID 10"
+          ],
+          "stage_id": "session_request",
+          "stage_name": "Session Request",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI CreateSMContext"
+          ],
+          "limitations": [
+            "SBI signaling absent or encrypted under TLS without key material"
+          ],
+          "missing_evidence": [
+            "Nsmf_PDUSession CreateSMContext not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "sm_context_control",
+          "stage_name": "SM Context Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "PFCP SessionEstablishmentResponse"
+          ],
+          "limitations": [
+            "N4 interface traffic not captured at this vantage point"
+          ],
+          "missing_evidence": [
+            "PFCP Session Establishment signaling not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_control",
+          "stage_name": "User Plane Control",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "NGAP PDUSessionResourceSetupResponse"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "NGAP signaling observed for UE context across 4 events"
+          ],
+          "stage_id": "access_resource_control",
+          "stage_name": "Access Resource Control",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI N1N2MessageTransfer"
+          ],
+          "limitations": [
+            "SBI N11 communication interface was not monitored in this capture"
+          ],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "N1/N2 signaling directly observed on radio/access interfaces without N11 transfer evidence"
+          ],
+          "stage_id": "n1_n2_delivery",
+          "stage_name": "N1/N2 Delivery",
+          "status": "NOT_APPLICABLE"
+        },
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentAccept",
+            "NAS-5GS PduSessionEstablishmentReject"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "PduSessionEstablishmentAccept observed at frame 6 with PDU address 10.45.0.11"
+          ],
+          "stage_id": "session_decision",
+          "stage_name": "Session Decision",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "GTP-U G-PDU"
+          ],
+          "limitations": [
+            "No matching N3 user-plane traffic was observed within the capture window; traffic may be idle, delayed, or outside the capture point"
+          ],
+          "missing_evidence": [
+            "no matching N3 G-PDU evidence observed within the available capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "user_plane_observation",
+          "stage_name": "User Plane Observation",
+          "status": "MISSING"
+        }
+      ],
+      "terminal_observation": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 6,
+        "message_type": "PduSessionEstablishmentAccept",
+        "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+        "protocol_observations": [
+          "PduSessionEstablishmentAccept observed"
+        ],
+        "timestamp": "2026-10-02T10:00:06.000000Z"
+      },
+      "ue_context": {
+        "amf_ue_ngap_id": 2,
+        "ran_ue_ngap_id": 2,
+        "sctp_association": 1
+      },
+      "unbound_evidence": []
+    }
+  ],
+  "limitations": [
+    "Analysis is strictly bounded to procedure evidence observed in the provided capture window",
+    "No protocol packet decoding is performed; lower-layer event attributes are accepted as-is",
+    "No implementation-specific source code or network function internal state is inferred",
+    "Absence of evidence does not prove network function failure"
+  ],
+  "procedure_name": "5gc-pdu-session",
+  "procedure_version": "0.3.0",
+  "unbound_evidence": {
+    "ambiguous_events": [],
+    "unbound_n1": [],
+    "unbound_n11": [],
+    "unbound_n2": [],
+    "unbound_n3": [],
+    "unbound_n4": []
+  }
+}

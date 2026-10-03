@@ -25,7 +25,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-ANALYSIS_VERSION = "0.2.0"
+ANALYSIS_VERSION = "0.3.0"
 PROCEDURE_NAME = "5gc-pdu-session"
 
 EXIT_MALFORMED_INPUT = 5
@@ -43,6 +43,7 @@ DEVIATION_DELIVERY_FAILURE = "DELIVERY_FAILURE_NOTIFICATION_OBSERVED"
 DEVIATION_MISSING_COUNTERPART = "MISSING_EXPECTED_COUNTERPART"
 DEVIATION_CORRELATION_AMBIGUITY = "CORRELATION_AMBIGUITY"
 DEVIATION_CORRELATION_CONFLICT = "CORRELATION_CONFLICT"
+DEVIATION_LIFECYCLE_AMBIGUITY = "LIFECYCLE_AMBIGUITY"
 DEVIATION_FIELD_CONFLICT = "FIELD_CONFLICT"
 DEVIATION_OUT_OF_ORDER = "OUT_OF_ORDER_EVIDENCE"
 DEVIATION_PARTIAL_CAPTURE = "PARTIAL_CAPTURE"
@@ -62,6 +63,12 @@ TERMINAL_MOD_REJECT = "MODIFICATION_REJECT_OBSERVED"
 TERMINAL_MOD_COMMAND_REJECT = "MODIFICATION_COMMAND_REJECT_OBSERVED"
 TERMINAL_MOD_NONE = "NO_N1_TERMINAL_OBSERVATION"
 TERMINAL_MOD_PARTIAL = "PARTIAL_CAPTURE"
+
+# Release Terminal Observations
+TERMINAL_REL_COMPLETE = "RELEASE_COMPLETE_OBSERVED"
+TERMINAL_REL_REJECT = "RELEASE_REJECT_OBSERVED"
+TERMINAL_REL_NONE = "NO_N1_RELEASE_TERMINAL_OBSERVATION"
+TERMINAL_REL_PARTIAL = "PARTIAL_CAPTURE"
 
 TRIGGER_UE_REQUESTED = "UE_REQUESTED"
 TRIGGER_NETWORK_REQUESTED = "NETWORK_REQUESTED"
@@ -145,6 +152,46 @@ MOD_STAGE_EXPECTED_MESSAGES = {
     "n1_n2_delivery": ["N1N2MessageTransfer", "N1N2Transfer Failure Notification"],
     "modification_completion": ["PduSessionModificationComplete", "PduSessionModificationReject", "PduSessionModificationCommandReject"],
     "post_modification_observation": ["G-PDU", "EchoRequest", "EchoResponse", "ErrorIndication", "EndMarker"],
+}
+
+REL_STAGES_ORDER = [
+    "release_initiation",
+    "sm_context_release_control",
+    "user_plane_teardown_control",
+    "access_resource_release",
+    "n1_n2_delivery",
+    "release_terminal",
+    "post_release_observation",
+]
+
+REL_STAGE_NAMES = {
+    "release_initiation": "Release Initiation",
+    "sm_context_release_control": "SM Context Release Control",
+    "user_plane_teardown_control": "User Plane Teardown Control",
+    "access_resource_release": "Access Resource Release",
+    "n1_n2_delivery": "N1/N2 Delivery",
+    "release_terminal": "Release Terminal",
+    "post_release_observation": "Post-Release Observation",
+}
+
+REL_STAGE_EXPECTED_PROTOCOLS = {
+    "release_initiation": ["NAS-5GS"],
+    "sm_context_release_control": ["3GPP-SBI"],
+    "user_plane_teardown_control": ["PFCP"],
+    "access_resource_release": ["NGAP"],
+    "n1_n2_delivery": ["3GPP-SBI"],
+    "release_terminal": ["NAS-5GS"],
+    "post_release_observation": ["GTP-U"],
+}
+
+REL_STAGE_EXPECTED_MESSAGES = {
+    "release_initiation": ["PduSessionReleaseRequest", "PduSessionReleaseCommand"],
+    "sm_context_release_control": ["ReleaseSMContext", "UpdateSMContext"],
+    "user_plane_teardown_control": ["SessionDeletionRequest", "SessionDeletionResponse"],
+    "access_resource_release": ["PDUSessionResourceReleaseCommand", "PDUSessionResourceReleaseResponse"],
+    "n1_n2_delivery": ["N1N2MessageTransfer", "N1N2Transfer Failure Notification"],
+    "release_terminal": ["PduSessionReleaseComplete", "PduSessionReleaseReject"],
+    "post_release_observation": ["G-PDU", "End Marker", "Error Indication"],
 }
 
 
@@ -417,11 +464,15 @@ def _gtpu_matches_tunnel(event: dict[str, Any], tunnel: dict[str, Any]) -> bool:
     """GTP-U tunnel identity match: TEID plus a compatible endpoint address.
 
     TEID equality alone is insufficient; the outer source or destination address
-    must equal the provisioned endpoint address.
+    must equal the provisioned endpoint address. A GTP-U Error Indication
+    carries a header TEID of all zeroes, so the affected TEID from the Error
+    Indication IE is used as the effective tunnel identity.
     """
     header = event.get("header", {}) if isinstance(event.get("header"), dict) else {}
     outer = event.get("outer", {}) if isinstance(event.get("outer"), dict) else {}
     teid = header.get("teid")
+    if teid in (0, None) and isinstance(event.get("error_indication"), dict):
+        teid = event["error_indication"].get("affected_teid")
     if teid is None or teid != tunnel.get("teid"):
         return False
     endpoint = tunnel.get("endpoint")
@@ -828,12 +879,6 @@ def evaluate_modification_attempts(
     modification_attempts: list[dict[str, Any]] = []
     mod_generic_stages: list[dict[str, Any]] = []
 
-    has_release = (
-        any("release" in str(e.get("message_type", "")).lower() for e in nas_evs)
-        or any("deletion" in str(e.get("header", {}).get("message_type", "")).lower() for e in pfcp_evs)
-        or any("release" in str(e.get("message_type", "")).lower() for e in ngap_evs)
-    )
-
     for att in attempts_data:
         att_idx = att["attempt_idx"]
         att_id = f"mod-{att_idx}"
@@ -852,8 +897,6 @@ def evaluate_modification_attempts(
             "Bounded to observed modification signaling in capture window",
             "No source code or network function internal execution state analyzed",
         ]
-        if has_release:
-            att_limitations.append("PDU session release signaling observed but release procedure analysis is deferred in this version")
 
         # --- Stage 1: modification_initiation ---
         init_ev = next((e for e in att_nas if e.get("message_type") in ("PduSessionModificationRequest", "PduSessionModificationCommand")), None)
@@ -1653,6 +1696,1108 @@ def evaluate_modification_attempts(
     return modification_attempts, mod_generic_stages, session_unbound_records
 
 
+def evaluate_release_attempts(
+    inst: dict[str, Any],
+    est_context: dict[str, Any],
+    capture_file: str,
+    mod_owned_refs: set[tuple[str, str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    """Evaluate repeated PDU Session Release attempts for one lifecycle generation.
+
+    Mirrors the accepted modification candidate model: attempts form only from
+    N1 NAS release anchors (Release Request = UE_REQUESTED, Release Command =
+    NETWORK_REQUESTED, terminal observed without initiation = bounded
+    late-capture UNKNOWN attempt). Cross-plane release events (SBI
+    ReleaseSMContext, PFCP Session Deletion, NGAP PDU Session Resource Release)
+    join attempts through protocol-local session continuity plus bounded
+    control windows; ordering never selects among several compatible attempts.
+    SBI UpdateSMContext and N1/N2 delivery events already owned by a
+    modification attempt are never re-owned by a release attempt.
+
+    Returns (release_attempts, generic_stage_records, session_unbound_records).
+    """
+    psi = inst["pdu_session_id"]
+    nas_evs = sorted(inst.get("nas_events", []), key=_event_sort_key)
+    ngap_evs = sorted(inst.get("ngap_events", []), key=_event_sort_key)
+    pfcp_evs = sorted(inst.get("pfcp_events", []), key=_event_sort_key)
+    gtpu_evs = sorted(inst.get("gtpu_events", []), key=_event_sort_key)
+    sbi_evs = sorted(inst.get("sbi_events", []), key=_event_sort_key)
+
+    nas_rel_msgs = {
+        "PduSessionReleaseRequest",
+        "PduSessionReleaseCommand",
+        "PduSessionReleaseComplete",
+        "PduSessionReleaseReject",
+    }
+    nas_rel = [
+        e for e in nas_evs
+        if e.get("message_type") in nas_rel_msgs
+        or (e.get("security", {}).get("inner_message_available") is False and "release" in str(e).lower())
+    ]
+
+    def _owned_by_modification(event: dict[str, Any], protocol: str) -> bool:
+        return (protocol, str(event.get("capture_file", "")), event.get("frame_number")) in mod_owned_refs
+
+    sbi_release_evs = [
+        e for e in sbi_evs
+        if (
+            e.get("sbi", {}).get("operation") == "ReleaseSMContext"
+            or str(e.get("http2", {}).get("path", "")).rstrip("/").endswith("/release")
+        )
+        and not _owned_by_modification(e, "3GPP-SBI")
+    ]
+    sbi_release_update_evs = [
+        e for e in sbi_evs
+        if (
+            e.get("sbi", {}).get("operation") == "UpdateSMContext"
+            or "update-sm-context" in str(e.get("http2", {}).get("path", "")).lower()
+            or "/modify" in str(e.get("http2", {}).get("path", "")).lower()
+        )
+        and not _owned_by_modification(e, "3GPP-SBI")
+    ]
+    pfcp_del = [
+        e for e in pfcp_evs
+        if "Deletion" in str(e.get("header", {}).get("message_type", ""))
+        or e.get("header", {}).get("message_type") in (54, 55)
+    ]
+    ngap_rel = [
+        e for e in ngap_evs
+        if "ResourceRelease" in str(e.get("message_type", ""))
+    ]
+    sbi_delivery_evs = [
+        e for e in sbi_evs
+        if (
+            e.get("sbi", {}).get("operation") in ("N1N2MessageTransfer", "N1N2Transfer Failure Notification", "N1N2TransferFailureNotification")
+            or "n1-n2-messages" in str(e.get("http2", {}).get("path", "")).lower()
+            or "failure-notify" in str(e.get("http2", {}).get("path", "")).lower()
+        )
+        and not _owned_by_modification(e, "3GPP-SBI")
+    ]
+
+    session_unbound_records: list[dict[str, Any]] = []
+
+    if not nas_rel and not sbi_release_evs and not sbi_release_update_evs and not pfcp_del and not ngap_rel:
+        return [], [], []
+
+    def _nas_pti(ev: dict[str, Any]) -> int | None:
+        sm = ev.get("session_management") if isinstance(ev.get("session_management"), dict) else {}
+        if not sm:
+            return None
+        value = sm.get("procedure_transaction_identity")
+        if value is None:
+            value = sm.get("pti")
+        return value
+
+    def _new_attempt(ev: dict[str, Any], trigger: str, pti: int | None, late_capture: bool) -> dict[str, Any]:
+        return {
+            "attempt_idx": len(attempts_data) + 1,
+            "trigger_type": trigger,
+            "pti": pti,
+            "nas_events": [ev],
+            "sbi_events": [],
+            "pfcp_events": [],
+            "ngap_events": [],
+            "gtpu_events": [],
+            "is_duplicate": False,
+            "is_late_capture": late_capture,
+            "is_completed": late_capture,
+            "anchor_frame": ev.get("frame_number", 0),
+            "anchor_message_type": ev.get("message_type"),
+            "terminal_frame": ev.get("frame_number", 0) if late_capture else None,
+            "anchor_timestamp": ev.get("timestamp"),
+            "terminal_timestamp": ev.get("timestamp") if late_capture else None,
+            "delivery_failed": False,
+        }
+
+    attempts_data: list[dict[str, Any]] = []
+
+    if not nas_rel:
+        # No N1 release anchor: teardown-family transactions are never collapsed
+        # into an invented Release attempt.
+        for ev in sbi_release_evs:
+            session_unbound_records.append(_unbound_modification_record(
+                "3GPP-SBI", ev,
+                "ReleaseSMContext transaction observed without a capturable N1 release anchor; "
+                "safe release attempt construction impossible, transaction preserved as session-level release evidence",
+                [], "UNBOUND",
+            ))
+        for ev in pfcp_del:
+            session_unbound_records.append(_unbound_modification_record(
+                "PFCP", ev,
+                "PFCP Session Deletion transaction observed without a capturable N1 release anchor; "
+                "PFCP deletion alone does not prove a UE-visible PDU Session Release attempt",
+                [], "UNBOUND",
+            ))
+        for ev in ngap_rel:
+            session_unbound_records.append(_unbound_modification_record(
+                "NGAP", ev,
+                "NGAP PDU Session Resource Release transaction observed without a capturable N1 release anchor; "
+                "resource release alone does not prove complete PDU Session Release",
+                [], "UNBOUND",
+            ))
+        return [], [], session_unbound_records
+
+    for ev in nas_rel:
+        mtype = ev.get("message_type")
+        pti = _nas_pti(ev)
+        f_num = ev.get("frame_number", 0)
+        active = [a for a in attempts_data if not a["is_completed"]]
+        exact_pti = [
+            a for a in active
+            if pti is not None and pti != 0 and a["pti"] == pti
+        ] or [
+            a for a in active
+            if pti in (None, 0) and a["pti"] == pti
+        ]
+
+        if mtype == "PduSessionReleaseRequest":
+            if exact_pti:
+                target = exact_pti[0]
+                target["nas_events"].append(ev)
+                if any(e.get("message_type") == "PduSessionReleaseRequest" for e in target["nas_events"][:-1]):
+                    target["is_duplicate"] = True
+            elif pti in (None, 0) and len(active) == 1:
+                active[0]["nas_events"].append(ev)
+            elif pti in (None, 0) and len(active) > 1:
+                session_unbound_records.append(_unbound_modification_record(
+                    "NAS-5GS", ev,
+                    "PduSessionReleaseRequest without procedure transaction identity while multiple "
+                    "release attempts are active; release attempt assignment remains ambiguous",
+                    [f"rel-{a['attempt_idx']}" for a in active], "AMBIGUOUS",
+                ))
+            else:
+                attempts_data.append(_new_attempt(ev, TRIGGER_UE_REQUESTED, pti, False))
+
+        elif mtype == "PduSessionReleaseCommand":
+            if exact_pti:
+                target = exact_pti[0]
+                target["nas_events"].append(ev)
+                if any(e.get("message_type") == "PduSessionReleaseCommand" for e in target["nas_events"][:-1]):
+                    target["is_duplicate"] = True
+            elif pti in (None, 0) and len(active) == 1:
+                active[0]["nas_events"].append(ev)
+            elif pti in (None, 0) and len(active) > 1:
+                session_unbound_records.append(_unbound_modification_record(
+                    "NAS-5GS", ev,
+                    "PduSessionReleaseCommand without procedure transaction identity while multiple "
+                    "release attempts are active; release attempt assignment remains ambiguous",
+                    [f"rel-{a['attempt_idx']}" for a in active], "AMBIGUOUS",
+                ))
+            else:
+                attempts_data.append(_new_attempt(ev, TRIGGER_NETWORK_REQUESTED, pti, False))
+
+        elif mtype in ("PduSessionReleaseComplete", "PduSessionReleaseReject"):
+            if exact_pti:
+                target = exact_pti[0]
+            elif pti in (None, 0) and len(active) == 1:
+                target = active[0]
+            elif pti in (None, 0) and len(active) > 1:
+                session_unbound_records.append(_unbound_modification_record(
+                    "NAS-5GS", ev,
+                    f"{mtype} without procedure transaction identity while multiple release attempts "
+                    "are active; terminal assignment remains ambiguous",
+                    [f"rel-{a['attempt_idx']}" for a in active], "AMBIGUOUS",
+                ))
+                continue
+            else:
+                # Terminal observed without visible initiation: bounded
+                # late-capture attempt anchored by the N1 terminal itself.
+                attempts_data.append(_new_attempt(ev, TRIGGER_UNKNOWN, pti, True))
+                continue
+            target["nas_events"].append(ev)
+            target["is_completed"] = True
+            target["terminal_frame"] = f_num
+            target["terminal_timestamp"] = ev.get("timestamp")
+
+        else:
+            # Protected or partially-unavailable NAS release payload.
+            if len(active) == 1:
+                active[0]["nas_events"].append(ev)
+            elif len(active) == 0:
+                attempts_data.append(_new_attempt(ev, TRIGGER_UNKNOWN, pti, False))
+            else:
+                session_unbound_records.append(_unbound_modification_record(
+                    "NAS-5GS", ev,
+                    "NAS release payload unavailable while multiple release attempts are active; "
+                    "release attempt assignment remains ambiguous",
+                    [f"rel-{a['attempt_idx']}" for a in active], "AMBIGUOUS",
+                ))
+
+    attempts_data.sort(key=lambda a: (a["anchor_frame"], a["attempt_idx"]))
+    for idx, att in enumerate(attempts_data, start=1):
+        att["attempt_idx"] = idx
+        att["attempt_id"] = f"rel-{idx}"
+
+    # Control windows: identical principle to modification attempts. UE-anchored
+    # release attempts start at the N1 request; network-anchored attempts may
+    # include preceding control signaling back to the previous terminal or the
+    # establishment accept. Because teardown-plane transactions (PFCP deletion,
+    # NGAP resource release) may normatively precede the captured N1 anchor in
+    # partial captures, the window start is additionally back-extended to the
+    # earliest release-family cross-plane frame; candidate membership stays
+    # non-temporal and ordering only eliminates impossible candidates. Attempts
+    # without an observed terminal stay open.
+    est_accept_frame = est_context.get("establishment_accept_frame")
+    release_cross_frames = [e.get("frame_number", 0) for e in (sbi_release_evs + pfcp_del + ngap_rel)]
+    min_release_cross_frame = min(release_cross_frames) if release_cross_frames else None
+    for idx, att in enumerate(attempts_data):
+        anchor = att["anchor_frame"]
+        lower = anchor
+        if idx > 0:
+            prev_terminal = attempts_data[idx - 1].get("terminal_frame")
+            if prev_terminal is not None:
+                lower = min(lower, prev_terminal)
+        if est_accept_frame is not None:
+            lower = min(lower, est_accept_frame)
+        if min_release_cross_frame is not None:
+            lower = min(lower, min_release_cross_frame)
+        att["ctrl_start_frame"] = min(anchor, lower)
+        if att.get("terminal_frame") is not None:
+            att["ctrl_end_frame"] = max(att["terminal_frame"], anchor)
+        else:
+            att["ctrl_end_frame"] = None
+
+    def _ctrl_candidates(frame_num: int) -> list[dict[str, Any]]:
+        return [
+            a for a in attempts_data
+            if frame_num >= a["ctrl_start_frame"]
+            and (a["ctrl_end_frame"] is None or frame_num <= a["ctrl_end_frame"])
+        ]
+
+    cross_plane_pools: list[tuple[str, str, list[dict[str, Any]]]] = [
+        ("3GPP-SBI", "sbi_events", sbi_release_evs),
+        ("PFCP", "pfcp_events", pfcp_del),
+        ("NGAP", "ngap_events", ngap_rel),
+    ]
+    for protocol, list_key, pool in cross_plane_pools:
+        for ev in pool:
+            f_num = ev.get("frame_number", 0)
+            candidates = _ctrl_candidates(f_num)
+            if len(candidates) == 1:
+                candidates[0][list_key].append(ev)
+            elif len(candidates) > 1:
+                session_unbound_records.append(_unbound_modification_record(
+                    protocol, ev,
+                    "Release event is session-bound but carries no attempt-specific identity while "
+                    "multiple concurrent release attempts are compatible; no release attempt selected",
+                    [a["attempt_id"] for a in candidates], "AMBIGUOUS",
+                ))
+            else:
+                session_unbound_records.append(_unbound_modification_record(
+                    protocol, ev,
+                    "Release event is session-bound but lies outside every safely constructed "
+                    "release attempt control window; no release attempt selected",
+                    [], "UNBOUND",
+                ))
+
+    for ev in sbi_delivery_evs:
+        f_num = ev.get("frame_number", 0)
+        candidates = _ctrl_candidates(f_num)
+        if len(candidates) == 1:
+            target = candidates[0]
+            target["sbi_events"].append(ev)
+            op = ev.get("sbi", {}).get("operation") or ""
+            if "Failure" in op or "failure-notify" in str(ev.get("http2", {}).get("path", "")).lower():
+                target["delivery_failed"] = True
+        elif len(candidates) > 1:
+            session_unbound_records.append(_unbound_modification_record(
+                "3GPP-SBI", ev,
+                "N1/N2 delivery event is session-bound but carries no attempt-specific identity while "
+                "multiple concurrent release attempts are compatible; no release attempt selected",
+                [a["attempt_id"] for a in candidates], "AMBIGUOUS",
+            ))
+
+    for ev in sbi_release_update_evs:
+        f_num = ev.get("frame_number", 0)
+        candidates = _ctrl_candidates(f_num)
+        if len(candidates) == 1:
+            candidates[0]["sbi_events"].append(ev)
+        elif len(candidates) > 1:
+            session_unbound_records.append(_unbound_modification_record(
+                "3GPP-SBI", ev,
+                "UpdateSMContext release-related transaction is session-bound but carries no "
+                "attempt-specific identity while multiple concurrent release attempts are compatible; "
+                "no release attempt selected",
+                [a["attempt_id"] for a in candidates], "AMBIGUOUS",
+            ))
+        else:
+            session_unbound_records.append(_unbound_modification_record(
+                "3GPP-SBI", ev,
+                "UpdateSMContext release-related transaction lies outside every safely constructed "
+                "release attempt control window; no release attempt selected",
+                [], "UNBOUND",
+            ))
+
+    # Post-release observation windows and tunnel-aware N3 attachment. Release
+    # signaling provisions no new tunnel endpoints, so the candidate tunnels are
+    # those safely associated with this lifecycle generation (establishment and
+    # modification signaled endpoints). Lifecycle windows prevent TEID equality
+    # alone from bridging generations.
+    capture_end_frame = max(
+        [e.get("frame_number", 0) for e in (nas_evs + ngap_evs + pfcp_evs + gtpu_evs + sbi_evs)],
+        default=0,
+    )
+    established_tunnels = est_context.get("established_tunnels", [])
+    release_ngap_for_tunnels = [e for e in ngap_evs if "ResourceRelease" not in str(e.get("message_type", ""))]
+    release_pfcp_for_tunnels = [e for e in pfcp_evs if "Deletion" not in str(e.get("header", {}).get("message_type", ""))]
+    generation_tunnels = _extract_tunnel_endpoints(release_ngap_for_tunnels, release_pfcp_for_tunnels, psi) or list(established_tunnels)
+    for att in attempts_data:
+        bound_frames = [e.get("frame_number", 0) for e in (att["nas_events"] + att["sbi_events"] + att["pfcp_events"] + att["ngap_events"])]
+        att["obs_start_frame"] = max(bound_frames) if bound_frames else att["anchor_frame"]
+        att["obs_end_frame"] = capture_end_frame
+        att["obs_end_basis"] = "capture_window_end"
+        att["tunnel_contexts"] = list(generation_tunnels)
+        att["tunnel_basis"] = "lifecycle_generation_tunnel_contexts"
+
+    for ev in gtpu_evs:
+        f_num = ev.get("frame_number", 0)
+        candidates = [
+            a for a in attempts_data
+            if a["obs_start_frame"] <= f_num <= a["obs_end_frame"]
+            and any(_gtpu_matches_tunnel(ev, t) for t in a["tunnel_contexts"])
+        ]
+        if len(candidates) == 1:
+            candidates[0]["gtpu_events"].append(ev)
+        elif len(candidates) > 1:
+            session_unbound_records.append(_unbound_modification_record(
+                "GTP-U", ev,
+                "GTP-U packet matches the tunnel context of multiple concurrent release attempts "
+                "within overlapping post-release observation windows; tunnel identity cannot select one attempt",
+                [a["attempt_id"] for a in candidates], "AMBIGUOUS",
+            ))
+        # Zero candidates: packet remains lifecycle-level N3 context.
+
+    # Event ownership invariant within release attempts.
+    owned_refs: list[tuple[str, str, Any]] = []
+    for att in attempts_data:
+        for ref in _attempt_owned_refs(att):
+            key = (ref["protocol"], ref["capture_file"], ref["frame_number"])
+            if key in owned_refs:
+                raise RuntimeError(
+                    "event ownership invariant violated: one event was assigned to multiple release attempts "
+                    f"({ref['protocol']} frame {ref['frame_number']} in {ref['capture_file']})"
+                )
+            owned_refs.append(key)
+
+    release_attempts: list[dict[str, Any]] = []
+    rel_generic_stages: list[dict[str, Any]] = []
+
+    for att in attempts_data:
+        att_idx = att["attempt_idx"]
+        att_id = att["attempt_id"]
+        trigger_type = att["trigger_type"]
+        pti = att["pti"]
+        att_nas = sorted(att["nas_events"], key=_event_sort_key)
+        att_sbi = sorted(att["sbi_events"], key=_event_sort_key)
+        att_pfcp = sorted(att["pfcp_events"], key=_event_sort_key)
+        att_ngap = sorted(att["ngap_events"], key=_event_sort_key)
+        att_gtpu = sorted(att["gtpu_events"], key=_event_sort_key)
+
+        deviations: list[dict[str, Any]] = []
+        field_findings: list[dict[str, Any]] = []
+        stages_summary: list[dict[str, Any]] = []
+        att_limitations: list[str] = [
+            "Bounded to observed release signaling in capture window",
+            "No source code or network function internal execution state analyzed",
+        ]
+
+        # --- Stage 1: release_initiation ---
+        req_ev = next((e for e in att_nas if e.get("message_type") == "PduSessionReleaseRequest"), None)
+        cmd_ev = next((e for e in att_nas if e.get("message_type") == "PduSessionReleaseCommand"), None)
+        if trigger_type == TRIGGER_UE_REQUESTED:
+            if req_ev:
+                st_init_status = "OBSERVED"
+                st_init_obs = [f"PduSessionReleaseRequest observed at frame {req_ev['frame_number']} (PTI={pti})"]
+                st_init_miss: list[str] = []
+                st_init_lim: list[str] = []
+            else:
+                st_init_status = "MISSING"
+                st_init_obs = []
+                st_init_miss = ["PduSessionReleaseRequest not observed within capture window"]
+                st_init_lim = ["Capture window began after release initiation"]
+                deviations.append({
+                    "type": DEVIATION_PARTIAL_CAPTURE,
+                    "stage_id": "release_initiation",
+                    "description": "Release request not captured; observation window begins mid-procedure",
+                    "evidence_level": "DERIVED",
+                    "limitation": "Initiating signaling not available in capture",
+                })
+        elif trigger_type == TRIGGER_NETWORK_REQUESTED:
+            if cmd_ev:
+                st_init_status = "OBSERVED"
+                st_init_obs = [f"Network-initiated release via PduSessionReleaseCommand observed at frame {cmd_ev['frame_number']}"]
+                st_init_miss = []
+                st_init_lim = []
+            else:
+                st_init_status = "MISSING"
+                st_init_obs = []
+                st_init_miss = ["PduSessionReleaseCommand not observed within capture window"]
+                st_init_lim = ["Capture window began after release initiation"]
+                deviations.append({
+                    "type": DEVIATION_PARTIAL_CAPTURE,
+                    "stage_id": "release_initiation",
+                    "description": "Release command not captured; observation window begins mid-procedure",
+                    "evidence_level": "DERIVED",
+                    "limitation": "Initiating signaling not available in capture",
+                })
+        else:
+            if att.get("is_late_capture"):
+                st_init_status = "MISSING"
+                st_init_obs = []
+                st_init_miss = ["Release initiation (Request or Command) not observed within capture window"]
+                st_init_lim = ["Capture begins late; terminal N1 release message observed without its initiation"]
+                deviations.append({
+                    "type": DEVIATION_PARTIAL_CAPTURE,
+                    "stage_id": "release_initiation",
+                    "description": "Procedure terminal observed before initiation evidence; capture begins late",
+                    "evidence_level": "DERIVED",
+                    "limitation": "Earlier release stages exist outside the capture",
+                })
+            else:
+                st_init_status = "MISSING"
+                st_init_obs = []
+                st_init_miss = ["Release initiation not observed"]
+                st_init_lim = ["Initiation direction cannot be determined from available evidence"]
+
+        if att.get("is_duplicate"):
+            dev_type = DEVIATION_DUPLICATE
+            dup_desc = "Repeated PduSessionReleaseRequest observed" if req_ev else "Repeated PduSessionReleaseCommand observed"
+            deviations.append({
+                "type": dev_type,
+                "stage_id": "release_initiation",
+                "description": f"{dup_desc} (PTI={pti})",
+                "evidence_level": "OBSERVED",
+                "limitation": "Repeated request observed; duplicate/retransmission cause cannot be distinguished from this capture alone",
+            })
+
+        prot_nas = next((e for e in att_nas if e.get("security", {}).get("inner_message_available") is False or e.get("ciphered") is True), None)
+        if prot_nas:
+            deviations.append({
+                "type": DEVIATION_PROTECTED_UNAVAILABLE,
+                "stage_id": "release_initiation",
+                "description": f"NAS message at frame {prot_nas['frame_number']} is ciphered and inner payload is unavailable",
+                "evidence_level": "OBSERVED",
+                "limitation": "Plaintext NAS payload unavailable without security context deciphering",
+            })
+
+        stages_summary.append({
+            "stage_id": "release_initiation",
+            "stage_name": REL_STAGE_NAMES["release_initiation"],
+            "status": st_init_status,
+            "expected_evidence": ["NAS-5GS PduSessionReleaseRequest", "NAS-5GS PduSessionReleaseCommand"],
+            "observed_evidence": st_init_obs,
+            "missing_evidence": st_init_miss,
+            "limitations": st_init_lim,
+        })
+
+        # --- Stage 2: sm_context_release_control ---
+        rel_ctx_ev = next((e for e in att_sbi if e.get("sbi", {}).get("operation") == "ReleaseSMContext" or str(e.get("http2", {}).get("path", "")).rstrip("/").endswith("/release")), None)
+        upd_ctx_ev = next((e for e in att_sbi if e.get("sbi", {}).get("operation") == "UpdateSMContext" or "update-sm-context" in str(e.get("http2", {}).get("path", "")).lower()), None)
+        ctx_ev = rel_ctx_ev or upd_ctx_ev
+
+        if ctx_ev is not None:
+            status_code = ctx_ev.get("http2", {}).get("status")
+            prob = ctx_ev.get("problem_details")
+            op_name = ctx_ev.get("sbi", {}).get("operation") or "SM Context control"
+            if (status_code is not None and status_code >= 400) or prob is not None:
+                st_src_status = "OBSERVED"
+                prob_cause = prob.get("cause") if isinstance(prob, dict) else f"HTTP {status_code}"
+                st_src_obs = [f"Nsmf_PDUSession {op_name} returned HTTP {status_code} at frame {ctx_ev['frame_number']} with ProblemDetails ({prob_cause})"]
+                st_src_miss = []
+                st_src_lim = ["SM context release control rejected; internal SMF decision basis not observable"]
+                deviations.append({
+                    "type": DEVIATION_NEGATIVE_OUTCOME,
+                    "stage_id": "sm_context_release_control",
+                    "description": f"Nsmf_PDUSession {op_name} returned HTTP {status_code} with ProblemDetails cause {prob_cause}",
+                    "evidence_level": "OBSERVED",
+                    "limitation": "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable",
+                })
+            else:
+                st_src_status = "OBSERVED"
+                st_src_obs = [f"Nsmf_PDUSession {op_name} transaction response observed (HTTP {status_code}) at frame {ctx_ev['frame_number']}"]
+                st_src_miss = []
+                st_src_lim = ["HTTP 2xx on the N11 release-control transaction is bounded N11 response evidence; it does not prove PDU Session release completed end-to-end"]
+        else:
+            st_src_status = "MISSING"
+            st_src_obs = []
+            st_src_miss = ["N11 release-related SM Context control not observed within capture window"]
+            st_src_lim = ["ReleaseSMContext is branch-conditional and not expected in every release branch; SBI signaling may also be absent from this vantage point"]
+
+        stages_summary.append({
+            "stage_id": "sm_context_release_control",
+            "stage_name": REL_STAGE_NAMES["sm_context_release_control"],
+            "status": st_src_status,
+            "expected_evidence": ["3GPP-SBI ReleaseSMContext", "3GPP-SBI UpdateSMContext"],
+            "observed_evidence": st_src_obs,
+            "missing_evidence": st_src_miss,
+            "limitations": st_src_lim,
+        })
+
+        # --- Stage 3: user_plane_teardown_control ---
+        del_resp = next((e for e in att_pfcp if "Response" in str(e.get("header", {}).get("message_type", ""))), None)
+        del_reqs = [e for e in att_pfcp if "Request" in str(e.get("header", {}).get("message_type", ""))]
+        del_req = del_reqs[0] if del_reqs else None
+
+        if len(del_reqs) > 1:
+            seqs = [e.get("header", {}).get("sequence_number") for e in del_reqs]
+            if len(seqs) != len(set(seqs)) or len(del_reqs) > 1:
+                deviations.append({
+                    "type": DEVIATION_DUPLICATE,
+                    "stage_id": "user_plane_teardown_control",
+                    "description": f"Repeated PFCP Session Deletion Request observed (seq_no={seqs[0]})",
+                    "evidence_level": "OBSERVED",
+                    "limitation": "Repeated request observed; duplicate/retransmission cause cannot be distinguished from this capture alone",
+                })
+
+        if del_resp is not None or del_req is not None:
+            cause_obj = del_resp.get("cause") if isinstance(del_resp, dict) else None
+            cause_code = cause_obj.get("code") if isinstance(cause_obj, dict) else None
+            cause_name = cause_obj.get("name") if isinstance(cause_obj, dict) else str(cause_code)
+
+            if cause_code is not None and cause_code != 1:
+                st_upt_status = "OBSERVED"
+                st_upt_obs = [f"PFCP Session Deletion Response at frame {del_resp['frame_number']} reported non-accepted cause {cause_name} (code {cause_code})"]
+                st_upt_miss = []
+                st_upt_lim = ["PFCP session deletion rejected; internal UPF decision basis not determined"]
+                deviations.append({
+                    "type": DEVIATION_NEGATIVE_OUTCOME,
+                    "stage_id": "user_plane_teardown_control",
+                    "description": f"PFCP Session Deletion Response reported non-accepted cause {cause_name} (code {cause_code})",
+                    "evidence_level": "OBSERVED",
+                    "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
+                })
+            elif del_resp is None and del_req is not None:
+                st_upt_status = "OBSERVED"
+                st_upt_obs = [f"PFCP Session Deletion Request observed at frame {del_req['frame_number']}"]
+                st_upt_miss = ["PFCP Session Deletion Response not observed within the available capture window"]
+                st_upt_lim = ["Capture window ended before PFCP response arrived or response lost in transit"]
+                deviations.append({
+                    "type": DEVIATION_MISSING_COUNTERPART,
+                    "stage_id": "user_plane_teardown_control",
+                    "description": f"PFCP Session Deletion Request at frame {del_req['frame_number']} missing expected Response",
+                    "evidence_level": "DERIVED",
+                    "limitation": "Capture window ended before PFCP response arrived",
+                })
+            else:
+                st_upt_status = "OBSERVED"
+                st_upt_obs = [f"PFCP Session Deletion accepted at frame {del_resp['frame_number']} (PFCP_DELETION_ACCEPTED_OBSERVED)"]
+                st_upt_miss = []
+                st_upt_lim = ["PFCP Session Deletion acceptance is bounded N4 evidence; it does not prove PDU Session release completed end-to-end"]
+        else:
+            st_upt_status = "MISSING"
+            st_upt_obs = []
+            st_upt_miss = ["PFCP Session Deletion signaling not observed within capture window"]
+            st_upt_lim = ["PFCP deletion is branch-conditional and N4 may not be captured at this vantage point"]
+
+        stages_summary.append({
+            "stage_id": "user_plane_teardown_control",
+            "stage_name": REL_STAGE_NAMES["user_plane_teardown_control"],
+            "status": st_upt_status,
+            "expected_evidence": ["PFCP SessionDeletionResponse"],
+            "observed_evidence": st_upt_obs,
+            "missing_evidence": st_upt_miss,
+            "limitations": st_upt_lim,
+        })
+
+        # --- Stage 4: access_resource_release ---
+        rel_resp = next((e for e in att_ngap if "ResourceReleaseResponse" in str(e.get("message_type", ""))), None)
+        rel_cmd = next((e for e in att_ngap if "ResourceReleaseCommand" in str(e.get("message_type", ""))), None)
+
+        if rel_resp is not None or rel_cmd is not None:
+            target_item_found = False
+            target_cause_str = "unspecified"
+            if rel_resp is not None:
+                for res in rel_resp.get("pdu_session_resources", []):
+                    if res.get("pdu_session_id") == psi:
+                        target_item_found = True
+                        if isinstance(res.get("cause"), dict) and res.get("cause", {}).get("name"):
+                            target_cause_str = res["cause"]["name"]
+            if rel_resp is not None:
+                st_arr_status = "OBSERVED"
+                st_arr_obs = [f"NGAP PDUSessionResourceReleaseResponse at frame {rel_resp['frame_number']} observed for PDU Session ID {psi} ({target_cause_str})"]
+                st_arr_miss = []
+                st_arr_lim = ["Bounded N2 resource release response evidence; it does not independently prove 5GSM release completion, PFCP deletion, or SM Context removal"]
+            elif rel_cmd is not None:
+                st_arr_status = "OBSERVED"
+                st_arr_obs = [f"NGAP PDUSessionResourceReleaseCommand observed at frame {rel_cmd['frame_number']} for PDU Session ID {psi}"]
+                st_arr_miss = ["NGAP PDUSessionResourceReleaseResponse not observed within the available capture window"]
+                st_arr_lim = ["Capture window ended before NGAP response arrived"]
+                deviations.append({
+                    "type": DEVIATION_MISSING_COUNTERPART,
+                    "stage_id": "access_resource_release",
+                    "description": f"NGAP PDUSessionResourceReleaseCommand at frame {rel_cmd['frame_number']} missing expected Response",
+                    "evidence_level": "DERIVED",
+                    "limitation": "Capture window ended before NGAP response arrived",
+                })
+            else:
+                st_arr_status = "MISSING"
+                st_arr_obs = []
+                st_arr_miss = ["NGAP PDU Session Resource Release signaling not observed within capture window"]
+                st_arr_lim = ["N2 release signaling absent from capture"]
+        else:
+            st_arr_status = "MISSING"
+            st_arr_obs = []
+            st_arr_miss = ["NGAP PDU Session Resource Release signaling not observed within capture window"]
+            st_arr_lim = ["N2 resource release is branch-conditional and may not be captured at this vantage point"]
+
+        stages_summary.append({
+            "stage_id": "access_resource_release",
+            "stage_name": REL_STAGE_NAMES["access_resource_release"],
+            "status": st_arr_status,
+            "expected_evidence": ["NGAP PDUSessionResourceReleaseResponse"],
+            "observed_evidence": st_arr_obs,
+            "missing_evidence": st_arr_miss,
+            "limitations": st_arr_lim,
+        })
+
+        # --- Stage 5: n1_n2_delivery ---
+        fn_ev = next((e for e in att_sbi if e.get("sbi", {}).get("operation") in ("N1N2Transfer Failure Notification", "N1N2TransferFailureNotification") or "failure-notify" in str(e.get("http2", {}).get("path", "")).lower()), None)
+        tr_ev = next((e for e in att_sbi if e.get("sbi", {}).get("operation") == "N1N2MessageTransfer" or "n1-n2-messages" in str(e.get("http2", {}).get("path", "")).lower()), None)
+
+        if fn_ev:
+            st_del_status = "OBSERVED"
+            fn_cause = fn_ev.get("cause") or fn_ev.get("sbi", {}).get("cause") or "delivery_failed"
+            st_del_obs = [f"Namf_Communication N1N2Transfer Failure Notification observed at frame {fn_ev['frame_number']} ({fn_cause})"]
+            st_del_miss = []
+            st_del_lim = ["AMF reported N1/N2 delivery failure to UE/RAN"]
+            deviations.append({
+                "type": DEVIATION_DELIVERY_FAILURE,
+                "stage_id": "n1_n2_delivery",
+                "description": f"Namf_Communication N1N2Transfer Failure Notification reported delivery failure ({fn_cause})",
+                "evidence_level": "OBSERVED",
+                "limitation": "AMF reported N1/N2 delivery failure; communication transfer aborted",
+            })
+        elif tr_ev:
+            st_code = tr_ev.get("http2", {}).get("status")
+            if st_code == 202:
+                st_del_status = "PENDING"
+                st_del_obs = [f"Namf_Communication N1N2MessageTransfer accepted asynchronously (HTTP 202) at frame {tr_ev['frame_number']}"]
+                st_del_miss = []
+                st_del_lim = ["HTTP 202 indicates asynchronous transfer initiated; delivery not yet confirmed"]
+            elif st_code is not None and st_code >= 400:
+                st_del_status = "OBSERVED"
+                st_del_obs = [f"Namf_Communication N1N2MessageTransfer returned HTTP {st_code} at frame {tr_ev['frame_number']}"]
+                st_del_miss = []
+                st_del_lim = ["N1/N2 transfer rejected by AMF"]
+                deviations.append({
+                    "type": DEVIATION_NEGATIVE_OUTCOME,
+                    "stage_id": "n1_n2_delivery",
+                    "description": f"Namf_Communication N1N2MessageTransfer returned HTTP {st_code}",
+                    "evidence_level": "OBSERVED",
+                    "limitation": "N1/N2 transfer rejected by AMF",
+                })
+            else:
+                st_del_status = "OBSERVED"
+                st_del_obs = [f"Namf_Communication N1N2MessageTransfer accepted (HTTP {st_code}) at frame {tr_ev['frame_number']}"]
+                st_del_miss = []
+                st_del_lim = []
+        else:
+            st_del_status = "NOT_APPLICABLE"
+            st_del_obs = []
+            st_del_miss = []
+            st_del_lim = ["N1/N2 transfer service operation not utilized in this release branch"]
+
+        stages_summary.append({
+            "stage_id": "n1_n2_delivery",
+            "stage_name": REL_STAGE_NAMES["n1_n2_delivery"],
+            "status": st_del_status,
+            "expected_evidence": ["3GPP-SBI N1N2MessageTransfer"],
+            "observed_evidence": st_del_obs,
+            "missing_evidence": st_del_miss,
+            "limitations": st_del_lim,
+        })
+
+        # --- Stage 6: release_terminal ---
+        comp_ev = next((e for e in att_nas if e.get("message_type") == "PduSessionReleaseComplete"), None)
+        rej_ev = next((e for e in att_nas if e.get("message_type") == "PduSessionReleaseReject"), None)
+
+        if comp_ev:
+            st_term_status = "OBSERVED"
+            st_term_obs = [f"PduSessionReleaseComplete observed at frame {comp_ev['frame_number']}"]
+            st_term_miss = []
+            st_term_lim = ["Bounded N1 terminal release evidence; it does not independently prove PFCP deletion, NGAP resource release, SM Context removal, or that user-plane packets stopped"]
+            terminal_obs = {
+                "observation": TERMINAL_REL_COMPLETE,
+                "protocol_observations": ["PduSessionReleaseComplete observed"],
+                "message_type": "PduSessionReleaseComplete",
+                "frame_number": comp_ev["frame_number"],
+                "timestamp": comp_ev["timestamp"],
+                "evidence_level": "OBSERVED",
+            }
+        elif rej_ev:
+            st_term_status = "OBSERVED"
+            r_cause = rej_ev.get("cause")
+            c_name = r_cause.get("name") if isinstance(r_cause, dict) else str(r_cause)
+            st_term_obs = [f"PduSessionReleaseReject observed at frame {rej_ev['frame_number']} with cause {c_name}"]
+            st_term_miss = []
+            st_term_lim = ["5GSM release request rejected; session remains established from the observed release procedure perspective"]
+            deviations.append({
+                "type": DEVIATION_PROTOCOL_REJECT,
+                "stage_id": "release_terminal",
+                "description": f"NAS PduSessionReleaseReject observed with cause {c_name}",
+                "evidence_level": "OBSERVED",
+                "limitation": "5GSM release request rejected by the network; the observed Release Request was rejected",
+            })
+            terminal_obs = {
+                "observation": TERMINAL_REL_REJECT,
+                "protocol_observations": [f"PduSessionReleaseReject observed with cause {c_name}"],
+                "message_type": "PduSessionReleaseReject",
+                "frame_number": rej_ev["frame_number"],
+                "timestamp": rej_ev["timestamp"],
+                "evidence_level": "OBSERVED",
+            }
+        else:
+            st_term_status = "MISSING"
+            st_term_obs = []
+            st_term_miss = ["Terminal NAS release response (Complete or Reject) not observed within capture window"]
+            st_term_lim = ["Capture ended before release completion or terminal NAS frame dropped"]
+            init_ev = req_ev or cmd_ev
+            if init_ev is not None:
+                term_description = f"Release initiated at frame {init_ev['frame_number']} but no terminal NAS release response observed within capture window"
+                term_limitation = "Capture window truncated before release completion"
+                if att.get("delivery_failed"):
+                    term_description += "; N1/N2 delivery failure notification was observed for this release attempt"
+                    term_limitation = "Delivery failure was observed; successful N1 delivery was not established, so the missing terminal reflects the observed negative delivery branch"
+                deviations.append({
+                    "type": DEVIATION_MISSING_COUNTERPART,
+                    "stage_id": "release_terminal",
+                    "description": term_description,
+                    "evidence_level": "DERIVED",
+                    "limitation": term_limitation,
+                })
+            terminal_obs = {
+                "observation": TERMINAL_REL_NONE,
+                "protocol_observations": ["No terminal N1 release response observed within capture window"],
+                "message_type": None,
+                "frame_number": None,
+                "timestamp": None,
+                "evidence_level": "DERIVED",
+            }
+
+        stages_summary.append({
+            "stage_id": "release_terminal",
+            "stage_name": REL_STAGE_NAMES["release_terminal"],
+            "status": st_term_status,
+            "expected_evidence": ["NAS-5GS PduSessionReleaseComplete", "NAS-5GS PduSessionReleaseReject"],
+            "observed_evidence": st_term_obs,
+            "missing_evidence": st_term_miss,
+            "limitations": st_term_lim,
+        })
+
+        # --- Stage 7: post_release_observation ---
+        traffic_packets = [e for e in att_gtpu if e.get("message_type") == "G-PDU" or e.get("header", {}).get("message_type") == 255]
+        end_marker_observed = any(
+            "End Marker" in str(e.get("message_type", "")) or "EndMarker" in str(e.get("message_type", "")) or e.get("header", {}).get("message_type") == 254
+            for e in att_gtpu
+        )
+        error_indication_observed = any(
+            "Error Indication" in str(e.get("message_type", "")) or "ErrorIndication" in str(e.get("message_type", "")) or e.get("header", {}).get("message_type") == 26
+            for e in att_gtpu
+        )
+        traffic_observed = len(traffic_packets) > 0
+
+        post_tunnel = None
+        if att_gtpu:
+            first_gt = att_gtpu[0]
+            post_tunnel = {
+                "teid": first_gt.get("header", {}).get("teid"),
+                "ip_address": first_gt.get("outer", {}).get("destination_address"),
+            }
+
+        if traffic_observed:
+            st_pro_status = "OBSERVED"
+            st_pro_obs = [f"Post-release GTP-U user-plane packets observed: {len(traffic_packets)} packets"]
+            st_pro_miss = []
+            st_pro_lim = ["Packet observation after release-related evidence is reported neutrally; packets may be in flight, reordered, captured at another teardown stage, or belong to another safely distinguished lifecycle"]
+        elif end_marker_observed or error_indication_observed:
+            st_pro_status = "OBSERVED"
+            obs_parts = []
+            if end_marker_observed:
+                obs_parts.append("End Marker observed")
+            if error_indication_observed:
+                obs_parts.append("Error Indication observed")
+            st_pro_obs = [f"Post-release GTP-U control observation: {'; '.join(obs_parts)}"]
+            st_pro_miss = []
+            st_pro_lim = ["End Marker observation is bounded to the safely bound directed tunnel at the capture point; it does not prove all user-plane state was deleted or that release completed"]
+        else:
+            st_pro_status = "NOT_OBSERVED"
+            st_pro_obs = ["No matching post-release N3 packet observed within the capture window."]
+            st_pro_miss = []
+            st_pro_lim = [
+                "Traffic may have been idle during the observation window",
+                "N3 may not be visible at the capture vantage point",
+                "Absence of post-release traffic does not prove release success or teardown correctness",
+            ]
+
+        if end_marker_observed:
+            em_ev = next((e for e in att_gtpu if "End Marker" in str(e.get("message_type", "")) or "EndMarker" in str(e.get("message_type", "")) or e.get("header", {}).get("message_type") == 254), None)
+            if em_ev is not None:
+                field_findings.append({
+                    "plane": "N3",
+                    "field_name": "end_marker",
+                    "observed_value": {
+                        "teid": em_ev.get("header", {}).get("teid"),
+                        "destination_address": em_ev.get("outer", {}).get("destination_address"),
+                    },
+                    "frame_number": em_ev["frame_number"],
+                    "capture_file": em_ev["capture_file"],
+                    "evidence_level": "OBSERVED",
+                    "interpretation": "GTP-U End Marker observed for the safely bound directed tunnel at the capture point",
+                    "limitations": ["End Marker observation does not prove all old user-plane state was deleted or that the peer processed all teardown state"],
+                })
+        if error_indication_observed:
+            ei_ev = next((e for e in att_gtpu if "Error Indication" in str(e.get("message_type", "")) or "ErrorIndication" in str(e.get("message_type", "")) or e.get("header", {}).get("message_type") == 26), None)
+            if ei_ev is not None:
+                ei_obj = ei_ev.get("error_indication") if isinstance(ei_ev.get("error_indication"), dict) else {}
+                ei_teid = ei_ev.get("header", {}).get("teid") or ei_obj.get("affected_teid")
+                field_findings.append({
+                    "plane": "N3",
+                    "field_name": "error_indication",
+                    "observed_value": {
+                        "teid": ei_teid,
+                        "destination_address": ei_ev.get("outer", {}).get("destination_address"),
+                    },
+                    "frame_number": ei_ev["frame_number"],
+                    "capture_file": ei_ev["capture_file"],
+                    "evidence_level": "OBSERVED",
+                    "interpretation": "GTP-U Error Indication observed with affected tunnel metadata",
+                    "limitations": ["Error Indication is direct protocol evidence and never carries a causal or implementation verdict on its own"],
+                })
+
+        stages_summary.append({
+            "stage_id": "post_release_observation",
+            "stage_name": REL_STAGE_NAMES["post_release_observation"],
+            "status": st_pro_status,
+            "expected_evidence": ["GTP-U G-PDU", "GTP-U End Marker", "GTP-U Error Indication"],
+            "observed_evidence": st_pro_obs,
+            "missing_evidence": st_pro_miss,
+            "limitations": st_pro_lim,
+        })
+
+        # Field findings for N1/N4/N2/N11 release signaling.
+        for ev in att_nas:
+            if ev.get("message_type") in nas_rel_msgs:
+                field_findings.append({
+                    "plane": "N1",
+                    "field_name": "release_message",
+                    "observed_value": {"message_type": ev.get("message_type"), "pti": pti},
+                    "frame_number": ev["frame_number"],
+                    "capture_file": ev["capture_file"],
+                    "evidence_level": "OBSERVED",
+                    "interpretation": f"{ev.get('message_type')} observed on N1",
+                    "limitations": [],
+                })
+            if isinstance(ev.get("cause"), dict) and ev.get("cause", {}).get("code") is not None:
+                field_findings.append({
+                    "plane": "N1",
+                    "field_name": "cause",
+                    "observed_value": ev["cause"],
+                    "frame_number": ev["frame_number"],
+                    "capture_file": ev["capture_file"],
+                    "evidence_level": "OBSERVED",
+                    "interpretation": "5GSM release cause code",
+                    "limitations": [],
+                })
+        for ev in att_pfcp:
+            field_findings.append({
+                "plane": "N4",
+                "field_name": "pfcp_deletion",
+                "observed_value": {
+                    "message_type": ev.get("header", {}).get("message_type"),
+                    "sequence_number": ev.get("header", {}).get("sequence_number"),
+                    "seid": ev.get("header", {}).get("seid"),
+                },
+                "frame_number": ev["frame_number"],
+                "capture_file": ev["capture_file"],
+                "evidence_level": "OBSERVED",
+                "interpretation": "PFCP Session Deletion transaction evidence (SEID endpoint/session scoped)",
+                "limitations": [],
+            })
+            if isinstance(ev.get("cause"), dict):
+                field_findings.append({
+                    "plane": "N4",
+                    "field_name": "cause",
+                    "observed_value": ev["cause"],
+                    "frame_number": ev["frame_number"],
+                    "capture_file": ev["capture_file"],
+                    "evidence_level": "OBSERVED",
+                    "interpretation": "PFCP deletion response cause",
+                    "limitations": [],
+                })
+        for ev in att_ngap:
+            for item in ev.get("pdu_session_resources", []):
+                if item.get("pdu_session_id") == psi and item.get("cause"):
+                    field_findings.append({
+                        "plane": "N2",
+                        "field_name": "cause",
+                        "observed_value": item["cause"],
+                        "frame_number": ev["frame_number"],
+                        "capture_file": ev["capture_file"],
+                        "evidence_level": "OBSERVED",
+                        "interpretation": "NGAP resource release item cause",
+                        "limitations": [],
+                    })
+        for ev in att_sbi:
+            status_code = ev.get("http2", {}).get("status")
+            if status_code is not None:
+                field_findings.append({
+                    "plane": "N11",
+                    "field_name": "status",
+                    "observed_value": status_code,
+                    "frame_number": ev["frame_number"],
+                    "capture_file": ev["capture_file"],
+                    "evidence_level": "OBSERVED",
+                    "interpretation": f"HTTP/2 response status code for {ev.get('sbi', {}).get('operation') or 'SBI transaction'}",
+                    "limitations": [],
+                })
+            sm_ref = ev.get("sbi", {}).get("sm_context_ref")
+            if sm_ref:
+                field_findings.append({
+                    "plane": "N11",
+                    "field_name": "sm_context_ref",
+                    "observed_value": sm_ref,
+                    "frame_number": ev["frame_number"],
+                    "capture_file": ev["capture_file"],
+                    "evidence_level": "OBSERVED",
+                    "interpretation": "SM Context resource reference reused for release control (session-level continuity evidence)",
+                    "limitations": ["SM Context reference continuity does not by itself identify one of multiple concurrent release attempts"],
+                })
+
+        # Earliest observed deviation within this release attempt.
+        earliest_dev: dict[str, Any] | None = None
+        if deviations:
+            def rel_dev_sort_key(d: dict[str, Any]) -> tuple[int, int]:
+                s_id = d.get("stage_id")
+                idx = REL_STAGES_ORDER.index(s_id) if s_id in REL_STAGES_ORDER else len(REL_STAGES_ORDER)
+                return (idx, 0)
+            earliest_dev = sorted(deviations, key=rel_dev_sort_key)[0]
+
+        # Association strength.
+        if att_nas and (att_sbi or att_pfcp or att_ngap):
+            rel_assoc_strength = "STRONG"
+            rel_assoc_basis = "ue_context_pdu_session_id_pti" if pti is not None else "ue_context_pdu_session_id_control_signaling"
+        elif att_nas or att_sbi or att_pfcp or att_ngap:
+            rel_assoc_strength = "SUPPORTED"
+            rel_assoc_basis = "ue_context_pdu_session_id_pti" if pti is not None else "ue_context_pdu_session_id_control_signaling"
+        else:
+            rel_assoc_strength = "UNBOUND"
+            rel_assoc_basis = "no_safely_associated_signaling"
+
+        attempt_owned_refs = _attempt_owned_refs(att)
+
+        release_attempts.append({
+            "attempt_id": att_id,
+            "trigger_type": trigger_type,
+            "procedure_transaction_identity": pti,
+            "anchor_evidence": {
+                "message_type": att.get("anchor_message_type"),
+                "frame_number": att.get("anchor_frame"),
+                "timestamp": att.get("anchor_timestamp"),
+            },
+            "association_basis": rel_assoc_basis,
+            "association_strength": rel_assoc_strength,
+            "association_details": {
+                "association_model": "candidate_set_with_control_windows",
+                "n1_anchor": {
+                    "message_type": att.get("anchor_message_type"),
+                    "frame_number": att.get("anchor_frame"),
+                },
+                "control_window": {
+                    "start_frame": att.get("ctrl_start_frame"),
+                    "end_frame": att.get("ctrl_end_frame"),
+                    "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+                },
+                "cross_plane_binding": {
+                    "n2_resource_release_bound": bool(att_ngap),
+                    "n4_session_deletion_bound": bool(att_pfcp),
+                    "n11_sm_context_release_bound": bool(rel_ctx_ev or upd_ctx_ev),
+                },
+            },
+            "observation_window": {
+                "window_start_basis": "latest_safely_bound_release_control_or_terminal_event",
+                "window_start_frame": att.get("obs_start_frame"),
+                "window_end_basis": att.get("obs_end_basis"),
+                "window_end_frame": att.get("obs_end_frame"),
+            },
+            "event_ownership": {
+                "owned_event_refs": attempt_owned_refs,
+                "owned_event_count": len(attempt_owned_refs),
+                "exclusive_within_analysis": True,
+            },
+            "stages": stages_summary,
+            "terminal_observation": terminal_obs,
+            "deviations": deviations,
+            "earliest_observed_deviation": earliest_dev,
+            "field_findings": field_findings,
+            "plane_bindings": {
+                "n1": {
+                    "strength": "STRONG" if att_nas else "UNBOUND",
+                    "basis": "ue_context_pdu_session_id_pti",
+                    "event_count": len(att_nas),
+                    "message_types": [e.get("message_type") for e in att_nas],
+                } if att_nas else None,
+                "n2": {
+                    "strength": "STRONG" if att_ngap else "UNBOUND",
+                    "basis": "ue_context_and_pdu_session_id",
+                    "event_count": len(att_ngap),
+                    "message_types": [e.get("message_type") for e in att_ngap],
+                } if att_ngap else None,
+                "n3": {
+                    "strength": "STRONG" if att_gtpu else "UNBOUND",
+                    "basis": "teid_and_endpoint_within_lifecycle_observation_window",
+                    "event_count": len(att_gtpu),
+                    "traffic_observed": traffic_observed,
+                } if att_gtpu else None,
+                "n4": {
+                    "strength": "SUPPORTED" if att_pfcp else "UNBOUND",
+                    "basis": "pfcp_session_seid_continuity",
+                    "event_count": len(att_pfcp),
+                    "message_types": [e.get("header", {}).get("message_type") for e in att_pfcp],
+                } if att_pfcp else None,
+                "n11": {
+                    "strength": "SUPPORTED" if att_sbi else "UNBOUND",
+                    "basis": "sm_context_ref_continuity",
+                    "event_count": len(att_sbi),
+                    "operations": [e.get("sbi", {}).get("operation") for e in att_sbi if e.get("sbi", {}).get("operation")],
+                } if att_sbi else None,
+            },
+            "pre_release_context": {
+                "pdu_session_id": psi,
+                "established_qfi_values": est_context.get("established_qfi_values", []),
+                "established_tunnel": est_context.get("established_tunnel"),
+                "sm_context_ref": est_context.get("sm_context_ref"),
+                "pfcp_seid": est_context.get("pfcp_seid"),
+            },
+            "post_release_observations": {
+                "traffic_observed": traffic_observed,
+                "end_marker_observed": end_marker_observed,
+                "error_indication_observed": error_indication_observed,
+                "tunnel": post_tunnel,
+            },
+            "unbound_evidence": [],
+            "limitations": att_limitations,
+        })
+
+        for st_rec in stages_summary:
+            st_id = st_rec["stage_id"]
+            rel_generic_stages.append(_make_generic_stage_record(
+                f"{inst['instance_id']}:rel{att_idx}",
+                capture_file,
+                f"rel{att_idx}_{st_id}",
+                f"Release attempt {att_idx} {REL_STAGE_NAMES[st_id]}",
+                REL_STAGE_EXPECTED_PROTOCOLS[st_id],
+                REL_STAGE_EXPECTED_MESSAGES[st_id],
+                st_rec["expected_evidence"],
+                st_rec["observed_evidence"],
+                st_rec["missing_evidence"],
+                "OBSERVED",
+                "HIGH" if st_rec["status"] == "OBSERVED" else "LOW",
+                st_rec["limitations"],
+            ))
+
+    return release_attempts, rel_generic_stages, session_unbound_records
+
+
 def analyze(
     nas_events: list[dict[str, Any]],
     ngap_events: list[dict[str, Any]],
@@ -1906,7 +3051,12 @@ def analyze(
     unbound_gtpu: list[dict[str, Any]] = []
 
     for gtpu_ev in sorted(gtpu_events, key=_event_sort_key):
-        teid = gtpu_ev.get("header", {}).get("teid")
+        gtpu_header = gtpu_ev.get("header", {}) if isinstance(gtpu_ev.get("header"), dict) else {}
+        teid = gtpu_header.get("teid")
+        # GTP-U Error Indication carries a header TEID of all zeroes; the
+        # affected tunnel identity arrives in the Error Indication IE.
+        if teid in (0, None) and isinstance(gtpu_ev.get("error_indication"), dict):
+            teid = gtpu_ev["error_indication"].get("affected_teid")
         outer = gtpu_ev.get("outer", {})
         dst_ip = outer.get("destination_address")
         src_ip = outer.get("source_address")
@@ -1953,6 +3103,90 @@ def analyze(
             if teid_matched_but_ip_differed:
                 rec["limitation"] = "TEID reuse on different endpoint: outer IP does not match provisioned F-TEID IP"
             unbound_gtpu.append(rec)
+
+    # 6b. Lifecycle generation split. Same UE context + same numeric PDU Session
+    # ID can host multiple PDU Session lifecycles: after an evidence-safe
+    # release boundary (PduSessionReleaseComplete observed) a later
+    # PduSessionEstablishmentRequest for the same key starts a new generation.
+    # A Release Reject or weak teardown evidence (PFCP deletion, NGAP resource
+    # release, ReleaseSMContext, End Marker) never creates a boundary; reuse
+    # without a proven boundary stays in one instance with LIFECYCLE_AMBIGUITY.
+    def _lifecycle_ambiguity_deviation(frame: int) -> dict[str, Any]:
+        return {
+            "type": DEVIATION_LIFECYCLE_AMBIGUITY,
+            "stage_id": "session_request",
+            "frame_number": frame,
+            "description": (
+                f"PduSessionEstablishmentRequest observed at frame {frame} for the same UE context and "
+                "PDU Session ID without an evidence-supported release boundary (no PduSessionReleaseComplete "
+                "observed between establishments); lifecycle generation cannot be proven from this capture"
+            ),
+            "evidence_level": "DERIVED",
+            "limitation": "Lifecycle generation split requires Release Complete evidence; the later establishment is not silently merged or split",
+        }
+
+    def _split_lifecycle_generations(inst: dict[str, Any]) -> list[dict[str, Any]]:
+        nas_all = sorted(inst.get("nas_events", []), key=_event_sort_key)
+        est_frames = [e["frame_number"] for e in nas_all if e.get("message_type") == "PduSessionEstablishmentRequest"]
+        complete_frames = [e["frame_number"] for e in nas_all if e.get("message_type") == "PduSessionReleaseComplete"]
+        boundaries: list[int] = []
+        ambiguous_ests: list[int] = []
+        prev_est: int | None = None
+        for est_frame in est_frames:
+            if prev_est is None:
+                prev_est = est_frame
+                continue
+            strong = any(prev_est < c < est_frame for c in complete_frames)
+            if strong:
+                boundaries.append(est_frame)
+            else:
+                ambiguous_ests.append(est_frame)
+            prev_est = est_frame
+
+        if not boundaries and not ambiguous_ests:
+            return [inst]
+
+        def in_generation(event: dict[str, Any], lo: int | None, hi: int | None) -> bool:
+            f = event.get("frame_number", 0)
+            if lo is not None and f < lo:
+                return False
+            if hi is not None and f >= hi:
+                return False
+            return True
+
+        generations: list[dict[str, Any]] = []
+        if boundaries:
+            edges = boundaries
+            for g in range(len(edges) + 1):
+                lo = edges[g - 1] if g > 0 else None
+                hi = edges[g] if g < len(edges) else None
+                gen = dict(inst)
+                for key in ("nas_events", "ngap_events", "pfcp_events", "gtpu_events", "sbi_events"):
+                    gen[key] = [e for e in inst.get(key, []) if in_generation(e, lo, hi)]
+                gen["instance_id"] = f"{inst['instance_id']}:g{g + 1}"
+                gen["session_generation"] = g + 1
+                if g == 0:
+                    gen["lifecycle_boundary_basis"] = None
+                    gen["previous_generation"] = None
+                    gen["reuse_status"] = None
+                else:
+                    gen["lifecycle_boundary_basis"] = "pdu_session_release_complete_observed_before_re_establishment"
+                    gen["previous_generation"] = g
+                    gen["reuse_status"] = "REESTABLISHED_AFTER_RELEASE_COMPLETE"
+                gen_ambiguous = [f for f in ambiguous_ests if in_generation({"frame_number": f}, lo, hi)]
+                gen["lifecycle_deviations"] = [_lifecycle_ambiguity_deviation(f) for f in gen_ambiguous]
+                generations.append(gen)
+            return generations
+
+        # Reuse without a proven boundary: keep one instance, expose ambiguity.
+        inst["reuse_status"] = "LIFECYCLE_AMBIGUOUS_UNPROVEN_BOUNDARY"
+        inst["lifecycle_deviations"] = [_lifecycle_ambiguity_deviation(f) for f in sorted(ambiguous_ests)]
+        return [inst]
+
+    split_instances: list[dict[str, Any]] = []
+    for inst in sorted_instances:
+        split_instances.extend(_split_lifecycle_generations(inst))
+    sorted_instances = sorted(split_instances, key=lambda x: str(x["instance_id"]))
 
     # 7. Evaluate Each Instance
     instance_analyses: list[dict[str, Any]] = []
@@ -2800,7 +4034,40 @@ def analyze(
         )
         all_generic_stages.extend(mod_generic_stages)
 
-        for record in mod_unbound_records:
+        mod_owned_refs: set[tuple[str, str, Any]] = set()
+        for mod_att in mod_attempts:
+            for ref in mod_att["event_ownership"]["owned_event_refs"]:
+                mod_owned_refs.add((ref["protocol"], ref["capture_file"], ref["frame_number"]))
+
+        rel_attempts, rel_generic_stages, rel_unbound_records = evaluate_release_attempts(
+            inst=inst,
+            est_context={
+                "pdu_session_id": psi,
+                "established_qfi_values": est_qfis,
+                "established_tunnel": est_tunnel,
+                "established_tunnels": _extract_tunnel_endpoints(est_ngap_setup_events, est_pfcp_establishment, psi),
+                "establishment_accept_frame": accept_ev["frame_number"] if accept_ev is not None else None,
+                "sm_context_ref": sm_ref,
+                "pfcp_seid": pfcp_seid_val,
+            },
+            capture_file=capture_file,
+            mod_owned_refs=mod_owned_refs,
+        )
+        all_generic_stages.extend(rel_generic_stages)
+
+        # A release attempt that safely owns an event supersedes stale
+        # modification-level unbound records for that same event.
+        rel_owned_refs: set[tuple[str, str, Any]] = set()
+        for rel_att in rel_attempts:
+            for ref in rel_att["event_ownership"]["owned_event_refs"]:
+                rel_owned_refs.add((ref["protocol"], ref["capture_file"], ref["frame_number"]))
+        mod_unbound_records = [
+            r for r in mod_unbound_records
+            if (r["event_ref"]["protocol"], r["event_ref"]["capture_file"], r["event_ref"]["frame_number"]) not in rel_owned_refs
+        ]
+
+        unbound_records = mod_unbound_records + rel_unbound_records
+        for record in unbound_records:
             if record.get("association_strength") == "AMBIGUOUS":
                 ref = record.get("event_ref", {})
                 deviations.append({
@@ -2814,13 +4081,12 @@ def analyze(
                     "limitation": "Event preserved as session-level context; no attempt-specific assignment was made",
                 })
 
-        has_rel = (
-            any("release" in str(e.get("message_type", "")).lower() for e in nas_evs)
-            or any("deletion" in str(e.get("header", {}).get("message_type", "")).lower() for e in pfcp_evs)
-            or any("release" in str(e.get("message_type", "")).lower() for e in ngap_evs)
-        )
-        if has_rel and "PDU session release signaling observed but release procedure analysis is deferred in this version" not in inst_limitations:
-            inst_limitations.append("PDU session release signaling observed but release procedure analysis is deferred in this version")
+        for lifecycle_dev in inst.get("lifecycle_deviations", []):
+            deviations.append({k: v for k, v in lifecycle_dev.items() if k != "frame_number"})
+        if inst.get("reuse_status") == "LIFECYCLE_AMBIGUOUS_UNPROVEN_BOUNDARY":
+            inst_limitations.append(
+                "PDU Session ID reuse without a proven release boundary: lifecycle generation cannot be determined from this capture"
+            )
 
         instance_analyses.append({
             "instance_id": inst_id,
@@ -2844,10 +4110,21 @@ def analyze(
                 "n4": n4_binding,
                 "n11": n11_binding,
             },
-            "unbound_evidence": mod_unbound_records,
+            "unbound_evidence": unbound_records,
             "limitations": inst_limitations,
             "modification_attempts": mod_attempts,
+            "release_attempts": rel_attempts,
         })
+        if inst.get("session_generation") is not None:
+            instance_analyses[-1]["session_generation"] = inst["session_generation"]
+            instance_analyses[-1]["lifecycle_boundary_basis"] = inst.get("lifecycle_boundary_basis")
+            instance_analyses[-1]["previous_generation"] = inst.get("previous_generation")
+            instance_analyses[-1]["reuse_status"] = inst.get("reuse_status")
+        elif inst.get("reuse_status") is not None:
+            instance_analyses[-1]["session_generation"] = None
+            instance_analyses[-1]["lifecycle_boundary_basis"] = None
+            instance_analyses[-1]["previous_generation"] = None
+            instance_analyses[-1]["reuse_status"] = inst.get("reuse_status")
 
     # 8. Unbound Evidence Collection across planes
     bound_nas_set = {id(e) for inst in sorted_instances for e in inst["nas_events"]}

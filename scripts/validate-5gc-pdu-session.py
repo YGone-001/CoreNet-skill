@@ -68,6 +68,45 @@ MODIFICATION_SCENARIOS = {
     "protected-nas-inner-unavailable-modify",
     "release-events-after-modification",
     "network-only-modification-transactions",
+    "release-ue-requested",
+    "release-ue-requested-reject",
+    "release-network-requested",
+    "release-repeated-attempts",
+    "release-same-pti-two-ues",
+    "release-same-psi-two-ues",
+    "release-command-retransmission",
+    "release-request-retransmission",
+    "release-protected-nas",
+    "release-late-capture",
+    "release-truncated-capture",
+    "release-n11-update-context",
+    "release-n11-release-smcontext-204",
+    "release-n11-release-smcontext-error",
+    "release-n11-release-smcontext-no-anchor",
+    "release-pfcp-deletion-accepted",
+    "release-pfcp-deletion-negative-cause",
+    "release-pfcp-deletion-no-response",
+    "release-pfcp-deletion-no-anchor",
+    "release-ngap-resource-release",
+    "release-ngap-multi-psi",
+    "release-ngap-target-plus-unrelated",
+    "release-namf-transfer-200",
+    "release-namf-transfer-202",
+    "release-namf-failure-notification",
+    "release-end-marker-observed",
+    "release-no-end-marker",
+    "release-gtpu-after-complete",
+    "release-no-gtpu-after-complete",
+    "release-error-indication",
+    "release-teid-reuse-endpoint",
+    "release-teid-reuse-generation",
+    "release-psi-reuse-after-complete",
+    "release-psi-reuse-incomplete-boundary",
+    "release-modification-before-release",
+    "release-new-generation-modification",
+    "release-interleaved-two-ues",
+    "release-out-of-order-input",
+    "release-partial-capture-multi-plane",
 }
 
 SCENARIOS = ESTABLISHMENT_SCENARIOS | MODIFICATION_SCENARIOS
@@ -118,7 +157,7 @@ def validate(root: Path) -> list[str]:
         return errors
 
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "5gc-pdu-session"), ("version", "0.2.0"), ("category", "domain")):
+    for key, expected in (("name", "5gc-pdu-session"), ("version", "0.3.0"), ("category", "domain")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
 
@@ -131,10 +170,10 @@ def validate(root: Path) -> list[str]:
     if set(manifest_block_or_flow(manifest, "interfaces")) != {"N1", "N2", "N3", "N4", "N11"}:
         errors.append("manifest interfaces must be N1, N2, N3, N4, N11")
 
-    # Release Domain remains excluded
-    manifest_stages = manifest_block_or_flow(manifest, "stages")
-    if any("release" in st.lower() for st in manifest_stages):
-        errors.append("manifest stages must not include release lifecycle stages; Release Domain remains excluded")
+    # Release analysis lives inside 5gc-pdu-session; a separate Release Skill is forbidden.
+    for forbidden_dir in ("pdu-session-release", "5gc-pdu-session-release", "pdu-session-release-domain"):
+        if (root / "skills/domain" / forbidden_dir).is_dir():
+            errors.append(f"separate Release Skill is forbidden; Release remains inside 5gc-pdu-session: {forbidden_dir}")
 
     # Check that expected lower Skill dependencies are declared in optional dependencies
     optional_deps = " ".join(manifest_block_or_flow(manifest, "optional"))
@@ -169,22 +208,33 @@ def validate(root: Path) -> list[str]:
         if mod_prop.get("type") != "array":
             errors.append("analysis schema modification_attempts property must be an array")
 
-        # Check modificationAttempt definition exists with required properties
-        mod_def = schema.get("$defs", {}).get("modificationAttempt", {})
-        if not mod_def:
-            errors.append("analysis schema must define $defs/modificationAttempt")
+        # Check release_attempts property is array
+        rel_prop = instance_properties.get("release_attempts", {})
+        if rel_prop.get("type") != "array":
+            errors.append("analysis schema release_attempts property must be an array")
+
+        # Check releaseAttempt definition exists with required properties
+        rel_def = schema.get("$defs", {}).get("releaseAttempt", {})
+        if not rel_def:
+            errors.append("analysis schema must define $defs/releaseAttempt")
         else:
-            mod_props = mod_def.get("properties", {})
+            rel_props = rel_def.get("properties", {})
             for field in (
-                "attempt_id", "trigger_type", "procedure_transaction_identity",
+                "attempt_id", "trigger_type", "procedure_transaction_identity", "anchor_evidence",
                 "association_basis", "association_strength", "association_details",
                 "observation_window", "event_ownership", "stages",
                 "terminal_observation", "deviations", "earliest_observed_deviation",
-                "field_findings", "plane_bindings", "pre_modification_context",
-                "post_modification_observations", "unbound_evidence", "limitations"
+                "field_findings", "plane_bindings", "pre_release_context",
+                "post_release_observations", "unbound_evidence", "limitations"
             ):
-                if field not in mod_props:
-                    errors.append(f"modificationAttempt definition must define {field}")
+                if field not in rel_props:
+                    errors.append(f"releaseAttempt definition must define {field}")
+            rel_term = rel_props.get("terminal_observation", {}).get("properties", {}).get("observation", {})
+            for vocab in ("RELEASE_COMPLETE_OBSERVED", "RELEASE_REJECT_OBSERVED", "NO_N1_RELEASE_TERMINAL_OBSERVATION"):
+                if vocab not in rel_term.get("enum", []):
+                    errors.append(f"releaseAttempt terminal vocabulary must include {vocab}")
+            if "RELEASE_SUCCESS" in rel_term.get("enum", []) or "RELEASE_FAILURE" in rel_term.get("enum", []):
+                errors.append("releaseAttempt terminal vocabulary must not include success/failure verdicts")
 
         forbidden = [field for field in properties if FORBIDDEN_SCHEMA_FIELDS.search(field)]
         if forbidden:
@@ -195,7 +245,7 @@ def validate(root: Path) -> list[str]:
     input_root = skill / "examples/inputs"
     actual_scenarios = {path.name for path in input_root.iterdir() if path.is_dir()} if input_root.is_dir() else set()
     if actual_scenarios != SCENARIOS:
-        errors.append(f"synthetic input scenarios must cover all 49 bounded cases; found: {actual_scenarios}")
+        errors.append(f"synthetic input scenarios must cover all 88 bounded cases; found: {actual_scenarios}")
 
     for scenario in sorted(SCENARIOS):
         sdir = input_root / scenario
@@ -279,6 +329,115 @@ def validate(root: Path) -> list[str]:
                 errors.append("ambiguous-concurrent-modifications ambiguous record must list both candidate attempts")
         except (json.JSONDecodeError, KeyError) as exc:
             errors.append(f"ambiguous-concurrent-modifications expected analysis is invalid: {exc}")
+
+    # Release hard gates validated against committed fixture outputs.
+    def _release_attempts(doc):
+        for inst in doc.get("instances", []):
+            for attempt in inst.get("release_attempts", []):
+                yield inst, attempt
+
+    def _expect_doc(rel_name, apply):
+        path = skill / f"examples/expected/{rel_name}-analysis.json"
+        if not path.is_file():
+            return
+        try:
+            apply(json.loads(path.read_text(encoding="utf-8")))
+        except (json.JSONDecodeError, KeyError, AssertionError) as exc:
+            errors.append(f"{rel_name} expected analysis failed release contract check: {exc}")
+
+    def _check_reject_not_boundary(doc):
+        attempts = [a for _, a in _release_attempts(doc)]
+        if not attempts or attempts[0]["terminal_observation"]["observation"] != "RELEASE_REJECT_OBSERVED":
+            raise AssertionError("first release attempt must observe RELEASE_REJECT_OBSERVED")
+        if len(doc["instances"]) != 1:
+            raise AssertionError("release reject must not split the lifecycle generation")
+
+    def _check_network_no_false_missing(doc):
+        for _, attempt in _release_attempts(doc):
+            init = next(s for s in attempt["stages"] if s["stage_id"] == "release_initiation")
+            if attempt["trigger_type"] == "NETWORK_REQUESTED":
+                if init["status"] != "OBSERVED":
+                    raise AssertionError("network-requested release initiation must be OBSERVED")
+                if any("ReleaseRequest" in m for m in init.get("missing_evidence", [])):
+                    raise AssertionError("network-requested branch must not report a missing Release Request")
+
+    def _check_bounded_success(doc, stage_id, needle):
+        for _, attempt in _release_attempts(doc):
+            stage = next(s for s in attempt["stages"] if s["stage_id"] == stage_id)
+            text = json.dumps(stage)
+            if needle not in text and stage.get("status") != "MISSING":
+                raise AssertionError(f"{stage_id} must remain bounded evidence ({needle})")
+            if "PDU_SESSION_RELEASE_SUCCESS" in text or "RELEASE_SUCCESS" in text:
+                raise AssertionError(f"{stage_id} must not become a release success verdict")
+
+    _expect_doc("release-ue-requested-reject", _check_reject_not_boundary)
+    _expect_doc("release-network-requested", _check_network_no_false_missing)
+    _expect_doc("release-pfcp-deletion-accepted", lambda doc: _check_bounded_success(doc, "user_plane_teardown_control", "PFCP_DELETION_ACCEPTED_OBSERVED"))
+    _expect_doc("release-n11-release-smcontext-204", lambda doc: _check_bounded_success(doc, "sm_context_release_control", "bounded N11 response evidence"))
+    _expect_doc("release-ngap-resource-release", lambda doc: _check_bounded_success(doc, "access_resource_release", "does not independently prove"))
+
+    for no_end_marker_fix, expect_not_observed in (
+        ("release-no-end-marker", True),
+        ("release-no-gtpu-after-complete", True),
+        ("release-gtpu-after-complete", False),
+    ):
+        path = skill / f"examples/expected/{no_end_marker_fix}-analysis.json"
+        if path.is_file():
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            for _, attempt in _release_attempts(doc):
+                pro = next(s for s in attempt["stages"] if s["stage_id"] == "post_release_observation")
+                expected_status = "NOT_OBSERVED" if expect_not_observed else "OBSERVED"
+                if pro["status"] != expected_status:
+                    errors.append(f"{no_end_marker_fix} post_release_observation must be {expected_status}")
+                if "MISSING_EXPECTED_COUNTERPART" in [d["type"] for d in attempt["deviations"] if d.get("stage_id") == "post_release_observation"]:
+                    errors.append(f"{no_end_marker_fix} must not emit a missing-counterpart deviation for post-release N3")
+
+    # Lifecycle generation gates.
+    reuse_path = skill / "examples/expected/release-psi-reuse-after-complete-analysis.json"
+    if reuse_path.is_file():
+        doc = json.loads(reuse_path.read_text(encoding="utf-8"))
+        gens = sorted(i.get("session_generation") for i in doc.get("instances", []))
+        if gens != [1, 2]:
+            errors.append("release-psi-reuse-after-complete must produce two lifecycle generations")
+        ids = [i["instance_id"] for i in doc.get("instances", [])]
+        if len(set(ids)) != 2 or not all(i.endswith((":g1", ":g2")) for i in ids):
+            errors.append("release-psi-reuse-after-complete must derive unique lifecycle instance ids")
+
+    unsafe_path = skill / "examples/expected/release-psi-reuse-incomplete-boundary-analysis.json"
+    if unsafe_path.is_file():
+        doc = json.loads(unsafe_path.read_text(encoding="utf-8"))
+        if len(doc.get("instances", [])) != 1:
+            errors.append("release-psi-reuse-incomplete-boundary must not silently split the lifecycle")
+        dev_types = {d["type"] for i in doc.get("instances", []) for d in i.get("deviations", [])}
+        if "LIFECYCLE_AMBIGUITY" not in dev_types:
+            errors.append("release-psi-reuse-incomplete-boundary must expose LIFECYCLE_AMBIGUITY")
+
+    teid_path = skill / "examples/expected/release-teid-reuse-generation-analysis.json"
+    if teid_path.is_file():
+        doc = json.loads(teid_path.read_text(encoding="utf-8"))
+        for inst in doc.get("instances", []):
+            owned = [
+                (r["protocol"], r["frame_number"])
+                for att in inst.get("release_attempts", []) + inst.get("modification_attempts", [])
+                for r in att["event_ownership"]["owned_event_refs"]
+                if r["protocol"] == "GTP-U"
+            ]
+            if inst.get("session_generation") == 1 and any(f > 20 for _, f in owned):
+                errors.append("release-teid-reuse-generation generation 1 must not own post-boundary GTP-U events")
+
+    # Event ownership exclusivity across release attempts of committed fixtures.
+    for scenario in ("release-repeated-attempts", "release-ue-requested", "release-interleaved-two-ues"):
+        path = skill / f"examples/expected/{scenario}-analysis.json"
+        if path.is_file():
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            for inst in doc.get("instances", []):
+                refs = [
+                    (r["protocol"], r["capture_file"], r["frame_number"])
+                    for att in inst.get("release_attempts", [])
+                    for r in att["event_ownership"]["owned_event_refs"]
+                ]
+                if len(refs) != len(set(refs)):
+                    errors.append(f"{scenario} release attempt event ownership must be exclusive")
 
     for path in skill.rglob("*"):
         if not path.is_file():

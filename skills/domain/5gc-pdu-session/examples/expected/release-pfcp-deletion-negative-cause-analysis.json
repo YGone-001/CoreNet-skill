@@ -1,0 +1,670 @@
+{
+  "instances": [
+    {
+      "association_basis": "ngap_ue_context_and_pdu_session_id",
+      "association_strength": "STRONG",
+      "deviations": [
+        {
+          "description": "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure",
+          "evidence_level": "DERIVED",
+          "limitation": "Earlier procedure stages may exist outside the capture",
+          "stage_id": "session_request",
+          "type": "PARTIAL_CAPTURE"
+        }
+      ],
+      "earliest_observed_deviation": {
+        "description": "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure",
+        "evidence_level": "DERIVED",
+        "limitation": "Earlier procedure stages may exist outside the capture",
+        "stage_id": "session_request",
+        "type": "PARTIAL_CAPTURE"
+      },
+      "field_findings": [
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 10,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 1,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 13,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 1,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "pdu_session_id",
+          "frame_number": 14,
+          "interpretation": "PDU Session ID allocated by UE",
+          "limitations": [],
+          "observed_value": 1,
+          "plane": "N1"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "ue_ip_address",
+          "frame_number": 3,
+          "interpretation": "Allocated UE IP address in PFCP PDR",
+          "limitations": [],
+          "observed_value": "10.45.0.2",
+          "plane": "N4"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "f_teid",
+          "frame_number": 3,
+          "interpretation": "Fully Qualified Tunnel Endpoint Identifier provisioned in PFCP PDR",
+          "limitations": [],
+          "observed_value": {
+            "ipv4": "192.0.2.10",
+            "teid": 5001
+          },
+          "plane": "N4"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "cause",
+          "frame_number": 4,
+          "interpretation": "PFCP transaction response cause",
+          "limitations": [],
+          "observed_value": {
+            "code": 1,
+            "name": "RequestAccepted"
+          },
+          "plane": "N4"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "cause",
+          "frame_number": 12,
+          "interpretation": "PFCP transaction response cause",
+          "limitations": [],
+          "observed_value": {
+            "code": 64,
+            "name": "ContextNotFound"
+          },
+          "plane": "N4"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "teid",
+          "frame_number": 9,
+          "interpretation": "Observed GTP-U tunnel endpoint identifier",
+          "limitations": [],
+          "observed_value": 5001,
+          "plane": "N3"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "status",
+          "frame_number": 2,
+          "interpretation": "HTTP/2 response status code",
+          "limitations": [],
+          "observed_value": 201,
+          "plane": "N11"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "sm_context_ref",
+          "frame_number": 2,
+          "interpretation": "SM Context resource URI assigned by SMF",
+          "limitations": [],
+          "observed_value": "https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1",
+          "plane": "N11"
+        },
+        {
+          "capture_file": "test.pcap",
+          "evidence_level": "OBSERVED",
+          "field_name": "status",
+          "frame_number": 7,
+          "interpretation": "HTTP/2 response status code",
+          "limitations": [],
+          "observed_value": 200,
+          "plane": "N11"
+        }
+      ],
+      "instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
+      "limitations": [
+        "Bounded to observed signaling window in capture artifact",
+        "No source code or network function internal execution state analyzed"
+      ],
+      "modification_attempts": [],
+      "pdu_session_id": 1,
+      "plane_bindings": {
+        "n1": {
+          "basis": "frame_provenance_ngap_nas_join",
+          "event_count": 3,
+          "message_types": [
+            "PduSessionReleaseRequest",
+            "PduSessionReleaseCommand",
+            "PduSessionReleaseComplete"
+          ],
+          "strength": "STRONG"
+        },
+        "n11": {
+          "basis": "unambiguous_candidate_psi_and_dnn",
+          "operations": [
+            "CreateSMContext",
+            "N1N2MessageTransfer"
+          ],
+          "status_codes": [
+            201,
+            200
+          ],
+          "strength": "SUPPORTED"
+        },
+        "n2": {
+          "basis": "ngap_ue_context_and_resource_matching",
+          "event_count": 2,
+          "message_types": [
+            "PDUSessionResourceSetupRequest",
+            "PDUSessionResourceSetupResponse"
+          ],
+          "strength": "STRONG"
+        },
+        "n3": {
+          "basis": "f_teid_endpoint_and_teid_match",
+          "byte_count": 64,
+          "endpoint": "192.0.2.10",
+          "packet_count": 1,
+          "qfi_values": [],
+          "strength": "STRONG",
+          "teid": 5001
+        },
+        "n4": {
+          "basis": "unambiguous_capture_candidate",
+          "cp_fseid": null,
+          "f_teid": {
+            "ipv4": "192.0.2.10",
+            "teid": 5001
+          },
+          "header_seid": 1001,
+          "qfi_values": [],
+          "strength": "SUPPORTED",
+          "ue_ip_address": "10.45.0.2",
+          "up_fseid": null
+        }
+      },
+      "release_attempts": [
+        {
+          "anchor_evidence": {
+            "frame_number": 10,
+            "message_type": "PduSessionReleaseRequest",
+            "timestamp": "2026-10-02T10:00:10.000000Z"
+          },
+          "association_basis": "ue_context_pdu_session_id_pti",
+          "association_details": {
+            "association_model": "candidate_set_with_control_windows",
+            "control_window": {
+              "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+              "end_frame": 14,
+              "start_frame": 10
+            },
+            "cross_plane_binding": {
+              "n11_sm_context_release_bound": false,
+              "n2_resource_release_bound": false,
+              "n4_session_deletion_bound": true
+            },
+            "n1_anchor": {
+              "frame_number": 10,
+              "message_type": "PduSessionReleaseRequest"
+            }
+          },
+          "association_strength": "STRONG",
+          "attempt_id": "rel-1",
+          "deviations": [
+            {
+              "description": "PFCP Session Deletion Response reported non-accepted cause ContextNotFound (code 64)",
+              "evidence_level": "OBSERVED",
+              "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
+              "stage_id": "user_plane_teardown_control",
+              "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
+            }
+          ],
+          "earliest_observed_deviation": {
+            "description": "PFCP Session Deletion Response reported non-accepted cause ContextNotFound (code 64)",
+            "evidence_level": "OBSERVED",
+            "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
+            "stage_id": "user_plane_teardown_control",
+            "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
+          },
+          "event_ownership": {
+            "exclusive_within_analysis": true,
+            "owned_event_count": 5,
+            "owned_event_refs": [
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 10,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 13,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 14,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 11,
+                "protocol": "PFCP"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 12,
+                "protocol": "PFCP"
+              }
+            ]
+          },
+          "field_findings": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "release_message",
+              "frame_number": 10,
+              "interpretation": "PduSessionReleaseRequest observed on N1",
+              "limitations": [],
+              "observed_value": {
+                "message_type": "PduSessionReleaseRequest",
+                "pti": 2
+              },
+              "plane": "N1"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "release_message",
+              "frame_number": 13,
+              "interpretation": "PduSessionReleaseCommand observed on N1",
+              "limitations": [],
+              "observed_value": {
+                "message_type": "PduSessionReleaseCommand",
+                "pti": 2
+              },
+              "plane": "N1"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "release_message",
+              "frame_number": 14,
+              "interpretation": "PduSessionReleaseComplete observed on N1",
+              "limitations": [],
+              "observed_value": {
+                "message_type": "PduSessionReleaseComplete",
+                "pti": 2
+              },
+              "plane": "N1"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "pfcp_deletion",
+              "frame_number": 11,
+              "interpretation": "PFCP Session Deletion transaction evidence (SEID endpoint/session scoped)",
+              "limitations": [],
+              "observed_value": {
+                "message_type": "SessionDeletionRequest",
+                "seid": 1001,
+                "sequence_number": 2
+              },
+              "plane": "N4"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "pfcp_deletion",
+              "frame_number": 12,
+              "interpretation": "PFCP Session Deletion transaction evidence (SEID endpoint/session scoped)",
+              "limitations": [],
+              "observed_value": {
+                "message_type": "SessionDeletionResponse",
+                "seid": 1001,
+                "sequence_number": 2
+              },
+              "plane": "N4"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "cause",
+              "frame_number": 12,
+              "interpretation": "PFCP deletion response cause",
+              "limitations": [],
+              "observed_value": {
+                "code": 64,
+                "name": "ContextNotFound"
+              },
+              "plane": "N4"
+            }
+          ],
+          "limitations": [
+            "Bounded to observed release signaling in capture window",
+            "No source code or network function internal execution state analyzed"
+          ],
+          "observation_window": {
+            "window_end_basis": "capture_window_end",
+            "window_end_frame": 14,
+            "window_start_basis": "latest_safely_bound_release_control_or_terminal_event",
+            "window_start_frame": 14
+          },
+          "plane_bindings": {
+            "n1": {
+              "basis": "ue_context_pdu_session_id_pti",
+              "event_count": 3,
+              "message_types": [
+                "PduSessionReleaseRequest",
+                "PduSessionReleaseCommand",
+                "PduSessionReleaseComplete"
+              ],
+              "strength": "STRONG"
+            },
+            "n11": null,
+            "n2": null,
+            "n3": null,
+            "n4": {
+              "basis": "pfcp_session_seid_continuity",
+              "event_count": 2,
+              "message_types": [
+                "SessionDeletionRequest",
+                "SessionDeletionResponse"
+              ],
+              "strength": "SUPPORTED"
+            }
+          },
+          "post_release_observations": {
+            "end_marker_observed": false,
+            "error_indication_observed": false,
+            "traffic_observed": false,
+            "tunnel": null
+          },
+          "pre_release_context": {
+            "established_qfi_values": [],
+            "established_tunnel": {
+              "ip_address": "192.0.2.10",
+              "teid": 5001
+            },
+            "pdu_session_id": 1,
+            "pfcp_seid": 1001,
+            "sm_context_ref": null
+          },
+          "procedure_transaction_identity": 2,
+          "stages": [
+            {
+              "expected_evidence": [
+                "NAS-5GS PduSessionReleaseRequest",
+                "NAS-5GS PduSessionReleaseCommand"
+              ],
+              "limitations": [],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "PduSessionReleaseRequest observed at frame 10 (PTI=2)"
+              ],
+              "stage_id": "release_initiation",
+              "stage_name": "Release Initiation",
+              "status": "OBSERVED"
+            },
+            {
+              "expected_evidence": [
+                "3GPP-SBI ReleaseSMContext",
+                "3GPP-SBI UpdateSMContext"
+              ],
+              "limitations": [
+                "ReleaseSMContext is branch-conditional and not expected in every release branch; SBI signaling may also be absent from this vantage point"
+              ],
+              "missing_evidence": [
+                "N11 release-related SM Context control not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "sm_context_release_control",
+              "stage_name": "SM Context Release Control",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "PFCP SessionDeletionResponse"
+              ],
+              "limitations": [
+                "PFCP session deletion rejected; internal UPF decision basis not determined"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "PFCP Session Deletion Response at frame 12 reported non-accepted cause ContextNotFound (code 64)"
+              ],
+              "stage_id": "user_plane_teardown_control",
+              "stage_name": "User Plane Teardown Control",
+              "status": "OBSERVED"
+            },
+            {
+              "expected_evidence": [
+                "NGAP PDUSessionResourceReleaseResponse"
+              ],
+              "limitations": [
+                "N2 resource release is branch-conditional and may not be captured at this vantage point"
+              ],
+              "missing_evidence": [
+                "NGAP PDU Session Resource Release signaling not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "access_resource_release",
+              "stage_name": "Access Resource Release",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "3GPP-SBI N1N2MessageTransfer"
+              ],
+              "limitations": [
+                "N1/N2 transfer service operation not utilized in this release branch"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [],
+              "stage_id": "n1_n2_delivery",
+              "stage_name": "N1/N2 Delivery",
+              "status": "NOT_APPLICABLE"
+            },
+            {
+              "expected_evidence": [
+                "NAS-5GS PduSessionReleaseComplete",
+                "NAS-5GS PduSessionReleaseReject"
+              ],
+              "limitations": [
+                "Bounded N1 terminal release evidence; it does not independently prove PFCP deletion, NGAP resource release, SM Context removal, or that user-plane packets stopped"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "PduSessionReleaseComplete observed at frame 14"
+              ],
+              "stage_id": "release_terminal",
+              "stage_name": "Release Terminal",
+              "status": "OBSERVED"
+            },
+            {
+              "expected_evidence": [
+                "GTP-U G-PDU",
+                "GTP-U End Marker",
+                "GTP-U Error Indication"
+              ],
+              "limitations": [
+                "Traffic may have been idle during the observation window",
+                "N3 may not be visible at the capture vantage point",
+                "Absence of post-release traffic does not prove release success or teardown correctness"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "No matching post-release N3 packet observed within the capture window."
+              ],
+              "stage_id": "post_release_observation",
+              "stage_name": "Post-Release Observation",
+              "status": "NOT_OBSERVED"
+            }
+          ],
+          "terminal_observation": {
+            "evidence_level": "OBSERVED",
+            "frame_number": 14,
+            "message_type": "PduSessionReleaseComplete",
+            "observation": "RELEASE_COMPLETE_OBSERVED",
+            "protocol_observations": [
+              "PduSessionReleaseComplete observed"
+            ],
+            "timestamp": "2026-10-02T10:00:14.000000Z"
+          },
+          "trigger_type": "UE_REQUESTED",
+          "unbound_evidence": []
+        }
+      ],
+      "stages": [
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentRequest"
+          ],
+          "limitations": [
+            "Observation window begins after session initiation or request was not captured"
+          ],
+          "missing_evidence": [
+            "PduSessionEstablishmentRequest not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "session_request",
+          "stage_name": "Session Request",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI CreateSMContext"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "Nsmf_PDUSession CreateSMContext accepted (HTTP 201) at frame 2 with reference https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1"
+          ],
+          "stage_id": "sm_context_control",
+          "stage_name": "SM Context Control",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "PFCP SessionEstablishmentResponse"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "PFCP Session Establishment accepted at frame 4"
+          ],
+          "stage_id": "user_plane_control",
+          "stage_name": "User Plane Control",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "NGAP PDUSessionResourceSetupResponse"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "NGAP PDUSessionResourceSetupResponse at frame 6 reported PDU Session ID 1 in setup/successful list"
+          ],
+          "stage_id": "access_resource_control",
+          "stage_name": "Access Resource Control",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "3GPP-SBI N1N2MessageTransfer"
+          ],
+          "limitations": [],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "Namf_Communication N1N2MessageTransfer accepted (HTTP 200) at frame 7"
+          ],
+          "stage_id": "n1_n2_delivery",
+          "stage_name": "N1/N2 Delivery",
+          "status": "OBSERVED"
+        },
+        {
+          "expected_evidence": [
+            "NAS-5GS PduSessionEstablishmentAccept",
+            "NAS-5GS PduSessionEstablishmentReject"
+          ],
+          "limitations": [
+            "Capture terminated before terminal decision signaling was recorded"
+          ],
+          "missing_evidence": [
+            "Terminal PDU Session Establishment decision (Accept or Reject) not observed within capture window"
+          ],
+          "observed_evidence": [],
+          "stage_id": "session_decision",
+          "stage_name": "Session Decision",
+          "status": "MISSING"
+        },
+        {
+          "expected_evidence": [
+            "GTP-U G-PDU"
+          ],
+          "limitations": [
+            "User-plane traffic observed at capture vantage point; end-to-end application delivery not verified"
+          ],
+          "missing_evidence": [],
+          "observed_evidence": [
+            "GTP-U G-PDU traffic observed: 1 packets, 64 bytes for TEID 5001 to endpoint 192.0.2.10"
+          ],
+          "stage_id": "user_plane_observation",
+          "stage_name": "User Plane Observation",
+          "status": "OBSERVED"
+        }
+      ],
+      "terminal_observation": {
+        "evidence_level": "DERIVED",
+        "frame_number": null,
+        "message_type": null,
+        "observation": "PARTIAL_CAPTURE",
+        "protocol_observations": [
+          "No terminal N1 session decision observed within capture window"
+        ],
+        "timestamp": null
+      },
+      "ue_context": {
+        "amf_ue_ngap_id": 1,
+        "ran_ue_ngap_id": 1,
+        "sctp_association": 1
+      },
+      "unbound_evidence": []
+    }
+  ],
+  "limitations": [
+    "Analysis is strictly bounded to procedure evidence observed in the provided capture window",
+    "No protocol packet decoding is performed; lower-layer event attributes are accepted as-is",
+    "No implementation-specific source code or network function internal state is inferred",
+    "Absence of evidence does not prove network function failure"
+  ],
+  "procedure_name": "5gc-pdu-session",
+  "procedure_version": "0.3.0",
+  "unbound_evidence": {
+    "ambiguous_events": [],
+    "unbound_n1": [],
+    "unbound_n11": [],
+    "unbound_n2": [],
+    "unbound_n3": [],
+    "unbound_n4": []
+  }
+}

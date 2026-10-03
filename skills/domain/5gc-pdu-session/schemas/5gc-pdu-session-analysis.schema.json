@@ -13,26 +13,77 @@
   ],
   "additionalProperties": false,
   "properties": {
-    "procedure_name": {"type": "string", "const": "5gc-pdu-session"},
-    "procedure_version": {"type": "string", "minLength": 1},
+    "procedure_name": {
+      "type": "string",
+      "const": "5gc-pdu-session"
+    },
+    "procedure_version": {
+      "type": "string",
+      "minLength": 1
+    },
     "instances": {
       "type": "array",
-      "items": {"$ref": "#/$defs/instanceAnalysis"}
+      "items": {
+        "$ref": "#/$defs/instanceAnalysis"
+      }
     },
     "unbound_evidence": {
       "type": "object",
-      "required": ["unbound_n1", "unbound_n2", "unbound_n3", "unbound_n4", "unbound_n11", "ambiguous_events"],
+      "required": [
+        "unbound_n1",
+        "unbound_n2",
+        "unbound_n3",
+        "unbound_n4",
+        "unbound_n11",
+        "ambiguous_events"
+      ],
       "additionalProperties": false,
       "properties": {
-        "unbound_n1": {"type": "array", "items": {"type": "object"}},
-        "unbound_n2": {"type": "array", "items": {"type": "object"}},
-        "unbound_n3": {"type": "array", "items": {"type": "object"}},
-        "unbound_n4": {"type": "array", "items": {"type": "object"}},
-        "unbound_n11": {"type": "array", "items": {"type": "object"}},
-        "ambiguous_events": {"type": "array", "items": {"type": "object"}}
+        "unbound_n1": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "unbound_n2": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "unbound_n3": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "unbound_n4": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "unbound_n11": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "ambiguous_events": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
       }
     },
-    "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
   },
   "$defs": {
     "instanceAnalysis": {
@@ -54,27 +105,74 @@
       ],
       "additionalProperties": false,
       "properties": {
-        "instance_id": {"type": "string", "minLength": 1},
-        "association_basis": {"type": "string", "minLength": 1},
-        "association_strength": {"type": "string", "enum": ["STRONG", "SUPPORTED", "AMBIGUOUS", "UNBOUND"]},
+        "instance_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "association_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "association_strength": {
+          "type": "string",
+          "enum": [
+            "STRONG",
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "UNBOUND"
+          ]
+        },
         "ue_context": {
           "type": "object",
-          "required": ["ran_ue_ngap_id", "amf_ue_ngap_id", "sctp_association"],
+          "required": [
+            "ran_ue_ngap_id",
+            "amf_ue_ngap_id",
+            "sctp_association"
+          ],
           "additionalProperties": false,
           "properties": {
-            "ran_ue_ngap_id": {"type": ["integer", "null"]},
-            "amf_ue_ngap_id": {"type": ["integer", "null"]},
-            "sctp_association": {"type": ["string", "integer", "null"]}
+            "ran_ue_ngap_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "amf_ue_ngap_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "sctp_association": {
+              "type": [
+                "string",
+                "integer",
+                "null"
+              ]
+            }
           }
         },
-        "pdu_session_id": {"type": "integer", "minimum": 1, "maximum": 255},
+        "pdu_session_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        },
         "stages": {
           "type": "array",
-          "items": {"$ref": "#/$defs/stageRecord"}
+          "items": {
+            "$ref": "#/$defs/stageRecord"
+          }
         },
         "terminal_observation": {
           "type": "object",
-          "required": ["observation", "protocol_observations", "message_type", "frame_number", "timestamp", "evidence_level"],
+          "required": [
+            "observation",
+            "protocol_observations",
+            "message_type",
+            "frame_number",
+            "timestamp",
+            "evidence_level"
+          ],
           "additionalProperties": false,
           "properties": {
             "observation": {
@@ -88,21 +186,57 @@
             },
             "protocol_observations": {
               "type": "array",
-              "items": {"type": "string", "minLength": 1}
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             },
-            "message_type": {"type": ["string", "null"]},
-            "frame_number": {"type": ["integer", "null"], "minimum": 1},
-            "timestamp": {"type": ["string", "null"]},
-            "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]}
+            "message_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "frame_number": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "timestamp": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "evidence_level": {
+              "type": "string",
+              "enum": [
+                "OBSERVED",
+                "DERIVED"
+              ]
+            }
           }
         },
         "deviations": {
           "type": "array",
-          "items": {"$ref": "#/$defs/deviation"}
+          "items": {
+            "$ref": "#/$defs/deviation"
+          }
         },
         "earliest_observed_deviation": {
-          "type": ["object", "null"],
-          "required": ["type", "stage_id", "description", "evidence_level", "limitation"],
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "type",
+            "stage_id",
+            "description",
+            "evidence_level",
+            "limitation"
+          ],
           "additionalProperties": false,
           "properties": {
             "type": {
@@ -114,6 +248,7 @@
                 "DELIVERY_FAILURE_NOTIFICATION_OBSERVED",
                 "MISSING_EXPECTED_COUNTERPART",
                 "CORRELATION_AMBIGUITY",
+                "LIFECYCLE_AMBIGUITY",
                 "CORRELATION_CONFLICT",
                 "OUT_OF_ORDER_EVIDENCE",
                 "PARTIAL_CAPTURE",
@@ -122,39 +257,130 @@
                 "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"
               ]
             },
-            "stage_id": {"type": ["string", "null"]},
-            "description": {"type": "string", "minLength": 1},
-            "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
-            "limitation": {"type": "string", "minLength": 1}
+            "stage_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evidence_level": {
+              "type": "string",
+              "enum": [
+                "OBSERVED",
+                "DERIVED"
+              ]
+            },
+            "limitation": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "field_findings": {
           "type": "array",
-          "items": {"$ref": "#/$defs/fieldFinding"}
+          "items": {
+            "$ref": "#/$defs/fieldFinding"
+          }
         },
         "plane_bindings": {
           "type": "object",
-          "required": ["n1", "n2", "n3", "n4", "n11"],
+          "required": [
+            "n1",
+            "n2",
+            "n3",
+            "n4",
+            "n11"
+          ],
           "additionalProperties": false,
           "properties": {
-            "n1": {"type": ["object", "null"]},
-            "n2": {"type": ["object", "null"]},
-            "n3": {"type": ["object", "null"]},
-            "n4": {"type": ["object", "null"]},
-            "n11": {"type": ["object", "null"]}
+            "n1": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "n2": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "n3": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "n4": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "n11": {
+              "type": [
+                "object",
+                "null"
+              ]
+            }
           }
         },
         "unbound_evidence": {
           "type": "array",
-          "items": {"type": "object"}
+          "items": {
+            "type": "object"
+          }
         },
         "limitations": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "modification_attempts": {
           "type": "array",
-          "items": {"$ref": "#/$defs/modificationAttempt"}
+          "items": {
+            "$ref": "#/$defs/modificationAttempt"
+          }
+        },
+        "release_attempts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/releaseAttempt"
+          }
+        },
+        "session_generation": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "lifecycle_boundary_basis": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "previous_generation": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "reuse_status": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
         }
       }
     },
@@ -179,65 +405,156 @@
       ],
       "additionalProperties": false,
       "properties": {
-        "attempt_id": {"type": "string", "minLength": 1},
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
         "trigger_type": {
           "type": "string",
-          "enum": ["UE_REQUESTED", "NETWORK_REQUESTED", "UNKNOWN"]
+          "enum": [
+            "UE_REQUESTED",
+            "NETWORK_REQUESTED",
+            "UNKNOWN"
+          ]
         },
-        "procedure_transaction_identity": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
-        "association_basis": {"type": "string", "minLength": 1},
-        "association_strength": {"type": "string", "enum": ["STRONG", "SUPPORTED", "AMBIGUOUS", "UNBOUND"]},
+        "procedure_transaction_identity": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "association_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "association_strength": {
+          "type": "string",
+          "enum": [
+            "STRONG",
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "UNBOUND"
+          ]
+        },
         "association_details": {
           "type": "object",
-          "required": ["association_model"],
+          "required": [
+            "association_model"
+          ],
           "additionalProperties": true,
           "properties": {
-            "association_model": {"type": "string", "minLength": 1},
-            "n1_anchor": {"type": "object"},
-            "control_window": {"type": "object"},
-            "cross_plane_binding": {"type": "object"}
+            "association_model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "n1_anchor": {
+              "type": "object"
+            },
+            "control_window": {
+              "type": "object"
+            },
+            "cross_plane_binding": {
+              "type": "object"
+            }
           }
         },
         "observation_window": {
           "type": "object",
-          "required": ["window_start_basis", "window_start_frame", "window_end_basis", "window_end_frame"],
+          "required": [
+            "window_start_basis",
+            "window_start_frame",
+            "window_end_basis",
+            "window_end_frame"
+          ],
           "additionalProperties": false,
           "properties": {
-            "window_start_basis": {"type": "string", "minLength": 1},
-            "window_start_frame": {"type": ["integer", "null"], "minimum": 1},
-            "window_end_basis": {"type": "string", "minLength": 1},
-            "window_end_frame": {"type": ["integer", "null"], "minimum": 1}
+            "window_start_basis": {
+              "type": "string",
+              "minLength": 1
+            },
+            "window_start_frame": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "window_end_basis": {
+              "type": "string",
+              "minLength": 1
+            },
+            "window_end_frame": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            }
           }
         },
         "event_ownership": {
           "type": "object",
-          "required": ["owned_event_refs", "owned_event_count"],
+          "required": [
+            "owned_event_refs",
+            "owned_event_count"
+          ],
           "additionalProperties": false,
           "properties": {
             "owned_event_refs": {
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["protocol", "capture_file", "frame_number"],
+                "required": [
+                  "protocol",
+                  "capture_file",
+                  "frame_number"
+                ],
                 "additionalProperties": false,
                 "properties": {
-                  "protocol": {"type": "string", "minLength": 1},
-                  "capture_file": {"type": "string"},
-                  "frame_number": {"type": ["integer", "null"], "minimum": 1}
+                  "protocol": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "capture_file": {
+                    "type": "string"
+                  },
+                  "frame_number": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1
+                  }
                 }
               }
             },
-            "owned_event_count": {"type": "integer", "minimum": 0},
-            "exclusive_within_analysis": {"type": "boolean"}
+            "owned_event_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "exclusive_within_analysis": {
+              "type": "boolean"
+            }
           }
         },
         "stages": {
           "type": "array",
-          "items": {"$ref": "#/$defs/stageRecord"}
+          "items": {
+            "$ref": "#/$defs/stageRecord"
+          }
         },
         "terminal_observation": {
           "type": "object",
-          "required": ["observation", "protocol_observations", "message_type", "frame_number", "timestamp", "evidence_level"],
+          "required": [
+            "observation",
+            "protocol_observations",
+            "message_type",
+            "frame_number",
+            "timestamp",
+            "evidence_level"
+          ],
           "additionalProperties": false,
           "properties": {
             "observation": {
@@ -252,21 +569,57 @@
             },
             "protocol_observations": {
               "type": "array",
-              "items": {"type": "string", "minLength": 1}
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             },
-            "message_type": {"type": ["string", "null"]},
-            "frame_number": {"type": ["integer", "null"], "minimum": 1},
-            "timestamp": {"type": ["string", "null"]},
-            "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]}
+            "message_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "frame_number": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "timestamp": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "evidence_level": {
+              "type": "string",
+              "enum": [
+                "OBSERVED",
+                "DERIVED"
+              ]
+            }
           }
         },
         "deviations": {
           "type": "array",
-          "items": {"$ref": "#/$defs/deviation"}
+          "items": {
+            "$ref": "#/$defs/deviation"
+          }
         },
         "earliest_observed_deviation": {
-          "type": ["object", "null"],
-          "required": ["type", "stage_id", "description", "evidence_level", "limitation"],
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "type",
+            "stage_id",
+            "description",
+            "evidence_level",
+            "limitation"
+          ],
           "additionalProperties": false,
           "properties": {
             "type": {
@@ -278,6 +631,7 @@
                 "DELIVERY_FAILURE_NOTIFICATION_OBSERVED",
                 "MISSING_EXPECTED_COUNTERPART",
                 "CORRELATION_AMBIGUITY",
+                "LIFECYCLE_AMBIGUITY",
                 "CORRELATION_CONFLICT",
                 "OUT_OF_ORDER_EVIDENCE",
                 "PARTIAL_CAPTURE",
@@ -286,79 +640,227 @@
                 "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"
               ]
             },
-            "stage_id": {"type": ["string", "null"]},
-            "description": {"type": "string", "minLength": 1},
-            "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
-            "limitation": {"type": "string", "minLength": 1}
+            "stage_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evidence_level": {
+              "type": "string",
+              "enum": [
+                "OBSERVED",
+                "DERIVED"
+              ]
+            },
+            "limitation": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "field_findings": {
           "type": "array",
-          "items": {"$ref": "#/$defs/fieldFinding"}
+          "items": {
+            "$ref": "#/$defs/fieldFinding"
+          }
         },
         "plane_bindings": {
           "type": "object",
-          "required": ["n1", "n2", "n3", "n4", "n11"],
+          "required": [
+            "n1",
+            "n2",
+            "n3",
+            "n4",
+            "n11"
+          ],
           "additionalProperties": false,
           "properties": {
-            "n1": {"type": ["object", "null"]},
-            "n2": {"type": ["object", "null"]},
-            "n3": {"type": ["object", "null"]},
-            "n4": {"type": ["object", "null"]},
-            "n11": {"type": ["object", "null"]}
+            "n1": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "n2": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "n3": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "n4": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "n11": {
+              "type": [
+                "object",
+                "null"
+              ]
+            }
           }
         },
         "pre_modification_context": {
           "type": "object",
-          "required": ["pdu_session_id"],
+          "required": [
+            "pdu_session_id"
+          ],
           "additionalProperties": true,
           "properties": {
-            "pdu_session_id": {"type": "integer", "minimum": 1, "maximum": 255},
-            "established_qfi_values": {"type": "array", "items": {"type": "integer"}},
-            "established_tunnel": {"type": ["object", "null"]},
-            "sm_context_ref": {"type": ["string", "null"]},
-            "pfcp_seid": {"type": ["integer", "null"]}
+            "pdu_session_id": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "established_qfi_values": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "established_tunnel": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "sm_context_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pfcp_seid": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
           }
         },
         "post_modification_observations": {
           "type": "object",
-          "required": ["traffic_observed"],
+          "required": [
+            "traffic_observed"
+          ],
           "additionalProperties": true,
           "properties": {
-            "traffic_observed": {"type": "boolean"},
-            "qfi_values": {"type": "array", "items": {"type": "integer"}},
-            "tunnel": {"type": ["object", "null"]},
-            "end_marker_observed": {"type": "boolean"},
-            "error_indication_observed": {"type": "boolean"}
+            "traffic_observed": {
+              "type": "boolean"
+            },
+            "qfi_values": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "tunnel": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "end_marker_observed": {
+              "type": "boolean"
+            },
+            "error_indication_observed": {
+              "type": "boolean"
+            }
           }
         },
         "unbound_evidence": {
           "type": "array",
-          "items": {"type": "object"}
+          "items": {
+            "type": "object"
+          }
         },
         "limitations": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
     "stageRecord": {
       "type": "object",
-      "required": ["stage_id", "stage_name", "status", "expected_evidence", "observed_evidence", "missing_evidence", "limitations"],
+      "required": [
+        "stage_id",
+        "stage_name",
+        "status",
+        "expected_evidence",
+        "observed_evidence",
+        "missing_evidence",
+        "limitations"
+      ],
       "additionalProperties": false,
       "properties": {
-        "stage_id": {"type": "string", "minLength": 1},
-        "stage_name": {"type": "string", "minLength": 1},
-        "status": {"type": "string", "enum": ["OBSERVED", "MISSING", "NOT_APPLICABLE", "PENDING", "NOT_OBSERVED"]},
-        "expected_evidence": {"type": "array", "items": {"type": "string"}},
-        "observed_evidence": {"type": "array", "items": {"type": "string"}},
-        "missing_evidence": {"type": "array", "items": {"type": "string"}},
-        "limitations": {"type": "array", "items": {"type": "string"}}
+        "stage_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stage_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "MISSING",
+            "NOT_APPLICABLE",
+            "PENDING",
+            "NOT_OBSERVED"
+          ]
+        },
+        "expected_evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "observed_evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing_evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "deviation": {
       "type": "object",
-      "required": ["type", "stage_id", "description", "evidence_level", "limitation"],
+      "required": [
+        "type",
+        "stage_id",
+        "description",
+        "evidence_level",
+        "limitation"
+      ],
       "additionalProperties": false,
       "properties": {
         "type": {
@@ -370,6 +872,7 @@
             "DELIVERY_FAILURE_NOTIFICATION_OBSERVED",
             "MISSING_EXPECTED_COUNTERPART",
             "CORRELATION_AMBIGUITY",
+            "LIFECYCLE_AMBIGUITY",
             "CORRELATION_CONFLICT",
             "OUT_OF_ORDER_EVIDENCE",
             "PARTIAL_CAPTURE",
@@ -378,25 +881,525 @@
             "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"
           ]
         },
-        "stage_id": {"type": ["string", "null"]},
-        "description": {"type": "string", "minLength": 1},
-        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
-        "limitation": {"type": "string", "minLength": 1}
+        "stage_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_level": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "DERIVED"
+          ]
+        },
+        "limitation": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "fieldFinding": {
       "type": "object",
-      "required": ["plane", "field_name", "observed_value", "frame_number", "evidence_level", "interpretation", "limitations"],
+      "required": [
+        "plane",
+        "field_name",
+        "observed_value",
+        "frame_number",
+        "evidence_level",
+        "interpretation",
+        "limitations"
+      ],
       "additionalProperties": false,
       "properties": {
-        "plane": {"type": "string", "enum": ["N1", "N2", "N3", "N4", "N11"]},
-        "field_name": {"type": "string", "minLength": 1},
+        "plane": {
+          "type": "string",
+          "enum": [
+            "N1",
+            "N2",
+            "N3",
+            "N4",
+            "N11"
+          ]
+        },
+        "field_name": {
+          "type": "string",
+          "minLength": 1
+        },
         "observed_value": {},
-        "frame_number": {"type": ["integer", "null"], "minimum": 1},
-        "capture_file": {"type": ["string", "null"], "minLength": 1},
-        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
-        "interpretation": {"type": "string", "minLength": 1},
-        "limitations": {"type": "array", "items": {"type": "string"}}
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "capture_file": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "evidence_level": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "DERIVED"
+          ]
+        },
+        "interpretation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "releaseAttempt": {
+      "type": "object",
+      "required": [
+        "attempt_id",
+        "trigger_type",
+        "procedure_transaction_identity",
+        "anchor_evidence",
+        "association_basis",
+        "association_strength",
+        "association_details",
+        "observation_window",
+        "event_ownership",
+        "stages",
+        "terminal_observation",
+        "deviations",
+        "earliest_observed_deviation",
+        "field_findings",
+        "plane_bindings",
+        "pre_release_context",
+        "post_release_observations",
+        "unbound_evidence",
+        "limitations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trigger_type": {
+          "type": "string",
+          "enum": [
+            "UE_REQUESTED",
+            "NETWORK_REQUESTED",
+            "UNKNOWN"
+          ]
+        },
+        "procedure_transaction_identity": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "association_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "association_strength": {
+          "type": "string",
+          "enum": [
+            "STRONG",
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "UNBOUND"
+          ]
+        },
+        "association_details": {
+          "type": "object",
+          "required": [
+            "association_model"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "association_model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "n1_anchor": {
+              "type": "object"
+            },
+            "control_window": {
+              "type": "object"
+            },
+            "cross_plane_binding": {
+              "type": "object"
+            }
+          }
+        },
+        "observation_window": {
+          "type": "object",
+          "required": [
+            "window_start_basis",
+            "window_start_frame",
+            "window_end_basis",
+            "window_end_frame"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "window_start_basis": {
+              "type": "string",
+              "minLength": 1
+            },
+            "window_start_frame": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "window_end_basis": {
+              "type": "string",
+              "minLength": 1
+            },
+            "window_end_frame": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            }
+          }
+        },
+        "event_ownership": {
+          "type": "object",
+          "required": [
+            "owned_event_refs",
+            "owned_event_count"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "owned_event_refs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "protocol",
+                  "capture_file",
+                  "frame_number"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "protocol": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "capture_file": {
+                    "type": "string"
+                  },
+                  "frame_number": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 1
+                  }
+                }
+              }
+            },
+            "owned_event_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "exclusive_within_analysis": {
+              "type": "boolean"
+            }
+          }
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stageRecord"
+          }
+        },
+        "terminal_observation": {
+          "type": "object",
+          "required": [
+            "observation",
+            "protocol_observations",
+            "message_type",
+            "frame_number",
+            "timestamp",
+            "evidence_level"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "observation": {
+              "type": "string",
+              "enum": [
+                "RELEASE_COMPLETE_OBSERVED",
+                "RELEASE_REJECT_OBSERVED",
+                "NO_N1_RELEASE_TERMINAL_OBSERVATION",
+                "PARTIAL_CAPTURE"
+              ]
+            },
+            "protocol_observations": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "message_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "frame_number": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "timestamp": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "evidence_level": {
+              "type": "string",
+              "enum": [
+                "OBSERVED",
+                "DERIVED"
+              ]
+            }
+          }
+        },
+        "deviations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deviation"
+          }
+        },
+        "earliest_observed_deviation": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "type",
+            "stage_id",
+            "description",
+            "evidence_level",
+            "limitation"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "PROTOCOL_REJECT_OBSERVED",
+                "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+                "RESOURCE_FAILED_ITEM_OBSERVED",
+                "DELIVERY_FAILURE_NOTIFICATION_OBSERVED",
+                "MISSING_EXPECTED_COUNTERPART",
+                "CORRELATION_AMBIGUITY",
+                "LIFECYCLE_AMBIGUITY",
+                "CORRELATION_CONFLICT",
+                "OUT_OF_ORDER_EVIDENCE",
+                "PARTIAL_CAPTURE",
+                "PROTECTED_OR_UNAVAILABLE_PAYLOAD",
+                "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
+                "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"
+              ]
+            },
+            "stage_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evidence_level": {
+              "type": "string",
+              "enum": [
+                "OBSERVED",
+                "DERIVED"
+              ]
+            },
+            "limitation": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "field_findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fieldFinding"
+          }
+        },
+        "plane_bindings": {
+          "type": "object",
+          "required": [
+            "n1",
+            "n2",
+            "n3",
+            "n4",
+            "n11"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "n1": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "n2": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "n3": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "n4": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "n11": {
+              "type": [
+                "object",
+                "null"
+              ]
+            }
+          }
+        },
+        "unbound_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "anchor_evidence": {
+          "type": "object",
+          "required": [
+            "message_type",
+            "frame_number"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "message_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "frame_number": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "timestamp": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "pre_release_context": {
+          "type": "object",
+          "required": [
+            "pdu_session_id"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "pdu_session_id": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "established_qfi_values": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "established_tunnel": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "sm_context_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pfcp_seid": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        },
+        "post_release_observations": {
+          "type": "object",
+          "required": [
+            "traffic_observed"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "traffic_observed": {
+              "type": "boolean"
+            },
+            "end_marker_observed": {
+              "type": "boolean"
+            },
+            "error_indication_observed": {
+              "type": "boolean"
+            },
+            "tunnel": {
+              "type": [
+                "object",
+                "null"
+              ]
+            }
+          }
+        }
       }
     }
   }

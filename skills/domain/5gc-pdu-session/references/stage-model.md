@@ -95,3 +95,26 @@ Each repeated modification attempt for an established PDU Session is evaluated a
 7. **`post_modification_observation`**:
    - Conditional observation of GTP-U G-PDUs on N3 within the attempt's bounded observation window. G-PDU attachment additionally requires tunnel identity: TEID plus compatible outer endpoint address against the attempt's signaled or established tunnel context.
    - Post-modification GTP-U is NOT a mandatory procedure counterpart: a valid modification can finish while no user packet is generated. When no matching packet is observed, the stage reports `NOT_OBSERVED` with the neutral observation "No matching post-modification N3 packet observed within the capture window.", empty `missing_evidence`, and limitations (traffic may have been idle; N3 may be outside the capture point; absence does not prove user-plane impairment). It is never reported as a missing required message, `MISSING_EXPECTED_COUNTERPART`, or user-plane failure.
+
+
+---
+
+## Release Procedure Stage Model
+
+Each repeated release attempt for an established PDU Session lifecycle generation is evaluated across seven bounded release stages. No stage is mandatory in every branch; the reviewed normative branch and the actual capture vantage points determine expected evidence.
+
+| Stage ID | Stage Name | Interface | Protocols | Expected Messages / Operations | Conditionality |
+| --- | --- | --- | --- | --- | --- |
+| `release_initiation` | Release Initiation | N1 | NAS-5GS | `PduSessionReleaseRequest`, `PduSessionReleaseCommand` | UE-requested branch starts with Release Request; network-requested branch starts with Release Command. A missing Release Request is never a deviation for the network-requested branch. |
+| `sm_context_release_control` | SM Context Release Control | N11 | 3GPP-SBI | `ReleaseSMContext`, `UpdateSMContext` | Branch-conditional: ReleaseSMContext is not expected in every release branch; UE-requested delivery toward the SMF may be represented by UpdateSMContext. |
+| `user_plane_teardown_control` | User Plane Teardown Control | N4 | PFCP | `SessionDeletionRequest`, `SessionDeletionResponse` | PFCP Cause = Request accepted is bounded `PFCP_DELETION_ACCEPTED_OBSERVED` evidence, never overall release success. |
+| `access_resource_release` | Access Resource Release | N2 | NGAP | `PDUSessionResourceReleaseCommand`, `PDUSessionResourceReleaseResponse` | Item/session scoped. The release response does not independently prove 5GSM release completion, PFCP deletion, or SM Context removal. |
+| `n1_n2_delivery` | N1/N2 Delivery | N11 | 3GPP-SBI | `N1N2MessageTransfer`, `N1N2Transfer Failure Notification` | Reusable Namf delivery semantics; HTTP 202 remains `PENDING`. |
+| `release_terminal` | Release Terminal | N1 | NAS-5GS | `PduSessionReleaseComplete`, `PduSessionReleaseReject` | `RELEASE_COMPLETE_OBSERVED` / `RELEASE_REJECT_OBSERVED` are bounded N1 terminal observations, never end-to-end verdicts. |
+| `post_release_observation` | Post-Release Observation | N3 | GTP-U | `G-PDU`, `End Marker`, `Error Indication` | Conditional observation within the attempt observation window. No matching packet is reported `NOT_OBSERVED`, never as release success. Missing End Marker is never a deviation. |
+
+### Release Trigger Vocabulary
+
+- `UE_REQUESTED`: reviewed N1 evidence that the UE initiated the release (`PduSessionReleaseRequest`).
+- `NETWORK_REQUESTED`: reviewed N1 evidence that the network initiated the command branch (`PduSessionReleaseCommand` without a prior Request).
+- `UNKNOWN`: the capture does not safely establish initiation direction; trigger direction is never inferred from timestamps.

@@ -1,0 +1,2 @@
+{"frame_number": 10, "timestamp": "2026-10-02T10:00:10.000000Z", "capture_file": "test.pcap", "message_type": "PduSessionReleaseRequest", "session_management": {"pdu_session_id": 1, "pti": 2}}
+{"frame_number": 11, "timestamp": "2026-10-02T10:00:11.000000Z", "capture_file": "test.pcap", "message_type": "PduSessionReleaseReject", "session_management": {"pdu_session_id": 1, "pti": 2}, "cause": {"code": 36, "name": "RegularDeactivation"}}

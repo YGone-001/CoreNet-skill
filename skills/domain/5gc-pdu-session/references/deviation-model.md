@@ -12,6 +12,7 @@ Procedure deviations categorize observed protocol signaling anomalies, unfulfill
 | `DELIVERY_FAILURE_NOTIFICATION_OBSERVED` | AMF Failure Notification callback observed on N11. | `Namf_Communication_N1N2Transfer Failure Notification` with Cause = `UE_NOT_RESPONDING`. |
 | `MISSING_EXPECTED_COUNTERPART` | Expected counterpart message not observed within capture window. | PFCP Session Modification Request observed without any matching Response before capture end. |
 | `CORRELATION_AMBIGUITY` | Multiple candidate instances match an observed event. | SBI transaction for PSI=10 observed while two concurrent UEs both establish PSI=10; concurrent modification requests without distinct PTIs. |
+| `LIFECYCLE_AMBIGUITY` | Reuse of the same UE context and PDU Session ID without an evidence-supported release boundary. | New `PduSessionEstablishmentRequest` observed after a Release Command without any `PduSessionReleaseComplete`; lifecycle generation cannot be proven and is never guessed. |
 | `CORRELATION_CONFLICT` | Conflicting values observed across safely associated planes. | NAS accepted PDU Address is `198.51.100.1` while associated PFCP session allocates `198.51.100.2`. |
 | `FIELD_CONFLICT` | Conflicting QoS, address, or identifier values observed across planes during modification. | NAS authorized QFI differs from PFCP provisioned QFI in a modification attempt. |
 | `OUT_OF_ORDER_EVIDENCE` | Observed message sequence violates normative causal ordering. | N1 Accept observed before N1 Request in capture. |
@@ -51,3 +52,9 @@ Within a safely formed procedure instance or modification attempt, the analysis 
    - Post-modification GTP-U is conditional observation, not a mandatory procedure counterpart: a valid modification can finish while the user plane stays idle.
    - When no matching packet exists within the attempt observation window, report stage status `NOT_OBSERVED` with empty `missing_evidence` and explicit limitations.
    - **DO NOT** report it as a missing required GTP-U message or emit `MISSING_EXPECTED_COUNTERPART` for idle user plane.
+4. **Post-Release N3 Observation**:
+   - Post-release G-PDU, End Marker, and Error Indication are conditional observations inside the release attempt observation window; none is universally mandatory.
+   - G-PDU observed after release-related evidence is reported neutrally; it is never labeled stale traffic, user-plane failure, or teardown failure (packets may be in flight, reordered, or belong to another safely distinguished lifecycle).
+   - No matching packet is reported `NOT_OBSERVED`; absence of traffic does not prove release success.
+   - Missing End Marker never produces `MISSING_EXPECTED_COUNTERPART`; an End Marker observation does not prove all old user-plane state was deleted.
+   - PFCP deletion acceptance, NGAP release responses, and ReleaseSMContext 2xx responses are bounded plane-local evidence and never overall release success verdicts.

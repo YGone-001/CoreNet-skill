@@ -2,10 +2,10 @@
 
 ## Purpose
 
-Analyze bounded 5GC PDU Session Establishment and Modification procedures and
-immediate post-establishment / post-modification N3 user-plane observation evidence
+Analyze bounded 5GC PDU Session Establishment, Modification, and Release procedures and
+immediate post-establishment / post-modification / post-release N3 user-plane observation evidence
 at the procedure level: which stages of the reviewed 3GPP TS 23.502 PDU Session
-Establishment and Modification procedures were directly observed, which expected
+Establishment, Modification, and Release procedures were directly observed, which expected
 counterpart evidence is missing, which protocol-defined reject or negative outcome
 was observed, which field finding supports each procedure-local deviation, which
 evidence planes can be safely associated, which evidence remains ambiguous or unbound,
@@ -45,6 +45,21 @@ implementation questions.
   5. `n1_n2_delivery` (N11 3GPP-SBI)
   6. `modification_completion` (N1 NAS-5GS)
   7. `post_modification_observation` (N3 GTP-U)
+- Repeated release attempt modeling (0..N release attempts per lifecycle generation)
+  with UE-requested, network-requested, and unknown triggers.
+- Evaluate the 7 bounded release stages per attempt:
+  1. `release_initiation` (N1 NAS-5GS)
+  2. `sm_context_release_control` (N11 3GPP-SBI)
+  3. `user_plane_teardown_control` (N4 PFCP)
+  4. `access_resource_release` (N2 NGAP)
+  5. `n1_n2_delivery` (N11 3GPP-SBI)
+  6. `release_terminal` (N1 NAS-5GS)
+  7. `post_release_observation` (N3 GTP-U)
+- Lifecycle generation split: the same UE context re-using the same numeric PDU
+  Session ID after an evidence-supported release boundary (PduSessionReleaseComplete
+  observed) forms a distinct lifecycle instance; reuse without a proven boundary
+  stays in one instance with a `LIFECYCLE_AMBIGUITY` deviation instead of an unsafe
+  merge or split.
 - Multi-plane evidence association across N1, N2, N3, N4, and N11 with explicit
   association strengths (`STRONG`, `SUPPORTED`, `AMBIGUOUS`, `UNBOUND`).
 - Multi-UE isolation: procedure instances are anchored by NGAP UE context and
@@ -83,8 +98,8 @@ implementation questions.
 - No success, failure, or root-cause verdicts: Accept is terminal protocol signaling,
   never application-plane success; negative cause is protocol evidence, never network
   function blame; missing GTP-U traffic is never reported as `USER_PLANE_FAILED`.
-- PDU Session Release lifecycle remains deferred in this version.
 - Handover, path switch, UPF relocation, multi-access, and EPS interworking remain deferred.
+- UE deregistration as a complete Domain procedure and implicit global UE-context teardown remain deferred.
 - No Open5GS, free5GC, or vendor source-code mappings.
 
 ## Inputs
@@ -144,7 +159,7 @@ Repository checkouts also run `scripts/validate-5gc-pdu-session.py`.
 ## References
 
 - `references/procedure-model.md`: TS 23.502 procedure model and partial ordering.
-- `references/stage-model.md`: 7 establishment stages and 7 modification stages.
+- `references/stage-model.md`: 7 establishment stages, 7 modification stages, and 7 release stages.
 - `references/association-model.md`: multi-plane binding rules, PTI scoping, and isolation.
 - `references/deviation-model.md`: procedure deviations and earliest deviation.
 - `references/field-findings.md`: field findings and conflict handling.

@@ -102,3 +102,26 @@ When modification-family control transactions (N11/PFCP/N2) are observed without
   1. Outer GTP-U destination/source IP matches the F-TEID IP address.
   2. GTP-U header TEID matches the F-TEID TEID.
 - **Isolation Rule**: TEID reuse across different IP endpoints prevents false cross-endpoint binding.
+
+
+---
+
+## Release Attempt Association
+
+Release attempts reuse the modification candidate model with release-specific anchors and planes.
+
+- **Attempt anchors**: N1 NAS release messages only. `PduSessionReleaseRequest` anchors a `UE_REQUESTED` attempt; `PduSessionReleaseCommand` anchors a `NETWORK_REQUESTED` attempt; a terminal observed without visible initiation forms a bounded late-capture `UNKNOWN` attempt anchored by the N1 terminal itself.
+- **Cross-plane pools**: SBI `ReleaseSMContext` (plus release-related `UpdateSMContext` not owned by a modification attempt), PFCP `SessionDeletion` transactions, and NGAP `PDUSessionResourceRelease` messages join attempts through protocol-local session continuity plus bounded control windows. Ordering never selects among several compatible attempts.
+- **Teardown evidence without an N1 anchor**: PFCP Session Deletion alone, NGAP PDU Session Resource Release alone, or ReleaseSMContext alone does not prove a UE-visible PDU Session Release attempt. Such events are preserved as session-level unbound release evidence; no attempt is invented to complete the lifecycle.
+- **Event ownership**: one release attempt owns its events exclusively under `(protocol, capture_file, frame_number)`; an event owned by a modification attempt is never re-owned by a release attempt.
+
+## Lifecycle Generation Model
+
+PDU Session ID is not a permanent globally unique identifier: after release, the same UE may re-use the same numeric PDU Session ID.
+
+- **Strong lifecycle boundary**: a `PduSessionReleaseComplete` observed for the lifecycle, followed later by a new `PduSessionEstablishmentRequest` for the same UE context and PDU Session ID, starts a new lifecycle generation. The later establishment is never merged into the released lifecycle.
+- **Release Reject is not a boundary**: after a `PduSessionReleaseReject` the same lifecycle remains active from the observed release procedure perspective; no generation is created.
+- **Weak teardown evidence is not a boundary**: PFCP deletion, NGAP resource release, ReleaseSMContext, or End Marker observations alone never split a lifecycle generation.
+- **Unproven boundary**: when a new establishment follows only weak or incomplete release evidence, the analysis keeps one instance, records a `LIFECYCLE_AMBIGUITY` deviation, and never silently merges or splits.
+- **Generation identity**: lifecycle generation identifiers (for example the `:g1` / `:g2` instance-id suffix and the `session_generation` metadata) are DERIVED analysis concepts, never standardized 3GPP fields. Instance IDs without a split remain unchanged.
+- **Tunnel and SEID reuse across generations**: TEID and SEID equality alone never bridges generations; association requires TEID plus compatible directed endpoint plus the correct lifecycle observation window.

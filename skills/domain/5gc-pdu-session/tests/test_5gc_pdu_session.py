@@ -168,6 +168,178 @@ class ModificationAssociationSafetyTests(unittest.TestCase):
             self.assertIn("duplicate/retransmission cause cannot be distinguished from this capture alone", serialized)
 
 
+class ReleaseLifecycleTests(unittest.TestCase):
+    """Behavioral release-lifecycle tests exercising the real analyzer."""
+
+    @staticmethod
+    def _owned_refs(attempt):
+        return [
+            (ref["protocol"], ref["capture_file"], ref["frame_number"])
+            for ref in attempt["event_ownership"]["owned_event_refs"]
+        ]
+
+    def test_ue_requested_release_bounded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("release-ue-requested", Path(directory))
+            att = analysis["instances"][0]["release_attempts"][0]
+            self.assertEqual(att["trigger_type"], "UE_REQUESTED")
+            self.assertEqual(att["terminal_observation"]["observation"], "RELEASE_COMPLETE_OBSERVED")
+            upt = next(s for s in att["stages"] if s["stage_id"] == "user_plane_teardown_control")
+            self.assertIn("PFCP_DELETION_ACCEPTED_OBSERVED", upt["observed_evidence"][0])
+            term = next(s for s in att["stages"] if s["stage_id"] == "release_terminal")
+            self.assertIn("does not independently prove", term["limitations"][0])
+            serialized = json.dumps(analysis)
+            self.assertNotIn("PDU_SESSION_RELEASE_SUCCESS", serialized)
+            self.assertNotIn("RELEASE_SUCCESS", serialized)
+
+    def test_release_reject_does_not_terminate_lifecycle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("release-ue-requested-reject", Path(directory))
+            self.assertEqual(len(analysis["instances"]), 1)
+            att = analysis["instances"][0]["release_attempts"][0]
+            self.assertEqual(att["terminal_observation"]["observation"], "RELEASE_REJECT_OBSERVED")
+            self.assertIn("PROTOCOL_REJECT_OBSERVED", [d["type"] for d in att["deviations"]])
+
+    def test_repeated_release_attempts_stay_separate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("release-repeated-attempts", Path(directory))
+            attempts = analysis["instances"][0]["release_attempts"]
+            self.assertEqual(len(attempts), 2)
+            self.assertEqual([a["procedure_transaction_identity"] for a in attempts], [4, 5])
+            self.assertEqual(attempts[0]["terminal_observation"]["observation"], "RELEASE_REJECT_OBSERVED")
+            self.assertEqual(attempts[1]["terminal_observation"]["observation"], "RELEASE_COMPLETE_OBSERVED")
+            all_refs = []
+            for att in attempts:
+                all_refs.extend(self._owned_refs(att))
+            self.assertEqual(len(all_refs), len(set(all_refs)))
+
+    def test_network_requested_release_no_false_missing_request(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("release-network-requested", Path(directory))
+            att = analysis["instances"][0]["release_attempts"][0]
+            self.assertEqual(att["trigger_type"], "NETWORK_REQUESTED")
+            init = next(s for s in att["stages"] if s["stage_id"] == "release_initiation")
+            self.assertEqual(init["status"], "OBSERVED")
+            self.assertEqual(init["missing_evidence"], [])
+            n2 = next(s for s in att["stages"] if s["stage_id"] == "access_resource_release")
+            self.assertEqual(n2["status"], "OBSERVED")
+
+    def test_lifecycle_generation_split_on_release_complete(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("release-psi-reuse-after-complete", Path(directory))
+            instances = analysis["instances"]
+            self.assertEqual(len(instances), 2)
+            self.assertEqual([i.get("session_generation") for i in instances], [1, 2])
+            self.assertTrue(instances[0]["instance_id"].endswith(":g1"))
+            self.assertTrue(instances[1]["instance_id"].endswith(":g2"))
+            self.assertEqual(instances[1].get("reuse_status"), "REESTABLISHED_AFTER_RELEASE_COMPLETE")
+            # No event reference may be owned by both generations.
+            g1_refs = {
+                (r["protocol"], r["frame_number"])
+                for att in instances[0]["release_attempts"] + instances[0]["modification_attempts"]
+                for r in att["event_ownership"]["owned_event_refs"]
+            }
+            g2_refs = {
+                (r["protocol"], r["frame_number"])
+                for att in instances[1]["release_attempts"] + instances[1]["modification_attempts"]
+                for r in att["event_ownership"]["owned_event_refs"]
+            }
+            self.assertEqual(g1_refs & g2_refs, set())
+            # Generation 1 carries the release attempt; generation 2 the new establishment.
+            self.assertEqual(len(instances[0]["release_attempts"]), 1)
+            self.assertEqual(instances[1]["release_attempts"], [])
+            self.assertEqual(instances[1]["stages"][0]["stage_id"], "session_request")
+
+    def test_incomplete_release_boundary_stays_ambiguous(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("release-psi-reuse-incomplete-boundary", Path(directory))
+            self.assertEqual(len(analysis["instances"]), 1)
+            inst = analysis["instances"][0]
+            self.assertEqual(inst.get("reuse_status"), "LIFECYCLE_AMBIGUOUS_UNPROVEN_BOUNDARY")
+            self.assertIn("LIFECYCLE_AMBIGUITY", [d["type"] for d in inst["deviations"]])
+
+    def test_no_anchor_release_evidence_stays_unbound(self):
+        for scenario in ("release-n11-release-smcontext-no-anchor", "release-pfcp-deletion-no-anchor"):
+            with self.subTest(scenario=scenario):
+                with tempfile.TemporaryDirectory() as directory:
+                    analysis, _ = run_scenario(scenario, Path(directory))
+                    inst = analysis["instances"][0]
+                    self.assertEqual(inst["release_attempts"], [])
+                    self.assertTrue(inst["unbound_evidence"])
+                    self.assertTrue(all(r["association_strength"] == "UNBOUND" for r in inst["unbound_evidence"]))
+
+    def test_post_release_n3_is_conditional_and_neutral(self):
+        cases = {
+            "release-end-marker-observed": "OBSERVED",
+            "release-gtpu-after-complete": "OBSERVED",
+            "release-error-indication": "OBSERVED",
+            "release-no-gtpu-after-complete": "NOT_OBSERVED",
+            "release-teid-reuse-endpoint": "NOT_OBSERVED",
+        }
+        for scenario, expected_status in cases.items():
+            with self.subTest(scenario=scenario):
+                with tempfile.TemporaryDirectory() as directory:
+                    analysis, _ = run_scenario(scenario, Path(directory))
+                    att = analysis["instances"][0]["release_attempts"][0]
+                    pro = next(s for s in att["stages"] if s["stage_id"] == "post_release_observation")
+                    self.assertEqual(pro["status"], expected_status)
+                    pmo_deviations = [d for d in att["deviations"] if d.get("stage_id") == "post_release_observation"]
+                    self.assertEqual(pmo_deviations, [])
+                    serialized = json.dumps(analysis)
+                    self.assertNotIn("STALE_TRAFFIC", serialized)
+                    self.assertNotIn("TEARDOWN_FAILURE", serialized)
+                    self.assertNotIn("RELEASE_SUCCESS", serialized)
+
+    def test_release_event_ownership_exclusive_across_fixtures(self):
+        for scenario in ("release-ue-requested", "release-repeated-attempts", "release-ngap-resource-release",
+                         "release-modification-before-release", "release-interleaved-two-ues"):
+            with self.subTest(scenario=scenario):
+                with tempfile.TemporaryDirectory() as directory:
+                    analysis, _ = run_scenario(scenario, Path(directory))
+                    for inst in analysis["instances"]:
+                        all_refs = []
+                        for att in inst["release_attempts"]:
+                            all_refs.extend(self._owned_refs(att))
+                        self.assertEqual(len(all_refs), len(set(all_refs)), scenario)
+
+    def test_pfcp_deletion_bounded_outcomes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("release-pfcp-deletion-negative-cause", Path(directory))
+            att = analysis["instances"][0]["release_attempts"][0]
+            self.assertIn("PROTOCOL_NEGATIVE_OUTCOME_OBSERVED", [d["type"] for d in att["deviations"]])
+            serialized = json.dumps(analysis)
+            self.assertNotIn("UPF_FAILURE", serialized)
+
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("release-pfcp-deletion-no-response", Path(directory))
+            att = analysis["instances"][0]["release_attempts"][0]
+            upt = next(s for s in att["stages"] if s["stage_id"] == "user_plane_teardown_control")
+            self.assertIn("not observed within the available capture window", upt["missing_evidence"][0])
+
+    def test_end_marker_absence_is_not_a_deviation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("release-no-end-marker", Path(directory))
+            att = analysis["instances"][0]["release_attempts"][0]
+            types = [d["type"] for d in att["deviations"]]
+            self.assertNotIn("MISSING_EXPECTED_COUNTERPART", types)
+
+    def test_delivery_failure_makes_missing_terminal_branch_aware(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("release-namf-failure-notification", Path(directory))
+            att = analysis["instances"][0]["release_attempts"][0]
+            term_devs = [d for d in att["deviations"] if d.get("stage_id") == "release_terminal"]
+            self.assertTrue(term_devs)
+            self.assertIn("delivery failure", term_devs[0]["description"])
+
+    def test_release_smcontext_204_is_not_release_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("release-n11-release-smcontext-204", Path(directory))
+            att = analysis["instances"][0]["release_attempts"][0]
+            s = next(s for s in att["stages"] if s["stage_id"] == "sm_context_release_control")
+            self.assertEqual(s["status"], "OBSERVED")
+            self.assertIn("does not prove PDU Session release completed end-to-end", s["limitations"][0])
+
+
 class ScenarioExpectedTests(unittest.TestCase):
     """Every committed scenario reproduces its committed expected output."""
 

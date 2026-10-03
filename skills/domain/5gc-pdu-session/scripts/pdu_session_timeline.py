@@ -38,10 +38,12 @@ def render_text(analysis: dict[str, object]) -> str:
     for inst in analysis.get("instances", []):
         ctx = inst.get("ue_context", {})
         term = inst.get("terminal_observation", {})
+        generation = inst.get("session_generation")
+        gen_suffix = f", Generation={generation}" if generation is not None else ""
         lines.append(
             f"Instance: {inst.get('instance_id')} [PSI={inst.get('pdu_session_id')}, "
             f"RAN={ctx.get('ran_ue_ngap_id')}, AMF={ctx.get('amf_ue_ngap_id')}, "
-            f"Assoc={inst.get('association_strength')}] -> Terminal: {term.get('observation')}"
+            f"Assoc={inst.get('association_strength')}{gen_suffix}] -> Terminal: {term.get('observation')}"
         )
         lines.append("  Stages:")
         for stage in inst.get("stages", []):
@@ -91,6 +93,36 @@ def render_text(analysis: dict[str, object]) -> str:
                     lines.append("      Field Findings:")
                     for f in att["field_findings"]:
                         lines.append(f"        * [{f.get('plane')}] {f.get('field_name')} = {f.get('observed_value')}: {f.get('interpretation')}")
+        if inst.get("release_attempts"):
+            lines.append("  Release Attempts:")
+            for att in inst["release_attempts"]:
+                att_id = att.get("attempt_id")
+                trig = att.get("trigger_type")
+                pti_val = att.get("procedure_transaction_identity")
+                assoc = att.get("association_strength")
+                term_att = att.get("terminal_observation", {})
+                lines.append(
+                    f"    - Attempt {att_id} [Trigger={trig}, PTI={pti_val}, Assoc={assoc}] "
+                    f"-> Terminal: {term_att.get('observation')}"
+                )
+                lines.append("      Stages:")
+                for st in att.get("stages", []):
+                    st_line = f"        * {st.get('stage_id')} [{st.get('status')}]: "
+                    if st.get("observed_evidence"):
+                        st_line += "; ".join(st["observed_evidence"])
+                    elif st.get("missing_evidence"):
+                        st_line += "; ".join(st["missing_evidence"])
+                    else:
+                        st_line += "no evidence recorded"
+                    lines.append(st_line)
+                if att.get("deviations"):
+                    lines.append("      Deviations:")
+                    for dev in att["deviations"]:
+                        lines.append(f"        * {dev.get('type')} ({dev.get('stage_id')}): {dev.get('description')}")
+                if att.get("field_findings"):
+                    lines.append("      Field Findings:")
+                    for f in att["field_findings"]:
+                        lines.append(f"        * [{f.get('plane')}] {f.get('field_name')} = {f.get('observed_value')}: {f.get('interpretation')}")
 
     unbound = analysis.get("unbound_evidence", {})
     if isinstance(unbound, dict):
@@ -108,6 +140,8 @@ def render_json(analysis: dict[str, object]) -> str:
     for inst in analysis.get("instances", []):
         timeline_instances.append({
             "instance_id": inst.get("instance_id"),
+            "session_generation": inst.get("session_generation"),
+            "reuse_status": inst.get("reuse_status"),
             "pdu_session_id": inst.get("pdu_session_id"),
             "ue_context": inst.get("ue_context"),
             "association_strength": inst.get("association_strength"),
@@ -117,6 +151,7 @@ def render_json(analysis: dict[str, object]) -> str:
             "earliest_observed_deviation": inst.get("earliest_observed_deviation"),
             "plane_bindings": inst.get("plane_bindings"),
             "modification_attempts": inst.get("modification_attempts", []),
+            "release_attempts": inst.get("release_attempts", []),
         })
 
     return json.dumps({

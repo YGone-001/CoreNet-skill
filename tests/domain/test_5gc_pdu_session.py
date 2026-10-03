@@ -170,8 +170,8 @@ class PduSessionValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/domain/5gc-pdu-session/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.2.0", "version: 0.1.0"), encoding="utf-8")
-            self.assert_error(root, "version must be 0.2.0")
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.0", "version: 0.2.0"), encoding="utf-8")
+            self.assert_error(root, "version must be 0.3.0")
 
     def test_static_modification_object_instead_of_array_detected(self):
         temporary, root = self.fixture()
@@ -350,11 +350,12 @@ class PduSessionValidatorTests(unittest.TestCase):
         self.assertEqual(stage["status"], "MISSING")
 
     def test_release_lifecycle_detected_if_added(self):
+        # Release analysis lives inside 5gc-pdu-session v0.3.0; a separate
+        # Release Skill package remains forbidden.
         temporary, root = self.fixture()
         with temporary:
-            manifest = root / "skills/domain/5gc-pdu-session/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8") + "\nstages:\n  - pdu_session_release\n", encoding="utf-8")
-            self.assert_error(root, "Release Domain remains excluded")
+            (root / "skills/domain/pdu-session-release").mkdir(parents=True)
+            self.assert_error(root, "separate Release Skill is forbidden")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
 name: 5gc-pdu-session
-version: 0.2.0
+version: 0.3.0
 category: domain
 description: >
-  Bounded 5GC PDU Session Establishment and Modification procedure-level analysis composing
+  Bounded 5GC PDU Session Establishment, Modification, and Release procedure-level analysis composing
   N1 (NAS-5GS), N2 (NGAP), N3 (GTP-U), N4 (PFCP), and N11 (SBI-HTTP2) evidence:
   instance formation anchored by NGAP UE-context and PDU Session ID, partial-order
   stage evaluation, repeated modification attempt modeling, protocol reject and
@@ -16,6 +16,9 @@ scope:
     - evaluation of bounded establishment stages: SESSION_REQUEST, SM_CONTEXT_CONTROL, USER_PLANE_CONTROL, ACCESS_RESOURCE_CONTROL, N1_N2_DELIVERY, SESSION_DECISION, USER_PLANE_OBSERVATION
     - evaluation of bounded modification stages: MODIFICATION_INITIATION, SM_CONTEXT_UPDATE, USER_PLANE_CONTROL_UPDATE, ACCESS_RESOURCE_UPDATE, N1_N2_DELIVERY, MODIFICATION_COMPLETION, POST_MODIFICATION_OBSERVATION
     - repeated modification attempt modeling (0..N attempts per established session) with UE-requested and network-requested triggers
+    - repeated release attempt modeling (0..N release attempts per lifecycle) with UE-requested, network-requested, and unknown triggers
+    - bounded release stages: RELEASE_INITIATION, SM_CONTEXT_RELEASE_CONTROL, USER_PLANE_TEARDOWN_CONTROL, ACCESS_RESOURCE_RELEASE, N1_N2_DELIVERY, RELEASE_TERMINAL, POST_RELEASE_OBSERVATION
+    - lifecycle generation split on PDU Session ID reuse after an evidence-supported release boundary, with LIFECYCLE_AMBIGUITY preservation otherwise
     - multi-plane evidence association across N1, N2, N3, N4, and N11
     - protocol-defined reject, negative cause, and pending recognition
     - multi-UE isolation and ambiguous/unbound evidence preservation
@@ -109,6 +112,45 @@ testing:
     - examples/inputs/pfcp-rule-remove
     - examples/inputs/pfcp-rule-update
     - examples/inputs/protected-nas-inner-unavailable-modify
+    - examples/inputs/release-command-retransmission
+    - examples/inputs/release-end-marker-observed
+    - examples/inputs/release-error-indication
+    - examples/inputs/release-gtpu-after-complete
+    - examples/inputs/release-interleaved-two-ues
+    - examples/inputs/release-late-capture
+    - examples/inputs/release-modification-before-release
+    - examples/inputs/release-n11-release-smcontext-204
+    - examples/inputs/release-n11-release-smcontext-error
+    - examples/inputs/release-n11-release-smcontext-no-anchor
+    - examples/inputs/release-n11-update-context
+    - examples/inputs/release-namf-failure-notification
+    - examples/inputs/release-namf-transfer-200
+    - examples/inputs/release-namf-transfer-202
+    - examples/inputs/release-network-requested
+    - examples/inputs/release-new-generation-modification
+    - examples/inputs/release-ngap-multi-psi
+    - examples/inputs/release-ngap-resource-release
+    - examples/inputs/release-ngap-target-plus-unrelated
+    - examples/inputs/release-no-end-marker
+    - examples/inputs/release-no-gtpu-after-complete
+    - examples/inputs/release-out-of-order-input
+    - examples/inputs/release-partial-capture-multi-plane
+    - examples/inputs/release-pfcp-deletion-accepted
+    - examples/inputs/release-pfcp-deletion-negative-cause
+    - examples/inputs/release-pfcp-deletion-no-anchor
+    - examples/inputs/release-pfcp-deletion-no-response
+    - examples/inputs/release-protected-nas
+    - examples/inputs/release-psi-reuse-after-complete
+    - examples/inputs/release-psi-reuse-incomplete-boundary
+    - examples/inputs/release-request-retransmission
+    - examples/inputs/release-repeated-attempts
+    - examples/inputs/release-same-psi-two-ues
+    - examples/inputs/release-same-pti-two-ues
+    - examples/inputs/release-teid-reuse-endpoint
+    - examples/inputs/release-teid-reuse-generation
+    - examples/inputs/release-truncated-capture
+    - examples/inputs/release-ue-requested
+    - examples/inputs/release-ue-requested-reject
     - examples/inputs/qfi-cross-plane-conflict
     - examples/inputs/qfi-updated-qer
     - examples/inputs/release-events-after-modification
@@ -196,6 +238,84 @@ testing:
     - examples/expected/pfcp-rule-update-stages.jsonl
     - examples/expected/protected-nas-inner-unavailable-modify-analysis.json
     - examples/expected/protected-nas-inner-unavailable-modify-stages.jsonl
+    - examples/expected/release-command-retransmission-analysis.json
+    - examples/expected/release-command-retransmission-stages.jsonl
+    - examples/expected/release-end-marker-observed-analysis.json
+    - examples/expected/release-end-marker-observed-stages.jsonl
+    - examples/expected/release-error-indication-analysis.json
+    - examples/expected/release-error-indication-stages.jsonl
+    - examples/expected/release-gtpu-after-complete-analysis.json
+    - examples/expected/release-gtpu-after-complete-stages.jsonl
+    - examples/expected/release-interleaved-two-ues-analysis.json
+    - examples/expected/release-interleaved-two-ues-stages.jsonl
+    - examples/expected/release-late-capture-analysis.json
+    - examples/expected/release-late-capture-stages.jsonl
+    - examples/expected/release-modification-before-release-analysis.json
+    - examples/expected/release-modification-before-release-stages.jsonl
+    - examples/expected/release-n11-release-smcontext-204-analysis.json
+    - examples/expected/release-n11-release-smcontext-204-stages.jsonl
+    - examples/expected/release-n11-release-smcontext-error-analysis.json
+    - examples/expected/release-n11-release-smcontext-error-stages.jsonl
+    - examples/expected/release-n11-release-smcontext-no-anchor-analysis.json
+    - examples/expected/release-n11-release-smcontext-no-anchor-stages.jsonl
+    - examples/expected/release-n11-update-context-analysis.json
+    - examples/expected/release-n11-update-context-stages.jsonl
+    - examples/expected/release-namf-failure-notification-analysis.json
+    - examples/expected/release-namf-failure-notification-stages.jsonl
+    - examples/expected/release-namf-transfer-200-analysis.json
+    - examples/expected/release-namf-transfer-200-stages.jsonl
+    - examples/expected/release-namf-transfer-202-analysis.json
+    - examples/expected/release-namf-transfer-202-stages.jsonl
+    - examples/expected/release-network-requested-analysis.json
+    - examples/expected/release-network-requested-stages.jsonl
+    - examples/expected/release-new-generation-modification-analysis.json
+    - examples/expected/release-new-generation-modification-stages.jsonl
+    - examples/expected/release-ngap-multi-psi-analysis.json
+    - examples/expected/release-ngap-multi-psi-stages.jsonl
+    - examples/expected/release-ngap-resource-release-analysis.json
+    - examples/expected/release-ngap-resource-release-stages.jsonl
+    - examples/expected/release-ngap-target-plus-unrelated-analysis.json
+    - examples/expected/release-ngap-target-plus-unrelated-stages.jsonl
+    - examples/expected/release-no-end-marker-analysis.json
+    - examples/expected/release-no-end-marker-stages.jsonl
+    - examples/expected/release-no-gtpu-after-complete-analysis.json
+    - examples/expected/release-no-gtpu-after-complete-stages.jsonl
+    - examples/expected/release-out-of-order-input-analysis.json
+    - examples/expected/release-out-of-order-input-stages.jsonl
+    - examples/expected/release-partial-capture-multi-plane-analysis.json
+    - examples/expected/release-partial-capture-multi-plane-stages.jsonl
+    - examples/expected/release-pfcp-deletion-accepted-analysis.json
+    - examples/expected/release-pfcp-deletion-accepted-stages.jsonl
+    - examples/expected/release-pfcp-deletion-negative-cause-analysis.json
+    - examples/expected/release-pfcp-deletion-negative-cause-stages.jsonl
+    - examples/expected/release-pfcp-deletion-no-anchor-analysis.json
+    - examples/expected/release-pfcp-deletion-no-anchor-stages.jsonl
+    - examples/expected/release-pfcp-deletion-no-response-analysis.json
+    - examples/expected/release-pfcp-deletion-no-response-stages.jsonl
+    - examples/expected/release-protected-nas-analysis.json
+    - examples/expected/release-protected-nas-stages.jsonl
+    - examples/expected/release-psi-reuse-after-complete-analysis.json
+    - examples/expected/release-psi-reuse-after-complete-stages.jsonl
+    - examples/expected/release-psi-reuse-incomplete-boundary-analysis.json
+    - examples/expected/release-psi-reuse-incomplete-boundary-stages.jsonl
+    - examples/expected/release-request-retransmission-analysis.json
+    - examples/expected/release-request-retransmission-stages.jsonl
+    - examples/expected/release-repeated-attempts-analysis.json
+    - examples/expected/release-repeated-attempts-stages.jsonl
+    - examples/expected/release-same-psi-two-ues-analysis.json
+    - examples/expected/release-same-psi-two-ues-stages.jsonl
+    - examples/expected/release-same-pti-two-ues-analysis.json
+    - examples/expected/release-same-pti-two-ues-stages.jsonl
+    - examples/expected/release-teid-reuse-endpoint-analysis.json
+    - examples/expected/release-teid-reuse-endpoint-stages.jsonl
+    - examples/expected/release-teid-reuse-generation-analysis.json
+    - examples/expected/release-teid-reuse-generation-stages.jsonl
+    - examples/expected/release-truncated-capture-analysis.json
+    - examples/expected/release-truncated-capture-stages.jsonl
+    - examples/expected/release-ue-requested-analysis.json
+    - examples/expected/release-ue-requested-stages.jsonl
+    - examples/expected/release-ue-requested-reject-analysis.json
+    - examples/expected/release-ue-requested-reject-stages.jsonl
     - examples/expected/qfi-cross-plane-conflict-analysis.json
     - examples/expected/qfi-cross-plane-conflict-stages.jsonl
     - examples/expected/qfi-updated-qer-analysis.json

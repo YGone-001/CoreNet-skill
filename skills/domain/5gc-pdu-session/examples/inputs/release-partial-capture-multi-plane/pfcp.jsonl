@@ -1,0 +1,1 @@
+{"frame_number": 4, "timestamp": "2026-10-02T10:00:04.000000Z", "capture_file": "test.pcap", "header": {"message_type": "SessionDeletionRequest", "seid": 1001, "sequence_number": 2}}

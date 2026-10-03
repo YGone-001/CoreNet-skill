@@ -156,8 +156,7 @@
       "instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
       "limitations": [
         "Bounded to observed signaling window in capture artifact",
-        "No source code or network function internal execution state analyzed",
-        "PDU session release signaling observed but release procedure analysis is deferred in this version"
+        "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [
         {
@@ -202,8 +201,7 @@
           "field_findings": [],
           "limitations": [
             "Bounded to observed modification signaling in capture window",
-            "No source code or network function internal execution state analyzed",
-            "PDU session release signaling observed but release procedure analysis is deferred in this version"
+            "No source code or network function internal execution state analyzed"
           ],
           "observation_window": {
             "window_end_basis": "capture_window_end",
@@ -423,6 +421,277 @@
           "up_fseid": null
         }
       },
+      "release_attempts": [
+        {
+          "anchor_evidence": {
+            "frame_number": 20,
+            "message_type": "PduSessionReleaseRequest",
+            "timestamp": "2026-10-02T10:00:20.000000Z"
+          },
+          "association_basis": "ue_context_pdu_session_id_pti",
+          "association_details": {
+            "association_model": "candidate_set_with_control_windows",
+            "control_window": {
+              "basis": "bounded_by_observed_attempt_terminal_else_open_until_capture_end",
+              "end_frame": null,
+              "start_frame": 8
+            },
+            "cross_plane_binding": {
+              "n11_sm_context_release_bound": false,
+              "n2_resource_release_bound": false,
+              "n4_session_deletion_bound": true
+            },
+            "n1_anchor": {
+              "frame_number": 20,
+              "message_type": "PduSessionReleaseRequest"
+            }
+          },
+          "association_strength": "STRONG",
+          "attempt_id": "rel-1",
+          "deviations": [
+            {
+              "description": "PFCP Session Deletion Request at frame 21 missing expected Response",
+              "evidence_level": "DERIVED",
+              "limitation": "Capture window ended before PFCP response arrived",
+              "stage_id": "user_plane_teardown_control",
+              "type": "MISSING_EXPECTED_COUNTERPART"
+            },
+            {
+              "description": "Release initiated at frame 20 but no terminal NAS release response observed within capture window",
+              "evidence_level": "DERIVED",
+              "limitation": "Capture window truncated before release completion",
+              "stage_id": "release_terminal",
+              "type": "MISSING_EXPECTED_COUNTERPART"
+            }
+          ],
+          "earliest_observed_deviation": {
+            "description": "PFCP Session Deletion Request at frame 21 missing expected Response",
+            "evidence_level": "DERIVED",
+            "limitation": "Capture window ended before PFCP response arrived",
+            "stage_id": "user_plane_teardown_control",
+            "type": "MISSING_EXPECTED_COUNTERPART"
+          },
+          "event_ownership": {
+            "exclusive_within_analysis": true,
+            "owned_event_count": 2,
+            "owned_event_refs": [
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 20,
+                "protocol": "NAS-5GS"
+              },
+              {
+                "capture_file": "test.pcap",
+                "frame_number": 21,
+                "protocol": "PFCP"
+              }
+            ]
+          },
+          "field_findings": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "release_message",
+              "frame_number": 20,
+              "interpretation": "PduSessionReleaseRequest observed on N1",
+              "limitations": [],
+              "observed_value": {
+                "message_type": "PduSessionReleaseRequest",
+                "pti": 4
+              },
+              "plane": "N1"
+            },
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": "pfcp_deletion",
+              "frame_number": 21,
+              "interpretation": "PFCP Session Deletion transaction evidence (SEID endpoint/session scoped)",
+              "limitations": [],
+              "observed_value": {
+                "message_type": "SessionDeletionRequest",
+                "seid": 1001,
+                "sequence_number": 3
+              },
+              "plane": "N4"
+            }
+          ],
+          "limitations": [
+            "Bounded to observed release signaling in capture window",
+            "No source code or network function internal execution state analyzed"
+          ],
+          "observation_window": {
+            "window_end_basis": "capture_window_end",
+            "window_end_frame": 21,
+            "window_start_basis": "latest_safely_bound_release_control_or_terminal_event",
+            "window_start_frame": 21
+          },
+          "plane_bindings": {
+            "n1": {
+              "basis": "ue_context_pdu_session_id_pti",
+              "event_count": 1,
+              "message_types": [
+                "PduSessionReleaseRequest"
+              ],
+              "strength": "STRONG"
+            },
+            "n11": null,
+            "n2": null,
+            "n3": null,
+            "n4": {
+              "basis": "pfcp_session_seid_continuity",
+              "event_count": 1,
+              "message_types": [
+                "SessionDeletionRequest"
+              ],
+              "strength": "SUPPORTED"
+            }
+          },
+          "post_release_observations": {
+            "end_marker_observed": false,
+            "error_indication_observed": false,
+            "traffic_observed": false,
+            "tunnel": null
+          },
+          "pre_release_context": {
+            "established_qfi_values": [
+              1
+            ],
+            "established_tunnel": {
+              "ip_address": "192.0.2.10",
+              "teid": 5001
+            },
+            "pdu_session_id": 1,
+            "pfcp_seid": 1001,
+            "sm_context_ref": null
+          },
+          "procedure_transaction_identity": 4,
+          "stages": [
+            {
+              "expected_evidence": [
+                "NAS-5GS PduSessionReleaseRequest",
+                "NAS-5GS PduSessionReleaseCommand"
+              ],
+              "limitations": [],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "PduSessionReleaseRequest observed at frame 20 (PTI=4)"
+              ],
+              "stage_id": "release_initiation",
+              "stage_name": "Release Initiation",
+              "status": "OBSERVED"
+            },
+            {
+              "expected_evidence": [
+                "3GPP-SBI ReleaseSMContext",
+                "3GPP-SBI UpdateSMContext"
+              ],
+              "limitations": [
+                "ReleaseSMContext is branch-conditional and not expected in every release branch; SBI signaling may also be absent from this vantage point"
+              ],
+              "missing_evidence": [
+                "N11 release-related SM Context control not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "sm_context_release_control",
+              "stage_name": "SM Context Release Control",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "PFCP SessionDeletionResponse"
+              ],
+              "limitations": [
+                "Capture window ended before PFCP response arrived or response lost in transit"
+              ],
+              "missing_evidence": [
+                "PFCP Session Deletion Response not observed within the available capture window"
+              ],
+              "observed_evidence": [
+                "PFCP Session Deletion Request observed at frame 21"
+              ],
+              "stage_id": "user_plane_teardown_control",
+              "stage_name": "User Plane Teardown Control",
+              "status": "OBSERVED"
+            },
+            {
+              "expected_evidence": [
+                "NGAP PDUSessionResourceReleaseResponse"
+              ],
+              "limitations": [
+                "N2 resource release is branch-conditional and may not be captured at this vantage point"
+              ],
+              "missing_evidence": [
+                "NGAP PDU Session Resource Release signaling not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "access_resource_release",
+              "stage_name": "Access Resource Release",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "3GPP-SBI N1N2MessageTransfer"
+              ],
+              "limitations": [
+                "N1/N2 transfer service operation not utilized in this release branch"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [],
+              "stage_id": "n1_n2_delivery",
+              "stage_name": "N1/N2 Delivery",
+              "status": "NOT_APPLICABLE"
+            },
+            {
+              "expected_evidence": [
+                "NAS-5GS PduSessionReleaseComplete",
+                "NAS-5GS PduSessionReleaseReject"
+              ],
+              "limitations": [
+                "Capture ended before release completion or terminal NAS frame dropped"
+              ],
+              "missing_evidence": [
+                "Terminal NAS release response (Complete or Reject) not observed within capture window"
+              ],
+              "observed_evidence": [],
+              "stage_id": "release_terminal",
+              "stage_name": "Release Terminal",
+              "status": "MISSING"
+            },
+            {
+              "expected_evidence": [
+                "GTP-U G-PDU",
+                "GTP-U End Marker",
+                "GTP-U Error Indication"
+              ],
+              "limitations": [
+                "Traffic may have been idle during the observation window",
+                "N3 may not be visible at the capture vantage point",
+                "Absence of post-release traffic does not prove release success or teardown correctness"
+              ],
+              "missing_evidence": [],
+              "observed_evidence": [
+                "No matching post-release N3 packet observed within the capture window."
+              ],
+              "stage_id": "post_release_observation",
+              "stage_name": "Post-Release Observation",
+              "status": "NOT_OBSERVED"
+            }
+          ],
+          "terminal_observation": {
+            "evidence_level": "DERIVED",
+            "frame_number": null,
+            "message_type": null,
+            "observation": "NO_N1_RELEASE_TERMINAL_OBSERVATION",
+            "protocol_observations": [
+              "No terminal N1 release response observed within capture window"
+            ],
+            "timestamp": null
+          },
+          "trigger_type": "UE_REQUESTED",
+          "unbound_evidence": []
+        }
+      ],
       "stages": [
         {
           "expected_evidence": [
@@ -544,7 +813,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.2.0",
+  "procedure_version": "0.3.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

@@ -56,7 +56,7 @@ Each modification attempt is modeled as an independent element in `modification_
 - **Branch Conditionality**: In a network-requested modification, the absence of a UE Modification Request is normal branch behavior and is never flagged as missing evidence or a deviation.
 - **Transaction Scoping**: NAS `procedure_transaction_identity` (PTI) is scoped strictly per UE context and PDU Session ID. Two distinct UEs utilizing identical PTI values remain completely isolated.
 - **Continuity**: Modification attempts require continuity with the established session context: the established PFCP SEID, the SM Context URI, and the PDU Session ID.
-- **Scope Limits**: Modification analysis covers QoS flow updates, F-TEID tunnel updates, and session parameter changes. PDU Session Release lifecycle, handover, and UPF relocation remain explicitly deferred.
+- **Scope Limits**: Modification analysis covers QoS flow updates, F-TEID tunnel updates, and session parameter changes. Release analysis covers UE-requested and network-requested release branches, PFCP session deletion, NGAP PDU Session resource release, N11 SM Context release control, and post-release N3 observation as a bounded partial-order model; no universal message sequence is mandatory. Handover and UPF relocation remain explicitly deferred.
 
 ## Evidence Planes
 
