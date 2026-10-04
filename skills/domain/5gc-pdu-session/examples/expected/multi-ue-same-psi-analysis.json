@@ -3,6 +3,7 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "sample.pcap",
       "deviations": [],
       "earliest_observed_deviation": null,
       "field_findings": [
@@ -73,6 +74,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 5
+      },
       "pdu_session_id": 5,
       "plane_bindings": {
         "n1": {
@@ -220,6 +225,7 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "sample.pcap",
       "deviations": [],
       "earliest_observed_deviation": null,
       "field_findings": [
@@ -290,6 +296,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 2,
+        "last_frame": 6
+      },
       "pdu_session_id": 5,
       "plane_bindings": {
         "n1": {
@@ -442,7 +452,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

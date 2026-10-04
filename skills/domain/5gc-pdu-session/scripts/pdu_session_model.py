@@ -25,7 +25,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-ANALYSIS_VERSION = "0.3.0"
+ANALYSIS_VERSION = "0.4.0"
 PROCEDURE_NAME = "5gc-pdu-session"
 
 EXIT_MALFORMED_INPUT = 5
@@ -35,6 +35,52 @@ EXIT_OUTPUT_FAILURE = 7
 FORBIDDEN_OUTPUT_PATTERN = re.compile(
     r"(?i)\b(?:root[ _-]?cause|culprit|implementation[ _-]?(?:bug|blame|failure)|vendor[ _-]?bug)\b"
 )
+
+def _evidence_ref(
+    kind: str,
+    evidence_level: str,
+    capture_file: str | None = None,
+    frame_number: int | None = None,
+    timestamp: str | None = None,
+    protocol: str | None = None,
+    message_type: str | None = None,
+    stage_id: str | None = None,
+    field_name: str | None = None,
+    window_first_frame: int | None = None,
+    window_last_frame: int | None = None,
+) -> dict[str, Any]:
+    """One machine-readable evidence reference for a deviation.
+
+    Structured provenance consumed by Analysis Orchestration; human-readable
+    description and limitation text are never a machine identity contract.
+    """
+    return {
+        "kind": kind,
+        "evidence_level": evidence_level,
+        "capture_file": capture_file,
+        "frame_number": frame_number,
+        "timestamp": timestamp,
+        "protocol": protocol,
+        "message_type": message_type,
+        "stage_id": stage_id,
+        "field_name": field_name,
+        "window_first_frame": window_first_frame,
+        "window_last_frame": window_last_frame,
+    }
+
+
+def _event_evidence_ref(event: dict[str, Any], evidence_level: str = "OBSERVED",
+                        protocol: str | None = None, stage_id: str | None = None) -> dict[str, Any]:
+    return _evidence_ref(
+        "EVENT", evidence_level,
+        capture_file=str(event.get("capture_file")) if event.get("capture_file") is not None else None,
+        frame_number=int(event["frame_number"]) if event.get("frame_number") is not None else None,
+        timestamp=str(event["timestamp"]) if event.get("timestamp") is not None else None,
+        protocol=protocol or (str(event.get("protocol")) if event.get("protocol") is not None else None),
+        message_type=str(event.get("message_type")) if event.get("message_type") is not None else None,
+        stage_id=stage_id,
+    )
+
 
 DEVIATION_PROTOCOL_REJECT = "PROTOCOL_REJECT_OBSERVED"
 DEVIATION_NEGATIVE_OUTCOME = "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
@@ -882,6 +928,11 @@ def evaluate_modification_attempts(
     for att in attempts_data:
         att_idx = att["attempt_idx"]
         att_id = f"mod-{att_idx}"
+        attempt_window_ref = _evidence_ref(
+            "OBSERVATION_WINDOW", "DERIVED", capture_file=capture_file,
+            stage_id=None, window_first_frame=att.get("obs_start_frame"),
+            window_last_frame=att.get("obs_end_frame"),
+        )
         trigger_type = att["trigger_type"]
         pti = att["pti"]
         att_nas = sorted(att["nas_events"], key=_event_sort_key)
@@ -918,6 +969,7 @@ def evaluate_modification_attempts(
                     "description": "Modification request not captured; observation window begins mid-procedure",
                     "evidence_level": "DERIVED",
                     "limitation": "Initiating signaling not available in capture",
+                    "evidence_refs": [dict(attempt_window_ref, stage_id="modification_initiation")],
                 })
         elif trigger_type == TRIGGER_NETWORK_REQUESTED:
             cmd_ev = next((e for e in att_nas if e.get("message_type") == "PduSessionModificationCommand"), None)
@@ -954,6 +1006,7 @@ def evaluate_modification_attempts(
                         "description": "Procedure response observed before initiation request; capture begins late",
                         "evidence_level": "DERIVED",
                         "limitation": "Earlier procedure stages exist outside the capture",
+                        "evidence_refs": [dict(attempt_window_ref, stage_id="modification_initiation")],
                     })
 
         if att.get("is_duplicate"):
@@ -963,6 +1016,7 @@ def evaluate_modification_attempts(
                 "description": f"Repeated PduSessionModificationRequest observed (PTI={pti})",
                 "evidence_level": "OBSERVED",
                 "limitation": "Repeated request observed; duplicate/retransmission cause cannot be distinguished from this capture alone",
+                "evidence_refs": [_event_evidence_ref(att_nas[1], protocol="NAS-5GS")] if len(att_nas) > 1 else [],
             })
 
         prot_nas = next((e for e in att_nas if e.get("security", {}).get("inner_message_available") is False or e.get("ciphered") is True or e.get("plain_payload_unavailable") is True), None)
@@ -973,6 +1027,7 @@ def evaluate_modification_attempts(
                 "description": f"NAS message at frame {prot_nas['frame_number']} is ciphered and inner payload is unavailable",
                 "evidence_level": "OBSERVED",
                 "limitation": "Plaintext NAS payload unavailable without security context deciphering",
+                "evidence_refs": [_event_evidence_ref(prot_nas, protocol="NAS-5GS")],
             })
 
         stages_summary.append({
@@ -1000,6 +1055,7 @@ def evaluate_modification_attempts(
                 "description": f"SBI HTTP/2 frame at frame {tls_sbi['frame_number']} is encrypted under TLS without key material",
                 "evidence_level": "OBSERVED",
                 "limitation": "TLS encryption prevents application layer inspection",
+                "evidence_refs": [_event_evidence_ref(tls_sbi, protocol="3GPP-SBI")],
             })
         elif upd_ev:
             status_code = upd_ev.get("http2", {}).get("status")
@@ -1016,6 +1072,7 @@ def evaluate_modification_attempts(
                     "description": f"Nsmf_PDUSession UpdateSMContext returned HTTP {status_code} with ProblemDetails cause {prob_cause}",
                     "evidence_level": "OBSERVED",
                     "limitation": "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable",
+                    "evidence_refs": [_event_evidence_ref(upd_ev, protocol="3GPP-SBI", stage_id="sm_context_update")],
                 })
             else:
                 st_upd_status = "OBSERVED"
@@ -1052,6 +1109,7 @@ def evaluate_modification_attempts(
                     "description": f"Repeated PFCP Session Modification Request observed (seq_no={seqs[0]})",
                     "evidence_level": "OBSERVED",
                     "limitation": "Repeated request observed; duplicate/retransmission cause cannot be distinguished from this capture alone",
+                    "evidence_refs": [_event_evidence_ref(pfcp_reqs[-1], protocol="PFCP")] if pfcp_reqs else [],
                 })
 
         if pfcp_resp is not None or pfcp_req is not None:
@@ -1070,6 +1128,7 @@ def evaluate_modification_attempts(
                     "description": f"PFCP Session Modification Response reported non-accepted cause {cause_name} (code {cause_code})",
                     "evidence_level": "OBSERVED",
                     "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
+                    "evidence_refs": [_event_evidence_ref(pfcp_resp, protocol="PFCP", stage_id="user_plane_control_update")],
                 })
             elif pfcp_resp is None and pfcp_req is not None:
                 st_upc_status = "OBSERVED"
@@ -1082,6 +1141,7 @@ def evaluate_modification_attempts(
                     "description": f"PFCP Session Modification Request at frame {pfcp_req['frame_number']} missing expected Response",
                     "evidence_level": "DERIVED",
                     "limitation": "Capture window ended before PFCP response arrived or response lost in transit",
+                    "evidence_refs": [dict(attempt_window_ref, stage_id="user_plane_control_update")],
                 })
             else:
                 st_upc_status = "OBSERVED"
@@ -1133,6 +1193,7 @@ def evaluate_modification_attempts(
                     "description": f"NGAP PDUSessionResourceModifyResponse reported failed resource item for PDU Session ID {psi} ({target_cause_str})",
                     "evidence_level": "OBSERVED",
                     "limitation": "RAN-side resource modification failed; radio admission or configuration cause reported by gNB",
+                    "evidence_refs": [_event_evidence_ref(ngap_resp, protocol="NGAP", stage_id="access_resource_update")],
                 })
             elif ngap_resp is None and ngap_req is not None:
                 st_aru_status = "OBSERVED"
@@ -1145,6 +1206,7 @@ def evaluate_modification_attempts(
                     "description": f"NGAP PDUSessionResourceModifyRequest at frame {ngap_req['frame_number']} missing expected Response",
                     "evidence_level": "DERIVED",
                     "limitation": "Capture window ended before NGAP response arrived",
+                    "evidence_refs": [dict(attempt_window_ref, stage_id="access_resource_update")],
                 })
             else:
                 st_aru_status = "OBSERVED"
@@ -1184,6 +1246,7 @@ def evaluate_modification_attempts(
                 "description": f"Namf_Communication N1N2Transfer Failure Notification reported delivery failure ({fn_cause})",
                 "evidence_level": "OBSERVED",
                 "limitation": "AMF reported N1/N2 delivery failure; communication transfer aborted",
+                "evidence_refs": [_event_evidence_ref(fn_ev, protocol="3GPP-SBI", stage_id="n1_n2_delivery")],
             })
         elif tr_ev:
             st_code = tr_ev.get("http2", {}).get("status")
@@ -1203,6 +1266,7 @@ def evaluate_modification_attempts(
                     "description": f"Namf_Communication N1N2MessageTransfer returned HTTP {st_code}",
                     "evidence_level": "OBSERVED",
                     "limitation": "N1/N2 transfer rejected by AMF",
+                    "evidence_refs": [_event_evidence_ref(tr_ev, protocol="3GPP-SBI", stage_id="n1_n2_delivery")],
                 })
             else:
                 st_del_status = "OBSERVED"
@@ -1256,6 +1320,7 @@ def evaluate_modification_attempts(
                 "description": f"NAS PduSessionModificationReject observed with cause {c_name}",
                 "evidence_level": "OBSERVED",
                 "limitation": "5GSM procedure rejected by network; session remains in established state with prior parameters",
+                "evidence_refs": [_event_evidence_ref(rej_ev, protocol="NAS-5GS", stage_id="modification_completion")],
             })
             terminal_obs = {
                 "observation": TERMINAL_MOD_REJECT,
@@ -1278,6 +1343,7 @@ def evaluate_modification_attempts(
                 "description": f"NAS PduSessionModificationCommandReject observed with cause {c_name}",
                 "evidence_level": "OBSERVED",
                 "limitation": "5GSM command rejected by UE; session remains in established state with prior parameters",
+                "evidence_refs": [_event_evidence_ref(cmd_rej_ev, protocol="NAS-5GS", stage_id="modification_completion")],
             })
             terminal_obs = {
                 "observation": TERMINAL_MOD_COMMAND_REJECT,
@@ -1300,6 +1366,7 @@ def evaluate_modification_attempts(
                     "description": f"Modification initiated at frame {req_ev['frame_number']} but no terminal NAS completion or reject message observed within capture window",
                     "evidence_level": "DERIVED",
                     "limitation": "Capture window truncated before modification completion",
+                    "evidence_refs": [dict(attempt_window_ref, stage_id="modification_completion")],
                 })
             terminal_obs = {
                 "observation": TERMINAL_MOD_NONE,
@@ -1554,6 +1621,8 @@ def evaluate_modification_attempts(
                 "description": f"Conflicting QFI: NAS authorized QFI {nas_mod_qfi} while NGAP configured QFI {ngap_mod_qfi}",
                 "evidence_level": "DERIVED",
                 "limitation": "QFI mismatch across N1 and N2 planes in modification",
+                "evidence_refs": [dict(attempt_window_ref, stage_id="access_resource_update"),
+                                  _evidence_ref("FIELD_FINDING", "DERIVED", field_name="qfi")],
             })
 
         if nas_mod_qfi is not None and pfcp_mod_qfi is not None and nas_mod_qfi != pfcp_mod_qfi:
@@ -1573,6 +1642,8 @@ def evaluate_modification_attempts(
                 "description": f"Conflicting QFI: NAS authorized QFI {nas_mod_qfi} while PFCP provisioned QFI {pfcp_mod_qfi}",
                 "evidence_level": "DERIVED",
                 "limitation": "QFI mismatch across N1 and N4 planes in modification",
+                "evidence_refs": [dict(attempt_window_ref, stage_id="user_plane_control_update"),
+                                  _evidence_ref("FIELD_FINDING", "DERIVED", field_name="qfi")],
             })
 
         # Earliest observed deviation
@@ -2085,6 +2156,11 @@ def evaluate_release_attempts(
     for att in attempts_data:
         att_idx = att["attempt_idx"]
         att_id = att["attempt_id"]
+        attempt_window_ref = _evidence_ref(
+            "OBSERVATION_WINDOW", "DERIVED", capture_file=capture_file,
+            stage_id=None, window_first_frame=att.get("obs_start_frame"),
+            window_last_frame=att.get("obs_end_frame"),
+        )
         trigger_type = att["trigger_type"]
         pti = att["pti"]
         att_nas = sorted(att["nas_events"], key=_event_sort_key)
@@ -2121,6 +2197,7 @@ def evaluate_release_attempts(
                     "description": "Release request not captured; observation window begins mid-procedure",
                     "evidence_level": "DERIVED",
                     "limitation": "Initiating signaling not available in capture",
+                    "evidence_refs": [dict(attempt_window_ref, stage_id="release_initiation")],
                 })
         elif trigger_type == TRIGGER_NETWORK_REQUESTED:
             if cmd_ev:
@@ -2139,6 +2216,7 @@ def evaluate_release_attempts(
                     "description": "Release command not captured; observation window begins mid-procedure",
                     "evidence_level": "DERIVED",
                     "limitation": "Initiating signaling not available in capture",
+                    "evidence_refs": [dict(attempt_window_ref, stage_id="release_initiation")],
                 })
         else:
             if att.get("is_late_capture"):
@@ -2152,6 +2230,7 @@ def evaluate_release_attempts(
                     "description": "Procedure terminal observed before initiation evidence; capture begins late",
                     "evidence_level": "DERIVED",
                     "limitation": "Earlier release stages exist outside the capture",
+                    "evidence_refs": [dict(attempt_window_ref, stage_id="release_initiation")],
                 })
             else:
                 st_init_status = "MISSING"
@@ -2168,6 +2247,7 @@ def evaluate_release_attempts(
                 "description": f"{dup_desc} (PTI={pti})",
                 "evidence_level": "OBSERVED",
                 "limitation": "Repeated request observed; duplicate/retransmission cause cannot be distinguished from this capture alone",
+                "evidence_refs": [_event_evidence_ref(att_nas[1], protocol="NAS-5GS")] if len(att_nas) > 1 else [],
             })
 
         prot_nas = next((e for e in att_nas if e.get("security", {}).get("inner_message_available") is False or e.get("ciphered") is True), None)
@@ -2178,6 +2258,7 @@ def evaluate_release_attempts(
                 "description": f"NAS message at frame {prot_nas['frame_number']} is ciphered and inner payload is unavailable",
                 "evidence_level": "OBSERVED",
                 "limitation": "Plaintext NAS payload unavailable without security context deciphering",
+                "evidence_refs": [_event_evidence_ref(prot_nas, protocol="NAS-5GS")],
             })
 
         stages_summary.append({
@@ -2211,6 +2292,7 @@ def evaluate_release_attempts(
                     "description": f"Nsmf_PDUSession {op_name} returned HTTP {status_code} with ProblemDetails cause {prob_cause}",
                     "evidence_level": "OBSERVED",
                     "limitation": "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable",
+                    "evidence_refs": [_event_evidence_ref(ctx_ev, protocol="3GPP-SBI", stage_id="sm_context_release_control")],
                 })
             else:
                 st_src_status = "OBSERVED"
@@ -2247,6 +2329,7 @@ def evaluate_release_attempts(
                     "description": f"Repeated PFCP Session Deletion Request observed (seq_no={seqs[0]})",
                     "evidence_level": "OBSERVED",
                     "limitation": "Repeated request observed; duplicate/retransmission cause cannot be distinguished from this capture alone",
+                    "evidence_refs": [_event_evidence_ref(del_reqs[-1], protocol="PFCP")] if del_reqs else [],
                 })
 
         if del_resp is not None or del_req is not None:
@@ -2265,6 +2348,7 @@ def evaluate_release_attempts(
                     "description": f"PFCP Session Deletion Response reported non-accepted cause {cause_name} (code {cause_code})",
                     "evidence_level": "OBSERVED",
                     "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
+                    "evidence_refs": [_event_evidence_ref(del_resp, protocol="PFCP", stage_id="user_plane_teardown_control")],
                 })
             elif del_resp is None and del_req is not None:
                 st_upt_status = "OBSERVED"
@@ -2277,6 +2361,7 @@ def evaluate_release_attempts(
                     "description": f"PFCP Session Deletion Request at frame {del_req['frame_number']} missing expected Response",
                     "evidence_level": "DERIVED",
                     "limitation": "Capture window ended before PFCP response arrived",
+                    "evidence_refs": [dict(attempt_window_ref, stage_id="user_plane_teardown_control")],
                 })
             else:
                 st_upt_status = "OBSERVED"
@@ -2328,6 +2413,7 @@ def evaluate_release_attempts(
                     "description": f"NGAP PDUSessionResourceReleaseCommand at frame {rel_cmd['frame_number']} missing expected Response",
                     "evidence_level": "DERIVED",
                     "limitation": "Capture window ended before NGAP response arrived",
+                    "evidence_refs": [dict(attempt_window_ref, stage_id="access_resource_release")],
                 })
             else:
                 st_arr_status = "MISSING"
@@ -2366,6 +2452,7 @@ def evaluate_release_attempts(
                 "description": f"Namf_Communication N1N2Transfer Failure Notification reported delivery failure ({fn_cause})",
                 "evidence_level": "OBSERVED",
                 "limitation": "AMF reported N1/N2 delivery failure; communication transfer aborted",
+                "evidence_refs": [_event_evidence_ref(fn_ev, protocol="3GPP-SBI", stage_id="n1_n2_delivery")],
             })
         elif tr_ev:
             st_code = tr_ev.get("http2", {}).get("status")
@@ -2437,6 +2524,7 @@ def evaluate_release_attempts(
                 "description": f"NAS PduSessionReleaseReject observed with cause {c_name}",
                 "evidence_level": "OBSERVED",
                 "limitation": "5GSM release request rejected by the network; the observed Release Request was rejected",
+                "evidence_refs": [_event_evidence_ref(rej_ev, protocol="NAS-5GS", stage_id="release_terminal")],
             })
             terminal_obs = {
                 "observation": TERMINAL_REL_REJECT,
@@ -2464,6 +2552,7 @@ def evaluate_release_attempts(
                     "description": term_description,
                     "evidence_level": "DERIVED",
                     "limitation": term_limitation,
+                    "evidence_refs": [dict(attempt_window_ref, stage_id="release_terminal")],
                 })
             terminal_obs = {
                 "observation": TERMINAL_REL_NONE,
@@ -3115,7 +3204,6 @@ def analyze(
         return {
             "type": DEVIATION_LIFECYCLE_AMBIGUITY,
             "stage_id": "session_request",
-            "frame_number": frame,
             "description": (
                 f"PduSessionEstablishmentRequest observed at frame {frame} for the same UE context and "
                 "PDU Session ID without an evidence-supported release boundary (no PduSessionReleaseComplete "
@@ -3123,6 +3211,7 @@ def analyze(
             ),
             "evidence_level": "DERIVED",
             "limitation": "Lifecycle generation split requires Release Complete evidence; the later establishment is not silently merged or split",
+            "evidence_refs": [_evidence_ref("EVENT", "DERIVED", frame_number=frame)],
         }
 
     def _split_lifecycle_generations(inst: dict[str, Any]) -> list[dict[str, Any]]:
@@ -3201,6 +3290,19 @@ def analyze(
         pfcp_evs = sorted(inst["pfcp_events"], key=_event_sort_key)
         gtpu_evs = sorted(inst["gtpu_events"], key=_event_sort_key)
         sbi_evs = sorted(inst["sbi_events"], key=_event_sort_key)
+        inst_frames = [
+            int(e["frame_number"]) for e in (nas_evs + ngap_evs + pfcp_evs + gtpu_evs + sbi_evs)
+            if isinstance(e.get("frame_number"), int)
+        ]
+        instance_window = (
+            {"first_frame": min(inst_frames), "last_frame": max(inst_frames)} if inst_frames else None
+        )
+        instance_window_ref = (
+            _evidence_ref("OBSERVATION_WINDOW", "DERIVED", capture_file=capture_file,
+                          window_first_frame=instance_window["first_frame"],
+                          window_last_frame=instance_window["last_frame"])
+            if instance_window else None
+        )
 
         deviations: list[dict[str, Any]] = []
         field_findings: list[dict[str, Any]] = []
@@ -3243,6 +3345,7 @@ def analyze(
                 "description": "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure",
                 "evidence_level": "DERIVED",
                 "limitation": "Earlier procedure stages may exist outside the capture",
+                "evidence_refs": [instance_window_ref] if instance_window_ref else [],
             })
 
         stages_summary.append({
@@ -3283,6 +3386,7 @@ def analyze(
                     "description": f"Nsmf_PDUSession CreateSMContext returned HTTP {status_code} with ProblemDetails cause {prob_cause}",
                     "evidence_level": "OBSERVED",
                     "limitation": "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable",
+                    "evidence_refs": [_event_evidence_ref(create_sm_ev, protocol="3GPP-SBI", stage_id="sm_context_control")],
                 })
             else:
                 sm_status = "OBSERVED"
@@ -3336,6 +3440,7 @@ def analyze(
                     "description": f"PFCP Session Establishment Response reported non-accepted cause {cause_name} (code {cause_code})",
                     "evidence_level": "OBSERVED",
                     "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
+                    "evidence_refs": [_event_evidence_ref(pfcp_resp, protocol="PFCP", stage_id="user_plane_control")],
                 })
             else:
                 upc_status = "OBSERVED"
@@ -3404,6 +3509,7 @@ def analyze(
                     "description": f"NGAP resource setup failed for PDU Session ID {psi} with cause {cause_str}",
                     "evidence_level": "OBSERVED",
                     "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
+                    "evidence_refs": [_event_evidence_ref(target_ngap_ev, protocol="NGAP", stage_id="access_resource_control")],
                 })
             else:
                 arc_status = "OBSERVED"
@@ -3459,6 +3565,7 @@ def analyze(
                 "description": f"Namf_Communication reported delivery failure notification with cause {f_cause}",
                 "evidence_level": "OBSERVED",
                 "limitation": "AMF reported failure to reach UE; radio coverage or UE power state not directly verified",
+                "evidence_refs": [_event_evidence_ref(fail_notif_ev, protocol="3GPP-SBI", stage_id="n1_n2_delivery")],
             })
         elif transfer_ev is not None:
             status_code = transfer_ev.get("http2", {}).get("status")
@@ -3519,6 +3626,7 @@ def analyze(
                 "description": f"PDU Session Establishment Reject observed with 5GSM cause {c_name} (code {c_code})",
                 "evidence_level": "OBSERVED",
                 "limitation": "Terminal rejection signaling on N1; external trigger for rejection not proven",
+                "evidence_refs": [_event_evidence_ref(reject_ev, protocol="NAS-5GS", stage_id="session_decision")],
             })
             terminal_obs = {
                 "observation": TERMINAL_REJECT,
@@ -3916,6 +4024,11 @@ def analyze(
                 "description": f"Conflicting UE IP address: NAS accepted {nas_pdu_address} while PFCP allocated {pfcp_ue_ip}",
                 "evidence_level": "DERIVED",
                 "limitation": "Addresses observed across planes differ; possible multi-session confusion or misallocation",
+                "evidence_refs": (
+                    [dict(instance_window_ref, stage_id="user_plane_control"),
+                     _evidence_ref("FIELD_FINDING", "DERIVED", field_name="pdu_address")]
+                    if instance_window_ref else []
+                ),
             })
 
         # 2. QFI conflict: NAS qfi vs NGAP qfi
@@ -3936,6 +4049,11 @@ def analyze(
                 "description": f"Conflicting QFI: NAS authorized QFI {nas_qfi} while NGAP configured QFI {ngap_qfi}",
                 "evidence_level": "DERIVED",
                 "limitation": "QFI mismatch across N1 and N2 planes",
+                "evidence_refs": (
+                    [dict(instance_window_ref, stage_id="access_resource_control"),
+                     _evidence_ref("FIELD_FINDING", "DERIVED", field_name="qfi")]
+                    if instance_window_ref else []
+                ),
             })
 
         # 3. DNN conflict: NAS dnn vs PFCP network_instance
@@ -3956,6 +4074,11 @@ def analyze(
                 "description": f"Conflicting DNN/Network Instance: NAS requested {nas_dnn} while PFCP provisioned {pfcp_net_inst}",
                 "evidence_level": "DERIVED",
                 "limitation": "Data network identifier mismatch across N1 and N4 planes",
+                "evidence_refs": (
+                    [dict(instance_window_ref, stage_id="user_plane_control"),
+                     _evidence_ref("FIELD_FINDING", "DERIVED", field_name="dnn")]
+                    if instance_window_ref else []
+                ),
             })
 
         # --- Earliest Observed Deviation Calculation ---
@@ -4079,6 +4202,12 @@ def analyze(
                     ),
                     "evidence_level": "DERIVED",
                     "limitation": "Event preserved as session-level context; no attempt-specific assignment was made",
+                    "evidence_refs": [_evidence_ref(
+                        "EVENT", "DERIVED",
+                        capture_file=ref.get("capture_file"),
+                        frame_number=ref.get("frame_number") if isinstance(ref.get("frame_number"), int) else None,
+                        protocol=ref.get("protocol"),
+                    )],
                 })
 
         for lifecycle_dev in inst.get("lifecycle_deviations", []):
@@ -4110,6 +4239,8 @@ def analyze(
                 "n4": n4_binding,
                 "n11": n11_binding,
             },
+            "capture_file": capture_file,
+            "observation_window": instance_window,
             "unbound_evidence": unbound_records,
             "limitations": inst_limitations,
             "modification_attempts": mod_attempts,

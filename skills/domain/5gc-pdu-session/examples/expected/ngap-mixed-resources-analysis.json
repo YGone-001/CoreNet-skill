@@ -3,6 +3,7 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "sample.pcap",
       "deviations": [],
       "earliest_observed_deviation": null,
       "field_findings": [
@@ -53,6 +54,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 5
+      },
       "pdu_session_id": 10,
       "plane_bindings": {
         "n1": {
@@ -202,10 +207,26 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "sample.pcap",
       "deviations": [
         {
           "description": "NGAP resource setup failed for PDU Session ID 11 with cause radioNetwork:resources-not-available",
           "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "capture_file": "sample.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": null,
+              "frame_number": 5,
+              "kind": "EVENT",
+              "message_type": "PDUSessionResourceSetupResponse",
+              "protocol": "NGAP",
+              "stage_id": "access_resource_control",
+              "timestamp": "2026-03-01T10:00:00.500000Z",
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
           "stage_id": "access_resource_control",
           "type": "RESOURCE_FAILED_ITEM_OBSERVED"
@@ -214,6 +235,21 @@
       "earliest_observed_deviation": {
         "description": "NGAP resource setup failed for PDU Session ID 11 with cause radioNetwork:resources-not-available",
         "evidence_level": "OBSERVED",
+        "evidence_refs": [
+          {
+            "capture_file": "sample.pcap",
+            "evidence_level": "OBSERVED",
+            "field_name": null,
+            "frame_number": 5,
+            "kind": "EVENT",
+            "message_type": "PDUSessionResourceSetupResponse",
+            "protocol": "NGAP",
+            "stage_id": "access_resource_control",
+            "timestamp": "2026-03-01T10:00:00.500000Z",
+            "window_first_frame": null,
+            "window_last_frame": null
+          }
+        ],
         "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
         "stage_id": "access_resource_control",
         "type": "RESOURCE_FAILED_ITEM_OBSERVED"
@@ -279,6 +315,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 2,
+        "last_frame": 5
+      },
       "pdu_session_id": 11,
       "plane_bindings": {
         "n1": {
@@ -435,7 +475,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

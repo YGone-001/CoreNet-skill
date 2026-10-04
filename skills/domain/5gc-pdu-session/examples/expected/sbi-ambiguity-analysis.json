@@ -3,6 +3,7 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "sample.pcap",
       "deviations": [
         {
           "description": "SBI transaction for PDU Session ID 10 observed across multiple concurrent UEs with sanitized subscriber identities; N11 evidence remains unbound to prevent false association",
@@ -47,6 +48,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 1
+      },
       "pdu_session_id": 10,
       "plane_bindings": {
         "n1": {
@@ -194,6 +199,7 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "sample.pcap",
       "deviations": [
         {
           "description": "SBI transaction for PDU Session ID 10 observed across multiple concurrent UEs with sanitized subscriber identities; N11 evidence remains unbound to prevent false association",
@@ -238,6 +244,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 2,
+        "last_frame": 2
+      },
       "pdu_session_id": 10,
       "plane_bindings": {
         "n1": {
@@ -390,7 +400,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [
       {

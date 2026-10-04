@@ -15,6 +15,21 @@
         {
           "description": "The observation window begins after the procedure's initiation evidence; the capture starts mid-procedure",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "reg.pcapng",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": "registration-initiation",
+              "timestamp": null,
+              "window_first_frame": 10,
+              "window_last_frame": 11
+            }
+          ],
           "limitation": "Earlier procedure stages may exist outside the capture",
           "stage_id": "registration-initiation",
           "type": "PARTIAL_CAPTURE"
@@ -22,6 +37,21 @@
         {
           "description": "NGAP InitialContextSetupFailure observed at frame 11",
           "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "capture_file": "reg.pcapng",
+              "evidence_level": "OBSERVED",
+              "field_name": null,
+              "frame_number": 11,
+              "kind": "EVENT",
+              "message_type": "InitialContextSetupFailure",
+              "protocol": "NGAP",
+              "stage_id": null,
+              "timestamp": "2024-01-02T03:04:11.00Z",
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
           "stage_id": null,
           "type": "UNSUCCESSFUL_OUTCOME_OBSERVED"
@@ -157,7 +187,7 @@
             "NGAP InitialContextSetupFailure observed at frame 11 (2024-01-02T03:04:11.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "1.0.0",
+          "procedure_version": "0.2.0",
           "stage": {
             "expected_message_types": [
               "InitialContextSetupFailure",
@@ -181,7 +211,7 @@
       }
     }
   ],
-  "analysis_version": "1.0.0",
+  "analysis_version": "0.2.0",
   "correlation_conflicts": [],
   "procedure_family": "5gc-registration-mobility",
   "unbound_records": []

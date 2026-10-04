@@ -3,10 +3,26 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "sample.pcap",
       "deviations": [
         {
           "description": "Namf_Communication reported delivery failure notification with cause UE_NOT_RESPONDING",
           "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "capture_file": "sample.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": null,
+              "frame_number": 4,
+              "kind": "EVENT",
+              "message_type": null,
+              "protocol": "3GPP-SBI",
+              "stage_id": "n1_n2_delivery",
+              "timestamp": "2026-03-01T10:00:00.400000Z",
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "AMF reported failure to reach UE; radio coverage or UE power state not directly verified",
           "stage_id": "n1_n2_delivery",
           "type": "DELIVERY_FAILURE_NOTIFICATION_OBSERVED"
@@ -15,6 +31,21 @@
       "earliest_observed_deviation": {
         "description": "Namf_Communication reported delivery failure notification with cause UE_NOT_RESPONDING",
         "evidence_level": "OBSERVED",
+        "evidence_refs": [
+          {
+            "capture_file": "sample.pcap",
+            "evidence_level": "OBSERVED",
+            "field_name": null,
+            "frame_number": 4,
+            "kind": "EVENT",
+            "message_type": null,
+            "protocol": "3GPP-SBI",
+            "stage_id": "n1_n2_delivery",
+            "timestamp": "2026-03-01T10:00:00.400000Z",
+            "window_first_frame": null,
+            "window_last_frame": null
+          }
+        ],
         "limitation": "AMF reported failure to reach UE; radio coverage or UE power state not directly verified",
         "stage_id": "n1_n2_delivery",
         "type": "DELIVERY_FAILURE_NOTIFICATION_OBSERVED"
@@ -87,6 +118,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 4
+      },
       "pdu_session_id": 1,
       "plane_bindings": {
         "n1": {
@@ -250,7 +285,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

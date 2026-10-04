@@ -3,10 +3,39 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "sample.pcap",
       "deviations": [
         {
           "description": "Conflicting UE IP address: NAS accepted 198.51.100.1 while PFCP allocated 198.51.100.2",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "sample.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": "user_plane_control",
+              "timestamp": null,
+              "window_first_frame": 1,
+              "window_last_frame": 6
+            },
+            {
+              "capture_file": null,
+              "evidence_level": "DERIVED",
+              "field_name": "pdu_address",
+              "frame_number": null,
+              "kind": "FIELD_FINDING",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": null,
+              "timestamp": null,
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "Addresses observed across planes differ; possible multi-session confusion or misallocation",
           "stage_id": "user_plane_control",
           "type": "CORRELATION_CONFLICT"
@@ -14,6 +43,34 @@
         {
           "description": "Conflicting QFI: NAS authorized QFI 1 while NGAP configured QFI 5",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "sample.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": "access_resource_control",
+              "timestamp": null,
+              "window_first_frame": 1,
+              "window_last_frame": 6
+            },
+            {
+              "capture_file": null,
+              "evidence_level": "DERIVED",
+              "field_name": "qfi",
+              "frame_number": null,
+              "kind": "FIELD_FINDING",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": null,
+              "timestamp": null,
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "QFI mismatch across N1 and N2 planes",
           "stage_id": "access_resource_control",
           "type": "CORRELATION_CONFLICT"
@@ -21,6 +78,34 @@
         {
           "description": "Conflicting DNN/Network Instance: NAS requested internet while PFCP provisioned ims",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "sample.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": "user_plane_control",
+              "timestamp": null,
+              "window_first_frame": 1,
+              "window_last_frame": 6
+            },
+            {
+              "capture_file": null,
+              "evidence_level": "DERIVED",
+              "field_name": "dnn",
+              "frame_number": null,
+              "kind": "FIELD_FINDING",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": null,
+              "timestamp": null,
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "Data network identifier mismatch across N1 and N4 planes",
           "stage_id": "user_plane_control",
           "type": "CORRELATION_CONFLICT"
@@ -29,6 +114,34 @@
       "earliest_observed_deviation": {
         "description": "Conflicting UE IP address: NAS accepted 198.51.100.1 while PFCP allocated 198.51.100.2",
         "evidence_level": "DERIVED",
+        "evidence_refs": [
+          {
+            "capture_file": "sample.pcap",
+            "evidence_level": "DERIVED",
+            "field_name": null,
+            "frame_number": null,
+            "kind": "OBSERVATION_WINDOW",
+            "message_type": null,
+            "protocol": null,
+            "stage_id": "user_plane_control",
+            "timestamp": null,
+            "window_first_frame": 1,
+            "window_last_frame": 6
+          },
+          {
+            "capture_file": null,
+            "evidence_level": "DERIVED",
+            "field_name": "pdu_address",
+            "frame_number": null,
+            "kind": "FIELD_FINDING",
+            "message_type": null,
+            "protocol": null,
+            "stage_id": null,
+            "timestamp": null,
+            "window_first_frame": null,
+            "window_last_frame": null
+          }
+        ],
         "limitation": "Addresses observed across planes differ; possible multi-session confusion or misallocation",
         "stage_id": "user_plane_control",
         "type": "CORRELATION_CONFLICT"
@@ -206,6 +319,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 6
+      },
       "pdu_session_id": 1,
       "plane_bindings": {
         "n1": {
@@ -383,7 +500,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

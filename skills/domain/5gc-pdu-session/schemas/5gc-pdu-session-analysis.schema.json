@@ -381,6 +381,30 @@
             "null"
           ],
           "minLength": 1
+        },
+        "capture_file": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "observation_window": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "first_frame": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "last_frame": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
         }
       }
     },
@@ -901,6 +925,12 @@
         "limitation": {
           "type": "string",
           "minLength": 1
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceRef"
+          }
         }
       }
     },
@@ -1399,6 +1429,89 @@
               ]
             }
           }
+        }
+      }
+    },
+    "evidenceRef": {
+      "type": "object",
+      "required": [
+        "kind",
+        "evidence_level"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "EVENT",
+            "FIELD_FINDING",
+            "OBSERVATION_WINDOW",
+            "STAGE"
+          ]
+        },
+        "evidence_level": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "DERIVED"
+          ]
+        },
+        "capture_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "timestamp": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "protocol": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stage_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "field_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "window_first_frame": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "window_last_frame": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
         }
       }
     }

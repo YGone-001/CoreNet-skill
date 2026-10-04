@@ -15,6 +15,21 @@
         {
           "description": "The Registration completion branch was entered (trigger at frame 12) but none of its expected outcomes was observed",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "reg.pcapng",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": "registration-completion",
+              "timestamp": null,
+              "window_first_frame": 10,
+              "window_last_frame": 12
+            }
+          ],
           "limitation": "Capture termination may explain the missing evidence",
           "stage_id": "registration-completion",
           "type": "MISSING_EXPECTED_COUNTERPART"
@@ -22,6 +37,21 @@
         {
           "description": "No Registration accept or Registration reject was observed within the available observation window",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "reg.pcapng",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": "registration-decision",
+              "timestamp": null,
+              "window_first_frame": 10,
+              "window_last_frame": 12
+            }
+          ],
           "limitation": "Capture termination may explain the missing evidence",
           "stage_id": "registration-decision",
           "type": "MISSING_EXPECTED_COUNTERPART"
@@ -194,7 +224,7 @@
             "NAS-5GS Registration request observed at frame 10 (2024-01-02T03:04:10.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "1.0.0",
+          "procedure_version": "0.2.0",
           "stage": {
             "expected_message_types": [
               "InitialUEMessage",
@@ -219,7 +249,7 @@
             "NAS-5GS Registration accept observed at frame 12 (2024-01-02T03:04:12.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "1.0.0",
+          "procedure_version": "0.2.0",
           "stage": {
             "expected_message_types": [
               "Registration accept",
@@ -249,7 +279,7 @@
             "NAS-5GS Registration accept observed at frame 12 (2024-01-02T03:04:12.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "1.0.0",
+          "procedure_version": "0.2.0",
           "stage": {
             "expected_message_types": [
               "Registration accept",
@@ -286,6 +316,21 @@
         {
           "description": "The Registration completion branch was entered (trigger at frame 13) but none of its expected outcomes was observed",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "reg.pcapng",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": "registration-completion",
+              "timestamp": null,
+              "window_first_frame": 11,
+              "window_last_frame": 13
+            }
+          ],
           "limitation": "Capture termination may explain the missing evidence",
           "stage_id": "registration-completion",
           "type": "MISSING_EXPECTED_COUNTERPART"
@@ -293,6 +338,21 @@
         {
           "description": "No Registration accept or Registration reject was observed within the available observation window",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "reg.pcapng",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": "registration-decision",
+              "timestamp": null,
+              "window_first_frame": 11,
+              "window_last_frame": 13
+            }
+          ],
           "limitation": "Capture termination may explain the missing evidence",
           "stage_id": "registration-decision",
           "type": "MISSING_EXPECTED_COUNTERPART"
@@ -465,7 +525,7 @@
             "NAS-5GS Registration request observed at frame 11 (2024-01-02T03:04:11.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-1:r1",
-          "procedure_version": "1.0.0",
+          "procedure_version": "0.2.0",
           "stage": {
             "expected_message_types": [
               "InitialUEMessage",
@@ -490,7 +550,7 @@
             "NAS-5GS Registration accept observed at frame 13 (2024-01-02T03:04:13.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-1:r1",
-          "procedure_version": "1.0.0",
+          "procedure_version": "0.2.0",
           "stage": {
             "expected_message_types": [
               "Registration accept",
@@ -520,7 +580,7 @@
             "NAS-5GS Registration accept observed at frame 13 (2024-01-02T03:04:13.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-1:r1",
-          "procedure_version": "1.0.0",
+          "procedure_version": "0.2.0",
           "stage": {
             "expected_message_types": [
               "Registration accept",
@@ -543,7 +603,7 @@
       }
     }
   ],
-  "analysis_version": "1.0.0",
+  "analysis_version": "0.2.0",
   "correlation_conflicts": [],
   "procedure_family": "5gc-registration-mobility",
   "unbound_records": []

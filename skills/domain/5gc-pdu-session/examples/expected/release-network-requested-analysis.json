@@ -3,10 +3,26 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "test.pcap",
       "deviations": [
         {
           "description": "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": null,
+              "timestamp": null,
+              "window_first_frame": 2,
+              "window_last_frame": 12
+            }
+          ],
           "limitation": "Earlier procedure stages may exist outside the capture",
           "stage_id": "session_request",
           "type": "PARTIAL_CAPTURE"
@@ -15,6 +31,21 @@
       "earliest_observed_deviation": {
         "description": "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure",
         "evidence_level": "DERIVED",
+        "evidence_refs": [
+          {
+            "capture_file": "test.pcap",
+            "evidence_level": "DERIVED",
+            "field_name": null,
+            "frame_number": null,
+            "kind": "OBSERVATION_WINDOW",
+            "message_type": null,
+            "protocol": null,
+            "stage_id": null,
+            "timestamp": null,
+            "window_first_frame": 2,
+            "window_last_frame": 12
+          }
+        ],
         "limitation": "Earlier procedure stages may exist outside the capture",
         "stage_id": "session_request",
         "type": "PARTIAL_CAPTURE"
@@ -136,6 +167,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 2,
+        "last_frame": 12
+      },
       "pdu_session_id": 1,
       "plane_bindings": {
         "n1": {
@@ -224,6 +259,21 @@
             {
               "description": "PFCP Session Deletion Request at frame 11 missing expected Response",
               "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "user_plane_teardown_control",
+                  "timestamp": null,
+                  "window_first_frame": 11,
+                  "window_last_frame": 12
+                }
+              ],
               "limitation": "Capture window ended before PFCP response arrived",
               "stage_id": "user_plane_teardown_control",
               "type": "MISSING_EXPECTED_COUNTERPART"
@@ -232,6 +282,21 @@
           "earliest_observed_deviation": {
             "description": "PFCP Session Deletion Request at frame 11 missing expected Response",
             "evidence_level": "DERIVED",
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "DERIVED",
+                "field_name": null,
+                "frame_number": null,
+                "kind": "OBSERVATION_WINDOW",
+                "message_type": null,
+                "protocol": null,
+                "stage_id": "user_plane_teardown_control",
+                "timestamp": null,
+                "window_first_frame": 11,
+                "window_last_frame": 12
+              }
+            ],
             "limitation": "Capture window ended before PFCP response arrived",
             "stage_id": "user_plane_teardown_control",
             "type": "MISSING_EXPECTED_COUNTERPART"
@@ -629,7 +694,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

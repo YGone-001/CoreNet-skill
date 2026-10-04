@@ -166,12 +166,12 @@ class PduSessionValidatorTests(unittest.TestCase):
         self.assertEqual(len(by_psi[10]["deviations"]), 0)
         self.assertTrue(any(d["type"] == "RESOURCE_FAILED_ITEM_OBSERVED" for d in by_psi[11]["deviations"]))
 
-    def test_version_remains_010_detected(self):
+    def test_version_remains_040_detected(self):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/domain/5gc-pdu-session/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.0", "version: 0.2.0"), encoding="utf-8")
-            self.assert_error(root, "version must be 0.3.0")
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.4.0", "version: 0.3.0"), encoding="utf-8")
+            self.assert_error(root, "version must be 0.4.0")
 
     def test_static_modification_object_instead_of_array_detected(self):
         temporary, root = self.fixture()

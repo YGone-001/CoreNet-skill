@@ -39,7 +39,7 @@ EXIT_MALFORMED_INPUT = 5
 EXIT_NO_EVENTS = 6
 EXIT_OUTPUT_FAILURE = 7
 
-ANALYSIS_VERSION = "1.0.0"
+ANALYSIS_VERSION = "0.2.0"
 PROCEDURE_FAMILY = "5gc-registration-mobility"
 
 FORBIDDEN_OUTPUT_PATTERN = re.compile(r"(?i)\b(?:root[ _-]?cause|implementation[ _-]?(?:bug|blame))\b")
@@ -57,6 +57,64 @@ DEVIATION_DUPLICATE = "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"
 TERMINAL_COMPLETE = "REGISTRATION_COMPLETE_OBSERVED"
 TERMINAL_REJECT = "REGISTRATION_REJECT_OBSERVED"
 TERMINAL_NONE = "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW"
+
+
+def _evidence_ref(
+    kind: str,
+    evidence_level: str,
+    capture_file: str | None = None,
+    frame_number: int | None = None,
+    timestamp: str | None = None,
+    protocol: str | None = None,
+    message_type: str | None = None,
+    stage_id: str | None = None,
+    field_name: str | None = None,
+    window_first_frame: int | None = None,
+    window_last_frame: int | None = None,
+) -> dict[str, object]:
+    """One machine-readable evidence reference for a deviation.
+
+    Structured provenance consumed by Analysis Orchestration; human-readable
+    description and limitation text are never a machine identity contract.
+    """
+    return {
+        "kind": kind,
+        "evidence_level": evidence_level,
+        "capture_file": capture_file,
+        "frame_number": frame_number,
+        "timestamp": timestamp,
+        "protocol": protocol,
+        "message_type": message_type,
+        "stage_id": stage_id,
+        "field_name": field_name,
+        "window_first_frame": window_first_frame,
+        "window_last_frame": window_last_frame,
+    }
+
+
+def _event_evidence_ref(event: dict[str, object], evidence_level: str = "OBSERVED",
+                        stage_id: str | None = None, field_name: str | None = None) -> dict[str, object]:
+    return _evidence_ref(
+        "EVENT", evidence_level,
+        capture_file=str(event.get("capture_file")) if event.get("capture_file") is not None else None,
+        frame_number=int(event["frame_number"]) if event.get("frame_number") is not None else None,
+        timestamp=str(event["timestamp"]) if event.get("timestamp") is not None else None,
+        protocol=str(event.get("protocol")) if event.get("protocol") is not None else None,
+        message_type=str(event.get("message_type")) if event.get("message_type") is not None else None,
+        stage_id=stage_id,
+        field_name=field_name,
+    )
+
+
+def _window_evidence_ref(capture_file: str | None, first_frame: int | None, last_frame: int | None,
+                         stage_id: str | None = None) -> dict[str, object]:
+    return _evidence_ref(
+        "OBSERVATION_WINDOW", "DERIVED",
+        capture_file=capture_file,
+        stage_id=stage_id,
+        window_first_frame=first_frame,
+        window_last_frame=last_frame,
+    )
 
 REJECT_MESSAGES = {"Registration reject", "Authentication reject", "Security mode reject", "Service reject"}
 UNSUCCESSFUL_MESSAGES = {"InitialContextSetupFailure", "Authentication failure"}
@@ -407,6 +465,10 @@ def evaluate_instance(
         for source in source_ordered_events
     )
     merged.sort(key=_event_sort_key)
+    capture_file = str(instance["capture_file"])
+    merged_frames = [int(event["frame_number"]) for event in merged]
+    instance_window = (min(merged_frames), max(merged_frames)) if merged_frames else None
+    window_refs = [_window_evidence_ref(capture_file, instance_window[0], instance_window[1])] if instance_window else []
     if input_is_out_of_order:
         deviations.append({
             "type": DEVIATION_OUT_OF_ORDER,
@@ -414,6 +476,7 @@ def evaluate_instance(
             "description": "Input evidence was not chronological; ordering was normalized by timestamp and frame",
             "evidence_level": "DERIVED",
             "limitation": "Original provenance preserved",
+            "evidence_refs": window_refs,
         })
 
     seen_signatures: set[tuple] = set()
@@ -429,6 +492,7 @@ def evaluate_instance(
                 "description": f"Repeated {event.get('protocol')} {event.get('message_type')} observation at frame {event['frame_number']}; preserved as duplicate or retransmission evidence",
                 "evidence_level": "DERIVED",
                 "limitation": "Retransmission versus a repeated procedure is not distinguished without further context",
+                "evidence_refs": [_event_evidence_ref(event, "DERIVED")],
             })
         seen_signatures.add(signature)
 
@@ -446,6 +510,10 @@ def evaluate_instance(
                 "description": "The observation window begins after the procedure's initiation evidence; the capture starts mid-procedure",
                 "evidence_level": "DERIVED",
                 "limitation": "Earlier procedure stages may exist outside the capture",
+                "evidence_refs": [
+                    _window_evidence_ref(capture_file, instance_window[0], instance_window[1],
+                                         stage_id=initiation_stage["stage_id"])
+                ] if instance_window else [],
             })
 
     for conflict in instance_conflicts:
@@ -455,6 +523,12 @@ def evaluate_instance(
             "description": f"Conflicting UE-context identifier binding observed at frame {conflict.get('frame_number')}; the first binding is retained",
             "evidence_level": "DERIVED",
             "limitation": "Conflicting source evidence preserved",
+            "evidence_refs": [
+                _evidence_ref("FIELD_FINDING", "DERIVED",
+                              capture_file=capture_file,
+                              frame_number=int(conflict["frame_number"]) if conflict.get("frame_number") is not None else None,
+                              field_name="ue_context_binding")
+            ],
         })
 
     for event in merged:
@@ -510,6 +584,8 @@ def evaluate_instance(
                 "description": f"The {stage['stage_name']} branch was entered (trigger at frame {state['trigger']['frame_number'] if state['trigger'] else 'n/a'}) but none of its expected outcomes was observed",
                 "evidence_level": "DERIVED",
                 "limitation": "Capture termination may explain the missing evidence",
+                "evidence_refs": [_window_evidence_ref(capture_file, instance_window[0], instance_window[1],
+                                                       stage_id=stage["stage_id"])] if instance_window else [],
             })
             limitations.append("Capture termination may explain the missing evidence if the counterpart falls outside the observation window")
             basis = "DERIVED"
@@ -535,6 +611,7 @@ def evaluate_instance(
                 "description": f"{protocol} {message} observed at frame {event['frame_number']}",
                 "evidence_level": "OBSERVED",
                 "limitation": "A protocol-defined reject is procedure evidence; it never attributes blame to any network element or implementation",
+                "evidence_refs": [_event_evidence_ref(event)],
             })
         elif message in UNSUCCESSFUL_MESSAGES:
             deviations.append({
@@ -543,6 +620,7 @@ def evaluate_instance(
                 "description": f"{protocol} {message} observed at frame {event['frame_number']}",
                 "evidence_level": "OBSERVED",
                 "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
+                "evidence_refs": [_event_evidence_ref(event)],
             })
         if event.get("support_status") in ("UNSUPPORTED", "UNKNOWN"):
             deviations.append({
@@ -551,6 +629,7 @@ def evaluate_instance(
                 "description": f"{protocol} {message} at frame {event['frame_number']} was reported {event.get('support_status')} by the lower layer; procedure interpretation is limited",
                 "evidence_level": "OBSERVED",
                 "limitation": "No semantics are invented for the unsupported or unknown message",
+                "evidence_refs": [_event_evidence_ref(event)],
             })
         if protocol == "NAS-5GS":
             security = event.get("security")
@@ -561,6 +640,7 @@ def evaluate_instance(
                     "description": f"A protected NAS envelope at frame {event['frame_number']} carried no decodable inner message",
                     "evidence_level": "OBSERVED",
                     "limitation": "Inner contents were never guessed",
+                    "evidence_refs": [_event_evidence_ref(event)],
                 })
 
     terminal_events = [
@@ -593,6 +673,8 @@ def evaluate_instance(
                 "description": "No Registration accept or Registration reject was observed within the available observation window",
                 "evidence_level": "DERIVED",
                 "limitation": "Capture termination may explain the missing evidence",
+                "evidence_refs": [_window_evidence_ref(capture_file, instance_window[0], instance_window[1],
+                                                       stage_id="registration-decision")] if instance_window else [],
             })
 
     deviation_types = {deviation["type"] for deviation in deviations}

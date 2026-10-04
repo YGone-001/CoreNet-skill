@@ -144,6 +144,53 @@ def manifest_block_or_flow(text: str, key: str) -> list[str]:
     return [line.strip().lstrip("-").strip() for line in block.group(1).splitlines() if line.strip()]
 
 
+def check_structured_provenance(root: Path, errors: list[str]) -> None:
+    """Every OBSERVED boundary-eligible deviation must carry a structured EVENT
+    ref with frame provenance; every MISSING_EXPECTED_COUNTERPART must carry an
+    OBSERVATION_WINDOW ref and no fabricated observed frame. Instances expose
+    structured capture_file and observation_window."""
+    expected_dir = root / "skills/domain/5gc-pdu-session/examples/expected"
+    if not expected_dir.is_dir():
+        return
+    eligible = {
+        "PROTOCOL_REJECT_OBSERVED", "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+        "RESOURCE_FAILED_ITEM_OBSERVED", "DELIVERY_FAILURE_NOTIFICATION_OBSERVED",
+        "MISSING_EXPECTED_COUNTERPART", "FIELD_CONFLICT",
+    }
+    for path in sorted(expected_dir.glob("*-analysis.json")):
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        for inst in doc.get("instances", []):
+            if inst.get("capture_file") is None:
+                errors.append(f"{path.name}: instance {inst.get('instance_id')} lacks structured capture_file")
+            all_devs = list(inst.get("deviations", []))
+            for attempt in inst.get("modification_attempts", []) + inst.get("release_attempts", []):
+                all_devs.extend(attempt.get("deviations", []))
+            for deviation in all_devs:
+                dtype = deviation.get("type")
+                if dtype not in eligible:
+                    continue
+                refs = deviation.get("evidence_refs")
+                if not isinstance(refs, list) or not refs:
+                    errors.append(f"{path.name}: eligible deviation {dtype} lacks structured evidence_refs")
+                    continue
+                if dtype == "MISSING_EXPECTED_COUNTERPART":
+                    if not any(r.get("kind") == "OBSERVATION_WINDOW" for r in refs):
+                        errors.append(f"{path.name}: MISSING_EXPECTED_COUNTERPART lacks an OBSERVATION_WINDOW ref")
+                    if any(r.get("kind") == "EVENT" and r.get("evidence_level") == "OBSERVED" and r.get("frame_number") is not None for r in refs):
+                        errors.append(f"{path.name}: MISSING_EXPECTED_COUNTERPART must not carry a fabricated observed frame")
+                else:
+                    has_anchor = any(
+                        (r.get("kind") == "EVENT" and r.get("evidence_level") == "OBSERVED" and r.get("frame_number") is not None)
+                        or (r.get("kind") == "OBSERVATION_WINDOW")
+                        for r in refs
+                    )
+                    if not has_anchor:
+                        errors.append(f"{path.name}: OBSERVED deviation {dtype} lacks structured frame or window provenance")
+
+
 def validate(root: Path) -> list[str]:
     errors: list[str] = []
     skill = root / SKILL
@@ -157,7 +204,7 @@ def validate(root: Path) -> list[str]:
         return errors
 
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "5gc-pdu-session"), ("version", "0.3.0"), ("category", "domain")):
+    for key, expected in (("name", "5gc-pdu-session"), ("version", "0.4.0"), ("category", "domain")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
 
@@ -492,6 +539,7 @@ def validate(root: Path) -> list[str]:
             except py_compile.PyCompileError as exc:
                 errors.append(f"script does not compile: {script.name}: {exc.msg}")
 
+    check_structured_provenance(root, errors)
     return errors
 
 

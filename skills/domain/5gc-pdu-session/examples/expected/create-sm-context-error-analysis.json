@@ -3,10 +3,26 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "sample.pcap",
       "deviations": [
         {
           "description": "Nsmf_PDUSession CreateSMContext returned HTTP 400 with ProblemDetails cause DNN_NOT_SUPPORTED",
           "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "capture_file": "sample.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": null,
+              "frame_number": 2,
+              "kind": "EVENT",
+              "message_type": null,
+              "protocol": "3GPP-SBI",
+              "stage_id": "sm_context_control",
+              "timestamp": "2026-03-01T10:00:00.200000Z",
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable",
           "stage_id": "sm_context_control",
           "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
@@ -15,6 +31,21 @@
       "earliest_observed_deviation": {
         "description": "Nsmf_PDUSession CreateSMContext returned HTTP 400 with ProblemDetails cause DNN_NOT_SUPPORTED",
         "evidence_level": "OBSERVED",
+        "evidence_refs": [
+          {
+            "capture_file": "sample.pcap",
+            "evidence_level": "OBSERVED",
+            "field_name": null,
+            "frame_number": 2,
+            "kind": "EVENT",
+            "message_type": null,
+            "protocol": "3GPP-SBI",
+            "stage_id": "sm_context_control",
+            "timestamp": "2026-03-01T10:00:00.200000Z",
+            "window_first_frame": null,
+            "window_last_frame": null
+          }
+        ],
         "limitation": "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable",
         "stage_id": "sm_context_control",
         "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
@@ -71,6 +102,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 2
+      },
       "pdu_session_id": 1,
       "plane_bindings": {
         "n1": {
@@ -232,7 +267,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

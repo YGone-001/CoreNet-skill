@@ -1,5 +1,5 @@
 name: 5gc-pdu-session
-version: 0.3.0
+version: 0.4.0
 category: domain
 description: >
   Bounded 5GC PDU Session Establishment, Modification, and Release procedure-level analysis composing

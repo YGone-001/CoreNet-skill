@@ -3,10 +3,26 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "test.pcap",
       "deviations": [
         {
           "description": "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": null,
+              "timestamp": null,
+              "window_first_frame": 2,
+              "window_last_frame": 12
+            }
+          ],
           "limitation": "Earlier procedure stages may exist outside the capture",
           "stage_id": "session_request",
           "type": "PARTIAL_CAPTURE"
@@ -14,6 +30,21 @@
         {
           "description": "Namf_Communication reported delivery failure notification with cause UE_NOT_RESPONDING",
           "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": null,
+              "frame_number": 12,
+              "kind": "EVENT",
+              "message_type": null,
+              "protocol": "3GPP-SBI",
+              "stage_id": "n1_n2_delivery",
+              "timestamp": "2026-10-02T10:00:12.000000Z",
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "AMF reported failure to reach UE; radio coverage or UE power state not directly verified",
           "stage_id": "n1_n2_delivery",
           "type": "DELIVERY_FAILURE_NOTIFICATION_OBSERVED"
@@ -22,6 +53,21 @@
       "earliest_observed_deviation": {
         "description": "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure",
         "evidence_level": "DERIVED",
+        "evidence_refs": [
+          {
+            "capture_file": "test.pcap",
+            "evidence_level": "DERIVED",
+            "field_name": null,
+            "frame_number": null,
+            "kind": "OBSERVATION_WINDOW",
+            "message_type": null,
+            "protocol": null,
+            "stage_id": null,
+            "timestamp": null,
+            "window_first_frame": 2,
+            "window_last_frame": 12
+          }
+        ],
         "limitation": "Earlier procedure stages may exist outside the capture",
         "stage_id": "session_request",
         "type": "PARTIAL_CAPTURE"
@@ -130,6 +176,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 2,
+        "last_frame": 12
+      },
       "pdu_session_id": 1,
       "plane_bindings": {
         "n1": {
@@ -218,6 +268,21 @@
             {
               "description": "Namf_Communication N1N2Transfer Failure Notification reported delivery failure (delivery_failed)",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 12,
+                  "kind": "EVENT",
+                  "message_type": null,
+                  "protocol": "3GPP-SBI",
+                  "stage_id": "n1_n2_delivery",
+                  "timestamp": "2026-10-02T10:00:12.000000Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "AMF reported N1/N2 delivery failure; communication transfer aborted",
               "stage_id": "n1_n2_delivery",
               "type": "DELIVERY_FAILURE_NOTIFICATION_OBSERVED"
@@ -225,6 +290,21 @@
             {
               "description": "Release initiated at frame 10 but no terminal NAS release response observed within capture window; N1/N2 delivery failure notification was observed for this release attempt",
               "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "release_terminal",
+                  "timestamp": null,
+                  "window_first_frame": 12,
+                  "window_last_frame": 12
+                }
+              ],
               "limitation": "Delivery failure was observed; successful N1 delivery was not established, so the missing terminal reflects the observed negative delivery branch",
               "stage_id": "release_terminal",
               "type": "MISSING_EXPECTED_COUNTERPART"
@@ -233,6 +313,21 @@
           "earliest_observed_deviation": {
             "description": "Namf_Communication N1N2Transfer Failure Notification reported delivery failure (delivery_failed)",
             "evidence_level": "OBSERVED",
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 12,
+                "kind": "EVENT",
+                "message_type": null,
+                "protocol": "3GPP-SBI",
+                "stage_id": "n1_n2_delivery",
+                "timestamp": "2026-10-02T10:00:12.000000Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "limitation": "AMF reported N1/N2 delivery failure; communication transfer aborted",
             "stage_id": "n1_n2_delivery",
             "type": "DELIVERY_FAILURE_NOTIFICATION_OBSERVED"
@@ -585,7 +680,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

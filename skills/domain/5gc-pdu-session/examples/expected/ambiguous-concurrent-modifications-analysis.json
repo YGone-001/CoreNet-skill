@@ -3,10 +3,26 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "test.pcap",
       "deviations": [
         {
           "description": "Modification event is session-bound but carries no attempt-specific identity while multiple concurrent modification attempts are compatible; no attempt selected (3GPP-SBI frame 12 in test.pcap)",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": 12,
+              "kind": "EVENT",
+              "message_type": null,
+              "protocol": "3GPP-SBI",
+              "stage_id": null,
+              "timestamp": null,
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "Event preserved as session-level context; no attempt-specific assignment was made",
           "stage_id": "sm_context_update",
           "type": "CORRELATION_AMBIGUITY"
@@ -14,6 +30,21 @@
         {
           "description": "Modification event is session-bound but carries no attempt-specific identity while multiple concurrent modification attempts are compatible; no attempt selected (PFCP frame 13 in test.pcap)",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": 13,
+              "kind": "EVENT",
+              "message_type": null,
+              "protocol": "PFCP",
+              "stage_id": null,
+              "timestamp": null,
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "Event preserved as session-level context; no attempt-specific assignment was made",
           "stage_id": "user_plane_control_update",
           "type": "CORRELATION_AMBIGUITY"
@@ -21,6 +52,21 @@
         {
           "description": "GTP-U packet matches the tunnel context of multiple concurrent modification attempts within overlapping observation windows; tunnel identity cannot select one attempt (GTP-U frame 14 in test.pcap)",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": 14,
+              "kind": "EVENT",
+              "message_type": null,
+              "protocol": "GTP-U",
+              "stage_id": null,
+              "timestamp": null,
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "Event preserved as session-level context; no attempt-specific assignment was made",
           "stage_id": "post_modification_observation",
           "type": "CORRELATION_AMBIGUITY"
@@ -206,6 +252,21 @@
             {
               "description": "Modification initiated at frame 10 but no terminal NAS completion or reject message observed within capture window",
               "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "modification_completion",
+                  "timestamp": null,
+                  "window_first_frame": 10,
+                  "window_last_frame": 14
+                }
+              ],
               "limitation": "Capture window truncated before modification completion",
               "stage_id": "modification_completion",
               "type": "MISSING_EXPECTED_COUNTERPART"
@@ -214,6 +275,21 @@
           "earliest_observed_deviation": {
             "description": "Modification initiated at frame 10 but no terminal NAS completion or reject message observed within capture window",
             "evidence_level": "DERIVED",
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "DERIVED",
+                "field_name": null,
+                "frame_number": null,
+                "kind": "OBSERVATION_WINDOW",
+                "message_type": null,
+                "protocol": null,
+                "stage_id": "modification_completion",
+                "timestamp": null,
+                "window_first_frame": 10,
+                "window_last_frame": 14
+              }
+            ],
             "limitation": "Capture window truncated before modification completion",
             "stage_id": "modification_completion",
             "type": "MISSING_EXPECTED_COUNTERPART"
@@ -419,6 +495,21 @@
             {
               "description": "Modification initiated at frame 11 but no terminal NAS completion or reject message observed within capture window",
               "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "modification_completion",
+                  "timestamp": null,
+                  "window_first_frame": 11,
+                  "window_last_frame": 14
+                }
+              ],
               "limitation": "Capture window truncated before modification completion",
               "stage_id": "modification_completion",
               "type": "MISSING_EXPECTED_COUNTERPART"
@@ -427,6 +518,21 @@
           "earliest_observed_deviation": {
             "description": "Modification initiated at frame 11 but no terminal NAS completion or reject message observed within capture window",
             "evidence_level": "DERIVED",
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "DERIVED",
+                "field_name": null,
+                "frame_number": null,
+                "kind": "OBSERVATION_WINDOW",
+                "message_type": null,
+                "protocol": null,
+                "stage_id": "modification_completion",
+                "timestamp": null,
+                "window_first_frame": 11,
+                "window_last_frame": 14
+              }
+            ],
             "limitation": "Capture window truncated before modification completion",
             "stage_id": "modification_completion",
             "type": "MISSING_EXPECTED_COUNTERPART"
@@ -608,6 +714,10 @@
           "unbound_evidence": []
         }
       ],
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 14
+      },
       "pdu_session_id": 1,
       "plane_bindings": {
         "n1": {
@@ -832,7 +942,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],
