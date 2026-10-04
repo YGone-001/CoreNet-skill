@@ -11,6 +11,21 @@
       "earlier_context": [],
       "evidence_limitations": [
         {
+          "_refs": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": null,
+              "timestamp": null,
+              "window_first_frame": 2,
+              "window_last_frame": 13
+            }
+          ],
           "description": "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure",
           "evidence_level": "DERIVED",
           "source_attempt_id": null,
@@ -20,6 +35,21 @@
           "type": "PARTIAL_CAPTURE"
         },
         {
+          "_refs": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": null,
+              "frame_number": 10,
+              "kind": "EVENT",
+              "message_type": "PduSessionReleaseRequest",
+              "protocol": "NAS-5GS",
+              "stage_id": null,
+              "timestamp": "2026-10-02T10:00:10.000000Z",
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "description": "NAS message at frame 10 is ciphered and inner payload is unavailable",
           "evidence_level": "OBSERVED",
           "source_attempt_id": "rel-1",

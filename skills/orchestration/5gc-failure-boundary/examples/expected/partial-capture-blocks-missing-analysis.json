@@ -27,6 +27,7 @@
             "capture_file": "reg.pcapng",
             "frame_number": null,
             "message_type": null,
+            "protocol": null,
             "timestamp": null
           },
           "candidate_id": "1-cand-1",
@@ -51,9 +52,39 @@
           "source_domain": "5gc-registration-mobility",
           "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "reg.pcapng",
+                "evidence_level": "DERIVED",
+                "field_name": null,
+                "frame_number": null,
+                "kind": "OBSERVATION_WINDOW",
+                "message_type": null,
+                "protocol": null,
+                "stage_id": "registration-decision",
+                "timestamp": null,
+                "window_first_frame": 10,
+                "window_last_frame": 11
+              }
+            ],
             "source_deviation": {
               "description": "No Registration accept or Registration reject was observed within the available observation window",
               "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "reg.pcapng",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "registration-decision",
+                  "timestamp": null,
+                  "window_first_frame": 10,
+                  "window_last_frame": 11
+                }
+              ],
               "limitation": "Capture termination may explain the missing evidence",
               "stage_id": "registration-decision",
               "type": "MISSING_EXPECTED_COUNTERPART"
@@ -76,6 +107,7 @@
             "capture_file": "reg.pcapng",
             "frame_number": null,
             "message_type": null,
+            "protocol": null,
             "timestamp": null
           },
           "candidate_id": "1-cand-2",
@@ -100,9 +132,39 @@
           "source_domain": "5gc-registration-mobility",
           "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "reg.pcapng",
+                "evidence_level": "DERIVED",
+                "field_name": null,
+                "frame_number": null,
+                "kind": "OBSERVATION_WINDOW",
+                "message_type": null,
+                "protocol": null,
+                "stage_id": "authentication",
+                "timestamp": null,
+                "window_first_frame": 10,
+                "window_last_frame": 11
+              }
+            ],
             "source_deviation": {
               "description": "The Authentication procedure branch was entered (trigger at frame 10) but none of its expected outcomes was observed",
               "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "reg.pcapng",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "authentication",
+                  "timestamp": null,
+                  "window_first_frame": 10,
+                  "window_last_frame": 11
+                }
+              ],
               "limitation": "Capture termination may explain the missing evidence",
               "stage_id": "authentication",
               "type": "MISSING_EXPECTED_COUNTERPART"
@@ -125,6 +187,7 @@
             "capture_file": "reg.pcapng",
             "frame_number": null,
             "message_type": null,
+            "protocol": null,
             "timestamp": null
           },
           "candidate_id": "1-cand-3",
@@ -149,9 +212,39 @@
           "source_domain": "5gc-registration-mobility",
           "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "reg.pcapng",
+                "evidence_level": "DERIVED",
+                "field_name": null,
+                "frame_number": null,
+                "kind": "OBSERVATION_WINDOW",
+                "message_type": null,
+                "protocol": null,
+                "stage_id": "registration-completion",
+                "timestamp": null,
+                "window_first_frame": 10,
+                "window_last_frame": 11
+              }
+            ],
             "source_deviation": {
               "description": "The Registration completion branch was entered (trigger at frame 11) but none of its expected outcomes was observed",
               "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "reg.pcapng",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "registration-completion",
+                  "timestamp": null,
+                  "window_first_frame": 10,
+                  "window_last_frame": 11
+                }
+              ],
               "limitation": "Capture termination may explain the missing evidence",
               "stage_id": "registration-completion",
               "type": "MISSING_EXPECTED_COUNTERPART"
@@ -175,6 +268,21 @@
       "earlier_context": [],
       "evidence_limitations": [
         {
+          "_refs": [
+            {
+              "capture_file": "reg.pcapng",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": "registration-initiation",
+              "timestamp": null,
+              "window_first_frame": 10,
+              "window_last_frame": 11
+            }
+          ],
           "description": "The observation window begins after the procedure's initiation evidence; the capture starts mid-procedure",
           "evidence_level": "DERIVED",
           "source_attempt_id": null,

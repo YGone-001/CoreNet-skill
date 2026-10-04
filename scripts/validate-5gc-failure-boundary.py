@@ -38,8 +38,12 @@ EXPECTED_SCENARIOS = {
     "pfcp-boundary-downstream-neutral", "ngap-boundary-before-nas-reject",
     "registration-only", "pdu-session-only", "malformed-domain-input",
     "duplicate-identical-input", "out-of-order-input-order",
-    "no-deviations-anywhere",
+    "no-deviations-anywhere", "later-incomparability", "earliest-incomparability",
+    "description-invariance", "adversarial-description",
 }
+
+# Scenarios whose analyzer MUST fail loudly (rc != 0) instead of producing output.
+FAILURE_EXPECTED_SCENARIOS = {"malformed-domain-input", "incomparable-provenance"}
 
 CAPTURE_SUFFIXES = {".pcap", ".pcapng", ".cap"}
 TEXT_SUFFIXES = {".md", ".py", ".yaml", ".json", ".jsonl", ".txt"}
@@ -53,6 +57,7 @@ FORBIDDEN_SCHEMA_FIELDS = re.compile(r"(?i)root_?cause|culprit|responsible_?nf|v
 FORBIDDEN_RELATION = re.compile(r"(?i)caused[ _-]?by[ _-]?boundary")
 TIMESTAMP_ONLY_JOIN = re.compile(r"(?i)\b(?:match|join|link|correlate)_by_timestamp(?:_only)?\b")
 SEVERITY_RANKING = re.compile(r"(?i)severity[ _-]?(?:rank|priority|score|order)")
+PROSE_FRAME_PARSING = re.compile(r"(?i)frame_from_description|_frame_in_text|observed_evidence")
 
 
 def manifest_value(text: str, key: str) -> str | None:
@@ -133,9 +138,9 @@ def validate(root: Path) -> list[str]:
     input_root = skill / "examples/inputs"
     actual_scenarios = {path.name for path in input_root.iterdir() if path.is_dir()} if input_root.is_dir() else set()
     if actual_scenarios != EXPECTED_SCENARIOS:
-        errors.append(f"synthetic input scenarios must cover all 30 bounded cases; found: {actual_scenarios}")
+        errors.append(f"synthetic input scenarios must cover all 34 bounded cases; found: {actual_scenarios}")
 
-    for scenario in sorted(EXPECTED_SCENARIOS - {"malformed-domain-input"}):
+    for scenario in sorted(EXPECTED_SCENARIOS - FAILURE_EXPECTED_SCENARIOS):
         if not (input_root / scenario).is_dir():
             continue
         found_any = any(
@@ -183,6 +188,10 @@ def validate(root: Path) -> list[str]:
                     errors.append(f"severity-based candidate ranking antipattern in {name}")
                 if FORBIDDEN_RELATION.search(line):
                     errors.append(f"causal downstream relation wording in {name}")
+                if path.name == "failure_boundary_model.py" and PROSE_FRAME_PARSING.search(line):
+                    errors.append(f"prose frame parsing antipattern in {name}")
+                if path.name == "failure_boundary_model.py" and '"observed_evidence"' in line:
+                    errors.append(f"orchestration model consumes Domain observed_evidence prose in {name}")
 
     for script_dir in (skill / "scripts", skill / "tests"):
         for script in script_dir.glob("*.py"):

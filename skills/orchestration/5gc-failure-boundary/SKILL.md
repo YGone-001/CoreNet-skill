@@ -16,9 +16,10 @@ severity, and never reports network or procedure success.
 
 ## Scope
 
-- Consume Domain analysis JSON only: `5gc-registration-mobility` (>=0.1.0) and
-  `5gc-pdu-session` (>=0.3.0) analysis summaries. No raw protocol events, no
-  PCAP parsing, no log parsing.
+- Consume Domain analysis JSON only: `5gc-registration-mobility` (>=0.2.0) and
+  `5gc-pdu-session` (>=0.4.0) analysis summaries. No raw protocol events, no
+  PCAP parsing, no log parsing. Source versions are verified structurally and
+  known older versions fail loudly (no prose-parsing fallback).
 - Form diagnostic groups by exact common context only: capture file + SCTP
   association (contract-equivalent across the two Domain output formats) +
   RAN-UE-NGAP-ID + AMF-UE-NGAP-ID, all present and equal. Timestamp proximity,
@@ -30,7 +31,9 @@ severity, and never reports network or procedure success.
   `reuse_status`, `lifecycle_boundary_basis`) per source instance; generations
   are never collapsed by equal numeric PDU Session IDs.
 - Build boundary candidates only from deviations already emitted by a Domain
-  Skill, mapped exactly: `PROTOCOL_REJECT_OBSERVED`,
+  Skill, consuming their structured `evidence_refs` as the sole provenance
+  contract (human-readable text is presentation only, never parsed), mapped
+  exactly: `PROTOCOL_REJECT_OBSERVED`,
   `UNSUCCESSFUL_OUTCOME_OBSERVED`, `PROTOCOL_NEGATIVE_OUTCOME_OBSERVED`,
   `RESOURCE_FAILED_ITEM_OBSERVED`, `DELIVERY_FAILURE_NOTIFICATION_OBSERVED`,
   `MISSING_EXPECTED_COUNTERPART`, and `FIELD_CONFLICT` (as a deviation).

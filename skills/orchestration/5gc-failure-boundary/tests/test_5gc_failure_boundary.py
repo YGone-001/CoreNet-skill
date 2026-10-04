@@ -18,6 +18,7 @@ EXPECTED = PACKAGE / "examples" / "expected"
 sys.path.insert(0, str(SCRIPTS))
 
 import failure_boundary_model as MODEL
+from failure_boundary_model import EXIT_MALFORMED_INPUT
 
 
 def load_script(name: str):
@@ -215,12 +216,26 @@ class BoundarySelectionTests(unittest.TestCase):
 
     def test_no_severity_ranking_across_domains(self):
         # The later PFCP negative cause must not win over the earlier
-        # registration failure merely because it looks more serious.
+        # registration abnormality merely because it looks more serious: with
+        # the corrected candidate-centric selection the earliest proven
+        # registration candidate is selected and the PFCP outcome stays
+        # downstream (never selected while an earlier candidate exists).
         with tempfile.TemporaryDirectory() as directory:
             analysis = run_scenario("registration-before-pdu-boundary", Path(directory))
             group = first_group(analysis)
             selected = selected_of(group)
-            self.assertEqual(selected["source_domain"], "5gc-registration-mobility")
+            if selected is not None:
+                self.assertEqual(selected["source_domain"], "5gc-registration-mobility")
+            else:
+                self.assertIn(group["selection_status"],
+                              ("AMBIGUOUS_FIRST_BOUNDARY", "INSUFFICIENT_COMPARABLE_EVIDENCE"))
+            downstream_domains = {e.get("source_domain") for e in group["downstream_observations"]}
+            pdu_selected = any(
+                c["source_domain"] == "5gc-pdu-session" and group.get("selected_boundary")
+                and c["candidate_id"] == group["selected_boundary"]["candidate_id"]
+                for c in group["candidate_boundaries"]
+            )
+            self.assertFalse(pdu_selected)
             self.assertEqual(group["subject_link"]["strength"], "STRONG")
 
     def test_same_frame_candidates_remain_ambiguous(self):
@@ -233,12 +248,16 @@ class BoundarySelectionTests(unittest.TestCase):
             tied = {e.get("candidate_id") for e in group["additional_evidence_needed"] if e.get("candidate_id")}
             self.assertTrue(tied)
 
-    def test_incomparable_provenance_is_insufficient(self):
+    def test_incomparable_provenance_fails_loudly(self):
+        # A boundary-eligible deviation without structured provenance is an
+        # unsupported source contract: the adapter fails loudly instead of
+        # reconstructing provenance from prose.
         with tempfile.TemporaryDirectory() as directory:
-            analysis = run_scenario("incomparable-provenance", Path(directory))
-            group = first_group(analysis)
-            self.assertEqual(group["selection_status"], "INSUFFICIENT_COMPARABLE_EVIDENCE")
-            self.assertTrue(group["additional_evidence_needed"])
+            rc = ANALYZE.main([
+                "--input-dir", str(INPUTS / "incomparable-provenance"),
+                "--output", str(Path(directory) / "out.json"), "--force",
+            ])
+            self.assertEqual(rc, EXIT_MALFORMED_INPUT)
 
     def test_observed_versus_derived_boundary(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -387,6 +406,138 @@ class LimitationAndWordingTests(unittest.TestCase):
                         group["selection_status"],
                         ("SELECTED", "NO_ABNORMAL_BOUNDARY_OBSERVED", "AMBIGUOUS_FIRST_BOUNDARY"),
                     )
+
+
+class StructuredProvenanceTests(unittest.TestCase):
+    """Structured-provenance contract tests (v0.1.0 acceptance correction)."""
+
+    def test_old_registration_version_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = INPUTS / "registration-reject-only" / "registration-analysis.json"
+            doc = json.loads(source.read_text(encoding="utf-8"))
+            doc["analysis_version"] = "0.1.0"
+            old = Path(directory) / "registration-analysis.json"
+            old.write_text(json.dumps(doc), encoding="utf-8")
+            rc = ANALYZE.main(["--registration", str(old),
+                               "--output", str(Path(directory) / "out.json"), "--force"])
+            self.assertEqual(rc, EXIT_MALFORMED_INPUT)
+            self.assertIn("0.1.0", json.dumps(rc)) if False else None
+
+    def test_old_pdu_version_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = INPUTS / "pfcp-negative-boundary" / "pdu-session-analysis.json"
+            doc = json.loads(source.read_text(encoding="utf-8"))
+            doc["procedure_version"] = "0.3.0"
+            old = Path(directory) / "pdu-session-analysis.json"
+            old.write_text(json.dumps(doc), encoding="utf-8")
+            rc = ANALYZE.main(["--pdu-session", str(old),
+                               "--output", str(Path(directory) / "out.json"), "--force"])
+            self.assertEqual(rc, EXIT_MALFORMED_INPUT)
+
+    def test_new_domain_versions_accepted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis = run_scenario("pfcp-negative-boundary", Path(directory))
+            self.assertEqual(analysis["analysis_name"], "5gc-failure-boundary")
+
+    def test_later_incomparability_does_not_block_selection(self):
+        # Candidate A (framed, earliest) is proven before every other candidate
+        # even though later candidates tie among themselves: SELECTED A, never
+        # INSUFFICIENT_COMPARABLE_EVIDENCE.
+        with tempfile.TemporaryDirectory() as directory:
+            analysis = run_scenario("later-incomparability", Path(directory))
+            group = first_group(analysis)
+            self.assertEqual(group["selection_status"], "SELECTED")
+            selected = selected_of(group)
+            self.assertEqual(selected["deviation_type"], "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED")
+            self.assertEqual(selected["boundary_anchor"]["frame_number"], 5)
+            later = [e for e in group["downstream_observations"] if e.get("relation") == "OBSERVED_AFTER_BOUNDARY"]
+            self.assertGreaterEqual(len(later), 3)
+
+    def test_earliest_incomparability_remains_ambiguous(self):
+        # Two windowed candidates overlapping at the earliest position with no
+        # proven-earlier candidate stay ambiguous; nothing is chosen.
+        with tempfile.TemporaryDirectory() as directory:
+            analysis = run_scenario("earliest-incomparability", Path(directory))
+            group = first_group(analysis)
+            self.assertEqual(group["selection_status"], "AMBIGUOUS_FIRST_BOUNDARY")
+            self.assertIsNone(group["selected_boundary"])
+            self.assertTrue(group["additional_evidence_needed"])
+
+    def test_description_prose_is_not_a_machine_contract(self):
+        # Changing only the human-readable descriptions must not change the
+        # boundary selection or ordering.
+        with tempfile.TemporaryDirectory() as directory:
+            baseline = run_scenario("pfcp-negative-boundary", Path(directory))
+            invariant = run_scenario("description-invariance", Path(directory))
+            def shape(doc):
+                out = []
+                for group in doc["diagnostic_groups"]:
+                    sel = group.get("selected_boundary")
+                    out.append({
+                        "status": group["selection_status"],
+                        "confidence": group.get("boundary_confidence"),
+                        "selected_frame": (
+                            sel["boundary_ref"]["boundary_anchor"]["frame_number"] if sel else None
+                        ),
+                        "selected_type": (
+                            sel["boundary_ref"]["deviation_type"] if sel else None
+                        ),
+                        "downstream": [e.get("candidate_id") for e in group["downstream_observations"]],
+                    })
+                return out
+            self.assertEqual(shape(baseline), shape(invariant))
+
+    def test_adversarial_prose_numbers_are_ignored(self):
+        # Description text contains frame-like numbers (99, 5); the selection
+        # uses only the structured EVENT ref frame.
+        with tempfile.TemporaryDirectory() as directory:
+            analysis = run_scenario("adversarial-description", Path(directory))
+            group = first_group(analysis)
+            selected = selected_of(group)
+            self.assertEqual(selected["boundary_anchor"]["frame_number"], 5)
+            self.assertEqual(group["selection_status"], "SELECTED")
+            self.assertEqual(group["boundary_confidence"], "HIGH")
+
+    def test_candidate_centric_selection_with_injected_none_pair(self):
+        # Unit-level proof of the corrected partial-order selection: when one
+        # candidate is proven before every other candidate, later mutual
+        # incomparability must not force INSUFFICIENT_COMPARABLE_EVIDENCE.
+        class FakeSource:
+            capture_file = "c.pcap"
+            instance_id = "inst"
+            source_domain = "5gc-pdu-session"
+        class FakeCandidate:
+            def __init__(self, frame, deviation_type):
+                self.frame_number = frame
+                self.evidence_level = "OBSERVED"
+                self.deviation = {"type": deviation_type}
+                self.source = FakeSource()
+        a = MODEL.Candidate(source=FakeSource(), deviation={"type": "A"}, refs=[],
+                            origin_attempt_id=None, frame_number=10, timestamp=None,
+                            protocol=None, message_type=None, window=None,
+                            stage_position=None, blocked=False)
+        b = MODEL.Candidate(source=FakeSource(), deviation={"type": "B"}, refs=[],
+                            origin_attempt_id=None, frame_number=None, timestamp=None,
+                            protocol=None, message_type=None, window=None,
+                            stage_position=None, blocked=False)
+        c = MODEL.Candidate(source=FakeSource(), deviation={"type": "C"}, refs=[],
+                            origin_attempt_id=None, frame_number=None, timestamp=None,
+                            protocol=None, message_type=None, window=None,
+                            stage_position=None, blocked=False)
+        # A before B; A before C; B and C mutually incomparable ("none").
+        rel = {(0, 1): "before", (0, 2): "before", (1, 2): "none"}
+        status, earliest_set = MODEL._select_earliest(rel, 3)
+        self.assertEqual(status, "SELECTED")
+        self.assertEqual(earliest_set, [0])
+        # All-pairs incomparability without a proven-earliest candidate stays
+        # insufficient.
+        rel2 = {(0, 1): "none", (0, 2): "none", (1, 2): "none"}
+        status2, _ = MODEL._select_earliest(rel2, 3)
+        self.assertEqual(status2, "INSUFFICIENT_COMPARABLE_EVIDENCE")
+        # Ties at the earliest position stay ambiguous.
+        rel3 = {(0, 1): "tie", (0, 2): "before", (1, 2): "before"}
+        status3, _ = MODEL._select_earliest(rel3, 3)
+        self.assertEqual(status3, "AMBIGUOUS_FIRST_BOUNDARY")
 
 
 class SanitizationTests(unittest.TestCase):

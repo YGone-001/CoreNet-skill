@@ -2,7 +2,7 @@
 
 `5gc-registration-mobility` is the first concrete Domain Skill of the
 CoreNet repository: a bounded N1/N2 procedure-level analysis of 5GC
-registration and access signaling, version 0.1.0. It consumes
+registration and access signaling, version 0.2.0. It consumes
 already-extracted NGAP events, NAS-5GS events, and cross-protocol
 correlation output, forms evidence-safe procedure instances, evaluates
 the conditional TS 23.502 registration stage model, recognizes

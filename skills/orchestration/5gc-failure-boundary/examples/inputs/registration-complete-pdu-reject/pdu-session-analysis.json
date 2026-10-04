@@ -3,10 +3,26 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "test.pcap",
       "deviations": [
         {
           "description": "PDU Session Establishment Reject observed with 5GSM cause RegularDeactivation (code 36)",
           "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": null,
+              "frame_number": 25,
+              "kind": "EVENT",
+              "message_type": "PduSessionEstablishmentReject",
+              "protocol": "NAS-5GS",
+              "stage_id": "session_decision",
+              "timestamp": "2024-01-02T03:04:25.00Z",
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "Terminal rejection signaling on N1; external trigger for rejection not proven",
           "stage_id": "session_decision",
           "type": "PROTOCOL_REJECT_OBSERVED"
@@ -15,6 +31,21 @@
       "earliest_observed_deviation": {
         "description": "PDU Session Establishment Reject observed with 5GSM cause RegularDeactivation (code 36)",
         "evidence_level": "OBSERVED",
+        "evidence_refs": [
+          {
+            "capture_file": "test.pcap",
+            "evidence_level": "OBSERVED",
+            "field_name": null,
+            "frame_number": 25,
+            "kind": "EVENT",
+            "message_type": "PduSessionEstablishmentReject",
+            "protocol": "NAS-5GS",
+            "stage_id": "session_decision",
+            "timestamp": "2024-01-02T03:04:25.00Z",
+            "window_first_frame": null,
+            "window_last_frame": null
+          }
+        ],
         "limitation": "Terminal rejection signaling on N1; external trigger for rejection not proven",
         "stage_id": "session_decision",
         "type": "PROTOCOL_REJECT_OBSERVED"
@@ -96,6 +127,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 20,
+        "last_frame": 25
+      },
       "pdu_session_id": 1,
       "plane_bindings": {
         "n1": {
@@ -260,7 +295,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

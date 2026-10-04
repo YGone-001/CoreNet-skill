@@ -6,7 +6,7 @@
       "capture_file": "test.pcap",
       "deviations": [
         {
-          "description": "PFCP Session Establishment Response reported non-accepted cause ContextNotFound (code 64)",
+          "description": "Altered prose for PROTOCOL_NEGATIVE_OUTCOME_OBSERVED (prose is not a machine contract)",
           "evidence_level": "OBSERVED",
           "evidence_refs": [
             {

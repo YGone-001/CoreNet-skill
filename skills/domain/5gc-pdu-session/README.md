@@ -2,7 +2,7 @@
 
 `5gc-pdu-session` is the bounded Domain Skill for 5GC PDU Session Establishment,
 Modification, and Release procedures and immediate post-establishment /
-post-modification / post-release N3 user-plane observation evidence, version 0.3.0.
+post-modification / post-release N3 user-plane observation evidence, version 0.4.0.
 It consumes already-extracted structured evidence from N1 (nas-5gs), N2 (ngap),
 N3 (gtpu), N4 (pfcp), and N11 (sbi-http2), plus optional cross-protocol-evidence
 correlation output. It forms evidence-safe procedure instances, evaluates the
@@ -101,6 +101,10 @@ procedure-local deviation, field findings, and plane bindings.
   `USER_PLANE_FAILED`.
 - HTTP 202 Accepted on N11 remains `PENDING`, never delivery success.
 - NGAP resource outcomes are evaluated per item; mixed success/failure is preserved.
+- Every deviation carries machine-readable `evidence_refs` (EVENT,
+  FIELD_FINDING, or OBSERVATION_WINDOW references with capture, frame,
+  timestamp, protocol, message type, stage, and window bounds) so Analysis
+  Orchestration never parses human-readable text for identity or ordering.
 - Release Complete remains bounded N1 terminal evidence: it does not prove PFCP
   deletion, NGAP resource release, SM Context removal, or that user-plane packets
   stopped. PFCP acceptance, NGAP release responses, and ReleaseSMContext 2xx are

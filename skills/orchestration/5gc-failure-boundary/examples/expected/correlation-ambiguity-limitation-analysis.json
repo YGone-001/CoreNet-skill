@@ -11,6 +11,7 @@
       "earlier_context": [],
       "evidence_limitations": [
         {
+          "_refs": [],
           "description": "SBI transaction for PDU Session ID 10 observed across multiple concurrent UEs with sanitized subscriber identities; N11 evidence remains unbound to prevent false association",
           "evidence_level": "DERIVED",
           "source_attempt_id": null,
@@ -73,6 +74,7 @@
       "earlier_context": [],
       "evidence_limitations": [
         {
+          "_refs": [],
           "description": "SBI transaction for PDU Session ID 10 observed across multiple concurrent UEs with sanitized subscriber identities; N11 evidence remains unbound to prevent false association",
           "evidence_level": "DERIVED",
           "source_attempt_id": null,

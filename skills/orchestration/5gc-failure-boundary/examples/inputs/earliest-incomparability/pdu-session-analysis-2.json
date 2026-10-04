@@ -8,7 +8,21 @@
         {
           "description": "Expected counterpart not observed within the available capture window",
           "evidence_level": "DERIVED",
-          "evidence_refs": [],
+          "evidence_refs": [
+            {
+              "capture_file": "reg.pcapng",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": "release_terminal",
+              "timestamp": null,
+              "window_first_frame": 20,
+              "window_last_frame": 40
+            }
+          ],
           "limitation": "Capture coverage insufficient to establish the absence",
           "stage_id": null,
           "type": "MISSING_EXPECTED_COUNTERPART"
@@ -16,11 +30,14 @@
       ],
       "earliest_observed_deviation": null,
       "field_findings": [],
-      "instance_id": "5gc-pdu-session:reg.pcapng:ran1-amf2:psi1",
+      "instance_id": "5gc-pdu-session:reg.pcapng:ran1-amf2:psi3",
       "limitations": [],
       "modification_attempts": [],
-      "observation_window": null,
-      "pdu_session_id": 1,
+      "observation_window": {
+        "first_frame": 20,
+        "last_frame": 40
+      },
+      "pdu_session_id": 3,
       "plane_bindings": {
         "n1": null,
         "n11": null,

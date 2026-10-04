@@ -3,10 +3,26 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "test.pcap",
       "deviations": [
         {
           "description": "NGAP resource setup failed for PDU Session ID 1 with cause unspecified",
           "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": null,
+              "frame_number": 4,
+              "kind": "EVENT",
+              "message_type": "PDUSessionResourceSetupResponse",
+              "protocol": "NGAP",
+              "stage_id": "access_resource_control",
+              "timestamp": "2024-01-02T03:04:04.00Z",
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
           "stage_id": "access_resource_control",
           "type": "RESOURCE_FAILED_ITEM_OBSERVED"
@@ -15,6 +31,21 @@
       "earliest_observed_deviation": {
         "description": "NGAP resource setup failed for PDU Session ID 1 with cause unspecified",
         "evidence_level": "OBSERVED",
+        "evidence_refs": [
+          {
+            "capture_file": "test.pcap",
+            "evidence_level": "OBSERVED",
+            "field_name": null,
+            "frame_number": 4,
+            "kind": "EVENT",
+            "message_type": "PDUSessionResourceSetupResponse",
+            "protocol": "NGAP",
+            "stage_id": "access_resource_control",
+            "timestamp": "2024-01-02T03:04:04.00Z",
+            "window_first_frame": null,
+            "window_last_frame": null
+          }
+        ],
         "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
         "stage_id": "access_resource_control",
         "type": "RESOURCE_FAILED_ITEM_OBSERVED"
@@ -173,6 +204,21 @@
             {
               "description": "NAS PduSessionModificationReject observed with cause RegularDeactivation",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 13,
+                  "kind": "EVENT",
+                  "message_type": "PduSessionModificationReject",
+                  "protocol": "NAS-5GS",
+                  "stage_id": "modification_completion",
+                  "timestamp": "2024-01-02T03:04:13.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "5GSM procedure rejected by network; session remains in established state with prior parameters",
               "stage_id": "modification_completion",
               "type": "PROTOCOL_REJECT_OBSERVED"
@@ -181,6 +227,21 @@
           "earliest_observed_deviation": {
             "description": "NAS PduSessionModificationReject observed with cause RegularDeactivation",
             "evidence_level": "OBSERVED",
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 13,
+                "kind": "EVENT",
+                "message_type": "PduSessionModificationReject",
+                "protocol": "NAS-5GS",
+                "stage_id": "modification_completion",
+                "timestamp": "2024-01-02T03:04:13.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "limitation": "5GSM procedure rejected by network; session remains in established state with prior parameters",
             "stage_id": "modification_completion",
             "type": "PROTOCOL_REJECT_OBSERVED"
@@ -379,6 +440,10 @@
           "unbound_evidence": []
         }
       ],
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 13
+      },
       "pdu_session_id": 1,
       "plane_bindings": {
         "n1": {
@@ -545,7 +610,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

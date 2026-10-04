@@ -3,10 +3,26 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "test.pcap",
       "deviations": [
         {
           "description": "PduSessionEstablishmentRequest observed at frame 20 for the same UE context and PDU Session ID without an evidence-supported release boundary (no PduSessionReleaseComplete observed between establishments); lifecycle generation cannot be proven from this capture",
           "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": null,
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": 20,
+              "kind": "EVENT",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": null,
+              "timestamp": null,
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "Lifecycle generation split requires Release Complete evidence; the later establishment is not silently merged or split",
           "stage_id": "session_request",
           "type": "LIFECYCLE_AMBIGUITY"
@@ -159,6 +175,10 @@
         "PDU Session ID reuse without a proven release boundary: lifecycle generation cannot be determined from this capture"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 27
+      },
       "pdu_session_id": 10,
       "plane_bindings": {
         "n1": {
@@ -240,6 +260,21 @@
             {
               "description": "Release initiated at frame 12 but no terminal NAS release response observed within capture window",
               "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "release_terminal",
+                  "timestamp": null,
+                  "window_first_frame": 12,
+                  "window_last_frame": 27
+                }
+              ],
               "limitation": "Capture window truncated before release completion",
               "stage_id": "release_terminal",
               "type": "MISSING_EXPECTED_COUNTERPART"
@@ -248,6 +283,21 @@
           "earliest_observed_deviation": {
             "description": "Release initiated at frame 12 but no terminal NAS release response observed within capture window",
             "evidence_level": "DERIVED",
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "DERIVED",
+                "field_name": null,
+                "frame_number": null,
+                "kind": "OBSERVATION_WINDOW",
+                "message_type": null,
+                "protocol": null,
+                "stage_id": "release_terminal",
+                "timestamp": null,
+                "window_first_frame": 12,
+                "window_last_frame": 27
+              }
+            ],
             "limitation": "Capture window truncated before release completion",
             "stage_id": "release_terminal",
             "type": "MISSING_EXPECTED_COUNTERPART"
@@ -572,7 +622,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

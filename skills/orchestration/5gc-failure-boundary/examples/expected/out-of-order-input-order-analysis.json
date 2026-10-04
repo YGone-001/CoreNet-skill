@@ -11,7 +11,8 @@
             "capture_file": "test.pcap",
             "frame_number": 5,
             "message_type": null,
-            "timestamp": null
+            "protocol": "PFCP",
+            "timestamp": "2024-01-02T03:04:05.00Z"
           },
           "candidate_id": "1-cand-1",
           "description": "PFCP Session Establishment Response reported non-accepted cause ContextNotFound (code 64)",
@@ -35,9 +36,39 @@
           "source_domain": "5gc-pdu-session",
           "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 5,
+                "kind": "EVENT",
+                "message_type": null,
+                "protocol": "PFCP",
+                "stage_id": "user_plane_control",
+                "timestamp": "2024-01-02T03:04:05.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "PFCP Session Establishment Response reported non-accepted cause ContextNotFound (code 64)",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 5,
+                  "kind": "EVENT",
+                  "message_type": null,
+                  "protocol": "PFCP",
+                  "stage_id": "user_plane_control",
+                  "timestamp": "2024-01-02T03:04:05.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
               "stage_id": "user_plane_control",
               "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
@@ -96,7 +127,8 @@
             "capture_file": "test.pcap",
             "frame_number": 5,
             "message_type": null,
-            "timestamp": null
+            "protocol": "PFCP",
+            "timestamp": "2024-01-02T03:04:05.00Z"
           },
           "candidate_id": "1-cand-1",
           "description": "PFCP Session Establishment Response reported non-accepted cause ContextNotFound (code 64)",
@@ -120,9 +152,39 @@
           "source_domain": "5gc-pdu-session",
           "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 5,
+                "kind": "EVENT",
+                "message_type": null,
+                "protocol": "PFCP",
+                "stage_id": "user_plane_control",
+                "timestamp": "2024-01-02T03:04:05.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "PFCP Session Establishment Response reported non-accepted cause ContextNotFound (code 64)",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 5,
+                  "kind": "EVENT",
+                  "message_type": null,
+                  "protocol": "PFCP",
+                  "stage_id": "user_plane_control",
+                  "timestamp": "2024-01-02T03:04:05.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
               "stage_id": "user_plane_control",
               "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"

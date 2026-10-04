@@ -10,8 +10,9 @@
           "boundary_anchor": {
             "capture_file": "test.pcap",
             "frame_number": 4,
-            "message_type": null,
-            "timestamp": null
+            "message_type": "PDUSessionResourceSetupResponse",
+            "protocol": "NGAP",
+            "timestamp": "2024-01-02T03:04:04.00Z"
           },
           "candidate_id": "1-cand-1",
           "description": "NGAP resource setup failed for PDU Session ID 1 with cause unspecified",
@@ -35,9 +36,39 @@
           "source_domain": "5gc-pdu-session",
           "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 4,
+                "kind": "EVENT",
+                "message_type": "PDUSessionResourceSetupResponse",
+                "protocol": "NGAP",
+                "stage_id": "access_resource_control",
+                "timestamp": "2024-01-02T03:04:04.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "NGAP resource setup failed for PDU Session ID 1 with cause unspecified",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 4,
+                  "kind": "EVENT",
+                  "message_type": "PDUSessionResourceSetupResponse",
+                  "protocol": "NGAP",
+                  "stage_id": "access_resource_control",
+                  "timestamp": "2024-01-02T03:04:04.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
               "stage_id": "access_resource_control",
               "type": "RESOURCE_FAILED_ITEM_OBSERVED"
@@ -62,8 +93,9 @@
           "boundary_anchor": {
             "capture_file": "test.pcap",
             "frame_number": 13,
-            "message_type": null,
-            "timestamp": null
+            "message_type": "PduSessionModificationReject",
+            "protocol": "NAS-5GS",
+            "timestamp": "2024-01-02T03:04:13.00Z"
           },
           "candidate_id": "1-cand-2",
           "description": "NAS PduSessionModificationReject observed with cause RegularDeactivation",
@@ -78,7 +110,7 @@
               "end_frame": 13,
               "start_frame": 13
             },
-            "stage_position": null
+            "stage_position": 5
           },
           "procedure_family": "5gc-pdu-session",
           "procedure_stage": "modification_completion",
@@ -87,9 +119,39 @@
           "source_domain": "5gc-pdu-session",
           "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 13,
+                "kind": "EVENT",
+                "message_type": "PduSessionModificationReject",
+                "protocol": "NAS-5GS",
+                "stage_id": "modification_completion",
+                "timestamp": "2024-01-02T03:04:13.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "NAS PduSessionModificationReject observed with cause RegularDeactivation",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 13,
+                  "kind": "EVENT",
+                  "message_type": "PduSessionModificationReject",
+                  "protocol": "NAS-5GS",
+                  "stage_id": "modification_completion",
+                  "timestamp": "2024-01-02T03:04:13.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "5GSM procedure rejected by network; session remains in established state with prior parameters",
               "stage_id": "modification_completion",
               "type": "PROTOCOL_REJECT_OBSERVED"
@@ -156,8 +218,9 @@
           "boundary_anchor": {
             "capture_file": "test.pcap",
             "frame_number": 4,
-            "message_type": null,
-            "timestamp": null
+            "message_type": "PDUSessionResourceSetupResponse",
+            "protocol": "NGAP",
+            "timestamp": "2024-01-02T03:04:04.00Z"
           },
           "candidate_id": "1-cand-1",
           "description": "NGAP resource setup failed for PDU Session ID 1 with cause unspecified",
@@ -181,9 +244,39 @@
           "source_domain": "5gc-pdu-session",
           "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 4,
+                "kind": "EVENT",
+                "message_type": "PDUSessionResourceSetupResponse",
+                "protocol": "NGAP",
+                "stage_id": "access_resource_control",
+                "timestamp": "2024-01-02T03:04:04.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "NGAP resource setup failed for PDU Session ID 1 with cause unspecified",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 4,
+                  "kind": "EVENT",
+                  "message_type": "PDUSessionResourceSetupResponse",
+                  "protocol": "NGAP",
+                  "stage_id": "access_resource_control",
+                  "timestamp": "2024-01-02T03:04:04.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "RAN resource allocation failure; external radio or transport condition not observable",
               "stage_id": "access_resource_control",
               "type": "RESOURCE_FAILED_ITEM_OBSERVED"

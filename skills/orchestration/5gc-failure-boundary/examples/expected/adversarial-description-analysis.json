@@ -3,41 +3,34 @@
   "analysis_version": "0.1.0",
   "diagnostic_groups": [
     {
-      "additional_evidence_needed": [
-        {
-          "candidate_id": "1-cand-1",
-          "reason": "candidates resolve to the same position with no deterministic source relationship ordering them",
-          "requirement": "exact frame or stage provenance that separates the tied candidates is required",
-          "second_candidate_id": "1-cand-2"
-        }
-      ],
-      "boundary_confidence": null,
+      "additional_evidence_needed": [],
+      "boundary_confidence": "HIGH",
       "candidate_boundaries": [
         {
           "boundary_anchor": {
             "capture_file": "test.pcap",
-            "frame_number": 12,
+            "frame_number": 5,
             "message_type": null,
-            "protocol": "3GPP-SBI",
-            "timestamp": "2024-01-02T03:04:12.00Z"
+            "protocol": "PFCP",
+            "timestamp": "2024-01-02T03:04:05.00Z"
           },
           "candidate_id": "1-cand-1",
-          "description": "Namf_Communication reported delivery failure notification with cause UE_NOT_RESPONDING",
-          "deviation_type": "DELIVERY_FAILURE_NOTIFICATION_OBSERVED",
+          "description": "Peer reported frame-like identifier 99 while attempt 5 was counted (prose only)",
+          "deviation_type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
           "evidence_level": "OBSERVED",
           "limitations": [
-            "AMF reported failure to reach UE; radio coverage or UE power state not directly verified"
+            "UPF control-plane rejection; internal UPF decision basis not determined"
           ],
           "ordering_basis": {
-            "frame_number": 12,
+            "frame_number": 5,
             "observation_window": {
-              "end_frame": 12,
+              "end_frame": 6,
               "start_frame": 1
             },
-            "stage_position": 4
+            "stage_position": 2
           },
           "procedure_family": "5gc-pdu-session",
-          "procedure_stage": "n1_n2_delivery",
+          "procedure_stage": "user_plane_control",
           "selectability": "SELECTABLE",
           "source_attempt_id": null,
           "source_domain": "5gc-pdu-session",
@@ -48,124 +41,41 @@
                 "capture_file": "test.pcap",
                 "evidence_level": "OBSERVED",
                 "field_name": null,
-                "frame_number": 12,
+                "frame_number": 5,
                 "kind": "EVENT",
                 "message_type": null,
-                "protocol": "3GPP-SBI",
-                "stage_id": "n1_n2_delivery",
-                "timestamp": "2024-01-02T03:04:12.00Z",
+                "protocol": "PFCP",
+                "stage_id": "user_plane_control",
+                "timestamp": "2024-01-02T03:04:05.00Z",
                 "window_first_frame": null,
                 "window_last_frame": null
               }
             ],
             "source_deviation": {
-              "description": "Namf_Communication reported delivery failure notification with cause UE_NOT_RESPONDING",
+              "description": "Peer reported frame-like identifier 99 while attempt 5 was counted (prose only)",
               "evidence_level": "OBSERVED",
               "evidence_refs": [
                 {
                   "capture_file": "test.pcap",
                   "evidence_level": "OBSERVED",
                   "field_name": null,
-                  "frame_number": 12,
+                  "frame_number": 5,
                   "kind": "EVENT",
                   "message_type": null,
-                  "protocol": "3GPP-SBI",
-                  "stage_id": "n1_n2_delivery",
-                  "timestamp": "2024-01-02T03:04:12.00Z",
+                  "protocol": "PFCP",
+                  "stage_id": "user_plane_control",
+                  "timestamp": "2024-01-02T03:04:05.00Z",
                   "window_first_frame": null,
                   "window_last_frame": null
                 }
               ],
-              "limitation": "AMF reported failure to reach UE; radio coverage or UE power state not directly verified",
-              "stage_id": "n1_n2_delivery",
-              "type": "DELIVERY_FAILURE_NOTIFICATION_OBSERVED"
+              "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
+              "stage_id": "user_plane_control",
+              "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
             },
             "source_observation_window": {
               "first_frame": 1,
-              "last_frame": 12
-            },
-            "source_terminal": {
-              "evidence_level": "OBSERVED",
-              "frame_number": 6,
-              "message_type": "PduSessionEstablishmentAccept",
-              "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
-              "protocol_observations": [
-                "PduSessionEstablishmentAccept observed"
-              ],
-              "timestamp": "2024-01-02T03:04:06.00Z"
-            }
-          }
-        },
-        {
-          "boundary_anchor": {
-            "capture_file": "test.pcap",
-            "frame_number": null,
-            "message_type": null,
-            "protocol": null,
-            "timestamp": null
-          },
-          "candidate_id": "1-cand-2",
-          "description": "Modification initiated at frame 10 but no terminal NAS completion or reject message observed within capture window",
-          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
-          "evidence_level": "DERIVED",
-          "limitations": [
-            "Capture window truncated before modification completion"
-          ],
-          "ordering_basis": {
-            "frame_number": null,
-            "observation_window": {
-              "end_frame": 12,
-              "start_frame": 12
-            },
-            "stage_position": 5
-          },
-          "procedure_family": "5gc-pdu-session",
-          "procedure_stage": "modification_completion",
-          "selectability": "SELECTABLE",
-          "source_attempt_id": "mod-1",
-          "source_domain": "5gc-pdu-session",
-          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
-          "supporting_evidence": {
-            "evidence_refs": [
-              {
-                "capture_file": "test.pcap",
-                "evidence_level": "DERIVED",
-                "field_name": null,
-                "frame_number": null,
-                "kind": "OBSERVATION_WINDOW",
-                "message_type": null,
-                "protocol": null,
-                "stage_id": "modification_completion",
-                "timestamp": null,
-                "window_first_frame": 12,
-                "window_last_frame": 12
-              }
-            ],
-            "source_deviation": {
-              "description": "Modification initiated at frame 10 but no terminal NAS completion or reject message observed within capture window",
-              "evidence_level": "DERIVED",
-              "evidence_refs": [
-                {
-                  "capture_file": "test.pcap",
-                  "evidence_level": "DERIVED",
-                  "field_name": null,
-                  "frame_number": null,
-                  "kind": "OBSERVATION_WINDOW",
-                  "message_type": null,
-                  "protocol": null,
-                  "stage_id": "modification_completion",
-                  "timestamp": null,
-                  "window_first_frame": 12,
-                  "window_last_frame": 12
-                }
-              ],
-              "limitation": "Capture window truncated before modification completion",
-              "stage_id": "modification_completion",
-              "type": "MISSING_EXPECTED_COUNTERPART"
-            },
-            "source_observation_window": {
-              "first_frame": 1,
-              "last_frame": 12
+              "last_frame": 6
             },
             "source_terminal": {
               "evidence_level": "OBSERVED",
@@ -181,7 +91,17 @@
         }
       ],
       "diagnostic_id": "diag-1",
-      "downstream_observations": [],
+      "downstream_observations": [
+        {
+          "frame_number": 6,
+          "kind": "terminal_observation",
+          "message_type": "PduSessionEstablishmentAccept",
+          "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+          "relation": "OBSERVED_AFTER_BOUNDARY",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+        }
+      ],
       "earlier_context": [],
       "evidence_limitations": [],
       "limitations": [
@@ -201,8 +121,93 @@
         ],
         "source_count": 1
       },
-      "selected_boundary": null,
-      "selection_status": "AMBIGUOUS_FIRST_BOUNDARY",
+      "selected_boundary": {
+        "boundary_ref": {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": 5,
+            "message_type": null,
+            "protocol": "PFCP",
+            "timestamp": "2024-01-02T03:04:05.00Z"
+          },
+          "candidate_id": "1-cand-1",
+          "description": "Peer reported frame-like identifier 99 while attempt 5 was counted (prose only)",
+          "deviation_type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "UPF control-plane rejection; internal UPF decision basis not determined"
+          ],
+          "ordering_basis": {
+            "frame_number": 5,
+            "observation_window": {
+              "end_frame": 6,
+              "start_frame": 1
+            },
+            "stage_position": 2
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": "user_plane_control",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
+          "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 5,
+                "kind": "EVENT",
+                "message_type": null,
+                "protocol": "PFCP",
+                "stage_id": "user_plane_control",
+                "timestamp": "2024-01-02T03:04:05.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
+            "source_deviation": {
+              "description": "Peer reported frame-like identifier 99 while attempt 5 was counted (prose only)",
+              "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 5,
+                  "kind": "EVENT",
+                  "message_type": null,
+                  "protocol": "PFCP",
+                  "stage_id": "user_plane_control",
+                  "timestamp": "2024-01-02T03:04:05.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
+              "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
+              "stage_id": "user_plane_control",
+              "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 1,
+              "last_frame": 6
+            },
+            "source_terminal": {
+              "evidence_level": "OBSERVED",
+              "frame_number": 6,
+              "message_type": "PduSessionEstablishmentAccept",
+              "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+              "protocol_observations": [
+                "PduSessionEstablishmentAccept observed"
+              ],
+              "timestamp": "2024-01-02T03:04:06.00Z"
+            }
+          }
+        },
+        "candidate_id": "1-cand-1"
+      },
+      "selection_status": "SELECTED",
       "source_domain_instances": [
         {
           "capture_file": "test.pcap",

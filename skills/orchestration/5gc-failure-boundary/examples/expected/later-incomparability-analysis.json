@@ -3,16 +3,92 @@
   "analysis_version": "0.1.0",
   "diagnostic_groups": [
     {
-      "additional_evidence_needed": [
-        {
-          "candidate_id": "1-cand-3",
-          "reason": "candidates resolve to the same position with no deterministic source relationship ordering them",
-          "requirement": "exact frame or stage provenance that separates the tied candidates is required",
-          "second_candidate_id": "1-cand-4"
-        }
-      ],
-      "boundary_confidence": null,
+      "additional_evidence_needed": [],
+      "boundary_confidence": "HIGH",
       "candidate_boundaries": [
+        {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": 5,
+            "message_type": null,
+            "protocol": "PFCP",
+            "timestamp": "2024-01-02T03:04:05.00Z"
+          },
+          "candidate_id": "1-cand-1",
+          "description": "PFCP Session Establishment Response reported non-accepted cause ContextNotFound (code 64)",
+          "deviation_type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "UPF control-plane rejection; internal UPF decision basis not determined"
+          ],
+          "ordering_basis": {
+            "frame_number": 5,
+            "observation_window": {
+              "end_frame": 17,
+              "start_frame": 1
+            },
+            "stage_position": 2
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": "user_plane_control",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
+          "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 5,
+                "kind": "EVENT",
+                "message_type": null,
+                "protocol": "PFCP",
+                "stage_id": "user_plane_control",
+                "timestamp": "2024-01-02T03:04:05.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
+            "source_deviation": {
+              "description": "PFCP Session Establishment Response reported non-accepted cause ContextNotFound (code 64)",
+              "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 5,
+                  "kind": "EVENT",
+                  "message_type": null,
+                  "protocol": "PFCP",
+                  "stage_id": "user_plane_control",
+                  "timestamp": "2024-01-02T03:04:05.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
+              "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
+              "stage_id": "user_plane_control",
+              "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 1,
+              "last_frame": 17
+            },
+            "source_terminal": {
+              "evidence_level": "OBSERVED",
+              "frame_number": 6,
+              "message_type": "PduSessionEstablishmentAccept",
+              "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+              "protocol_observations": [
+                "PduSessionEstablishmentAccept observed"
+              ],
+              "timestamp": "2024-01-02T03:04:06.00Z"
+            }
+          }
+        },
         {
           "boundary_anchor": {
             "capture_file": "test.pcap",
@@ -21,23 +97,23 @@
             "protocol": null,
             "timestamp": null
           },
-          "candidate_id": "1-cand-1",
-          "description": "Modification initiated at frame 14 but no terminal NAS completion or reject message observed within capture window",
+          "candidate_id": "1-cand-2",
+          "description": "PFCP Session Modification Request at frame 16 missing expected Response",
           "deviation_type": "MISSING_EXPECTED_COUNTERPART",
           "evidence_level": "DERIVED",
           "limitations": [
-            "Capture window truncated before modification completion"
+            "Capture window ended before PFCP response arrived or response lost in transit"
           ],
           "ordering_basis": {
             "frame_number": null,
             "observation_window": {
-              "end_frame": 16,
-              "start_frame": 16
+              "end_frame": 17,
+              "start_frame": 17
             },
-            "stage_position": 5
+            "stage_position": 2
           },
           "procedure_family": "5gc-pdu-session",
-          "procedure_stage": "modification_completion",
+          "procedure_stage": "user_plane_control_update",
           "selectability": "SELECTABLE",
           "source_attempt_id": "mod-1",
           "source_domain": "5gc-pdu-session",
@@ -52,14 +128,14 @@
                 "kind": "OBSERVATION_WINDOW",
                 "message_type": null,
                 "protocol": null,
-                "stage_id": "modification_completion",
+                "stage_id": "user_plane_control_update",
                 "timestamp": null,
-                "window_first_frame": 16,
-                "window_last_frame": 16
+                "window_first_frame": 17,
+                "window_last_frame": 17
               }
             ],
             "source_deviation": {
-              "description": "Modification initiated at frame 14 but no terminal NAS completion or reject message observed within capture window",
+              "description": "PFCP Session Modification Request at frame 16 missing expected Response",
               "evidence_level": "DERIVED",
               "evidence_refs": [
                 {
@@ -70,19 +146,19 @@
                   "kind": "OBSERVATION_WINDOW",
                   "message_type": null,
                   "protocol": null,
-                  "stage_id": "modification_completion",
+                  "stage_id": "user_plane_control_update",
                   "timestamp": null,
-                  "window_first_frame": 16,
-                  "window_last_frame": 16
+                  "window_first_frame": 17,
+                  "window_last_frame": 17
                 }
               ],
-              "limitation": "Capture window truncated before modification completion",
-              "stage_id": "modification_completion",
+              "limitation": "Capture window ended before PFCP response arrived or response lost in transit",
+              "stage_id": "user_plane_control_update",
               "type": "MISSING_EXPECTED_COUNTERPART"
             },
             "source_observation_window": {
               "first_frame": 1,
-              "last_frame": 16
+              "last_frame": 17
             },
             "source_terminal": {
               "evidence_level": "OBSERVED",
@@ -99,28 +175,28 @@
         {
           "boundary_anchor": {
             "capture_file": "test.pcap",
-            "frame_number": 16,
-            "message_type": null,
-            "protocol": "PFCP",
-            "timestamp": "2024-01-02T03:04:16.00Z"
+            "frame_number": 17,
+            "message_type": "PduSessionModificationReject",
+            "protocol": "NAS-5GS",
+            "timestamp": "2024-01-02T03:04:17.00Z"
           },
-          "candidate_id": "1-cand-2",
-          "description": "PFCP Session Modification Response reported non-accepted cause ContextNotFound (code 64)",
-          "deviation_type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+          "candidate_id": "1-cand-3",
+          "description": "NAS PduSessionModificationReject observed with cause RegularDeactivation",
+          "deviation_type": "PROTOCOL_REJECT_OBSERVED",
           "evidence_level": "OBSERVED",
           "limitations": [
-            "UPF control-plane rejection; internal UPF decision basis not determined"
+            "5GSM procedure rejected by network; session remains in established state with prior parameters"
           ],
           "ordering_basis": {
-            "frame_number": 16,
+            "frame_number": 17,
             "observation_window": {
-              "end_frame": 16,
-              "start_frame": 16
+              "end_frame": 17,
+              "start_frame": 17
             },
-            "stage_position": 2
+            "stage_position": 5
           },
           "procedure_family": "5gc-pdu-session",
-          "procedure_stage": "user_plane_control_update",
+          "procedure_stage": "modification_completion",
           "selectability": "SELECTABLE",
           "source_attempt_id": "mod-1",
           "source_domain": "5gc-pdu-session",
@@ -131,41 +207,41 @@
                 "capture_file": "test.pcap",
                 "evidence_level": "OBSERVED",
                 "field_name": null,
-                "frame_number": 16,
+                "frame_number": 17,
                 "kind": "EVENT",
-                "message_type": null,
-                "protocol": "PFCP",
-                "stage_id": "user_plane_control_update",
-                "timestamp": "2024-01-02T03:04:16.00Z",
+                "message_type": "PduSessionModificationReject",
+                "protocol": "NAS-5GS",
+                "stage_id": "modification_completion",
+                "timestamp": "2024-01-02T03:04:17.00Z",
                 "window_first_frame": null,
                 "window_last_frame": null
               }
             ],
             "source_deviation": {
-              "description": "PFCP Session Modification Response reported non-accepted cause ContextNotFound (code 64)",
+              "description": "NAS PduSessionModificationReject observed with cause RegularDeactivation",
               "evidence_level": "OBSERVED",
               "evidence_refs": [
                 {
                   "capture_file": "test.pcap",
                   "evidence_level": "OBSERVED",
                   "field_name": null,
-                  "frame_number": 16,
+                  "frame_number": 17,
                   "kind": "EVENT",
-                  "message_type": null,
-                  "protocol": "PFCP",
-                  "stage_id": "user_plane_control_update",
-                  "timestamp": "2024-01-02T03:04:16.00Z",
+                  "message_type": "PduSessionModificationReject",
+                  "protocol": "NAS-5GS",
+                  "stage_id": "modification_completion",
+                  "timestamp": "2024-01-02T03:04:17.00Z",
                   "window_first_frame": null,
                   "window_last_frame": null
                 }
               ],
-              "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
-              "stage_id": "user_plane_control_update",
-              "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
+              "limitation": "5GSM procedure rejected by network; session remains in established state with prior parameters",
+              "stage_id": "modification_completion",
+              "type": "PROTOCOL_REJECT_OBSERVED"
             },
             "source_observation_window": {
               "first_frame": 1,
-              "last_frame": 16
+              "last_frame": 17
             },
             "source_terminal": {
               "evidence_level": "OBSERVED",
@@ -187,7 +263,7 @@
             "protocol": null,
             "timestamp": null
           },
-          "candidate_id": "1-cand-3",
+          "candidate_id": "1-cand-4",
           "description": "No Registration accept or Registration reject was observed within the available observation window",
           "deviation_type": "MISSING_EXPECTED_COUNTERPART",
           "evidence_level": "DERIVED",
@@ -267,7 +343,7 @@
             "protocol": "NAS-5GS",
             "timestamp": "2024-01-02T03:04:12.00Z"
           },
-          "candidate_id": "1-cand-4",
+          "candidate_id": "1-cand-5",
           "description": "NAS-5GS Authentication failure observed at frame 12",
           "deviation_type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
           "evidence_level": "OBSERVED",
@@ -341,7 +417,53 @@
         }
       ],
       "diagnostic_id": "diag-1",
-      "downstream_observations": [],
+      "downstream_observations": [
+        {
+          "candidate_id": "1-cand-2",
+          "description": "PFCP Session Modification Request at frame 16 missing expected Response",
+          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+          "evidence_level": "DERIVED",
+          "relation": "OBSERVED_AFTER_BOUNDARY",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+        },
+        {
+          "candidate_id": "1-cand-3",
+          "description": "NAS PduSessionModificationReject observed with cause RegularDeactivation",
+          "deviation_type": "PROTOCOL_REJECT_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "relation": "OBSERVED_AFTER_BOUNDARY",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+        },
+        {
+          "candidate_id": "1-cand-4",
+          "description": "No Registration accept or Registration reject was observed within the available observation window",
+          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+          "evidence_level": "DERIVED",
+          "relation": "OBSERVED_AFTER_BOUNDARY",
+          "source_domain": "5gc-registration-mobility",
+          "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-1:r1"
+        },
+        {
+          "candidate_id": "1-cand-5",
+          "description": "NAS-5GS Authentication failure observed at frame 12",
+          "deviation_type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "relation": "OBSERVED_AFTER_BOUNDARY",
+          "source_domain": "5gc-registration-mobility",
+          "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-1:r1"
+        },
+        {
+          "frame_number": 6,
+          "kind": "terminal_observation",
+          "message_type": "PduSessionEstablishmentAccept",
+          "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+          "relation": "OBSERVED_AFTER_BOUNDARY",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1"
+        }
+      ],
       "earlier_context": [],
       "evidence_limitations": [],
       "limitations": [
@@ -361,8 +483,93 @@
         ],
         "source_count": 2
       },
-      "selected_boundary": null,
-      "selection_status": "AMBIGUOUS_FIRST_BOUNDARY",
+      "selected_boundary": {
+        "boundary_ref": {
+          "boundary_anchor": {
+            "capture_file": "test.pcap",
+            "frame_number": 5,
+            "message_type": null,
+            "protocol": "PFCP",
+            "timestamp": "2024-01-02T03:04:05.00Z"
+          },
+          "candidate_id": "1-cand-1",
+          "description": "PFCP Session Establishment Response reported non-accepted cause ContextNotFound (code 64)",
+          "deviation_type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "UPF control-plane rejection; internal UPF decision basis not determined"
+          ],
+          "ordering_basis": {
+            "frame_number": 5,
+            "observation_window": {
+              "end_frame": 17,
+              "start_frame": 1
+            },
+            "stage_position": 2
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": "user_plane_control",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
+          "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 5,
+                "kind": "EVENT",
+                "message_type": null,
+                "protocol": "PFCP",
+                "stage_id": "user_plane_control",
+                "timestamp": "2024-01-02T03:04:05.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
+            "source_deviation": {
+              "description": "PFCP Session Establishment Response reported non-accepted cause ContextNotFound (code 64)",
+              "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 5,
+                  "kind": "EVENT",
+                  "message_type": null,
+                  "protocol": "PFCP",
+                  "stage_id": "user_plane_control",
+                  "timestamp": "2024-01-02T03:04:05.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
+              "limitation": "UPF control-plane rejection; internal UPF decision basis not determined",
+              "stage_id": "user_plane_control",
+              "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 1,
+              "last_frame": 17
+            },
+            "source_terminal": {
+              "evidence_level": "OBSERVED",
+              "frame_number": 6,
+              "message_type": "PduSessionEstablishmentAccept",
+              "observation": "ESTABLISHMENT_ACCEPT_OBSERVED",
+              "protocol_observations": [
+                "PduSessionEstablishmentAccept observed"
+              ],
+              "timestamp": "2024-01-02T03:04:06.00Z"
+            }
+          }
+        },
+        "candidate_id": "1-cand-1"
+      },
+      "selection_status": "SELECTED",
       "source_domain_instances": [
         {
           "capture_file": "test.pcap",

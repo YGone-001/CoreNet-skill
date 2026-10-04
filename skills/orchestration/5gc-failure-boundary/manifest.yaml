@@ -62,11 +62,15 @@ upstream:
   local_modifications: Original CoreNet Analysis Orchestration package; no upstream material imported.
 testing:
   fixtures:
+    - examples/inputs/adversarial-description
     - examples/inputs/auth-failure-before-reject
     - examples/inputs/correlation-ambiguity-limitation
+    - examples/inputs/description-invariance
     - examples/inputs/duplicate-identical-input
     - examples/inputs/duplicate-only-limitation
+    - examples/inputs/earliest-incomparability
     - examples/inputs/incomparable-provenance
+    - examples/inputs/later-incomparability
     - examples/inputs/lifecycle-ambiguity-limitation
     - examples/inputs/lifecycle-generations-distinct
     - examples/inputs/malformed-domain-input
@@ -93,11 +97,15 @@ testing:
     - examples/inputs/unlinked-captures
     - examples/inputs/valid-release-no-abnormal
   expected_results:
+    - examples/expected/adversarial-description-analysis.json
     - examples/expected/auth-failure-before-reject-analysis.json
     - examples/expected/correlation-ambiguity-limitation-analysis.json
+    - examples/expected/description-invariance-analysis.json
     - examples/expected/duplicate-identical-input-analysis.json
     - examples/expected/duplicate-only-limitation-analysis.json
+    - examples/expected/earliest-incomparability-analysis.json
     - examples/expected/incomparable-provenance-analysis.json
+    - examples/expected/later-incomparability-analysis.json
     - examples/expected/lifecycle-ambiguity-limitation-analysis.json
     - examples/expected/lifecycle-generations-distinct-analysis.json
     - examples/expected/malformed-domain-input-analysis.json

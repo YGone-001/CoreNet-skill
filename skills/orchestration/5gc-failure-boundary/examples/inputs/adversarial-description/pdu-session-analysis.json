@@ -6,7 +6,7 @@
       "capture_file": "test.pcap",
       "deviations": [
         {
-          "description": "PFCP Session Establishment Response reported non-accepted cause ContextNotFound (code 64)",
+          "description": "Peer reported frame-like identifier 99 while attempt 5 was counted (prose only)",
           "evidence_level": "OBSERVED",
           "evidence_refs": [
             {

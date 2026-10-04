@@ -17,6 +17,7 @@
             "capture_file": "test.pcap",
             "frame_number": null,
             "message_type": null,
+            "protocol": null,
             "timestamp": null
           },
           "candidate_id": "1-cand-1",
@@ -32,7 +33,7 @@
               "end_frame": 27,
               "start_frame": 12
             },
-            "stage_position": null
+            "stage_position": 5
           },
           "procedure_family": "5gc-pdu-session",
           "procedure_stage": "release_terminal",
@@ -41,9 +42,39 @@
           "source_domain": "5gc-pdu-session",
           "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi10",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "DERIVED",
+                "field_name": null,
+                "frame_number": null,
+                "kind": "OBSERVATION_WINDOW",
+                "message_type": null,
+                "protocol": null,
+                "stage_id": "release_terminal",
+                "timestamp": null,
+                "window_first_frame": 12,
+                "window_last_frame": 27
+              }
+            ],
             "source_deviation": {
               "description": "Release initiated at frame 12 but no terminal NAS release response observed within capture window",
               "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "release_terminal",
+                  "timestamp": null,
+                  "window_first_frame": 12,
+                  "window_last_frame": 27
+                }
+              ],
               "limitation": "Capture window truncated before release completion",
               "stage_id": "release_terminal",
               "type": "MISSING_EXPECTED_COUNTERPART"
@@ -70,6 +101,21 @@
       "earlier_context": [],
       "evidence_limitations": [
         {
+          "_refs": [
+            {
+              "capture_file": null,
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": 20,
+              "kind": "EVENT",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": null,
+              "timestamp": null,
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "description": "PduSessionEstablishmentRequest observed at frame 20 for the same UE context and PDU Session ID without an evidence-supported release boundary (no PduSessionReleaseComplete observed between establishments); lifecycle generation cannot be proven from this capture",
           "evidence_level": "DERIVED",
           "source_attempt_id": null,
@@ -102,6 +148,7 @@
             "capture_file": "test.pcap",
             "frame_number": null,
             "message_type": null,
+            "protocol": null,
             "timestamp": null
           },
           "candidate_id": "1-cand-1",
@@ -117,7 +164,7 @@
               "end_frame": 27,
               "start_frame": 12
             },
-            "stage_position": null
+            "stage_position": 5
           },
           "procedure_family": "5gc-pdu-session",
           "procedure_stage": "release_terminal",
@@ -126,9 +173,39 @@
           "source_domain": "5gc-pdu-session",
           "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi10",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "DERIVED",
+                "field_name": null,
+                "frame_number": null,
+                "kind": "OBSERVATION_WINDOW",
+                "message_type": null,
+                "protocol": null,
+                "stage_id": "release_terminal",
+                "timestamp": null,
+                "window_first_frame": 12,
+                "window_last_frame": 27
+              }
+            ],
             "source_deviation": {
               "description": "Release initiated at frame 12 but no terminal NAS release response observed within capture window",
               "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "release_terminal",
+                  "timestamp": null,
+                  "window_first_frame": 12,
+                  "window_last_frame": 27
+                }
+              ],
               "limitation": "Capture window truncated before release completion",
               "stage_id": "release_terminal",
               "type": "MISSING_EXPECTED_COUNTERPART"

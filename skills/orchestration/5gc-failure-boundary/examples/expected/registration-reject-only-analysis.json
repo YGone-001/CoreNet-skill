@@ -10,7 +10,8 @@
           "boundary_anchor": {
             "capture_file": "reg.pcapng",
             "frame_number": 12,
-            "message_type": null,
+            "message_type": "Registration reject",
+            "protocol": "NAS-5GS",
             "timestamp": "2024-01-02T03:04:12.00Z"
           },
           "candidate_id": "1-cand-1",
@@ -35,9 +36,39 @@
           "source_domain": "5gc-registration-mobility",
           "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "reg.pcapng",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 12,
+                "kind": "EVENT",
+                "message_type": "Registration reject",
+                "protocol": "NAS-5GS",
+                "stage_id": null,
+                "timestamp": "2024-01-02T03:04:12.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "NAS-5GS Registration reject observed at frame 12",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "reg.pcapng",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 12,
+                  "kind": "EVENT",
+                  "message_type": "Registration reject",
+                  "protocol": "NAS-5GS",
+                  "stage_id": null,
+                  "timestamp": "2024-01-02T03:04:12.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "A protocol-defined reject is procedure evidence; it never attributes blame to any network element or implementation",
               "stage_id": null,
               "type": "PROTOCOL_REJECT_OBSERVED"
@@ -82,7 +113,8 @@
           "boundary_anchor": {
             "capture_file": "reg.pcapng",
             "frame_number": 12,
-            "message_type": null,
+            "message_type": "Registration reject",
+            "protocol": "NAS-5GS",
             "timestamp": "2024-01-02T03:04:12.00Z"
           },
           "candidate_id": "1-cand-1",
@@ -107,9 +139,39 @@
           "source_domain": "5gc-registration-mobility",
           "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "reg.pcapng",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 12,
+                "kind": "EVENT",
+                "message_type": "Registration reject",
+                "protocol": "NAS-5GS",
+                "stage_id": null,
+                "timestamp": "2024-01-02T03:04:12.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "NAS-5GS Registration reject observed at frame 12",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "reg.pcapng",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 12,
+                  "kind": "EVENT",
+                  "message_type": "Registration reject",
+                  "protocol": "NAS-5GS",
+                  "stage_id": null,
+                  "timestamp": "2024-01-02T03:04:12.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "A protocol-defined reject is procedure evidence; it never attributes blame to any network element or implementation",
               "stage_id": null,
               "type": "PROTOCOL_REJECT_OBSERVED"

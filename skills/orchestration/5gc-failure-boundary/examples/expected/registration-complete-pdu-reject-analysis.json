@@ -10,8 +10,9 @@
           "boundary_anchor": {
             "capture_file": "test.pcap",
             "frame_number": 25,
-            "message_type": null,
-            "timestamp": null
+            "message_type": "PduSessionEstablishmentReject",
+            "protocol": "NAS-5GS",
+            "timestamp": "2024-01-02T03:04:25.00Z"
           },
           "candidate_id": "1-cand-1",
           "description": "PDU Session Establishment Reject observed with 5GSM cause RegularDeactivation (code 36)",
@@ -35,9 +36,39 @@
           "source_domain": "5gc-pdu-session",
           "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 25,
+                "kind": "EVENT",
+                "message_type": "PduSessionEstablishmentReject",
+                "protocol": "NAS-5GS",
+                "stage_id": "session_decision",
+                "timestamp": "2024-01-02T03:04:25.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "PDU Session Establishment Reject observed with 5GSM cause RegularDeactivation (code 36)",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 25,
+                  "kind": "EVENT",
+                  "message_type": "PduSessionEstablishmentReject",
+                  "protocol": "NAS-5GS",
+                  "stage_id": "session_decision",
+                  "timestamp": "2024-01-02T03:04:25.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "Terminal rejection signaling on N1; external trigger for rejection not proven",
               "stage_id": "session_decision",
               "type": "PROTOCOL_REJECT_OBSERVED"
@@ -95,8 +126,9 @@
           "boundary_anchor": {
             "capture_file": "test.pcap",
             "frame_number": 25,
-            "message_type": null,
-            "timestamp": null
+            "message_type": "PduSessionEstablishmentReject",
+            "protocol": "NAS-5GS",
+            "timestamp": "2024-01-02T03:04:25.00Z"
           },
           "candidate_id": "1-cand-1",
           "description": "PDU Session Establishment Reject observed with 5GSM cause RegularDeactivation (code 36)",
@@ -120,9 +152,39 @@
           "source_domain": "5gc-pdu-session",
           "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 25,
+                "kind": "EVENT",
+                "message_type": "PduSessionEstablishmentReject",
+                "protocol": "NAS-5GS",
+                "stage_id": "session_decision",
+                "timestamp": "2024-01-02T03:04:25.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "PDU Session Establishment Reject observed with 5GSM cause RegularDeactivation (code 36)",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 25,
+                  "kind": "EVENT",
+                  "message_type": "PduSessionEstablishmentReject",
+                  "protocol": "NAS-5GS",
+                  "stage_id": "session_decision",
+                  "timestamp": "2024-01-02T03:04:25.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "Terminal rejection signaling on N1; external trigger for rejection not proven",
               "stage_id": "session_decision",
               "type": "PROTOCOL_REJECT_OBSERVED"

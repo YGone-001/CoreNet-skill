@@ -13,17 +13,33 @@
   ],
   "additionalProperties": false,
   "properties": {
-    "analysis_name": {"type": "string", "const": "5gc-failure-boundary"},
-    "analysis_version": {"type": "string", "minLength": 1},
+    "analysis_name": {
+      "type": "string",
+      "const": "5gc-failure-boundary"
+    },
+    "analysis_version": {
+      "type": "string",
+      "minLength": 1
+    },
     "diagnostic_groups": {
       "type": "array",
-      "items": {"$ref": "#/$defs/diagnosticGroup"}
+      "items": {
+        "$ref": "#/$defs/diagnosticGroup"
+      }
     },
     "unbound_domain_analyses": {
       "type": "array",
-      "items": {"$ref": "#/$defs/unboundAnalysis"}
+      "items": {
+        "$ref": "#/$defs/unboundAnalysis"
+      }
     },
-    "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
   },
   "$defs": {
     "diagnosticGroup": {
@@ -47,24 +63,44 @@
       ],
       "additionalProperties": false,
       "properties": {
-        "diagnostic_id": {"type": "string", "minLength": 1},
-        "subject_link": {"$ref": "#/$defs/subjectLink"},
+        "diagnostic_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_link": {
+          "$ref": "#/$defs/subjectLink"
+        },
         "source_domain_instances": {
           "type": "array",
-          "items": {"type": "object"}
+          "items": {
+            "type": "object"
+          }
         },
         "observation_scope": {
           "type": "object",
-          "required": ["capture_files", "source_count"],
+          "required": [
+            "capture_files",
+            "source_count"
+          ],
           "additionalProperties": false,
           "properties": {
-            "capture_files": {"type": "array", "items": {"type": "string"}},
-            "source_count": {"type": "integer", "minimum": 1}
+            "capture_files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "source_count": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         },
         "candidate_boundaries": {
           "type": "array",
-          "items": {"$ref": "#/$defs/boundaryCandidate"}
+          "items": {
+            "$ref": "#/$defs/boundaryCandidate"
+          }
         },
         "selection_status": {
           "type": "string",
@@ -76,68 +112,131 @@
           ]
         },
         "selected_boundary": {
-          "type": ["object", "null"],
-          "required": ["candidate_id", "boundary_ref"],
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "candidate_id",
+            "boundary_ref"
+          ],
           "additionalProperties": false,
           "properties": {
-            "candidate_id": {"type": "string", "minLength": 1},
-            "boundary_ref": {"$ref": "#/$defs/boundaryCandidate"}
+            "candidate_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "boundary_ref": {
+              "$ref": "#/$defs/boundaryCandidate"
+            }
           }
         },
         "boundary_confidence": {
-          "type": ["string", "null"],
-          "enum": ["HIGH", "MEDIUM", "LOW", null]
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "HIGH",
+            "MEDIUM",
+            "LOW",
+            null
+          ]
         },
         "earlier_context": {
           "type": "array",
-          "items": {"$ref": "#/$defs/relatedObservation"}
+          "items": {
+            "$ref": "#/$defs/relatedObservation"
+          }
         },
         "downstream_observations": {
           "type": "array",
-          "items": {"$ref": "#/$defs/relatedObservation"}
+          "items": {
+            "$ref": "#/$defs/relatedObservation"
+          }
         },
         "evidence_limitations": {
           "type": "array",
-          "items": {"$ref": "#/$defs/sourceDeviation"}
+          "items": {
+            "$ref": "#/$defs/sourceDeviation"
+          }
         },
         "additional_evidence_needed": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["reason", "requirement"],
+            "required": [
+              "reason",
+              "requirement"
+            ],
             "additionalProperties": false,
             "properties": {
-              "reason": {"type": "string", "minLength": 1},
-              "requirement": {"type": "string", "minLength": 1},
-              "candidate_id": {"type": "string"},
-              "second_candidate_id": {"type": "string"}
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "requirement": {
+                "type": "string",
+                "minLength": 1
+              },
+              "candidate_id": {
+                "type": "string"
+              },
+              "second_candidate_id": {
+                "type": "string"
+              }
             }
           }
         },
         "supporting_anomalies": {
           "type": "array",
-          "items": {"$ref": "#/$defs/sourceDeviation"}
+          "items": {
+            "$ref": "#/$defs/sourceDeviation"
+          }
         },
         "not_confirmed": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "limitations": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
     "subjectLink": {
       "type": "object",
-      "required": ["strength", "basis", "source_contexts"],
+      "required": [
+        "strength",
+        "basis",
+        "source_contexts"
+      ],
       "additionalProperties": false,
       "properties": {
-        "strength": {"type": "string", "enum": ["STRONG", "SUPPORTED", "AMBIGUOUS", "UNBOUND"]},
-        "basis": {"type": "string", "minLength": 1},
+        "strength": {
+          "type": "string",
+          "enum": [
+            "STRONG",
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "UNBOUND"
+          ]
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        },
         "source_contexts": {
           "type": "array",
-          "items": {"type": "object"}
+          "items": {
+            "type": "object"
+          }
         }
       }
     },
@@ -161,100 +260,249 @@
       ],
       "additionalProperties": false,
       "properties": {
-        "candidate_id": {"type": "string", "minLength": 1},
-        "source_domain": {"type": "string", "minLength": 1},
-        "source_instance_id": {"type": "string", "minLength": 1},
-        "source_attempt_id": {"type": ["string", "null"]},
-        "procedure_family": {"type": "string", "minLength": 1},
-        "procedure_stage": {"type": ["string", "null"]},
-        "deviation_type": {"type": "string", "minLength": 1},
-        "description": {"type": ["string", "null"]},
-        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
+        "candidate_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_instance_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_attempt_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "procedure_family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "procedure_stage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deviation_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_level": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "DERIVED"
+          ]
+        },
         "boundary_anchor": {
           "type": "object",
-          "required": ["capture_file", "frame_number", "timestamp", "message_type"],
+          "required": [
+            "capture_file",
+            "frame_number",
+            "message_type",
+            "protocol",
+            "timestamp"
+          ],
           "additionalProperties": false,
           "properties": {
-            "capture_file": {"type": ["string", "null"]},
-            "frame_number": {"type": ["integer", "null"], "minimum": 1},
-            "timestamp": {"type": ["string", "null"]},
-            "message_type": {"type": ["string", "null"]}
+            "capture_file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "frame_number": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "timestamp": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "message_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "protocol": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         },
         "supporting_evidence": {
           "type": "object",
-          "required": ["source_deviation", "source_observation_window", "source_terminal"],
+          "required": [
+            "source_deviation",
+            "source_observation_window",
+            "source_terminal"
+          ],
           "additionalProperties": false,
           "properties": {
-            "source_deviation": {"type": "object"},
+            "source_deviation": {
+              "type": "object"
+            },
             "source_observation_window": {
-              "type": ["object", "null"],
+              "type": [
+                "object",
+                "null"
+              ],
               "additionalProperties": false,
               "properties": {
-                "first_frame": {"type": "integer"},
-                "last_frame": {"type": "integer"}
+                "first_frame": {
+                  "type": "integer"
+                },
+                "last_frame": {
+                  "type": "integer"
+                }
               }
             },
-            "source_terminal": {"type": "object"}
+            "source_terminal": {
+              "type": "object"
+            }
           }
         },
         "ordering_basis": {
           "type": "object",
-          "required": ["frame_number", "observation_window", "stage_position"],
+          "required": [
+            "frame_number",
+            "observation_window",
+            "stage_position"
+          ],
           "additionalProperties": false,
           "properties": {
-            "frame_number": {"type": ["integer", "null"], "minimum": 1},
+            "frame_number": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
             "observation_window": {
-              "type": ["object", "null"],
+              "type": [
+                "object",
+                "null"
+              ],
               "additionalProperties": false,
               "properties": {
-                "start_frame": {"type": "integer"},
-                "end_frame": {"type": "integer"}
+                "start_frame": {
+                  "type": "integer"
+                },
+                "end_frame": {
+                  "type": "integer"
+                }
               }
             },
-            "stage_position": {"type": ["integer", "null"]}
+            "stage_position": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
           }
         },
         "selectability": {
           "type": "string",
-          "enum": ["SELECTABLE", "BLOCKED_BY_PARTIAL_CAPTURE"]
+          "enum": [
+            "SELECTABLE",
+            "BLOCKED_BY_PARTIAL_CAPTURE"
+          ]
         },
         "limitations": {
           "type": "array",
-          "items": {"type": ["string", "null"]}
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       }
     },
     "relatedObservation": {
       "type": "object",
-      "required": ["relation"],
+      "required": [
+        "relation"
+      ],
       "additionalProperties": true,
       "properties": {
         "relation": {
           "type": "string",
-          "enum": ["OBSERVED_AFTER_BOUNDARY", "OBSERVED_BEFORE_BOUNDARY"]
+          "enum": [
+            "OBSERVED_AFTER_BOUNDARY",
+            "OBSERVED_BEFORE_BOUNDARY"
+          ]
         }
       }
     },
     "sourceDeviation": {
       "type": "object",
-      "required": ["source_domain", "source_instance_id", "type"],
+      "required": [
+        "source_domain",
+        "source_instance_id",
+        "type"
+      ],
       "additionalProperties": true,
       "properties": {
-        "source_domain": {"type": "string", "minLength": 1},
-        "source_instance_id": {"type": "string", "minLength": 1},
-        "type": {"type": "string", "minLength": 1}
+        "source_domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_instance_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "unboundAnalysis": {
       "type": "object",
-      "required": ["source_domain", "source_instance_id", "source_file", "reason"],
+      "required": [
+        "source_domain",
+        "source_instance_id",
+        "source_file",
+        "reason"
+      ],
       "additionalProperties": false,
       "properties": {
-        "source_domain": {"type": "string", "minLength": 1},
-        "source_instance_id": {"type": "string", "minLength": 1},
-        "source_file": {"type": "string", "minLength": 1},
-        "reason": {"type": "string", "minLength": 1}
+        "source_domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_instance_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     }
   }

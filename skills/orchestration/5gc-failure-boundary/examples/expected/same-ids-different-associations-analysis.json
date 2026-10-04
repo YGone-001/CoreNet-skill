@@ -3,14 +3,22 @@
   "analysis_version": "0.1.0",
   "diagnostic_groups": [
     {
-      "additional_evidence_needed": [],
-      "boundary_confidence": "HIGH",
+      "additional_evidence_needed": [
+        {
+          "candidate_id": "1-cand-1",
+          "reason": "candidates resolve to the same position with no deterministic source relationship ordering them",
+          "requirement": "exact frame or stage provenance that separates the tied candidates is required",
+          "second_candidate_id": "1-cand-2"
+        }
+      ],
+      "boundary_confidence": null,
       "candidate_boundaries": [
         {
           "boundary_anchor": {
             "capture_file": "test.pcap",
             "frame_number": null,
             "message_type": null,
+            "protocol": null,
             "timestamp": null
           },
           "candidate_id": "1-cand-1",
@@ -35,9 +43,39 @@
           "source_domain": "5gc-registration-mobility",
           "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-0:r1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "DERIVED",
+                "field_name": null,
+                "frame_number": null,
+                "kind": "OBSERVATION_WINDOW",
+                "message_type": null,
+                "protocol": null,
+                "stage_id": "registration-decision",
+                "timestamp": null,
+                "window_first_frame": 10,
+                "window_last_frame": 12
+              }
+            ],
             "source_deviation": {
               "description": "No Registration accept or Registration reject was observed within the available observation window",
               "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "registration-decision",
+                  "timestamp": null,
+                  "window_first_frame": 10,
+                  "window_last_frame": 12
+                }
+              ],
               "limitation": "Capture termination may explain the missing evidence",
               "stage_id": "registration-decision",
               "type": "MISSING_EXPECTED_COUNTERPART"
@@ -59,7 +97,8 @@
           "boundary_anchor": {
             "capture_file": "test.pcap",
             "frame_number": 12,
-            "message_type": null,
+            "message_type": "Authentication failure",
+            "protocol": "NAS-5GS",
             "timestamp": "2024-01-02T03:04:12.00Z"
           },
           "candidate_id": "1-cand-2",
@@ -84,9 +123,39 @@
           "source_domain": "5gc-registration-mobility",
           "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-0:r1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 12,
+                "kind": "EVENT",
+                "message_type": "Authentication failure",
+                "protocol": "NAS-5GS",
+                "stage_id": null,
+                "timestamp": "2024-01-02T03:04:12.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "NAS-5GS Authentication failure observed at frame 12",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 12,
+                  "kind": "EVENT",
+                  "message_type": "Authentication failure",
+                  "protocol": "NAS-5GS",
+                  "stage_id": null,
+                  "timestamp": "2024-01-02T03:04:12.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
               "stage_id": null,
               "type": "UNSUCCESSFUL_OUTCOME_OBSERVED"
@@ -106,17 +175,7 @@
         }
       ],
       "diagnostic_id": "diag-1",
-      "downstream_observations": [
-        {
-          "candidate_id": "1-cand-1",
-          "description": "No Registration accept or Registration reject was observed within the available observation window",
-          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
-          "evidence_level": "DERIVED",
-          "relation": "OBSERVED_AFTER_BOUNDARY",
-          "source_domain": "5gc-registration-mobility",
-          "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-0:r1"
-        }
-      ],
+      "downstream_observations": [],
       "earlier_context": [],
       "evidence_limitations": [],
       "limitations": [
@@ -136,59 +195,8 @@
         ],
         "source_count": 1
       },
-      "selected_boundary": {
-        "boundary_ref": {
-          "boundary_anchor": {
-            "capture_file": "test.pcap",
-            "frame_number": 12,
-            "message_type": null,
-            "timestamp": "2024-01-02T03:04:12.00Z"
-          },
-          "candidate_id": "1-cand-2",
-          "description": "NAS-5GS Authentication failure observed at frame 12",
-          "deviation_type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
-          "evidence_level": "OBSERVED",
-          "limitations": [
-            "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation"
-          ],
-          "ordering_basis": {
-            "frame_number": 12,
-            "observation_window": {
-              "end_frame": 12,
-              "start_frame": 10
-            },
-            "stage_position": null
-          },
-          "procedure_family": "5gc-registration-mobility",
-          "procedure_stage": null,
-          "selectability": "SELECTABLE",
-          "source_attempt_id": null,
-          "source_domain": "5gc-registration-mobility",
-          "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-0:r1",
-          "supporting_evidence": {
-            "source_deviation": {
-              "description": "NAS-5GS Authentication failure observed at frame 12",
-              "evidence_level": "OBSERVED",
-              "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
-              "stage_id": null,
-              "type": "UNSUCCESSFUL_OUTCOME_OBSERVED"
-            },
-            "source_observation_window": {
-              "first_frame": 10,
-              "last_frame": 12
-            },
-            "source_terminal": {
-              "evidence_level": "DERIVED",
-              "frame_number": null,
-              "message_type": null,
-              "observation": "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW",
-              "timestamp": null
-            }
-          }
-        },
-        "candidate_id": "1-cand-2"
-      },
-      "selection_status": "SELECTED",
+      "selected_boundary": null,
+      "selection_status": "AMBIGUOUS_FIRST_BOUNDARY",
       "source_domain_instances": [
         {
           "capture_file": "test.pcap",
@@ -214,14 +222,22 @@
       "supporting_anomalies": []
     },
     {
-      "additional_evidence_needed": [],
-      "boundary_confidence": "HIGH",
+      "additional_evidence_needed": [
+        {
+          "candidate_id": "2-cand-1",
+          "reason": "candidates resolve to the same position with no deterministic source relationship ordering them",
+          "requirement": "exact frame or stage provenance that separates the tied candidates is required",
+          "second_candidate_id": "2-cand-2"
+        }
+      ],
+      "boundary_confidence": null,
       "candidate_boundaries": [
         {
           "boundary_anchor": {
             "capture_file": "test.pcap",
             "frame_number": null,
             "message_type": null,
+            "protocol": null,
             "timestamp": null
           },
           "candidate_id": "2-cand-1",
@@ -246,9 +262,39 @@
           "source_domain": "5gc-registration-mobility",
           "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-1:r1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "DERIVED",
+                "field_name": null,
+                "frame_number": null,
+                "kind": "OBSERVATION_WINDOW",
+                "message_type": null,
+                "protocol": null,
+                "stage_id": "registration-decision",
+                "timestamp": null,
+                "window_first_frame": 20,
+                "window_last_frame": 22
+              }
+            ],
             "source_deviation": {
               "description": "No Registration accept or Registration reject was observed within the available observation window",
               "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "registration-decision",
+                  "timestamp": null,
+                  "window_first_frame": 20,
+                  "window_last_frame": 22
+                }
+              ],
               "limitation": "Capture termination may explain the missing evidence",
               "stage_id": "registration-decision",
               "type": "MISSING_EXPECTED_COUNTERPART"
@@ -270,7 +316,8 @@
           "boundary_anchor": {
             "capture_file": "test.pcap",
             "frame_number": 22,
-            "message_type": null,
+            "message_type": "Authentication failure",
+            "protocol": "NAS-5GS",
             "timestamp": "2024-01-02T03:04:22.00Z"
           },
           "candidate_id": "2-cand-2",
@@ -295,9 +342,39 @@
           "source_domain": "5gc-registration-mobility",
           "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-1:r1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 22,
+                "kind": "EVENT",
+                "message_type": "Authentication failure",
+                "protocol": "NAS-5GS",
+                "stage_id": null,
+                "timestamp": "2024-01-02T03:04:22.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "NAS-5GS Authentication failure observed at frame 22",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 22,
+                  "kind": "EVENT",
+                  "message_type": "Authentication failure",
+                  "protocol": "NAS-5GS",
+                  "stage_id": null,
+                  "timestamp": "2024-01-02T03:04:22.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
               "stage_id": null,
               "type": "UNSUCCESSFUL_OUTCOME_OBSERVED"
@@ -317,17 +394,7 @@
         }
       ],
       "diagnostic_id": "diag-2",
-      "downstream_observations": [
-        {
-          "candidate_id": "2-cand-1",
-          "description": "No Registration accept or Registration reject was observed within the available observation window",
-          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
-          "evidence_level": "DERIVED",
-          "relation": "OBSERVED_AFTER_BOUNDARY",
-          "source_domain": "5gc-registration-mobility",
-          "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-1:r1"
-        }
-      ],
+      "downstream_observations": [],
       "earlier_context": [],
       "evidence_limitations": [],
       "limitations": [
@@ -347,59 +414,8 @@
         ],
         "source_count": 1
       },
-      "selected_boundary": {
-        "boundary_ref": {
-          "boundary_anchor": {
-            "capture_file": "test.pcap",
-            "frame_number": 22,
-            "message_type": null,
-            "timestamp": "2024-01-02T03:04:22.00Z"
-          },
-          "candidate_id": "2-cand-2",
-          "description": "NAS-5GS Authentication failure observed at frame 22",
-          "deviation_type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
-          "evidence_level": "OBSERVED",
-          "limitations": [
-            "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation"
-          ],
-          "ordering_basis": {
-            "frame_number": 22,
-            "observation_window": {
-              "end_frame": 22,
-              "start_frame": 20
-            },
-            "stage_position": null
-          },
-          "procedure_family": "5gc-registration-mobility",
-          "procedure_stage": null,
-          "selectability": "SELECTABLE",
-          "source_attempt_id": null,
-          "source_domain": "5gc-registration-mobility",
-          "source_instance_id": "5gc-reg:test.pcap:sctp-assoc-1:r1",
-          "supporting_evidence": {
-            "source_deviation": {
-              "description": "NAS-5GS Authentication failure observed at frame 22",
-              "evidence_level": "OBSERVED",
-              "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
-              "stage_id": null,
-              "type": "UNSUCCESSFUL_OUTCOME_OBSERVED"
-            },
-            "source_observation_window": {
-              "first_frame": 20,
-              "last_frame": 22
-            },
-            "source_terminal": {
-              "evidence_level": "DERIVED",
-              "frame_number": null,
-              "message_type": null,
-              "observation": "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW",
-              "timestamp": null
-            }
-          }
-        },
-        "candidate_id": "2-cand-2"
-      },
-      "selection_status": "SELECTED",
+      "selected_boundary": null,
+      "selection_status": "AMBIGUOUS_FIRST_BOUNDARY",
       "source_domain_instances": [
         {
           "capture_file": "test.pcap",

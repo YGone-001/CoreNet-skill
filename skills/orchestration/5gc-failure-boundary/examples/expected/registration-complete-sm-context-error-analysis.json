@@ -9,9 +9,10 @@
         {
           "boundary_anchor": {
             "capture_file": "test.pcap",
-            "frame_number": 20,
+            "frame_number": 19,
             "message_type": null,
-            "timestamp": null
+            "protocol": "3GPP-SBI",
+            "timestamp": "2024-01-02T03:04:19.00Z"
           },
           "candidate_id": "1-cand-1",
           "description": "Nsmf_PDUSession CreateSMContext returned HTTP 403 with ProblemDetails cause DNN_NOT_SUPPORTED",
@@ -21,10 +22,10 @@
             "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable"
           ],
           "ordering_basis": {
-            "frame_number": 20,
+            "frame_number": 19,
             "observation_window": {
               "end_frame": 25,
-              "start_frame": 20
+              "start_frame": 19
             },
             "stage_position": 1
           },
@@ -35,15 +36,45 @@
           "source_domain": "5gc-pdu-session",
           "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 19,
+                "kind": "EVENT",
+                "message_type": null,
+                "protocol": "3GPP-SBI",
+                "stage_id": "sm_context_control",
+                "timestamp": "2024-01-02T03:04:19.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "Nsmf_PDUSession CreateSMContext returned HTTP 403 with ProblemDetails cause DNN_NOT_SUPPORTED",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 19,
+                  "kind": "EVENT",
+                  "message_type": null,
+                  "protocol": "3GPP-SBI",
+                  "stage_id": "sm_context_control",
+                  "timestamp": "2024-01-02T03:04:19.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable",
               "stage_id": "sm_context_control",
               "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
             },
             "source_observation_window": {
-              "first_frame": 20,
+              "first_frame": 19,
               "last_frame": 25
             },
             "source_terminal": {
@@ -104,9 +135,10 @@
         "boundary_ref": {
           "boundary_anchor": {
             "capture_file": "test.pcap",
-            "frame_number": 20,
+            "frame_number": 19,
             "message_type": null,
-            "timestamp": null
+            "protocol": "3GPP-SBI",
+            "timestamp": "2024-01-02T03:04:19.00Z"
           },
           "candidate_id": "1-cand-1",
           "description": "Nsmf_PDUSession CreateSMContext returned HTTP 403 with ProblemDetails cause DNN_NOT_SUPPORTED",
@@ -116,10 +148,10 @@
             "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable"
           ],
           "ordering_basis": {
-            "frame_number": 20,
+            "frame_number": 19,
             "observation_window": {
               "end_frame": 25,
-              "start_frame": 20
+              "start_frame": 19
             },
             "stage_position": 1
           },
@@ -130,15 +162,45 @@
           "source_domain": "5gc-pdu-session",
           "source_instance_id": "5gc-pdu-session:test.pcap:ran1-amf1:psi1",
           "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "test.pcap",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 19,
+                "kind": "EVENT",
+                "message_type": null,
+                "protocol": "3GPP-SBI",
+                "stage_id": "sm_context_control",
+                "timestamp": "2024-01-02T03:04:19.00Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
             "source_deviation": {
               "description": "Nsmf_PDUSession CreateSMContext returned HTTP 403 with ProblemDetails cause DNN_NOT_SUPPORTED",
               "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "test.pcap",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 19,
+                  "kind": "EVENT",
+                  "message_type": null,
+                  "protocol": "3GPP-SBI",
+                  "stage_id": "sm_context_control",
+                  "timestamp": "2024-01-02T03:04:19.00Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
               "limitation": "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable",
               "stage_id": "sm_context_control",
               "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
             },
             "source_observation_window": {
-              "first_frame": 20,
+              "first_frame": 19,
               "last_frame": 25
             },
             "source_terminal": {

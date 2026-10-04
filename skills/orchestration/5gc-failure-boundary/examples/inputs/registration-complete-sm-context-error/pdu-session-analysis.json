@@ -3,10 +3,26 @@
     {
       "association_basis": "ngap_ue_context_and_pdu_session_id",
       "association_strength": "STRONG",
+      "capture_file": "test.pcap",
       "deviations": [
         {
           "description": "Nsmf_PDUSession CreateSMContext returned HTTP 403 with ProblemDetails cause DNN_NOT_SUPPORTED",
           "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "capture_file": "test.pcap",
+              "evidence_level": "OBSERVED",
+              "field_name": null,
+              "frame_number": 19,
+              "kind": "EVENT",
+              "message_type": null,
+              "protocol": "3GPP-SBI",
+              "stage_id": "sm_context_control",
+              "timestamp": "2024-01-02T03:04:19.00Z",
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
           "limitation": "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable",
           "stage_id": "sm_context_control",
           "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
@@ -15,6 +31,21 @@
       "earliest_observed_deviation": {
         "description": "Nsmf_PDUSession CreateSMContext returned HTTP 403 with ProblemDetails cause DNN_NOT_SUPPORTED",
         "evidence_level": "OBSERVED",
+        "evidence_refs": [
+          {
+            "capture_file": "test.pcap",
+            "evidence_level": "OBSERVED",
+            "field_name": null,
+            "frame_number": 19,
+            "kind": "EVENT",
+            "message_type": null,
+            "protocol": "3GPP-SBI",
+            "stage_id": "sm_context_control",
+            "timestamp": "2024-01-02T03:04:19.00Z",
+            "window_first_frame": null,
+            "window_last_frame": null
+          }
+        ],
         "limitation": "Protocol failure at AMF-SMF interface; internal SMF or PCF decision basis not observable",
         "stage_id": "sm_context_control",
         "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
@@ -100,7 +131,7 @@
           "capture_file": "test.pcap",
           "evidence_level": "OBSERVED",
           "field_name": "status",
-          "frame_number": 20,
+          "frame_number": 19,
           "interpretation": "HTTP/2 response status code",
           "limitations": [],
           "observed_value": 403,
@@ -110,7 +141,7 @@
           "capture_file": "test.pcap",
           "evidence_level": "OBSERVED",
           "field_name": "sm_context_ref",
-          "frame_number": 20,
+          "frame_number": 19,
           "interpretation": "SM Context resource URI assigned by SMF",
           "limitations": [],
           "observed_value": "https://smf.example.org/nsmf-pdusession/v1/sm-contexts/sess1",
@@ -120,7 +151,7 @@
           "capture_file": "test.pcap",
           "evidence_level": "OBSERVED",
           "field_name": "problem_details",
-          "frame_number": 20,
+          "frame_number": 19,
           "interpretation": "3GPP ProblemDetails payload",
           "limitations": [],
           "observed_value": {
@@ -135,6 +166,10 @@
         "No source code or network function internal execution state analyzed"
       ],
       "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 19,
+        "last_frame": 25
+      },
       "pdu_session_id": 1,
       "plane_bindings": {
         "n1": {
@@ -204,7 +239,7 @@
           ],
           "missing_evidence": [],
           "observed_evidence": [
-            "Nsmf_PDUSession CreateSMContext returned HTTP 403 at frame 20 with ProblemDetails (DNN_NOT_SUPPORTED)"
+            "Nsmf_PDUSession CreateSMContext returned HTTP 403 at frame 19 with ProblemDetails (DNN_NOT_SUPPORTED)"
           ],
           "stage_id": "sm_context_control",
           "stage_name": "SM Context Control",
@@ -306,7 +341,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.3.0",
+  "procedure_version": "0.4.0",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

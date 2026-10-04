@@ -4,7 +4,7 @@
 evidence-safe first abnormal boundary localization across currently supported
 5GC Domain analyses, version 0.1.0.
 It composes already-produced analysis JSON from `5gc-registration-mobility`
-(>=0.1.0) and `5gc-pdu-session` (>=0.3.0) into diagnostic groups linked only by
+(>=0.2.0) and `5gc-pdu-session` (>=0.4.0) into diagnostic groups linked only by
 exact common context (capture file, SCTP association, RAN-UE-NGAP-ID,
 AMF-UE-NGAP-ID), preserves PDU Session lifecycle generations and multi-UE
 isolation, builds boundary candidates only from Domain-emitted deviations,
@@ -54,12 +54,19 @@ python scripts/analyze_failure_boundary.py \
 
 ## Output and Limitations
 
-- Boundary candidates come only from Domain-emitted deviations; the Skill
-  never invents a deviation from raw field values.
+- Boundary candidates come only from Domain-emitted deviations and their
+  structured `evidence_refs`; the Skill never invents a deviation, never parses
+  description/limitation/observed_evidence prose for identity or ordering, and
+  rejects source Domain versions older than 0.2.0 (registration) / 0.4.0
+  (PDU Session) loudly instead of guessing.
 - `MISSING_EXPECTED_COUNTERPART` stays `DERIVED` and is blocked from selection
   when the source Domain marks the observation window partial.
 - First means earliest safely orderable boundary; a later but "more serious"
-  negative outcome never wins.
+  negative outcome never wins. Selection is candidate-centric: a candidate
+  proven before every competitor is selected even when later competitors are
+  mutually incomparable; an observed frame inside a derived absence window
+  cannot be ordered against it without the source Domain stage order and stays
+  ambiguous otherwise.
 - Same-frame or overlapping-window candidates remain
   `AMBIGUOUS_FIRST_BOUNDARY`; candidates without comparable provenance yield
   `INSUFFICIENT_COMPARABLE_EVIDENCE`.

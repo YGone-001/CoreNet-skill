@@ -2,8 +2,8 @@
 """Standalone engine for 5GC failure-boundary orchestration.
 
 Consumes already-produced Domain analysis JSON only:
-- 5gc-registration-mobility analysis summaries (>=0.1.0)
-- 5gc-pdu-session analysis summaries (>=0.3.0)
+- 5gc-registration-mobility analysis summaries (>=0.2.0)
+- 5gc-pdu-session analysis summaries (>=0.4.0)
 
 Produces:
 - a bounded 5gc-failure-boundary analysis summary (JSON) that forms evidence-safe
@@ -11,16 +11,18 @@ Produces:
   safely orderable abnormal evidence boundary per group.
 
 Strictly bounded: candidates come only from deviations already emitted by a
-Domain Skill; the engine never interprets raw protocol events, never invents a
-procedure deviation, never ranks by severity, never claims success, and never
-attributes an implementation, network-function, or vendor cause.
+Domain Skill, with machine-readable evidence_refs as the sole provenance
+contract. Human-readable description and limitation text are
+presentation only and is never parsed for identity or ordering. Ordering relies
+on evidence provenance (exact frames, bounded observation windows, source
+stage order), never severity; no root cause, network-function blame, vendor
+defect, or implementation cause is ever produced.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-import math
 import re
 from pathlib import Path
 from typing import Any
@@ -33,6 +35,11 @@ EXIT_NO_INPUT = 6
 EXIT_OUTPUT_FAILURE = 7
 
 SUPPORTED_DOMAINS = ("5gc-registration-mobility", "5gc-pdu-session")
+
+# Minimum source Domain output contracts exposing structured deviation
+# provenance. Older versions fail loudly; there is no prose-parsing fallback.
+REGISTRATION_VERSION_FLOOR = (0, 2, 0)
+PDU_SESSION_VERSION_FLOOR = (0, 4, 0)
 
 # Deviation types that may become abnormal-boundary candidates (Domain-emitted
 # vocabulary, mapped exactly; never renamed).
@@ -47,8 +54,6 @@ ELIGIBLE_DEVIATION_TYPES = frozenset({
 })
 
 # Deviation types that describe evidence quality or association limitations.
-# They are preserved as evidence limitations and are never selected as the
-# first abnormal network-procedure boundary by default.
 EVIDENCE_LIMITATION_TYPES = frozenset({
     "PARTIAL_CAPTURE",
     "CORRELATION_AMBIGUITY",
@@ -60,8 +65,6 @@ EVIDENCE_LIMITATION_TYPES = frozenset({
     "DUPLICATE_OR_RETRANSMITTED_EVIDENCE",
 })
 
-# Supporting protocol-anomaly observations: kept visible as limitations, never
-# preferred over a direct protocol reject/negative outcome in v0.1.0.
 SUPPORTING_ANOMALY_TYPES = frozenset({
     "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
 })
@@ -85,9 +88,6 @@ FORBIDDEN_OUTPUT_PATTERN = re.compile(
     r"(?i)\b(?:root[ _-]?cause|culprit|responsible[ _-]?nf|vendor[ _-]?fault|"
     r"implementation[ _-]?(?:failure|bug|blame)|bug[ _-]?location)\b"
 )
-
-_FRAME_IN_TEXT = re.compile(r"frame (\d+)", re.IGNORECASE)
-_ASSOC_NUMERIC = re.compile(r"sctp-assoc-(\d+)$")
 
 ANALYSIS_OUTPUT_LIMITATIONS = (
     "Analysis is bounded to the Domain analysis JSON supplied as input; no raw protocol events are interpreted",
@@ -139,41 +139,65 @@ def _require_list(value: Any, what: str) -> list[Any]:
     return value
 
 
-def _deviations_of(value: Any, what: str) -> list[dict[str, Any]]:
-    deviations = _require_list(value, what)
-    for item in deviations:
-        _require_mapping(item, f"{what} entry")
-        if not isinstance(item.get("type"), str):
-            raise InputError(f"{what} entry lacks a string type field")
-    return deviations
+def _parse_version(value: Any, what: str) -> tuple[int, int, int] | None:
+    if not isinstance(value, str):
+        return None
+    parts = value.split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        return (int(parts[0]), int(parts[1]), int(parts[2]))
+    except ValueError:
+        return None
 
 
-def _frame_from_description(text: str) -> int | None:
-    match = _FRAME_IN_TEXT.search(text)
-    return int(match.group(1)) if match else None
+def _enforce_version(actual: Any, floor: tuple[int, int, int], domain: str, file_name: str) -> None:
+    version = _parse_version(actual, "version")
+    if version is None:
+        raise InputError(
+            f"{file_name}: source Domain version field is missing or malformed; "
+            f"{domain} >= {'.'.join(str(n) for n in floor)} with structured deviation "
+            "provenance is required by 5gc-failure-boundary"
+        )
+    if version < floor:
+        raise InputError(
+            f"{file_name}: {domain} procedure_version {actual} lacks the structured deviation "
+            f"provenance required by 5gc-failure-boundary {ANALYSIS_VERSION}; "
+            f"{'.'.join(str(n) for n in floor)} or newer is required"
+        )
 
 
-def _stage_evidence_frames(source: SourceInstance, attempt_id: str | None, stage_id: str | None) -> set[int]:
-    """Distinct frames recorded in the Domain stage evidence for one stage.
+def _deviation_evidence_refs(deviation: dict[str, Any], what: str) -> list[dict[str, Any]]:
+    refs = deviation.get("evidence_refs")
+    if not isinstance(refs, list):
+        raise InputError(f"{what}: deviation {deviation.get('type')} lacks structured evidence_refs")
+    for ref in refs:
+        if not isinstance(ref, dict) or ref.get("kind") not in ("EVENT", "FIELD_FINDING", "OBSERVATION_WINDOW", "STAGE"):
+            raise InputError(f"{what}: deviation {deviation.get('type')} carries a malformed evidence ref")
+    return refs
 
-    Stage records are part of the Domain output contract; their
-    observed_evidence text carries the exact frame each observation came from.
-    Returns an empty set when the stage (or attempt) is unknown.
-    """
-    frames: set[int] = set()
-    if stage_id is None:
-        return frames
-    stage_maps: list[dict[str, list[str]]] = []
-    if attempt_id is not None:
-        for attempt in getattr(source, "attempt_stage_evidence", {}).get(attempt_id, []):
-            stage_maps.append(attempt)
-    stage_maps.append(getattr(source, "stage_evidence", {}))
-    for stage_map in stage_maps:
-        for text in stage_map.get(stage_id, []):
-            frame = _frame_from_description(text)
-            if frame is not None:
-                frames.add(frame)
-    return frames
+
+def _event_ref_frame(refs: list[dict[str, Any]]) -> tuple[int, str | None, str | None, str | None] | None:
+    """The structured EVENT reference with frame provenance, if present."""
+    for ref in refs:
+        if ref.get("kind") == "EVENT" and isinstance(ref.get("frame_number"), int):
+            return (
+                ref["frame_number"],
+                ref.get("timestamp") if isinstance(ref.get("timestamp"), str) else None,
+                ref.get("protocol") if isinstance(ref.get("protocol"), str) else None,
+                ref.get("message_type") if isinstance(ref.get("message_type"), str) else None,
+            )
+    return None
+
+
+def _window_ref_bounds(refs: list[dict[str, Any]]) -> tuple[int, int] | None:
+    for ref in refs:
+        if ref.get("kind") == "OBSERVATION_WINDOW" and isinstance(ref.get("window_first_frame"), int):
+            lo = ref["window_first_frame"]
+            hi = ref.get("window_last_frame")
+            hi = hi if isinstance(hi, int) else lo
+            return (lo, hi)
+    return None
 
 
 def _association_equivalent(a: Any, b: Any) -> bool:
@@ -187,14 +211,16 @@ def _association_equivalent(a: Any, b: Any) -> bool:
         return False
     if a == b:
         return True
+
     def numeric(value: Any) -> int | None:
         if isinstance(value, int) and not isinstance(value, bool):
             return value
         if isinstance(value, str):
-            match = _ASSOC_NUMERIC.match(value)
+            match = re.match(r"sctp-assoc-(\d+)$", value)
             if match:
                 return int(match.group(1))
         return None
+
     na, nb = numeric(a), numeric(b)
     return na is not None and nb is not None and na == nb
 
@@ -213,7 +239,7 @@ class SourceInstance:
         source_domain: str,
         source_file: str,
         instance_id: str,
-        capture_file: str,
+        capture_file: str | None,
         sctp_association: Any,
         ran_ue_ngap_id: Any,
         amf_ue_ngap_id: Any,
@@ -233,8 +259,8 @@ class SourceInstance:
         self.terminal = terminal
         self.deviations = deviations
         self.extra_identity = extra_identity
-        self.attempt_deviation_entries: list[dict[str, Any]] = []
         self.stage_order: dict[str, int] = {}
+        self.attempt_entries: list[dict[str, Any]] = []
         self.identity_hash = hashlib.sha256(
             json.dumps({
                 "source_domain": source_domain,
@@ -254,8 +280,6 @@ class SourceInstance:
             return None
         if self.ran_ue_ngap_id is None or self.amf_ue_ngap_id is None:
             return None
-        if self.ran_ue_ngap_id != self.ran_ue_ngap_id or self.amf_ue_ngap_id != self.amf_ue_ngap_id:
-            return None
         return (self.capture_file, self.sctp_association, self.ran_ue_ngap_id, self.amf_ue_ngap_id)
 
     def reference(self) -> dict[str, Any]:
@@ -271,9 +295,10 @@ class SourceInstance:
 
 def _registration_instances(path: Path) -> list[SourceInstance]:
     doc = _require_mapping(_load_json(path), f"{path.name}")
-    family = doc.get("procedure_family")
-    if family not in ("5gc-registration-mobility",):
+    if doc.get("procedure_family") != "5gc-registration-mobility":
         raise InputError(f"{path.name} is not a 5gc-registration-mobility analysis summary")
+    _enforce_version(doc.get("analysis_version"), REGISTRATION_VERSION_FLOOR,
+                     "5gc-registration-mobility", path.name)
     instances: list[SourceInstance] = []
     for index, analysis in enumerate(_require_list(doc.get("analyses"), f"{path.name} analyses")):
         analysis = _require_mapping(analysis, f"{path.name} analyses[{index}]")
@@ -287,12 +312,13 @@ def _registration_instances(path: Path) -> list[SourceInstance]:
         window_obj = _require_mapping(analysis.get("observation_window"), f"{path.name} analyses[{index}] observation_window")
         window = _window_of(window_obj.get("first_frame"), window_obj.get("last_frame"))
         terminal = _require_mapping(analysis.get("terminal"), f"{path.name} analyses[{index}] terminal")
-        timestamps_by_frame: dict[int, str] = {}
-        for event in analysis.get("events", []) or []:
-            if isinstance(event, dict) and isinstance(event.get("frame_number"), int):
-                if isinstance(event.get("timestamp"), str):
-                    timestamps_by_frame[event["frame_number"]] = event["timestamp"]
-        instances.append(SourceInstance(
+
+        stage_order = {
+            record.get("stage", {}).get("stage_id"): position
+            for position, record in enumerate(analysis.get("stage_records", []) or [])
+            if isinstance(record, dict) and isinstance(record.get("stage"), dict) and isinstance(record["stage"].get("stage_id"), str)
+        }
+        record = SourceInstance(
             source_domain="5gc-registration-mobility",
             source_file=path.name,
             instance_id=instance_id,
@@ -302,20 +328,11 @@ def _registration_instances(path: Path) -> list[SourceInstance]:
             amf_ue_ngap_id=ngap_context.get("amf_ue_ngap_id"),
             observation_window=window,
             terminal=terminal,
-            deviations=_deviations_of(analysis.get("deviations"), f"{path.name} analyses[{index}] deviations"),
+            deviations=_require_list(analysis.get("deviations"), f"{path.name} analyses[{index}] deviations"),
             extra_identity={},
-        ))
-        instances[-1].timestamps_by_frame = timestamps_by_frame
-        instances[-1].stage_order = {
-            record.get("stage", {}).get("stage_id"): position
-            for position, record in enumerate(analysis.get("stage_records", []) or [])
-            if isinstance(record, dict) and isinstance(record.get("stage"), dict) and isinstance(record["stage"].get("stage_id"), str)
-        }
-        instances[-1].stage_evidence = {
-            record["stage"]["stage_id"]: [t for t in record.get("observed_evidence", []) if isinstance(t, str)]
-            for record in analysis.get("stage_records", []) or []
-            if isinstance(record, dict) and isinstance(record.get("stage"), dict) and isinstance(record["stage"].get("stage_id"), str)
-        }
+        )
+        record.stage_order = stage_order
+        instances.append(record)
     return instances
 
 
@@ -323,6 +340,8 @@ def _pdu_session_instances(path: Path) -> list[SourceInstance]:
     doc = _require_mapping(_load_json(path), f"{path.name}")
     if doc.get("procedure_name") != "5gc-pdu-session":
         raise InputError(f"{path.name} is not a 5gc-pdu-session analysis summary")
+    _enforce_version(doc.get("procedure_version"), PDU_SESSION_VERSION_FLOOR,
+                     "5gc-pdu-session", path.name)
     instances: list[SourceInstance] = []
     for index, instance in enumerate(_require_list(doc.get("instances"), f"{path.name} instances")):
         instance = _require_mapping(instance, f"{path.name} instances[{index}]")
@@ -331,28 +350,16 @@ def _pdu_session_instances(path: Path) -> list[SourceInstance]:
             raise InputError(f"{path.name} instances[{index}] lacks instance_id")
         ue_context = _require_mapping(instance.get("ue_context"), f"{path.name} instances[{index}] ue_context")
         terminal = _require_mapping(instance.get("terminal_observation"), f"{path.name} instances[{index}] terminal_observation")
-
-        capture_candidates: list[str] = []
-        for finding in instance.get("field_findings", []) or []:
-            if isinstance(finding, dict) and isinstance(finding.get("capture_file"), str):
-                capture_candidates.append(finding["capture_file"])
-        distinct_captures = sorted(set(capture_candidates))
-        if len(distinct_captures) == 1:
-            capture_file: str | None = distinct_captures[0]
-        elif instance_id.count(":") >= 1:
-            # Documented DERIVED instance-id format: 5gc-pdu-session:<capture>:...
-            capture_file = instance_id.split(":")[1]
-        else:
-            capture_file = None
-
-        frames: list[int] = []
-        terminal_frame = terminal.get("frame_number")
-        if isinstance(terminal_frame, int):
-            frames.append(terminal_frame)
-        for finding in instance.get("field_findings", []) or []:
-            if isinstance(finding, dict) and isinstance(finding.get("frame_number"), int):
-                frames.append(finding["frame_number"])
-        instance_window = _window_of(min(frames), max(frames)) if frames else None
+        capture_file = instance.get("capture_file")
+        if not isinstance(capture_file, str):
+            raise InputError(
+                f"{path.name} instances[{index}] lacks the structured capture_file required by "
+                "5gc-failure-boundary; capture provenance is never recovered from instance_id strings"
+            )
+        window_obj = instance.get("observation_window")
+        window = None
+        if isinstance(window_obj, dict):
+            window = _window_of(window_obj.get("first_frame"), window_obj.get("last_frame"))
 
         extra = {
             "pdu_session_id": instance.get("pdu_session_id"),
@@ -361,7 +368,7 @@ def _pdu_session_instances(path: Path) -> list[SourceInstance]:
             "lifecycle_boundary_basis": instance.get("lifecycle_boundary_basis"),
             "previous_generation": instance.get("previous_generation"),
         }
-        instance_record = SourceInstance(
+        record = SourceInstance(
             source_domain="5gc-pdu-session",
             source_file=path.name,
             instance_id=instance_id,
@@ -369,58 +376,43 @@ def _pdu_session_instances(path: Path) -> list[SourceInstance]:
             sctp_association=ue_context.get("sctp_association"),
             ran_ue_ngap_id=ue_context.get("ran_ue_ngap_id"),
             amf_ue_ngap_id=ue_context.get("amf_ue_ngap_id"),
-            observation_window=instance_window,
+            observation_window=window,
             terminal=terminal,
-            deviations=_deviations_of(instance.get("deviations"), f"{path.name} instances[{index}] deviations"),
+            deviations=_require_list(instance.get("deviations"), f"{path.name} instances[{index}] deviations"),
             extra_identity={k: v for k, v in extra.items() if v is not None},
         )
-        # Attempt-scoped deviations carry their own bounded observation windows
-        # from the Domain output contract; precompute per-attempt metadata so
-        # ordering and partial-capture blocking stay deterministic.
-        attempt_deviation_entries: list[dict[str, Any]] = []
+        record.stage_order = {
+            stage.get("stage_id"): position
+            for position, stage in enumerate(instance.get("stages", []) or [])
+            if isinstance(stage, dict) and isinstance(stage.get("stage_id"), str)
+        }
+        attempt_entries: list[dict[str, Any]] = []
         for attempt_kind in ("modification_attempts", "release_attempts"):
             for attempt in instance.get(attempt_kind, []) or []:
                 if not isinstance(attempt, dict):
                     continue
                 attempt_id = attempt.get("attempt_id")
-                obs = _require_mapping(attempt.get("observation_window"), f"{path.name} instances[{index}] {attempt_kind} observation_window")
-                win = _window_of(obs.get("window_start_frame"), obs.get("window_end_frame"))
+                obs = attempt.get("observation_window")
+                win = _window_of(obs.get("window_start_frame"), obs.get("window_end_frame")) if isinstance(obs, dict) else None
                 attempt_partial = any(
                     isinstance(d, dict) and d.get("type") == "PARTIAL_CAPTURE"
                     for d in attempt.get("deviations", []) or []
                 )
+                stage_order = {
+                    stage.get("stage_id"): position
+                    for position, stage in enumerate(attempt.get("stages", []) or [])
+                    if isinstance(stage, dict) and isinstance(stage.get("stage_id"), str)
+                }
                 for deviation in attempt.get("deviations", []) or []:
-                    attempt_deviation_entries.append({
+                    attempt_entries.append({
                         "deviation": deviation,
                         "attempt_id": attempt_id,
                         "window": win,
                         "attempt_partial": attempt_partial,
+                        "stage_order": stage_order,
                     })
-        instance_record.attempt_deviation_entries = attempt_deviation_entries
-        stage_order = {
-            stage.get("stage_id"): position
-            for position, stage in enumerate(instance.get("stages", []) or [])
-            if isinstance(stage, dict) and isinstance(stage.get("stage_id"), str)
-        }
-        instance_record.stage_order = stage_order
-        instance_record.stage_evidence = {
-            stage["stage_id"]: [t for t in stage.get("observed_evidence", []) if isinstance(t, str)]
-            for stage in instance.get("stages", []) or []
-            if isinstance(stage, dict) and isinstance(stage.get("stage_id"), str)
-        }
-        attempt_stage_evidence: dict[str, list[dict[str, list[str]]]] = {}
-        for attempt_kind in ("modification_attempts", "release_attempts"):
-            for attempt in instance.get(attempt_kind, []) or []:
-                if not isinstance(attempt, dict) or not attempt.get("attempt_id"):
-                    continue
-                stage_map = {
-                    stage["stage_id"]: [t for t in stage.get("observed_evidence", []) if isinstance(t, str)]
-                    for stage in attempt.get("stages", []) or []
-                    if isinstance(stage, dict) and isinstance(stage.get("stage_id"), str)
-                }
-                attempt_stage_evidence.setdefault(attempt["attempt_id"], []).append(stage_map)
-        instance_record.attempt_stage_evidence = attempt_stage_evidence
-        instances.append(instance_record)
+        record.attempt_entries = attempt_entries
+        instances.append(record)
     return instances
 
 
@@ -454,8 +446,7 @@ def _link_instances(instances: list[SourceInstance]) -> list[list[SourceInstance
     Two source instances link only when capture_file, SCTP association
     (contract-equivalent), RAN-UE-NGAP-ID, and AMF-UE-NGAP-ID are all present
     and equal. Timestamp proximity, same numeric PDU Session ID, or similar
-    procedure sequences never link. Connected components become groups; every
-    source instance stays separately addressable.
+    procedure sequences never link.
     """
     n = len(instances)
     parent = list(range(n))
@@ -471,7 +462,7 @@ def _link_instances(instances: list[SourceInstance]) -> list[list[SourceInstance
         if ri != rj:
             parent[rj] = ri
 
-    keys: list[tuple[Any, Any, Any, Any] | None] = [inst.context_key() for inst in instances]
+    keys = [inst.context_key() for inst in instances]
     for i in range(n):
         for j in range(i + 1, n):
             ki, kj = keys[i], keys[j]
@@ -503,27 +494,33 @@ class Candidate:
         self,
         source: SourceInstance,
         deviation: dict[str, Any],
+        refs: list[dict[str, Any]],
         origin_attempt_id: str | None,
         frame_number: int | None,
+        timestamp: str | None,
+        protocol: str | None,
+        message_type: str | None,
         window: tuple[int, int] | None,
         stage_position: int | None,
-        timestamp: str | None,
         blocked: bool,
     ) -> None:
         self.source = source
         self.deviation = deviation
+        self.refs = refs
         self.origin_attempt_id = origin_attempt_id
         self.frame_number = frame_number
+        self.timestamp = timestamp
+        self.protocol = protocol
+        self.message_type = message_type
         self.window = window
         self.stage_position = stage_position
-        self.timestamp = timestamp
         self.blocked = blocked
         self.sort_key = (
             source.source_domain,
             source.instance_id,
             origin_attempt_id or "",
             deviation.get("type", ""),
-            deviation.get("description", ""),
+            deviation.get("description") or "",
         )
 
     @property
@@ -531,12 +528,6 @@ class Candidate:
         return str(self.deviation.get("evidence_level") or "DERIVED")
 
     def to_json(self, candidate_id: str) -> dict[str, Any]:
-        anchor: dict[str, Any] = {
-            "capture_file": self.source.capture_file,
-            "frame_number": self.frame_number,
-            "timestamp": self.timestamp,
-            "message_type": None,
-        }
         return {
             "candidate_id": candidate_id,
             "source_domain": self.source.source_domain,
@@ -547,8 +538,15 @@ class Candidate:
             "deviation_type": self.deviation.get("type"),
             "description": self.deviation.get("description"),
             "evidence_level": self.evidence_level,
-            "boundary_anchor": anchor,
+            "boundary_anchor": {
+                "capture_file": self.source.capture_file,
+                "frame_number": self.frame_number,
+                "timestamp": self.timestamp,
+                "protocol": self.protocol,
+                "message_type": self.message_type,
+            },
             "supporting_evidence": {
+                "evidence_refs": self.refs,
                 "source_deviation": self.deviation,
                 "source_observation_window": (
                     {"first_frame": self.source.observation_window[0], "last_frame": self.source.observation_window[1]}
@@ -568,14 +566,39 @@ class Candidate:
         }
 
 
+def _candidate_provenance(refs: list[dict[str, Any]], what: str, deviation_type: str) -> tuple[int | None, str | None, str | None, str | None, tuple[int, int] | None]:
+    """Extract ordering provenance from structured evidence refs only.
+
+    An OBSERVED deviation must carry an EVENT ref with frame provenance; a
+    DERIVED deviation may carry an OBSERVATION_WINDOW ref. Prose is never
+    consulted; a boundary-eligible deviation without either anchor fails
+    loudly rather than falling back to heuristics.
+    """
+    event = _event_ref_frame(refs)
+    window = _window_ref_bounds(refs)
+    if event is not None:
+        frame, timestamp, protocol, message_type = event
+        return frame, timestamp, protocol, message_type, window
+    if window is not None:
+        return None, None, None, None, window
+    raise InputError(
+        f"{what}: boundary-eligible deviation {deviation_type} carries no structured EVENT frame or "
+        "OBSERVATION_WINDOW provenance; the source Domain contract is insufficient for safe ordering"
+    )
+
+
 def _candidates_for_instance(source: SourceInstance) -> tuple[list[Candidate], list[dict[str, Any]], list[dict[str, Any]]]:
     candidates: list[Candidate] = []
     limitations: list[dict[str, Any]] = []
     supporting: list[dict[str, Any]] = []
 
-    instance_partial = any(d.get("type") == "PARTIAL_CAPTURE" for d in source.deviations)
+    instance_partial = any(
+        isinstance(d, dict) and d.get("type") == "PARTIAL_CAPTURE" for d in source.deviations
+    )
 
-    def add(deviation: dict[str, Any], origin_attempt_id: str | None, window: tuple[int, int] | None, stage_position: int | None, blocked_by_partial: bool) -> None:
+    def add(deviation: dict[str, Any], origin_attempt_id: str | None,
+            window: tuple[int, int] | None, stage_position: int | None,
+            stage_order: dict[str, int], blocked_by_partial: bool) -> None:
         dtype = deviation.get("type")
         entry = {
             "source_domain": source.source_domain,
@@ -587,75 +610,51 @@ def _candidates_for_instance(source: SourceInstance) -> tuple[list[Candidate], l
             "evidence_level": deviation.get("evidence_level"),
         }
         if dtype in EVIDENCE_LIMITATION_TYPES:
+            entry["_refs"] = deviation.get("evidence_refs", []) if isinstance(deviation.get("evidence_refs"), list) else []
             limitations.append(entry)
             return
         if dtype in SUPPORTING_ANOMALY_TYPES:
+            entry["_refs"] = deviation.get("evidence_refs", []) if isinstance(deviation.get("evidence_refs"), list) else []
             supporting.append(entry)
             return
         if dtype not in ELIGIBLE_DEVIATION_TYPES:
-            # Unknown vocabulary is preserved as a limitation, never invented
-            # into a boundary.
+            entry["_refs"] = deviation.get("evidence_refs", []) if isinstance(deviation.get("evidence_refs"), list) else []
             limitations.append(entry)
             return
-        evidence_level = deviation.get("evidence_level")
-        frame_number: int | None = None
-        timestamp: str | None = None
-        if evidence_level == "OBSERVED":
-            description = str(deviation.get("description") or "")
-            frame_number = _frame_from_description(description)
-            if frame_number is None:
-                # Fall back to the deviation's own stage observation evidence:
-                # the Domain stage record for this stage carries the exact
-                # frame it observed. Multiple distinct frames in one stage are
-                # ambiguous provenance and fall back to the window basis.
-                stage_id = deviation.get("stage_id")
-                stage_frames = _stage_evidence_frames(source, origin_attempt_id, stage_id if isinstance(stage_id, str) else None)
-                if len(stage_frames) == 1:
-                    frame_number = next(iter(stage_frames))
-            timestamps = getattr(source, "timestamps_by_frame", {})
-            if frame_number is not None:
-                timestamp = timestamps.get(frame_number)
+        what = f"{source.source_file} {source.instance_id}"
+        refs = _deviation_evidence_refs(deviation, what)
+        frame_number, timestamp, protocol, message_type, ref_window = _candidate_provenance(refs, what, str(dtype))
+        if window is None:
+            window = ref_window
         if window is None:
             window = source.observation_window
+        stage_id = deviation.get("stage_id")
+        if stage_position is None and isinstance(stage_id, str):
+            stage_position = stage_order.get(stage_id)
         blocked = dtype == "MISSING_EXPECTED_COUNTERPART" and blocked_by_partial
         candidates.append(Candidate(
             source=source,
             deviation=deviation,
+            refs=refs,
             origin_attempt_id=origin_attempt_id,
             frame_number=frame_number,
+            timestamp=timestamp,
+            protocol=protocol,
+            message_type=message_type,
             window=window,
             stage_position=stage_position,
-            timestamp=timestamp,
             blocked=blocked,
         ))
 
-    stage_order = getattr(source, "stage_order", {})
     for deviation in source.deviations:
-        stage_id = deviation.get("stage_id")
-        stage_position = stage_order.get(stage_id) if isinstance(stage_id, str) else None
-        add(deviation, None, None, stage_position, instance_partial)
+        add(deviation, None, None, None, source.stage_order, instance_partial)
 
-    for entry in getattr(source, "attempt_deviation_entries", []):
+    for entry in source.attempt_entries:
         blocked_by_partial = instance_partial or bool(entry.get("attempt_partial"))
-        add(entry["deviation"], entry.get("attempt_id"), entry.get("window"), None, blocked_by_partial)
+        add(entry["deviation"], entry.get("attempt_id"), entry.get("window"), None,
+            entry.get("stage_order") or {}, blocked_by_partial)
 
     return candidates, limitations, supporting
-
-
-def _frame_vs_window(framed: Candidate, windowed: Candidate, frame: int, window: tuple[int, int]) -> str:
-    """Relation from the framed candidate's perspective against a windowed one."""
-    lo, hi = window
-    if frame < lo:
-        return "before"
-    if frame > hi:
-        return "after"
-    if frame == hi and framed.evidence_level == "OBSERVED" and windowed.evidence_level == "DERIVED":
-        # A derived absence claim is established only by the end of the
-        # observation window; a directly observed negative event at that end is
-        # deterministically not later than the absence (derived missing
-        # evidence never outranks an observed event).
-        return "before"
-    return "tie"
 
 
 def _relation(a: Candidate, b: Candidate) -> str:
@@ -663,15 +662,11 @@ def _relation(a: Candidate, b: Candidate) -> str:
 
     Returns "before", "after", "tie", or "none" (no safe ordering basis).
     Ordering relies on evidence provenance only; severity is never consulted.
+    Same-frame observed candidates tie (no deterministic source relationship
+    invents an order at one instant).
     """
     if a.source.capture_file != b.source.capture_file:
         return "none"
-    if a.frame_number is not None and b.frame_number is not None:
-        if a.frame_number < b.frame_number:
-            return "before"
-        if a.frame_number > b.frame_number:
-            return "after"
-        return "tie"
     a_framed = a.frame_number is not None
     b_framed = b.frame_number is not None
     if a_framed and b_framed:
@@ -691,7 +686,34 @@ def _relation(a: Candidate, b: Candidate) -> str:
             return "before"
         if b_hi < a_lo:
             return "after"
-        return "tie"
+        return _stage_order_tiebreak(a, b)
+    return _stage_order_tiebreak(a, b)
+
+
+def _frame_vs_window(framed: Candidate, windowed: Candidate, frame: int, window: tuple[int, int]) -> str:
+    """Relation from the framed candidate's perspective against a windowed one.
+
+    An observed frame inside the absence window cannot be temporally ordered
+    against the absence claim; the source Domain stage order decides only when
+    both candidates share the same source scope with distinct known stages.
+    """
+    lo, hi = window
+    if frame < lo:
+        return "before"
+    if frame > hi:
+        return "after"
+    stage_rel = _stage_order_tiebreak(framed, windowed)
+    if stage_rel != "tie":
+        return stage_rel
+    return "tie"
+
+
+def _stage_order_tiebreak(a: Candidate, b: Candidate) -> str:
+    """Source Domain stage order decides only within one source scope.
+
+    The stage order is an explicit part of the Domain output contract
+    (stage_records / stages arrays); it is never a severity or preference.
+    """
     if (
         a.stage_position is not None
         and b.stage_position is not None
@@ -702,8 +724,7 @@ def _relation(a: Candidate, b: Candidate) -> str:
             return "before"
         if a.stage_position > b.stage_position:
             return "after"
-        return "tie"
-    return "none"
+    return "tie"
 
 
 def _invert(rel: str) -> str:
@@ -719,6 +740,31 @@ def _confidence_of(selected: Candidate, used_window_ordering: bool) -> str:
     if used_window_ordering:
         return "MEDIUM"
     return "LOW"
+
+
+def _select_earliest(relations: dict[tuple[int, int], str], count: int) -> tuple[str, list[int]]:
+    """Candidate-centric earliest-boundary selection over pairwise relations.
+
+    Returns (selection_status, earliest_candidate_indexes). A candidate is the
+    unique earliest when it is proven before every other selectable candidate;
+    the relative ordering among later candidates is irrelevant. Ties at the
+    earliest position are AMBIGUOUS; mutual incomparability among every
+    earliest candidate is INSUFFICIENT_COMPARABLE_EVIDENCE.
+    """
+    earliest_set = [
+        index for index in range(count)
+        if not any(_perspective_rel(relations, index, other) == "after"
+                   for other in range(count) if other != index)
+    ]
+    if len(earliest_set) == 1:
+        return SELECTION_SELECTED, earliest_set
+    if not earliest_set:
+        return SELECTION_INSUFFICIENT, earliest_set
+    for i in range(len(earliest_set)):
+        for j in range(i + 1, len(earliest_set)):
+            if _perspective_rel(relations, earliest_set[i], earliest_set[j]) == "tie":
+                return SELECTION_AMBIGUOUS, earliest_set
+    return SELECTION_INSUFFICIENT, earliest_set
 
 
 def analyze_group(group: list[SourceInstance], group_index: int) -> dict[str, Any]:
@@ -773,125 +819,117 @@ def analyze_group(group: list[SourceInstance], group_index: int) -> dict[str, An
         else:
             selection_status = SELECTION_NO_ABNORMAL
     else:
+        # Candidate-centric earliest test: C is selected when C is proven
+        # before every other selectable candidate. The relative ordering among
+        # later candidates is irrelevant; ties at the earliest position are
+        # ambiguous; incomparability involving every earliest candidate is
+        # insufficient comparable evidence.
         relations: dict[tuple[int, int], str] = {}
         used_window_ordering = False
-        insufficient = False
         for i in range(len(selectable)):
             for j in range(i + 1, len(selectable)):
                 rel = _relation(selectable[i], selectable[j])
                 if selectable[i].frame_number is None or selectable[j].frame_number is None:
                     used_window_ordering = True
-                if rel == "none":
-                    insufficient = True
                 relations[(i, j)] = rel
-        if insufficient:
-            selection_status = SELECTION_INSUFFICIENT
-            for i in range(len(selectable)):
-                for j in range(i + 1, len(selectable)):
-                    if relations.get((i, j)) == "none":
-                        additional.append({
-                            "reason": "no safe ordering basis exists between these candidates",
-                            "requirement": "exact frame provenance or a bounded source observation window is required for both candidates",
-                            "candidate_id": candidate_ids[id(selectable[i])],
-                            "second_candidate_id": candidate_ids[id(selectable[j])],
-                        })
-        else:
-            minima = []
-            for index, candidate in enumerate(selectable):
-                is_minimum = True
-                for other in range(len(selectable)):
-                    if other == index:
+
+        selection_status, earliest_set = _select_earliest(relations, len(selectable))
+        if selection_status == SELECTION_AMBIGUOUS:
+            for index in earliest_set:
+                for other in earliest_set:
+                    if index >= other:
                         continue
-                    rel = relations.get((min(index, other), max(index, other)), "tie")
-                    if index > other:
-                        rel = _invert(rel)
-                    if rel == "after":
-                        is_minimum = False
-                        break
-                if is_minimum:
-                    minima.append(candidate)
-            if len(minima) == 1:
-                selection_status = SELECTION_SELECTED
-                selected_candidate = minima[0]
-                confidence = _confidence_of(selected_candidate, used_window_ordering)
-                selected = {"candidate_id": candidate_ids[id(selected_candidate)]}
-                selected_ref = next(c for c in candidate_json if c["candidate_id"] == candidate_ids[id(selected_candidate)])
-                selected_frame = selected_ref["boundary_anchor"]["frame_number"]
-                for candidate in selectable:
-                    if candidate is selected_candidate:
-                        continue
-                    rel = _relation(selected_candidate, candidate)
-                    # rel is from the selected boundary's perspective: "before"
-                    # means the selected boundary precedes the other candidate,
-                    # so the other candidate is downstream of it.
-                    if rel == "before":
-                        target, relation = downstream, RELATION_OBSERVED_AFTER_BOUNDARY
-                    elif rel == "after":
-                        target, relation = earlier, RELATION_OBSERVED_BEFORE_BOUNDARY
-                    else:
-                        continue
-                    target.append({
-                        "relation": relation,
-                        "candidate_id": candidate_ids[id(candidate)],
-                        "source_domain": candidate.source.source_domain,
-                        "source_instance_id": candidate.source.instance_id,
-                        "deviation_type": candidate.deviation.get("type"),
-                        "description": candidate.deviation.get("description"),
-                        "evidence_level": candidate.evidence_level,
-                    })
-                # Positive terminal observations from the source Domain outputs
-                # are preserved as earlier or downstream context; they are
-                # never translated into global success.
-                boundary_frame = selected_ref["boundary_anchor"]["frame_number"]
-                if boundary_frame is not None:
-                    for source in group:
-                        terminal = source.terminal
-                        terminal_frame = terminal.get("frame_number")
-                        if not isinstance(terminal_frame, int) or terminal.get("evidence_level") != "OBSERVED":
-                            continue
-                        if terminal_frame == boundary_frame:
-                            continue
-                        entry = {
-                            "relation": RELATION_OBSERVED_BEFORE_BOUNDARY if terminal_frame < boundary_frame else RELATION_OBSERVED_AFTER_BOUNDARY,
-                            "source_domain": source.source_domain,
-                            "source_instance_id": source.instance_id,
-                            "kind": "terminal_observation",
-                            "observation": terminal.get("observation"),
-                            "message_type": terminal.get("message_type"),
-                            "frame_number": terminal_frame,
-                        }
-                        (earlier if terminal_frame < boundary_frame else downstream).append(entry)
-                    for entry in limitations + supporting:
-                        entry_frame = _frame_from_description(str(entry.get("description") or ""))
-                        if entry_frame is not None:
-                            target = downstream if entry_frame > boundary_frame else earlier
-                            target.append({
-                                "relation": RELATION_OBSERVED_AFTER_BOUNDARY if entry_frame > boundary_frame else RELATION_OBSERVED_BEFORE_BOUNDARY,
-                                "source_domain": entry.get("source_domain"),
-                                "source_instance_id": entry.get("source_instance_id"),
-                                "kind": "evidence_limitation" if entry in limitations else "supporting_anomaly",
-                                "deviation_type": entry.get("type"),
-                                "description": entry.get("description"),
-                            })
-                if confidence == "MEDIUM" and selected_ref["evidence_level"] == "DERIVED":
-                    additional.append({
-                        "reason": "selected boundary is derived missing evidence bounded by the source observation window",
-                        "requirement": "a capture covering the expected counterpart would strengthen the boundary selection",
-                        "candidate_id": candidate_ids[id(selected_candidate)],
-                    })
-            else:
-                selection_status = SELECTION_AMBIGUOUS
-                for pair, rel in relations.items():
-                    if rel == "tie" and selectable[pair[0]] in minima and selectable[pair[1]] in minima:
+                    if _perspective_rel(relations, index, other) == "tie":
                         additional.append({
                             "reason": "candidates resolve to the same position with no deterministic source relationship ordering them",
                             "requirement": "exact frame or stage provenance that separates the tied candidates is required",
-                            "candidate_id": candidate_ids[id(selectable[pair[0]])],
-                            "second_candidate_id": candidate_ids[id(selectable[pair[1]])],
+                            "candidate_id": candidate_ids[id(selectable[index])],
+                            "second_candidate_id": candidate_ids[id(selectable[other])],
                         })
+        elif selection_status == SELECTION_INSUFFICIENT:
+            for index in earliest_set:
+                for other in range(len(selectable)):
+                    if other == index:
+                        continue
+                    rel = _perspective_rel(relations, index, other)
+                    if rel == "none":
+                        additional.append({
+                            "reason": "no safe ordering basis exists between these candidates",
+                            "requirement": "exact frame provenance or a bounded source observation window is required for both candidates",
+                            "candidate_id": candidate_ids[id(selectable[index])],
+                            "second_candidate_id": candidate_ids[id(selectable[other])],
+                        })
+        if len(earliest_set) == 1:
+            selection_status = SELECTION_SELECTED
+            selected_candidate = selectable[earliest_set[0]]
+            confidence = _confidence_of(selected_candidate, used_window_ordering)
+            selected = {"candidate_id": candidate_ids[id(selected_candidate)]}
+            selected_ref = next(c for c in candidate_json if c["candidate_id"] == candidate_ids[id(selected_candidate)])
+            boundary_frame = selected_ref["boundary_anchor"]["frame_number"]
+            for candidate in selectable:
+                if candidate is selected_candidate:
+                    continue
+                rel = _relation(selected_candidate, candidate)
+                if rel == "before":
+                    target, relation = downstream, RELATION_OBSERVED_AFTER_BOUNDARY
+                elif rel == "after":
+                    target, relation = earlier, RELATION_OBSERVED_BEFORE_BOUNDARY
+                else:
+                    continue
+                target.append({
+                    "relation": relation,
+                    "candidate_id": candidate_ids[id(candidate)],
+                    "source_domain": candidate.source.source_domain,
+                    "source_instance_id": candidate.source.instance_id,
+                    "deviation_type": candidate.deviation.get("type"),
+                    "description": candidate.deviation.get("description"),
+                    "evidence_level": candidate.evidence_level,
+                })
+            if boundary_frame is not None:
+                for source in group:
+                    terminal = source.terminal
+                    terminal_frame = terminal.get("frame_number")
+                    if not isinstance(terminal_frame, int) or terminal.get("evidence_level") != "OBSERVED":
+                        continue
+                    if terminal_frame == boundary_frame:
+                        continue
+                    entry = {
+                        "relation": RELATION_OBSERVED_BEFORE_BOUNDARY if terminal_frame < boundary_frame else RELATION_OBSERVED_AFTER_BOUNDARY,
+                        "source_domain": source.source_domain,
+                        "source_instance_id": source.instance_id,
+                        "kind": "terminal_observation",
+                        "observation": terminal.get("observation"),
+                        "message_type": terminal.get("message_type"),
+                        "frame_number": terminal_frame,
+                    }
+                    (earlier if terminal_frame < boundary_frame else downstream).append(entry)
+                for entry in limitations + supporting:
+                    entry_refs = entry.get("_refs") or []
+                    window_bounds = _window_ref_bounds(entry_refs)
+                    entry_frame = None
+                    event = _event_ref_frame(entry_refs)
+                    if event is not None:
+                        entry_frame = event[0]
+                    elif window_bounds is not None:
+                        entry_frame = window_bounds[0]
+                    if entry_frame is not None:
+                        target = downstream if entry_frame > boundary_frame else earlier
+                        target.append({
+                            "relation": RELATION_OBSERVED_AFTER_BOUNDARY if entry_frame > boundary_frame else RELATION_OBSERVED_BEFORE_BOUNDARY,
+                            "source_domain": entry.get("source_domain"),
+                            "source_instance_id": entry.get("source_instance_id"),
+                            "kind": "evidence_limitation" if entry in limitations else "supporting_anomaly",
+                            "deviation_type": entry.get("type"),
+                            "description": entry.get("description"),
+                        })
+            if selected_ref["evidence_level"] == "DERIVED":
+                additional.append({
+                    "reason": "selected boundary is derived missing evidence bounded by the source observation window",
+                    "requirement": "a capture covering the expected counterpart would strengthen the boundary selection",
+                    "candidate_id": candidate_ids[id(selected_candidate)],
+                })
 
     capture_files = sorted({s.capture_file for s in group if s.capture_file})
-    subject_link: dict[str, Any]
     if len(group) == 1:
         subject_link = {
             "strength": "UNBOUND",
@@ -912,6 +950,8 @@ def analyze_group(group: list[SourceInstance], group_index: int) -> dict[str, An
             "boundary_ref": next(c for c in candidate_json if c["candidate_id"] == selected["candidate_id"]),
         }
 
+    # Private provenance keys are presentation-internal and stay in the group
+    # output only for these context entries; consumers read evidence_refs.
     group_id = f"diag-{group_index}"
     return {
         "diagnostic_id": group_id,
@@ -937,6 +977,13 @@ def analyze_group(group: list[SourceInstance], group_index: int) -> dict[str, An
             "NO_ABNORMAL_BOUNDARY_OBSERVED never means network or procedure success",
         ],
     }
+
+
+def _perspective_rel(relations: dict[tuple[int, int], str], i: int, j: int) -> str:
+    rel = relations.get((min(i, j), max(i, j)), "tie")
+    if i > j:
+        rel = _invert(rel)
+    return rel
 
 
 def _context_of(source: SourceInstance) -> dict[str, Any]:
