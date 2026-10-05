@@ -1,0 +1,155 @@
+{
+  "analysis_name": "5gc-handover-mobility",
+  "analysis_version": "0.1.0",
+  "handover_attempts": [
+    {
+      "association": {
+        "basis": "no source-side evidence within the same scoped AMF-UE-NGAP-ID context satisfies the reviewed association rule",
+        "candidates": [],
+        "strength": "UNBOUND"
+      },
+      "attempt_id": "5gc-ho:mobility-test.pcapng:sctp-assoc-1:r3:1",
+      "attempt_id_basis": "DERIVED display reference 5gc-ho:<capture>:<association>:<ran-id>:<sequence>; consumers must read the structured source_context/target_context fields, never parse this string",
+      "deviations": [
+        {
+          "description": "The attempt starts from target-side evidence without an observed HandoverRequired",
+          "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": "HANDOVER_INITIATION",
+              "timestamp": null,
+              "window_first_frame": 10,
+              "window_last_frame": 12
+            }
+          ],
+          "limitation": "Earlier handover stages may exist outside the capture; no initiation evidence is fabricated",
+          "stage_id": "HANDOVER_INITIATION",
+          "type": "PARTIAL_CAPTURE"
+        }
+      ],
+      "earliest_observed_deviation": null,
+      "events": [
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-1",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 10,
+          "handover_type": "intra5gs",
+          "message_type": "HandoverRequest",
+          "pdu_session_ids": [],
+          "pdu_type": "initiatingMessage",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 3,
+          "resource_roles": [],
+          "role": "target",
+          "timestamp": "2026-01-06T00:00:01.000000Z"
+        },
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-1",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 12,
+          "handover_type": null,
+          "message_type": "HandoverRequestAcknowledge",
+          "pdu_session_ids": [],
+          "pdu_type": "successfulOutcome",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 3,
+          "resource_roles": [],
+          "role": "target",
+          "timestamp": "2026-01-06T00:00:03.000000Z"
+        }
+      ],
+      "family": "handover",
+      "field_findings": [],
+      "handover_type": {
+        "domain_scope": "INTRA_5GS",
+        "name": "intra5gs",
+        "scope_status": "SUPPORTED_FOR_DOMAIN_PROCEDURE",
+        "value": 0
+      },
+      "limitations": [
+        "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer",
+        "No source-side handover initiation (HandoverRequired) was observed for this attempt; the capture may begin mid-procedure or the attempt may be target-side only"
+      ],
+      "observation_window": {
+        "first_frame": 10,
+        "first_timestamp": "2026-01-06T00:00:01.000000Z",
+        "last_frame": 12,
+        "last_timestamp": "2026-01-06T00:00:03.000000Z"
+      },
+      "pdu_session_resources": [],
+      "plane_bindings": {
+        "n11": [],
+        "n3": [],
+        "n4": []
+      },
+      "source_context": null,
+      "stages": [
+        {
+          "missing": [],
+          "observed": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 10,
+              "message_type": "HandoverRequest",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:01.000000Z"
+            },
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 12,
+              "message_type": "HandoverRequestAcknowledge",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:03.000000Z"
+            }
+          ],
+          "stage_id": "TARGET_RESOURCE_ALLOCATION",
+          "stage_name": "Target resource allocation (HandoverRequest, Acknowledge, or Failure)",
+          "status": "OBSERVED"
+        }
+      ],
+      "target_context": {
+        "amf_ue_ngap_id": 2,
+        "association": "sctp-assoc-1",
+        "capture_file": "mobility-test.pcapng",
+        "ran_ue_ngap_id": 3,
+        "role": "target",
+        "side": "TARGET_ONLY"
+      },
+      "terminal_observation": {
+        "evidence_level": "DERIVED",
+        "frame_number": null,
+        "message_type": null,
+        "observation": "NO_TERMINAL_MOBILITY_OBSERVATION",
+        "timestamp": null
+      },
+      "unbound_evidence": []
+    }
+  ],
+  "limitations": [
+    "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer",
+    "Handover and Path Switch are separate attempt families; neither is required for the other",
+    "Source/target association requires the same capture, a scoped AMF-UE-NGAP-ID context, compatible roles, and temporal sanity; timestamp proximity alone never associates anything",
+    "N11/N4/N3 supporting evidence is associated only through safe session/tunnel context; an HTTP 2xx or PFCP accepted response never becomes mobility success, and missing N11/N4/N3 evidence never becomes mobility failure",
+    "GTP-U observations prove capture-point observation only; tunnel roles stay neutral because reviewed tunnel lifecycle context is not established in this version",
+    "Inter-system HandoverTypes are preserved with a scope limitation; no inter-system or 5GS-EPS mobility semantics are applied",
+    "This analysis is bounded to the supplied evidence files; absence of evidence is never reported as network absence"
+  ],
+  "path_switch_attempts": [],
+  "procedure_family": "5gc-handover-mobility",
+  "unbound_mobility_evidence": []
+}

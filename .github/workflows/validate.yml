@@ -47,11 +47,13 @@ jobs:
         run: python scripts/validate-5gc-registration-mobility.py
       - name: Validate 5gc-pdu-session
         run: python scripts/validate-5gc-pdu-session.py
+      - name: Validate 5gc-handover-mobility
+        run: python scripts/validate-5gc-handover-mobility.py
       - name: Validate 5gc-failure-boundary
         run: python scripts/validate-5gc-failure-boundary.py
       - name: Run unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Compile validation scripts
-        run: python -m compileall scripts skills/protocol/core-network-pcap/scripts skills/protocol/ngap/scripts skills/protocol/nas-5gs/scripts skills/protocol/pfcp/scripts skills/protocol/gtpu/scripts skills/protocol/sbi-http2/scripts skills/correlation/cross-protocol-evidence/scripts skills/domain/procedure-evidence/scripts skills/domain/5gc-registration-mobility/scripts skills/domain/5gc-pdu-session/scripts skills/orchestration/5gc-failure-boundary/scripts
+        run: python -m compileall scripts skills/protocol/core-network-pcap/scripts skills/protocol/ngap/scripts skills/protocol/nas-5gs/scripts skills/protocol/pfcp/scripts skills/protocol/gtpu/scripts skills/protocol/sbi-http2/scripts skills/correlation/cross-protocol-evidence/scripts skills/domain/procedure-evidence/scripts skills/domain/5gc-registration-mobility/scripts skills/domain/5gc-pdu-session/scripts skills/domain/5gc-handover-mobility/scripts skills/orchestration/5gc-failure-boundary/scripts
       - name: Check committed whitespace
         run: git diff --check HEAD^ HEAD

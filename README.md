@@ -49,7 +49,14 @@ analysis across N1/N2/N3/N4/N11 composing already-extracted NAS, NGAP, PFCP,
 GTP-U, and SBI evidence, with lifecycle generation handling so the same UE
 context re-using the same numeric PDU Session ID after an evidence-supported
 release boundary forms a distinct lifecycle generation; no root-cause verdicts,
-no implementation mapping), and the `5gc-failure-boundary` Analysis Orchestration
+no implementation mapping), and the bounded `5gc-handover-mobility` Domain Skill
+(v0.1.0, bounded 5GC N2 handover and Path Switch procedure analysis from
+already-extracted NGAP/PFCP/GTP-U/SBI evidence: separate `handover_attempts` and
+`path_switch_attempts` families with evidence-bounded source/target association,
+branch-aware conditional stages, item-scoped PDU Session resource outcomes,
+bounded N11/N4/N3 supporting evidence, and procedure-local deviations with
+structured evidence_refs; no success/failure verdicts, no root-cause output),
+and the `5gc-failure-boundary` Analysis Orchestration
 Skill (v0.1.0, evidence-safe first abnormal boundary localization across the
 supported 5GC Domain analyses: diagnostic groups linked by exact common context,
 candidates drawn only from Domain-emitted deviations and their machine-readable
@@ -57,9 +64,10 @@ evidence_refs (Domain contracts 5gc-registration-mobility >=0.2.0 and
 5gc-pdu-session >=0.4.0), provenance-based ordering with no severity ranking, and no root-cause or blame output). The extensions
 provide investigation context only.
 **Not yet implemented:** deep NGAP transfer-container decoding, the remaining
-NGAP mobility-adjacent procedures (RAN Status Transfer and similar), a 5GC
-Handover/Path-Switch Domain Skill and broader 5GC mobility (including UPF
-relocation), remaining
+NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
+5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
+relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
+semantics), handover/path-switch consumption by Analysis Orchestration, remaining
 5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (NAS-EPS,
 S1AP, GTPv2, SIP, SDP/RTP, Diameter), EPC/IMS Domain procedures,
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper

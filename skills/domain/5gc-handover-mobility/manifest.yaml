@@ -1,0 +1,166 @@
+name: 5gc-handover-mobility
+version: 0.1.0
+category: domain
+description: >
+  Bounded 5GC mobility Domain analysis: forms separate handover_attempts and
+  path_switch_attempts from already-extracted NGAP mobility evidence
+  (ngap >=0.3.0), associates source and target NG-RAN contexts only through
+  the same capture, a scoped AMF-UE-NGAP-ID context, compatible reviewed
+  roles, and temporal sanity, evaluates branch-aware conditional stages with
+  missing-evidence visibility, preserves item-scoped PDU Session resource
+  outcomes, and binds bounded N11/N4/N3 supporting evidence only through safe
+  session and tunnel context. No protocol decoding, no procedure-outcome
+  verdicts, no UPF-relocation claims, no implementation mapping.
+scope:
+  includes:
+    - separated handover_attempts[] and path_switch_attempts[] attempt families (neither mandatory for the other)
+    - handover attempt formation from HandoverRequired, HandoverCommand, HandoverPreparationFailure, HandoverRequest, HandoverRequestAcknowledge, HandoverFailure, HandoverNotify, HandoverCancel, and HandoverCancelAcknowledge evidence
+    - independent path switch attempt formation from PathSwitchRequest, PathSwitchRequestAcknowledge, and PathSwitchRequestFailure evidence
+    - evidence-bounded source/target association with STRONG, SUPPORTED, AMBIGUOUS, and UNBOUND strengths and AMF-UE-NGAP-ID reuse safety
+    - HandoverType domain-scope distinction (INTRA_5GS versus INTER_SYSTEM_OR_OTHER) with explicit scope limitations
+    - branch-aware conditional stage evaluation and missing-evidence visibility
+    - item-scoped PDU Session resource findings with RESOURCE_FAILED_ITEM_OBSERVED and FIELD_CONFLICT deviations
+    - bounded N11 UpdateSMContext, N4 PFCP Session Modification, and N3 GTP-U supporting evidence association through safe session and tunnel context
+    - procedure-local deviations with structured evidence_refs for Analysis Orchestration
+    - generic procedure-evidence stage records and an analysis summary JSON
+  excludes:
+    - NGAP, PFCP, GTP-U, SBI, or NAS decoding and protocol field reinterpretation
+    - decoding NGAP opaque mobility transfer bytes or deriving N3 tunnel identity from NGAP
+    - handover or path-switch success verdicts, UPF relocation success, or user-plane validation
+    - RAN Status Transfer, inter-system and 5GS-EPS mobility procedure semantics, Xn protocol ownership
+    - radio, RRC, MAC, or PHY diagnosis
+    - subscriber identity handling; AMF-UE-NGAP-ID as a global or permanent identity
+    - implementation, vendor, or product source mapping
+    - end-to-end root-cause determination or cross-Domain first-boundary selection
+dependencies:
+  required: []
+  optional:
+    - procedure-evidence >=0.1.0
+    - ngap >=0.3.0
+    - pfcp >=0.1.0
+    - gtpu >=0.1.0
+    - sbi-http2 >=0.2.0
+    - cross-protocol-evidence >=0.1.0
+    - 5gc-pdu-session >=0.4.0
+inputs:
+  - NGAP detailed event JSONL (from the ngap Skill, >=0.3.0 mobility evidence)
+  - PFCP detailed event JSONL (from the pfcp Skill; optional supporting N4 evidence)
+  - GTP-U detailed event JSONL (from the gtpu Skill; optional supporting N3 evidence)
+  - SBI-HTTP2 detailed event JSONL (from the sbi-http2 Skill; optional supporting N11 evidence)
+  - 5gc-pdu-session analysis summary JSON (optional, >=0.4.0, lifecycle-generation and N4/N3 binding context)
+outputs:
+  - 5GC handover/path-switch mobility analysis summary JSON (schemas/5gc-handover-mobility-analysis.schema.json)
+  - generic procedure-evidence stage JSONL (optional)
+protocols: []
+interfaces:
+  - N2
+  - N3
+  - N4
+  - N11
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Domain-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/inputs/full-n2-handover
+    - examples/inputs/handover-preparation-failure
+    - examples/inputs/handover-resource-failure
+    - examples/inputs/handover-ack-mixed-resources
+    - examples/inputs/handover-command-mixed-lists
+    - examples/inputs/handover-cancel-branch
+    - examples/inputs/cancel-no-false-missing
+    - examples/inputs/handover-required-truncated
+    - examples/inputs/late-capture-handover-request
+    - examples/inputs/notify-only-late-capture
+    - examples/inputs/inter-system-handover-type
+    - examples/inputs/same-ran-id-two-associations
+    - examples/inputs/amf-id-reuse-lifetimes
+    - examples/inputs/two-ue-interleaved
+    - examples/inputs/ambiguous-two-targets
+    - examples/inputs/same-ran-id-source-target
+    - examples/inputs/ps-independent-ack
+    - examples/inputs/ps-independent-failure
+    - examples/inputs/ps-ack-mixed-resources
+    - examples/inputs/ps-request-role-conflict
+    - examples/inputs/ps-request-truncated
+    - examples/inputs/ps-ack-late-capture
+    - examples/inputs/ps-no-handover-evidence
+    - examples/inputs/handover-notify-no-path-switch
+    - examples/inputs/ps-near-unrelated-handover
+    - examples/inputs/ps-ambiguous-relationship
+    - examples/inputs/n11-associated
+    - examples/inputs/n11-redacted-unbound
+    - examples/inputs/pfcp-associated
+    - examples/inputs/pfcp-negative-cause
+    - examples/inputs/pfcp-unrelated-unbound
+    - examples/inputs/pfcp-gtpu-bound
+    - examples/inputs/teid-endpoint-mismatch
+    - examples/inputs/end-marker-observed
+    - examples/inputs/no-end-marker-neutral
+    - examples/inputs/gpdu-observed-neutral
+    - examples/inputs/no-gtpu-neutral
+    - examples/inputs/error-indication-observed
+    - examples/inputs/mixed-psi-partial-n4
+    - examples/inputs/lifecycle-generation-context
+    - examples/inputs/out-of-order-input
+    - examples/inputs/duplicate-message
+    - examples/inputs/unsupported-ngap-procedure
+    - examples/inputs/malformed-input
+    - examples/inputs/no-mobility-evidence
+    - examples/inputs/multiple-captures
+  expected_results:
+    - examples/expected/full-n2-handover-analysis.json
+    - examples/expected/handover-preparation-failure-analysis.json
+    - examples/expected/handover-resource-failure-analysis.json
+    - examples/expected/handover-ack-mixed-resources-analysis.json
+    - examples/expected/handover-command-mixed-lists-analysis.json
+    - examples/expected/handover-cancel-branch-analysis.json
+    - examples/expected/cancel-no-false-missing-analysis.json
+    - examples/expected/handover-required-truncated-analysis.json
+    - examples/expected/late-capture-handover-request-analysis.json
+    - examples/expected/notify-only-late-capture-analysis.json
+    - examples/expected/inter-system-handover-type-analysis.json
+    - examples/expected/same-ran-id-two-associations-analysis.json
+    - examples/expected/amf-id-reuse-lifetimes-analysis.json
+    - examples/expected/two-ue-interleaved-analysis.json
+    - examples/expected/ambiguous-two-targets-analysis.json
+    - examples/expected/same-ran-id-source-target-analysis.json
+    - examples/expected/ps-independent-ack-analysis.json
+    - examples/expected/ps-independent-failure-analysis.json
+    - examples/expected/ps-ack-mixed-resources-analysis.json
+    - examples/expected/ps-request-role-conflict-analysis.json
+    - examples/expected/ps-request-truncated-analysis.json
+    - examples/expected/ps-ack-late-capture-analysis.json
+    - examples/expected/ps-no-handover-evidence-analysis.json
+    - examples/expected/handover-notify-no-path-switch-analysis.json
+    - examples/expected/ps-near-unrelated-handover-analysis.json
+    - examples/expected/ps-ambiguous-relationship-analysis.json
+    - examples/expected/n11-associated-analysis.json
+    - examples/expected/n11-redacted-unbound-analysis.json
+    - examples/expected/pfcp-associated-analysis.json
+    - examples/expected/pfcp-negative-cause-analysis.json
+    - examples/expected/pfcp-unrelated-unbound-analysis.json
+    - examples/expected/pfcp-gtpu-bound-analysis.json
+    - examples/expected/teid-endpoint-mismatch-analysis.json
+    - examples/expected/end-marker-observed-analysis.json
+    - examples/expected/no-end-marker-neutral-analysis.json
+    - examples/expected/gpdu-observed-neutral-analysis.json
+    - examples/expected/no-gtpu-neutral-analysis.json
+    - examples/expected/error-indication-observed-analysis.json
+    - examples/expected/mixed-psi-partial-n4-analysis.json
+    - examples/expected/lifecycle-generation-context-analysis.json
+    - examples/expected/out-of-order-input-analysis.json
+    - examples/expected/duplicate-message-analysis.json
+    - examples/expected/unsupported-ngap-procedure-analysis.json
+    - examples/expected/no-mobility-evidence-analysis.json
+    - examples/expected/multiple-captures-analysis.json

@@ -1,0 +1,67 @@
+{
+  "analysis_name": "5gc-pdu-session",
+  "instances": [
+    {
+      "association_basis": "ngap_ue_context",
+      "association_strength": "STRONG",
+      "capture_file": "mobility-test.pcapng",
+      "deviations": [],
+      "earliest_observed_deviation": null,
+      "field_findings": [],
+      "instance_id": "5gc-pdu-session:mobility-test.pcapng:r1:psi1:g1",
+      "limitations": [],
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 100
+      },
+      "pdu_session_id": 1,
+      "plane_bindings": {
+        "n3": null,
+        "n4": null
+      },
+      "reuse_status": null,
+      "session_generation": 1,
+      "stages": [],
+      "terminal_observation": {},
+      "ue_context": {
+        "amf_ue_ngap_id": 2,
+        "ran_ue_ngap_id": 1,
+        "sctp_association": 0
+      },
+      "unbound_evidence": {}
+    },
+    {
+      "association_basis": "ngap_ue_context",
+      "association_strength": "STRONG",
+      "capture_file": "mobility-test.pcapng",
+      "deviations": [],
+      "earliest_observed_deviation": null,
+      "field_findings": [],
+      "instance_id": "5gc-pdu-session:mobility-test.pcapng:r1:psi1:g2",
+      "limitations": [],
+      "observation_window": {
+        "first_frame": 120,
+        "last_frame": 300
+      },
+      "pdu_session_id": 1,
+      "plane_bindings": {
+        "n3": null,
+        "n4": null
+      },
+      "reuse_status": null,
+      "session_generation": 2,
+      "stages": [],
+      "terminal_observation": {},
+      "ue_context": {
+        "amf_ue_ngap_id": 2,
+        "ran_ue_ngap_id": 1,
+        "sctp_association": 0
+      },
+      "unbound_evidence": {}
+    }
+  ],
+  "limitations": [],
+  "procedure_name": "5gc-pdu-session",
+  "procedure_version": "0.4.0",
+  "unbound_evidence": {}
+}

@@ -1,0 +1,122 @@
+{
+  "analysis_name": "5gc-handover-mobility",
+  "analysis_version": "0.1.0",
+  "handover_attempts": [],
+  "limitations": [
+    "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer",
+    "Handover and Path Switch are separate attempt families; neither is required for the other",
+    "Source/target association requires the same capture, a scoped AMF-UE-NGAP-ID context, compatible roles, and temporal sanity; timestamp proximity alone never associates anything",
+    "N11/N4/N3 supporting evidence is associated only through safe session/tunnel context; an HTTP 2xx or PFCP accepted response never becomes mobility success, and missing N11/N4/N3 evidence never becomes mobility failure",
+    "GTP-U observations prove capture-point observation only; tunnel roles stay neutral because reviewed tunnel lifecycle context is not established in this version",
+    "Inter-system HandoverTypes are preserved with a scope limitation; no inter-system or 5GS-EPS mobility semantics are applied",
+    "This analysis is bounded to the supplied evidence files; absence of evidence is never reported as network absence"
+  ],
+  "path_switch_attempts": [
+    {
+      "attempt_id": "5gc-ps:mobility-test.pcapng:sctp-assoc-0:r5:1",
+      "attempt_id_basis": "DERIVED display reference 5gc-ps:<capture>:<association>:<ran-id>:<sequence>; consumers must read the structured serving_context fields, never parse this string",
+      "deviations": [
+        {
+          "description": "Path Switch outcome was not observed",
+          "evidence_level": "DERIVED",
+          "evidence_refs": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "evidence_level": "DERIVED",
+              "field_name": null,
+              "frame_number": null,
+              "kind": "OBSERVATION_WINDOW",
+              "message_type": null,
+              "protocol": null,
+              "stage_id": "PATH_SWITCH_REQUEST",
+              "timestamp": null,
+              "window_first_frame": 10,
+              "window_last_frame": 10
+            }
+          ],
+          "limitation": "Capture termination may explain the missing evidence; no outcome is invented",
+          "stage_id": "PATH_SWITCH_REQUEST",
+          "type": "MISSING_EXPECTED_COUNTERPART"
+        }
+      ],
+      "earliest_observed_deviation": null,
+      "events": [
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-0",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 10,
+          "handover_type": null,
+          "message_type": "PathSwitchRequest",
+          "pdu_session_ids": [],
+          "pdu_type": "initiatingMessage",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 5,
+          "resource_roles": [],
+          "role": "serving",
+          "timestamp": "2026-01-06T00:00:01.000000Z"
+        }
+      ],
+      "family": "path-switch",
+      "field_findings": [],
+      "limitations": [
+        "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer"
+      ],
+      "observation_window": {
+        "first_frame": 10,
+        "first_timestamp": "2026-01-06T00:00:01.000000Z",
+        "last_frame": 10,
+        "last_timestamp": "2026-01-06T00:00:01.000000Z"
+      },
+      "pdu_session_resources": [],
+      "plane_bindings": {
+        "n11": [],
+        "n3": [],
+        "n4": []
+      },
+      "related_handover_attempt_id": null,
+      "relationship_basis": "no handover attempt satisfies the reviewed relationship rule in this capture; the Path Switch attempt stays independent and no handover evidence is required",
+      "relationship_strength": "UNBOUND",
+      "serving_context": {
+        "amf_ue_ngap_id": 2,
+        "association": "sctp-assoc-0",
+        "capture_file": "mobility-test.pcapng",
+        "ran_ue_ngap_id": 5,
+        "role": "serving",
+        "side": null
+      },
+      "stages": [
+        {
+          "missing": [
+            "Neither PathSwitchRequestAcknowledge nor PathSwitchRequestFailure was observed within the available observation window; capture termination may explain the missing evidence"
+          ],
+          "observed": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 10,
+              "message_type": "PathSwitchRequest",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:01.000000Z"
+            }
+          ],
+          "stage_id": "PATH_SWITCH_REQUEST",
+          "stage_name": "Path Switch request (PathSwitchRequest)",
+          "status": "PARTIALLY_OBSERVED"
+        }
+      ],
+      "terminal_observation": {
+        "evidence_level": "DERIVED",
+        "frame_number": null,
+        "message_type": null,
+        "observation": "NO_TERMINAL_MOBILITY_OBSERVATION",
+        "timestamp": null
+      },
+      "unbound_evidence": []
+    }
+  ],
+  "procedure_family": "5gc-handover-mobility",
+  "unbound_mobility_evidence": []
+}
