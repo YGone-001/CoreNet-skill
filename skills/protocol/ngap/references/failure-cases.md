@@ -58,9 +58,58 @@ against causal overreach.
 - Malformed extracted metadata — required fields absent or not integers
   (frame number, timestamp, procedure code, UE NGAP IDs). The extractor
   fails loudly per record; it never guesses.
-- Unsuccessful outcome where supported — InitialContextSetupFailure
-  observed. The failure is OBSERVED with its Cause; the end-to-end reason
-  is not established by this Skill.
+- Unsuccessful outcome where supported — InitialContextSetupFailure,
+  HandoverPreparationFailure, HandoverFailure, and PathSwitchRequestFailure
+  observed. The failure is OBSERVED with its Cause where the reviewed
+  message defines one; the end-to-end reason is not established by this
+  Skill.
+
+## N2 mobility patterns
+
+Added in version 0.3.0. The bounded handover/path-switch evidence follows
+the same rules; these patterns name the additional boundaries.
+
+- Handover Required observed — an NGAP HandoverRequired message with
+  HandoverType, Cause, TargetID, and to-be-handed-over resource items. It
+  does not prove radio degradation, source-gNB fault, handover necessity,
+  or later handover success.
+- Handover Command observed — the successful preparation branch was
+  observed. It does not mean the UE reached the target, the path switch
+  completed, or the user plane moved.
+- Handover Preparation Failure / Handover Failure observed — protocol
+  unsuccessful outcomes with a message-level Cause. The Cause (for example
+  radioNetwork) stays protocol evidence; it never becomes a source-gNB,
+  AMF, or radio root cause.
+- Path Switch Request Failure observed — unsuccessful outcome. The reviewed
+  basis defines no message-level Cause IE for this message; released-item
+  causes live inside the opaque transfers, so only structured input can
+  bind them. The unsuccessful branch itself is the failure evidence.
+- Handover Cancel observed — the protocol cancellation path with its Cause.
+  It is not automatically a handover, network, or radio failure verdict;
+  procedure-local interpretation belongs to a future Domain Skill.
+- Handover Notify observed — mobility progress evidence only. The Skill
+  never fabricates PathSwitchRequest, PathSwitchRequestAcknowledge, PFCP,
+  or user-plane observations from it.
+- Path Switch Acknowledge observed — the NGAP successfulOutcome branch
+  observed. It does not prove UPF relocation, PFCP modification success,
+  that all switched resources succeeded end-to-end, or that old GTP-U
+  tunnels are gone, and it never fabricates N3 observations.
+- Mixed mobility resource outcomes — a HandoverRequestAcknowledge with
+  ADMITTED and FAILED items, or a PathSwitchRequestAcknowledge with
+  SWITCHED and RELEASED items, preserves both item outcomes
+  independently; no message-wide resource success or failure is inferred.
+- Source and target associations — handover evidence on two SCTP
+  associations (source and target NG-RAN) stays in separate contexts even
+  when AMF-UE-NGAP-IDs match, timestamps are close, or the same
+  transparent container appears on both sides. The Skill never creates a
+  synthetic cross-association UE identity.
+- Mobility transfer containers present — presence, reviewed kind, and
+  octet length are recorded; the encoded transfer body (including any
+  embedded transport-layer information) is never decoded, and no N3
+  tunnel identity or UPF endpoint is ever derived from NGAP.
+- Unsupported known mobility procedure — for example HandoverSuccess
+  (code 61). Reported UNSUPPORTED with identity only; RAN Status Transfer
+  and other mobility-adjacent procedures remain deferred.
 - Cause stated in a failure or release message — the category/value pair
   is preserved (for example radioNetwork value 3, reviewed as
   release-due-to-ngran-generated-reason). This is protocol evidence, not a

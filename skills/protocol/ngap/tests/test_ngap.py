@@ -46,6 +46,35 @@ RESOURCE_FIXTURES = (
     "pdu-session-ordering",
 )
 
+# Fixtures exercising the bounded N2 handover / path-switch mobility capability.
+MOBILITY_FIXTURES = (
+    "handover-required",
+    "handover-command",
+    "handover-preparation-failure",
+    "handover-request",
+    "handover-request-acknowledge",
+    "handover-request-acknowledge-mixed",
+    "handover-failure",
+    "handover-notify",
+    "handover-cancel",
+    "handover-cancel-acknowledge",
+    "path-switch-request",
+    "path-switch-acknowledge",
+    "path-switch-acknowledge-mixed",
+    "path-switch-failure",
+    "mobility-transfer-containers",
+    "mobility-qfi-bound",
+    "mobility-qfi-unbound",
+    "mobility-item-cause",
+    "mobility-two-associations",
+    "mobility-cross-capture-a",
+    "mobility-cross-capture-b",
+    "mobility-two-ues",
+    "mobility-source-target",
+    "mobility-out-of-order",
+    "mobility-unsupported",
+)
+
 
 def jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -89,9 +118,11 @@ class NgapModelTests(unittest.TestCase):
         self.assertIsNone(identity.sender_role)
 
     def test_unsupported_procedure_preserves_identity_only(self):
-        identity = MODEL.resolve_procedure(12, "HandoverPreparation")
+        # Code 61 (HandoverSuccess) is a known Rel-19 mobility procedure that
+        # stays outside the bounded subset: identity only, no semantics.
+        identity = MODEL.resolve_procedure(61, "HandoverSuccess")
         self.assertEqual(identity.support_status, "UNSUPPORTED")
-        self.assertEqual(identity.procedure_name, "HandoverPreparation")
+        self.assertEqual(identity.procedure_name, "HandoverSuccess")
         self.assertIsNone(identity.message_type)
         self.assertIsNone(identity.result)
 
@@ -396,12 +427,24 @@ class NgapStandaloneTests(unittest.TestCase):
             timeline = subprocess.run([sys.executable, str(scripts / "ngap_timeline.py"), str(events)], capture_output=True, text=True)
             self.assertEqual(timeline.returncode, 0, timeline.stderr)
             self.assertIn("UEContextReleaseRequest", timeline.stdout)
+            # A bounded mobility fixture must run identically in the copy.
+            mobility_events = copied / "mobility-events.jsonl"
+            result = subprocess.run([
+                sys.executable, str(scripts / "extract-ngap.py"),
+                str(copied / "examples" / "extracted" / "mobility-two-ues.jsonl"),
+                "--input-format", "fields-jsonl", "--output", str(mobility_events),
+            ], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('"family":"handover-preparation"', mobility_events.read_text(encoding="utf-8"))
+            mobility_timeline = subprocess.run([sys.executable, str(scripts / "ngap_timeline.py"), str(mobility_events)], capture_output=True, text=True)
+            self.assertEqual(mobility_timeline.returncode, 0, mobility_timeline.stderr)
+            self.assertIn("mobility=path-switch", mobility_timeline.stdout)
 
 
 class NgapPduSessionResourceTests(unittest.TestCase):
     def test_version_is_expanded(self):
         manifest = (PACKAGE / "manifest.yaml").read_text(encoding="utf-8")
-        self.assertIn("version: 0.2.0", manifest)
+        self.assertIn("version: 0.3.0", manifest)
         self.assertIn("protocols: [NGAP]", manifest)
         self.assertIn("interfaces: [N2]", manifest)
 
@@ -582,6 +625,289 @@ class NgapPduSessionResourceTests(unittest.TestCase):
         upper = text.upper()
         for forbidden in ("PDU SESSION SUCCESS", "PDU SESSION FAILURE", "SMF FAILURE", "GNB FAILURE", "UPF FAILURE"):
             self.assertNotIn(forbidden, upper)
+
+
+class NgapMobilityTests(unittest.TestCase):
+    """Bounded N2 handover/path-switch mobility evidence (v0.3.0)."""
+
+    def test_mobility_procedure_map(self):
+        expected = {
+            12: {
+                "initiatingMessage": ("HandoverRequired", "REQUEST", "ng-ran"),
+                "successfulOutcome": ("HandoverCommand", "COMMAND", "amf"),
+                "unsuccessfulOutcome": ("HandoverPreparationFailure", "FAILURE", "amf"),
+            },
+            13: {
+                "initiatingMessage": ("HandoverRequest", "REQUEST", "amf"),
+                "successfulOutcome": ("HandoverRequestAcknowledge", "SUCCESS", "ng-ran"),
+                "unsuccessfulOutcome": ("HandoverFailure", "FAILURE", "ng-ran"),
+            },
+            11: {"initiatingMessage": ("HandoverNotify", None, "ng-ran")},
+            10: {
+                "initiatingMessage": ("HandoverCancel", "REQUEST", "ng-ran"),
+                "successfulOutcome": ("HandoverCancelAcknowledge", "SUCCESS", "amf"),
+            },
+            25: {
+                "initiatingMessage": ("PathSwitchRequest", "REQUEST", "ng-ran"),
+                "successfulOutcome": ("PathSwitchRequestAcknowledge", "SUCCESS", "amf"),
+                "unsuccessfulOutcome": ("PathSwitchRequestFailure", "FAILURE", "amf"),
+            },
+        }
+        for code, branches in expected.items():
+            for pdu_type, (message, result, sender) in branches.items():
+                with self.subTest(code=code, pdu=pdu_type):
+                    identity = MODEL.resolve_procedure(code, message, pdu_type)
+                    self.assertEqual(identity.support_status, "SUPPORTED")
+                    self.assertEqual(identity.message_type, message)
+                    self.assertEqual(identity.pdu_type, pdu_type)
+                    self.assertEqual(identity.pdu_type_basis, "structured-input")
+                    self.assertEqual(identity.result, result)
+                    self.assertEqual(identity.sender_role, sender)
+
+    def test_no_handover_success_message_is_invented(self):
+        messages = {message for _name, branches in MODEL.SUPPORTED_PROCEDURES.values() for message in branches.values()}
+        for invented in ("HandoverSuccess", "HANDOVER_SUCCESS", "MOBILITY_COMPLETE",
+                         "PATH_SWITCH_SUCCESS", "HandoverNotification"):
+            self.assertNotIn(invented, messages)
+
+    def test_handover_type_value_and_reviewed_name(self):
+        event = events_for("handover-required.jsonl")[0]
+        mobility = event["mobility"]
+        self.assertEqual(mobility["handover_type_value"], 0)
+        self.assertEqual(mobility["handover_type_name"], "intra5gs")
+        self.assertIn("handover_type_name", event["derivations"])
+        self.assertIn("mobility_family", event["derivations"])
+        record = dict(records("handover-required.jsonl")[0])
+        record["ngap.HandoverType"] = "9"
+        unknown = MODEL.normalize_record(record, "x.jsonl")
+        self.assertEqual(unknown["mobility"]["handover_type_value"], 9)
+        self.assertIsNone(unknown["mobility"]["handover_type_name"])
+        self.assertNotIn("handover_type_name", unknown["derivations"])
+
+    def test_target_id_choices_preserved_without_site_identity(self):
+        event = events_for("handover-required.jsonl")[0]
+        mobility = event["mobility"]
+        self.assertTrue(mobility["target_id_present"])
+        self.assertEqual(mobility["target_id_type"], "targetRANNodeID")
+        self.assertIn("target_id_type", event["derivations"])
+        blob = json.dumps(event)
+        for forbidden in ("gNB_ID", "site", "vendor"):
+            self.assertNotIn(forbidden, blob)
+
+    def test_transparent_containers_presence_and_length_only(self):
+        events = events_for("handover-required.jsonl")
+        self.assertEqual(events[0]["mobility"]["source_to_target_container"],
+                         {"present": True, "length": 4})
+        command = events_for("handover-command.jsonl")[0]
+        self.assertEqual(command["mobility"]["target_to_source_container"],
+                         {"present": True, "length": 4})
+        failure = events_for("handover-preparation-failure.jsonl")[0]
+        self.assertEqual(failure["mobility"]["target_to_source_failure_container"],
+                         {"present": True, "length": 2})
+
+    def test_handover_required_resources(self):
+        events = events_for("handover-required.jsonl")
+        first = events[0]["pdu_session_resources"]
+        self.assertEqual(len(first), 1)
+        self.assertEqual(first[0]["resource_operation"], "HANDOVER_PREPARATION")
+        self.assertEqual(first[0]["resource_list_role"], "REQUIRED")
+        self.assertEqual(first[0]["transfer"]["kind"], "handover-required-transfer")
+        second = events[1]["pdu_session_resources"]
+        self.assertEqual([item["pdu_session_id"] for item in second], [10, 11])
+        self.assertEqual({item["resource_list_role"] for item in second}, {"REQUIRED"})
+
+    def test_handover_command_mixed_lists(self):
+        events = events_for("handover-command.jsonl")
+        outcomes = {item["pdu_session_id"]: item["resource_list_role"]
+                    for item in events[1]["pdu_session_resources"]}
+        self.assertEqual(outcomes, {11: "HANDOVER", 12: "TO_RELEASE"})
+        for event in events:
+            self.assertEqual(event["result"], "COMMAND")
+            self.assertEqual(event["pdu_type"], "successfulOutcome")
+
+    def test_handover_request_multi_resources_with_nas_presence(self):
+        event = events_for("handover-request.jsonl")[0]
+        self.assertEqual(event["message_type"], "HandoverRequest")
+        self.assertEqual(event["sender_role"], "amf")
+        self.assertTrue(event["nas_pdu_present"])
+        self.assertEqual(event["nas_pdu_length"], 12)
+        self.assertNotIn("nas_pdu", json.dumps(event).replace("nas_pdu_present", "").replace("nas_pdu_length", ""))
+        items = event["pdu_session_resources"]
+        self.assertEqual([item["pdu_session_id"] for item in items], [10, 11])
+        self.assertEqual({item["resource_list_role"] for item in items}, {"REQUEST"})
+        self.assertEqual(items[0]["snssai"], {"sst": 1, "sd": "000001"})
+
+    def test_admitted_and_mixed_items(self):
+        admitted = events_for("handover-request-acknowledge.jsonl")[0]["pdu_session_resources"]
+        self.assertEqual([item["resource_list_role"] for item in admitted], ["ADMITTED", "ADMITTED"])
+        mixed = events_for("handover-request-acknowledge-mixed.jsonl")[0]
+        self.assertEqual(mixed["result"], "SUCCESS")
+        self.assertEqual(mixed["pdu_type"], "successfulOutcome")
+        outcomes = {item["pdu_session_id"]: item["resource_list_role"]
+                    for item in mixed["pdu_session_resources"]}
+        self.assertEqual(outcomes, {10: "ADMITTED", 11: "FAILED"})
+        # message-level SUCCESS must never be flattened into an all-success verdict
+        self.assertIn("FAILED", [item["resource_list_role"] for item in mixed["pdu_session_resources"]])
+
+    def test_path_switch_resources_and_failure_cause_boundary(self):
+        request_events = events_for("path-switch-request.jsonl")
+        self.assertEqual(request_events[0]["pdu_session_resources"][0]["resource_list_role"], "TO_BE_SWITCHED")
+        self.assertEqual(len(request_events[1]["pdu_session_resources"]), 2)
+        acknowledge = events_for("path-switch-acknowledge.jsonl")[0]
+        self.assertEqual(acknowledge["pdu_session_resources"][0]["resource_list_role"], "SWITCHED")
+        mixed = events_for("path-switch-acknowledge-mixed.jsonl")[0]
+        outcomes = {item["pdu_session_id"]: item["resource_list_role"]
+                    for item in mixed["pdu_session_resources"]}
+        self.assertEqual(outcomes, {10: "SWITCHED", 11: "RELEASED"})
+        failure = events_for("path-switch-failure.jsonl")[0]
+        self.assertEqual(failure["result"], "FAILURE")
+        # Verified boundary: the reviewed basis defines no message-level Cause
+        # IE for PathSwitchRequestFailure; item causes live in opaque transfers.
+        self.assertIsNone(failure["cause"])
+        self.assertEqual(failure["pdu_session_resources"][0]["resource_list_role"], "RELEASED")
+
+    def test_message_cause_and_item_cause_separate(self):
+        acknowledge = events_for("mobility-item-cause.jsonl")[0]
+        self.assertIsNone(acknowledge["cause"])
+        failed = [item for item in acknowledge["pdu_session_resources"] if item["resource_list_role"] == "FAILED"][0]
+        self.assertEqual(failed["cause"], {"category": "transport", "value": 2})
+        admitted = [item for item in acknowledge["pdu_session_resources"] if item["resource_list_role"] == "ADMITTED"][0]
+        self.assertIsNone(admitted["cause"])
+        required = events_for("mobility-item-cause.jsonl")[1]
+        self.assertEqual(required["cause"], {"category": "radioNetwork", "value": 3})
+        self.assertEqual(required["pdu_session_resources"][0]["cause"], {"category": "radioNetwork", "value": 5})
+
+    def test_transfer_bytes_never_persisted(self):
+        for name in ("mobility-transfer-containers", "handover-required", "handover-command"):
+            blob = json.dumps(events_for(f"{name}.jsonl"))
+            self.assertNotIn("aabbccdd", blob)
+            self.assertNotIn("1122334455", blob)
+            for event in events_for(f"{name}.jsonl"):
+                for item in event.get("pdu_session_resources", []):
+                    self.assertEqual(set(item["transfer"]), {"present", "kind", "length"})
+
+    def test_qfi_bound_and_unbound_in_mobility(self):
+        bound = events_for("mobility-qfi-bound.jsonl")[0]
+        self.assertEqual(bound["pdu_session_resources"][0]["qfi_values"], [5])
+        unbound = events_for("mobility-qfi-unbound.jsonl")[0]
+        self.assertEqual([item["qfi_values"] for item in unbound["pdu_session_resources"]], [[], []])
+        self.assertEqual(unbound["unbound_resource_metadata"]["qfi_values"], [5, 9])
+
+    def test_flat_transfer_and_list_binding(self):
+        event = events_for("mobility-transfer-containers.jsonl")[0]
+        item = event["pdu_session_resources"][0]
+        self.assertEqual(item["binding_basis"], "single-resource-message")
+        self.assertEqual(item["transfer"], {"present": True, "kind": "handover-required-transfer", "length": 4})
+        command = events_for("mobility-transfer-containers.jsonl")[1]
+        self.assertEqual(command["pdu_session_resources"][0]["transfer"]["kind"], "handover-command-transfer")
+
+    def test_two_associations_same_ids_never_merge(self):
+        summary = CORRELATE.correlate(events_for("mobility-two-associations.jsonl"))
+        keys = sorted(context["context_key"] for context in summary["contexts"])
+        self.assertEqual(len(keys), 2)
+        self.assertEqual(len({key.split(":")[2] for key in keys}), 2)
+
+    def test_cross_capture_same_amf_id_never_merge(self):
+        events = events_for("mobility-cross-capture-a.jsonl") + events_for("mobility-cross-capture-b.jsonl")
+        summary = CORRELATE.correlate(events)
+        self.assertEqual(len(summary["contexts"]), 2)
+
+    def test_two_ues_interleaved(self):
+        summary = CORRELATE.correlate(events_for("mobility-two-ues.jsonl"))
+        self.assertEqual(len(summary["contexts"]), 2)
+        for context in summary["contexts"]:
+            self.assertEqual(context["event_count"], 2)
+        procedures = {context["events"][0]["procedure_name"] for context in summary["contexts"]}
+        self.assertEqual(procedures, {"HandoverPreparation", "PathSwitchRequest"})
+
+    def test_source_and_target_associations_not_merged(self):
+        summary = CORRELATE.correlate(events_for("mobility-source-target.jsonl"))
+        keys = sorted(context["context_key"] for context in summary["contexts"])
+        self.assertEqual(len(keys), 2)
+        # A shared transparent container never merges source and target contexts.
+        self.assertEqual(len({context["association"] for context in summary["contexts"]}), 2)
+
+    def test_out_of_order_input_preserved(self):
+        events = events_for("mobility-out-of-order.jsonl")
+        self.assertEqual([event["frame_number"] for event in events], [33, 31, 34])
+        self.assertEqual(events[1]["message_type"], "HandoverRequired")
+
+    def test_unsupported_and_unknown_mobility(self):
+        events = events_for("mobility-unsupported.jsonl")
+        self.assertEqual(events[0]["support_status"], "UNSUPPORTED")
+        self.assertEqual(events[0]["procedure_name"], "HandoverSuccess")
+        self.assertNotIn("mobility", events[0])
+        self.assertEqual(events[1]["support_status"], "UNKNOWN")
+        self.assertIsNone(events[1]["procedure_name"])
+
+    def test_malformed_mobility_resource_fails_loudly(self):
+        record = dict(records("handover-required.jsonl")[0])
+        record["pdu_session_resources"] = [{"pdu_session_id": 10, "resource_list_role": "SUCCEEDED"}]
+        with self.assertRaises(MODEL.InputError):
+            MODEL.normalize_record(record, "x.jsonl")
+
+    def test_no_mobility_verdict_fields_or_causal_wording(self):
+        for name in MOBILITY_FIXTURES:
+            blob = json.dumps(events_for(f"{name}.jsonl")).lower()
+            for forbidden in ("handover_success", "path_switch_success", "mobility_success",
+                              "radio_failure", "root_cause", "caused_by"):
+                self.assertNotIn(forbidden, blob, name)
+
+    def test_mobility_trace_projection(self):
+        required = MODEL.project_trace_event(events_for("handover-required.jsonl")[0])
+        self.assertEqual(required["message_type"], "HandoverRequired")
+        self.assertEqual(required["result"], {"status": "REQUEST", "cause": "radioNetwork:3", "code": 3})
+        self.assertEqual(required["session"], {"pdu_session_id": 10})
+        notify = MODEL.project_trace_event(events_for("handover-notify.jsonl")[0])
+        self.assertEqual(notify["message_type"], "HandoverNotify")
+        self.assertNotIn("result", notify)
+        mixed = MODEL.project_trace_event(events_for("handover-request-acknowledge-mixed.jsonl")[0])
+        self.assertNotIn("session", mixed)
+        blob = json.dumps(required)
+        self.assertNotIn("ngap_id", blob)
+
+    def test_mobility_timeline(self):
+        events = events_for("mobility-two-ues.jsonl")
+        text = TIMELINE.render_text(events)
+        self.assertIn("mobility=handover-preparation", text)
+        self.assertIn("mobility=path-switch", text)
+        self.assertIn("ho-type=0:intra5gs", text)
+        self.assertIn("assoc=sctp-assoc-0", text)
+        self.assertIn("containers=target-to-source", text)
+        document = json.loads(TIMELINE.render_json(events))
+        self.assertEqual(document["events"][0]["mobility_family"], "handover-preparation")
+        upper = text.upper()
+        for forbidden in ("HANDOVER SUCCESS", "PATH SWITCH SUCCESS", "MOBILITY SUCCESS",
+                          "RADIO FAILURE", "ROOT CAUSE"):
+            self.assertNotIn(forbidden, upper)
+
+    def test_expected_mobility_fixtures_match(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name in MOBILITY_FIXTURES:
+                output = Path(directory) / f"{name}.jsonl"
+                EXTRACT.write_events(EXTRACTED / f"{name}.jsonl", "fields-jsonl", output, True)
+                self.assertEqual(jsonl(output), jsonl(EXPECTED / f"{name}-events.jsonl"), name)
+
+    def test_mobility_events_conform_to_schema(self):
+        schema = json.loads((PACKAGE / "schemas" / "ngap-event.schema.json").read_text(encoding="utf-8"))
+        allowed = set(schema["properties"])
+        mobility_properties = set(schema["properties"]["mobility"]["properties"])
+        mobility_required = set(schema["properties"]["mobility"]["required"])
+        for name in MOBILITY_FIXTURES:
+            for event in jsonl(EXPECTED / f"{name}-events.jsonl"):
+                self.assertTrue(set(event) <= allowed, name)
+                if "mobility" in event:
+                    self.assertTrue(mobility_required <= set(event["mobility"]), name)
+                    self.assertTrue(set(event["mobility"]) <= mobility_properties, name)
+                    self.assertIn(event["mobility"]["family"],
+                                  schema["properties"]["mobility"]["properties"]["family"]["enum"])
+                for item in event.get("pdu_session_resources", []):
+                    self.assertIn(item["resource_operation"],
+                                  schema["$defs"]["resourceItem"]["properties"]["resource_operation"]["enum"])
+                    self.assertIn(item["resource_list_role"],
+                                  schema["$defs"]["resourceItem"]["properties"]["resource_list_role"]["enum"])
+                for derivation in event["derivations"]:
+                    self.assertIn(derivation, schema["properties"]["derivations"]["items"]["enum"], name)
 
 
 if __name__ == "__main__":

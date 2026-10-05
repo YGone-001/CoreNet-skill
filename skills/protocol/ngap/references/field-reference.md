@@ -4,11 +4,15 @@ Each extracted field: normalized name, semantic meaning, source tshark
 field(s), optionality in the detailed event, evidence level, and version
 caveats. Procedure-code and cause vocabularies were verified against TShark
 4.7.1 (v4.7.1-0-g667ab240e6de) via `tshark -G fields` / `-G values`. The
-PDU Session resource fields added in 0.2.0 could not be re-dumped locally —
-the reviewed environment has no tshark installation — so their names were
-taken from the published Wireshark NGAP display-filter reference. That is
-**verification debt**, not local introspection, and no field name was
-invented. Other Wireshark versions may differ and were not reviewed.
+PDU Session resource fields added in 0.2.0 were originally taken from the
+published Wireshark NGAP display-filter reference because the then-reviewed
+environment had no local tshark; during the 0.3.0 review a local TShark
+4.7.1 installation became available and **all** of those field names were
+re-verified by local introspection, closing that verification debt. The
+mobility fields added in 0.3.0 were verified the same way and additionally
+cross-checked against the TS 38.413 ASN.1 sources packaged with the
+dissector (NGAP-PDU-Descriptions.asn, NGAP-PDU-Contents.asn). No field name
+was invented. Other Wireshark versions may differ and were not reviewed.
 
 ## Frame and capture provenance
 
@@ -110,8 +114,8 @@ export; see the binding column.
 | Field | Meaning | Source field(s) | Nesting / binding | Evidence |
 | --- | --- | --- | --- | --- |
 | pdu_session_resources[].pdu_session_id | PDU Session identity (0..255) | structured `pdu_session_resources[].pdu_session_id`, or ngap.pDUSessionID | structured-input, or single-list-message when exactly one list indicator is present | OBSERVED |
-| pdu_session_resources[].resource_operation | SETUP / MODIFY / RELEASE / INITIAL_CONTEXT_SETUP | derived from message identity | DERIVED | DERIVED |
-| pdu_session_resources[].resource_list_role | REQUEST / SUCCESS / FAILED / COMMAND / RESPONSE | structured input, or the single observed list indicator | null when several lists are observed and the role is not provable | OBSERVED (indicator) / DERIVED (label) |
+| pdu_session_resources[].resource_operation | SETUP / MODIFY / RELEASE / INITIAL_CONTEXT_SETUP / HANDOVER_PREPARATION / HANDOVER_RESOURCE_ALLOCATION / PATH_SWITCH | derived from message identity | DERIVED | DERIVED |
+| pdu_session_resources[].resource_list_role | REQUEST / SUCCESS / FAILED / COMMAND / RESPONSE / REQUIRED / HANDOVER / TO_RELEASE / ADMITTED / TO_BE_SWITCHED / SWITCHED / RELEASED | structured input, or the single observed list indicator | null when several lists are observed and the role is not provable | OBSERVED (indicator) / DERIVED (label) |
 | pdu_session_resources[].snssai.sst / .sd | slice service type and differentiator | structured `snssai_sst` / `snssai_sd` only | structured-input only; no verified dissector field name was available in the reviewed environment | OBSERVED (structured input) |
 | pdu_session_resources[].nas_pdu_present / .nas_pdu_length | PDU Session NAS-PDU presence and octet length | structured item, or ngap.pDUSessionNAS_PDU when exactly one item exists | length is DERIVED from the exported octets; contents are never kept | OBSERVED / DERIVED |
 | pdu_session_resources[].transfer.present / .kind / .length | transfer container presence, reviewed kind, octet length | ngap.pDUSessionResource*Transfer fields, or structured item | body never parsed; `kind` is null or `multiple` when not singular | OBSERVED / DERIVED |
@@ -129,6 +133,37 @@ tabulated in `procedure-map.md`. `ngap.pDUSessionID` is a repeated field, so
 the extractor requests all occurrences; the flattened export still does not
 prove which list an identity came from, which is why multiple list
 indicators leave item roles null.
+
+## N2 mobility fields
+
+Added in 0.3.0; all names verified by local `tshark -G fields` /
+`-G values` on 4.7.1 and against the packaged TS 38.413 ASN.1. The
+`mobility` object is emitted only for supported mobility messages
+(procedure codes 10, 11, 12, 13, 25) and stays optional in the schema.
+
+| Field | Meaning | Source field(s) | Optionality | Evidence |
+| --- | --- | --- | --- | --- |
+| mobility.family | reviewed elementary-procedure family: handover-preparation / handover-resource-allocation / handover-notification / handover-cancel / path-switch | derived from the procedure code | required in the mobility object | DERIVED |
+| mobility.handover_type_value | observed HandoverType enumerated value | ngap.HandoverType | null when absent | OBSERVED |
+| mobility.handover_type_name | reviewed symbolic name (0 intra5gs, 1 fivegs-to-eps, 2 eps-to-5gs, 3 fivegs-to-utran) | derived for values in the reviewed mapping only | null otherwise | DERIVED |
+| mobility.target_id_present | TargetID IE presence | ngap.TargetID non-empty | required boolean | OBSERVED |
+| mobility.target_id_type | reviewed CHOICE alternative (0 targetRANNodeID, 1 targeteNB-ID, 2 choice-Extensions) | ngap.TargetID, derived for verified indexes; observed text when exported symbolically | null when absent or unverified | OBSERVED / DERIVED |
+| mobility.source_to_target_container | transparent-container presence and octet length | ngap.SourceToTarget_TransparentContainer | required in the mobility object | OBSERVED / DERIVED (length) |
+| mobility.target_to_source_container | transparent-container presence and octet length | ngap.TargetToSource_TransparentContainer | required in the mobility object | OBSERVED / DERIVED (length) |
+| mobility.target_to_source_failure_container | failure transparent-container presence and octet length | ngap.TargettoSource_Failure_TransparentContainer | required in the mobility object | OBSERVED / DERIVED (length) |
+
+Transparent-container content is never decoded and its bytes are never
+retained; TargetID never yields site, node, or vendor identity; Handover
+Type never explains why a handover occurred. Mobility resource lists and
+transfer containers use the same item model as the PDU Session resource
+fields above; their list fields and transfer kinds are tabulated in
+`procedure-map.md`. Structured input binds item-level values exactly as in
+0.2.0; flattened nested values attach only when exactly one resource item
+exists, and are preserved as unbound evidence otherwise.
+
+The `derivations` array additionally enumerates `mobility_family`,
+`handover_type_name`, and `target_id_type` when those values were derived
+rather than observed.
 
 ## Evidence and derivations bookkeeping
 

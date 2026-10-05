@@ -75,7 +75,13 @@ def timeline_entry(event: dict[str, object]) -> dict[str, object]:
             transfer = item.get("transfer")
             if isinstance(transfer, dict) and transfer.get("present"):
                 transfer_present = True
-    return {
+    sctp = event.get("sctp")
+    association = (
+        f"sctp-assoc-{sctp['association_id']}"
+        if isinstance(sctp, dict) and sctp.get("association_id") is not None
+        else None
+    )
+    entry: dict[str, object] = {
         "timestamp": event.get("timestamp"),
         "frame_number": event.get("frame_number"),
         "pdu_type": event.get("pdu_type"),
@@ -84,6 +90,7 @@ def timeline_entry(event: dict[str, object]) -> dict[str, object]:
         "support_status": event.get("support_status"),
         "result": event.get("result"),
         "sender_role": event.get("sender_role"),
+        "association": association,
         "ran_ue_ngap_id": event.get("ran_ue_ngap_id"),
         "amf_ue_ngap_id": event.get("amf_ue_ngap_id"),
         "cause": event.get("cause"),
@@ -93,6 +100,30 @@ def timeline_entry(event: dict[str, object]) -> dict[str, object]:
         "transfer_present": transfer_present,
         "unbound_resource_metadata": event.get("unbound_resource_metadata"),
     }
+    mobility = event.get("mobility")
+    if isinstance(mobility, dict):
+        entry["mobility_family"] = mobility.get("family")
+        type_value = mobility.get("handover_type_value")
+        type_name = mobility.get("handover_type_name")
+        if type_value is not None or type_name is not None:
+            entry["handover_type"] = (
+                f"{type_value}:{type_name}" if type_value is not None and type_name is not None
+                else (type_name if type_name is not None else str(type_value))
+            )
+        entry["target_id_present"] = mobility.get("target_id_present")
+        container_labels = {
+            "source_to_target_container": "source-to-target",
+            "target_to_source_container": "target-to-source",
+            "target_to_source_failure_container": "target-to-source-failure",
+        }
+        containers = [
+            label
+            for key, label in container_labels.items()
+            if isinstance(mobility.get(key), dict) and mobility[key].get("present")
+        ]
+        if containers:
+            entry["containers_present"] = containers
+    return entry
 
 
 def render_text(events: list[dict[str, object]]) -> str:
@@ -102,6 +133,7 @@ def render_text(events: list[dict[str, object]]) -> str:
         line = (
             f"frame={_id(entry['frame_number'])} {entry['timestamp']} "
             f"{entry['pdu_type'] or '-'} {entry['message_type'] or entry['procedure_name'] or (entry['support_status'] or 'UNKNOWN')} "
+            f"assoc={_id(entry['association'])} "
             f"ran={_id(entry['ran_ue_ngap_id'])} amf={_id(entry['amf_ue_ngap_id'])} "
             f"result={entry['result'] or '-'} cause={_cause(entry['cause'])}"
         )
@@ -112,6 +144,13 @@ def render_text(events: list[dict[str, object]]) -> str:
                 f" qfi={entry['bound_qfi_values'] or '-'}"
                 f" transfer={'yes' if entry['transfer_present'] else 'no'}"
             )
+        if entry.get("mobility_family"):
+            line += f" mobility={entry['mobility_family']}"
+            if entry.get("handover_type"):
+                line += f" ho-type={entry['handover_type']}"
+            line += f" target-id={'yes' if entry.get('target_id_present') else 'no'}"
+            if entry.get("containers_present"):
+                line += f" containers={','.join(entry['containers_present'])}"
         if entry["unbound_resource_metadata"]:
             line += " unbound-resource-metadata=yes"
         lines.append(line)

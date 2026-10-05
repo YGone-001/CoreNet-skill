@@ -1,11 +1,14 @@
 name: ngap
-version: 0.2.0
+version: 0.3.0
 category: protocol
 description: >
   Bounded NGAP semantic extraction: PDU/procedure/message identification,
   UE NGAP context identifiers, NGAP Cause preservation, bounded PDU Session
   resource evidence (setup, modify, release, and resources embedded in
-  Initial Context Setup), protocol-local correlation, detailed NGAP events,
+  Initial Context Setup), bounded N2 handover/path-switch mobility evidence
+  (Handover Preparation, Handover Resource Allocation, Handover Notification,
+  Handover Cancel, Path Switch Request) with mobility metadata and
+  resource-list roles, protocol-local correlation, detailed NGAP events,
   and normalized trace-event projection.
 scope:
   includes:
@@ -14,15 +17,17 @@ scope:
     - NGAP Cause category/value preservation
     - bounded PDU Session resource items with PDU Session ID, list role, S-NSSAI, NAS-PDU presence, transfer presence/type, bound QFI values, and item Cause
     - PDU Session resource evidence embedded in Initial Context Setup request and response
+    - bounded N2 handover and path-switch mobility evidence: HandoverRequired/HandoverCommand/HandoverPreparationFailure, HandoverRequest/HandoverRequestAcknowledge/HandoverFailure, HandoverNotify, HandoverCancel/HandoverCancelAcknowledge, PathSwitchRequest/PathSwitchRequestAcknowledge/PathSwitchRequestFailure
+    - bounded mobility metadata (procedure family, observed HandoverType value with reviewed symbolic name, TargetID presence with reviewed choice alternative, transparent-container presence/length) and mobility PDU Session resource lists with item-scoped roles (REQUIRED, HANDOVER, TO_RELEASE, ADMITTED, TO_BE_SWITCHED, SWITCHED, RELEASED, FAILED)
     - deterministic UE-context correlation scoped by capture and SCTP association
     - detailed NGAP event JSONL and shared trace-event projection
     - tshark-assisted capture extraction and deterministic structured offline input
   excludes:
     - NAS-PDU decoding or any NAS semantic field (handoff to nas-5gs)
-    - generic ASN.1 transfer-container decoding
+    - generic ASN.1 or transfer-container or transparent-container decoding
     - 5GC registration, authentication, or complete PDU session procedure state
-    - PFCP, GTP-U/TEID, and SBI semantics
-    - NGAP handover and path-switch procedures
+    - handover/path-switch procedure outcome interpretation, source/target mobility association, and Domain procedure state (future Domain Skill ownership)
+    - PFCP, GTP-U/TEID, and SBI semantics; N3 tunnel identity is never derived from NGAP
     - radio or RRC diagnosis
     - AMF or gNB implementation or source-code mapping
     - end-to-end root cause determination
@@ -72,6 +77,31 @@ testing:
     - examples/extracted/pdu-session-identity.jsonl
     - examples/extracted/pdu-session-recognition.jsonl
     - examples/extracted/pdu-session-ordering.jsonl
+    - examples/extracted/handover-required.jsonl
+    - examples/extracted/handover-command.jsonl
+    - examples/extracted/handover-preparation-failure.jsonl
+    - examples/extracted/handover-request.jsonl
+    - examples/extracted/handover-request-acknowledge.jsonl
+    - examples/extracted/handover-request-acknowledge-mixed.jsonl
+    - examples/extracted/handover-failure.jsonl
+    - examples/extracted/handover-notify.jsonl
+    - examples/extracted/handover-cancel.jsonl
+    - examples/extracted/handover-cancel-acknowledge.jsonl
+    - examples/extracted/path-switch-request.jsonl
+    - examples/extracted/path-switch-acknowledge.jsonl
+    - examples/extracted/path-switch-acknowledge-mixed.jsonl
+    - examples/extracted/path-switch-failure.jsonl
+    - examples/extracted/mobility-transfer-containers.jsonl
+    - examples/extracted/mobility-qfi-bound.jsonl
+    - examples/extracted/mobility-qfi-unbound.jsonl
+    - examples/extracted/mobility-item-cause.jsonl
+    - examples/extracted/mobility-two-associations.jsonl
+    - examples/extracted/mobility-cross-capture-a.jsonl
+    - examples/extracted/mobility-cross-capture-b.jsonl
+    - examples/extracted/mobility-two-ues.jsonl
+    - examples/extracted/mobility-source-target.jsonl
+    - examples/extracted/mobility-out-of-order.jsonl
+    - examples/extracted/mobility-unsupported.jsonl
   expected_results:
     - examples/expected/ue-context-events.jsonl
     - examples/expected/ue-context-trace.jsonl
@@ -85,3 +115,28 @@ testing:
     - examples/expected/pdu-session-identity-events.jsonl
     - examples/expected/pdu-session-recognition-events.jsonl
     - examples/expected/pdu-session-ordering-events.jsonl
+    - examples/expected/handover-required-events.jsonl
+    - examples/expected/handover-command-events.jsonl
+    - examples/expected/handover-preparation-failure-events.jsonl
+    - examples/expected/handover-request-events.jsonl
+    - examples/expected/handover-request-acknowledge-events.jsonl
+    - examples/expected/handover-request-acknowledge-mixed-events.jsonl
+    - examples/expected/handover-failure-events.jsonl
+    - examples/expected/handover-notify-events.jsonl
+    - examples/expected/handover-cancel-events.jsonl
+    - examples/expected/handover-cancel-acknowledge-events.jsonl
+    - examples/expected/path-switch-request-events.jsonl
+    - examples/expected/path-switch-acknowledge-events.jsonl
+    - examples/expected/path-switch-acknowledge-mixed-events.jsonl
+    - examples/expected/path-switch-failure-events.jsonl
+    - examples/expected/mobility-transfer-containers-events.jsonl
+    - examples/expected/mobility-qfi-bound-events.jsonl
+    - examples/expected/mobility-qfi-unbound-events.jsonl
+    - examples/expected/mobility-item-cause-events.jsonl
+    - examples/expected/mobility-two-associations-events.jsonl
+    - examples/expected/mobility-cross-capture-a-events.jsonl
+    - examples/expected/mobility-cross-capture-b-events.jsonl
+    - examples/expected/mobility-two-ues-events.jsonl
+    - examples/expected/mobility-source-target-events.jsonl
+    - examples/expected/mobility-out-of-order-events.jsonl
+    - examples/expected/mobility-unsupported-events.jsonl

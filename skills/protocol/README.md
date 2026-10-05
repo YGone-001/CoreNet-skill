@@ -5,24 +5,40 @@ classification, and protocol-neutral trace-event normalization package. It does
 not implement protocol message semantics or procedure diagnosis.
 
 Implemented: `ngap`, the first telecom signaling-semantic Protocol Skill.
-Version 0.2.0 supports a bounded UE-context subset of NGAP over N2:
+Version 0.3.0 supports a bounded UE-context subset of NGAP over N2:
 InitialUEMessage, UplinkNASTransport, DownlinkNASTransport,
 InitialContextSetup (request/response/failure), UEContextReleaseRequest,
 UEContextRelease (command/complete), and Paging, plus identity-only
 handling of ErrorIndication and NASNonDeliveryIndication. It extracts
 RAN-UE-NGAP-ID and AMF-UE-NGAP-ID, preserves NGAP Cause category/value,
 correlates frames into UE contexts scoped by capture and SCTP association,
-and projects detailed events into the shared trace-event schema. Version
-0.2.0 adds bounded PDU Session resource evidence: PDU Session Resource
+and projects detailed events into the shared trace-event schema. It
+supports bounded PDU Session resource evidence: PDU Session Resource
 Setup (request/response), Modify (request/response), Release
 (command/response), and PDU Session resources embedded in Initial Context
 Setup, modelled as an array of resource items with PDU Session ID, list
 role, S-NSSAI, NAS-PDU presence, transfer presence/type, bound QFI values,
 item Cause, and an explicit binding basis; unsafely bound nested values are
-preserved as unbound evidence. It does not decode NAS, does not parse
-transfer containers, does not own PFCP/GTP-U/SBI semantics, does not model
-PDU Session or registration procedure state, and does not claim
-full-Release NGAP coverage.
+preserved as unbound evidence. Version 0.3.0 adds bounded N2
+handover/path-switch mobility evidence: HandoverRequired, HandoverCommand,
+and HandoverPreparationFailure (Handover Preparation), HandoverRequest,
+HandoverRequestAcknowledge, and HandoverFailure (Handover Resource
+Allocation), HandoverNotify (Handover Notification), HandoverCancel and
+HandoverCancelAcknowledge (Handover Cancel), and PathSwitchRequest,
+PathSwitchRequestAcknowledge, and PathSwitchRequestFailure (Path Switch
+Request), with exact reviewed message identities, a bounded `mobility`
+metadata object (procedure family, observed HandoverType value with its
+reviewed symbolic name, TargetID presence with its reviewed choice
+alternative, transparent-container presence and octet length), and
+item-scoped mobility resource-list roles (REQUIRED, HANDOVER, TO_RELEASE,
+ADMITTED, TO_BE_SWITCHED, SWITCHED, RELEASED, FAILED) so that
+admitted/switched and failed/released items in one message stay
+independent observations. Source and target NG-RAN associations are never
+merged, and no handover/path-switch procedure outcome, N3 tunnel identity,
+or Domain procedure state is produced. It does not decode NAS, does not
+parse transfer or transparent containers, does not own PFCP/GTP-U/SBI
+semantics, does not model PDU Session or registration procedure state, and
+does not claim full-Release NGAP coverage.
 
 Implemented: `nas-5gs`, the first user-plane-of-trust Protocol Skill on
 N1. Version 0.2.0 implements a bounded 5GMM subset and a bounded 5GSM

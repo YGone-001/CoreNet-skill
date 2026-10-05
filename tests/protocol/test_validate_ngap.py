@@ -90,8 +90,94 @@ class NgapValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/protocol/ngap/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.2.0", "version: 0.1.0"), encoding="utf-8")
-            self.assertTrue(any("manifest version must be 0.2.0" in error for error in VALIDATOR.validate(root)))
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.0", "version: 0.1.0"), encoding="utf-8")
+            self.assertTrue(any("manifest version must be 0.3.0" in error for error in VALIDATOR.validate(root)))
+
+    def test_version_left_at_previous_release_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/protocol/ngap/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.0", "version: 0.2.0"), encoding="utf-8")
+            self.assertTrue(any("manifest version must be 0.3.0" in error for error in VALIDATOR.validate(root)))
+
+    def test_handover_excluded_in_scope_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/protocol/ngap/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+                "- NAS-PDU decoding or any NAS semantic field (handoff to nas-5gs)",
+                "- NAS-PDU decoding or any NAS semantic field (handoff to nas-5gs)\n    - NGAP handover and path-switch procedures"),
+                encoding="utf-8")
+            self.assertTrue(any("must no longer exclude handover/path-switch" in error for error in VALIDATOR.validate(root)))
+
+    def test_missing_mobility_scope_declaration_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/protocol/ngap/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("handover and path-switch mobility evidence", "mobility evidence"),
+                                encoding="utf-8")
+            self.assertTrue(any("must declare the bounded handover/path-switch" in error for error in VALIDATOR.validate(root)))
+
+    def assert_forbidden_schema_field_detected(self, field: str) -> None:
+        temporary, root = self.fixture()
+        with temporary:
+            schema_path = root / "skills/protocol/ngap/schemas/ngap-event.schema.json"
+            schema = json.loads(schema_path.read_text(encoding="utf-8"))
+            schema["properties"][field] = {"type": "string"}
+            schema_path.write_text(json.dumps(schema), encoding="utf-8")
+            self.assertTrue(any("mobility verdict fields" in error for error in VALIDATOR.validate(root)))
+
+    def test_handover_success_field_is_detected(self):
+        self.assert_forbidden_schema_field_detected("handover_success")
+
+    def test_path_switch_success_field_is_detected(self):
+        self.assert_forbidden_schema_field_detected("path_switch_success")
+
+    def test_root_cause_field_is_detected(self):
+        self.assert_forbidden_schema_field_detected("root_cause")
+
+    def test_radio_failure_field_is_detected(self):
+        self.assert_forbidden_schema_field_detected("radio_failure")
+
+    def test_transparent_container_decoder_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/protocol/ngap/scripts/ngap_model.py"
+            model.write_text(model.read_text(encoding="utf-8")
+                             + "\ndef decode_transparent_container(raw):\n    return raw\n", encoding="utf-8")
+            self.assertTrue(any("transparent-container decoder" in error for error in VALIDATOR.validate(root)))
+
+    def test_raw_mobility_container_persistence_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/protocol/ngap/scripts/ngap_model.py"
+            model.write_text(model.read_text(encoding="utf-8")
+                             + "\nCONTAINER_BYTES = SourceToTarget_container\n", encoding="utf-8")
+            self.assertTrue(any("raw container/transfer byte persistence" in error for error in VALIDATOR.validate(root)))
+
+    def test_teid_from_opaque_transfer_bytes_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/protocol/ngap/scripts/ngap_model.py"
+            model.write_text(model.read_text(encoding="utf-8")
+                             + "\nTEID = handoverCommandTransfer[:4]\n", encoding="utf-8")
+            self.assertTrue(any("foreign protocol semantics" in error for error in VALIDATOR.validate(root)))
+
+    def test_positional_resource_zip_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/protocol/ngap/scripts/ngap_model.py"
+            model.write_text(model.read_text(encoding="utf-8")
+                             + "\nfor sid, qfi in zip(session_ids, qfis):\n    pass\n", encoding="utf-8")
+            self.assertTrue(any("positional resource-item zip" in error for error in VALIDATOR.validate(root)))
+
+    def test_timestamp_based_association_join_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/protocol/ngap/scripts/ngap_model.py"
+            model.write_text(model.read_text(encoding="utf-8")
+                             + "\ndef link_by_timestamp(source_events, target_events):\n    return True\n", encoding="utf-8")
+            self.assertTrue(any("timestamp-based association joining" in error for error in VALIDATOR.validate(root)))
 
     def test_singular_only_resource_schema_is_detected(self):
         temporary, root = self.fixture()

@@ -2,11 +2,14 @@
 
 Basis: 3GPP TS 38.413 version 19.4.0 Release 19 (NG-RAN; NG Application
 Protocol, NGAP), reviewed through the NGAP dissector of Wireshark/TShark
-4.7.1 (v4.7.1-0-g667ab240e6de). The reviewed environment had no local
-tshark installation, so the new PDU Session resource field names come from
-the published Wireshark NGAP display-filter reference; that verification
-debt is recorded in `field-reference.md`. Version-specific behavior is
-recorded per field there; universal-Release coverage is not claimed.
+4.7.1 (v4.7.1-0-g667ab240e6de). The 0.2.0 PDU Session resource field names
+were taken from the published Wireshark NGAP display-filter reference and
+have since been re-verified locally; the 0.3.0 mobility field names,
+procedure branches, and vocabularies were verified by local introspection
+(`tshark -G fields` / `-G values`) cross-checked against the TS 38.413
+ASN.1 sources packaged with that dissector. Verification notes are recorded
+per field in `field-reference.md`; universal-Release coverage is not
+claimed.
 
 ## Role and context
 
@@ -102,11 +105,16 @@ The two layers are separate and must not be conflated:
   in its elementary procedure (REQUEST, SUCCESS, COMMAND, COMPLETE, ...).
   It is derived from message identity only.
 - Resource-item outcomes live in `pdu_session_resources[].resource_list_role`
-  (REQUEST, SUCCESS, FAILED, COMMAND, RESPONSE).
+  (REQUEST, SUCCESS, FAILED, COMMAND, RESPONSE, plus the mobility list
+  roles REQUIRED, HANDOVER, TO_RELEASE, ADMITTED, TO_BE_SWITCHED, SWITCHED,
+  RELEASED documented in `procedure-map.md`).
 
 A `successfulOutcome` PDUSessionResourceSetupResponse may carry a
 `PDUSessionResourceFailedToSetupListSURes`. Message-level `SUCCESS`
-therefore never means that every embedded resource succeeded. TS 38.413
+therefore never means that every embedded resource succeeded. The same
+holds for mobility: a `HandoverRequestAcknowledge` may carry admitted and
+failed items, and a `PathSwitchRequestAcknowledge` may carry switched and
+released items at once. TS 38.413
 defines no separate "PDU Session Resource Setup Failure" message; failure
 is expressed through the failed item list inside the response.
 
@@ -131,9 +139,58 @@ limitation. Repeated fields are never zipped by array position.
 
 PDU Session resource items carry encoded transfer IEs (setup request /
 response / unsuccessful, modify request / response / unsuccessful, release
-command / response). This Skill records transfer presence, reviewed kind,
+command / response, and the handover/path-switch transfers listed in
+`procedure-map.md`). This Skill records transfer presence, reviewed kind,
 and length only. It implements no general-purpose ASN.1 transfer decoder
 and never dumps transfer payload bytes as evidence.
+
+## Mobility evidence boundary
+
+Version 0.3.0 adds the bounded N2 handover/path-switch subset (procedure
+codes 10, 11, 12, 13, 25). The same evidence rules apply unchanged:
+
+- Message-level `result` stays a local protocol-message role.
+  `HandoverRequestAcknowledge` observed means only that the NGAP
+  successfulOutcome branch was observed; it never means the handover
+  completed end-to-end, the UPF path was switched, N3 traffic moved, or the
+  old path was removed. No HANDOVER_SUCCESS or PATH_SWITCH_SUCCESS field
+  exists in this Skill's output.
+- `HandoverRequired` observed means only that an NGAP Handover Required
+  message was observed; it does not prove radio degradation, source-side
+  fault, or that the handover later succeeded.
+- `HandoverCancel` observed is the protocol cancellation path with its
+  Cause; it is not automatically a failure verdict.
+- `HandoverNotify` is mobility progress evidence only; it never fabricates
+  PathSwitchRequest, PFCP, or user-plane observations.
+- Unsuccessful outcomes (HandoverPreparationFailure, HandoverFailure,
+  PathSwitchRequestFailure) are direct protocol evidence with their Cause;
+  they never become AMF, gNB, or radio root cause.
+- radioNetwork Cause values stay observed protocol evidence; they do not
+  confirm a radio fault.
+- A successfulOutcome mobility message may carry admitted/switched **and**
+  failed/released resource items at once; outcomes stay item-scoped in
+  `pdu_session_resources[].resource_list_role` and are never flattened into
+  a message-wide resource verdict.
+- Mobility metadata (`mobility.family`, HandoverType value with reviewed
+  symbolic name, TargetID presence with reviewed choice alternative,
+  transparent-container presence/length) is protocol-local identity. It is
+  never handover_attempt, handover_stage, mobility_terminal_state,
+  path_switch_completed, or any Domain procedure state; the future Domain
+  Skill owns those.
+- NGAP never derives N3 tunnel identity, transport addresses, or UPF path
+  state from opaque transfer containers, and owns no PFCP/SEID semantics.
+  NAS-PDU inside HandoverRequest is preserved as presence and length only.
+
+## Source and target associations
+
+A handover involves a source NG-RAN association and a target NG-RAN
+association. This Skill preserves each observed association separately and
+never creates a synthetic cross-association UE identity: TS 38.413 provides
+no protocol field that deterministically binds source and target signaling
+into one UE context at the Protocol layer. Matching AMF-UE-NGAP-IDs, close
+timestamps, sequential handover messages, or equal PDU Session IDs never
+merge the two associations; future Domain correlation owns cross-procedure
+source/target mobility association.
 
 ## Future N1 / N2 / N4 / N3 composition
 

@@ -5,9 +5,16 @@ The protocol identity tables below were reviewed against the NGAP dissector
 of Wireshark/TShark 4.7.1 (v4.7.1-0-g667ab240e6de) via `tshark -G fields`
 and `tshark -G values`, which implements 3GPP TS 38.413 procedure codes and
 cause vocabularies. Semantic support is intentionally bounded to the
-UE-context / NAS-transport / Initial Context / Release / Paging subset;
-every other known procedure code is reported as UNSUPPORTED without
-invented semantics, and unknown codes as UNKNOWN.
+UE-context / NAS-transport / Initial Context / Release / Paging subset, the
+bounded PDU Session resource subset, and the bounded N2 handover /
+path-switch mobility subset; every other known procedure code is reported
+as UNSUPPORTED without invented semantics, and unknown codes as UNKNOWN.
+
+The mobility message identities, resource-list fields, transfer-container
+fields, HandoverType and TargetID vocabularies were verified in 4.7.1 by
+local introspection (`tshark -G fields` / `tshark -G values`) cross-checked
+against the TS 38.413 ASN.1 sources packaged with that dissector. No field
+name is invented.
 
 Timestamp normalization matches the core-network-pcap convention; the code
 is duplicated here on purpose so this package stays standalone when the
@@ -85,6 +92,34 @@ FIELDS = (
     "ngap.pDUSessionResourceModifyUnsuccessfulTransfer",
     "ngap.pDUSessionResourceReleaseCommandTransfer",
     "ngap.pDUSessionResourceReleaseResponseTransfer",
+    # Bounded N2 mobility evidence (handover / path switch). Names verified
+    # via `tshark -G fields` on 4.7.1 and the packaged TS 38.413 ASN.1.
+    "ngap.PDUSessionResourceListHORqd",
+    "ngap.PDUSessionResourceHandoverList",
+    "ngap.PDUSessionResourceToReleaseListHOCmd",
+    "ngap.PDUSessionResourceSetupListHOReq",
+    "ngap.PDUSessionResourceAdmittedList",
+    "ngap.PDUSessionResourceFailedToSetupListHOAck",
+    "ngap.PDUSessionResourceToBeSwitchedDLList",
+    "ngap.PDUSessionResourceFailedToSetupListPSReq",
+    "ngap.PDUSessionResourceSwitchedList",
+    "ngap.PDUSessionResourceReleasedListPSAck",
+    "ngap.PDUSessionResourceReleasedListPSFail",
+    "ngap.handoverRequiredTransfer",
+    "ngap.handoverCommandTransfer",
+    "ngap.handoverPreparationUnsuccessfulTransfer",
+    "ngap.handoverRequestTransfer",
+    "ngap.handoverRequestAcknowledgeTransfer",
+    "ngap.handoverResourceAllocationUnsuccessfulTransfer",
+    "ngap.pathSwitchRequestTransfer",
+    "ngap.pathSwitchRequestAcknowledgeTransfer",
+    "ngap.pathSwitchRequestUnsuccessfulTransfer",
+    "ngap.pathSwitchRequestSetupFailedTransfer",
+    "ngap.HandoverType",
+    "ngap.TargetID",
+    "ngap.SourceToTarget_TransparentContainer",
+    "ngap.TargetToSource_TransparentContainer",
+    "ngap.TargettoSource_Failure_TransparentContainer",
 )
 
 PDU_INITIATING = "initiatingMessage"
@@ -98,6 +133,21 @@ PDU_TYPES = (PDU_INITIATING, PDU_SUCCESSFUL, PDU_UNSUCCESSFUL)
 SUPPORTED_PROCEDURES = {
     4: ("DownlinkNASTransport", {PDU_INITIATING: "DownlinkNASTransport"}),
     9: ("ErrorIndication", {PDU_INITIATING: "ErrorIndication"}),
+    10: ("HandoverCancel", {
+        PDU_INITIATING: "HandoverCancel",
+        PDU_SUCCESSFUL: "HandoverCancelAcknowledge",
+    }),
+    11: ("HandoverNotification", {PDU_INITIATING: "HandoverNotify"}),
+    12: ("HandoverPreparation", {
+        PDU_INITIATING: "HandoverRequired",
+        PDU_SUCCESSFUL: "HandoverCommand",
+        PDU_UNSUCCESSFUL: "HandoverPreparationFailure",
+    }),
+    13: ("HandoverResourceAllocation", {
+        PDU_INITIATING: "HandoverRequest",
+        PDU_SUCCESSFUL: "HandoverRequestAcknowledge",
+        PDU_UNSUCCESSFUL: "HandoverFailure",
+    }),
     14: ("InitialContextSetup", {
         PDU_INITIATING: "InitialContextSetupRequest",
         PDU_SUCCESSFUL: "InitialContextSetupResponse",
@@ -106,6 +156,11 @@ SUPPORTED_PROCEDURES = {
     15: ("InitialUEMessage", {PDU_INITIATING: "InitialUEMessage"}),
     19: ("NASNonDeliveryIndication", {PDU_INITIATING: "NASNonDeliveryIndication"}),
     24: ("Paging", {PDU_INITIATING: "Paging"}),
+    25: ("PathSwitchRequest", {
+        PDU_INITIATING: "PathSwitchRequest",
+        PDU_SUCCESSFUL: "PathSwitchRequestAcknowledge",
+        PDU_UNSUCCESSFUL: "PathSwitchRequestFailure",
+    }),
     26: ("PDUSessionResourceModify", {
         PDU_INITIATING: "PDUSessionResourceModifyRequest",
         PDU_SUCCESSFUL: "PDUSessionResourceModifyResponse",
@@ -146,6 +201,22 @@ MESSAGE_RESULTS = {
     "UEContextReleaseCommand": "COMMAND",
     "UEContextReleaseComplete": "COMPLETE",
     "UEContextReleaseRequest": "REQUEST",
+    # Mobility messages reuse the same bounded local labels. HandoverCommand
+    # carries COMMAND because its protocol role is commanding handover
+    # execution at the source NG-RAN; its successful-outcome branch identity
+    # stays visible in pdu_type. HandoverNotify is an indication-only message
+    # (no request/outcome relationship) and carries null like ErrorIndication.
+    "HandoverRequired": "REQUEST",
+    "HandoverCommand": "COMMAND",
+    "HandoverPreparationFailure": "FAILURE",
+    "HandoverRequest": "REQUEST",
+    "HandoverRequestAcknowledge": "SUCCESS",
+    "HandoverFailure": "FAILURE",
+    "HandoverCancel": "REQUEST",
+    "HandoverCancelAcknowledge": "SUCCESS",
+    "PathSwitchRequest": "REQUEST",
+    "PathSwitchRequestAcknowledge": "SUCCESS",
+    "PathSwitchRequestFailure": "FAILURE",
 }
 
 # TS 38.413 defines the signaling side that sends each message. The role is
@@ -170,6 +241,23 @@ MESSAGE_SENDER_ROLES = {
     "UEContextReleaseCommand": "amf",
     "UEContextReleaseComplete": "ng-ran",
     "UEContextReleaseRequest": "ng-ran",
+    # Reviewed TS 38.413 elementary-procedure directions: Handover
+    # Preparation, Handover Cancel, Handover Notification, and Path Switch
+    # Request are initiated by the NG-RAN node; Handover Resource Allocation
+    # is initiated by the AMF. Outcome branches are sent by the receiving
+    # side. Endpoint addresses are never mapped to these roles.
+    "HandoverRequired": "ng-ran",
+    "HandoverCommand": "amf",
+    "HandoverPreparationFailure": "amf",
+    "HandoverRequest": "amf",
+    "HandoverRequestAcknowledge": "ng-ran",
+    "HandoverFailure": "ng-ran",
+    "HandoverNotify": "ng-ran",
+    "HandoverCancel": "ng-ran",
+    "HandoverCancelAcknowledge": "amf",
+    "PathSwitchRequest": "ng-ran",
+    "PathSwitchRequestAcknowledge": "amf",
+    "PathSwitchRequestFailure": "amf",
 }
 
 # --- PDU Session resource evidence -------------------------------------
@@ -179,8 +267,32 @@ MESSAGE_SENDER_ROLES = {
 # PDU Session resources through a FAILED-TO-SETUP / FAILED-TO-MODIFY item
 # list inside a successfulOutcome response; TS 38.413 defines no
 # "PDUSessionResourceSetupFailure" message.
-RESOURCE_OPERATIONS = ("SETUP", "MODIFY", "RELEASE", "INITIAL_CONTEXT_SETUP")
-RESOURCE_LIST_ROLES = ("REQUEST", "SUCCESS", "FAILED", "COMMAND", "RESPONSE")
+RESOURCE_OPERATIONS = (
+    "SETUP",
+    "MODIFY",
+    "RELEASE",
+    "INITIAL_CONTEXT_SETUP",
+    "HANDOVER_PREPARATION",
+    "HANDOVER_RESOURCE_ALLOCATION",
+    "PATH_SWITCH",
+)
+RESOURCE_LIST_ROLES = (
+    "REQUEST",
+    "SUCCESS",
+    "FAILED",
+    "COMMAND",
+    "RESPONSE",
+    # Mobility list roles, derived from the reviewed TS 38.413 list meanings.
+    # Each role describes the resource's location inside the observed message,
+    # never an end-to-end verdict.
+    "REQUIRED",
+    "HANDOVER",
+    "TO_RELEASE",
+    "ADMITTED",
+    "TO_BE_SWITCHED",
+    "SWITCHED",
+    "RELEASED",
+)
 
 # Resource-list indicator field -> (operation, list role).
 RESOURCE_LIST_FIELDS = {
@@ -195,6 +307,20 @@ RESOURCE_LIST_FIELDS = {
     "ngap.PDUSessionResourceFailedToModifyListModRes": ("MODIFY", "FAILED"),
     "ngap.PDUSessionResourceToReleaseListRelCmd": ("RELEASE", "COMMAND"),
     "ngap.PDUSessionResourceReleasedListRelRes": ("RELEASE", "RESPONSE"),
+    # Bounded mobility lists. PDUSessionResourceHandoverList is the verified
+    # HandoverCommand PDU Session list (id-PDUSessionResourceHandoverList);
+    # the reviewed TS 38.413 ASN.1 defines no PDUSessionResourceListHOCmd.
+    "ngap.PDUSessionResourceListHORqd": ("HANDOVER_PREPARATION", "REQUIRED"),
+    "ngap.PDUSessionResourceHandoverList": ("HANDOVER_PREPARATION", "HANDOVER"),
+    "ngap.PDUSessionResourceToReleaseListHOCmd": ("HANDOVER_PREPARATION", "TO_RELEASE"),
+    "ngap.PDUSessionResourceSetupListHOReq": ("HANDOVER_RESOURCE_ALLOCATION", "REQUEST"),
+    "ngap.PDUSessionResourceAdmittedList": ("HANDOVER_RESOURCE_ALLOCATION", "ADMITTED"),
+    "ngap.PDUSessionResourceFailedToSetupListHOAck": ("HANDOVER_RESOURCE_ALLOCATION", "FAILED"),
+    "ngap.PDUSessionResourceToBeSwitchedDLList": ("PATH_SWITCH", "TO_BE_SWITCHED"),
+    "ngap.PDUSessionResourceFailedToSetupListPSReq": ("PATH_SWITCH", "FAILED"),
+    "ngap.PDUSessionResourceSwitchedList": ("PATH_SWITCH", "SWITCHED"),
+    "ngap.PDUSessionResourceReleasedListPSAck": ("PATH_SWITCH", "RELEASED"),
+    "ngap.PDUSessionResourceReleasedListPSFail": ("PATH_SWITCH", "RELEASED"),
 }
 
 # Reviewed message identity -> resource operation (message-definition basis).
@@ -207,6 +333,15 @@ RESOURCE_OPERATION_BY_MESSAGE = {
     "PDUSessionResourceReleaseResponse": "RELEASE",
     "InitialContextSetupRequest": "INITIAL_CONTEXT_SETUP",
     "InitialContextSetupResponse": "INITIAL_CONTEXT_SETUP",
+    "HandoverRequired": "HANDOVER_PREPARATION",
+    "HandoverCommand": "HANDOVER_PREPARATION",
+    "HandoverPreparationFailure": "HANDOVER_PREPARATION",
+    "HandoverRequest": "HANDOVER_RESOURCE_ALLOCATION",
+    "HandoverRequestAcknowledge": "HANDOVER_RESOURCE_ALLOCATION",
+    "HandoverFailure": "HANDOVER_RESOURCE_ALLOCATION",
+    "PathSwitchRequest": "PATH_SWITCH",
+    "PathSwitchRequestAcknowledge": "PATH_SWITCH",
+    "PathSwitchRequestFailure": "PATH_SWITCH",
 }
 
 # Transfer-container field -> reviewed transfer kind. Presence and length
@@ -220,7 +355,58 @@ TRANSFER_FIELDS = {
     "ngap.pDUSessionResourceModifyUnsuccessfulTransfer": "modify-unsuccessful-transfer",
     "ngap.pDUSessionResourceReleaseCommandTransfer": "release-command-transfer",
     "ngap.pDUSessionResourceReleaseResponseTransfer": "release-response-transfer",
+    # Bounded mobility transfer containers, verified in 4.7.1. Presence,
+    # reviewed kind, and length only; the encoded transfer body is never
+    # parsed and the raw bytes are never persisted.
+    "ngap.handoverRequiredTransfer": "handover-required-transfer",
+    "ngap.handoverCommandTransfer": "handover-command-transfer",
+    "ngap.handoverPreparationUnsuccessfulTransfer": "handover-preparation-unsuccessful-transfer",
+    "ngap.handoverRequestTransfer": "handover-request-transfer",
+    "ngap.handoverRequestAcknowledgeTransfer": "handover-request-acknowledge-transfer",
+    "ngap.handoverResourceAllocationUnsuccessfulTransfer": "handover-resource-allocation-unsuccessful-transfer",
+    "ngap.pathSwitchRequestTransfer": "path-switch-request-transfer",
+    "ngap.pathSwitchRequestAcknowledgeTransfer": "path-switch-request-acknowledge-transfer",
+    "ngap.pathSwitchRequestUnsuccessfulTransfer": "path-switch-request-unsuccessful-transfer",
+    "ngap.pathSwitchRequestSetupFailedTransfer": "path-switch-request-setup-failed-transfer",
 }
+
+# Bounded N2 mobility procedure codes and their protocol-local families.
+# The family names the elementary procedure, never a Domain procedure state.
+MOBILITY_PROCEDURE_CODES = {10, 11, 12, 13, 25}
+MOBILITY_FAMILIES = {
+    10: "handover-cancel",
+    11: "handover-notification",
+    12: "handover-preparation",
+    13: "handover-resource-allocation",
+    25: "path-switch",
+}
+
+# Reviewed HandoverType enumerated values (tshark -G values, table
+# ngap.HandoverType). The observed value is preserved; the symbolic name is
+# derived only for values in this exact reviewed mapping.
+HANDOVER_TYPE_NAMES = {
+    0: "intra5gs",
+    1: "fivegs-to-eps",
+    2: "eps-to-5gs",
+    3: "fivegs-to-utran",
+}
+
+# Reviewed TargetID CHOICE alternatives (tshark -G values, table
+# ngap.TargetID). Only the choice alternative is recorded; no target node,
+# site, or vendor identity is derived.
+TARGET_ID_TYPES = {
+    0: "targetRANNodeID",
+    1: "targeteNB-ID",
+    2: "choice-Extensions",
+}
+
+# Reviewed mobility transparent containers (message-level presence/length
+# only; the encoded content is never parsed).
+MOBILITY_CONTAINER_FIELDS = (
+    ("ngap.SourceToTarget_TransparentContainer", "source_to_target_container"),
+    ("ngap.TargetToSource_TransparentContainer", "target_to_source_container"),
+    ("ngap.TargettoSource_Failure_TransparentContainer", "target_to_source_failure_container"),
+)
 
 # Structured-input binding bases recorded on every resource item.
 BINDING_STRUCTURED = "structured-input"
@@ -625,6 +811,60 @@ def transfer_metadata(record: dict[str, object]) -> dict[str, object]:
     return {"present": True, "kind": kinds[0] if len(kinds) == 1 else "multiple", "length": total}
 
 
+def mobility_metadata(
+    record: dict[str, object], procedure_code: int, derivations: list[str]
+) -> dict[str, object]:
+    """Bounded protocol-local mobility metadata for one supported mobility message.
+
+    Preserves only: the mobility procedure family, the observed HandoverType
+    value with its reviewed symbolic name, TargetID presence with its
+    reviewed choice alternative, and transparent-container presence and
+    octet length. It never infers why a handover occurred, never decodes
+    container content, and never produces a mobility verdict.
+    """
+    family = MOBILITY_FAMILIES.get(procedure_code)
+    derivations.append("mobility_family")
+
+    type_value: int | None = None
+    type_name: str | None = None
+    raw_type = clean(record.get("ngap.HandoverType"))
+    if raw_type is not None:
+        as_int = optional_int(raw_type)
+        if as_int is not None:
+            type_value = as_int
+            type_name = HANDOVER_TYPE_NAMES.get(as_int)
+            if type_name is not None:
+                derivations.append("handover_type_name")
+        elif raw_type in HANDOVER_TYPE_NAMES.values():
+            type_name = raw_type
+
+    target_present = False
+    target_type: str | None = None
+    raw_target = clean(record.get("ngap.TargetID"))
+    if raw_target is not None:
+        target_present = True
+        as_int = optional_int(raw_target)
+        if as_int is not None:
+            target_type = TARGET_ID_TYPES.get(as_int)
+            if target_type is not None:
+                derivations.append("target_id_type")
+        else:
+            target_type = raw_target
+
+    containers: dict[str, object] = {}
+    for field, key in MOBILITY_CONTAINER_FIELDS:
+        raw = clean(record.get(field))
+        containers[key] = {"present": raw is not None, "length": byte_length(raw)}
+    return {
+        "family": family,
+        "handover_type_value": type_value,
+        "handover_type_name": type_name,
+        "target_id_present": target_present,
+        "target_id_type": target_type,
+        **containers,
+    }
+
+
 def _empty_item(session_id: int, operation: str | None, role: str | None, basis: str) -> dict[str, object]:
     return {
         "pdu_session_id": session_id,
@@ -759,23 +999,30 @@ def resolve_pdu_session_resources(
         elif distinct_roles:
             limitations.append("a resource list was observed but no PDU session identity was exported")
 
-        if len(items) == 1:
-            item = items[0]
+    # Nested flattened values (QFI / NAS-PDU / transfer) attach only when
+    # exactly one parent resource item exists; they are never zipped by
+    # position and never silently dropped. Structured items keep their
+    # structured-input identity basis; list-derived items record the
+    # single-resource-message basis when flattened values attach.
+    if len(items) == 1:
+        item = items[0]
+        if flat_qfis:
             item["qfi_values"] = flat_qfis
-            item["nas_pdu_present"] = flat_nas is not None
-            item["nas_pdu_length"] = byte_length(flat_nas) if flat_nas is not None else None
-            if flat_transfer["present"]:
-                item["transfer"] = dict(flat_transfer)
-            if flat_qfis or flat_nas is not None or flat_transfer["present"]:
-                item["binding_basis"] = BINDING_SINGLE_ITEM
-        else:
-            if flat_qfis:
-                unbound_qfis = list(flat_qfis)
-                limitations.append("QFI values observed but not safely attributable to a specific PDU session resource item")
-            if flat_nas is not None:
-                limitations.append("a PDU session NAS-PDU was observed but not safely attributable to a specific resource item")
-            if flat_transfer["present"]:
-                limitations.append("transfer container(s) observed but not safely attributable to a specific resource item")
+        if flat_nas is not None:
+            item["nas_pdu_present"] = True
+            item["nas_pdu_length"] = byte_length(flat_nas)
+        if flat_transfer["present"]:
+            item["transfer"] = dict(flat_transfer)
+        if structured is None and (flat_qfis or flat_nas is not None or flat_transfer["present"]):
+            item["binding_basis"] = BINDING_SINGLE_ITEM
+    else:
+        if flat_qfis:
+            unbound_qfis = list(flat_qfis)
+            limitations.append("QFI values observed but not safely attributable to a specific PDU session resource item")
+        if flat_nas is not None:
+            limitations.append("a PDU session NAS-PDU was observed but not safely attributable to a specific resource item")
+        if flat_transfer["present"]:
+            limitations.append("transfer container(s) observed but not safely attributable to a specific resource item")
 
     explicit_unbound_qfis = repeated_ints(record.get("unbound_qfi_values"))
     for value in explicit_unbound_qfis:
@@ -853,6 +1100,7 @@ def normalize_record(record: object, capture_file: str) -> dict[str, object]:
     source_ref = f"capture:{capture_file}#frame={frame_number}; procedure-code={procedure_code}"
     if observed_message is not None:
         source_ref += f"; tshark-info={observed_message}"
+    derivations = list(identity.derivations)
     event: dict[str, object] = {
         "timestamp": timestamp,
         "frame_number": frame_number,
@@ -874,8 +1122,11 @@ def normalize_record(record: object, capture_file: str) -> dict[str, object]:
         "user_location_information_present": user_location_present,
         "paging_identity_present": paging_identity_present,
         "evidence": {"level": "OBSERVED", "source": source_ref},
-        "derivations": list(identity.derivations),
+        "derivations": derivations,
     }
+    if identity.support_status == "SUPPORTED" and procedure_code in MOBILITY_PROCEDURE_CODES:
+        event["mobility"] = mobility_metadata(record, procedure_code, derivations)
+        derivations.sort()
     if source is not None:
         event["source"] = source
     if destination is not None:

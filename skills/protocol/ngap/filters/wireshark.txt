@@ -1,9 +1,9 @@
-# NGAP display filters (bounded UE-context and PDU Session resource subsets)
-# Field names verified against the NGAP dissector of Wireshark/TShark 4.7.1
-# as published in the Wireshark display-filter reference. The reviewed
-# environment had no local tshark installation, so the PDU Session resource
-# filters below are published-reference verified, not locally re-dumped.
-# Filter names are version-dependent; re-verify before using other releases.
+# NGAP display filters (bounded UE-context, PDU Session resource, and N2
+# mobility subsets). Field names verified locally against the NGAP dissector
+# of Wireshark/TShark 4.7.1 via `tshark -G fields` and `tshark -G values`,
+# cross-checked against the TS 38.413 ASN.1 sources packaged with that
+# dissector. Filter names are version-dependent; re-verify before using
+# other releases.
 
 # All NGAP traffic
 ngap
@@ -23,6 +23,15 @@ ngap.procedureCode == 19
 ngap.procedureCode == 29
 ngap.procedureCode == 26
 ngap.procedureCode == 28
+
+# Bounded N2 mobility procedures
+# 10 HandoverCancel, 11 HandoverNotification, 12 HandoverPreparation,
+# 13 HandoverResourceAllocation, 25 PathSwitchRequest
+ngap.procedureCode == 10
+ngap.procedureCode == 11
+ngap.procedureCode == 12
+ngap.procedureCode == 13
+ngap.procedureCode == 25
 
 # UE NGAP identifiers
 ngap.RAN_UE_NGAP_ID
@@ -46,6 +55,27 @@ ngap.PDUSessionResourceFailedToModifyListModRes
 ngap.PDUSessionResourceToReleaseListRelCmd
 ngap.PDUSessionResourceReleasedListRelRes
 
+# Mobility resource list indicators (operation / list role)
+# HandoverRequired: resources to be handed over (HANDOVER_PREPARATION / REQUIRED)
+ngap.PDUSessionResourceListHORqd
+# HandoverCommand: resources to be handed over per the command (HANDOVER / HANDOVER);
+# HandoverCommand: resources to release (HANDOVER_PREPARATION / TO_RELEASE)
+ngap.PDUSessionResourceHandoverList
+ngap.PDUSessionResourceToReleaseListHOCmd
+# HandoverRequest: target-side setup (HANDOVER_RESOURCE_ALLOCATION / REQUEST)
+ngap.PDUSessionResourceSetupListHOReq
+# HandoverRequestAcknowledge: admitted (ADMITTED) and failed (FAILED) resources
+ngap.PDUSessionResourceAdmittedList
+ngap.PDUSessionResourceFailedToSetupListHOAck
+# PathSwitchRequest: downlink resources to switch (TO_BE_SWITCHED) and failed (FAILED)
+ngap.PDUSessionResourceToBeSwitchedDLList
+ngap.PDUSessionResourceFailedToSetupListPSReq
+# PathSwitchRequestAcknowledge: switched (SWITCHED) and released (RELEASED)
+ngap.PDUSessionResourceSwitchedList
+ngap.PDUSessionResourceReleasedListPSAck
+# PathSwitchRequestFailure: released (RELEASED)
+ngap.PDUSessionResourceReleasedListPSFail
+
 # Transfer containers (presence only; never parsed)
 ngap.pDUSessionResourceSetupRequestTransfer
 ngap.pDUSessionResourceSetupResponseTransfer
@@ -55,6 +85,27 @@ ngap.pDUSessionResourceModifyResponseTransfer
 ngap.pDUSessionResourceModifyUnsuccessfulTransfer
 ngap.pDUSessionResourceReleaseCommandTransfer
 ngap.pDUSessionResourceReleaseResponseTransfer
+
+# Mobility transfer containers (presence only; never parsed)
+ngap.handoverRequiredTransfer
+ngap.handoverCommandTransfer
+ngap.handoverPreparationUnsuccessfulTransfer
+ngap.handoverRequestTransfer
+ngap.handoverRequestAcknowledgeTransfer
+ngap.handoverResourceAllocationUnsuccessfulTransfer
+ngap.pathSwitchRequestTransfer
+ngap.pathSwitchRequestAcknowledgeTransfer
+ngap.pathSwitchRequestUnsuccessfulTransfer
+ngap.pathSwitchRequestSetupFailedTransfer
+
+# Mobility metadata (observed values; never interpreted as causes or verdicts)
+ngap.HandoverType
+ngap.TargetID
+
+# Mobility transparent containers (presence only; never decoded)
+ngap.SourceToTarget_TransparentContainer
+ngap.TargetToSource_TransparentContainer
+ngap.TargettoSource_Failure_TransparentContainer
 
 # PDU Session NAS-PDU (presence only; NAS semantics belong to nas-5gs)
 ngap.pDUSessionNAS_PDU

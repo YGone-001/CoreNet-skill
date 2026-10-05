@@ -57,6 +57,40 @@
       "description": "Optional bounded PDU Session resource items. Present only when resource evidence was observed; multiple items and mixed success/failed items are preserved as-is.",
       "items": {"$ref": "#/$defs/resourceItem"}
     },
+    "mobility": {
+      "type": "object",
+      "description": "Optional bounded protocol-local mobility metadata for a supported N2 handover/path-switch message. It records the reviewed procedure family, observed HandoverType value with its reviewed symbolic name, TargetID presence with its reviewed choice alternative, and transparent-container presence and octet length. It is never an end-to-end mobility verdict and never decodes container content.",
+      "required": [
+        "family",
+        "handover_type_value",
+        "handover_type_name",
+        "target_id_present",
+        "target_id_type",
+        "source_to_target_container",
+        "target_to_source_container",
+        "target_to_source_failure_container"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "family": {
+          "type": "string",
+          "enum": [
+            "handover-preparation",
+            "handover-resource-allocation",
+            "handover-notification",
+            "handover-cancel",
+            "path-switch"
+          ]
+        },
+        "handover_type_value": {"type": ["integer", "null"]},
+        "handover_type_name": {"type": ["string", "null"], "minLength": 1},
+        "target_id_present": {"type": "boolean"},
+        "target_id_type": {"type": ["string", "null"], "minLength": 1},
+        "source_to_target_container": {"$ref": "#/$defs/containerPresence"},
+        "target_to_source_container": {"$ref": "#/$defs/containerPresence"},
+        "target_to_source_failure_container": {"$ref": "#/$defs/containerPresence"}
+      }
+    },
     "unbound_resource_metadata": {
       "type": "object",
       "description": "Nested resource metadata observed in this message but not safely attributable to a specific resource item.",
@@ -93,7 +127,19 @@
     },
     "derivations": {
       "type": "array",
-      "items": {"type": "string", "enum": ["procedure_name", "message_type", "pdu_type", "result", "sender_role"]},
+      "items": {
+        "type": "string",
+        "enum": [
+          "procedure_name",
+          "message_type",
+          "pdu_type",
+          "result",
+          "sender_role",
+          "mobility_family",
+          "handover_type_name",
+          "target_id_type"
+        ]
+      },
       "uniqueItems": true
     }
   },
@@ -114,6 +160,16 @@
         "value": {"type": ["integer", "string", "null"]}
       }
     },
+    "containerPresence": {
+      "type": "object",
+      "description": "Transparent-container presence and octet length; content is never parsed or retained.",
+      "required": ["present", "length"],
+      "additionalProperties": false,
+      "properties": {
+        "present": {"type": "boolean"},
+        "length": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
     "resourceItem": {
       "type": "object",
       "description": "One bounded PDU Session resource observation inside an NGAP message.",
@@ -132,8 +188,37 @@
       "additionalProperties": false,
       "properties": {
         "pdu_session_id": {"type": "integer", "minimum": 0, "maximum": 255},
-        "resource_operation": {"type": ["string", "null"], "enum": ["SETUP", "MODIFY", "RELEASE", "INITIAL_CONTEXT_SETUP", null]},
-        "resource_list_role": {"type": ["string", "null"], "enum": ["REQUEST", "SUCCESS", "FAILED", "COMMAND", "RESPONSE", null]},
+        "resource_operation": {
+          "type": ["string", "null"],
+          "enum": [
+            "SETUP",
+            "MODIFY",
+            "RELEASE",
+            "INITIAL_CONTEXT_SETUP",
+            "HANDOVER_PREPARATION",
+            "HANDOVER_RESOURCE_ALLOCATION",
+            "PATH_SWITCH",
+            null
+          ]
+        },
+        "resource_list_role": {
+          "type": ["string", "null"],
+          "enum": [
+            "REQUEST",
+            "SUCCESS",
+            "FAILED",
+            "COMMAND",
+            "RESPONSE",
+            "REQUIRED",
+            "HANDOVER",
+            "TO_RELEASE",
+            "ADMITTED",
+            "TO_BE_SWITCHED",
+            "SWITCHED",
+            "RELEASED",
+            null
+          ]
+        },
         "snssai": {
           "type": "object",
           "required": ["sst", "sd"],

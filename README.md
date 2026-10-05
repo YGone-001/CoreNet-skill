@@ -8,9 +8,14 @@
 upstream snapshots, six CoreNet Foundation Skills, telecom core-network
 Foundation extensions, GitHub Actions validation, the `core-network-pcap`
 capture normalization layer, the bounded `ngap` Protocol Skill
-(bounded UE-context signaling and PDU Session Resource
+(bounded UE-context signaling, PDU Session Resource
 setup/modify/release subset over N2, including resources embedded in
-Initial Context Setup), the bounded `nas-5gs` Protocol
+Initial Context Setup, and the bounded N2 handover/path-switch mobility
+subset: HandoverRequired/HandoverCommand/HandoverPreparationFailure,
+HandoverRequest/HandoverRequestAcknowledge/HandoverFailure, HandoverNotify,
+HandoverCancel/HandoverCancelAcknowledge, and
+PathSwitchRequest/PathSwitchRequestAcknowledge/PathSwitchRequestFailure
+with bounded mobility metadata and item-scoped resource-list roles), the bounded `nas-5gs` Protocol
 Skill (bounded 5GMM
 registration/identity/authentication/security-mode/service/status and
 bounded 5GSM PDU session establishment/modification/release/status
@@ -51,8 +56,10 @@ candidates drawn only from Domain-emitted deviations and their machine-readable
 evidence_refs (Domain contracts 5gc-registration-mobility >=0.2.0 and
 5gc-pdu-session >=0.4.0), provenance-based ordering with no severity ranking, and no root-cause or blame output). The extensions
 provide investigation context only.
-**Not yet implemented:** deep NGAP transfer-container decoding, NGAP handover and
-path-switch procedures, broader 5GC mobility (including UPF relocation), remaining
+**Not yet implemented:** deep NGAP transfer-container decoding, the remaining
+NGAP mobility-adjacent procedures (RAN Status Transfer and similar), a 5GC
+Handover/Path-Switch Domain Skill and broader 5GC mobility (including UPF
+relocation), remaining
 5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (NAS-EPS,
 S1AP, GTPv2, SIP, SDP/RTP, Diameter), EPC/IMS Domain procedures,
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper

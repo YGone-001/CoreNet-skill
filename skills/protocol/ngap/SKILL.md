@@ -5,11 +5,13 @@
 Answer WHAT an observed NGAP message, item, and field mean at the protocol
 layer: PDU category, elementary procedure, concrete message identity, UE
 NGAP context identifiers, NGAP Cause, bounded PDU Session resource
-evidence, and protocol-local UE-context correlation. This is a
+evidence, bounded N2 handover/path-switch mobility evidence, and
+protocol-local UE-context correlation. This is a
 Protocol-layer Skill for the N2 interface (NG-RAN to AMF, NGAP over SCTP),
 bounded to the UE-context / NAS-transport / Initial Context / release /
-paging / PDU Session resource subset of 3GPP TS 38.413 version 19.4.0
-Release 19, as implemented by the Wireshark/TShark 4.7.1 NGAP dissector.
+paging / PDU Session resource / handover-path-switch subset of
+3GPP TS 38.413 version 19.4.0 Release 19, as implemented by the
+Wireshark/TShark 4.7.1 NGAP dissector.
 
 ## Scope
 
@@ -32,6 +34,25 @@ Release 19, as implemented by the Wireshark/TShark 4.7.1 NGAP dissector.
 - Preserve nested QFI / Cause / transfer values that cannot be safely
   attributed to one resource item as unbound evidence instead of zipping
   them by position.
+- Support the bounded N2 mobility subset with exact reviewed message
+  identities: HandoverRequired / HandoverCommand / HandoverPreparationFailure
+  (Handover Preparation), HandoverRequest / HandoverRequestAcknowledge /
+  HandoverFailure (Handover Resource Allocation), HandoverNotify (Handover
+  Notification), HandoverCancel / HandoverCancelAcknowledge (Handover
+  Cancel), and PathSwitchRequest / PathSwitchRequestAcknowledge /
+  PathSwitchRequestFailure (Path Switch Request).
+- Preserve bounded mobility metadata: the reviewed procedure family, the
+  observed HandoverType value with its reviewed symbolic name, TargetID
+  presence with its reviewed choice alternative, and transparent-container
+  presence and octet length. Container content is never decoded.
+- Preserve mobility PDU Session resource lists (REQUIRED, HANDOVER,
+  TO_RELEASE, ADMITTED, TO_BE_SWITCHED, SWITCHED, RELEASED, FAILED roles)
+  as item-scoped arrays: a successfulOutcome mobility message may carry
+  admitted/switched and failed/released items at once, and the message
+  label never becomes an all-resource verdict.
+- Keep source and target NG-RAN associations separate: no timestamp,
+  identifier-only, or sequence-based join ever merges them, and no
+  synthetic cross-association UE identity is created.
 - Correlate frames into UE contexts deterministically, scoped by capture
   and SCTP association, with STRONG / MEDIUM / SINGLE-ID strength and
   explicit conflict detection.
@@ -45,13 +66,21 @@ Release 19, as implemented by the Wireshark/TShark 4.7.1 NGAP dissector.
 - Do not decode NAS-PDU contents. Registration messages, 5GMM/5GSM
   causes, SUCI/SUPI, 5G-GUTI, NSSAI, DNN, PDU Session Type, SSC mode, and
   PTI belong to the nas-5gs Skill.
-- Do not implement a generic ASN.1 transfer-container decoder and do not
-  dump transfer payloads. Transfer presence, reviewed kind, and length
-  only.
+- Do not implement a generic ASN.1 transfer-container or
+  transparent-container decoder and do not dump transfer payloads.
+  Transfer presence, reviewed kind, and length only.
 - Do not determine whether a PDU Session procedure succeeded; no
   request/response state engine and no PDU Session lifecycle exists here.
-- Do not own GTP-U/TEID, PFCP/SEID, N3 tunnel, or SBI/N11 semantics.
-- Do not model handover or path-switch resource procedures.
+- Do not own GTP-U/TEID, PFCP/SEID, N3 tunnel, or SBI/N11 semantics, and
+  never derive N3 tunnel identity or UPF path state from opaque NGAP
+  transfer containers.
+- Do not model handover or path-switch procedure outcomes: no
+  handover_attempt, handover_stage, mobility_terminal_state,
+  path_switch_completed, handover_success, path_switch_success, or
+  mobility verdict fields; no source/target mobility association. Those
+  belong to a future Domain Skill.
+- Do not decode NAS inside mobility messages; a HandoverRequest NAS-PDU is
+  preserved as presence and length only.
 - Do not diagnose radio layers (RRC timers, RLC/MAC/PHY measurements) or
   interpret a radioNetwork Cause as proof of radio fault.
 - Do not map behavior to AMF, gNB, SMF, or UPF implementations; no
@@ -93,9 +122,10 @@ Release 19, as implemented by the Wireshark/TShark 4.7.1 NGAP dissector.
   non-UE-associated events. PDU Session resource metadata is preserved
   verbatim and never establishes a UE context.
 - `scripts/ngap_timeline.py ngap-events.jsonl [--format text|json]` —
-  protocol-local timeline with PDU Session IDs, resource outcomes, bound
-  QFI values, and transfer presence; no NAS interpretation and no
-  session verdict.
+  protocol-local timeline with association, PDU Session IDs, resource
+  outcomes, bound QFI values, transfer presence, mobility family, handover
+  type, and container presence; no NAS interpretation and no
+  session or mobility verdict.
 
 ## Dependencies
 
@@ -129,10 +159,12 @@ including no repository root, docs, or shared assets.
 
 - OBSERVED: procedure code, PDU category with resolution basis, message
   identity, UE NGAP IDs, Cause, PDU Session IDs, resource list indicators,
-  QFI values, transfer containers, SCTP metadata, frame number, presence
-  flags.
+  QFI values, transfer containers, mobility procedure family input values,
+  HandoverType and TargetID observed values, transparent-container
+  presence, SCTP metadata, frame number, presence flags.
 - DERIVED: procedure-name mapping, message identity via reviewed branches,
-  local result/sender-role labels, resource operation/role labels, binding
+  local result/sender-role labels, resource operation/role labels, mobility
+  family, HandoverType and TargetID reviewed symbolic names, binding
   basis, deterministic bindings and context keys, timestamp conversion,
   timeline ordering.
 - INFERRED: protocol-local relationships strongly suggested but not
@@ -165,8 +197,11 @@ Run `python tests/test_ngap.py` from this package for the fixture suite
 binding and conflict behavior, association isolation, cause preservation,
 paging without fabricated context, NAS boundary, PDU Session resource
 setup/modify/release, Initial Context embedded resources, multi-resource
-messages, mixed success/failed lists, QFI binding and ambiguity, trace
-projection, schema conformance, deterministic output, malformed input,
+messages, mixed success/failed lists, QFI binding and ambiguity, bounded
+handover/path-switch mobility evidence, sender roles, HandoverType and
+TargetID handling, transparent-container presence, item-scoped mobility
+resource outcomes, source/target association isolation, trace projection,
+timeline, schema conformance, deterministic output, malformed input,
 tshark-unavailable behavior, standalone copy). Repository checkouts also
 run `python scripts/validate-ngap.py` for the package contract.
 

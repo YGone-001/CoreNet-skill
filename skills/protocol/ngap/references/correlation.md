@@ -83,6 +83,19 @@ The correlator preserves each member event's `pdu_session_resources` and
 lifecycle, does not match requests to responses, and does not correlate
 sessions across unrelated UE contexts.
 
+## Mobility evidence stays association-scoped
+
+Bounded N2 handover/path-switch events (procedure codes 10, 11, 12, 13, 25)
+correlate by the same UE-context rules as every other NGAP message. A
+handover typically spans a source NG-RAN association and a target NG-RAN
+association; the correlator keeps those contexts separate. Matching
+AMF-UE-NGAP-IDs, close timestamps, sequential handover message identities,
+equal PDU Session IDs, or a shared transparent container never merge a
+source context with a target context, and no synthetic cross-association
+UE identity is produced. The future Domain Skill owns cross-procedure
+source/target mobility association; this Skill reports both contexts as
+observed.
+
 ## Conflicts and capture windows
 
 Conflicts are DERIVED findings listing: the contradicting frame, the pair
