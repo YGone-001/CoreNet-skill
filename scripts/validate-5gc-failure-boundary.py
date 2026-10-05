@@ -45,6 +45,15 @@ EXPECTED_SCENARIOS = {
 # Scenarios whose analyzer MUST fail loudly (rc != 0) instead of producing output.
 FAILURE_EXPECTED_SCENARIOS = {"malformed-domain-input", "incomparable-provenance"}
 
+# Exact optional-dependency floors of the published manifest contract. They
+# must match the structured-provenance floors enforced by the runtime
+# (REGISTRATION_VERSION_FLOOR / PDU_SESSION_VERSION_FLOOR).
+EXPECTED_OPTIONAL_DEPENDENCIES = (
+    "5gc-registration-mobility >=0.2.0",
+    "5gc-pdu-session >=0.4.0",
+    "procedure-evidence >=0.1.0",
+)
+
 CAPTURE_SUFFIXES = {".pcap", ".pcapng", ".cap"}
 TEXT_SUFFIXES = {".md", ".py", ".yaml", ".json", ".jsonl", ".txt"}
 ABSOLUTE_PATH = re.compile(r"(?i)(?:[a-z]:[\\/]+users[\\/]|(?:^|[\s\"'])/(?:home|users)/)")
@@ -101,10 +110,17 @@ def validate(root: Path) -> list[str]:
     if set(manifest_block_or_flow(manifest, "interfaces")) != {"N1", "N2", "N3", "N4", "N11"}:
         errors.append("manifest interfaces must be N1, N2, N3, N4, N11")
 
-    optional_deps = " ".join(manifest_block_or_flow(manifest, "optional"))
-    for dep in ("5gc-registration-mobility", "5gc-pdu-session", "procedure-evidence"):
-        if dep not in optional_deps:
-            errors.append(f"manifest optional dependencies should include {dep}")
+    declared_optional = manifest_block_or_flow(manifest, "optional")
+    if sorted(declared_optional) != sorted(EXPECTED_OPTIONAL_DEPENDENCIES):
+        errors.append(
+            "manifest optional dependencies must be exactly: "
+            + "; ".join(EXPECTED_OPTIONAL_DEPENDENCIES)
+        )
+
+    for section in ("fixtures", "expected_results"):
+        for relative in manifest_block_or_flow(manifest, section):
+            if not (skill / relative).exists():
+                errors.append(f"manifest testing.{section} path does not exist: {relative}")
 
     try:
         schema = json.loads((skill / "schemas/5gc-failure-boundary-analysis.schema.json").read_text(encoding="utf-8"))

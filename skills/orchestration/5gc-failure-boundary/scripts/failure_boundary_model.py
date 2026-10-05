@@ -151,7 +151,8 @@ def _parse_version(value: Any, what: str) -> tuple[int, int, int] | None:
         return None
 
 
-def _enforce_version(actual: Any, floor: tuple[int, int, int], domain: str, file_name: str) -> None:
+def _enforce_version(actual: Any, floor: tuple[int, int, int], domain: str, file_name: str,
+                     version_field: str) -> None:
     version = _parse_version(actual, "version")
     if version is None:
         raise InputError(
@@ -161,7 +162,7 @@ def _enforce_version(actual: Any, floor: tuple[int, int, int], domain: str, file
         )
     if version < floor:
         raise InputError(
-            f"{file_name}: {domain} procedure_version {actual} lacks the structured deviation "
+            f"{file_name}: {domain} {version_field} {actual} lacks the structured deviation "
             f"provenance required by 5gc-failure-boundary {ANALYSIS_VERSION}; "
             f"{'.'.join(str(n) for n in floor)} or newer is required"
         )
@@ -298,7 +299,7 @@ def _registration_instances(path: Path) -> list[SourceInstance]:
     if doc.get("procedure_family") != "5gc-registration-mobility":
         raise InputError(f"{path.name} is not a 5gc-registration-mobility analysis summary")
     _enforce_version(doc.get("analysis_version"), REGISTRATION_VERSION_FLOOR,
-                     "5gc-registration-mobility", path.name)
+                     "5gc-registration-mobility", path.name, "analysis_version")
     instances: list[SourceInstance] = []
     for index, analysis in enumerate(_require_list(doc.get("analyses"), f"{path.name} analyses")):
         analysis = _require_mapping(analysis, f"{path.name} analyses[{index}]")
@@ -341,7 +342,7 @@ def _pdu_session_instances(path: Path) -> list[SourceInstance]:
     if doc.get("procedure_name") != "5gc-pdu-session":
         raise InputError(f"{path.name} is not a 5gc-pdu-session analysis summary")
     _enforce_version(doc.get("procedure_version"), PDU_SESSION_VERSION_FLOOR,
-                     "5gc-pdu-session", path.name)
+                     "5gc-pdu-session", path.name, "procedure_version")
     instances: list[SourceInstance] = []
     for index, instance in enumerate(_require_list(doc.get("instances"), f"{path.name} instances")):
         instance = _require_mapping(instance, f"{path.name} instances[{index}]")

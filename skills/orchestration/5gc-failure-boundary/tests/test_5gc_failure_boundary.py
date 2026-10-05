@@ -63,7 +63,7 @@ class ManifestAndPackageTests(unittest.TestCase):
         self.assertIn("version: 0.1.0", text)
         self.assertIn("category: orchestration", text)
         self.assertIn("required: []", text)
-        for dep in ("5gc-registration-mobility >=0.1.0", "5gc-pdu-session >=0.3.0", "procedure-evidence >=0.1.0"):
+        for dep in ("5gc-registration-mobility >=0.2.0", "5gc-pdu-session >=0.4.0", "procedure-evidence >=0.1.0"):
             self.assertIn(dep, text)
 
     def test_expected_fixture_matches_committed_output(self):
@@ -421,7 +421,19 @@ class StructuredProvenanceTests(unittest.TestCase):
             rc = ANALYZE.main(["--registration", str(old),
                                "--output", str(Path(directory) / "out.json"), "--force"])
             self.assertEqual(rc, EXIT_MALFORMED_INPUT)
-            self.assertIn("0.1.0", json.dumps(rc)) if False else None
+
+    def test_registration_rejection_names_analysis_version_field(self):
+        # The registration source contract field is analysis_version; the
+        # rejection text must name the field the input actually carries.
+        with tempfile.TemporaryDirectory() as directory:
+            source = INPUTS / "registration-reject-only" / "registration-analysis.json"
+            doc = json.loads(source.read_text(encoding="utf-8"))
+            doc["analysis_version"] = "0.1.0"
+            old = Path(directory) / "registration-analysis.json"
+            old.write_text(json.dumps(doc), encoding="utf-8")
+            with self.assertRaises(MODEL.InputError) as context:
+                MODEL.load_domain_instances([("5gc-registration-mobility", old)])
+            self.assertIn("analysis_version", str(context.exception))
 
     def test_old_pdu_version_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

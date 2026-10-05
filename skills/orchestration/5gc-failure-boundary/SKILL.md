@@ -88,7 +88,7 @@ severity, and never reports network or procedure success.
 ## Dependencies
 
 Required: `[]` (standalone package; consumes only already-generated Domain JSON).
-Optional: `5gc-registration-mobility >=0.1.0`, `5gc-pdu-session >=0.3.0`,
+Optional: `5gc-registration-mobility >=0.2.0`, `5gc-pdu-session >=0.4.0`,
 `procedure-evidence >=0.1.0`.
 
 ## Workflow

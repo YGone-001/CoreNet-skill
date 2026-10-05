@@ -34,8 +34,8 @@ scope:
 dependencies:
   required: []
   optional:
-    - 5gc-registration-mobility >=0.1.0
-    - 5gc-pdu-session >=0.3.0
+    - 5gc-registration-mobility >=0.2.0
+    - 5gc-pdu-session >=0.4.0
     - procedure-evidence >=0.1.0
 inputs:
   - 5gc-registration-mobility analysis summary JSON (from the 5gc-registration-mobility Skill)
@@ -104,11 +104,9 @@ testing:
     - examples/expected/duplicate-identical-input-analysis.json
     - examples/expected/duplicate-only-limitation-analysis.json
     - examples/expected/earliest-incomparability-analysis.json
-    - examples/expected/incomparable-provenance-analysis.json
     - examples/expected/later-incomparability-analysis.json
     - examples/expected/lifecycle-ambiguity-limitation-analysis.json
     - examples/expected/lifecycle-generations-distinct-analysis.json
-    - examples/expected/malformed-domain-input-analysis.json
     - examples/expected/namf-202-then-failure-notification-analysis.json
     - examples/expected/ngap-boundary-before-nas-reject-analysis.json
     - examples/expected/ngap-failed-resource-boundary-analysis.json

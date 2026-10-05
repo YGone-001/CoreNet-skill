@@ -32,9 +32,11 @@ procedure and protocol interpretation is owned by the source Domain Skills.
   fields; no hypotheses array).
 - `references/`: boundary model, subject linking, ordering model, confidence
   model, failure cases.
-- `examples/inputs/`, `examples/expected/`: 30 deterministic scenarios covering
-  selection, no-abnormal, ambiguity, insufficiency, isolation, lifecycle
-  generation, limitation handling, and input robustness.
+- `examples/inputs/`, `examples/expected/`: deterministic scenario fixtures
+  covering selection, no-abnormal, ambiguity, insufficiency, isolation,
+  lifecycle generation, limitation handling, and input robustness. Failure
+  scenarios (`malformed-domain-input`, `incomparable-provenance`) fail loudly
+  and intentionally produce no expected analysis output.
 - `tests/`: package-local test suite (`test_5gc_failure_boundary.py`).
 
 ## Usage

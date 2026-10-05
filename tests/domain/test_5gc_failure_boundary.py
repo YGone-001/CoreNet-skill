@@ -178,6 +178,43 @@ class FailureBoundaryValidatorTests(unittest.TestCase):
                                 encoding="utf-8")
             self.assert_error(root, "manifest version must be 0.1.0")
 
+    def test_downgraded_registration_dependency_floor_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/orchestration/5gc-failure-boundary/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+                "5gc-registration-mobility >=0.2.0", "5gc-registration-mobility >=0.1.0"),
+                encoding="utf-8")
+            self.assert_error(root, "5gc-registration-mobility >=0.2.0")
+
+    def test_downgraded_pdu_session_dependency_floor_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/orchestration/5gc-failure-boundary/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+                "5gc-pdu-session >=0.4.0", "5gc-pdu-session >=0.3.0"),
+                encoding="utf-8")
+            self.assert_error(root, "5gc-pdu-session >=0.4.0")
+
+    def test_nonexistent_fixture_path_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/orchestration/5gc-failure-boundary/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+                "examples/inputs/registration-only", "examples/inputs/nonexistent-scenario"),
+                encoding="utf-8")
+            self.assert_error(root, "testing.fixtures path does not exist")
+
+    def test_nonexistent_expected_result_path_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/orchestration/5gc-failure-boundary/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+                "examples/expected/registration-only-analysis.json",
+                "examples/expected/nonexistent-scenario-analysis.json"),
+                encoding="utf-8")
+            self.assert_error(root, "testing.expected_results path does not exist")
+
 
 if __name__ == "__main__":
     unittest.main()
