@@ -1,0 +1,456 @@
+{
+  "analysis_name": "5gc-handover-mobility",
+  "analysis_version": "0.1.0",
+  "handover_attempts": [
+    {
+      "association": {
+        "basis": "same capture, same scoped AMF-UE-NGAP-ID context, compatible AMF endpoint context, and verified normative role sequence with a unique counterpart",
+        "candidates": [],
+        "strength": "STRONG"
+      },
+      "attempt_id": "5gc-ho:mobility-test.pcapng:sctp-assoc-0:r1:1",
+      "attempt_id_basis": "DERIVED display reference 5gc-ho:<capture>:<association>:<ran-id>:<sequence>; consumers must read the structured source_context/target_context fields, never parse this string",
+      "deviations": [],
+      "earliest_observed_deviation": null,
+      "event_ownership": {
+        "owned_event_refs": []
+      },
+      "events": [
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-0",
+          "capture_file": "mobility-test.pcapng",
+          "cause": {
+            "category": "radioNetwork",
+            "value": 3
+          },
+          "frame_number": 10,
+          "handover_type": "intra5gs",
+          "message_type": "HandoverRequired",
+          "pdu_session_ids": [
+            10
+          ],
+          "pdu_type": "initiatingMessage",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 1,
+          "resource_roles": [
+            {
+              "pdu_session_id": 10,
+              "role": "REQUIRED"
+            }
+          ],
+          "role": "source",
+          "timestamp": "2026-01-06T00:00:01.000000Z"
+        },
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-1",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 12,
+          "handover_type": "intra5gs",
+          "message_type": "HandoverRequest",
+          "pdu_session_ids": [
+            10
+          ],
+          "pdu_type": "initiatingMessage",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 3,
+          "resource_roles": [
+            {
+              "pdu_session_id": 10,
+              "role": "REQUEST"
+            }
+          ],
+          "role": "target",
+          "timestamp": "2026-01-06T00:00:03.000000Z"
+        },
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-1",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 14,
+          "handover_type": null,
+          "message_type": "HandoverRequestAcknowledge",
+          "pdu_session_ids": [
+            10
+          ],
+          "pdu_type": "successfulOutcome",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 3,
+          "resource_roles": [
+            {
+              "pdu_session_id": 10,
+              "role": "ADMITTED"
+            }
+          ],
+          "role": "target",
+          "timestamp": "2026-01-06T00:00:05.000000Z"
+        },
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-0",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 16,
+          "handover_type": "intra5gs",
+          "message_type": "HandoverCommand",
+          "pdu_session_ids": [
+            10
+          ],
+          "pdu_type": "successfulOutcome",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 1,
+          "resource_roles": [
+            {
+              "pdu_session_id": 10,
+              "role": "HANDOVER"
+            }
+          ],
+          "role": "source",
+          "timestamp": "2026-01-06T00:00:07.000000Z"
+        },
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-1",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 18,
+          "handover_type": null,
+          "message_type": "HandoverNotify",
+          "pdu_session_ids": [],
+          "pdu_type": "initiatingMessage",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 3,
+          "resource_roles": [],
+          "role": "target",
+          "timestamp": "2026-01-06T00:00:09.000000Z"
+        }
+      ],
+      "family": "handover",
+      "field_findings": [
+        {
+          "capture_file": "mobility-test.pcapng",
+          "evidence_level": "OBSERVED",
+          "field_name": "NGAP cause",
+          "frame_number": 10,
+          "interpretation": "NGAP cause carried by the observed message; procedure evidence, never attribution",
+          "limitations": [],
+          "message_type": "HandoverRequired",
+          "normalized_value": "radioNetwork:3",
+          "observed_value": {
+            "category": "radioNetwork",
+            "value": 3
+          },
+          "protocol": "NGAP"
+        }
+      ],
+      "handover_type": {
+        "domain_scope": "INTRA_5GS",
+        "name": "intra5gs",
+        "scope_status": "SUPPORTED_FOR_DOMAIN_PROCEDURE",
+        "value": 0
+      },
+      "limitations": [
+        "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer"
+      ],
+      "observation_window": {
+        "first_frame": 10,
+        "first_timestamp": "2026-01-06T00:00:01.000000Z",
+        "last_frame": 18,
+        "last_timestamp": "2026-01-06T00:00:09.000000Z"
+      },
+      "pdu_session_resources": [
+        {
+          "lifecycle_generation": null,
+          "limitations": [],
+          "n11_evidence": [],
+          "n2_outcomes": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 14,
+              "message_type": "HandoverRequestAcknowledge",
+              "outcome": "ADMITTED_ROLE_OBSERVED"
+            }
+          ],
+          "n2_roles": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 10,
+              "message_type": "HandoverRequired",
+              "resource_list_role": "REQUIRED",
+              "resource_operation": "HANDOVER_PREPARATION"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 12,
+              "message_type": "HandoverRequest",
+              "resource_list_role": "REQUEST",
+              "resource_operation": "HANDOVER_RESOURCE_ALLOCATION"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 14,
+              "message_type": "HandoverRequestAcknowledge",
+              "resource_list_role": "ADMITTED",
+              "resource_operation": "HANDOVER_RESOURCE_ALLOCATION"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 16,
+              "message_type": "HandoverCommand",
+              "resource_list_role": "HANDOVER",
+              "resource_operation": "HANDOVER_PREPARATION"
+            }
+          ],
+          "n3_observations": [],
+          "n4_evidence": [],
+          "pdu_session_id": 10
+        }
+      ],
+      "plane_bindings": {
+        "n11": [],
+        "n3": [],
+        "n4": []
+      },
+      "source_context": {
+        "amf_ue_ngap_id": 2,
+        "association": "sctp-assoc-0",
+        "capture_file": "mobility-test.pcapng",
+        "ran_ue_ngap_id": 1,
+        "role": "source",
+        "side": "SOURCE_AND_TARGET"
+      },
+      "stages": [
+        {
+          "missing": [],
+          "observed": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": {
+                "category": "radioNetwork",
+                "value": 3
+              },
+              "evidence_level": "OBSERVED",
+              "frame_number": 10,
+              "message_type": "HandoverRequired",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:01.000000Z"
+            }
+          ],
+          "stage_id": "HANDOVER_INITIATION",
+          "stage_name": "Handover initiation (HandoverRequired)",
+          "status": "OBSERVED"
+        },
+        {
+          "missing": [],
+          "observed": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 16,
+              "message_type": "HandoverCommand",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:07.000000Z"
+            }
+          ],
+          "stage_id": "HANDOVER_PREPARATION_OUTCOME",
+          "stage_name": "Handover preparation outcome (HandoverCommand or HandoverPreparationFailure)",
+          "status": "OBSERVED"
+        },
+        {
+          "missing": [],
+          "observed": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 12,
+              "message_type": "HandoverRequest",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:03.000000Z"
+            },
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 14,
+              "message_type": "HandoverRequestAcknowledge",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:05.000000Z"
+            }
+          ],
+          "stage_id": "TARGET_RESOURCE_ALLOCATION",
+          "stage_name": "Target resource allocation (HandoverRequest, Acknowledge, or Failure)",
+          "status": "OBSERVED"
+        },
+        {
+          "missing": [],
+          "observed": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 18,
+              "message_type": "HandoverNotify",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:09.000000Z"
+            }
+          ],
+          "stage_id": "HANDOVER_EXECUTION_NOTIFICATION",
+          "stage_name": "Handover execution notification (HandoverNotify)",
+          "status": "OBSERVED"
+        }
+      ],
+      "target_context": {
+        "amf_ue_ngap_id": 2,
+        "association": "sctp-assoc-1",
+        "capture_file": "mobility-test.pcapng",
+        "ran_ue_ngap_id": 3,
+        "role": "target",
+        "side": "SOURCE_AND_TARGET"
+      },
+      "terminal_observation": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 18,
+        "message_type": "HandoverNotify",
+        "observation": "HANDOVER_NOTIFY_OBSERVED",
+        "timestamp": "2026-01-06T00:00:09.000000Z"
+      },
+      "unbound_evidence": []
+    }
+  ],
+  "limitations": [
+    "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer",
+    "Handover and Path Switch are separate attempt families; neither is required for the other",
+    "Source/target association requires the same capture, a scoped AMF-UE-NGAP-ID context, compatible roles, and temporal sanity; timestamp proximity alone never associates anything",
+    "N11/N4/N3 supporting evidence is associated only through safe session/tunnel context; an HTTP 2xx or PFCP accepted response never becomes mobility success, and missing N11/N4/N3 evidence never becomes mobility failure",
+    "Supporting-plane association is evaluated globally across all mobility attempts and one N11/PFCP/GTP-U event belongs to at most one attempt; ambiguous events stay unbound",
+    "PDU Session identity is not mobility attempt identity: N11 UpdateSMContext evidence binds only through reviewed mobility-specific N2 SM Information Types, which the current lower SBI contract does not expose",
+    "PFCP SEIDs are endpoint/session scoped; GTP-U binding is direction sensitive; and an N2 handover to Path Switch relationship is never inferred from common AMF context and time",
+    "GTP-U observations prove capture-point observation only; tunnel roles stay neutral because reviewed tunnel lifecycle context is not established in this version",
+    "Inter-system HandoverTypes are preserved with a scope limitation; no inter-system or 5GS-EPS mobility semantics are applied",
+    "This analysis is bounded to the supplied evidence files; absence of evidence is never reported as network absence"
+  ],
+  "path_switch_attempts": [
+    {
+      "attempt_id": "5gc-ps:mobility-test.pcapng:sctp-assoc-0:r5:1",
+      "attempt_id_basis": "DERIVED display reference 5gc-ps:<capture>:<association>:<ran-id>:<sequence>; consumers must read the structured serving_context fields, never parse this string",
+      "deviations": [],
+      "earliest_observed_deviation": null,
+      "event_ownership": {
+        "owned_event_refs": []
+      },
+      "events": [
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-0",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 30,
+          "handover_type": null,
+          "message_type": "PathSwitchRequest",
+          "pdu_session_ids": [],
+          "pdu_type": "initiatingMessage",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 5,
+          "resource_roles": [],
+          "role": "serving",
+          "timestamp": "2026-01-06T00:00:15.000000Z"
+        },
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-0",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 32,
+          "handover_type": null,
+          "message_type": "PathSwitchRequestAcknowledge",
+          "pdu_session_ids": [],
+          "pdu_type": "successfulOutcome",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 5,
+          "resource_roles": [],
+          "role": "serving",
+          "timestamp": "2026-01-06T00:00:17.000000Z"
+        }
+      ],
+      "family": "path-switch",
+      "field_findings": [],
+      "limitations": [
+        "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer"
+      ],
+      "observation_window": {
+        "first_frame": 30,
+        "first_timestamp": "2026-01-06T00:00:15.000000Z",
+        "last_frame": 32,
+        "last_timestamp": "2026-01-06T00:00:17.000000Z"
+      },
+      "pdu_session_resources": [],
+      "plane_bindings": {
+        "n11": [],
+        "n3": [],
+        "n4": []
+      },
+      "related_handover_attempt_id": null,
+      "relationship_basis": "no deterministic bridge between this Path Switch attempt and any handover attempt is exposed by the current lower-layer contracts; common AMF-UE-NGAP-ID context and temporal order never establish the relationship",
+      "relationship_strength": "UNBOUND",
+      "serving_context": {
+        "amf_ue_ngap_id": 2,
+        "association": "sctp-assoc-0",
+        "capture_file": "mobility-test.pcapng",
+        "ran_ue_ngap_id": 5,
+        "role": "serving",
+        "side": null
+      },
+      "stages": [
+        {
+          "missing": [],
+          "observed": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 30,
+              "message_type": "PathSwitchRequest",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:15.000000Z"
+            }
+          ],
+          "stage_id": "PATH_SWITCH_REQUEST",
+          "stage_name": "Path Switch request (PathSwitchRequest)",
+          "status": "OBSERVED"
+        },
+        {
+          "missing": [],
+          "observed": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 32,
+              "message_type": "PathSwitchRequestAcknowledge",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:17.000000Z"
+            }
+          ],
+          "stage_id": "PATH_SWITCH_OUTCOME",
+          "stage_name": "Path Switch outcome (PathSwitchRequestAcknowledge or PathSwitchRequestFailure)",
+          "status": "OBSERVED"
+        }
+      ],
+      "terminal_observation": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 32,
+        "message_type": "PathSwitchRequestAcknowledge",
+        "observation": "PATH_SWITCH_ACK_OBSERVED",
+        "timestamp": "2026-01-06T00:00:17.000000Z"
+      },
+      "unbound_evidence": []
+    }
+  ],
+  "procedure_family": "5gc-handover-mobility",
+  "unbound_mobility_evidence": []
+}

@@ -35,6 +35,9 @@
         }
       ],
       "earliest_observed_deviation": null,
+      "event_ownership": {
+        "owned_event_refs": []
+      },
       "events": [
         {
           "amf_ue_ngap_id": 2,
@@ -178,6 +181,9 @@
         }
       ],
       "earliest_observed_deviation": null,
+      "event_ownership": {
+        "owned_event_refs": []
+      },
       "events": [
         {
           "amf_ue_ngap_id": 2,
@@ -294,6 +300,9 @@
     "Handover and Path Switch are separate attempt families; neither is required for the other",
     "Source/target association requires the same capture, a scoped AMF-UE-NGAP-ID context, compatible roles, and temporal sanity; timestamp proximity alone never associates anything",
     "N11/N4/N3 supporting evidence is associated only through safe session/tunnel context; an HTTP 2xx or PFCP accepted response never becomes mobility success, and missing N11/N4/N3 evidence never becomes mobility failure",
+    "Supporting-plane association is evaluated globally across all mobility attempts and one N11/PFCP/GTP-U event belongs to at most one attempt; ambiguous events stay unbound",
+    "PDU Session identity is not mobility attempt identity: N11 UpdateSMContext evidence binds only through reviewed mobility-specific N2 SM Information Types, which the current lower SBI contract does not expose",
+    "PFCP SEIDs are endpoint/session scoped; GTP-U binding is direction sensitive; and an N2 handover to Path Switch relationship is never inferred from common AMF context and time",
     "GTP-U observations prove capture-point observation only; tunnel roles stay neutral because reviewed tunnel lifecycle context is not established in this version",
     "Inter-system HandoverTypes are preserved with a scope limitation; no inter-system or 5GS-EPS mobility semantics are applied",
     "This analysis is bounded to the supplied evidence files; absence of evidence is never reported as network absence"
@@ -302,51 +311,10 @@
     {
       "attempt_id": "5gc-ps:mobility-test.pcapng:sctp-assoc-0:r1:1",
       "attempt_id_basis": "DERIVED display reference 5gc-ps:<capture>:<association>:<ran-id>:<sequence>; consumers must read the structured serving_context fields, never parse this string",
-      "deviations": [
-        {
-          "description": "One Path Switch context is compatible with multiple handover attempts; no relationship is selected",
-          "evidence_level": "DERIVED",
-          "evidence_refs": [
-            {
-              "capture_file": "mobility-test.pcapng",
-              "evidence_level": "DERIVED",
-              "field_name": "handover_path_switch_relationship",
-              "frame_number": 14,
-              "kind": "FIELD_FINDING",
-              "message_type": null,
-              "protocol": "NGAP",
-              "stage_id": null,
-              "timestamp": null,
-              "window_first_frame": null,
-              "window_last_frame": null
-            }
-          ],
-          "limitation": "All compatible candidates are preserved; no nearest-in-time selection is made",
-          "stage_id": null,
-          "type": "CORRELATION_AMBIGUITY"
-        }
-      ],
-      "earliest_observed_deviation": {
-        "description": "One Path Switch context is compatible with multiple handover attempts; no relationship is selected",
-        "evidence_level": "DERIVED",
-        "evidence_refs": [
-          {
-            "capture_file": "mobility-test.pcapng",
-            "evidence_level": "DERIVED",
-            "field_name": "handover_path_switch_relationship",
-            "frame_number": 14,
-            "kind": "FIELD_FINDING",
-            "message_type": null,
-            "protocol": "NGAP",
-            "stage_id": null,
-            "timestamp": null,
-            "window_first_frame": null,
-            "window_last_frame": null
-          }
-        ],
-        "limitation": "All compatible candidates are preserved; no nearest-in-time selection is made",
-        "stage_id": null,
-        "type": "CORRELATION_AMBIGUITY"
+      "deviations": [],
+      "earliest_observed_deviation": null,
+      "event_ownership": {
+        "owned_event_refs": []
       },
       "events": [
         {
@@ -400,8 +368,8 @@
         "n4": []
       },
       "related_handover_attempt_id": null,
-      "relationship_basis": "multiple handover attempts are simultaneously compatible with this Path Switch attempt; no relationship is selected",
-      "relationship_strength": "AMBIGUOUS",
+      "relationship_basis": "no deterministic bridge between this Path Switch attempt and any handover attempt is exposed by the current lower-layer contracts; common AMF-UE-NGAP-ID context and temporal order never establish the relationship",
+      "relationship_strength": "UNBOUND",
       "serving_context": {
         "amf_ue_ngap_id": 2,
         "association": "sctp-assoc-0",

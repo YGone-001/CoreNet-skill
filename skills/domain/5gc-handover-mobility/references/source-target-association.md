@@ -54,3 +54,21 @@ previous attempt's window, and any genuinely competing candidate keeps the
 association AMBIGUOUS. Equal RAN-UE-NGAP-IDs across SCTP associations
 never establish identity (source and target RAN IDs may legitimately
 differ or coincide). Two interleaved UEs always form separate attempts.
+
+
+## Handover and Path Switch stay unrelated without a bridge
+
+The same scoped AMF-UE-NGAP-ID context (capture + AMF context + AMF-UE-NGAP-ID)
+establishes only that two procedure instances concern the same bounded UE
+context. It does NOT prove that a Path Switch attempt belongs to a specific
+earlier N2 handover attempt: an Xn handover can produce a
+PathSwitchRequest with no N2 handover evidence at all, and the current
+lower-layer contracts expose no deterministic bridge (no procedure
+reference, no explicit procedure-context linkage) between the families.
+
+The v0.1.0 behavior is therefore deliberately conservative:
+`related_handover_attempt_id` stays null and `relationship_strength` stays
+UNBOUND even when an earlier handover attempt exists for the same UE
+context. Temporal order may reject impossible relations; it never creates
+the relationship, and no nearest-in-time or synthetic one-to-many ambiguity
+is emitted when only temporal compatibility exists.

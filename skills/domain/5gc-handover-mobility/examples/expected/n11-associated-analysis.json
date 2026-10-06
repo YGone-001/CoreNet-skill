@@ -12,6 +12,9 @@
       "attempt_id_basis": "DERIVED display reference 5gc-ho:<capture>:<association>:<ran-id>:<sequence>; consumers must read the structured source_context/target_context fields, never parse this string",
       "deviations": [],
       "earliest_observed_deviation": null,
+      "event_ownership": {
+        "owned_event_refs": []
+      },
       "events": [
         {
           "amf_ue_ngap_id": 2,
@@ -146,16 +149,7 @@
         {
           "lifecycle_generation": null,
           "limitations": [],
-          "n11_evidence": [
-            {
-              "evidence_level": "OBSERVED",
-              "frame_number": 15,
-              "http_status": 200,
-              "n2_sm_info_type": "PDU_RES_MOD_REQ",
-              "operation": "UpdateSMContext",
-              "sm_context_ref": "sm-context-ref-1"
-            }
-          ],
+          "n11_evidence": [],
           "n2_outcomes": [
             {
               "evidence_level": "OBSERVED",
@@ -200,17 +194,7 @@
         }
       ],
       "plane_bindings": {
-        "n11": [
-          {
-            "association_basis": "pdu_session_id_capture_and_window",
-            "frame_number": 15,
-            "http_status": 200,
-            "note": "An HTTP 2xx response is observed evidence and never a mobility success",
-            "operation": "UpdateSMContext",
-            "pdu_session_id": 10,
-            "sm_context_ref": "sm-context-ref-1"
-          }
-        ],
+        "n11": [],
         "n3": [],
         "n4": []
       },
@@ -285,23 +269,6 @@
           "stage_id": "TARGET_RESOURCE_ALLOCATION",
           "stage_name": "Target resource allocation (HandoverRequest, Acknowledge, or Failure)",
           "status": "OBSERVED"
-        },
-        {
-          "missing": [],
-          "observed": [
-            {
-              "capture_file": "mobility-test.pcapng",
-              "cause": null,
-              "evidence_level": "OBSERVED",
-              "frame_number": 15,
-              "message_type": null,
-              "protocol": "SBI-HTTP2",
-              "timestamp": "2026-01-06T00:00:06.000000Z"
-            }
-          ],
-          "stage_id": "CONTROL_PLANE_UPDATE",
-          "stage_name": "Control-plane session update (N11 UpdateSMContext, safely associated)",
-          "status": "OBSERVED"
         }
       ],
       "target_context": {
@@ -327,11 +294,25 @@
     "Handover and Path Switch are separate attempt families; neither is required for the other",
     "Source/target association requires the same capture, a scoped AMF-UE-NGAP-ID context, compatible roles, and temporal sanity; timestamp proximity alone never associates anything",
     "N11/N4/N3 supporting evidence is associated only through safe session/tunnel context; an HTTP 2xx or PFCP accepted response never becomes mobility success, and missing N11/N4/N3 evidence never becomes mobility failure",
+    "Supporting-plane association is evaluated globally across all mobility attempts and one N11/PFCP/GTP-U event belongs to at most one attempt; ambiguous events stay unbound",
+    "PDU Session identity is not mobility attempt identity: N11 UpdateSMContext evidence binds only through reviewed mobility-specific N2 SM Information Types, which the current lower SBI contract does not expose",
+    "PFCP SEIDs are endpoint/session scoped; GTP-U binding is direction sensitive; and an N2 handover to Path Switch relationship is never inferred from common AMF context and time",
     "GTP-U observations prove capture-point observation only; tunnel roles stay neutral because reviewed tunnel lifecycle context is not established in this version",
     "Inter-system HandoverTypes are preserved with a scope limitation; no inter-system or 5GS-EPS mobility semantics are applied",
     "This analysis is bounded to the supplied evidence files; absence of evidence is never reported as network absence"
   ],
   "path_switch_attempts": [],
   "procedure_family": "5gc-handover-mobility",
-  "unbound_mobility_evidence": []
+  "unbound_mobility_evidence": [
+    {
+      "association_strength": "UNBOUND",
+      "candidate_attempt_ids": [],
+      "capture_file": "mobility-test.pcapng",
+      "frame_number": 15,
+      "message_type": "UpdateSMContext",
+      "protocol": "SBI-HTTP2",
+      "reason": "no reviewed mobility-specific N2 SM Information Type is exposed by the lower sbi-http2 contract; PDU Session identity, capture, and time never bind N11",
+      "timestamp": "2026-01-06T00:00:06.000000Z"
+    }
+  ]
 }

@@ -1,0 +1,47 @@
+{
+  "analysis_name": "5gc-pdu-session",
+  "instances": [
+    {
+      "association_basis": "ngap_ue_context",
+      "association_strength": "STRONG",
+      "capture_file": "mobility-test.pcapng",
+      "deviations": [],
+      "earliest_observed_deviation": null,
+      "field_findings": [],
+      "instance_id": "5gc-pdu-session:mobility-test.pcapng:r1:psi10",
+      "limitations": [],
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 200
+      },
+      "pdu_session_id": 10,
+      "plane_bindings": {
+        "n3": {
+          "endpoint": "192.0.2.20",
+          "teid": 5001
+        },
+        "n4": {
+          "f_teid": {
+            "ipv4": "192.0.2.20",
+            "teid": 5001
+          },
+          "header_seid": 1001
+        }
+      },
+      "reuse_status": null,
+      "session_generation": null,
+      "stages": [],
+      "terminal_observation": {},
+      "ue_context": {
+        "amf_ue_ngap_id": 2,
+        "ran_ue_ngap_id": 1,
+        "sctp_association": 0
+      },
+      "unbound_evidence": {}
+    }
+  ],
+  "limitations": [],
+  "procedure_name": "5gc-pdu-session",
+  "procedure_version": "0.4.0",
+  "unbound_evidence": {}
+}

@@ -35,6 +35,16 @@ the hard boundary against causal overreach.
   original provenance preserved.
 - Unrelated PFCP / redacted N11 / mismatched TEID endpoints — preserved
   as unbound supporting evidence; never force-associated.
+- Same header SEID under different PFCP endpoint pairs — different PFCP
+  sessions; only the context-scoped group can become a candidate.
+- Reverse-direction GTP-U packet — same TEID toward the wrong direction
+  never binds through a FAR-destination tunnel rule.
+- Supporting event claimed by two attempts — impossible by construction;
+  the runtime ownership invariant fails loudly if it ever occurs, and
+  ambiguous candidates stay unbound instead.
+- Path Switch after an earlier N2 handover in the same UE context —
+  independent (UNBOUND relationship) unless a deterministic bridge exists;
+  no relation is inferred from common context and time.
 - Unsupported or unknown NGAP mobility procedures — preserved in
   `unbound_mobility_evidence` with lower-layer support status; no
   semantics invented.

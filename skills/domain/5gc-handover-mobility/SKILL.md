@@ -40,22 +40,40 @@ Orchestration).
   SWITCHED/RELEASED items in one message stay independent observations;
   FAILED items produce `RESOURCE_FAILED_ITEM_OBSERVED`; contradictory roles
   across linked stages produce `FIELD_CONFLICT` with both preserved.
-- Associate N11 `Nsmf_PDUSession UpdateSMContext`, N4 PFCP Session
-  Modification, and N3 GTP-U evidence only through safe session and tunnel
-  context (PDU Session ID + capture + window; PDU-session-context header
-  SEID; TEID + directed endpoints). An HTTP 2xx or PFCP accepted response
+- Evaluate ALL supporting evidence globally across every mobility attempt
+  before ownership is assigned, with exactly one of BOUND, AMBIGUOUS, or
+  UNBOUND per event, and an exclusive-ownership runtime invariant: one
+  N11/PFCP/GTP-U event belongs to at most one attempt, across both
+  families. Ambiguous events stay unbound; no first or nearest selection.
+- N11 UpdateSMContext binds only through a reviewed mobility-specific N2 SM
+  Information Type from the lower SBI contract. PDU Session identity is not
+  mobility attempt identity: PSI + capture + time alone never bind N11, and
+  the current sbi-http2 contract exposes no reviewed mobility vocabulary, so
+  UpdateSMContext evidence stays UNBOUND in this version.
+- Associate PFCP Session Modification only through an endpoint-scoped
+  session identity (capture + order-normalized endpoint pair + header SEID)
+  plus the PDU Session Domain context; the same numeric SEID under a
+  different endpoint pair is never the same session.
+- Bind GTP-U only through TEID + the correct directed endpoint role: a FAR
+  Outer Header Creation names the encapsulation destination, so the packet
+  must carry that TEID toward that address; a same-TEID packet in the
+  reverse direction never binds. An HTTP 2xx or PFCP accepted response
   never becomes mobility success; missing supporting evidence never becomes
   mobility failure; no End Marker and no G-PDU stay neutral.
 - Label bound tunnels with neutral TUNNEL_A/TUNNEL_B roles; an old/new path
   role requires reviewed tunnel lifecycle context this version does not
   establish.
-- Link a Path Switch attempt to a handover attempt only when a unique
-  compatible, non-failed/cancelled handover attempt exists in the same
-  scoped context (relationship SUPPORTED); multiple candidates stay
-  AMBIGUOUS; none stays independent with `related_handover_attempt_id: null`.
+- Never infer a Handover-Path-Switch relationship from common AMF-UE-NGAP-ID
+  context and temporal order alone: an Xn handover can produce a Path Switch
+  with no N2 handover evidence, and the current contracts expose no
+  deterministic bridge, so `related_handover_attempt_id` stays null with
+  relationship strength UNBOUND even when an earlier handover attempt exists
+  for the same UE context.
 - Emit procedure-local deviations with structured `evidence_refs` (EVENT,
   FIELD_FINDING, OBSERVATION_WINDOW) consumable by Analysis Orchestration
-  without prose parsing.
+  without prose parsing, and expose each attempt's `event_ownership`
+  (exclusively owned N11/N4/N3 event refs) plus unbound evidence with
+  reason, candidate attempt ids, and association strength.
 
 ## Non-Goals
 

@@ -280,22 +280,33 @@ class PathSwitchTests(unittest.TestCase):
         self.assertIsNone(attempt["related_handover_attempt_id"])
         self.assertEqual(attempt["relationship_strength"], "UNBOUND")
 
-    def test_ambiguous_handover_relationship(self):
-        attempt = first_path_switch(expected("ps-ambiguous-relationship"))
-        self.assertIsNone(attempt["related_handover_attempt_id"])
-        self.assertEqual(attempt["relationship_strength"], "AMBIGUOUS")
-        self.assertIn("CORRELATION_AMBIGUITY", deviation_types(attempt))
+    def test_no_relationship_from_common_context_and_time(self):
+        # Two context-compatible handover attempts plus temporal compatibility
+        # do not create a Handover-Path-Switch relationship and do not emit a
+        # synthetic one-to-many ambiguity: no deterministic bridge exists.
+        for name in ("ps-ambiguous-relationship", "ps-independent-after-handover"):
+            attempt = first_path_switch(expected(name))
+            self.assertIsNone(attempt["related_handover_attempt_id"], name)
+            self.assertEqual(attempt["relationship_strength"], "UNBOUND", name)
+            self.assertNotIn("CORRELATION_AMBIGUITY", deviation_types(attempt), name)
 
 
 class SupportingPlaneTests(unittest.TestCase):
-    def test_n11_associated(self):
-        attempt = first_handover(expected("n11-associated"))
-        self.assertEqual(len(attempt["plane_bindings"]["n11"]), 1)
-        self.assertEqual(attempt["plane_bindings"]["n11"][0]["http_status"], 200)
-        self.assertEqual(attempt["pdu_session_resources"][0]["n11_evidence"][0]["operation"],
-                         "UpdateSMContext")
+    def test_n11_not_bound_without_mobility_semantics(self):
+        # PDU Session identity is not mobility attempt identity: without a
+        # reviewed mobility-specific N2 SM Information Type from the lower
+        # SBI contract, UpdateSMContext evidence stays UNBOUND even with a
+        # matching PSI, capture, and later timestamp.
+        document = expected("n11-associated")
+        attempt = first_handover(document)
+        self.assertEqual(attempt["plane_bindings"]["n11"], [])
+        unbound = [entry for entry in document["unbound_mobility_evidence"]
+                   if entry["message_type"] == "UpdateSMContext"]
+        self.assertEqual(len(unbound), 1)
+        self.assertEqual(unbound[0]["association_strength"], "UNBOUND")
+        self.assertIn("never bind N11", unbound[0]["reason"])
         stage_ids = {stage["stage_id"] for stage in attempt["stages"]}
-        self.assertIn("CONTROL_PLANE_UPDATE", stage_ids)
+        self.assertNotIn("CONTROL_PLANE_UPDATE", stage_ids)
 
     def test_n11_redacted_stays_unbound(self):
         document = expected("n11-redacted-unbound")
@@ -439,6 +450,114 @@ class InputSafetyTests(unittest.TestCase):
             upper = text.upper()
             for forbidden in ("HANDOVER SUCCESS", "PATH SWITCH SUCCESS", "ROOT CAUSE"):
                 self.assertNotIn(forbidden, upper)
+
+
+class AssociationSafetyTests(unittest.TestCase):
+    """Supporting-plane association safety corrections (v0.1.0 acceptance)."""
+
+    def _owned_refs(self, document: dict) -> list[tuple]:
+        refs = []
+        for attempt in document["handover_attempts"] + document["path_switch_attempts"]:
+            refs.extend((ref["protocol"], ref["capture_file"], ref["frame_number"])
+                        for ref in attempt["event_ownership"]["owned_event_refs"])
+        return refs
+
+    def test_exclusive_supporting_event_ownership_everywhere(self):
+        # Across every committed scenario, one N11/PFCP/GTP-U event belongs to
+        # at most one mobility attempt.
+        for scenario in SCENARIOS - FAILURE_SCENARIOS:
+            with self.subTest(scenario=scenario):
+                refs = self._owned_refs(expected(scenario))
+                self.assertEqual(len(refs), len(set(refs)), scenario)
+
+    def test_n11_event_cannot_belong_to_two_path_switch_attempts(self):
+        document = expected("n11-sequential-ps-attempts")
+        owned = [tuple(sorted(ref["frame_number"] for ref in attempt["event_ownership"]["owned_event_refs"]))
+                 for attempt in document["path_switch_attempts"]]
+        self.assertEqual(owned, [(), ()])
+        unbound = [entry for entry in document["unbound_mobility_evidence"]
+                   if entry["message_type"] == "UpdateSMContext"]
+        self.assertEqual(len(unbound), 1)
+
+    def test_psi_capture_and_time_alone_do_not_bind_n11(self):
+        document = expected("n11-unrelated-update")
+        attempt = first_handover(document)
+        self.assertEqual(attempt["plane_bindings"]["n11"], [])
+        self.assertEqual([entry["message_type"] for entry in document["unbound_mobility_evidence"]],
+                         ["UpdateSMContext"])
+
+    def test_seid_endpoint_reuse_stays_isolated(self):
+        document = expected("pfcp-seid-endpoint-reuse")
+        attempt = first_handover(document)
+        bound_frames = [entry["frame_number"] for entry in attempt["plane_bindings"]["n4"]]
+        self.assertEqual(bound_frames, [18, 19])
+        foreign = [entry for entry in document["unbound_mobility_evidence"]
+                   if entry["protocol"] == "PFCP"]
+        self.assertEqual(sorted(entry["frame_number"] for entry in foreign), [20, 21])
+        self.assertIn("several PFCP endpoint pairs", foreign[0]["reason"])
+
+    def test_one_pfcp_event_cannot_belong_to_multiple_attempts(self):
+        document = expected("amf-id-reuse-lifetimes")
+        owned = self._owned_refs(document)
+        self.assertEqual(len(owned), len(set(owned)))
+
+    def test_directed_gtpu_binds_and_reverse_direction_rejects(self):
+        document = expected("gtpu-reverse-direction")
+        attempt = first_handover(document)
+        bound_frames = [entry["frame_number"] for entry in attempt["plane_bindings"]["n3"]]
+        self.assertEqual(bound_frames, [20])
+        reverse = [entry for entry in document["unbound_mobility_evidence"] if entry["protocol"] == "GTP-U"]
+        self.assertEqual([entry["frame_number"] for entry in reverse], [22])
+        self.assertIn("directed", reverse[0]["reason"])
+
+    def test_same_teid_different_endpoint_never_binds(self):
+        attempt = first_handover(expected("teid-endpoint-mismatch"))
+        self.assertEqual(attempt["plane_bindings"]["n3"], [])
+
+    def test_error_indication_endpoint_safe(self):
+        attempt = first_handover(expected("error-indication-observed"))
+        self.assertEqual([entry["frame_number"] for entry in attempt["plane_bindings"]["n3"]], [20])
+        self.assertTrue(attempt["pdu_session_resources"][0]["n3_observations"][0]["error_indication_present"])
+
+    def test_gtpu_event_cannot_belong_to_multiple_attempts(self):
+        for name in ("two-ue-interleaved", "amf-id-reuse-lifetimes"):
+            document = expected(name)
+            gtpu_refs = [ref for ref in self._owned_refs(document) if ref[0] == "GTP-U"]
+            self.assertEqual(len(gtpu_refs), len(set(gtpu_refs)), name)
+
+    def test_independent_path_switch_after_prior_handover(self):
+        attempt = first_path_switch(expected("ps-independent-after-handover"))
+        self.assertIsNone(attempt["related_handover_attempt_id"])
+        self.assertEqual(attempt["relationship_strength"], "UNBOUND")
+        self.assertNotIn("MISSING_HANDOVER_REQUIRED", deviation_types(attempt))
+
+    def test_no_gtpu_remains_neutral(self):
+        attempt = first_handover(expected("no-gtpu-neutral"))
+        self.assertEqual(attempt["plane_bindings"]["n3"], [])
+        self.assertNotIn("MISSING_EXPECTED_COUNTERPART", deviation_types(attempt))
+
+    def test_mixed_resource_semantics_unchanged(self):
+        outcomes = {finding["pdu_session_id"]: [item["outcome"] for item in finding["n2_outcomes"]]
+                    for finding in first_handover(expected("handover-ack-mixed-resources"))["pdu_session_resources"]}
+        self.assertEqual(outcomes[10], ["ADMITTED_ROLE_OBSERVED"])
+        self.assertEqual(outcomes[11], ["RESOURCE_FAILED_ITEM_OBSERVED"])
+
+    def test_unbound_evidence_carries_candidates_and_strength(self):
+        for scenario in SCENARIOS - FAILURE_SCENARIOS:
+            document = expected(scenario)
+            for entry in document["unbound_mobility_evidence"]:
+                if entry["protocol"] in ("SBI-HTTP2", "PFCP", "GTP-U"):
+                    with self.subTest(scenario=scenario, frame=entry["frame_number"]):
+                        self.assertIn("reason", entry)
+                        self.assertIn("candidate_attempt_ids", entry)
+                        self.assertIn("association_strength", entry)
+                        self.assertIn(entry["association_strength"], ("AMBIGUOUS", "UNBOUND"))
+
+    def test_supporting_bindings_carry_strength_and_basis(self):
+        attempt = first_handover(expected("pfcp-associated"))
+        for entry in attempt["plane_bindings"]["n4"]:
+            self.assertEqual(entry["association_strength"], "SUPPORTED")
+            self.assertIn("association_basis", entry)
 
 
 if __name__ == "__main__":

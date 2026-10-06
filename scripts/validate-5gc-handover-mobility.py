@@ -65,10 +65,118 @@ SINGLE_FAMILY_ARRAY = re.compile(r"(?i)[\"']mobility_attempts[\"']\]?\s*[=:]|mob
 MANDATORY_SEQUENCE = re.compile(
     r"(?i)mandatory.*(handover_required|path_switch|handover.*path_switch.*sequence)|"
     r"required_messages\s*=|MISSING_HANDOVER_REQUIRED|MISSING_PATH_SWITCH")
+# Endpoint-less PFCP session key (capture, SEID) without endpoint scope.
+UNSCOPED_SEID_KEY = re.compile(r"(?i)pfcp_key\s*=\s*\(\s*capture\s*,\s*seid\s*\)|\(\s*capture\s*,\s*header_seid\s*\)\s*(?:=|in)")
+# Endpoint-membership matching that ignores direction.
+UNDIRECTED_ENDPOINT_MATCH = re.compile(r"(?i)in\s*\(\s*source_address\s*,\s*destination_address\s*\)")
+# Isolated per-attempt association loop with a single-element attempt list.
+ISOLATED_ASSOCIATION_LOOP = re.compile(
+    r"(?i)associate_(?:n11|n4|n3)\(\s*\w+\s*,\s*\[\s*\w+\s*\]\s*[,)]")
+# Automatic Handover-Path-Switch relationship from context + time.
+AUTO_RELATIONSHIP = re.compile(
+    r"(?i)related_handover_attempt_id\s*=\s*handover|relationship_strength\s*=\s*['\"]SUPPORTED['\"]")
 
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _load_model(skill: Path):
+    """Import the package's analysis engine for behavioral contract gates."""
+    import importlib.util
+    model_path = skill / "scripts" / "mobility_model.py"
+    spec = importlib.util.spec_from_file_location("mobility_model_contract", model_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def _run_scenario_analysis(skill: Path, model, scenario: str) -> dict:
+    def load(protocol, filename):
+        path = skill / "examples" / "inputs" / scenario / filename
+        return model.__dict__[f"load_{protocol}_events"](path) if path.is_file() else []
+
+    pdu_context = None
+    pdu_path = skill / "examples" / "inputs" / scenario / "pdu-session.json"
+    if pdu_path.is_file():
+        pdu_context = model.load_pdu_session_context(pdu_path)
+    return model.analyze(
+        load("ngap", "ngap.jsonl"), load("pfcp", "pfcp.jsonl"),
+        load("gtpu", "gtpu.jsonl"), load("sbi", "sbi.jsonl"), pdu_context,
+    )
+
+
+def _owned_refs(document: dict) -> list[tuple]:
+    refs = []
+    for attempt in document.get("handover_attempts", []) + document.get("path_switch_attempts", []):
+        refs.extend((ref["protocol"], ref["capture_file"], ref["frame_number"])
+                    for ref in attempt.get("event_ownership", {}).get("owned_event_refs", []))
+    return refs
+
+
+def _behavioral_gates(skill: Path, errors: list[str]) -> None:
+    """Runtime contract gates over committed fixtures.
+
+    These execute the real engine, so a regression to per-attempt isolated
+    association, PSI+time N11 binding, unscoped SEID keys, undirected GTP-U
+    matching, or automatic Handover-Path-Switch relationships fails here.
+    """
+    try:
+        model = _load_model(skill)
+    except Exception as exc:  # noqa: BLE001 - validator must report, not crash
+        errors.append(f"behavioral gates could not load the analysis engine: {exc}")
+        return
+
+    try:
+        # Global evaluation + exclusive ownership across families and
+        # sequential attempts.
+        for scenario in ("pfcp-seid-endpoint-reuse", "gtpu-reverse-direction",
+                         "n11-sequential-ps-attempts", "amf-id-reuse-lifetimes",
+                         "ps-independent-after-handover", "n11-associated"):
+            document = _run_scenario_analysis(skill, model, scenario)
+            refs = _owned_refs(document)
+            if len(refs) != len(set(refs)):
+                errors.append(
+                    f"behavioral gate failed: supporting-event ownership is not exclusive in {scenario}"
+                )
+        document = _run_scenario_analysis(skill, model, "n11-sequential-ps-attempts")
+        owned_by_ps = [
+            {ref["frame_number"] for ref in attempt["event_ownership"]["owned_event_refs"]}
+            for attempt in document.get("path_switch_attempts", [])
+        ]
+        if any(owned_by_ps):
+            errors.append("behavioral gate failed: an N11 event was owned despite no reviewed mobility semantics")
+        if len(owned_by_ps) >= 2 and (owned_by_ps[0] & owned_by_ps[1]):
+            errors.append("behavioral gate failed: one N11 event owned by two Path Switch attempts")
+
+        # PSI + capture + later time alone never binds N11.
+        document = _run_scenario_analysis(skill, model, "n11-associated")
+        if _owned_refs(document):
+            errors.append("behavioral gate failed: N11 bound without reviewed mobility-specific semantics")
+
+        # Endpoint-scoped PFCP SEID: the foreign endpoint-pair group never binds.
+        document = _run_scenario_analysis(skill, model, "pfcp-seid-endpoint-reuse")
+        foreign = {ref[2] for ref in _owned_refs(document)} & {20, 21}
+        if foreign:
+            errors.append(f"behavioral gate failed: PFCP SEID endpoint scoping violated for frames {sorted(foreign)}")
+
+        # Directed GTP-U endpoint role: reverse-direction packet never binds.
+        document = _run_scenario_analysis(skill, model, "gtpu-reverse-direction")
+        owned_frames = {ref[2] for ref in _owned_refs(document)}
+        if 22 in owned_frames:
+            errors.append("behavioral gate failed: reverse-direction GTP-U packet was bound")
+        if 20 not in owned_frames:
+            errors.append("behavioral gate failed: correctly directed GTP-U packet was not bound")
+
+        # No automatic Handover-Path-Switch relationship from context + time.
+        document = _run_scenario_analysis(skill, model, "ps-independent-after-handover")
+        for attempt in document.get("path_switch_attempts", []):
+            if attempt.get("related_handover_attempt_id") is not None \
+                    or attempt.get("relationship_strength") != "UNBOUND":
+                errors.append("behavioral gate failed: Handover-Path-Switch relationship inferred without a deterministic bridge")
+    except Exception as exc:  # noqa: BLE001 - validator must report, not crash
+        errors.append(f"behavioral gate execution failed: {exc}")
 
 
 def manifest_value(text: str, key: str) -> str | None:
@@ -250,6 +358,25 @@ def validate(root: Path) -> list[str]:
                     errors.append(f"handover and Path Switch must stay separate attempt families in {relative}")
                 if MANDATORY_SEQUENCE.search(text):
                     errors.append(f"neither family may be mandatory for the other in {relative}")
+                if path.suffix == ".py":
+                    for line in text.splitlines():
+                        if UNSCOPED_SEID_KEY.search(line):
+                            errors.append(f"PFCP session identity must be endpoint scoped in {relative}")
+                            break
+                    for line in text.splitlines():
+                        if UNDIRECTED_ENDPOINT_MATCH.search(line):
+                            errors.append(f"GTP-U endpoint matching must respect direction in {relative}")
+                            break
+                    for line in text.splitlines():
+                        if ISOLATED_ASSOCIATION_LOOP.search(line):
+                            errors.append(f"supporting evidence must be evaluated globally, not per attempt, in {relative}")
+                            break
+                    for line in text.splitlines():
+                        if AUTO_RELATIONSHIP.search(line) and "never" not in line.lower() and "no deterministic" not in line.lower():
+                            errors.append(f"Handover-Path-Switch relationship must not be inferred from context and time in {relative}")
+                            break
+                if "MOBILITY_N2_SM_INFO_TYPES" not in text and path.name == "mobility_model.py":
+                    errors.append(f"N11 association must gate on the reviewed mobility N2 SM Information Type vocabulary in {relative}")
             if path.parent.name in {"inputs", "expected"}:
                 if SUBSCRIBER_FIELD.search(text):
                     errors.append(f"subscriber identity field in fixture {relative}")
@@ -260,6 +387,8 @@ def validate(root: Path) -> list[str]:
                 py_compile.compile(str(script), doraise=True)
             except py_compile.PyCompileError as exc:
                 errors.append(f"script does not compile: {script.name}: {exc.msg}")
+
+    _behavioral_gates(skill, errors)
     return errors
 
 

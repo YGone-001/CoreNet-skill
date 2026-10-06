@@ -15,24 +15,42 @@
   ],
   "additionalProperties": false,
   "properties": {
-    "analysis_name": {"type": "string", "const": "5gc-handover-mobility"},
-    "analysis_version": {"type": "string", "minLength": 1},
-    "procedure_family": {"type": "string", "const": "5gc-handover-mobility"},
+    "analysis_name": {
+      "type": "string",
+      "const": "5gc-handover-mobility"
+    },
+    "analysis_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "procedure_family": {
+      "type": "string",
+      "const": "5gc-handover-mobility"
+    },
     "handover_attempts": {
       "type": "array",
-      "items": {"$ref": "#/$defs/handoverAttempt"}
+      "items": {
+        "$ref": "#/$defs/handoverAttempt"
+      }
     },
     "path_switch_attempts": {
       "type": "array",
-      "items": {"$ref": "#/$defs/pathSwitchAttempt"}
+      "items": {
+        "$ref": "#/$defs/pathSwitchAttempt"
+      }
     },
     "unbound_mobility_evidence": {
       "type": "array",
-      "items": {"type": "object"}
+      "items": {
+        "type": "object"
+      }
     },
     "limitations": {
       "type": "array",
-      "items": {"type": "string", "minLength": 1}
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   },
   "$defs": {
@@ -56,49 +74,129 @@
         "plane_bindings",
         "unbound_evidence",
         "limitations",
-        "observation_window"
+        "observation_window",
+        "event_ownership"
       ],
       "additionalProperties": false,
       "properties": {
-        "attempt_id": {"type": "string", "minLength": 1},
-        "attempt_id_basis": {"type": "string", "minLength": 1},
-        "family": {"type": "string", "const": "handover"},
-        "handover_type": {"$ref": "#/$defs/handoverType"},
-        "source_context": {"$ref": "#/$defs/sideContext"},
-        "target_context": {"$ref": "#/$defs/sideContext"},
-        "association": {"$ref": "#/$defs/association"},
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attempt_id_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "family": {
+          "type": "string",
+          "const": "handover"
+        },
+        "handover_type": {
+          "$ref": "#/$defs/handoverType"
+        },
+        "source_context": {
+          "$ref": "#/$defs/sideContext"
+        },
+        "target_context": {
+          "$ref": "#/$defs/sideContext"
+        },
+        "association": {
+          "$ref": "#/$defs/association"
+        },
         "stages": {
           "type": "array",
-          "items": {"$ref": "#/$defs/stage"}
+          "items": {
+            "$ref": "#/$defs/stage"
+          }
         },
         "events": {
           "type": "array",
-          "items": {"type": "object"}
+          "items": {
+            "type": "object"
+          }
         },
         "pdu_session_resources": {
           "type": "array",
-          "items": {"$ref": "#/$defs/sessionResourceFinding"}
+          "items": {
+            "$ref": "#/$defs/sessionResourceFinding"
+          }
         },
-        "terminal_observation": {"$ref": "#/$defs/terminalObservation"},
+        "terminal_observation": {
+          "$ref": "#/$defs/terminalObservation"
+        },
         "deviations": {
           "type": "array",
-          "items": {"$ref": "#/$defs/deviation"}
+          "items": {
+            "$ref": "#/$defs/deviation"
+          }
         },
-        "earliest_observed_deviation": {"type": ["object", "null"]},
+        "earliest_observed_deviation": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
         "field_findings": {
           "type": "array",
-          "items": {"$ref": "#/$defs/fieldFinding"}
+          "items": {
+            "$ref": "#/$defs/fieldFinding"
+          }
         },
-        "plane_bindings": {"$ref": "#/$defs/planeBindings"},
+        "plane_bindings": {
+          "$ref": "#/$defs/planeBindings"
+        },
         "unbound_evidence": {
           "type": "array",
-          "items": {"type": "object"}
+          "items": {
+            "type": "object"
+          }
         },
         "limitations": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
-        "observation_window": {"$ref": "#/$defs/observationWindow"}
+        "observation_window": {
+          "$ref": "#/$defs/observationWindow"
+        },
+        "event_ownership": {
+          "type": "object",
+          "description": "Exclusive supporting-event ownership of this attempt. Every listed N11/PFCP/GTP-U event reference is owned by this attempt alone; ambiguous and unbound supporting events are listed in unbound_mobility_evidence instead.",
+          "required": [
+            "owned_event_refs"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "owned_event_refs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "protocol",
+                  "capture_file",
+                  "frame_number"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "protocol": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "capture_file": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "frame_number": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "pathSwitchAttempt": {
@@ -121,122 +219,408 @@
         "plane_bindings",
         "unbound_evidence",
         "limitations",
-        "observation_window"
+        "observation_window",
+        "event_ownership"
       ],
       "additionalProperties": false,
       "properties": {
-        "attempt_id": {"type": "string", "minLength": 1},
-        "attempt_id_basis": {"type": "string", "minLength": 1},
-        "family": {"type": "string", "const": "path-switch"},
-        "serving_context": {"$ref": "#/$defs/sideContext"},
-        "related_handover_attempt_id": {"type": ["string", "null"], "minLength": 1},
-        "relationship_basis": {"type": ["string", "null"], "minLength": 1},
-        "relationship_strength": {"type": ["string", "null"], "enum": ["SUPPORTED", "AMBIGUOUS", "UNBOUND", null]},
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attempt_id_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "family": {
+          "type": "string",
+          "const": "path-switch"
+        },
+        "serving_context": {
+          "$ref": "#/$defs/sideContext"
+        },
+        "related_handover_attempt_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "relationship_basis": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "relationship_strength": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "UNBOUND",
+            null
+          ]
+        },
         "stages": {
           "type": "array",
-          "items": {"$ref": "#/$defs/stage"}
+          "items": {
+            "$ref": "#/$defs/stage"
+          }
         },
         "events": {
           "type": "array",
-          "items": {"type": "object"}
+          "items": {
+            "type": "object"
+          }
         },
         "pdu_session_resources": {
           "type": "array",
-          "items": {"$ref": "#/$defs/sessionResourceFinding"}
+          "items": {
+            "$ref": "#/$defs/sessionResourceFinding"
+          }
         },
-        "terminal_observation": {"$ref": "#/$defs/terminalObservation"},
+        "terminal_observation": {
+          "$ref": "#/$defs/terminalObservation"
+        },
         "deviations": {
           "type": "array",
-          "items": {"$ref": "#/$defs/deviation"}
+          "items": {
+            "$ref": "#/$defs/deviation"
+          }
         },
-        "earliest_observed_deviation": {"type": ["object", "null"]},
+        "earliest_observed_deviation": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
         "field_findings": {
           "type": "array",
-          "items": {"$ref": "#/$defs/fieldFinding"}
+          "items": {
+            "$ref": "#/$defs/fieldFinding"
+          }
         },
-        "plane_bindings": {"$ref": "#/$defs/planeBindings"},
+        "plane_bindings": {
+          "$ref": "#/$defs/planeBindings"
+        },
         "unbound_evidence": {
           "type": "array",
-          "items": {"type": "object"}
+          "items": {
+            "type": "object"
+          }
         },
         "limitations": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
-        "observation_window": {"$ref": "#/$defs/observationWindow"}
+        "observation_window": {
+          "$ref": "#/$defs/observationWindow"
+        },
+        "event_ownership": {
+          "type": "object",
+          "description": "Exclusive supporting-event ownership of this attempt. Every listed N11/PFCP/GTP-U event reference is owned by this attempt alone; ambiguous and unbound supporting events are listed in unbound_mobility_evidence instead.",
+          "required": [
+            "owned_event_refs"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "owned_event_refs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "protocol",
+                  "capture_file",
+                  "frame_number"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "protocol": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "capture_file": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "frame_number": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "handoverType": {
       "type": "object",
-      "required": ["value", "name", "domain_scope", "scope_status"],
+      "required": [
+        "value",
+        "name",
+        "domain_scope",
+        "scope_status"
+      ],
       "additionalProperties": false,
       "properties": {
-        "value": {"type": ["integer", "null"]},
-        "name": {"type": ["string", "null"], "minLength": 1},
-        "domain_scope": {"type": ["string", "null"], "enum": ["INTRA_5GS", "INTER_SYSTEM_OR_OTHER", null]},
+        "value": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "domain_scope": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "INTRA_5GS",
+            "INTER_SYSTEM_OR_OTHER",
+            null
+          ]
+        },
         "scope_status": {
-          "type": ["string", "null"],
-          "enum": ["SUPPORTED_FOR_DOMAIN_PROCEDURE", "UNSUPPORTED_HANDOVER_TYPE_FOR_DOMAIN_PROCEDURE", null]
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "SUPPORTED_FOR_DOMAIN_PROCEDURE",
+            "UNSUPPORTED_HANDOVER_TYPE_FOR_DOMAIN_PROCEDURE",
+            null
+          ]
         }
       }
     },
     "sideContext": {
-      "type": ["object", "null"],
-      "required": ["capture_file", "association", "ran_ue_ngap_id", "amf_ue_ngap_id"],
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "capture_file",
+        "association",
+        "ran_ue_ngap_id",
+        "amf_ue_ngap_id"
+      ],
       "additionalProperties": false,
       "properties": {
-        "capture_file": {"type": ["string", "null"], "minLength": 1},
-        "association": {"type": ["string", "null"], "minLength": 1},
-        "ran_ue_ngap_id": {"type": ["integer", "null"]},
-        "amf_ue_ngap_id": {"type": ["integer", "null"]},
-        "role": {"type": ["string", "null"], "enum": ["source", "target", "serving", null]},
-        "side": {"type": ["string", "null"], "enum": ["SOURCE_ONLY", "TARGET_ONLY", "SOURCE_AND_TARGET", null]}
+        "capture_file": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "association": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "ran_ue_ngap_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "amf_ue_ngap_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "source",
+            "target",
+            "serving",
+            null
+          ]
+        },
+        "side": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "SOURCE_ONLY",
+            "TARGET_ONLY",
+            "SOURCE_AND_TARGET",
+            null
+          ]
+        }
       }
     },
     "association": {
       "type": "object",
-      "required": ["strength", "basis", "candidates"],
+      "required": [
+        "strength",
+        "basis",
+        "candidates"
+      ],
       "additionalProperties": false,
       "properties": {
-        "strength": {"type": "string", "enum": ["STRONG", "SUPPORTED", "AMBIGUOUS", "UNBOUND"]},
-        "basis": {"type": ["string", "null"], "minLength": 1},
+        "strength": {
+          "type": "string",
+          "enum": [
+            "STRONG",
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "UNBOUND"
+          ]
+        },
+        "basis": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
         "candidates": {
           "type": "array",
           "description": "Compatible counterpart contexts preserved when the association is ambiguous; empty when the association is unique.",
-          "items": {"type": "object"}
+          "items": {
+            "type": "object"
+          }
         }
       }
     },
     "stage": {
       "type": "object",
-      "required": ["stage_id", "stage_name", "status", "observed", "missing"],
+      "required": [
+        "stage_id",
+        "stage_name",
+        "status",
+        "observed",
+        "missing"
+      ],
       "additionalProperties": false,
       "properties": {
-        "stage_id": {"type": "string", "minLength": 1},
-        "stage_name": {"type": "string", "minLength": 1},
-        "status": {"type": "string", "enum": ["OBSERVED", "PARTIALLY_OBSERVED", "NOT_APPLICABLE"]},
-        "observed": {"type": "array", "items": {"type": "object"}},
-        "missing": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        "stage_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stage_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "PARTIALLY_OBSERVED",
+            "NOT_APPLICABLE"
+          ]
+        },
+        "observed": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     },
     "sessionResourceFinding": {
       "type": "object",
-      "required": ["pdu_session_id", "n2_roles", "n2_outcomes", "n11_evidence", "n4_evidence", "n3_observations", "limitations"],
+      "required": [
+        "pdu_session_id",
+        "n2_roles",
+        "n2_outcomes",
+        "n11_evidence",
+        "n4_evidence",
+        "n3_observations",
+        "limitations"
+      ],
       "additionalProperties": false,
       "properties": {
-        "pdu_session_id": {"type": "integer", "minimum": 0, "maximum": 255},
-        "lifecycle_generation": {"type": ["object", "null"]},
-        "n2_roles": {"type": "array", "items": {"type": "object"}},
-        "n2_outcomes": {"type": "array", "items": {"type": "object"}},
-        "n11_evidence": {"type": "array", "items": {"type": "object"}},
-        "n4_evidence": {"type": "array", "items": {"type": "object"}},
-        "n3_observations": {"type": "array", "items": {"type": "object"}},
-        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        "pdu_session_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "lifecycle_generation": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "n2_roles": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "n2_outcomes": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "n11_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "n4_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "n3_observations": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     },
     "terminalObservation": {
       "type": "object",
-      "required": ["observation", "message_type", "frame_number", "timestamp", "evidence_level"],
+      "required": [
+        "observation",
+        "message_type",
+        "frame_number",
+        "timestamp",
+        "evidence_level"
+      ],
       "additionalProperties": false,
       "properties": {
         "observation": {
@@ -254,15 +638,45 @@
             "PARTIAL_CAPTURE"
           ]
         },
-        "message_type": {"type": ["string", "null"], "minLength": 1},
-        "frame_number": {"type": ["integer", "null"], "minimum": 1},
-        "timestamp": {"type": ["string", "null"]},
-        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]}
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "timestamp": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_level": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "DERIVED"
+          ]
+        }
       }
     },
     "deviation": {
       "type": "object",
-      "required": ["type", "stage_id", "description", "evidence_level", "limitation", "evidence_refs"],
+      "required": [
+        "type",
+        "stage_id",
+        "description",
+        "evidence_level",
+        "limitation",
+        "evidence_refs"
+      ],
       "additionalProperties": false,
       "properties": {
         "type": {
@@ -281,70 +695,255 @@
             "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE"
           ]
         },
-        "stage_id": {"type": ["string", "null"], "minLength": 1},
-        "description": {"type": "string", "minLength": 1},
-        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
-        "limitation": {"type": "string", "minLength": 1},
+        "stage_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_level": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "DERIVED"
+          ]
+        },
+        "limitation": {
+          "type": "string",
+          "minLength": 1
+        },
         "evidence_refs": {
           "type": "array",
-          "items": {"$ref": "#/$defs/evidenceRef"}
+          "items": {
+            "$ref": "#/$defs/evidenceRef"
+          }
         }
       }
     },
     "fieldFinding": {
       "type": "object",
-      "required": ["protocol", "message_type", "field_name", "observed_value", "normalized_value", "frame_number", "capture_file", "evidence_level", "interpretation", "limitations"],
+      "required": [
+        "protocol",
+        "message_type",
+        "field_name",
+        "observed_value",
+        "normalized_value",
+        "frame_number",
+        "capture_file",
+        "evidence_level",
+        "interpretation",
+        "limitations"
+      ],
       "additionalProperties": false,
       "properties": {
-        "protocol": {"type": "string", "minLength": 1},
-        "message_type": {"type": ["string", "null"], "minLength": 1},
-        "field_name": {"type": "string", "minLength": 1},
+        "protocol": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "field_name": {
+          "type": "string",
+          "minLength": 1
+        },
         "observed_value": {},
         "normalized_value": {},
-        "frame_number": {"type": ["integer", "null"], "minimum": 1},
-        "capture_file": {"type": ["string", "null"], "minLength": 1},
-        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
-        "interpretation": {"type": "string", "minLength": 1},
-        "limitations": {"type": "array", "items": {"type": "string"}}
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "capture_file": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "evidence_level": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "DERIVED"
+          ]
+        },
+        "interpretation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "planeBindings": {
       "type": "object",
-      "required": ["n11", "n4", "n3"],
+      "required": [
+        "n11",
+        "n4",
+        "n3"
+      ],
       "additionalProperties": false,
       "properties": {
-        "n11": {"type": "array", "items": {"type": "object"}},
-        "n4": {"type": "array", "items": {"type": "object"}},
-        "n3": {"type": "array", "items": {"type": "object"}}
+        "n11": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "n4": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "n3": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
       }
     },
     "observationWindow": {
       "type": "object",
-      "required": ["first_timestamp", "last_timestamp", "first_frame", "last_frame"],
+      "required": [
+        "first_timestamp",
+        "last_timestamp",
+        "first_frame",
+        "last_frame"
+      ],
       "additionalProperties": false,
       "properties": {
-        "first_timestamp": {"type": ["string", "null"]},
-        "last_timestamp": {"type": ["string", "null"]},
-        "first_frame": {"type": ["integer", "null"], "minimum": 1},
-        "last_frame": {"type": ["integer", "null"], "minimum": 1}
+        "first_timestamp": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "last_timestamp": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "first_frame": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "last_frame": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
       }
     },
     "evidenceRef": {
       "type": "object",
-      "required": ["kind", "evidence_level"],
+      "required": [
+        "kind",
+        "evidence_level"
+      ],
       "additionalProperties": false,
       "properties": {
-        "kind": {"type": "string", "enum": ["EVENT", "FIELD_FINDING", "OBSERVATION_WINDOW", "STAGE"]},
-        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
-        "capture_file": {"type": ["string", "null"], "minLength": 1},
-        "frame_number": {"type": ["integer", "null"], "minimum": 1},
-        "timestamp": {"type": ["string", "null"]},
-        "protocol": {"type": ["string", "null"], "minLength": 1},
-        "message_type": {"type": ["string", "null"], "minLength": 1},
-        "stage_id": {"type": ["string", "null"], "minLength": 1},
-        "field_name": {"type": ["string", "null"], "minLength": 1},
-        "window_first_frame": {"type": ["integer", "null"], "minimum": 1},
-        "window_last_frame": {"type": ["integer", "null"], "minimum": 1}
+        "kind": {
+          "type": "string",
+          "enum": [
+            "EVENT",
+            "FIELD_FINDING",
+            "OBSERVATION_WINDOW",
+            "STAGE"
+          ]
+        },
+        "evidence_level": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "DERIVED"
+          ]
+        },
+        "capture_file": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "timestamp": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "protocol": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "stage_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "field_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "window_first_frame": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "window_last_frame": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
       }
     }
   }

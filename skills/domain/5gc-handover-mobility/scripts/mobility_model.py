@@ -655,13 +655,12 @@ def _psi_set(attempt_events: list[dict[str, object]]) -> dict[int, list[dict[str
 
 
 def _after_start(event: dict[str, object], window: object) -> bool:
-    """Temporal sanity for supporting-plane association.
+    """Lower temporal bound for supporting-plane candidacy.
 
-    Supporting evidence must not precede the attempt. No upper bound is
-    applied: N11/N4/N3 activity may follow the last observed N2 event of the
-    same activity, and the identity context (PDU Session ID, header SEID,
-    TEID + endpoints) plus the capture provide the association basis. The
-    association is never made by timestamp alone.
+    Supporting evidence must not precede the attempt. The upper bound, when
+    one safely exists, is applied separately through the candidate windows
+    derived from sequentially established attempts in the same scoped UE
+    context. The association is never made by timestamp alone.
     """
     start = window.get("first_timestamp") if isinstance(window, dict) else None
     if start is None:
@@ -669,68 +668,163 @@ def _after_start(event: dict[str, object], window: object) -> bool:
     return start <= str(event.get("timestamp") or "")
 
 
+def _in_candidate_window(event: dict[str, object], attempt: dict[str, object],
+                         window_end: str | None) -> bool:
+    """Lower and (when safely established) upper temporal bounds.
+
+    The upper bound comes only from the next independently established
+    attempt in the same scoped UE context; when no such attempt exists the
+    bound stays open and identity keys (not time) carry the association.
+    """
+    if not _after_start(event, attempt["window"]):
+        return False
+    if window_end is not None and str(event.get("timestamp") or "") >= window_end:
+        return False
+    return True
+
+
+# N2 SM Information Type values that the reviewed lower SBI contract owns and
+# that directly identify a mobility control operation. The sbi-http2 Skill
+# passes n2SmInfoType through verbatim and its reviewed contract exposes no
+# handover/path-switch N2 SM Information Type vocabulary, so this set is
+# deliberately empty: N11 UpdateSMContext evidence therefore never binds to a
+# mobility attempt in v0.1.0 (PDU Session ID + capture + time alone are never
+# sufficient). When a lower contract version exposes reviewed mobility values,
+# they are added here without changing this Skill's version.
+MOBILITY_N2_SM_INFO_TYPES: frozenset[str] = frozenset()
+
+SUPPORTING_REF_PROTOCOLS = ("SBI-HTTP2", "PFCP", "GTP-U")
+
+
+def _supporting_ref(event: dict[str, object]) -> tuple[str, str, int]:
+    """Stable supporting-event reference used for the ownership invariant."""
+    return (str(event.get("protocol")), str(event.get("capture_file")), int(event["frame_number"]))
+
+
+def _assert_exclusive_ownership(bound: dict[int, list[dict[str, object]]]) -> None:
+    """Runtime invariant: one supporting event owns at most one attempt.
+
+    Fails loudly if the same (protocol, capture_file, frame_number)
+    reference is claimed by two mobility attempts, across or within the
+    handover and Path Switch families. This is a runtime guarantee, not a
+    test-only check.
+    """
+    owners: dict[tuple[str, str, int], set[int]] = {}
+    for index, events in bound.items():
+        for event in events:
+            owners.setdefault(_supporting_ref(event), set()).add(index)
+    duplicated = {ref: sorted(indices) for ref, indices in owners.items() if len(indices) > 1}
+    if duplicated:
+        raise InputError(
+            "supporting-event ownership invariant violated; one event claimed by multiple "
+            f"mobility attempts: {duplicated}"
+        )
+
+
+def _bounded_supporting_events(
+    events: list[dict[str, object]],
+    protocol: str,
+    candidate_fn,
+) -> tuple[dict[int, list[dict[str, object]]], list[dict[str, object]], list[dict[str, object]]]:
+    """Shared global candidate evaluation for one supporting plane.
+
+    Every event is evaluated against ALL mobility attempts at once. The
+    result is exactly one of BOUND (exactly one compatible attempt),
+    AMBIGUOUS (two or more compatible attempts; no first or nearest
+    selection), or UNBOUND (no sufficiently safe attempt). ``candidate_fn``
+    returns (candidates, reason) with the reason always documenting why an
+    event is unbound when no candidate survives. The plane's protocol label
+    is attached in memory; normalized extractor events carry no protocol
+    field. Returns (bound by attempt index, ambiguous records, unbound
+    records).
+    """
+    bound: dict[int, list[dict[str, object]]] = {}
+    ambiguous: list[dict[str, object]] = []
+    unbound: list[dict[str, object]] = []
+    for order, raw_event in enumerate(events):
+        event = dict(raw_event)
+        event["protocol"] = protocol
+        event["input_order"] = order
+        candidates, reason = candidate_fn(event)
+        if len(candidates) == 1:
+            bound.setdefault(candidates[0], []).append(event)
+        elif len(candidates) > 1:
+            ambiguous.append({
+                "event": event,
+                "reason": "multiple mobility attempts remain compatible; no first or nearest selection is made",
+                "candidates": sorted(candidates),
+            })
+        else:
+            unbound.append({"event": event, "reason": reason, "candidates": []})
+    return bound, ambiguous, unbound
+
+
 def associate_n11(
     sbi_events: list[dict[str, object]],
     attempts: list[dict[str, object]],
-) -> tuple[dict[int, list[dict[str, object]]], list[dict[str, object]]]:
-    """Associate Nsmf_PDUSession UpdateSMContext evidence with attempts.
+    window_ends: dict[int, str | None],
+) -> tuple[dict[int, list[dict[str, object]]], list[dict[str, object]], list[dict[str, object]]]:
+    """Globally evaluate Nsmf_PDUSession UpdateSMContext evidence.
 
-    Safe association requires the same capture, a directly supplied PDU
-    Session ID that belongs to the attempt's resource set, and compatibility
-    with the attempt's observation window. SBI events without a usable PDU
-    Session ID (for example privacy-redacted exports) stay UNBOUND; they are
-    never associated by timestamp. An HTTP 2xx status is recorded as
-    observed evidence and never becomes a mobility success.
+    A PDU Session ID identifies a PDU Session context, never a mobility
+    attempt. Binding additionally requires a reviewed mobility-specific N2
+    SM Information Type from the lower SBI contract; the sbi-http2 contract
+    currently exposes no such reviewed vocabulary (MOBILITY_N2_SM_INFO_TYPES
+    is empty), so UpdateSMContext evidence stays UNBOUND in this version.
+    PDU Session ID + capture + temporal position alone never bind N11, and
+    no per-attempt isolated association pass exists.
     """
-    bound: dict[int, list[dict[str, object]]] = {}
-    unbound: list[dict[str, object]] = []
-    for order, raw_event in enumerate(sbi_events):
-        event = _protocol_tag(raw_event, "SBI-HTTP2")
-        event["input_order"] = order
+
+    def candidates_for(event: dict[str, object]) -> tuple[list[int], str]:
         sbi = event.get("sbi") or {}
         if _safe_str(sbi.get("service_name")) != SBI_SERVICE_NSMF \
                 or _safe_str(sbi.get("operation")) != SBI_OPERATION_UPDATE_SM_CONTEXT:
-            unbound.append(event)
-            continue
-        session_management = event.get("session_management") or {}
-        psi = session_management.get("pdu_session_id")
+            return [], "not an Nsmf_PDUSession UpdateSMContext observation"
+        n2_sm_info_type = _safe_str((event.get("session_management") or {}).get("n2_sm_info_type"))
+        if n2_sm_info_type not in MOBILITY_N2_SM_INFO_TYPES:
+            return [], (
+                "no reviewed mobility-specific N2 SM Information Type is exposed by the lower "
+                "sbi-http2 contract; PDU Session identity, capture, and time never bind N11"
+            )
+        psi = (event.get("session_management") or {}).get("pdu_session_id")
         if not isinstance(psi, int):
-            unbound.append(event)
-            continue
-        candidates = []
-        for index, attempt in enumerate(attempts):
-            window = attempt["window"]
-            if attempt["capture"] == str(event["capture_file"]) \
-                    and psi in attempt["psi_set"] and _after_start(event, window):
-                candidates.append(index)
-        if len(candidates) == 1:
-            bound.setdefault(candidates[0], []).append(event)
-        else:
-            event = dict(event)
-            event["association_candidates"] = len(candidates)
-            unbound.append(event)
-    return bound, unbound
+            return [], "no PDU Session ID supplied (for example privacy-redacted evidence)"
+        candidates = [
+            index for index, attempt in enumerate(attempts)
+            if attempt["capture"] == str(event["capture_file"])
+            and psi in attempt["psi_set"]
+            and _in_candidate_window(event, attempt, window_ends.get(index))
+        ]
+        return candidates, "no unique compatible mobility attempt"
+
+    return _bounded_supporting_events(sbi_events, "SBI-HTTP2", candidates_for)
 
 
-def associate_n4(
-    pfcp_events: list[dict[str, object]],
-    attempts: list[dict[str, object]],
-    pdu_session_context: dict[str, object] | None,
-) -> tuple[dict[int, list[dict[str, object]]], list[dict[str, object]], dict[int, dict[int, dict[str, object]]]]:
-    """Associate PFCP Session Modification evidence with attempts.
+def _pfcp_endpoint_pair(event: dict[str, object]) -> tuple[str, ...]:
+    """Undirected PFCP endpoint pair of one event (order-normalized).
 
-    PFCP carries no UE identity, and a PFCP modification may belong to any
-    PDU Session change. The only safe association path in v0.1.0 is through
-    the optional PDU Session Domain context: when that context binds a PFCP
-    header SEID (endpoint-scoped, same capture) to a PDU Session instance
-    whose PDU Session ID belongs to the attempt, the modification is
-    associated via that SEID continuity. Without such context, PFCP
-    modification evidence stays unbound; timestamp proximity alone never
-    associates it.
+    A PFCP session's Request and Response travel between the same endpoint
+    pair in opposite directions, so the session key uses the order-normalized
+    pair. SEIDs are endpoint/session scoped: the same numeric SEID under a
+    different endpoint pair is a different PFCP session, never the same one.
     """
-    bound: dict[int, list[dict[str, object]]] = {}
-    unbound: list[dict[str, object]] = []
-    seid_to_psi: dict[tuple[str, int], dict[int, list[tuple[int, int]]]] = {}
+    parts = []
+    for role in ("source", "destination"):
+        endpoint = event.get(role)
+        if isinstance(endpoint, dict):
+            parts.append(f"{endpoint.get('address')}:{endpoint.get('port')}")
+    return tuple(sorted(parts)) if parts else ("no-endpoints",)
+
+
+def _pfcp_seid_context(
+    pdu_session_context: dict[str, object] | None,
+) -> tuple[dict[tuple[str, int], dict[int, list[tuple[int, int]]]], dict[tuple[str, int], set[tuple[int, str | None]]]]:
+    """Endpoint-scoped context mapping: (capture, header SEID) -> PDU Session
+    instances with their observation windows, plus the context F-TEIDs used
+    to disambiguate endpoint-pair groups when the same numeric SEID appears
+    under several PFCP endpoint pairs."""
+    seid_context: dict[tuple[str, int], dict[int, list[tuple[int, int]]]] = {}
+    context_f_teids: dict[tuple[str, int], set[tuple[int, str | None]]] = {}
     if pdu_session_context is not None:
         for instance in pdu_session_context.get("instances", []):
             psi = instance.get("pdu_session_id")
@@ -742,53 +836,159 @@ def associate_n4(
             first_frame = window.get("first_frame") if isinstance(window, dict) else None
             last_frame = window.get("last_frame") if isinstance(window, dict) else None
             if isinstance(psi, int) and capture is not None and isinstance(header_seid, int)                     and isinstance(first_frame, int) and isinstance(last_frame, int):
-                seid_to_psi.setdefault((capture, header_seid), {}).setdefault(psi, []).append((first_frame, last_frame))
+                seid_context.setdefault((capture, header_seid), {}).setdefault(psi, []).append((first_frame, last_frame))
+                f_teid = n4.get("f_teid") if isinstance(n4.get("f_teid"), dict) else None
+                if isinstance(f_teid, dict) and isinstance(f_teid.get("teid"), int):
+                    context_f_teids.setdefault((capture, header_seid), set()).add(
+                        (f_teid["teid"], _safe_str(f_teid.get("ipv4"))))
+    return seid_context, context_f_teids
 
-    associated_ps: dict[int, dict[int, dict[str, object]]] = {}
+
+def _pfcp_psi_attribution(
+    attempts: list[dict[str, object]],
+    bound_n4: dict[int, list[dict[str, object]]],
+    pdu_session_context: dict[str, object] | None,
+) -> dict[int, dict[int, dict[str, object]]]:
+    """Per-attempt PDU Session attribution for BOUND PFCP events, derived
+    from the same endpoint-scoped context mapping used for association."""
+    seid_context, _f_teids = _pfcp_seid_context(pdu_session_context)
+    attribution: dict[int, dict[int, dict[str, object]]] = {}
+    for index, events in bound_n4.items():
+        if index >= len(attempts):
+            continue
+        attempt = attempts[index]
+        for event in events:
+            seid = (event.get("header") or {}).get("seid")
+            mapping = seid_context.get((str(event["capture_file"]), seid), {}) if isinstance(seid, int) else {}
+            for psi in sorted(set(mapping) & set(attempt["psi_set"])):
+                attribution.setdefault(index, {}).setdefault(psi, {
+                    "association_basis": "pdu_session_context_header_seid",
+                    "header_seid": seid,
+                })
+    return attribution
+
+
+def associate_n4(
+    pfcp_events: list[dict[str, object]],
+    attempts: list[dict[str, object]],
+    window_ends: dict[int, str | None],
+    pdu_session_context: dict[str, object] | None,
+) -> tuple[dict[int, list[dict[str, object]]], list[dict[str, object]], list[dict[str, object]]]:
+    """Globally evaluate PFCP Session Modification evidence.
+
+    PFCP carries no UE identity and a modification may belong to any PDU
+    Session change, so attribution stays conservative:
+
+    - PFCP session identity is endpoint scoped: (capture, order-normalized
+      endpoint pair, header SEID). The same numeric SEID under a different
+      endpoint pair is never the same session.
+    - The only bridge to a mobility attempt is the optional PDU Session
+      Domain context binding that SEID to a PDU Session instance (same
+      capture) whose window overlaps the attempt and whose PDU Session ID is
+      in the attempt's resource set. When the same (capture, SEID) spans
+      several endpoint-pair groups, the context cannot select one; groups
+      are kept apart and only a group whose FAR outer-header F-TEID matches
+      the context instance's F-TEID may become the candidate group. Anything
+      else stays AMBIGUOUS or UNBOUND. Timestamp proximity alone never
+      associates PFCP evidence.
+    """
+    seid_context: dict[tuple[str, int], dict[int, list[tuple[int, int]]]] = {}
+    context_f_teids: dict[tuple[str, int], set[tuple[int, str | None]]] = {}
+    if pdu_session_context is not None:
+        for instance in pdu_session_context.get("instances", []):
+            psi = instance.get("pdu_session_id")
+            capture = _safe_str(instance.get("capture_file"))
+            bindings = instance.get("plane_bindings") or {}
+            n4 = bindings.get("n4") if isinstance(bindings, dict) else None
+            header_seid = n4.get("header_seid") if isinstance(n4, dict) else None
+            window = instance.get("observation_window") or {}
+            first_frame = window.get("first_frame") if isinstance(window, dict) else None
+            last_frame = window.get("last_frame") if isinstance(window, dict) else None
+            if isinstance(psi, int) and capture is not None and isinstance(header_seid, int) \
+                    and isinstance(first_frame, int) and isinstance(last_frame, int):
+                seid_context.setdefault((capture, header_seid), {}).setdefault(psi, []).append((first_frame, last_frame))
+                f_teid = n4.get("f_teid") if isinstance(n4.get("f_teid"), dict) else None
+                if isinstance(f_teid, dict) and isinstance(f_teid.get("teid"), int):
+                    context_f_teids.setdefault((capture, header_seid), set()).add(
+                        (f_teid["teid"], _safe_str(f_teid.get("ipv4"))))
+
+    tagged: list[dict[str, object]] = []
+    group_members: dict[tuple[str, int, tuple[str, ...]], list[int]] = {}
     for order, raw_event in enumerate(pfcp_events):
-        event = _protocol_tag(raw_event, "PFCP")
+        event = dict(raw_event)
         event["input_order"] = order
+        tagged.append(event)
+        header = event.get("header") or {}
+        seid = header.get("seid")
+        if isinstance(seid, int):
+            group_members.setdefault((str(event["capture_file"]), seid, _pfcp_endpoint_pair(event)), []).append(order)
+
+    group_events: dict[tuple[str, int, tuple[str, ...]], list[dict[str, object]]] = {}
+    for key, members in group_members.items():
+        group_events[key] = [tagged[index] for index in members]
+
+    def _far_keys(event: dict[str, object]) -> set[tuple[int, str | None]]:
+        keys: set[tuple[int, str | None]] = set()
+        rule_operations = event.get("rule_operations")
+        fars = rule_operations.get("fars") if isinstance(rule_operations, dict) else None
+        for far in fars or []:
+            if not isinstance(far, dict):
+                continue
+            outer = far.get("outer_header_creation")
+            if isinstance(outer, dict) and outer.get("present") and isinstance(outer.get("teid"), int):
+                keys.add((outer["teid"], _safe_str(outer.get("ipv4"))))
+        return keys
+
+    def candidates_for(event: dict[str, object]) -> tuple[list[int], str]:
         header = event.get("header") or {}
         message = _safe_str(header.get("message_type"))
         if message not in PFCP_MODIFICATION_MESSAGES:
-            unbound.append(event)
-            continue
+            return [], "not a PFCP Session Modification observation"
         seid = header.get("seid")
         capture = str(event["capture_file"])
-        psi_candidates: set[int] = set()
-        association_basis: str | None = None
-        if isinstance(seid, int) and (capture, seid) in seid_to_psi:
-            psi_candidates = seid_to_psi[(capture, seid)]
-            association_basis = "pdu_session_context_header_seid"
-        matched: list[int] = []
+        if not isinstance(seid, int) or (capture, seid) not in seid_context:
+            return [], (
+                "no PDU Session Domain context binds this endpoint-scoped PFCP session; "
+                "PSI, SEID, and time alone never attribute a modification to mobility"
+            )
+        pair = _pfcp_endpoint_pair(event)
+        groups_for_seid = [key for key in group_events if key[0] == capture and key[1] == seid]
+        if len(groups_for_seid) > 1:
+            f_teids = context_f_teids.get((capture, seid), set())
+            matching_groups = [
+                key for key in groups_for_seid
+                if any(_far_keys(item) & f_teids for item in group_events[key])
+            ]
+            if len(matching_groups) != 1 or (capture, seid, pair) not in matching_groups:
+                return [], (
+                    "the same header SEID appears under several PFCP endpoint pairs and the "
+                    "available context cannot scope this event to one session"
+                )
+        psi_windows = seid_context[(capture, seid)]
+        candidates: list[int] = []
         for index, attempt in enumerate(attempts):
             if attempt["capture"] != capture:
                 continue
             attempt_frames = (attempt["window"].get("first_frame"), attempt["window"].get("last_frame"))
-            overlap: set[int] = set()
-            for psi in psi_candidates:
+            overlap = False
+            for psi, windows in psi_windows.items():
                 if psi not in attempt["psi_set"]:
                     continue
-                windows = seid_to_psi.get((capture, seid), {}).get(psi, []) if isinstance(seid, int) else []
-                if not windows:
-                    continue
                 for first_frame, last_frame in windows:
-                    if first_frame <= (attempt_frames[1] if attempt_frames[1] is not None else first_frame)                             and last_frame >= (attempt_frames[0] if attempt_frames[0] is not None else last_frame):
-                        overlap.add(psi)
+                    if first_frame <= (attempt_frames[1] if attempt_frames[1] is not None else first_frame) \
+                            and last_frame >= (attempt_frames[0] if attempt_frames[0] is not None else last_frame):
+                        overlap = True
                         break
-            if overlap and _after_start(event, attempt["window"]):
-                matched.append(index)
-                associated_ps.setdefault(index, {}).update(
-                    {psi: {"association_basis": association_basis, "header_seid": seid} for psi in overlap}
-                )
-        if len(matched) == 1:
-            bound.setdefault(matched[0], []).append(event)
-        else:
-            if matched:
-                event = dict(event)
-                event["association_candidates"] = len(matched)
-            unbound.append(event)
-    return bound, unbound, associated_ps
+                if overlap:
+                    break
+            if overlap and _in_candidate_window(event, attempt, window_ends.get(index)):
+                candidates.append(index)
+        return candidates, (
+            "no mobility attempt satisfies the endpoint-scoped session, PDU Session lifecycle, "
+            "and candidate-window requirements"
+        )
+
+    return _bounded_supporting_events(tagged, "PFCP", candidates_for)
 
 
 def _gtpu_outer_pair(event: dict[str, object]) -> tuple[str | None, str | None]:
@@ -799,30 +999,26 @@ def _gtpu_outer_pair(event: dict[str, object]) -> tuple[str | None, str | None]:
 def associate_n3(
     gtpu_events: list[dict[str, object]],
     attempts: list[dict[str, object]],
-    attempt_n4: dict[int, list[dict[str, object]]],
-    pdu_session_context: dict[str, object] | None,
-) -> tuple[dict[int, list[dict[str, object]]], list[dict[str, object]], dict[int, dict[str, dict[str, object]]]]:
-    """Bind GTP-U observations to attempts through TEID + directed endpoints.
+    window_ends: dict[int, str | None],
+    bound_n4: dict[int, list[dict[str, object]]],
+) -> tuple[dict[int, list[dict[str, object]]], list[dict[str, object]], list[dict[str, object]]]:
+    """Globally evaluate GTP-U observations through directed tunnel context.
 
-    TEID alone is never sufficient (hard gate): binding requires TEID
-    equality plus compatible directed endpoint context from a safely
-    associated PFCP F-TEID (FAR outer-header creation or session F-SEID) or
-    from the optional PDU Session Domain context. Tunnel roles are neutral
-    (TUNNEL_A/TUNNEL_B...): an old/new path role requires reviewed tunnel
-    lifecycle context that v0.1.0 does not establish.
+    Binding requires TEID equality plus the correct directed endpoint role:
+    a PFCP FAR Outer Header Creation names the encapsulation destination, so
+    the matching packet must carry that TEID toward that address
+    (destination role). A packet with the same TEID whose source is that
+    address is the reverse direction and never binds through the same rule.
+    Tunnels are derived only from attempt-owned (BOUND) PFCP events; an
+    unbound PFCP event never creates owning tunnel context. Tunnel contexts
+    that expose TEID + address without a safe direction role (for example
+    the PDU Session Domain context F-TEID entries) are not registered for
+    ownership at all. TEID alone is never sufficient, tunnel roles stay
+    neutral (TUNNEL_A/TUNNEL_B...), and NGAP opaque transfer bytes are never
+    parsed for TEIDs.
     """
-    bound: dict[int, list[dict[str, object]]] = {}
-    unbound: list[dict[str, object]] = []
-    tunnels: dict[int, dict[str, dict[str, object]]] = {}
-    tunnel_labels: dict[tuple, str] = {}
-
     known_tunnels: dict[int, list[dict[str, object]]] = {}
-
-    def register_tunnel(attempt_index: int, teid: int, endpoint: str | None, basis: str) -> None:
-        info = known_tunnels.setdefault(teid, [])
-        info.append({"attempt_index": attempt_index, "endpoint": endpoint, "basis": basis})
-
-    for index, events in attempt_n4.items():
+    for index, events in bound_n4.items():
         for event in events:
             rule_operations = event.get("rule_operations")
             fars = rule_operations.get("fars") if isinstance(rule_operations, dict) else None
@@ -831,38 +1027,18 @@ def associate_n3(
                     continue
                 outer = far.get("outer_header_creation")
                 if isinstance(outer, dict) and outer.get("present") and isinstance(outer.get("teid"), int):
-                    register_tunnel(index, outer["teid"], _safe_str(outer.get("ipv4")), "pfcp_far_outer_header")
-    if pdu_session_context is not None:
-        for instance in pdu_session_context.get("instances", []):
-            capture = _safe_str(instance.get("capture_file"))
-            bindings = instance.get("plane_bindings") or {}
-            if not isinstance(bindings, dict):
-                continue
-            n4_entry = bindings.get("n4")
-            if isinstance(n4_entry, dict) and isinstance(n4_entry.get("f_teid"), dict):
-                f_teid = n4_entry["f_teid"]
-                if isinstance(f_teid.get("teid"), int):
-                    known_tunnels.setdefault(f_teid["teid"], []).append({
-                        "attempt_index": None,
-                        "endpoint": _safe_str(f_teid.get("ipv4")),
-                        "basis": "pdu_session_context",
-                        "capture": capture,
-                        "pdu_session_id": instance.get("pdu_session_id"),
+                    known_tunnels.setdefault(outer["teid"], []).append({
+                        "attempt_index": index,
+                        "endpoint": _safe_str(outer.get("ipv4")),
+                        "role": "DESTINATION",
+                        "basis": "pfcp_far_outer_header_destination",
                     })
-            n3_entry = bindings.get("n3")
-            if isinstance(n3_entry, dict) and isinstance(n3_entry.get("teid"), int):
-                known_tunnels.setdefault(n3_entry["teid"], []).append({
-                    "attempt_index": None,
-                    "endpoint": _safe_str(n3_entry.get("endpoint")),
-                    "basis": "pdu_session_context",
-                    "capture": capture,
-                    "pdu_session_id": instance.get("pdu_session_id"),
-                })
 
-    for order, raw_event in enumerate(gtpu_events):
-        event = _protocol_tag(raw_event, "GTP-U")
-        event["input_order"] = order
+    def candidates_for(event: dict[str, object]) -> tuple[list[int], str]:
         header = event.get("header") or {}
+        message = _safe_str(header.get("message_type"))
+        if message not in (GTPU_GPDU, GTPU_END_MARKER, GTPU_ERROR_INDICATION):
+            return [], "not a reviewed GTP-U mobility observation"
         teid = header.get("teid")
         error_indication = event.get("error_indication")
         if isinstance(error_indication, dict) and isinstance(error_indication.get("affected_teid"), int):
@@ -870,27 +1046,40 @@ def associate_n3(
             # affected tunnel TEID is the matching key.
             teid = error_indication["affected_teid"]
         source_address, destination_address = _gtpu_outer_pair(event)
-        matched: list[int] = []
-        if isinstance(teid, int):
-            for info in known_tunnels.get(teid, []):
-                expected = info.get("endpoint")
-                if expected is not None and expected not in (source_address, destination_address):
+        if not isinstance(teid, int):
+            return [], "no TEID observed"
+        candidates: list[int] = []
+        for info in known_tunnels.get(teid, []):
+            expected = info.get("endpoint")
+            if expected is None:
+                continue
+            if info.get("role") == "DESTINATION":
+                if destination_address != expected:
+                    # Same TEID in the reverse direction, or a different
+                    # endpoint pair: never bound through this tunnel rule.
                     continue
-                attempt_index = info.get("attempt_index")
-                if attempt_index is None:
-                    context_instance = info.get("pdu_session_id")
-                    for index, attempt in enumerate(attempts):
-                        if attempt["capture"] == (info.get("capture") or attempt["capture"]) \
-                                and context_instance in attempt["psi_set"] \
-                                and _after_start(event, attempt["window"]):
-                            matched.append(index)
-                elif attempts[attempt_index]["capture"] == str(event["capture_file"]) \
-                        and _after_start(event, attempts[attempt_index]["window"]):
-                    matched.append(attempt_index)
-        matched = sorted(set(matched))
-        if len(matched) == 1:
-            index = matched[0]
-            bound.setdefault(index, []).append(event)
+            else:
+                continue  # unknown-direction tunnel context never owns events
+            attempt_index = info["attempt_index"]
+            if attempts[attempt_index]["capture"] == str(event["capture_file"]) \
+                    and _in_candidate_window(event, attempts[attempt_index], window_ends.get(attempt_index)):
+                candidates.append(attempt_index)
+        if not candidates and any(teid == info_teid for info_teid in known_tunnels):
+            return [], (
+                "TEID observed but no bound tunnel context matches the required directed "
+                "endpoint role for this packet"
+            )
+        return candidates, "no bound tunnel context with the required directed endpoint role matches this packet"
+
+    bound, ambiguous, unbound = _bounded_supporting_events(gtpu_events, "GTP-U", candidates_for)
+
+    tunnel_labels: dict[tuple, str] = {}
+    tunnels: dict[int, dict[str, dict[str, object]]] = {}
+    for index, events in bound.items():
+        for event in events:
+            header = event.get("header") or {}
+            teid = header.get("teid")
+            source_address, destination_address = _gtpu_outer_pair(event)
             label_key = (teid, source_address, destination_address)
             if label_key not in tunnel_labels:
                 tunnel_labels[label_key] = TUNNEL_LABELS[len(tunnel_labels) % len(TUNNEL_LABELS)]
@@ -898,15 +1087,11 @@ def associate_n3(
                 "label": tunnel_labels[label_key],
                 "teid": teid,
                 "endpoint_pair": f"{source_address}<->{destination_address}",
+                "direction": "toward_far_outer_header_destination",
                 "role": "NEUTRAL_TUNNEL_LABEL",
                 "basis": "teid_plus_directed_endpoint",
             }
-        else:
-            if matched:
-                event = dict(event)
-                event["association_candidates"] = len(matched)
-            unbound.append(event)
-    return bound, unbound, tunnels
+    return bound, ambiguous, unbound
 
 
 # --------------------------------------------------------------------------
@@ -1510,6 +1695,16 @@ def assemble_handover_attempt(
         "deviations": deviations,
         "earliest_observed_deviation": _earliest_deviation(deviations),
         "field_findings": field_findings,
+        "event_ownership": {
+            "owned_event_refs": [
+                {
+                    "protocol": _safe_str(event.get("protocol")),
+                    "capture_file": _safe_str(event.get("capture_file")),
+                    "frame_number": event["frame_number"],
+                }
+                for event in sorted(n11_events + n4_events + gtpu_events, key=_event_sort_key)
+            ],
+        },
         "plane_bindings": {
             "n11": [
                 {
@@ -1518,7 +1713,8 @@ def assemble_handover_attempt(
                     "pdu_session_id": (event.get("session_management") or {}).get("pdu_session_id"),
                     "sm_context_ref": _safe_str((event.get("sbi") or {}).get("sm_context_ref")),
                     "frame_number": event["frame_number"],
-                    "association_basis": "pdu_session_id_capture_and_window",
+                    "association_basis": "mobility_n2_sm_info_type_and_unique_attempt",
+                    "association_strength": "STRONG",
                     "note": "An HTTP 2xx response is observed evidence and never a mobility success",
                 }
                 for event in sorted(n11_events, key=_event_sort_key)
@@ -1529,7 +1725,8 @@ def assemble_handover_attempt(
                     "header_seid": (event.get("header") or {}).get("seid"),
                     "cause": event.get("cause") if isinstance(event.get("cause"), dict) else None,
                     "frame_number": event["frame_number"],
-                    "association_basis": "pdu_session_context_header_seid",
+                    "association_basis": "pdu_session_context_header_seid_with_endpoint_scope",
+                    "association_strength": "SUPPORTED",
                     "note": "PFCP modification acceptance never becomes handover or Path Switch success",
                 }
                 for event in sorted(n4_events, key=_event_sort_key)
@@ -1541,6 +1738,7 @@ def assemble_handover_attempt(
                     "endpoint_pair": "<->".join(str(part) for part in _gtpu_outer_pair(event)),
                     "frame_number": event["frame_number"],
                     "binding_basis": "teid_plus_directed_endpoint",
+                    "association_strength": "SUPPORTED",
                     "note": "Capture-point observation only; never user-plane success",
                 }
                 for event in sorted(gtpu_events, key=_event_sort_key)
@@ -1561,7 +1759,6 @@ def assemble_path_switch_attempt(
     n4_events: list[dict[str, object]],
     gtpu_events: list[dict[str, object]],
     n4_ps: dict[int, dict[str, object]],
-    ambiguity_records: list[dict[str, object]],
     out_of_order_captures: set[str] | None = None,
 ) -> dict[str, object]:
     events = sorted(attempt["events"], key=_event_sort_key)
@@ -1691,23 +1888,6 @@ def assemble_path_switch_attempt(
                     "evidence_refs": [_event_ref(event, stage_id=STAGE_USER_PLANE_CONTROL_UPDATE)],
                 })
 
-    for record in ambiguity_records:
-        deviations.append({
-            "type": DEVIATION_CORRELATION_AMBIGUITY,
-            "stage_id": None,
-            "description": record["context"],
-            "evidence_level": "DERIVED",
-            "limitation": "All compatible candidates are preserved; no nearest-in-time selection is made",
-            "evidence_refs": [
-                _evidence_ref("FIELD_FINDING", "DERIVED",
-                              capture_file=record["capture_file"],
-                              frame_number=record.get("source_initiation_frame")
-                              or record.get("target_initiation_frame"),
-                              protocol="NGAP",
-                              field_name="handover_path_switch_relationship")
-            ],
-        })
-
     if out_of_order_captures and capture in out_of_order_captures:
         deviations.append({
             "type": DEVIATION_OUT_OF_ORDER,
@@ -1775,6 +1955,16 @@ def assemble_path_switch_attempt(
         "deviations": deviations,
         "earliest_observed_deviation": _earliest_deviation(deviations),
         "field_findings": field_findings,
+        "event_ownership": {
+            "owned_event_refs": [
+                {
+                    "protocol": _safe_str(event.get("protocol")),
+                    "capture_file": _safe_str(event.get("capture_file")),
+                    "frame_number": event["frame_number"],
+                }
+                for event in sorted(n11_events + n4_events + gtpu_events, key=_event_sort_key)
+            ],
+        },
         "plane_bindings": {
             "n11": [
                 {
@@ -1783,7 +1973,8 @@ def assemble_path_switch_attempt(
                     "pdu_session_id": (event.get("session_management") or {}).get("pdu_session_id"),
                     "sm_context_ref": _safe_str((event.get("sbi") or {}).get("sm_context_ref")),
                     "frame_number": event["frame_number"],
-                    "association_basis": "pdu_session_id_capture_and_window",
+                    "association_basis": "mobility_n2_sm_info_type_and_unique_attempt",
+                    "association_strength": "STRONG",
                     "note": "An HTTP 2xx response is observed evidence and never a mobility success",
                 }
                 for event in sorted(n11_events, key=_event_sort_key)
@@ -1794,7 +1985,8 @@ def assemble_path_switch_attempt(
                     "header_seid": (event.get("header") or {}).get("seid"),
                     "cause": event.get("cause") if isinstance(event.get("cause"), dict) else None,
                     "frame_number": event["frame_number"],
-                    "association_basis": "pdu_session_context_header_seid",
+                    "association_basis": "pdu_session_context_header_seid_with_endpoint_scope",
+                    "association_strength": "SUPPORTED",
                     "note": "PFCP modification acceptance never becomes handover or Path Switch success",
                 }
                 for event in sorted(n4_events, key=_event_sort_key)
@@ -1806,6 +1998,7 @@ def assemble_path_switch_attempt(
                     "endpoint_pair": "<->".join(str(part) for part in _gtpu_outer_pair(event)),
                     "frame_number": event["frame_number"],
                     "binding_basis": "teid_plus_directed_endpoint",
+                    "association_strength": "SUPPORTED",
                     "note": "Capture-point observation only; never user-plane success",
                 }
                 for event in sorted(gtpu_events, key=_event_sort_key)
@@ -1909,8 +2102,9 @@ def analyze(
             }
         handover_inputs.append((None, target_half, association))
 
-    # Provisional attempt ids so supporting planes can be associated before
-    # final assembly; attempts are identified by their position.
+    # Global supporting-plane candidate evaluation: every supporting event is
+    # evaluated against ALL mobility attempts (handover + Path Switch) before
+    # ownership is assigned. No per-attempt isolated association pass exists.
     provisional: list[dict[str, object]] = []
     for source_half, target_half, association in handover_inputs:
         events = []
@@ -1918,15 +2112,55 @@ def analyze(
             events.extend(source_half["events"])
         if target_half is not None:
             events.extend(target_half["events"])
+        anchor = source_half or target_half
         provisional.append({
-            "capture": (source_half or target_half)["capture"],
+            "capture": anchor["capture"],
             "psi_set": _psi_set(events),
             "window": _window_of(events),
+            "amf_context": (anchor["capture"], anchor["amf_ue_ngap_id"]) if anchor.get("amf_ue_ngap_id") is not None else None,
+            "start_sort": min((_event_sort_key(event) for event in events), default=None),
+        })
+    for ps_attempt in ps_attempts:
+        provisional.append({
+            "capture": ps_attempt["capture"],
+            "psi_set": _psi_set(ps_attempt["events"]),
+            "window": _window_of(ps_attempt["events"]),
+            "amf_context": (ps_attempt["capture"], ps_attempt["amf_ue_ngap_id"]) if ps_attempt.get("amf_ue_ngap_id") is not None else None,
+            "start_sort": min((_event_sort_key(event) for event in ps_attempt["events"]), default=None),
         })
 
-    n11_bound, n11_unbound = associate_n11(sbi_events, provisional)
-    n4_bound, n4_unbound, n4_ps = associate_n4(pfcp_events, provisional, pdu_session_context)
-    n3_bound, n3_unbound, _tunnels = associate_n3(gtpu_events, provisional, n4_bound, pdu_session_context)
+    # Candidate windows: the next independently established attempt in the
+    # same scoped UE context bounds the previous attempt's supporting window.
+    # When no such attempt exists the upper bound stays open; strict identity
+    # keys, never time, carry the association.
+    window_ends: dict[int, str | None] = {}
+    for index, attempt in enumerate(provisional):
+        window_end = None
+        context = attempt.get("amf_context")
+        start = attempt.get("start_sort")
+        if context is not None and start is not None:
+            for other_index, other in enumerate(provisional):
+                if other_index == index or other.get("amf_context") != context:
+                    continue
+                other_start = other.get("start_sort")
+                if other_start is not None and other_start > start:
+                    candidate_end = other["window"].get("first_timestamp")
+                    if candidate_end is not None and (window_end is None or candidate_end < window_end):
+                        window_end = candidate_end
+        window_ends[index] = window_end
+
+    n11_bound, n11_ambiguous, n11_unbound = associate_n11(sbi_events, provisional, window_ends)
+    n4_bound, n4_ambiguous, n4_unbound = associate_n4(pfcp_events, provisional, window_ends, pdu_session_context)
+    n3_bound, n3_ambiguous, n3_unbound = associate_n3(gtpu_events, provisional, window_ends, n4_bound)
+
+    # Runtime ownership invariant across the whole analysis (all families).
+    _assert_exclusive_ownership(n11_bound)
+    _assert_exclusive_ownership(n4_bound)
+    _assert_exclusive_ownership(n3_bound)
+
+    # Per-attempt PDU Session attribution for bound N4 events, derived from
+    # the same endpoint-scoped context mapping used for association.
+    n4_ps = _pfcp_psi_attribution(provisional, n4_bound, pdu_session_context)
 
     handover_attempts = []
     for index, (source_half, target_half, association) in enumerate(handover_inputs):
@@ -1936,104 +2170,29 @@ def analyze(
             n4_ps.get(index, {}), ambiguity_records, out_of_order_captures,
         ))
 
-    # Handover <-> Path Switch relationship (never mandatory either way).
-    ho_by_context: dict[tuple, list[int]] = {}
-    for index, (source_half, target_half, _association) in enumerate(handover_inputs):
-        half = source_half or target_half
-        if half.get("amf_ue_ngap_id") is None:
-            continue
-        ho_by_context.setdefault((half["capture"], half["amf_ue_ngap_id"]), []).append(index)
+    # Handover <-> Path Switch relationship: the current lower-layer contracts
+    # expose no deterministic bridge beyond common UE context and temporal
+    # order, and an Xn handover can produce a Path Switch with no N2 handover
+    # evidence at all. Common AMF-UE-NGAP-ID context plus time therefore never
+    # creates the relationship; it stays explicitly UNBOUND.
+    relationship = (
+        None,
+        "no deterministic bridge between this Path Switch attempt and any handover attempt is "
+        "exposed by the current lower-layer contracts; common AMF-UE-NGAP-ID context and temporal "
+        "order never establish the relationship",
+        "UNBOUND",
+    )
 
     path_switch_attempts = []
-    for index, ps_attempt in enumerate(ps_attempts):
-        related_id = None
-        relationship_basis = None
-        relationship_strength = None
-        context = _scoped_amf_context(ps_attempt)
-        related_ambiguity: list[dict[str, object]] = []
-        if context is not None:
-            compatible: list[int] = []
-            ho_indices = sorted(
-                ho_by_context.get(context, []),
-                key=lambda i: _event_sort_key(
-                    (handover_inputs[i][0] or handover_inputs[i][1])["events"][0]
-                ),
-            )
-            ps_start = _event_sort_key(ps_attempt["initiation"])
-            disqualified_terminals = {
-                "HANDOVER_PREPARATION_FAILURE_OBSERVED", "HANDOVER_RESOURCE_FAILURE_OBSERVED",
-                "HANDOVER_CANCEL_OBSERVED", "HANDOVER_CANCEL_ACK_OBSERVED",
-            }
-            for ho_index in ho_indices:
-                half_events = []
-                if handover_inputs[ho_index][0] is not None:
-                    half_events.extend(handover_inputs[ho_index][0]["events"])
-                if handover_inputs[ho_index][1] is not None:
-                    half_events.extend(handover_inputs[ho_index][1]["events"])
-                first = min((_event_sort_key(event) for event in half_events), default=None)
-                if first is None or ps_start < first:
-                    continue
-                # A handover attempt that already reached a failed or cancelled
-                # terminal before the Path Switch cannot be its handover.
-                earlier_terminals = {
-                    TERMINAL_BY_MESSAGE[_safe_str(event.get("message_type"))]
-                    for event in half_events
-                    if _safe_str(event.get("message_type")) in TERMINAL_BY_MESSAGE
-                    and _event_sort_key(event) < ps_start
-                }
-                if earlier_terminals & disqualified_terminals:
-                    continue
-                compatible.append(ho_index)
-            if len(compatible) == 1:
-                related_id = handover_attempts[compatible[0]]["attempt_id"]
-                relationship_strength = "SUPPORTED"
-                relationship_basis = (
-                    "unique handover attempt in the same scoped AMF-UE-NGAP-ID context whose active "
-                    "window contains the Path Switch initiation; the relationship remains bounded "
-                    "supporting context, never an end-to-end mobility claim"
-                )
-            elif len(compatible) > 1:
-                relationship_strength = "AMBIGUOUS"
-                relationship_basis = (
-                    "multiple handover attempts are simultaneously compatible with this Path Switch "
-                    "attempt; no relationship is selected"
-                )
-                related_ambiguity.append({
-                    "scope": "handover_path_switch",
-                    "capture_file": ps_attempt["capture"],
-                    "amf_ue_ngap_id": ps_attempt["amf_ue_ngap_id"],
-                    "context": "One Path Switch context is compatible with multiple handover attempts; no relationship is selected",
-                    "source_initiation_frame": ps_attempt["initiation"]["frame_number"],
-                })
-            else:
-                relationship_strength = "UNBOUND"
-                relationship_basis = (
-                    "no handover attempt satisfies the reviewed relationship rule in this capture; the "
-                    "Path Switch attempt stays independent and no handover evidence is required"
-                )
-        else:
-            relationship_strength = "UNBOUND"
-            relationship_basis = (
-                "no AMF-UE-NGAP-ID context is available for a safe relationship; the Path Switch "
-                "attempt stays independent"
-            )
-
-        provisional_ps = {
-            "capture": ps_attempt["capture"],
-            "psi_set": _psi_set(ps_attempt["events"]),
-            "window": _window_of(ps_attempt["events"]),
-        }
-        ps_n11_bound, _ps_n11_unbound = associate_n11(sbi_events, [provisional_ps])
-        ps_n4_bound, _ps_n4_unbound, ps_n4_ps = associate_n4(pfcp_events, [provisional_ps], pdu_session_context)
-        ps_n3_bound, _ps_n3_unbound, _ps_tunnels = associate_n3(gtpu_events, [provisional_ps], ps_n4_bound, pdu_session_context)
-
+    for offset, ps_attempt in enumerate(ps_attempts):
+        index = len(handover_inputs) + offset
         path_switch_attempts.append(assemble_path_switch_attempt(
             ps_attempt,
-            (related_id, relationship_basis, relationship_strength),
-            index + 1,
+            relationship,
+            offset + 1,
             pdu_session_context,
-            ps_n11_bound.get(0, []), ps_n4_bound.get(0, []), ps_n3_bound.get(0, []),
-            ps_n4_ps.get(0, {}), related_ambiguity, out_of_order_captures,
+            n11_bound.get(index, []), n4_bound.get(index, []), n3_bound.get(index, []),
+            n4_ps.get(index, {}), out_of_order_captures,
         ))
 
     # Unbound mobility evidence: NGAP mobility events outside every attempt
@@ -2071,15 +2230,26 @@ def analyze(
             "capture_file": _safe_str(event.get("capture_file")),
             "support_status": status,
         })
-    for event in n11_unbound + n4_unbound + n3_unbound:
-        unbound_mobility_evidence.append({
+    attempt_ids = [attempt["attempt_id"] for attempt in handover_attempts] +                   [attempt["attempt_id"] for attempt in path_switch_attempts]
+
+    def _supporting_entry(record: dict[str, object], strength: str) -> dict[str, object]:
+        event = record["event"]
+        return {
             "protocol": _safe_str(event.get("protocol")),
-            "reason": "supporting-plane evidence stayed unbound; no safe association exists and timestamp proximity never associates it",
+            "reason": record["reason"],
             "message_type": _supporting_message_label(event),
             "frame_number": event["frame_number"],
             "timestamp": _safe_str(event.get("timestamp")),
             "capture_file": _safe_str(event.get("capture_file")),
-        })
+            "candidate_attempt_ids": [attempt_ids[index] for index in record.get("candidates", [])
+                                      if isinstance(index, int) and index < len(attempt_ids)],
+            "association_strength": strength,
+        }
+
+    for record in n11_ambiguous + n4_ambiguous + n3_ambiguous:
+        unbound_mobility_evidence.append(_supporting_entry(record, "AMBIGUOUS"))
+    for record in n11_unbound + n4_unbound + n3_unbound:
+        unbound_mobility_evidence.append(_supporting_entry(record, "UNBOUND"))
 
     return sanitize_output({
         "analysis_name": ANALYSIS_NAME,
@@ -2096,6 +2266,13 @@ def analyze(
             "N11/N4/N3 supporting evidence is associated only through safe session/tunnel context; "
             "an HTTP 2xx or PFCP accepted response never becomes mobility success, and missing N11/N4/N3 "
             "evidence never becomes mobility failure",
+            "Supporting-plane association is evaluated globally across all mobility attempts and one "
+            "N11/PFCP/GTP-U event belongs to at most one attempt; ambiguous events stay unbound",
+            "PDU Session identity is not mobility attempt identity: N11 UpdateSMContext evidence binds "
+            "only through reviewed mobility-specific N2 SM Information Types, which the current lower "
+            "SBI contract does not expose",
+            "PFCP SEIDs are endpoint/session scoped; GTP-U binding is direction sensitive; and an N2 "
+            "handover to Path Switch relationship is never inferred from common AMF context and time",
             "GTP-U observations prove capture-point observation only; tunnel roles stay neutral because "
             "reviewed tunnel lifecycle context is not established in this version",
             "Inter-system HandoverTypes are preserved with a scope limitation; no inter-system or "

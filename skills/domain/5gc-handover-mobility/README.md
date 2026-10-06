@@ -12,18 +12,23 @@ attempt exists; neither family is mandatory for the other.
 The Skill associates source and target NG-RAN contexts only through the
 same capture, a scoped AMF-UE-NGAP-ID context, compatible reviewed message
 roles, and temporal sanity — never through timestamp proximity, RAN-UE-ID
-equality, or identifier matches alone. It evaluates branch-aware
-conditional stages, preserves item-scoped PDU Session resource outcomes,
-binds N11/N4/N3 supporting evidence only through safe session and tunnel
-context, and emits procedure-local deviations with structured
-`evidence_refs` for Analysis Orchestration.
+equality, or identifier matches alone. Supporting-plane evidence is
+evaluated globally across all mobility attempts with exclusive per-event
+ownership; N11 UpdateSMContext binds only through reviewed mobility-specific
+N2 SM Information Types (the current SBI contract exposes none, so it stays
+unbound); PFCP session identity is endpoint scoped; GTP-U binding is
+direction sensitive. It evaluates branch-aware conditional stages,
+preserves item-scoped PDU Session resource outcomes, and emits
+procedure-local deviations with structured `evidence_refs` for Analysis
+Orchestration.
 
 Boundaries: it never decodes protocols, never parses NGAP opaque mobility
 transfer bytes, never derives N3 tunnel identity from NGAP, never issues
 handover/path-switch success or failure verdicts, never claims UPF
 relocation or user-plane success, never diagnoses radio layers, and never
-produces root-cause, vendor, or implementation findings. Missing evidence
-stays missing evidence under the capture boundary.
+produces root-cause, vendor, or implementation findings. A Handover to
+Path Switch relationship is never inferred from common AMF context and
+time. Missing evidence stays missing evidence under the capture boundary.
 
 ## Package structure
 

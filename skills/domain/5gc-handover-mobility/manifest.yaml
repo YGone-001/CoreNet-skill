@@ -118,6 +118,11 @@ testing:
     - examples/inputs/malformed-input
     - examples/inputs/no-mobility-evidence
     - examples/inputs/multiple-captures
+    - examples/inputs/gtpu-reverse-direction
+    - examples/inputs/pfcp-seid-endpoint-reuse
+    - examples/inputs/n11-sequential-ps-attempts
+    - examples/inputs/n11-unrelated-update
+    - examples/inputs/ps-independent-after-handover
   expected_results:
     - examples/expected/full-n2-handover-analysis.json
     - examples/expected/handover-preparation-failure-analysis.json
@@ -164,3 +169,8 @@ testing:
     - examples/expected/unsupported-ngap-procedure-analysis.json
     - examples/expected/no-mobility-evidence-analysis.json
     - examples/expected/multiple-captures-analysis.json
+    - examples/expected/gtpu-reverse-direction-analysis.json
+    - examples/expected/pfcp-seid-endpoint-reuse-analysis.json
+    - examples/expected/n11-sequential-ps-attempts-analysis.json
+    - examples/expected/n11-unrelated-update-analysis.json
+    - examples/expected/ps-independent-after-handover-analysis.json

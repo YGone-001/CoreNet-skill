@@ -1,0 +1,356 @@
+{
+  "analysis_name": "5gc-handover-mobility",
+  "analysis_version": "0.1.0",
+  "handover_attempts": [],
+  "limitations": [
+    "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer",
+    "Handover and Path Switch are separate attempt families; neither is required for the other",
+    "Source/target association requires the same capture, a scoped AMF-UE-NGAP-ID context, compatible roles, and temporal sanity; timestamp proximity alone never associates anything",
+    "N11/N4/N3 supporting evidence is associated only through safe session/tunnel context; an HTTP 2xx or PFCP accepted response never becomes mobility success, and missing N11/N4/N3 evidence never becomes mobility failure",
+    "Supporting-plane association is evaluated globally across all mobility attempts and one N11/PFCP/GTP-U event belongs to at most one attempt; ambiguous events stay unbound",
+    "PDU Session identity is not mobility attempt identity: N11 UpdateSMContext evidence binds only through reviewed mobility-specific N2 SM Information Types, which the current lower SBI contract does not expose",
+    "PFCP SEIDs are endpoint/session scoped; GTP-U binding is direction sensitive; and an N2 handover to Path Switch relationship is never inferred from common AMF context and time",
+    "GTP-U observations prove capture-point observation only; tunnel roles stay neutral because reviewed tunnel lifecycle context is not established in this version",
+    "Inter-system HandoverTypes are preserved with a scope limitation; no inter-system or 5GS-EPS mobility semantics are applied",
+    "This analysis is bounded to the supplied evidence files; absence of evidence is never reported as network absence"
+  ],
+  "path_switch_attempts": [
+    {
+      "attempt_id": "5gc-ps:mobility-test.pcapng:sctp-assoc-0:r5:1",
+      "attempt_id_basis": "DERIVED display reference 5gc-ps:<capture>:<association>:<ran-id>:<sequence>; consumers must read the structured serving_context fields, never parse this string",
+      "deviations": [],
+      "earliest_observed_deviation": null,
+      "event_ownership": {
+        "owned_event_refs": []
+      },
+      "events": [
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-0",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 10,
+          "handover_type": null,
+          "message_type": "PathSwitchRequest",
+          "pdu_session_ids": [
+            10
+          ],
+          "pdu_type": "initiatingMessage",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 5,
+          "resource_roles": [
+            {
+              "pdu_session_id": 10,
+              "role": "TO_BE_SWITCHED"
+            }
+          ],
+          "role": "serving",
+          "timestamp": "2026-01-06T00:00:01.000000Z"
+        },
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-0",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 12,
+          "handover_type": null,
+          "message_type": "PathSwitchRequestAcknowledge",
+          "pdu_session_ids": [
+            10
+          ],
+          "pdu_type": "successfulOutcome",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 5,
+          "resource_roles": [
+            {
+              "pdu_session_id": 10,
+              "role": "SWITCHED"
+            }
+          ],
+          "role": "serving",
+          "timestamp": "2026-01-06T00:00:03.000000Z"
+        }
+      ],
+      "family": "path-switch",
+      "field_findings": [],
+      "limitations": [
+        "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer"
+      ],
+      "observation_window": {
+        "first_frame": 10,
+        "first_timestamp": "2026-01-06T00:00:01.000000Z",
+        "last_frame": 12,
+        "last_timestamp": "2026-01-06T00:00:03.000000Z"
+      },
+      "pdu_session_resources": [
+        {
+          "lifecycle_generation": null,
+          "limitations": [],
+          "n11_evidence": [],
+          "n2_outcomes": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 12,
+              "message_type": "PathSwitchRequestAcknowledge",
+              "outcome": "SWITCHED_ROLE_OBSERVED"
+            }
+          ],
+          "n2_roles": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 10,
+              "message_type": "PathSwitchRequest",
+              "resource_list_role": "TO_BE_SWITCHED",
+              "resource_operation": "PATH_SWITCH"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 12,
+              "message_type": "PathSwitchRequestAcknowledge",
+              "resource_list_role": "SWITCHED",
+              "resource_operation": "PATH_SWITCH"
+            }
+          ],
+          "n3_observations": [],
+          "n4_evidence": [],
+          "pdu_session_id": 10
+        }
+      ],
+      "plane_bindings": {
+        "n11": [],
+        "n3": [],
+        "n4": []
+      },
+      "related_handover_attempt_id": null,
+      "relationship_basis": "no deterministic bridge between this Path Switch attempt and any handover attempt is exposed by the current lower-layer contracts; common AMF-UE-NGAP-ID context and temporal order never establish the relationship",
+      "relationship_strength": "UNBOUND",
+      "serving_context": {
+        "amf_ue_ngap_id": 2,
+        "association": "sctp-assoc-0",
+        "capture_file": "mobility-test.pcapng",
+        "ran_ue_ngap_id": 5,
+        "role": "serving",
+        "side": null
+      },
+      "stages": [
+        {
+          "missing": [],
+          "observed": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 10,
+              "message_type": "PathSwitchRequest",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:01.000000Z"
+            }
+          ],
+          "stage_id": "PATH_SWITCH_REQUEST",
+          "stage_name": "Path Switch request (PathSwitchRequest)",
+          "status": "OBSERVED"
+        },
+        {
+          "missing": [],
+          "observed": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 12,
+              "message_type": "PathSwitchRequestAcknowledge",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:03.000000Z"
+            }
+          ],
+          "stage_id": "PATH_SWITCH_OUTCOME",
+          "stage_name": "Path Switch outcome (PathSwitchRequestAcknowledge or PathSwitchRequestFailure)",
+          "status": "OBSERVED"
+        }
+      ],
+      "terminal_observation": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 12,
+        "message_type": "PathSwitchRequestAcknowledge",
+        "observation": "PATH_SWITCH_ACK_OBSERVED",
+        "timestamp": "2026-01-06T00:00:03.000000Z"
+      },
+      "unbound_evidence": []
+    },
+    {
+      "attempt_id": "5gc-ps:mobility-test.pcapng:sctp-assoc-0:r5:2",
+      "attempt_id_basis": "DERIVED display reference 5gc-ps:<capture>:<association>:<ran-id>:<sequence>; consumers must read the structured serving_context fields, never parse this string",
+      "deviations": [],
+      "earliest_observed_deviation": null,
+      "event_ownership": {
+        "owned_event_refs": []
+      },
+      "events": [
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-0",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 20,
+          "handover_type": null,
+          "message_type": "PathSwitchRequest",
+          "pdu_session_ids": [
+            10
+          ],
+          "pdu_type": "initiatingMessage",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 5,
+          "resource_roles": [
+            {
+              "pdu_session_id": 10,
+              "role": "TO_BE_SWITCHED"
+            }
+          ],
+          "role": "serving",
+          "timestamp": "2026-01-06T00:00:11.000000Z"
+        },
+        {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-0",
+          "capture_file": "mobility-test.pcapng",
+          "cause": null,
+          "frame_number": 22,
+          "handover_type": null,
+          "message_type": "PathSwitchRequestAcknowledge",
+          "pdu_session_ids": [
+            10
+          ],
+          "pdu_type": "successfulOutcome",
+          "protocol": "NGAP",
+          "ran_ue_ngap_id": 5,
+          "resource_roles": [
+            {
+              "pdu_session_id": 10,
+              "role": "SWITCHED"
+            }
+          ],
+          "role": "serving",
+          "timestamp": "2026-01-06T00:00:13.000000Z"
+        }
+      ],
+      "family": "path-switch",
+      "field_findings": [],
+      "limitations": [
+        "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer"
+      ],
+      "observation_window": {
+        "first_frame": 20,
+        "first_timestamp": "2026-01-06T00:00:11.000000Z",
+        "last_frame": 22,
+        "last_timestamp": "2026-01-06T00:00:13.000000Z"
+      },
+      "pdu_session_resources": [
+        {
+          "lifecycle_generation": null,
+          "limitations": [],
+          "n11_evidence": [],
+          "n2_outcomes": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 22,
+              "message_type": "PathSwitchRequestAcknowledge",
+              "outcome": "SWITCHED_ROLE_OBSERVED"
+            }
+          ],
+          "n2_roles": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 20,
+              "message_type": "PathSwitchRequest",
+              "resource_list_role": "TO_BE_SWITCHED",
+              "resource_operation": "PATH_SWITCH"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 22,
+              "message_type": "PathSwitchRequestAcknowledge",
+              "resource_list_role": "SWITCHED",
+              "resource_operation": "PATH_SWITCH"
+            }
+          ],
+          "n3_observations": [],
+          "n4_evidence": [],
+          "pdu_session_id": 10
+        }
+      ],
+      "plane_bindings": {
+        "n11": [],
+        "n3": [],
+        "n4": []
+      },
+      "related_handover_attempt_id": null,
+      "relationship_basis": "no deterministic bridge between this Path Switch attempt and any handover attempt is exposed by the current lower-layer contracts; common AMF-UE-NGAP-ID context and temporal order never establish the relationship",
+      "relationship_strength": "UNBOUND",
+      "serving_context": {
+        "amf_ue_ngap_id": 2,
+        "association": "sctp-assoc-0",
+        "capture_file": "mobility-test.pcapng",
+        "ran_ue_ngap_id": 5,
+        "role": "serving",
+        "side": null
+      },
+      "stages": [
+        {
+          "missing": [],
+          "observed": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 20,
+              "message_type": "PathSwitchRequest",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:11.000000Z"
+            }
+          ],
+          "stage_id": "PATH_SWITCH_REQUEST",
+          "stage_name": "Path Switch request (PathSwitchRequest)",
+          "status": "OBSERVED"
+        },
+        {
+          "missing": [],
+          "observed": [
+            {
+              "capture_file": "mobility-test.pcapng",
+              "cause": null,
+              "evidence_level": "OBSERVED",
+              "frame_number": 22,
+              "message_type": "PathSwitchRequestAcknowledge",
+              "protocol": "NGAP",
+              "timestamp": "2026-01-06T00:00:13.000000Z"
+            }
+          ],
+          "stage_id": "PATH_SWITCH_OUTCOME",
+          "stage_name": "Path Switch outcome (PathSwitchRequestAcknowledge or PathSwitchRequestFailure)",
+          "status": "OBSERVED"
+        }
+      ],
+      "terminal_observation": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 22,
+        "message_type": "PathSwitchRequestAcknowledge",
+        "observation": "PATH_SWITCH_ACK_OBSERVED",
+        "timestamp": "2026-01-06T00:00:13.000000Z"
+      },
+      "unbound_evidence": []
+    }
+  ],
+  "procedure_family": "5gc-handover-mobility",
+  "unbound_mobility_evidence": [
+    {
+      "association_strength": "UNBOUND",
+      "candidate_attempt_ids": [],
+      "capture_file": "mobility-test.pcapng",
+      "frame_number": 30,
+      "message_type": "UpdateSMContext",
+      "protocol": "SBI-HTTP2",
+      "reason": "no reviewed mobility-specific N2 SM Information Type is exposed by the lower sbi-http2 contract; PDU Session identity, capture, and time never bind N11",
+      "timestamp": "2026-01-06T00:00:15.000000Z"
+    }
+  ]
+}
