@@ -1,0 +1,59 @@
+{
+  "instances": [
+    {
+      "capture_file": "ho.pcapng",
+      "deviations": [
+        {
+          "description": "PFCP Session Establishment Response reported a non-accepted cause",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "capture_file": "ho.pcapng",
+              "evidence_level": "OBSERVED",
+              "field_name": null,
+              "frame_number": 9,
+              "kind": "EVENT",
+              "message_type": null,
+              "protocol": "PFCP",
+              "stage_id": "user_plane_control",
+              "timestamp": "2026-01-06T00:00:09.000000Z",
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
+          "limitation": "UPF control-plane rejection; internal decision basis not determined",
+          "stage_id": "user_plane_control",
+          "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
+        }
+      ],
+      "instance_id": "pdu-1",
+      "lifecycle_boundary_basis": null,
+      "modification_attempts": [],
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 30
+      },
+      "pdu_session_id": 10,
+      "release_attempts": [],
+      "reuse_status": null,
+      "session_generation": null,
+      "stages": [],
+      "terminal_observation": {
+        "evidence_level": "DERIVED",
+        "frame_number": null,
+        "message_type": null,
+        "observation": "PDU_SESSION_ESTABLISHMENT_REJECT_OBSERVED",
+        "timestamp": null
+      },
+      "ue_context": {
+        "amf_ue_ngap_id": 2,
+        "ran_ue_ngap_id": 1,
+        "sctp_association": 0
+      }
+    }
+  ],
+  "limitations": [],
+  "procedure_name": "5gc-pdu-session",
+  "procedure_version": "0.4.0",
+  "unbound_evidence": {}
+}

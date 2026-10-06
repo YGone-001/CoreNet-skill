@@ -1,0 +1,9 @@
+{
+  "analysis_name": "5gc-handover-mobility",
+  "analysis_version": "0.0.9",
+  "handover_attempts": [],
+  "limitations": [],
+  "path_switch_attempts": [],
+  "procedure_family": "5gc-handover-mobility",
+  "unbound_mobility_evidence": []
+}

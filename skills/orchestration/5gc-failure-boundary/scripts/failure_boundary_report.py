@@ -35,8 +35,10 @@ def _candidate_line(candidate: dict[str, object]) -> str:
     anchor = candidate.get("boundary_anchor", {}) if isinstance(candidate.get("boundary_anchor"), dict) else {}
     frame = anchor.get("frame_number")
     frame_text = f"frame {frame}" if frame is not None else "no exact frame provenance"
+    family = candidate.get("procedure_family")
+    family_text = f"{candidate.get('source_domain')} / {family}" if family else candidate.get("source_domain")
     return (
-        f"[{candidate.get('deviation_type')}] {candidate.get('source_domain')} "
+        f"[{candidate.get('deviation_type')}] {family_text} "
         f"{candidate.get('source_instance_id')} stage={candidate.get('procedure_stage')} "
         f"({frame_text}): {candidate.get('description')}"
     )
@@ -60,6 +62,13 @@ def render_text(analysis: dict[str, object]) -> str:
                 lines.append(f"  {instance.get('source_domain')} {instance.get('source_instance_id')}{identity}")
         link = group.get("subject_link", {}) if isinstance(group.get("subject_link"), dict) else {}
         lines.append(f"  subject link: {link.get('strength')} ({link.get('basis')})")
+        for bridge in link.get("context_bridges", []) or []:
+            if isinstance(bridge, dict):
+                lines.append(
+                    f"  context bridge: {bridge.get('bridge_type')} "
+                    f"({bridge.get('bridge_strength')}) via {bridge.get('source_domain')} "
+                    f"{bridge.get('source_instance_id')}"
+                )
         lines.append("")
 
         status = group.get("selection_status")

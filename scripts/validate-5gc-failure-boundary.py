@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import py_compile
 import re
@@ -43,17 +44,40 @@ EXPECTED_SCENARIOS = {
     "duplicate-identical-input", "out-of-order-input-order",
     "no-deviations-anywhere", "later-incomparability", "earliest-incomparability",
     "description-invariance", "adversarial-description",
+    # Bounded v0.2.0 Mobility integration scenarios.
+    "ho-preparation-negative", "ho-resource-allocation-negative",
+    "ho-resource-failed-item", "ps-negative-outcome",
+    "ho-missing-counterpart-window", "ho-missing-counterpart-partial",
+    "ho-cancel-no-deviation", "ho-notify-no-deviation", "ps-ack-no-deviation",
+    "mobility-correlation-ambiguity-only", "registration-earlier-than-handover",
+    "pdu-earlier-than-handover", "handover-earlier-than-pdu",
+    "mobility-pdu-same-frame", "mobility-earlier-incomparable-laters",
+    "mobility-context-exact-link", "handover-bridge-strong",
+    "handover-bridge-ambiguous", "handover-bridge-candidates",
+    "handover-target-only-anchor", "mobility-same-ids-different-associations",
+    "mobility-cross-capture", "ps-independent-boundary",
+    "ho-then-ps-unbound-relationship", "ho-and-ps-one-group",
+    "ho-notify-no-path-switch", "ps-no-handover-missing-outcome",
+    "two-handover-attempts-one-subject", "two-path-switch-attempts-one-subject",
+    "duplicate-mobility-input", "mobility-out-of-order-input-order",
+    "mobility-version-too-old", "mobility-version-floor-accepted",
+    "mobility-malformed-json", "unsupported-domain-analysis", "misleading-filename",
 }
 
 # Scenarios whose analyzer MUST fail loudly (rc != 0) instead of producing output.
-FAILURE_EXPECTED_SCENARIOS = {"malformed-domain-input", "incomparable-provenance"}
+FAILURE_EXPECTED_SCENARIOS = {
+    "malformed-domain-input", "incomparable-provenance",
+    "mobility-version-too-old", "mobility-malformed-json", "unsupported-domain-analysis",
+}
 
 # Exact optional-dependency floors of the published manifest contract. They
 # must match the structured-provenance floors enforced by the runtime
-# (REGISTRATION_VERSION_FLOOR / PDU_SESSION_VERSION_FLOOR).
+# (REGISTRATION_VERSION_FLOOR / PDU_SESSION_VERSION_FLOOR /
+# HANDOVER_MOBILITY_VERSION_FLOOR).
 EXPECTED_OPTIONAL_DEPENDENCIES = (
     "5gc-registration-mobility >=0.2.0",
     "5gc-pdu-session >=0.4.0",
+    "5gc-handover-mobility >=0.1.0",
     "procedure-evidence >=0.1.0",
 )
 
@@ -100,7 +124,7 @@ def validate(root: Path) -> list[str]:
         return errors
 
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "5gc-failure-boundary"), ("version", "0.1.0"), ("category", "orchestration")):
+    for key, expected in (("name", "5gc-failure-boundary"), ("version", "0.2.0"), ("category", "orchestration")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
 
@@ -157,15 +181,12 @@ def validate(root: Path) -> list[str]:
     input_root = skill / "examples/inputs"
     actual_scenarios = {path.name for path in input_root.iterdir() if path.is_dir()} if input_root.is_dir() else set()
     if actual_scenarios != EXPECTED_SCENARIOS:
-        errors.append(f"synthetic input scenarios must cover all 34 bounded cases; found: {actual_scenarios}")
+        errors.append(f"synthetic input scenarios must cover all 70 bounded cases; found: {actual_scenarios}")
 
     for scenario in sorted(EXPECTED_SCENARIOS - FAILURE_EXPECTED_SCENARIOS):
         if not (input_root / scenario).is_dir():
             continue
-        found_any = any(
-            path.suffix == ".json" and ("registration" in path.name.lower() or "pdu" in path.name.lower())
-            for path in (input_root / scenario).iterdir()
-        )
+        found_any = any(path.suffix == ".json" for path in (input_root / scenario).iterdir())
         if not found_any:
             errors.append(f"missing Domain analysis input for scenario {scenario}")
         if not (skill / "examples/expected" / f"{scenario}-analysis.json").is_file():
@@ -219,7 +240,114 @@ def validate(root: Path) -> list[str]:
             except py_compile.PyCompileError as exc:
                 errors.append(f"script does not compile: {script.name}: {exc.msg}")
 
+    # Structural source checks: mobility adapter, version floor, bridge gate,
+    # and the boundaries the adapter must never cross.
+    model_source = (skill / "scripts" / "failure_boundary_model.py").read_text(encoding="utf-8")
+    if "def _handover_mobility_instances" not in model_source:
+        errors.append("mobility Domain adapter is missing from the orchestration engine")
+    if "HANDOVER_MOBILITY_VERSION_FLOOR = (0, 1, 0)" not in model_source:
+        errors.append("mobility source-version floor gate is missing")
+    if "BRIDGE_AUTHORIZED_STRENGTHS" not in model_source:
+        errors.append("the Domain-authorized bridge strength gate is missing")
+    try:
+        tree = ast.parse(model_source)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "_handover_mobility_instances":
+                adapter_source = ast.get_source_segment(model_source, node) or ""
+                if '"stages"' in adapter_source or "'stages'" in adapter_source:
+                    errors.append("the mobility adapter must not read stages array positions as ordering")
+                if "unbound_mobility_evidence" in adapter_source:
+                    errors.append("the mobility adapter must not read unbound_mobility_evidence")
+    except SyntaxError as exc:
+        errors.append(f"orchestration engine does not parse: {exc}")
+
+    _behavioral_gates(skill, errors)
     return errors
+
+
+def _load_model(skill: Path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "failure_boundary_model_gate", skill / "scripts" / "failure_boundary_model.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def _behavioral_gates(skill: Path, errors: list[str]) -> None:
+    """Runtime behavioral gates over committed v0.2.0 scenarios."""
+    try:
+        model = _load_model(skill)
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"behavioral gates could not load the orchestration engine: {exc}")
+        return
+
+    def run(scenario: str) -> dict:
+        inputs = skill / "examples" / "inputs" / scenario
+        registration, pdu_session, handover_mobility = [], [], []
+        for path in sorted(inputs.glob("*.json")):
+            document = json.loads(path.read_text(encoding="utf-8"))
+            if document.get("analysis_name") == "5gc-handover-mobility" or document.get("procedure_family") == "5gc-handover-mobility":
+                handover_mobility.append(path)
+            elif document.get("procedure_family") == "5gc-registration-mobility":
+                registration.append(path)
+            elif document.get("procedure_name") == "5gc-pdu-session":
+                pdu_session.append(path)
+            else:
+                raise ValueError(f"unrecognized Domain analysis in {scenario}: {path.name}")
+        return model.analyze(registration, pdu_session, handover_mobility)
+
+    try:
+        bridged = run("handover-bridge-strong")
+        groups = bridged["diagnostic_groups"]
+        if len(groups) != 1 or groups[0]["subject_link"]["strength"] != "SUPPORTED":
+            errors.append("behavioral gate failed: the Domain-authorized source/target bridge did not form one SUPPORTED group")
+        elif not groups[0]["subject_link"].get("context_bridges"):
+            errors.append("behavioral gate failed: the bridged group lacks structured context-bridge provenance")
+
+        for scenario in ("handover-bridge-ambiguous", "handover-bridge-candidates"):
+            document = run(scenario)
+            if len(document["diagnostic_groups"]) != 2:
+                errors.append(f"behavioral gate failed: {scenario} must not merge groups")
+            if any(group["subject_link"].get("context_bridges") for group in document["diagnostic_groups"]):
+                errors.append(f"behavioral gate failed: {scenario} produced a context bridge")
+
+        independent = run("ps-independent-boundary")
+        if len(independent["diagnostic_groups"]) != 1 or \
+                independent["diagnostic_groups"][0]["subject_link"]["strength"] != "UNBOUND":
+            errors.append("behavioral gate failed: independent Path Switch was not handled as its own subject")
+
+        for scenario in ("ho-preparation-negative", "ps-negative-outcome"):
+            document = run(scenario)
+            group = document["diagnostic_groups"][0]
+            selected = group.get("selected_boundary")
+            if group["selection_status"] != "SELECTED" or selected is None:
+                errors.append(f"behavioral gate failed: {scenario} did not select the mobility boundary")
+            elif selected["boundary_ref"]["source_domain"] != "5gc-handover-mobility":
+                errors.append(f"behavioral gate failed: {scenario} selected a non-mobility boundary")
+
+        partial = run("ho-missing-counterpart-partial")
+        if partial["diagnostic_groups"][0]["selection_status"] != "INSUFFICIENT_COMPARABLE_EVIDENCE":
+            errors.append("behavioral gate failed: partial-capture missing evidence was not blocked")
+
+        ordering = run("registration-earlier-than-handover")
+        group = ordering["diagnostic_groups"][0]
+        if group["selection_status"] != "SELECTED" or \
+                group["selected_boundary"]["boundary_ref"]["source_domain"] != "5gc-registration-mobility":
+            errors.append("behavioral gate failed: exact-context cross-Domain ordering did not select the earlier registration boundary")
+
+        families = run("ho-and-ps-one-group")
+        group = families["diagnostic_groups"][0]
+        mobility_families = sorted(
+            instance.get("mobility_attempt_family")
+            for instance in group["source_domain_instances"]
+            if instance.get("source_domain") == "5gc-handover-mobility"
+        )
+        if mobility_families != ["handover", "path-switch"]:
+            errors.append("behavioral gate failed: handover and Path Switch attempts were merged into one family")
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"behavioral gate execution failed: {exc}")
 
 
 def main() -> int:

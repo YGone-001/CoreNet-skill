@@ -1,6 +1,6 @@
 {
   "analysis_name": "5gc-failure-boundary",
-  "analysis_version": "0.1.0",
+  "analysis_version": "0.2.0",
   "diagnostic_groups": [
     {
       "additional_evidence_needed": [],
@@ -134,7 +134,9 @@
     "Boundary candidates come only from deviations already emitted by the source Domain Skills",
     "First means the earliest safely orderable abnormal evidence boundary, never the most serious abnormality",
     "Boundary confidence expresses confidence in the boundary selection and ordering, never causal confidence",
-    "No implementation-specific source code or network function internal state is inferred"
+    "No implementation-specific source code or network function internal state is inferred",
+    "Handover and Path Switch attempts remain separately addressable; one diagnostic group never implies one procedure",
+    "A handover source/target context bridge is consumed only from a Domain-authorized STRONG or SUPPORTED association; association candidates are ambiguity evidence and never join groups"
   ],
   "unbound_domain_analyses": [
     {

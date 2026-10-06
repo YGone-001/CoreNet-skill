@@ -1,0 +1,58 @@
+{
+  "analyses": [
+    {
+      "confidence": "MEDIUM",
+      "context": {
+        "association": "sctp-assoc-0",
+        "capture_file": "ho.pcapng",
+        "ngap_context": {
+          "amf_ue_ngap_id": 2,
+          "association": "sctp-assoc-0",
+          "ran_ue_ngap_id": 1
+        }
+      },
+      "deviations": [
+        {
+          "description": "NAS-5GS Registration reject observed at frame 12",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "capture_file": "ho.pcapng",
+              "evidence_level": "OBSERVED",
+              "field_name": null,
+              "frame_number": 12,
+              "kind": "EVENT",
+              "message_type": "Registration reject",
+              "protocol": "NAS-5GS",
+              "stage_id": null,
+              "timestamp": "2026-01-06T00:00:12.000000Z",
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
+          "limitation": "A protocol-defined reject is procedure evidence; it never attributes blame",
+          "stage_id": null,
+          "type": "PROTOCOL_REJECT_OBSERVED"
+        }
+      ],
+      "field_findings": [],
+      "instance_id": "reg-1",
+      "observation_window": {
+        "first_frame": 1,
+        "last_frame": 14
+      },
+      "stage_records": [],
+      "terminal": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 12,
+        "message_type": "Registration reject",
+        "observation": "REGISTRATION_REJECT_OBSERVED",
+        "timestamp": "2026-01-06T00:00:12.000000Z"
+      }
+    }
+  ],
+  "analysis_version": "0.2.0",
+  "correlation_conflicts": [],
+  "procedure_family": "5gc-registration-mobility",
+  "unbound_records": []
+}

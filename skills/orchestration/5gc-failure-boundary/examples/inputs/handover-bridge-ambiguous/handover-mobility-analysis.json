@@ -1,0 +1,66 @@
+{
+  "analysis_name": "5gc-handover-mobility",
+  "analysis_version": "0.1.0",
+  "handover_attempts": [
+    {
+      "association": {
+        "basis": "exact context",
+        "candidates": [],
+        "strength": "AMBIGUOUS"
+      },
+      "attempt_id": "5gc-ho:ho.pcapng:sctp-assoc-0:r1:1",
+      "deviations": [
+        {
+          "description": "NGAP unsuccessful outcome observed: HandoverFailure at frame 14",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "capture_file": "ho.pcapng",
+              "evidence_level": "OBSERVED",
+              "field_name": null,
+              "frame_number": 14,
+              "kind": "EVENT",
+              "message_type": "HandoverFailure",
+              "protocol": "NGAP",
+              "stage_id": "TARGET_RESOURCE_ALLOCATION",
+              "timestamp": "2026-01-06T00:00:14.000000Z",
+              "window_first_frame": null,
+              "window_last_frame": null
+            }
+          ],
+          "limitation": "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer",
+          "stage_id": "TARGET_RESOURCE_ALLOCATION",
+          "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
+        }
+      ],
+      "family": "handover",
+      "observation_window": {
+        "first_frame": 10,
+        "last_frame": 30
+      },
+      "source_context": {
+        "amf_ue_ngap_id": 2,
+        "association": "sctp-assoc-0",
+        "capture_file": "ho.pcapng",
+        "ran_ue_ngap_id": 1
+      },
+      "target_context": {
+        "amf_ue_ngap_id": 2,
+        "association": "sctp-assoc-1",
+        "capture_file": "ho.pcapng",
+        "ran_ue_ngap_id": 3
+      },
+      "terminal_observation": {
+        "evidence_level": "DERIVED",
+        "frame_number": null,
+        "message_type": null,
+        "observation": "NO_TERMINAL_MOBILITY_OBSERVATION",
+        "timestamp": null
+      }
+    }
+  ],
+  "limitations": [],
+  "path_switch_attempts": [],
+  "procedure_family": "5gc-handover-mobility",
+  "unbound_mobility_evidence": []
+}

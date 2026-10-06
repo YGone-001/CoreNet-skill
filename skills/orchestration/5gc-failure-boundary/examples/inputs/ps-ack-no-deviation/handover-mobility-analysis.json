@@ -1,0 +1,32 @@
+{
+  "analysis_name": "5gc-handover-mobility",
+  "analysis_version": "0.1.0",
+  "handover_attempts": [],
+  "limitations": [],
+  "path_switch_attempts": [
+    {
+      "attempt_id": "5gc-ps:ho.pcapng:sctp-assoc-0:r5:1",
+      "deviations": [],
+      "family": "path-switch",
+      "observation_window": {
+        "first_frame": 10,
+        "last_frame": 30
+      },
+      "serving_context": {
+        "amf_ue_ngap_id": 2,
+        "association": "sctp-assoc-0",
+        "capture_file": "ho.pcapng",
+        "ran_ue_ngap_id": 5
+      },
+      "terminal_observation": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 30,
+        "message_type": "PathSwitchRequestAcknowledge",
+        "observation": "PATH_SWITCH_ACK_OBSERVED",
+        "timestamp": "2026-01-06T00:00:30.000000Z"
+      }
+    }
+  ],
+  "procedure_family": "5gc-handover-mobility",
+  "unbound_mobility_evidence": []
+}

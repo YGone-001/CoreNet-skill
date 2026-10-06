@@ -1,0 +1,348 @@
+{
+  "analysis_name": "5gc-failure-boundary",
+  "analysis_version": "0.2.0",
+  "diagnostic_groups": [
+    {
+      "additional_evidence_needed": [],
+      "boundary_confidence": "HIGH",
+      "candidate_boundaries": [
+        {
+          "boundary_anchor": {
+            "capture_file": "ho.pcapng",
+            "frame_number": 5,
+            "message_type": "HandoverFailure",
+            "protocol": "NGAP",
+            "timestamp": "2026-01-06T00:00:05.000000Z"
+          },
+          "candidate_id": "1-cand-1",
+          "description": "NGAP unsuccessful outcome observed: HandoverFailure at frame 5",
+          "deviation_type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer"
+          ],
+          "mobility_attempt_family": "handover",
+          "ordering_basis": {
+            "frame_number": 5,
+            "observation_window": {
+              "end_frame": 30,
+              "start_frame": 10
+            },
+            "stage_position": null
+          },
+          "procedure_family": "handover",
+          "procedure_stage": "TARGET_RESOURCE_ALLOCATION",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": "5gc-ho:ho.pcapng:sctp-assoc-0:r1:1",
+          "source_domain": "5gc-handover-mobility",
+          "source_instance_id": "5gc-ho:ho.pcapng:sctp-assoc-0:r1:1",
+          "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "ho.pcapng",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 5,
+                "kind": "EVENT",
+                "message_type": "HandoverFailure",
+                "protocol": "NGAP",
+                "stage_id": "TARGET_RESOURCE_ALLOCATION",
+                "timestamp": "2026-01-06T00:00:05.000000Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
+            "source_deviation": {
+              "description": "NGAP unsuccessful outcome observed: HandoverFailure at frame 5",
+              "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "ho.pcapng",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 5,
+                  "kind": "EVENT",
+                  "message_type": "HandoverFailure",
+                  "protocol": "NGAP",
+                  "stage_id": "TARGET_RESOURCE_ALLOCATION",
+                  "timestamp": "2026-01-06T00:00:05.000000Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
+              "limitation": "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer",
+              "stage_id": "TARGET_RESOURCE_ALLOCATION",
+              "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 10,
+              "last_frame": 30
+            },
+            "source_terminal": {
+              "evidence_level": "DERIVED",
+              "frame_number": null,
+              "message_type": null,
+              "observation": "NO_TERMINAL_MOBILITY_OBSERVATION",
+              "timestamp": null
+            }
+          }
+        },
+        {
+          "boundary_anchor": {
+            "capture_file": "ho.pcapng",
+            "frame_number": 9,
+            "message_type": null,
+            "protocol": "PFCP",
+            "timestamp": "2026-01-06T00:00:09.000000Z"
+          },
+          "candidate_id": "1-cand-2",
+          "description": "PFCP Session Establishment Response reported a non-accepted cause",
+          "deviation_type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "UPF control-plane rejection; internal decision basis not determined"
+          ],
+          "mobility_attempt_family": null,
+          "ordering_basis": {
+            "frame_number": 9,
+            "observation_window": {
+              "end_frame": 30,
+              "start_frame": 1
+            },
+            "stage_position": null
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": "user_plane_control",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "pdu-1",
+          "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "ho.pcapng",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 9,
+                "kind": "EVENT",
+                "message_type": null,
+                "protocol": "PFCP",
+                "stage_id": "user_plane_control",
+                "timestamp": "2026-01-06T00:00:09.000000Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
+            "source_deviation": {
+              "description": "PFCP Session Establishment Response reported a non-accepted cause",
+              "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "ho.pcapng",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 9,
+                  "kind": "EVENT",
+                  "message_type": null,
+                  "protocol": "PFCP",
+                  "stage_id": "user_plane_control",
+                  "timestamp": "2026-01-06T00:00:09.000000Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
+              "limitation": "UPF control-plane rejection; internal decision basis not determined",
+              "stage_id": "user_plane_control",
+              "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 1,
+              "last_frame": 30
+            },
+            "source_terminal": {
+              "evidence_level": "DERIVED",
+              "frame_number": null,
+              "message_type": null,
+              "observation": "PDU_SESSION_ESTABLISHMENT_REJECT_OBSERVED",
+              "timestamp": null
+            }
+          }
+        }
+      ],
+      "diagnostic_id": "diag-1",
+      "downstream_observations": [
+        {
+          "candidate_id": "1-cand-2",
+          "description": "PFCP Session Establishment Response reported a non-accepted cause",
+          "deviation_type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "relation": "OBSERVED_AFTER_BOUNDARY",
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "pdu-1"
+        }
+      ],
+      "earlier_context": [],
+      "evidence_limitations": [],
+      "limitations": [
+        "No severity ranking is applied: first means earliest safely orderable boundary",
+        "Downstream observations are not caused by the selected boundary",
+        "NO_ABNORMAL_BOUNDARY_OBSERVED never means network or procedure success",
+        "Handover and Path Switch attempts remain separately addressable source procedure attempts; membership in one diagnostic group never implies one procedure or a Handover-to-Path-Switch relationship"
+      ],
+      "not_confirmed": [
+        "implementation cause not assessed",
+        "network-function blame not established",
+        "vendor defect not established",
+        "end-to-end root cause not established"
+      ],
+      "observation_scope": {
+        "capture_files": [
+          "ho.pcapng"
+        ],
+        "source_count": 2
+      },
+      "selected_boundary": {
+        "boundary_ref": {
+          "boundary_anchor": {
+            "capture_file": "ho.pcapng",
+            "frame_number": 5,
+            "message_type": "HandoverFailure",
+            "protocol": "NGAP",
+            "timestamp": "2026-01-06T00:00:05.000000Z"
+          },
+          "candidate_id": "1-cand-1",
+          "description": "NGAP unsuccessful outcome observed: HandoverFailure at frame 5",
+          "deviation_type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "limitations": [
+            "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer"
+          ],
+          "mobility_attempt_family": "handover",
+          "ordering_basis": {
+            "frame_number": 5,
+            "observation_window": {
+              "end_frame": 30,
+              "start_frame": 10
+            },
+            "stage_position": null
+          },
+          "procedure_family": "handover",
+          "procedure_stage": "TARGET_RESOURCE_ALLOCATION",
+          "selectability": "SELECTABLE",
+          "source_attempt_id": "5gc-ho:ho.pcapng:sctp-assoc-0:r1:1",
+          "source_domain": "5gc-handover-mobility",
+          "source_instance_id": "5gc-ho:ho.pcapng:sctp-assoc-0:r1:1",
+          "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "ho.pcapng",
+                "evidence_level": "OBSERVED",
+                "field_name": null,
+                "frame_number": 5,
+                "kind": "EVENT",
+                "message_type": "HandoverFailure",
+                "protocol": "NGAP",
+                "stage_id": "TARGET_RESOURCE_ALLOCATION",
+                "timestamp": "2026-01-06T00:00:05.000000Z",
+                "window_first_frame": null,
+                "window_last_frame": null
+              }
+            ],
+            "source_deviation": {
+              "description": "NGAP unsuccessful outcome observed: HandoverFailure at frame 5",
+              "evidence_level": "OBSERVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "ho.pcapng",
+                  "evidence_level": "OBSERVED",
+                  "field_name": null,
+                  "frame_number": 5,
+                  "kind": "EVENT",
+                  "message_type": "HandoverFailure",
+                  "protocol": "NGAP",
+                  "stage_id": "TARGET_RESOURCE_ALLOCATION",
+                  "timestamp": "2026-01-06T00:00:05.000000Z",
+                  "window_first_frame": null,
+                  "window_last_frame": null
+                }
+              ],
+              "limitation": "A procedure-local deviation is protocol evidence; it never attributes blame to any network element, implementation, or radio layer",
+              "stage_id": "TARGET_RESOURCE_ALLOCATION",
+              "type": "PROTOCOL_NEGATIVE_OUTCOME_OBSERVED"
+            },
+            "source_observation_window": {
+              "first_frame": 10,
+              "last_frame": 30
+            },
+            "source_terminal": {
+              "evidence_level": "DERIVED",
+              "frame_number": null,
+              "message_type": null,
+              "observation": "NO_TERMINAL_MOBILITY_OBSERVATION",
+              "timestamp": null
+            }
+          }
+        },
+        "candidate_id": "1-cand-1"
+      },
+      "selection_status": "SELECTED",
+      "source_domain_instances": [
+        {
+          "anchor_context": {
+            "amf_ue_ngap_id": 2,
+            "association": "sctp-assoc-0",
+            "capture_file": "ho.pcapng",
+            "ran_ue_ngap_id": 1
+          },
+          "anchor_role": "source",
+          "association_strength": "STRONG",
+          "capture_file": "ho.pcapng",
+          "mobility_attempt_family": "handover",
+          "source_domain": "5gc-handover-mobility",
+          "source_file": "handover-mobility-analysis.json",
+          "source_instance_id": "5gc-ho:ho.pcapng:sctp-assoc-0:r1:1"
+        },
+        {
+          "capture_file": "ho.pcapng",
+          "pdu_session_id": 10,
+          "source_domain": "5gc-pdu-session",
+          "source_file": "pdu-session-analysis.json",
+          "source_instance_id": "pdu-1"
+        }
+      ],
+      "subject_link": {
+        "basis": "capture_sctp_association_and_ngap_ue_context_exact_match",
+        "source_contexts": [
+          {
+            "amf_ue_ngap_id": 2,
+            "capture_file": "ho.pcapng",
+            "ran_ue_ngap_id": 1,
+            "sctp_association": "sctp-assoc-0",
+            "source_domain": "5gc-handover-mobility",
+            "source_instance_id": "5gc-ho:ho.pcapng:sctp-assoc-0:r1:1"
+          },
+          {
+            "amf_ue_ngap_id": 2,
+            "capture_file": "ho.pcapng",
+            "ran_ue_ngap_id": 1,
+            "sctp_association": 0,
+            "source_domain": "5gc-pdu-session",
+            "source_instance_id": "pdu-1"
+          }
+        ],
+        "strength": "STRONG"
+      },
+      "supporting_anomalies": []
+    }
+  ],
+  "limitations": [
+    "Analysis is bounded to the Domain analysis JSON supplied as input; no raw protocol events are interpreted",
+    "Boundary candidates come only from deviations already emitted by the source Domain Skills",
+    "First means the earliest safely orderable abnormal evidence boundary, never the most serious abnormality",
+    "Boundary confidence expresses confidence in the boundary selection and ordering, never causal confidence",
+    "No implementation-specific source code or network function internal state is inferred",
+    "Handover and Path Switch attempts remain separately addressable; one diagnostic group never implies one procedure",
+    "A handover source/target context bridge is consumed only from a Domain-authorized STRONG or SUPPORTED association; association candidates are ambiguity evidence and never join groups"
+  ],
+  "unbound_domain_analyses": []
+}

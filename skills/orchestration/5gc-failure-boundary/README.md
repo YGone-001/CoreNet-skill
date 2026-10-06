@@ -2,9 +2,10 @@
 
 `5gc-failure-boundary` is the bounded Analysis Orchestration Skill for
 evidence-safe first abnormal boundary localization across currently supported
-5GC Domain analyses, version 0.1.0.
+5GC Domain analyses, version 0.2.0.
 It composes already-produced analysis JSON from `5gc-registration-mobility`
-(>=0.2.0) and `5gc-pdu-session` (>=0.4.0) into diagnostic groups linked only by
+(>=0.2.0), `5gc-pdu-session` (>=0.4.0), and `5gc-handover-mobility`
+(>=0.1.0) into diagnostic groups linked only by
 exact common context (capture file, SCTP association, RAN-UE-NGAP-ID,
 AMF-UE-NGAP-ID), preserves PDU Session lifecycle generations and multi-UE
 isolation, builds boundary candidates only from Domain-emitted deviations,
@@ -23,6 +24,9 @@ procedure and protocol interpretation is owned by the source Domain Skills.
 - `scripts/failure_boundary_model.py`: standalone orchestration engine
   (Domain input adapters, diagnostic group formation, candidate extraction,
   evidence-limitation filtering, evidence ordering, boundary selection).
+  Handover and Path Switch attempts stay separately addressable; a handover
+  source/target bridge is consumed only from a Domain-authorized STRONG or
+  SUPPORTED association and keeps the subject link SUPPORTED.
 - `scripts/analyze_failure_boundary.py`: CLI driver producing the analysis
   summary JSON and the text investigation report.
 - `scripts/failure_boundary_report.py`: report renderer (text) from an

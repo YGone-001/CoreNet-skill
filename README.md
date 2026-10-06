@@ -57,17 +57,19 @@ branch-aware conditional stages, item-scoped PDU Session resource outcomes,
 bounded N11/N4/N3 supporting evidence, and procedure-local deviations with
 structured evidence_refs; no success/failure verdicts, no root-cause output),
 and the `5gc-failure-boundary` Analysis Orchestration
-Skill (v0.1.0, evidence-safe first abnormal boundary localization across the
+Skill (v0.2.0, evidence-safe first abnormal boundary localization across the
 supported 5GC Domain analyses: diagnostic groups linked by exact common context,
-candidates drawn only from Domain-emitted deviations and their machine-readable
-evidence_refs (Domain contracts 5gc-registration-mobility >=0.2.0 and
-5gc-pdu-session >=0.4.0), provenance-based ordering with no severity ranking, and no root-cause or blame output). The extensions
+separately addressable handover and Path Switch attempts with Domain-authorized
+source/target context bridges, candidates drawn only from Domain-emitted deviations
+and their machine-readable evidence_refs (Domain contracts 5gc-registration-mobility
+>=0.2.0, 5gc-pdu-session >=0.4.0, and 5gc-handover-mobility >=0.1.0), provenance-based
+ordering with no severity ranking, and no root-cause or blame output). The extensions
 provide investigation context only.
 **Not yet implemented:** deep NGAP transfer-container decoding, the remaining
 NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
 relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
-semantics), handover/path-switch consumption by Analysis Orchestration, remaining
+semantics), remaining
 5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (NAS-EPS,
 S1AP, GTPv2, SIP, SDP/RTP, Diameter), EPC/IMS Domain procedures,
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper

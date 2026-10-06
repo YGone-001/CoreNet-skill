@@ -15,7 +15,13 @@ Ordering relies on evidence provenance only:
    observation windows from the PDU Session contract, or the registration
    observation window);
 3. the source Domain stage order within one source procedure instance or
-   attempt, when the stage order is part of the Domain output contract.
+   attempt, when the stage order is part of the Domain output contract. The
+   5gc-handover-mobility contract documents no authoritative stage-position
+   ordering, so Mobility `stages[]` array positions are never used:
+   Mobility candidates carry `stage_position: null` and order through exact
+   frame or bounded observation-window provenance only. No Handover state
+   machine is reconstructed here, and no synthetic
+   Registration → PDU Session → Handover → Path Switch sequence exists.
 
 Timestamps are preserved as supporting metadata and never override
 contradictory frame ordering. No new 3GPP state machine is reconstructed here.

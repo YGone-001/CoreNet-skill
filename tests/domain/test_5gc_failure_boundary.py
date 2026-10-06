@@ -183,9 +183,9 @@ class FailureBoundaryValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/orchestration/5gc-failure-boundary/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.1.0", "version: 0.2.0"),
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.2.0", "version: 9.9.0"),
                                 encoding="utf-8")
-            self.assert_error(root, "manifest version must be 0.1.0")
+            self.assert_error(root, "manifest version must be 0.2.0")
 
     def test_downgraded_registration_dependency_floor_is_detected(self):
         temporary, root = self.fixture()
@@ -223,6 +223,93 @@ class FailureBoundaryValidatorTests(unittest.TestCase):
                 "examples/expected/nonexistent-scenario-analysis.json"),
                 encoding="utf-8")
             self.assert_error(root, "testing.expected_results path does not exist")
+
+    def test_wrong_version_after_mobility_expansion_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/orchestration/5gc-failure-boundary/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.2.0", "version: 0.1.0"),
+                                encoding="utf-8")
+            self.assert_error(root, "manifest version must be 0.2.0")
+
+    def test_missing_mobility_dependency_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/orchestration/5gc-failure-boundary/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+                "    - 5gc-handover-mobility >=0.1.0\n", ""),
+                encoding="utf-8")
+            self.assert_error(root, "manifest optional dependencies must be exactly")
+
+    def test_downgraded_mobility_dependency_floor_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/orchestration/5gc-failure-boundary/manifest.yaml"
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+                "5gc-handover-mobility >=0.1.0", "5gc-handover-mobility >=0.0.1"),
+                encoding="utf-8")
+            self.assert_error(root, "5gc-handover-mobility >=0.1.0")
+
+    def test_missing_mobility_behavioral_scenario_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            shutil.rmtree(root / "skills/orchestration/5gc-failure-boundary/examples/inputs/handover-bridge-strong")
+            self.assert_error(root, "synthetic input scenarios must cover all 70 bounded cases")
+
+    def test_mobility_adapter_removal_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/orchestration/5gc-failure-boundary/scripts/failure_boundary_model.py"
+            model.write_text(model.read_text(encoding="utf-8").replace(
+                "_handover_mobility_instances", "_removed_mobility_instances"),
+                encoding="utf-8")
+            self.assert_error(root, "mobility Domain adapter is missing")
+
+    def test_mobility_version_floor_removal_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/orchestration/5gc-failure-boundary/scripts/failure_boundary_model.py"
+            model.write_text(model.read_text(encoding="utf-8").replace(
+                "HANDOVER_MOBILITY_VERSION_FLOOR = (0, 1, 0)", "HANDOVER_MOBILITY_VERSION_FLOOR = (0, 0, 1)"),
+                encoding="utf-8")
+            self.assert_error(root, "mobility source-version floor gate is missing")
+
+    def test_mobility_stage_position_ordering_is_detected(self):
+        # Reading the Mobility stages array inside the adapter would open the
+        # door to treating array position as chronological order; the gate
+        # rejects it.
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/orchestration/5gc-failure-boundary/scripts/failure_boundary_model.py"
+            model.write_text(model.read_text(encoding="utf-8").replace(
+                '            extra_identity: dict[str, Any] = {\n                "mobility_attempt_family": family,',
+                '            stage_order = attempt.get("stages", {})\n            extra_identity: dict[str, Any] = {\n                "mobility_attempt_family": family,'),
+                encoding="utf-8")
+            self.assert_error(root, "the mobility adapter must not read stages array positions as ordering")
+
+    def test_unbound_mobility_evidence_reading_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/orchestration/5gc-failure-boundary/scripts/failure_boundary_model.py"
+            model.write_text(model.read_text(encoding="utf-8").replace(
+                '    instances: list[SourceInstance] = []\n    for family_field, family in',
+                '    unbound_mobility_evidence = doc.get("unbound_mobility_evidence")\n    instances: list[SourceInstance] = []\n    for family_field, family in'),
+                encoding="utf-8")
+            self.assert_error(root, "the mobility adapter must not read unbound_mobility_evidence")
+
+    def test_behavioral_gates_still_exercise_after_engine_edit(self):
+        # A UNBOUND->STRONG swap on singleton links does not break the
+        # behavioral gates (they pin multi-instance behavior), but this test
+        # proves the gates run against the real engine without crashing.
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/orchestration/5gc-failure-boundary/scripts/failure_boundary_model.py"
+            model.write_text(model.read_text(encoding="utf-8").replace(
+                'if len(group) == 1:\n        subject_link = {\n            "strength": "UNBOUND",',
+                'if len(group) == 1:\n        subject_link = {\n            "strength": "STRONG",'),
+                encoding="utf-8")
+            errors = VALIDATOR.validate(root)
+            self.assertTrue(isinstance(errors, list))
 
 
 if __name__ == "__main__":

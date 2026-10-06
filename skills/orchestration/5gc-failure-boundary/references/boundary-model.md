@@ -47,3 +47,18 @@ the observation window partial, the missing candidate is blocked
 (`BLOCKED_BY_PARTIAL_CAPTURE`) and cannot be selected as a proven first
 boundary; the group reports `INSUFFICIENT_COMPARABLE_EVIDENCE` with the
 additional evidence needed.
+
+## Mobility Boundary Classes (v0.2.0)
+
+Mobility candidates come only from 5gc-handover-mobility deviations with
+structured evidence_refs. Boundary-eligible classes: PROTOCOL_NEGATIVE_
+OUTCOME_OBSERVED, RESOURCE_FAILED_ITEM_OBSERVED (item-scoped, never
+all-resource), MISSING_EXPECTED_COUNTERPART (DERIVED, OBSERVATION_WINDOW
+provenance, never an observed frame), and FIELD_CONFLICT. Evidence
+limitations (PARTIAL_CAPTURE, CORRELATION_AMBIGUITY/CONFLICT,
+LIFECYCLE_AMBIGUITY, OUT_OF_ORDER_EVIDENCE,
+DUPLICATE_OR_RETRANSMITTED_EVIDENCE) are preserved, never selected;
+UNKNOWN_OR_RESERVED_PROTOCOL_VALUE stays a supporting anomaly. Every
+handover attempt and Path Switch attempt is a separately addressable source
+unit; candidates carry the attempt family (handover / path-switch) and the
+exact source attempt id, and no Handover/Path Switch relation is invented.

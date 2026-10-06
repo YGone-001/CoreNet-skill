@@ -15,3 +15,13 @@ If the ordering itself is unsafe, no confidence is assigned: the group reports
 forced low-confidence answer. Subject-link strength (`STRONG`/`SUPPORTED`/
 `AMBIGUOUS`/`UNBOUND`) is a separate concept from boundary confidence and the
 two are never conflated.
+
+## Mobility Confidence (v0.2.0)
+
+For Mobility boundaries the same ladder applies. `HIGH` requires a safely
+grouped diagnostic subject plus exact machine-readable observed EVENT
+provenance and safe ordering. A Domain-supported source/target context bridge
+justifies SUPPORTED subject linkage without reducing a directly observed
+boundary to LOW: the bridge affects grouping, not selection confidence.
+Derived missing-evidence boundaries stay MEDIUM, and window-based ordering
+keeps the boundary at MEDIUM. Boundary confidence is never causal confidence.

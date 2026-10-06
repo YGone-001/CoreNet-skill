@@ -4,6 +4,7 @@
 Consumes already-produced Domain analysis JSON only:
 - 5gc-registration-mobility analysis summaries (>=0.2.0)
 - 5gc-pdu-session analysis summaries (>=0.4.0)
+- 5gc-handover-mobility analysis summaries (>=0.1.0)
 
 Produces:
 - a bounded 5gc-failure-boundary analysis summary (JSON) that forms evidence-safe
@@ -15,8 +16,20 @@ Domain Skill, with machine-readable evidence_refs as the sole provenance
 contract. Human-readable description and limitation text are
 presentation only and is never parsed for identity or ordering. Ordering relies
 on evidence provenance (exact frames, bounded observation windows, source
-stage order), never severity; no root cause, network-function blame, vendor
-defect, or implementation cause is ever produced.
+stage order where the Domain contract documents one), never severity; no root
+cause, network-function blame, vendor defect, or implementation cause is ever
+produced.
+
+Mobility handling: every handover attempt and Path Switch attempt is a
+separately addressable source procedure unit anchored through its own exact
+context (source context, or a directly observed complete target context for
+bounded late-capture attempts, or the serving context for Path Switch). A
+handover source/target context bridge is consumed only when the Handover
+Domain itself authorized the association as STRONG or SUPPORTED and both
+sides share one capture file; the bridged subject link stays SUPPORTED.
+association.candidates are ambiguity evidence and never join anything.
+Mobility stage array positions are never treated as chronological ordering,
+and unbound Mobility evidence is never read.
 """
 
 from __future__ import annotations
@@ -28,18 +41,23 @@ from pathlib import Path
 from typing import Any
 
 ANALYSIS_NAME = "5gc-failure-boundary"
-ANALYSIS_VERSION = "0.1.0"
+ANALYSIS_VERSION = "0.2.0"
 
 EXIT_MALFORMED_INPUT = 5
 EXIT_NO_INPUT = 6
 EXIT_OUTPUT_FAILURE = 7
 
-SUPPORTED_DOMAINS = ("5gc-registration-mobility", "5gc-pdu-session")
+SUPPORTED_DOMAINS = ("5gc-registration-mobility", "5gc-pdu-session", "5gc-handover-mobility")
 
 # Minimum source Domain output contracts exposing structured deviation
 # provenance. Older versions fail loudly; there is no prose-parsing fallback.
 REGISTRATION_VERSION_FLOOR = (0, 2, 0)
 PDU_SESSION_VERSION_FLOOR = (0, 4, 0)
+HANDOVER_MOBILITY_VERSION_FLOOR = (0, 1, 0)
+
+# The Handover Domain authorizes a source/target context bridge only through
+# these association strengths; AMBIGUOUS/UNBOUND associations never bridge.
+BRIDGE_AUTHORIZED_STRENGTHS = frozenset({"STRONG", "SUPPORTED"})
 
 # Deviation types that may become abnormal-boundary candidates (Domain-emitted
 # vocabulary, mapped exactly; never renamed).
@@ -95,6 +113,8 @@ ANALYSIS_OUTPUT_LIMITATIONS = (
     "First means the earliest safely orderable abnormal evidence boundary, never the most serious abnormality",
     "Boundary confidence expresses confidence in the boundary selection and ordering, never causal confidence",
     "No implementation-specific source code or network function internal state is inferred",
+    "Handover and Path Switch attempts remain separately addressable; one diagnostic group never implies one procedure",
+    "A handover source/target context bridge is consumed only from a Domain-authorized STRONG or SUPPORTED association; association candidates are ambiguity evidence and never join groups",
 )
 
 
@@ -248,6 +268,8 @@ class SourceInstance:
         terminal: dict[str, Any],
         deviations: list[dict[str, Any]],
         extra_identity: dict[str, Any],
+        mobility_family: str | None = None,
+        context_bridge: dict[str, Any] | None = None,
     ) -> None:
         self.source_domain = source_domain
         self.source_file = source_file
@@ -260,6 +282,11 @@ class SourceInstance:
         self.terminal = terminal
         self.deviations = deviations
         self.extra_identity = extra_identity
+        self.mobility_family = mobility_family
+        # Domain-authorized source/target bridge metadata for a handover
+        # attempt; None for every other source kind. The bridge is consumed
+        # Domain output, never an Orchestration correlation decision.
+        self.context_bridge = context_bridge
         self.stage_order: dict[str, int] = {}
         self.attempt_entries: list[dict[str, Any]] = []
         self.identity_hash = hashlib.sha256(
@@ -430,6 +457,8 @@ def load_domain_instances(paths: list[tuple[str, Path]]) -> list[SourceInstance]
             loaded = _registration_instances(path)
         elif domain == "5gc-pdu-session":
             loaded = _pdu_session_instances(path)
+        elif domain == "5gc-handover-mobility":
+            loaded = _handover_mobility_instances(path)
         else:
             raise InputError(f"unsupported Domain input kind: {domain}")
         for instance in loaded:
@@ -441,13 +470,182 @@ def load_domain_instances(paths: list[tuple[str, Path]]) -> list[SourceInstance]
     return instances
 
 
+def _context_key_of(context: Any, what: str) -> tuple[Any, Any, Any, Any] | None:
+    """Exact subject key from a Mobility Domain context object.
+
+    All four components (capture file, SCTP association, RAN-UE-NGAP-ID,
+    AMF-UE-NGAP-ID) must be present; a partial context never anchors.
+    """
+    if not isinstance(context, dict):
+        return None
+    capture = context.get("capture_file")
+    association = context.get("association")
+    ran_id = context.get("ran_ue_ngap_id")
+    amf_id = context.get("amf_ue_ngap_id")
+    if not isinstance(capture, str) or not capture:
+        return None
+    if association is None or ran_id is None or amf_id is None:
+        return None
+    return (capture, association, ran_id, amf_id)
+
+
+def _contexts_equivalent(ka: tuple, kb: tuple) -> bool:
+    """Componentwise exact-context equivalence (association contract-equivalent)."""
+    if ka is None or kb is None:
+        return False
+    return (
+        ka[0] == kb[0]
+        and bool(_association_equivalent(ka[1], kb[1]))
+        and ka[2] == kb[2]
+        and ka[3] == kb[3]
+    )
+
+
+def _mobility_context_ref(context: Any) -> dict[str, Any] | None:
+    if not isinstance(context, dict):
+        return None
+    return {
+        "capture_file": context.get("capture_file"),
+        "association": context.get("association"),
+        "ran_ue_ngap_id": context.get("ran_ue_ngap_id"),
+        "amf_ue_ngap_id": context.get("amf_ue_ngap_id"),
+    }
+
+
+def _handover_mobility_instances(path: Path) -> list[SourceInstance]:
+    """Adapt one 5gc-handover-mobility analysis summary into source instances.
+
+    Every handover attempt and every Path Switch attempt is a separately
+    addressable source procedure unit. Boundary candidates still come only
+    from the attempt's own emitted deviations with their structured
+    evidence_refs; stage array positions are never used as ordering (the
+    Mobility contract documents no authoritative stage-position ordering),
+    and unbound Mobility evidence is never read.
+    """
+    doc = _require_mapping(_load_json(path), f"{path.name}")
+    if doc.get("analysis_name") != "5gc-handover-mobility" or doc.get("procedure_family") != "5gc-handover-mobility":
+        raise InputError(f"{path.name} is not a 5gc-handover-mobility analysis summary")
+    _enforce_version(doc.get("analysis_version"), HANDOVER_MOBILITY_VERSION_FLOOR,
+                     "5gc-handover-mobility", path.name, "analysis_version")
+
+    instances: list[SourceInstance] = []
+    for family_field, family in (("handover_attempts", "handover"), ("path_switch_attempts", "path-switch")):
+        attempts = _require_list(doc.get(family_field), f"{path.name} {family_field}")
+        for index, attempt in enumerate(attempts):
+            attempt = _require_mapping(attempt, f"{path.name} {family_field}[{index}]")
+            attempt_id = attempt.get("attempt_id")
+            if not isinstance(attempt_id, str) or not attempt_id:
+                raise InputError(f"{path.name} {family_field}[{index}] lacks attempt_id")
+            deviations = _require_list(attempt.get("deviations"), f"{path.name} {family_field}[{index}] deviations")
+            terminal = _require_mapping(attempt.get("terminal_observation"),
+                                        f"{path.name} {family_field}[{index}] terminal_observation")
+            window_obj = attempt.get("observation_window")
+            window = None
+            if isinstance(window_obj, dict):
+                window = _window_of(window_obj.get("first_frame"), window_obj.get("last_frame"))
+
+            association = attempt.get("association")
+            association_strength = (
+                association.get("strength") if isinstance(association, dict) else None
+            )
+            source_context = attempt.get("source_context") if family == "handover" else None
+            target_context = attempt.get("target_context") if family == "handover" else None
+            serving_context = attempt.get("serving_context") if family == "path-switch" else None
+
+            source_key = _context_key_of(source_context, path.name)
+            target_key = _context_key_of(target_context, path.name)
+            serving_key = _context_key_of(serving_context, path.name)
+
+            # Primary exact anchor: the source context when present and
+            # complete; otherwise a directly observed complete target context
+            # (bounded late-capture attempt); a Path Switch attempt anchors
+            # through its serving context. No context is ever fabricated.
+            anchor_key = source_key or target_key or serving_key
+            if family == "path-switch":
+                anchor_context = serving_context
+            elif source_key is not None:
+                anchor_context = source_context
+            else:
+                anchor_context = target_context
+
+            # Domain-authorized source/target bridge: only when the Handover
+            # Domain itself established the association as STRONG or
+            # SUPPORTED, both contexts are structurally complete, and both
+            # sides share the same capture file. association.candidates are
+            # ambiguity evidence and never participate.
+            context_bridge: dict[str, Any] | None = None
+            if (
+                family == "handover"
+                and source_key is not None
+                and target_key is not None
+                and association_strength in BRIDGE_AUTHORIZED_STRENGTHS
+                and isinstance(source_context, dict)
+                and isinstance(target_context, dict)
+                and source_context.get("capture_file") == target_context.get("capture_file")
+            ):
+                context_bridge = {
+                    "source_domain": "5gc-handover-mobility",
+                    "source_instance_id": attempt_id,
+                    "bridge_type": "handover_source_target",
+                    "bridge_strength": association_strength,
+                    "bridge_basis": (
+                        association.get("basis")
+                        if isinstance(association, dict) and isinstance(association.get("basis"), str)
+                        else None
+                    ),
+                    "from_context": _mobility_context_ref(source_context),
+                    "to_context": _mobility_context_ref(target_context),
+                }
+
+            capture_file = anchor_key[0] if anchor_key else None
+            sctp_association = anchor_key[1] if anchor_key else None
+            ran_id = anchor_key[2] if anchor_key else None
+            amf_id = anchor_key[3] if anchor_key else None
+
+            extra_identity: dict[str, Any] = {
+                "mobility_attempt_family": family,
+                "association_strength": association_strength,
+                "anchor_role": (
+                    "serving" if family == "path-switch" and serving_key is not None
+                    else "source" if source_key is not None
+                    else "target" if target_key is not None
+                    else None
+                ),
+            }
+            if anchor_context is not None:
+                extra_identity["anchor_context"] = _mobility_context_ref(anchor_context)
+            record = SourceInstance(
+                source_domain="5gc-handover-mobility",
+                source_file=path.name,
+                instance_id=attempt_id,
+                capture_file=capture_file,
+                sctp_association=sctp_association,
+                ran_ue_ngap_id=ran_id,
+                amf_ue_ngap_id=amf_id,
+                observation_window=window,
+                terminal=terminal,
+                deviations=deviations,
+                extra_identity={k: v for k, v in extra_identity.items() if v is not None},
+                mobility_family=family,
+                context_bridge=context_bridge,
+            )
+            instances.append(record)
+    return instances
+
+
 def _link_instances(instances: list[SourceInstance]) -> list[list[SourceInstance]]:
-    """Form diagnostic groups by exact common context.
+    """Form diagnostic groups by exact common context, plus Domain-authorized bridges.
 
     Two source instances link only when capture_file, SCTP association
     (contract-equivalent), RAN-UE-NGAP-ID, and AMF-UE-NGAP-ID are all present
     and equal. Timestamp proximity, same numeric PDU Session ID, or similar
     procedure sequences never link.
+
+    A Handover source/target bridge is applied only when the Handover Domain
+    itself authorized the association (STRONG or SUPPORTED) and both context
+    sides exist in the supplied evidence; the bridge unions the two exact
+    context groups and never crosses capture files (enforced at adapter
+    level). association.candidates never participate.
     """
     n = len(instances)
     parent = list(range(n))
@@ -476,6 +674,25 @@ def _link_instances(instances: list[SourceInstance]) -> list[list[SourceInstance
             if ki[2] != kj[2] or ki[3] != kj[3]:
                 continue
             union(i, j)
+
+    # Domain-authorized handover source/target bridges.
+    for i, inst in enumerate(instances):
+        bridge = inst.context_bridge
+        if not bridge:
+            continue
+        to_ref = bridge.get("to_context") or {}
+        to_key = (
+            to_ref.get("capture_file"),
+            to_ref.get("association"),
+            to_ref.get("ran_ue_ngap_id"),
+            to_ref.get("amf_ue_ngap_id"),
+        )
+        for j, other in enumerate(instances):
+            if j == i:
+                continue
+            if _contexts_equivalent(keys[j], to_key):
+                union(i, j)
+                break
 
     groups: dict[int, list[SourceInstance]] = {}
     for i, inst in enumerate(instances):
@@ -529,12 +746,20 @@ class Candidate:
         return str(self.deviation.get("evidence_level") or "DERIVED")
 
     def to_json(self, candidate_id: str) -> dict[str, Any]:
+        # For Mobility candidates the source attempt identity is the Mobility
+        # Domain's own attempt_id, which is also the adapter instance_id.
+        source_attempt_id = (
+            self.source.instance_id
+            if self.source.mobility_family is not None and self.origin_attempt_id is None
+            else self.origin_attempt_id
+        )
         return {
             "candidate_id": candidate_id,
             "source_domain": self.source.source_domain,
             "source_instance_id": self.source.instance_id,
-            "source_attempt_id": self.origin_attempt_id,
-            "procedure_family": self.source.source_domain,
+            "source_attempt_id": source_attempt_id,
+            "mobility_attempt_family": self.source.mobility_family,
+            "procedure_family": self.source.mobility_family or self.source.source_domain,
             "procedure_stage": self.deviation.get("stage_id"),
             "deviation_type": self.deviation.get("type"),
             "description": self.deviation.get("description"),
@@ -931,11 +1156,54 @@ def analyze_group(group: list[SourceInstance], group_index: int) -> dict[str, An
                 })
 
     capture_files = sorted({s.capture_file for s in group if s.capture_file})
+    # Active Domain-authorized handover source/target bridges in this group:
+    # a bridge is active only when the bridged mobility attempt and at least
+    # one instance on the bridge's target side are both group members. A
+    # bridged group keeps subject-link strength SUPPORTED (never upgraded to
+    # STRONG); association.candidates never take part.
+    active_bridges: list[dict[str, Any]] = []
+    for source in group:
+        bridge = source.context_bridge
+        if not bridge:
+            continue
+        to_ref = bridge.get("to_context") or {}
+        to_key = (
+            to_ref.get("capture_file"),
+            to_ref.get("association"),
+            to_ref.get("ran_ue_ngap_id"),
+            to_ref.get("amf_ue_ngap_id"),
+        )
+        target_present = any(
+            other is not source and _contexts_equivalent(other.context_key(), to_key)
+            for other in group
+        )
+        if target_present:
+            active_bridges.append(bridge)
+
+    group_limitations = [
+        "No severity ranking is applied: first means earliest safely orderable boundary",
+        "Downstream observations are not caused by the selected boundary",
+        "NO_ABNORMAL_BOUNDARY_OBSERVED never means network or procedure success",
+    ]
+    if any(source.mobility_family is not None for source in group):
+        group_limitations.append(
+            "Handover and Path Switch attempts remain separately addressable source procedure "
+            "attempts; membership in one diagnostic group never implies one procedure or a "
+            "Handover-to-Path-Switch relationship"
+        )
+
     if len(group) == 1:
         subject_link = {
             "strength": "UNBOUND",
             "basis": "no_cross_domain_link_single_source",
             "source_contexts": [_context_of(s) for s in group],
+        }
+    elif active_bridges:
+        subject_link = {
+            "strength": "SUPPORTED",
+            "basis": "domain_supported_handover_context_bridge",
+            "source_contexts": [_context_of(s) for s in group],
+            "context_bridges": active_bridges,
         }
     else:
         subject_link = {
@@ -972,11 +1240,7 @@ def analyze_group(group: list[SourceInstance], group_index: int) -> dict[str, An
         "additional_evidence_needed": additional,
         "supporting_anomalies": supporting,
         "not_confirmed": list(NOT_CONFIRMED_STATEMENTS),
-        "limitations": [
-            "No severity ranking is applied: first means earliest safely orderable boundary",
-            "Downstream observations are not caused by the selected boundary",
-            "NO_ABNORMAL_BOUNDARY_OBSERVED never means network or procedure success",
-        ],
+        "limitations": group_limitations,
     }
 
 
@@ -1001,6 +1265,7 @@ def _context_of(source: SourceInstance) -> dict[str, Any]:
 def analyze(
     registration_paths: list[Path],
     pdu_session_paths: list[Path],
+    handover_mobility_paths: list[Path] | None = None,
 ) -> dict[str, Any]:
     """Run bounded failure-boundary orchestration over Domain analysis JSON."""
     paths: list[tuple[str, Path]] = []
@@ -1008,6 +1273,8 @@ def analyze(
         paths.append(("5gc-registration-mobility", path))
     for path in pdu_session_paths:
         paths.append(("5gc-pdu-session", path))
+    for path in handover_mobility_paths or []:
+        paths.append(("5gc-handover-mobility", path))
     if not paths:
         raise InputError("no Domain analysis input supplied")
 

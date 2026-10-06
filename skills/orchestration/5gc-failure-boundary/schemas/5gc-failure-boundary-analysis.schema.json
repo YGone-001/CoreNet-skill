@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://corenet-skill.dev/schemas/orchestration/5gc-failure-boundary-analysis.schema.json",
   "title": "5GC Failure Boundary Orchestration Analysis",
-  "description": "Bounded Analysis Orchestration output composing already-produced 5gc-registration-mobility and 5gc-pdu-session Domain analysis summaries into evidence-safe diagnostic groups and identifying the earliest safely orderable abnormal evidence boundary per group. The output carries no root_cause, culprit, responsible_nf, vendor_fault, implementation_failure, or bug_location fields and never claims network or procedure success.",
+  "description": "Bounded Analysis Orchestration output composing already-produced 5gc-registration-mobility, 5gc-pdu-session, and 5gc-handover-mobility Domain analysis summaries into evidence-safe diagnostic groups and identifying the earliest safely orderable abnormal evidence boundary per group. Handover and Path Switch attempts remain separately addressable source procedure units; a handover source/target context bridge is consumed only from a Domain-authorized STRONG or SUPPORTED association. The output carries no root_cause, culprit, responsible_nf, vendor_fault, implementation_failure, or bug_location fields and never claims network or procedure success.",
   "type": "object",
   "required": [
     "analysis_name",
@@ -237,6 +237,57 @@
           "items": {
             "type": "object"
           }
+        },
+        "context_bridges": {
+          "type": "array",
+          "description": "Domain-authorized handover source/target context bridges active in this group. Present only when the Handover Domain itself established the association as STRONG or SUPPORTED and both context sides joined the group; association candidates are never used.",
+          "items": {
+            "type": "object",
+            "required": [
+              "source_domain",
+              "source_instance_id",
+              "bridge_type",
+              "bridge_strength",
+              "bridge_basis",
+              "from_context",
+              "to_context"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "source_domain": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_instance_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "bridge_type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "bridge_strength": {
+                "type": "string",
+                "enum": [
+                  "STRONG",
+                  "SUPPORTED"
+                ]
+              },
+              "bridge_basis": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1
+              },
+              "from_context": {
+                "type": "object"
+              },
+              "to_context": {
+                "type": "object"
+              }
+            }
+          }
         }
       }
     },
@@ -256,7 +307,8 @@
         "supporting_evidence",
         "ordering_basis",
         "selectability",
-        "limitations"
+        "limitations",
+        "mobility_attempt_family"
       ],
       "additionalProperties": false,
       "properties": {
@@ -435,6 +487,18 @@
               "null"
             ]
           }
+        },
+        "mobility_attempt_family": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "handover",
+            "path-switch",
+            null
+          ],
+          "description": "Mobility attempt family when the source is a 5gc-handover-mobility attempt; null for Registration and PDU Session sources. Never merged across the two families."
         }
       }
     },

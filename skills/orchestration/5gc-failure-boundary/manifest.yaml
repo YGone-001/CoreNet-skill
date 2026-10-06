@@ -1,11 +1,11 @@
 name: 5gc-failure-boundary
-version: 0.1.0
+version: 0.2.0
 category: orchestration
 description: >
   Bounded Analysis Orchestration Skill composing already-produced 5GC Domain
-  analysis JSON from 5gc-registration-mobility and 5gc-pdu-session into
-  evidence-safe diagnostic groups and identifying the earliest safely orderable
-  abnormal evidence boundary per group. Candidates come only from deviations
+  analysis JSON from 5gc-registration-mobility, 5gc-pdu-session, and
+  5gc-handover-mobility into evidence-safe diagnostic groups and identifying
+  the earliest safely orderable abnormal evidence boundary per group. Candidates come only from deviations
   already emitted by the source Domain Skills; ordering relies on evidence
   provenance, never severity; boundary confidence is selection confidence,
   never causal confidence; and no root cause, network-function blame, vendor
@@ -13,6 +13,8 @@ description: >
 scope:
   includes:
     - diagnostic group formation from exact common context (capture file, SCTP association, RAN-UE-NGAP-ID, AMF-UE-NGAP-ID) across supported Domain analyses
+    - separately addressable handover attempts and Path Switch attempts from 5gc-handover-mobility analyses, anchored through their source, target, or serving contexts
+    - Domain-authorized handover source/target context bridges (STRONG or SUPPORTED association only) with structured bridge provenance and SUPPORTED subject-link strength
     - multi-UE and multi-association isolation; no timestamp-only or numeric-ID-only subject joins
     - PDU Session lifecycle generation preservation per source instance
     - abnormal-boundary candidates from Domain-emitted deviations mapped exactly (protocol reject, unsuccessful outcome, negative outcome, failed resource item, delivery failure notification, missing expected counterpart, field conflict)
@@ -26,7 +28,7 @@ scope:
     - implementation root-cause attribution and root-cause hypothesis ranking
     - vendor or network-function blame
     - source-code mapping
-    - handover, path switch, and UPF relocation
+    - UPF relocation, inter-system mobility, RAN Status Transfer, and Xn protocol analysis
     - IMS, EPC, policy, and charging procedures
     - raw protocol event interpretation, PCAP parsing, and log parsing
     - confidence-based causal hypothesis generation
@@ -36,6 +38,7 @@ dependencies:
   optional:
     - 5gc-registration-mobility >=0.2.0
     - 5gc-pdu-session >=0.4.0
+    - 5gc-handover-mobility >=0.1.0
     - procedure-evidence >=0.1.0
 inputs:
   - 5gc-registration-mobility analysis summary JSON (from the 5gc-registration-mobility Skill)

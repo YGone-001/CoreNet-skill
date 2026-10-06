@@ -1,0 +1,83 @@
+{
+  "analysis_name": "5gc-failure-boundary",
+  "analysis_version": "0.2.0",
+  "diagnostic_groups": [
+    {
+      "additional_evidence_needed": [],
+      "boundary_confidence": null,
+      "candidate_boundaries": [],
+      "diagnostic_id": "diag-1",
+      "downstream_observations": [],
+      "earlier_context": [],
+      "evidence_limitations": [],
+      "limitations": [
+        "No severity ranking is applied: first means earliest safely orderable boundary",
+        "Downstream observations are not caused by the selected boundary",
+        "NO_ABNORMAL_BOUNDARY_OBSERVED never means network or procedure success",
+        "Handover and Path Switch attempts remain separately addressable source procedure attempts; membership in one diagnostic group never implies one procedure or a Handover-to-Path-Switch relationship"
+      ],
+      "not_confirmed": [
+        "implementation cause not assessed",
+        "network-function blame not established",
+        "vendor defect not established",
+        "end-to-end root cause not established"
+      ],
+      "observation_scope": {
+        "capture_files": [
+          "ho.pcapng"
+        ],
+        "source_count": 1
+      },
+      "selected_boundary": null,
+      "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+      "source_domain_instances": [
+        {
+          "anchor_context": {
+            "amf_ue_ngap_id": 2,
+            "association": "sctp-assoc-0",
+            "capture_file": "ho.pcapng",
+            "ran_ue_ngap_id": 5
+          },
+          "anchor_role": "serving",
+          "capture_file": "ho.pcapng",
+          "mobility_attempt_family": "path-switch",
+          "source_domain": "5gc-handover-mobility",
+          "source_file": "handover-mobility-analysis.json",
+          "source_instance_id": "5gc-ps:ho.pcapng:sctp-assoc-0:r5:1"
+        }
+      ],
+      "subject_link": {
+        "basis": "no_cross_domain_link_single_source",
+        "source_contexts": [
+          {
+            "amf_ue_ngap_id": 2,
+            "capture_file": "ho.pcapng",
+            "ran_ue_ngap_id": 5,
+            "sctp_association": "sctp-assoc-0",
+            "source_domain": "5gc-handover-mobility",
+            "source_instance_id": "5gc-ps:ho.pcapng:sctp-assoc-0:r5:1"
+          }
+        ],
+        "strength": "UNBOUND"
+      },
+      "supporting_anomalies": []
+    }
+  ],
+  "limitations": [
+    "Analysis is bounded to the Domain analysis JSON supplied as input; no raw protocol events are interpreted",
+    "Boundary candidates come only from deviations already emitted by the source Domain Skills",
+    "First means the earliest safely orderable abnormal evidence boundary, never the most serious abnormality",
+    "Boundary confidence expresses confidence in the boundary selection and ordering, never causal confidence",
+    "No implementation-specific source code or network function internal state is inferred",
+    "Handover and Path Switch attempts remain separately addressable; one diagnostic group never implies one procedure",
+    "A handover source/target context bridge is consumed only from a Domain-authorized STRONG or SUPPORTED association; association candidates are ambiguity evidence and never join groups"
+  ],
+  "unbound_domain_analyses": [
+    {
+      "reason": "no evidence-safe cross-domain subject link exists for this analysis",
+      "source_domain": "5gc-handover-mobility",
+      "source_file": "handover-mobility-analysis.json",
+      "source_instance_id": "5gc-ps:ho.pcapng:sctp-assoc-0:r5:1"
+    }
+  ]
+}

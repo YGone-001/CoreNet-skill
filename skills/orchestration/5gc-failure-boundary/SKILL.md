@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Compose already-produced 5GC Domain analysis JSON from `5gc-registration-mobility`
-and `5gc-pdu-session` into evidence-safe diagnostic groups and identify the
+Compose already-produced 5GC Domain analysis JSON from `5gc-registration-mobility`,
+`5gc-pdu-session`, and `5gc-handover-mobility` into evidence-safe diagnostic groups and identify the
 earliest safely orderable abnormal evidence boundary for each group across the
 currently implemented 5GC procedure path. The Skill answers: which diagnostic
 subject is being analyzed, which Domain procedure instances are safely related,
@@ -16,10 +16,23 @@ severity, and never reports network or procedure success.
 
 ## Scope
 
-- Consume Domain analysis JSON only: `5gc-registration-mobility` (>=0.2.0) and
-  `5gc-pdu-session` (>=0.4.0) analysis summaries. No raw protocol events, no
-  PCAP parsing, no log parsing. Source versions are verified structurally and
-  known older versions fail loudly (no prose-parsing fallback).
+- Consume Domain analysis JSON only: `5gc-registration-mobility` (>=0.2.0),
+  `5gc-pdu-session` (>=0.4.0), and `5gc-handover-mobility` (>=0.1.0) analysis
+  summaries. No raw protocol events, no PCAP parsing, no log parsing. Source
+  versions are verified structurally and known older versions fail loudly (no
+  prose-parsing fallback).
+- Treat every handover attempt and Path Switch attempt as a separately
+  addressable source procedure unit anchored through its own exact context:
+  the source context when present and complete, a directly observed complete
+  target context for bounded late-capture attempts, or the serving context
+  for Path Switch. Stage array positions are never treated as chronological
+  ordering, and unbound Mobility evidence is never read.
+- Consume a handover source/target context bridge only when the Handover
+  Domain itself authorized the association as STRONG or SUPPORTED and both
+  sides share one capture file; the bridged subject link stays SUPPORTED
+  with structured bridge provenance. `association.candidates` are ambiguity
+  evidence and never join groups, an AMBIGUOUS/UNBOUND association never
+  bridges, and one diagnostic group never implies one procedure.
 - Form diagnostic groups by exact common context only: capture file + SCTP
   association (contract-equivalent across the two Domain output formats) +
   RAN-UE-NGAP-ID + AMF-UE-NGAP-ID, all present and equal. Timestamp proximity,
@@ -62,7 +75,11 @@ severity, and never reports network or procedure success.
 
 - No implementation root-cause attribution, no root-cause hypothesis ranking.
 - No vendor or network-function blame; no source-code mapping.
-- No Handover, Path Switch, or UPF relocation; no IMS, EPC, policy, or charging.
+- No UPF relocation, inter-system mobility, RAN Status Transfer, or Xn
+  protocol analysis; no IMS, EPC, policy, or charging.
+- No Handover-to-Path-Switch relationship inference and no synthetic
+  Registration → PDU Session → Handover → Path Switch sequence: same-group
+  membership never means one procedure, and evidence alone decides ordering.
 - No raw protocol event interpretation, PCAP parsing, or log parsing.
 - No success, failure, health, or end-to-end verdicts:
   `NO_ABNORMAL_BOUNDARY_OBSERVED` never means success.
@@ -89,7 +106,7 @@ severity, and never reports network or procedure success.
 
 Required: `[]` (standalone package; consumes only already-generated Domain JSON).
 Optional: `5gc-registration-mobility >=0.2.0`, `5gc-pdu-session >=0.4.0`,
-`procedure-evidence >=0.1.0`.
+`5gc-handover-mobility >=0.1.0`, `procedure-evidence >=0.1.0`.
 
 ## Workflow
 

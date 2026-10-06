@@ -60,11 +60,14 @@ class ManifestAndPackageTests(unittest.TestCase):
     def test_manifest_contract(self):
         text = (PACKAGE / "manifest.yaml").read_text(encoding="utf-8")
         self.assertIn("name: 5gc-failure-boundary", text)
-        self.assertIn("version: 0.1.0", text)
+        self.assertIn("version: 0.2.0", text)
         self.assertIn("category: orchestration", text)
         self.assertIn("required: []", text)
-        for dep in ("5gc-registration-mobility >=0.2.0", "5gc-pdu-session >=0.4.0", "procedure-evidence >=0.1.0"):
+        for dep in ("5gc-registration-mobility >=0.2.0", "5gc-pdu-session >=0.4.0",
+                    "5gc-handover-mobility >=0.1.0", "procedure-evidence >=0.1.0"):
             self.assertIn(dep, text)
+        self.assertNotIn("handover, path switch, and UPF relocation", text)
+        self.assertIn("UPF relocation", text)
 
     def test_expected_fixture_matches_committed_output(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -563,6 +566,254 @@ class SanitizationTests(unittest.TestCase):
 
     def test_not_confirmed_disclaimers_are_allowed(self):
         MODEL.sanitize_output({"not_confirmed": list(MODEL.NOT_CONFIRMED_STATEMENTS)})
+
+
+class MobilityIntegrationTests(unittest.TestCase):
+    """Bounded 5gc-handover-mobility integration (v0.2.0 acceptance)."""
+
+    MOBILITY_SCENARIOS = (
+        "ho-preparation-negative", "ho-resource-allocation-negative", "ho-resource-failed-item",
+        "ps-negative-outcome", "ho-missing-counterpart-window", "ho-missing-counterpart-partial",
+        "ho-cancel-no-deviation", "ho-notify-no-deviation", "ps-ack-no-deviation",
+        "mobility-correlation-ambiguity-only", "registration-earlier-than-handover",
+        "pdu-earlier-than-handover", "handover-earlier-than-pdu", "mobility-pdu-same-frame",
+        "mobility-earlier-incomparable-laters", "mobility-context-exact-link",
+        "handover-bridge-strong", "handover-bridge-ambiguous", "handover-bridge-candidates",
+        "handover-target-only-anchor", "mobility-same-ids-different-associations",
+        "mobility-cross-capture", "ps-independent-boundary", "ho-then-ps-unbound-relationship",
+        "ho-and-ps-one-group", "ho-notify-no-path-switch", "ps-no-handover-missing-outcome",
+        "two-handover-attempts-one-subject", "two-path-switch-attempts-one-subject",
+        "duplicate-mobility-input", "mobility-version-floor-accepted", "misleading-filename",
+    )
+
+    def _expected(self, name):
+        return json.loads((EXPECTED / f"{name}-analysis.json").read_text(encoding="utf-8"))
+
+    def _run_input_dir(self, name, directory):
+        output = Path(directory) / f"{name}-analysis.json"
+        rc = ANALYZE.main(["--input-dir", str(INPUTS / name), "--output", str(output), "--force"])
+        self.assertEqual(rc, 0, name)
+        return json.loads(output.read_text(encoding="utf-8"))
+
+    def test_expected_mobility_fixtures_match(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name in self.MOBILITY_SCENARIOS:
+                with self.subTest(scenario=name):
+                    self.assertEqual(self._run_input_dir(name, Path(directory)), self._expected(name), name)
+
+    def test_failure_expected_mobility_scenarios_fail_loudly(self):
+        for name, marker in (
+            ("mobility-version-too-old", "analysis_version"),
+            ("mobility-malformed-json", "invalid JSON"),
+            ("unsupported-domain-analysis", "is not a 5gc-handover-mobility analysis summary"),
+        ):
+            with self.subTest(scenario=name):
+                output = Path(tempfile.mkdtemp()) / "out.json"
+                rc = ANALYZE.main(["--input-dir", str(INPUTS / name), "--output", str(output), "--force"])
+                self.assertEqual(rc, MODEL.EXIT_MALFORMED_INPUT, name)
+                self.assertFalse(output.exists(), name)
+
+    def test_mobility_only_boundaries(self):
+        expectations = {
+            "ho-preparation-negative": ("handover", "HANDOVER_PREPARATION_OUTCOME", "HIGH"),
+            "ho-resource-allocation-negative": ("handover", "TARGET_RESOURCE_ALLOCATION", "HIGH"),
+            "ps-negative-outcome": ("path-switch", "PATH_SWITCH_OUTCOME", "HIGH"),
+        }
+        for name, (family, stage, confidence) in expectations.items():
+            with self.subTest(scenario=name):
+                group = first_group(self._expected(name))
+                self.assertEqual(group["selection_status"], "SELECTED")
+                ref = selected_of(group)
+                self.assertEqual(ref["source_domain"], "5gc-handover-mobility")
+                self.assertEqual(ref["mobility_attempt_family"], family)
+                self.assertEqual(ref["procedure_family"], family)
+                self.assertEqual(ref["procedure_stage"], stage)
+                self.assertEqual(ref["source_attempt_id"], ref["source_instance_id"])
+                self.assertIsNotNone(ref["boundary_anchor"]["frame_number"])
+                self.assertEqual(group["boundary_confidence"], confidence)
+
+    def test_resource_failed_item_is_item_scoped(self):
+        group = first_group(self._expected("ho-resource-failed-item"))
+        self.assertEqual(group["selection_status"], "SELECTED")
+        self.assertEqual(selected_of(group)["deviation_type"], "RESOURCE_FAILED_ITEM_OBSERVED")
+        serialized = json.dumps(group)
+        self.assertNotIn("all PDU Sessions failed", serialized)
+        self.assertNotIn("handover failed end-to-end", serialized.lower())
+
+    def test_missing_counterpart_window_and_partial_blocking(self):
+        group = first_group(self._expected("ho-missing-counterpart-window"))
+        self.assertEqual(group["selection_status"], "SELECTED")
+        ref = selected_of(group)
+        self.assertEqual(ref["evidence_level"], "DERIVED")
+        self.assertIsNone(ref["boundary_anchor"]["frame_number"])
+        self.assertIsNotNone(ref["ordering_basis"]["observation_window"])
+        blocked = first_group(self._expected("ho-missing-counterpart-partial"))
+        self.assertEqual(blocked["selection_status"], "INSUFFICIENT_COMPARABLE_EVIDENCE")
+        self.assertTrue(any(c["selectability"] == "BLOCKED_BY_PARTIAL_CAPTURE"
+                            for c in blocked["candidate_boundaries"]))
+
+    def test_no_deviation_terminals_are_not_boundaries(self):
+        for name in ("ho-cancel-no-deviation", "ho-notify-no-deviation", "ps-ack-no-deviation"):
+            with self.subTest(scenario=name):
+                group = first_group(self._expected(name))
+                self.assertEqual(group["selection_status"], "NO_ABNORMAL_BOUNDARY_OBSERVED")
+                self.assertEqual(group["candidate_boundaries"], [])
+
+    def test_correlation_ambiguity_stays_a_limitation(self):
+        group = first_group(self._expected("mobility-correlation-ambiguity-only"))
+        self.assertEqual(group["selection_status"], "NO_ABNORMAL_BOUNDARY_OBSERVED")
+        self.assertIn("CORRELATION_AMBIGUITY", [entry["type"] for entry in group["evidence_limitations"]])
+        self.assertEqual(group["candidate_boundaries"], [])
+
+    def test_cross_domain_ordering(self):
+        selected_domain = {
+            "registration-earlier-than-handover": "5gc-registration-mobility",
+            "pdu-earlier-than-handover": "5gc-pdu-session",
+            "handover-earlier-than-pdu": "5gc-handover-mobility",
+        }
+        for name, domain in selected_domain.items():
+            with self.subTest(scenario=name):
+                group = first_group(self._expected(name))
+                self.assertEqual(group["selection_status"], "SELECTED")
+                self.assertEqual(group["subject_link"]["strength"], "STRONG")
+                self.assertEqual(selected_of(group)["source_domain"], domain)
+        same_frame = first_group(self._expected("mobility-pdu-same-frame"))
+        self.assertEqual(same_frame["selection_status"], "AMBIGUOUS_FIRST_BOUNDARY")
+        later = first_group(self._expected("mobility-earlier-incomparable-laters"))
+        self.assertEqual(later["selection_status"], "SELECTED")
+        self.assertEqual(selected_of(later)["source_domain"], "5gc-handover-mobility")
+        self.assertEqual(later["observation_scope"]["source_count"], 3)
+
+    def test_exact_context_link_and_domain_bridge(self):
+        exact = first_group(self._expected("mobility-context-exact-link"))
+        self.assertEqual(exact["subject_link"]["strength"], "STRONG")
+        self.assertEqual(exact["subject_link"]["basis"], "capture_sctp_association_and_ngap_ue_context_exact_match")
+        bridged = first_group(self._expected("handover-bridge-strong"))
+        link = bridged["subject_link"]
+        self.assertEqual(link["strength"], "SUPPORTED")
+        self.assertEqual(link["basis"], "domain_supported_handover_context_bridge")
+        self.assertEqual(len(link["context_bridges"]), 1)
+        bridge = link["context_bridges"][0]
+        self.assertEqual(bridge["bridge_strength"], "STRONG")
+        self.assertEqual(bridge["bridge_type"], "handover_source_target")
+        self.assertEqual(bridged["observation_scope"]["source_count"], 3)
+
+    def test_ambiguous_and_unbound_associations_never_bridge(self):
+        for name in ("handover-bridge-ambiguous", "handover-bridge-candidates"):
+            with self.subTest(scenario=name):
+                document = self._expected(name)
+                self.assertEqual(len(document["diagnostic_groups"]), 2, name)
+                for group in document["diagnostic_groups"]:
+                    self.assertNotIn("context_bridges", group["subject_link"], name)
+                    self.assertNotEqual(group["subject_link"]["basis"],
+                                        "domain_supported_handover_context_bridge", name)
+                blob = json.dumps(document)
+                self.assertNotIn('"bridge_type"', blob, name)
+
+    def test_target_only_late_capture_anchor(self):
+        group = first_group(self._expected("handover-target-only-anchor"))
+        self.assertEqual(group["subject_link"]["strength"], "STRONG")
+        self.assertEqual(group["observation_scope"]["source_count"], 2)
+        instances = group["source_domain_instances"]
+        mobility = [entry for entry in instances if entry["source_domain"] == "5gc-handover-mobility"]
+        self.assertEqual(len(mobility), 1)
+        self.assertEqual(selected_of(group)["boundary_anchor"]["frame_number"], 14)
+
+    def test_multi_association_and_capture_isolation(self):
+        for name in ("mobility-same-ids-different-associations", "mobility-cross-capture"):
+            with self.subTest(scenario=name):
+                document = self._expected(name)
+                self.assertEqual(len(document["diagnostic_groups"]), 2, name)
+                for group in document["diagnostic_groups"]:
+                    self.assertEqual(group["observation_scope"]["source_count"], 1, name)
+                    self.assertEqual(group["subject_link"]["strength"], "UNBOUND", name)
+
+    def test_family_separation_and_independence(self):
+        one_group = first_group(self._expected("ho-and-ps-one-group"))
+        instances = one_group["source_domain_instances"]
+        families = sorted(entry["mobility_attempt_family"]
+                          for entry in instances if entry["source_domain"] == "5gc-handover-mobility")
+        self.assertEqual(families, ["handover", "path-switch"])
+        self.assertEqual(one_group["observation_scope"]["source_count"], 2)
+        unbound_rel = self._expected("ho-then-ps-unbound-relationship")
+        blob = json.dumps(unbound_rel)
+        self.assertNotIn("related_handover_attempt_id", blob)
+        self.assertNotIn("missing handover", blob.lower())
+        self.assertNotIn("missing path switch", blob.lower())
+        for name in ("ps-independent-boundary", "ps-no-handover-missing-outcome", "ho-notify-no-path-switch"):
+            document = self._expected(name)
+            self.assertNotIn("missing handover", json.dumps(document).lower(), name)
+            self.assertNotIn("missing path switch", json.dumps(document).lower(), name)
+
+    def test_repeated_attempts_stay_distinct(self):
+        for name in ("two-handover-attempts-one-subject", "two-path-switch-attempts-one-subject"):
+            with self.subTest(scenario=name):
+                group = first_group(self._expected(name))
+                self.assertEqual(group["observation_scope"]["source_count"], 2)
+                ids = sorted(entry["source_instance_id"] for entry in group["source_domain_instances"])
+                self.assertEqual(len(set(ids)), 2, name)
+        duplicate = first_group(self._expected("duplicate-mobility-input"))
+        self.assertEqual(duplicate["observation_scope"]["source_count"], 1)
+        self.assertEqual(len(duplicate["candidate_boundaries"]), 1)
+
+    def test_mobility_candidate_schema_conformance(self):
+        schema = json.loads((PACKAGE / "schemas" / "5gc-failure-boundary-analysis.schema.json").read_text(encoding="utf-8"))
+        candidate_keys = set(schema["$defs"]["boundaryCandidate"]["required"])
+        for name in self.MOBILITY_SCENARIOS:
+            document = self._expected(name)
+            for group in document["diagnostic_groups"]:
+                if group["subject_link"].get("context_bridges"):
+                    for bridge in group["subject_link"]["context_bridges"]:
+                        self.assertIn(bridge["bridge_strength"], ("STRONG", "SUPPORTED"))
+                for candidate in group["candidate_boundaries"]:
+                    self.assertTrue(candidate_keys <= set(candidate), name)
+
+    def test_deterministic_reversed_input_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            inputs = INPUTS / "mobility-out-of-order-input-order"
+            first = directory / "first.json"
+            second = directory / "second.json"
+            self.assertEqual(ANALYZE.main([
+                "--registration", str(inputs / "registration-analysis.json"),
+                "--handover-mobility", str(inputs / "handover-mobility-analysis.json"),
+                "--output", str(first), "--force"]), 0)
+            self.assertEqual(ANALYZE.main([
+                "--handover-mobility", str(inputs / "handover-mobility-analysis.json"),
+                "--registration", str(inputs / "registration-analysis.json"),
+                "--output", str(second), "--force"]), 0)
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+
+    def test_input_dir_discriminator_overrides_filename(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "out.json"
+            self.assertEqual(ANALYZE.main([
+                "--input-dir", str(INPUTS / "misleading-filename"),
+                "--output", str(output), "--force"]), 0)
+            document = json.loads(output.read_text(encoding="utf-8"))
+            instances = document["diagnostic_groups"][0]["source_domain_instances"]
+            self.assertEqual(instances[0]["source_domain"], "5gc-registration-mobility")
+
+    def test_mobility_report_rendering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            document = self._expected("ho-resource-allocation-negative")
+            text = REPORT.render_text(document)
+            self.assertIn("5gc-handover-mobility / handover", text)
+            self.assertIn("TARGET_RESOURCE_ALLOCATION", text)
+            self.assertIn("Not confirmed:", text)
+            lower = text.lower()
+            for forbidden in ("handover root cause", "target gnb caused", "caused by"):
+                self.assertNotIn(forbidden, lower)
+        with tempfile.TemporaryDirectory() as directory:
+            document = self._expected("ps-negative-outcome")
+            text = REPORT.render_text(document)
+            self.assertIn("5gc-handover-mobility / path-switch", text)
+            self.assertIn("PATH_SWITCH_OUTCOME", text)
+        with tempfile.TemporaryDirectory() as directory:
+            document = self._expected("handover-bridge-strong")
+            text = REPORT.render_text(document)
+            self.assertIn("subject link: SUPPORTED (domain_supported_handover_context_bridge)", text)
+            self.assertIn("context bridge: handover_source_target (STRONG)", text)
 
 
 if __name__ == "__main__":
