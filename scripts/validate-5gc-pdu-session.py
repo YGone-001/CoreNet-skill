@@ -11,6 +11,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from implementation_policy import IMPLEMENTATION_TOKEN_GROUP
+
 SKILL = Path("skills/domain/5gc-pdu-session")
 PROCEDURE_EVIDENCE_SCHEMA = Path("skills/domain/procedure-evidence/schemas/procedure-evidence.schema.json")
 
@@ -116,7 +119,7 @@ TEXT_SUFFIXES = {".md", ".py", ".yaml", ".json", ".jsonl", ".txt"}
 ABSOLUTE_PATH = re.compile(r"(?i)(?:[a-z]:[\\/]+users[\\/]|(?:^|[\s\"'])/(?:home|users)/)")
 SUBSCRIBER_VALUE = re.compile(r'(?i)"(?:imsi|supi|suci|msisdn|imei)"\s*:\s*"[^"\n]+"')
 AUTH_VECTOR = re.compile(r'(?i)"(?:rand|autn|res\*?|hxres\*?|kausf|kseaf|kamf)"\s*:\s*"[^"\n]+"')
-IMPLEMENTATION_MAPPING = re.compile(r"(?is)(?:open5gs|free5gc|openairinterface|srsran|vendor).{0,120}(?:source|handler|function|path|mapping|module)")
+IMPLEMENTATION_MAPPING = re.compile(r"(?is)(?:" + IMPLEMENTATION_TOKEN_GROUP + r"|openairinterface|srsran|vendor).{0,120}(?:source|handler|function|path|mapping|module)")
 RAW_DECODER = re.compile(r"(?i)def\s+(?:parse|decode)[a-z0-9_]*(?:nas|ngap|pfcp|gtp|packet|payload)|(?:raw_)?(?:nas|ngap|pfcp|gtpu)_payload\s*=")
 LIFECYCLE_MARKER = re.compile(r"(?i)\bphase\s*[0-9]+\b|\bmilestone\s*[a-z]?[0-9]+\b")
 FORBIDDEN_SCHEMA_FIELDS = re.compile(r"(?i)root_?cause|culprit|implementation|vendor|product_?bug")

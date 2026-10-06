@@ -58,6 +58,14 @@ def record(**overrides) -> dict:
     return base
 
 
+from pathlib import Path as _Path
+_policy_module_path = _Path(__file__).resolve().parents[4] / "scripts" / "implementation_policy.py"
+_policy_spec = importlib.util.spec_from_file_location(
+    "implementation_policy", _policy_module_path)
+_POLICY = importlib.util.module_from_spec(_policy_spec)
+assert _policy_spec.loader is not None
+_policy_spec.loader.exec_module(_POLICY)
+
 class SchemaConformanceTests(unittest.TestCase):
     def test_expected_fixtures_conform_structurally(self):
         schema = json.loads((PACKAGE / "schemas" / "procedure-evidence.schema.json").read_text(encoding="utf-8"))
@@ -237,7 +245,7 @@ class NoProtocolDecodingTests(unittest.TestCase):
     def test_no_implementation_references(self):
         for script in SCRIPTS.glob("*.py"):
             text = script.read_text(encoding="utf-8").lower()
-            for token in ("open5gs", "free5gc", "kamailio", "freeswitch", "rtpengine"):
+            for token in sorted(_POLICY.PROHIBITED_TOKENS):
                 self.assertNotIn(token, text)
 
 

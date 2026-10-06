@@ -30,6 +30,14 @@ def load_tests(loader, tests, pattern):
     return tests
 
 
+from pathlib import Path as _Path
+_policy_module_path = _Path(__file__).resolve().parents[2] / "scripts" / "implementation_policy.py"
+_policy_spec = importlib.util.spec_from_file_location(
+    "implementation_policy", _policy_module_path)
+_POLICY = importlib.util.module_from_spec(_policy_spec)
+assert _policy_spec.loader is not None
+_policy_spec.loader.exec_module(_POLICY)
+
 class FailureBoundaryValidatorTests(unittest.TestCase):
     def fixture(self):
         temporary = tempfile.TemporaryDirectory()
@@ -159,8 +167,9 @@ class FailureBoundaryValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             model = root / "skills/orchestration/5gc-failure-boundary/scripts/failure_boundary_model.py"
+            implementation_token = sorted(_POLICY.PROHIBITED_TOKENS)[0].upper()
             model.write_text(model.read_text(encoding="utf-8")
-                             + "\nOPEN5GS_SOURCE_HANDLER = 'smf/session/handler.go'\n", encoding="utf-8")
+                             + f"\n{implementation_token}_SOURCE_HANDLER = 'smf/session/handler.go'\n", encoding="utf-8")
             self.assert_error(root, "implementation or vendor source mapping")
 
     def test_repository_root_runtime_dependency_is_detected(self):

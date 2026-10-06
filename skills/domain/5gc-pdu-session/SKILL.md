@@ -100,7 +100,7 @@ implementation questions.
   function blame; missing GTP-U traffic is never reported as `USER_PLANE_FAILED`.
 - Handover, path switch, UPF relocation, multi-access, and EPS interworking remain deferred.
 - UE deregistration as a complete Domain procedure and implicit global UE-context teardown remain deferred.
-- No Open5GS, free5GC, or vendor source-code mappings.
+- No implementation-specific or vendor source-code mappings.
 
 ## Inputs
 

@@ -16,6 +16,12 @@ VALIDATOR = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(VALIDATOR)
 
+_policy_spec = importlib.util.spec_from_file_location(
+    "implementation_policy", ROOT / "scripts" / "implementation_policy.py")
+_POLICY = importlib.util.module_from_spec(_policy_spec)
+assert _policy_spec.loader is not None
+_policy_spec.loader.exec_module(_POLICY)
+
 RESOURCE_EXPECTED = (
     "pdu-session-setup-events.jsonl",
     "pdu-session-modify-events.jsonl",
@@ -70,7 +76,7 @@ class NgapValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             reference = root / "skills/protocol/ngap/references/protocol-model.md"
-            reference.write_text(reference.read_text(encoding="utf-8") + "\nSee open5gs source.\n", encoding="utf-8")
+            reference.write_text(reference.read_text(encoding="utf-8") + "\nSee " + sorted(_POLICY.PROHIBITED_TOKENS)[0] + " source.\n", encoding="utf-8")
             self.assertTrue(any("implementation mapping" in error for error in VALIDATOR.validate(root)))
 
     def test_concrete_domain_package_does_not_change_ngap_validation_scope(self):

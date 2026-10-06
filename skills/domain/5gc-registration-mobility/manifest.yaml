@@ -21,7 +21,7 @@ scope:
     - NAS or NGAP decoding or protocol field interpretation
     - subscriber or session identity handling
     - success, failure, or root-cause verdicts; implementation blame
-    - Open5GS, free5GC, or vendor-specific source mapping
+    - implementation-specific or vendor-specific source mapping
 dependencies:
   required: []
   optional:

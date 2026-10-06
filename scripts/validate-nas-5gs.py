@@ -11,6 +11,11 @@ import re
 import sys
 from pathlib import Path
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from implementation_policy import IMPLEMENTATION_TOKEN_PATTERN
+
 SKILL = Path("skills/protocol/nas-5gs")
 REQUIRED = (
     "SKILL.md",
@@ -67,7 +72,9 @@ REQUIRED = (
     "tests/test_nas5gs.py",
 )
 ABSOLUTE_PATH = re.compile(r"(?i)(?:[a-z]:[\\/]+users[\\/]|(?:^|[\s\"'])/(?:home|users)/)")
-IMPLEMENTATION_ASSET = re.compile(r"(?i)open5gs|free5gc|openairinterface|srsran|amf_?(?:smf|n2|ngap)?\.(?:c|cc|cpp|h|go|py)\b")
+IMPLEMENTATION_ASSET = re.compile(
+    IMPLEMENTATION_TOKEN_PATTERN +
+    r"|openairinterface|srsran|amf_?(?:smf|n2|ngap)?\.(?:c|cc|cpp|h|go|py)\b")
 NGAP_IDS = re.compile(r"(?i)AMF-UE-NGAP-ID|RAN-UE-NGAP-ID|amf_ue_ngap_id|ran_ue_ngap_id")
 SUBSCRIBER_FIELD = re.compile(r"(?i)[\"']?(?:imsi|msisdn|suci|supi|fiveg?[-_]guti|guti|imei)[\"']?\s*[:=]")
 SECRET_FIELD = re.compile(r"(?i)[\"']?(?:rand|autn|res|auts|kseaf|kamf|knas[_a-z]*)[\"']?\s*[:=]\s*[\"'][0-9a-fA-F]{8,}")

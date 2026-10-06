@@ -20,6 +20,14 @@ def load_tests(loader, tests, pattern):
     return tests
 
 
+from pathlib import Path as _Path
+_policy_module_path = _Path(__file__).resolve().parents[2] / "scripts" / "implementation_policy.py"
+_policy_spec = importlib.util.spec_from_file_location(
+    "implementation_policy", _policy_module_path)
+_POLICY = importlib.util.module_from_spec(_policy_spec)
+assert _policy_spec.loader is not None
+_policy_spec.loader.exec_module(_POLICY)
+
 class ProcedureEvidenceContractTests(unittest.TestCase):
     def test_package_layer_and_category_align(self):
         manifest = (ROOT / "skills" / "domain" / "procedure-evidence" / "manifest.yaml").read_text(encoding="utf-8")
@@ -30,7 +38,7 @@ class ProcedureEvidenceContractTests(unittest.TestCase):
         stages = ROOT / "skills" / "domain" / "procedure-evidence" / "examples" / "stages"
         for fixture in stages.glob("*.jsonl"):
             text = fixture.read_text(encoding="utf-8").lower()
-            for token in ("registration", "attach", "ims", "mobility", "voice", "open5gs", "free5gc", "kamailio", "freeswitch", "rtpengine"):
+            for token in ["registration", "attach", "ims", "mobility", "voice"] + sorted(_POLICY.PROHIBITED_TOKENS):
                 self.assertNotIn(token, text, fixture.name)
 
     def test_records_carry_no_subscriber_data(self):

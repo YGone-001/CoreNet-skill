@@ -16,6 +16,12 @@ VALIDATOR = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(VALIDATOR)
 
+_policy_spec = importlib.util.spec_from_file_location(
+    "implementation_policy", ROOT / "scripts" / "implementation_policy.py")
+_POLICY = importlib.util.module_from_spec(_policy_spec)
+assert _policy_spec.loader is not None
+_policy_spec.loader.exec_module(_POLICY)
+
 
 class SbiHttp2ValidatorTests(unittest.TestCase):
     def fixture(self):
@@ -238,7 +244,7 @@ class SbiHttp2ValidatorTests(unittest.TestCase):
         with temporary:
             ref = root / "skills/protocol/sbi-http2/references/protocol-model.md"
             ref.write_text(
-                ref.read_text(encoding="utf-8") + "\nReference implementation: open5gs smf.c\n",
+                ref.read_text(encoding="utf-8") + "\nReference implementation: " + sorted(_POLICY.PROHIBITED_TOKENS)[0] + " smf.c\n",
                 encoding="utf-8",
             )
             self.assertTrue(any("implementation mapping" in error for error in VALIDATOR.validate(root)))

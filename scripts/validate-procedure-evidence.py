@@ -10,6 +10,11 @@ import re
 import sys
 from pathlib import Path
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from implementation_policy import IMPLEMENTATION_TOKEN_PATTERN
+
 SKILL = Path("skills/domain/procedure-evidence")
 REQUIRED = (
     "SKILL.md",
@@ -29,7 +34,9 @@ REQUIRED = (
     "tests/test_procedure_evidence.py",
 )
 ABSOLUTE_PATH = re.compile(r"(?i)(?:[a-z]:[\\/]+users[\\/]|(?:^|[\s\"'])/(?:home|users)/)")
-IMPLEMENTATION_ASSET = re.compile(r"(?i)open5gs|free5gc|kamailio|freeswitch|rtpengine|openairinterface|srsran|amf_?(?:smf|n2|ngap)?\.(?:c|cc|cpp|h|go|py)\b")
+IMPLEMENTATION_ASSET = re.compile(
+    IMPLEMENTATION_TOKEN_PATTERN +
+    r"|openairinterface|srsran|amf_?(?:smf|n2|ngap)?\.(?:c|cc|cpp|h|go|py)\b")
 SUBSCRIBER_FIELD = re.compile(r"(?i)[\"']?(?:imsi|msisdn|suci|supi|fiveg?[-_]guti|guti|imei|subscriber)[\"']?\s*[:=]")
 LIFECYCLE_MARKER = re.compile(r"(?i)\bphase\s+[0-9]+\b|\bmilestone\s+b?[0-9]+\b")
 VERDICT_WORDING = re.compile(r"(?i)\b(?:success(?:ful)?|failed|root[ _-]?cause)\b")

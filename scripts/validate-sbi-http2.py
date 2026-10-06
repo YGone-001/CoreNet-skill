@@ -11,6 +11,11 @@ import re
 import sys
 from pathlib import Path
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from implementation_policy import IMPLEMENTATION_TOKEN_PATTERN
+
 SKILL = Path("skills/protocol/sbi-http2")
 REQUIRED = (
     "SKILL.md",
@@ -84,7 +89,8 @@ EXPECTED_EVENTS = (
 )
 ABSOLUTE_PATH = re.compile(r"(?i)(?:[a-z]:[\\/]+users[\\/]|(?:^|[\s\"'])/(?:home|users)/)")
 IMPLEMENTATION_ASSET = re.compile(
-    r"(?i)open5gs|free5gc|openairinterface|srsran|ueransim|nokia|ericsson|huawei|zte|(?:upf|gnb|smf|amf)\.(?:c|cc|cpp|h|go|py)\b"
+    IMPLEMENTATION_TOKEN_PATTERN +
+    r"|openairinterface|srsran|ueransim|nokia|ericsson|huawei|zte|(?:upf|gnb|smf|amf)\.(?:c|cc|cpp|h|go|py)\b"
 )
 SUBSCRIBER_FIELD = re.compile(r"(?i)[\"']?(?:imsi|msisdn|suci|supi|gpsi|pei)[\"']?\s*[:=]")
 SECRET_FIELD = re.compile(r"(?i)[\"']?(?:password|passwd|secret|api[_-]?key|private[_-]?key|token)[\"']?\s*[:=]\s*[\"'][^\"']{6,}")

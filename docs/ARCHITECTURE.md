@@ -38,9 +38,9 @@ Correlation is optional infrastructure for Domain Skills, not a mandatory wrappe
 
 ## Implementation ownership boundary
 
-CoreNet Skill does not own implementation-specific Skills. It must not create dedicated Skills for Open5GS, free5GC, Kamailio, FreeSWITCH, RTPengine, or vendor-specific network functions, and it holds no source models for them.
+CoreNet Skill does not own implementation-specific Skills. It must not create dedicated Skills for implementation-specific telecom software, third-party implementations, or vendor-specific network functions, and it holds no source models, log-format knowledge bases, configuration mappings, or project-specific behavior contracts for them. Repository-owned telecom knowledge is based on standardized protocol and procedure semantics.
 
-External implementation context remains welcome as evidence. If a user provides AMF or SMF logs, Kamailio logs, source code, or configuration files, an agent may analyze them as external evidence for the observed failure. Allowed: "Given Open5GS AMF source and this failure PCAP, analyze possible implementation behavior." Not allowed: "CoreNet-skill contains an Open5GS implementation Skill." Implementation findings stay user-scoped analysis, never repository-owned expertise.
+External implementation context remains welcome as evidence. If a user provides AMF or SMF logs, implementation-specific logs, source code, or configuration files, an agent may analyze them as external evidence for the observed failure. Allowed: "Given implementation-specific AMF source and this failure PCAP, analyze possible implementation behavior." Not allowed: "CoreNet-skill contains an implementation-specific AMF Skill." Implementation findings stay user-scoped analysis, never repository-owned expertise.
 
 ## Implemented catalog
 

@@ -91,7 +91,7 @@ Foundation → Protocol → Correlation → Domain / Procedure → Analysis Orch
 
 Dependencies only point left, and a Skill may depend on the same layer when ownership remains acyclic and semantically correct. Lower layers never own higher-layer capabilities, which prevents circular architecture and preserves reuse. Correlation is optional infrastructure for Domain Skills, not a mandatory wrapper around every Protocol Skill.
 
-CoreNet Skill focuses on network signaling evidence analysis rather than implementation-specific source ownership. Implementation is not a Skill layer: when users provide implementation logs, source code, or configuration, agents may analyze them as external evidence, but the repository never owns Skills for Open5GS, free5GC, Kamailio, FreeSWITCH, RTPengine, or vendor-specific network functions.
+CoreNet Skill focuses on network signaling evidence analysis rather than implementation-specific source ownership. Implementation is not a Skill layer: when users provide implementation-specific logs, source code, or configuration, agents may analyze them as external evidence, but the repository never owns Skills for implementation-specific telecom software, third-party implementations, or vendor-specific network functions.
 
 ## EPC, IMS, 5GC, and Diameter
 

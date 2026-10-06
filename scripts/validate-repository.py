@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import subprocess
@@ -98,7 +99,49 @@ def validate(root: Path) -> list[str]:
     for name in tracked:
         if any(part in name for part in GENERATED):
             fail(errors, f"forbidden generated file tracked: {name}")
+    check_implementation_neutral_vocabulary(root, tracked, errors)
     return errors
+
+
+def check_implementation_neutral_vocabulary(root: Path, tracked: list[str], errors: list[str]) -> None:
+    """Durable governance gate: the tracked tree stays implementation-neutral.
+
+    CoreNet Skill is a standards-based repository. Repository-owned telecom
+    knowledge derives from 3GPP specifications, directly applicable protocol
+    standards, reviewed dissector contracts, and observable evidence. Named
+    implementation-project expertise must never become Skill ownership, and
+    project-specific source/log/config mappings are prohibited.
+
+    The prohibited implementation-project tokens are not stored literally in
+    any tracked file — including this validator. They are defined once in
+    ``scripts/implementation_policy.py`` via code-point construction, and
+    detection compares SHA-256 digests of case-folded complete tokens from
+    every tracked text file against the policy digest set, so any
+    capitalization of any prohibited token is rejected without the policy
+    itself violating its own rule.
+    """
+    policy_path = Path(__file__).resolve().parent / "implementation_policy.py"
+    policy_spec = importlib.util.spec_from_file_location("implementation_policy", policy_path)
+    policy = importlib.util.module_from_spec(policy_spec)
+    assert policy_spec.loader is not None
+    policy_spec.loader.exec_module(policy)
+
+    text_suffixes = {".md", ".py", ".yaml", ".yml", ".json", ".jsonl", ".txt", ".cfg", ".toml", ".html", ".csv"}
+    for name in tracked:
+        path = root / name
+        suffix = path.suffix.lower()
+        if suffix not in text_suffixes and suffix != "":
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        # Tracked path names participate in the gate too.
+        found = policy.find_prohibited_tokens(name) + policy.find_prohibited_tokens(text)
+        if found:
+            fail(errors,
+                 "implementation-project token is prohibited in tracked content "
+                 f"(case-insensitive complete-token policy): {name}")
 
 
 def main() -> int:

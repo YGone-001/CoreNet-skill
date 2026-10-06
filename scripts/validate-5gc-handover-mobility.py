@@ -11,6 +11,11 @@ import re
 import sys
 from pathlib import Path
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from implementation_policy import IMPLEMENTATION_TOKEN_PATTERN
+
 SKILL = Path("skills/domain/5gc-handover-mobility")
 
 REQUIRED = (
@@ -43,7 +48,9 @@ MIXED_RESOURCE_FIXTURES = (
 )
 
 ABSOLUTE_PATH = re.compile(r"(?i)(?:[a-z]:[\\/]+users[\\/]|(?:^|[\s\"'])/(?:home|users)/)")
-IMPLEMENTATION_ASSET = re.compile(r"(?i)open5gs|free5gc|openairinterface|srsran|ueransim|nokia|ericsson|huawei|zte\b")
+IMPLEMENTATION_ASSET = re.compile(
+    IMPLEMENTATION_TOKEN_PATTERN +
+    r"|openairinterface|srsran|ueransim|nokia|ericsson|huawei|zte\b")
 SUBSCRIBER_FIELD = re.compile(r"(?i)[\"']?(?:imsi|msisdn|suci|supi|fiveg?[-_]guti|guti)[\"']?\s*[:=]")
 LIFECYCLE_MARKER = re.compile(r"(?i)\bphase\s+[0-9]+\b|\bmilestone\s+b?[0-9]+\b")
 FOREIGN_SEMANTICS = re.compile(r"(?i)\b(?:gtpv2|nsmf_pdusession)\w*|(?:^|[^\w])teid[\"']?\s*[:=]")

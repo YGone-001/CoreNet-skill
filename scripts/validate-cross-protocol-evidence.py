@@ -11,6 +11,11 @@ import re
 import sys
 from pathlib import Path
 
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from implementation_policy import IMPLEMENTATION_TOKEN_PATTERN
+
 SKILL = Path("skills/correlation/cross-protocol-evidence")
 REQUIRED = (
     "SKILL.md",
@@ -39,7 +44,9 @@ REQUIRED = (
     "tests/test_cross_protocol_evidence.py",
 )
 ABSOLUTE_PATH = re.compile(r"(?i)(?:[a-z]:[\\/]+users[\\/]|(?:^|[\s\"'])/(?:home|users)/)")
-IMPLEMENTATION_ASSET = re.compile(r"(?i)open5gs|free5gc|openairinterface|srsran|amf_?(?:smf|n2|ngap)?\.(?:c|cc|cpp|h|go|py)\b")
+IMPLEMENTATION_ASSET = re.compile(
+    IMPLEMENTATION_TOKEN_PATTERN +
+    r"|openairinterface|srsran|amf_?(?:smf|n2|ngap)?\.(?:c|cc|cpp|h|go|py)\b")
 SENSITIVE_FIELD = re.compile(r"(?i)[\"']?(?:imsi|msisdn|suci|supi|fiveg?[-_]guti|guti|imei|rand|autn|res|auts|kseaf|kamf|identity_value)[\"']?\s*[:=]")
 PROTOCOL_OWNERSHIP = re.compile(r"(?i)def\s+\w*(?:parse|decode)\w*(?:nas|ngap)|nas_payload\s*=|procedure_code\s*=\s*int")
 LIFECYCLE_MARKER = re.compile(r"(?i)\bphase\s+[0-9]+\b|\bmilestone\s+b?[0-9]+\b")

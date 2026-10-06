@@ -44,7 +44,8 @@ questions.
   deviation is not an end-to-end root cause; release initiator is not
   root cause; implementation blame is never derivable here.
 - No 5GSM PDU session semantics, no complete mobility coverage
-  (handover, path switch), no Open5GS/free5GC/vendor source mapping, no
+  (handover, path switch), no implementation-specific or vendor source
+  mapping, no
   external logs required.
 
 ## Inputs

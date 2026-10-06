@@ -173,6 +173,19 @@ Implementation-specific source analysis does not redefine protocol truth, and im
 
 Do not start by changing source code merely because a network procedure failed. Establish the failure boundary first.
 
+### Standards-Based, Implementation-Neutral Vocabulary
+
+Repository-owned telecom semantics are standards-based: they derive from 3GPP specifications, directly applicable protocol standards, reviewed protocol dissector contracts where required for extraction, and observable evidence. Repository Skills model protocols, interfaces, network functions, messages, information elements, procedures, evidence, correlation, and diagnostic boundaries — never named implementations.
+
+Durable rules for all repository content (documentation, code, validators, tests, schemas, fixtures, examples, comments, and tracked filenames):
+
+- Repository-owned semantics must remain implementation-neutral; telecom Skills are built from standardized protocol and procedure semantics, not from named implementation-project expertise.
+- Named implementation-project expertise must not become Skill ownership; do not create Skills, source models, log-format knowledge bases, configuration mappings, or project-specific behavior contracts for specific telecom software products.
+- Project-specific source/log/config mappings are prohibited in repository-owned content; describe such material generically as implementation-specific logs, source code, or configuration.
+- When generic wording is genuinely needed, prefer neutral terminology such as "implementation-specific project", "third-party implementation", "vendor-specific implementation", or "implementation mapping"; prefer standards terminology (AMF, SMF, UPF, gNB, and standardized interfaces) wherever technically appropriate.
+- Legitimate normative references (3GPP, ETSI, IETF, RFC, Wireshark/TShark) remain exempt from this rule: it targets implementation-project coupling, not standards orientation or the protocol extraction toolchain.
+- The whole-tree case-insensitive prohibition is enforced by the repository validator; the policy's complete-token set is defined in `scripts/implementation_policy.py` without storing the tokens literally anywhere in the repository.
+
 ## External Source Governance
 
 Follow docs/UPSTREAM.md. Do not hard-code external candidate repositories unless the current task authorizes them. Before importing or adapting external material:

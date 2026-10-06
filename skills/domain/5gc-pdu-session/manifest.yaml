@@ -31,7 +31,7 @@ scope:
     - implicit global UE-context teardown
     - NAS, NGAP, PFCP, GTP-U, or HTTP/2 byte-level decoding
     - success, failure, or root-cause verdicts; implementation blame
-    - Open5GS, free5GC, or vendor-specific source mapping
+    - implementation-specific or vendor-specific source mapping
 dependencies:
   required: []
   optional:
