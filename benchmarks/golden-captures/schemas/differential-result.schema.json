@@ -17,13 +17,18 @@
     "adjudication_required",
     "upstream_intent_match",
     "notes",
-    "recommended_next_action"
+    "recommended_next_action",
+    "comparison_eligibility"
   ],
   "additionalProperties": false,
   "properties": {
     "case_id": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "comparison_eligibility": {
+      "type": "string",
+      "enum": ["ELIGIBLE", "DEGRADED", "INELIGIBLE", "BLOCKED"]
     },
     "human_baseline_sha256": {
       "type": "string",

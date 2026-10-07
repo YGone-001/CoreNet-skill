@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[3]
 BENCHMARK_DIR = ROOT / "benchmarks" / "golden-captures"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from canonical_hash import canonical_json_sha256
 from compare_results import compare_differential
 from run_capture_pipeline import (
     ensure_tshark_path,
@@ -183,9 +184,8 @@ def run_corpus(
         if not baseline_file.is_file():
             raise FileNotFoundError(f"Missing independent human baseline: {baseline_file}")
 
-        baseline_bytes = baseline_file.read_bytes()
-        baseline_sha256 = hashlib.sha256(baseline_bytes).hexdigest()
-        human_baseline = json.loads(baseline_bytes.decode("utf-8"))
+        human_baseline = json.loads(baseline_file.read_text(encoding="utf-8"))
+        baseline_sha256 = canonical_json_sha256(human_baseline)
 
         # Run automated pipeline in external work directory
         case_work_dir = work_root / case_id

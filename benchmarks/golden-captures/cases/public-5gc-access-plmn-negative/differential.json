@@ -5,10 +5,11 @@
     "Capture ends after SCTP shutdown following NG setup failure"
   ],
   "case_id": "public-5gc-access-plmn-negative",
+  "comparison_eligibility": "INELIGIBLE",
   "comparison_status": "PROTOCOL_COVERAGE_GAP",
   "evidence_overlap": false,
   "frame_delta": null,
-  "human_baseline_sha256": "1c26b4275380adfca8da0727827d8d1b819b6220ceefbc068c2cd520ada083ef",
+  "human_baseline_sha256": "852c291423af34c969153e4ddc7ff6db205162280f504bd7c6bb6bc25761b50a",
   "human_boundary": {
     "analysis_status": "BOUNDARY_OBSERVED",
     "frame_number": 7,
@@ -19,7 +20,8 @@
   },
   "layer_attribution": "PROTOCOL",
   "notes": [
-    "Protocol extractor failure or field extraction limitation prevented procedure recognition (ngap extractor status is ERROR_4)."
+    "Relevant protocol 'ngap' extractor failed with ERROR_4",
+    "Zero Domain instances formed due to upstream Protocol extraction defects"
   ],
   "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
   "skill_boundary": {

@@ -22,16 +22,25 @@ The benchmark framework is testing and evaluation infrastructure; it is **not** 
 To prevent bias, human/agent baseline analyses are conducted independently before running automated Skill execution:
 1. **Raw Capture Inspection**: The packet capture is decoded and inspected against 3GPP and IETF normative specifications (3GPP TS 38.413 for NGAP, 3GPP TS 24.501 for NAS-5GS, 3GPP TS 29.244 for PFCP, 3GPP TS 29.281 for GTP-U, and RFC 7540 / 3GPP TS 29.500 for SBI HTTP/2).
 2. **Independent Baseline Authoring**: An independent baseline record (`human-baseline.json`) is authored defining observed procedures, abnormal boundaries, supporting packet evidence, capture limitations, and baseline confidence.
-3. **Schema and Hash Freezing**: The baseline is validated against `human-baseline.schema.json` and its SHA-256 digest is computed and recorded.
+3. **Canonical Schema and Hash Freezing**: The baseline is validated against `human-baseline.schema.json` and its deterministic, platform-independent canonical JSON hash (`canonical_json_sha256`) is computed and recorded. This guarantees cross-platform digest invariance across operating systems, line endings (LF vs CRLF), indentation, and JSON key ordering.
 4. **Automated Skill Pipeline Execution**: The automated pipeline is executed mechanically in an isolated external working directory.
 5. **Differential Comparison**: The frozen baseline and sanitized Skill summary are compared deterministically without tuning or modifying Skill implementations.
 
-### 2.2 Standards-Based and Implementation-Neutral Discipline
+### 2.2 Evidentiary Pipeline Health and Comparison Eligibility
+A baseline conclusion of `NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED` (or an out-of-scope non-boundary observation) is meaningful only when the upstream evidence pipeline successfully extracted the relevant protocol messages. `NO_ABNORMAL_BOUNDARY_OBSERVED` is not benchmark-success evidence when the upstream Protocol/Domain evidence pipeline failed.
+
+The following states are strictly non-equivalent:
+- **Evidence-Supported Health**: Relevant protocol signaling is successfully parsed -> Domain analysis runs -> no abnormal boundary observed (`EXACT_MATCH`, eligibility `ELIGIBLE`).
+- **Unextracted Pipeline Failure**: Protocol extraction fails or encounters fatal dissector errors -> zero Domain instances formed -> no abnormal boundary produced.
+
+The benchmark comparator classifies the latter as `PROTOCOL_COVERAGE_GAP` attributed to the `PROTOCOL` layer, marking comparison eligibility as `INELIGIBLE`.
+
+### 2.3 Standards-Based and Implementation-Neutral Discipline
 The benchmark evaluates standardized protocol signaling behavior exclusively. Captures produced by external lab environments are treated as packet evidence only. In adherence with repository policy:
 - No implementation-specific source code, internal state machines, log structures, configuration quirks, or project bug knowledge are incorporated into benchmark records or Skill definitions.
 - All procedure definitions and boundary verdicts derive directly from standardized 3GPP specifications.
 
-### 2.3 Artifact Safety and Repository Hygiene
+### 2.4 Artifact Safety and Repository Hygiene
 - **Zero Raw PCAP in Git**: Binary packet capture files (`.pcap`, `.pcapng`, `.cap`) are strictly forbidden from being committed into the repository.
 - **External Working Directory**: Benchmark runs execute entirely within an external temporary directory (`/tmp/corenet-golden-run/` or Windows equivalent). Intermediate raw protocol dumps (`*-events.jsonl`, `*-trace.jsonl`) remain in the external workspace.
 - **Sanitized Summaries**: Only non-sensitive, aggregated summaries (`skill-result-summary.json`, `differential.json`) conforming to strict schemas are checked into the repository. Subscriber identifiers (SUPI/IMSI) and workstation-specific paths are excluded.
@@ -41,7 +50,7 @@ The benchmark evaluates standardized protocol signaling behavior exclusively. Ca
 ## 3. Differential Taxonomy and Discrepancy Attribution
 
 ### 3.1 Comparison Statuses
-- `EXACT_MATCH`: Automated Skill selected the exact same procedure family and frame boundary (or both observed no abnormal boundary in healthy/recovered traffic).
+- `EXACT_MATCH`: Automated Skill selected the exact same procedure family and frame boundary (or both observed no abnormal boundary in healthy/recovered traffic under an eligible evidence pipeline).
 - `BOUNDARY_FRAME_DIFFERENCE`: Procedure family matches, but the selected frame differs by 1–2 adjacent transaction frames.
 - `PROCEDURE_MATCH_STAGE_DIFFERENCE`: Procedure family matches, but stage attribution differs.
 - `ACCEPTABLE_DIFFERENCE`: Human baseline and Skill selected valid alternative boundaries supported by capture evidence.
@@ -65,32 +74,35 @@ If a protocol extractor fails to extract a message or field, the discrepancy is 
 
 The benchmark evaluates 13 captures from the public repository `abdelrahman-fawaz18/5g-sa-core-protocol-lab` pinned at commit `82934c2cc231540fa425e48177d4bed33210bfc1`:
 
-| Case ID | Scenario Type | Human Baseline Status | Skill Status | Differential Status | Attribution |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `public-5gc-baseline-lifecycle` | Baseline Lifecycle | Healthy (no abnormal boundary) | Healthy (no boundary) | `EXACT_MATCH` | `NONE` |
-| `public-5gc-baseline-user-plane` | Baseline User Plane | Healthy (no abnormal boundary) | Healthy (no boundary) | `EXACT_MATCH` | `NONE` |
-| `public-5gc-registration-resync` | Baseline Resynchronization | Healthy (recovered synch) | Healthy (no boundary) | `EXACT_MATCH` | `NONE` |
-| `public-5gc-auth-recovery` | Auth Recovery | Healthy (no abnormal boundary) | Healthy (no boundary) | `EXACT_MATCH` | `NONE` |
-| `public-5gc-access-plmn-recovery` | PLMN Recovery | Healthy (no abnormal boundary) | Healthy (no boundary) | `EXACT_MATCH` | `NONE` |
-| `public-5gc-access-tai-recovery` | TAC Recovery | Healthy (no abnormal boundary) | Healthy (no boundary) | `EXACT_MATCH` | `NONE` |
-| `public-5gc-dnn-recovery` | DNN Recovery | Healthy (no abnormal boundary) | Healthy (no boundary) | `EXACT_MATCH` | `NONE` |
-| `public-5gc-external-path-recovery` | N6 Path Recovery | Healthy (no abnormal boundary) | Healthy (no boundary) | `EXACT_MATCH` | `NONE` |
-| `public-5gc-external-path-negative` | Missing N6 NAT | Out of Scope (N6 data plane) | Conservative (no boundary) | `OUT_OF_SCOPE` | `OUT_OF_SCOPE` |
-| `public-5gc-auth-negative` | Auth Key Mismatch | Abnormal Boundary (NAS MAC failure) | No boundary (dissector gap) | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-access-plmn-negative` | PLMN Mismatch | Abnormal Boundary (NGSetupFailure) | No boundary (dissector gap) | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-access-tai-negative` | TAC Mismatch | Abnormal Boundary (NGSetupFailure) | No boundary (dissector gap) | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-dnn-negative` | Unsupported DNN | Abnormal Boundary (Downlink NAS Reject)| No boundary (dissector gap) | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| Case ID | Scenario Type | Human Baseline Status | Pipeline Health | Skill Status | Differential Status | Attribution |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `public-5gc-baseline-lifecycle` | Baseline Lifecycle | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-baseline-user-plane` | Baseline User Plane | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-registration-resync` | Baseline Resynchronization | Healthy (recovered synch) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-auth-recovery` | Auth Recovery | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-access-plmn-recovery` | PLMN Recovery | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-access-tai-recovery` | TAC Recovery | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-dnn-recovery` | DNN Recovery | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-external-path-recovery` | N6 Path Recovery | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-external-path-negative` | Missing N6 NAT | Out of Scope (N6 data plane) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-auth-negative` | Auth Key Mismatch | Abnormal Boundary (NAS MAC failure) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-access-plmn-negative` | PLMN Mismatch | Abnormal Boundary (NGSetupFailure) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-access-tai-negative` | TAC Mismatch | Abnormal Boundary (NGSetupFailure) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-dnn-negative` | Unsupported DNN | Abnormal Boundary (Downlink NAS Reject)| Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
 
 ### Benchmark Metrics Summary
 - **Total Cases Evaluated**: 13
-- **In-Scope Cases Evaluated**: 12 (1 out-of-scope case excluded from denominator)
-- **Exact Match Count**: 8
-- **Exact Match Rate**: 66.7% (8 / 12)
-- **Healthy / Recovery Exact Match Rate**: 100% (8 / 8)
+- **Executed Case Count**: 13
+- **In-Scope Cases Evaluated**: 13
+- **Comparison Eligibility**: 13 `INELIGIBLE` (upstream protocol dissector gaps)
+- **Exact Match Count**: 0
+- **Exact Match Rate**: 0.0% (0 / 13)
+- **Healthy / Recovery Exact Match Rate**: 0.0% (0 / 8)
 - **False Positive Count**: 0 (zero spurious abnormalities detected on healthy signaling)
 - **False Negative Count**: 0 (zero unextracted domain omissions; missing boundaries accounted for by protocol extraction layer)
-- **Protocol Coverage Gaps**: 4 (attributed to TShark 4.7.1 dissector differences)
-- **Out of Scope Handled Conservatively**: 1 (N6 user plane failure produced no unsupported core signaling alerts)
+- **Protocol Coverage Gaps**: 13 (attributed to TShark 4.7.1 dissector differences)
+- **Blocked Cases**: 0
+- **Acceptable Difference Count**: 0
 
 ---
 

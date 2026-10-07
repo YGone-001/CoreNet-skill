@@ -14,6 +14,7 @@ The benchmark enforces strict governance and privacy policies:
 - **No binary captures in Git**: Binary capture formats (`.pcap`, `.pcapng`, `.cap`) are prohibited from being tracked in the repository.
 - **External execution workspace**: Capture processing and raw event extraction execute exclusively in external temporary directories.
 - **Hash-frozen independent baselines**: Standards-based human baselines are authored and hashed before running automated pipelines.
+- **Evidence-pipeline safety**: Golden Capture exact match requires an eligible evidence pipeline; a missing abnormal boundary resulting from upstream protocol extraction failure is not an exact match.
 - **Strict discrepancy attribution**: Failures are attributed to the lowest responsible layer (Protocol, Correlation, Domain, Orchestration, Capture, Out of Scope) rather than falsely penalizing higher layers.
 
 The benchmark is validated via:

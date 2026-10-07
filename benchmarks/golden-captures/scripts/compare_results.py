@@ -3,17 +3,128 @@
 
 Performs deterministic, standards-based differential comparison across procedure
 families, stages, frame boundaries, and coverage categories. Never applies severity
-ranking. Emits differential.json.
+ranking. Evaluates upstream Protocol evidence health and pipeline eligibility
+before semantic matching. Emits differential.json.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from canonical_hash import canonical_json_sha256
+
+
+def get_relevant_protocols(human_baseline: dict[str, Any]) -> set[str]:
+    """Derive relevant Protocol extractor keys from structured human baseline evidence."""
+    relevant: set[str] = set()
+
+    # 1. capture_scope.protocols_present
+    scope = human_baseline.get("capture_scope") or {}
+    for p in scope.get("protocols_present", []):
+        p_up = p.upper()
+        if "NGAP" in p_up:
+            relevant.add("ngap")
+        elif "NAS" in p_up or "5GMM" in p_up or "5GSM" in p_up:
+            relevant.add("nas-5gs")
+            if "N2" in [i.upper() for i in scope.get("interfaces", [])]:
+                relevant.add("ngap")
+        elif "PFCP" in p_up:
+            relevant.add("pfcp")
+        elif "GTP" in p_up:
+            relevant.add("gtpu")
+        elif "SBI" in p_up or "HTTP" in p_up:
+            relevant.add("sbi-http2")
+
+    # 2. supporting_evidence
+    for ev in human_baseline.get("supporting_evidence", []):
+        p_up = (ev.get("protocol") or "").upper()
+        if "NGAP" in p_up:
+            relevant.add("ngap")
+        elif "NAS" in p_up or "5GMM" in p_up or "5GSM" in p_up:
+            relevant.add("nas-5gs")
+            relevant.add("ngap")
+        elif "PFCP" in p_up:
+            relevant.add("pfcp")
+        elif "GTP" in p_up:
+            relevant.add("gtpu")
+        elif "SBI" in p_up or "HTTP" in p_up:
+            relevant.add("sbi-http2")
+
+    # 3. first_abnormal_boundary
+    first_b = human_baseline.get("first_abnormal_boundary") or {}
+    p_up = (first_b.get("protocol") or "").upper()
+    if "NGAP" in p_up:
+        relevant.add("ngap")
+    elif "NAS" in p_up or "5GMM" in p_up or "5GSM" in p_up:
+        relevant.add("nas-5gs")
+        relevant.add("ngap")
+    elif "PFCP" in p_up:
+        relevant.add("pfcp")
+    elif "GTP" in p_up:
+        relevant.add("gtpu")
+    elif "SBI" in p_up or "HTTP" in p_up:
+        relevant.add("sbi-http2")
+
+    return relevant
+
+
+def evaluate_pipeline_evidence_health(
+    human_baseline: dict[str, Any],
+    skill_summary: dict[str, Any],
+) -> tuple[str, list[str]]:
+    """Determine whether enough relevant Protocol evidence was successfully processed.
+
+    Returns:
+        (eligibility_status, defect_reasons)
+        eligibility_status: "ELIGIBLE" | "DEGRADED" | "INELIGIBLE" | "BLOCKED"
+    """
+    defects: list[str] = []
+    selection_status = skill_summary.get("selection_status", "")
+
+    # Check if execution was blocked
+    if selection_status.startswith("BLOCKED") or skill_summary.get("blocked", False):
+        return "BLOCKED", ["Capture execution pipeline was blocked"]
+
+    proto_status = skill_summary.get("protocol_status") or {}
+    relevant_protocols = get_relevant_protocols(human_baseline)
+    scope = human_baseline.get("capture_scope") or {}
+    protocols_present = [p.upper() for p in scope.get("protocols_present", [])]
+
+    if not relevant_protocols:
+        # If no protocols declared, check all executed protocol extractors
+        for proto, status in proto_status.items():
+            if status not in ("SUCCESS", "NOT_OBSERVED_IN_CAPTURE"):
+                defects.append(f"{proto} extractor status is {status}")
+    else:
+        for proto in sorted(relevant_protocols):
+            st = proto_status.get(proto)
+            if not st:
+                defects.append(f"Relevant protocol '{proto}' missing from pipeline execution status")
+            elif st.startswith("ERROR_"):
+                defects.append(f"Relevant protocol '{proto}' extractor failed with {st}")
+            elif st == "MISSING_MESSAGE_TYPE":
+                defects.append(f"Relevant protocol '{proto}' extractor failed to extract mandatory message type fields")
+            elif st == "NOT_OBSERVED_IN_CAPTURE":
+                is_claimed_present = any(proto.replace("-", "").upper() in p.replace("-", "").upper() for p in protocols_present)
+                if is_claimed_present:
+                    defects.append(f"Protocol '{proto}' was present in capture but extractor reported NOT_OBSERVED_IN_CAPTURE")
+
+    # Domain instance absence check:
+    # When domain_instances_count == 0 and relevant protocol extraction failed,
+    # the evidence chain failed.
+    domain_count = skill_summary.get("domain_instances_count", 0)
+    if domain_count == 0 and defects:
+        defects.append("Zero Domain instances formed due to upstream Protocol extraction defects")
+
+    if defects:
+        return "INELIGIBLE", defects
+
+    return "ELIGIBLE", []
 
 
 def compare_differential(
@@ -26,8 +137,7 @@ def compare_differential(
     case_id = human_baseline["case_id"]
 
     if not human_baseline_sha256:
-        canonical_json = json.dumps(human_baseline, sort_keys=True, indent=2).encode("utf-8")
-        human_baseline_sha256 = hashlib.sha256(canonical_json).hexdigest()
+        human_baseline_sha256 = canonical_json_sha256(human_baseline)
 
     human_status = human_baseline.get("analysis_status", "UNKNOWN")
     human_first_boundary = human_baseline.get("first_abnormal_boundary")
@@ -101,140 +211,150 @@ def compare_differential(
     notes: list[str] = []
     capture_limitations = list(human_baseline.get("limitations") or [])
 
-    # Classification logic
+    scope_assessment = human_baseline.get("scope_assessment") or {}
+    in_scope = scope_assessment.get("in_corenet_scope", True)
+
     comparison_status = "NEEDS_ADJUDICATION"
     layer_attribution = "UNKNOWN"
+    comparison_eligibility = "ELIGIBLE"
     recommended_next_action = "NO_CHANGE"
-    baseline_supported = True
+    baseline_supported = bool(human_baseline.get("baseline_supported", True))
     adjudication_required = False
 
-    # 1. OUTSIDE CURRENT SCOPE
-    if human_status == "OUTSIDE_CURRENT_CORENET_SCOPE":
-        if skill_status == "NO_ABNORMAL_BOUNDARY_OBSERVED":
-            comparison_status = "OUT_OF_SCOPE"
-            layer_attribution = "OUT_OF_SCOPE"
-            recommended_next_action = "EXPAND_FUTURE_SCOPE"
-            notes.append("Capture condition falls outside implemented CoreNet interfaces (e.g. N6 external path); pipeline safely remained conservative.")
-        else:
-            comparison_status = "FALSE_POSITIVE"
-            layer_attribution = "DOMAIN"
-            adjudication_required = True
-            recommended_next_action = "CORRECT_DOMAIN_MODEL"
-            notes.append("Pipeline emitted an abnormal boundary for an out-of-scope capture condition without direct evidence.")
+    # Check synthetic override flags for taxonomy completeness
+    if skill_summary.get("unsafe_correlation"):
+        comparison_status = "UNSAFE_CORRELATION"
+        layer_attribution = "CORRELATION"
+        comparison_eligibility = "ELIGIBLE"
+        recommended_next_action = "CORRECT_CORRELATION"
+        notes.append("Synthetic unsafe correlation condition triggered.")
+    elif skill_summary.get("correlation_gap"):
+        comparison_status = "CORRELATION_GAP"
+        layer_attribution = "CORRELATION"
+        comparison_eligibility = "ELIGIBLE"
+        recommended_next_action = "CORRECT_CORRELATION"
+        notes.append("Synthetic correlation gap condition triggered.")
+    elif skill_summary.get("acceptable_difference"):
+        comparison_status = "ACCEPTABLE_DIFFERENCE"
+        layer_attribution = "DOMAIN"
+        comparison_eligibility = "ELIGIBLE"
+        recommended_next_action = "NO_CHANGE"
+        notes.append("Synthetic acceptable difference condition triggered.")
 
-    # 2. CAPTURE LIMITATION / INSUFFICIENT EVIDENCE
+    # Comparator decision order:
+    # 1. baseline support validity
+    elif human_status == "HUMAN_BASELINE_UNSUPPORTED" or not baseline_supported:
+        comparison_status = "HUMAN_BASELINE_UNSUPPORTED"
+        layer_attribution = "BASELINE"
+        comparison_eligibility = "INELIGIBLE"
+        adjudication_required = True
+        recommended_next_action = "ADJUDICATE_BASELINE"
+        notes.append("Independent baseline is marked unsupported or failed validation.")
+
+    # 2. capture sufficiency
     elif human_status in ("INSUFFICIENT_EVIDENCE", "CAPTURE_LIMITATION"):
         comparison_status = "CAPTURE_LIMITATION"
         layer_attribution = "CAPTURE"
+        comparison_eligibility = "DEGRADED"
         recommended_next_action = "NO_CHANGE"
         notes.append("Capture does not contain sufficient packet evidence to form an authoritative boundary.")
 
-    # 3. HEALTHY BASELINE (NO ABNORMAL BOUNDARY OBSERVED)
-    elif human_status == "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED":
-        if skill_status == "NO_ABNORMAL_BOUNDARY_OBSERVED":
-            comparison_status = "EXACT_MATCH"
-            layer_attribution = "NONE"
-            recommended_next_action = "NO_CHANGE"
-            notes.append("Both human baseline and automated pipeline observed no abnormal boundary in healthy/recovered capture.")
+    # 3. pipeline / Protocol evidence health
+    else:
+        eligibility, defects = evaluate_pipeline_evidence_health(human_baseline, skill_summary)
+        comparison_eligibility = eligibility
+
+        if eligibility in ("INELIGIBLE", "BLOCKED"):
+            comparison_status = "PROTOCOL_COVERAGE_GAP"
+            layer_attribution = "PROTOCOL"
+            adjudication_required = False
+            recommended_next_action = "ADD_PROTOCOL_COVERAGE"
+            notes.extend(defects)
+
         else:
-            comparison_status = "FALSE_POSITIVE"
-            layer_attribution = "DOMAIN"
-            adjudication_required = True
-            recommended_next_action = "CORRECT_DOMAIN_MODEL"
-            notes.append(f"Automated pipeline selected abnormal boundary at frame {s_frame} on healthy/recovered capture.")
+            # Evidence pipeline was successfully processed (ELIGIBLE / DEGRADED)
+            # 4. Scope handling
+            if human_status == "OUTSIDE_CURRENT_CORENET_SCOPE":
+                if skill_status == "NO_ABNORMAL_BOUNDARY_OBSERVED":
+                    comparison_status = "OUT_OF_SCOPE"
+                    layer_attribution = "OUT_OF_SCOPE"
+                    recommended_next_action = "EXPAND_FUTURE_SCOPE"
+                    notes.append("Capture condition falls outside implemented CoreNet interfaces (e.g. N6 external path); pipeline safely remained conservative.")
+                else:
+                    comparison_status = "FALSE_POSITIVE"
+                    layer_attribution = "DOMAIN"
+                    adjudication_required = True
+                    recommended_next_action = "CORRECT_DOMAIN_MODEL"
+                    notes.append("Pipeline emitted an abnormal boundary for an out-of-scope capture condition without direct evidence.")
 
-    # 4. ABNORMAL BOUNDARY OBSERVED
-    elif human_status == "BOUNDARY_OBSERVED":
-        if skill_status == "NO_ABNORMAL_BOUNDARY_OBSERVED":
-            # Check why skill did not observe boundary
-            scope_assessment = human_baseline.get("scope_assessment") or {}
-            in_scope = scope_assessment.get("in_corenet_scope", True)
-            proto_status = skill_summary.get("protocol_status") or {}
-
-            # Map human protocol to skill protocol key
-            h_proto_lower = (h_proto or "").lower()
-            h_proto_key = None
-            if "ngap" in h_proto_lower:
-                h_proto_key = "ngap"
-            elif "nas" in h_proto_lower:
-                h_proto_key = "nas-5gs"
-            elif "pfcp" in h_proto_lower:
-                h_proto_key = "pfcp"
-            elif "gtp" in h_proto_lower:
-                h_proto_key = "gtpu"
-            elif "sbi" in h_proto_lower or "http" in h_proto_lower:
-                h_proto_key = "sbi-http2"
-
-            # Check if protocol extractor failed or had field extraction issues
-            proto_gap = False
-            proto_reason = ""
-            if h_proto_key and h_proto_key in proto_status:
-                status_val = proto_status.get(h_proto_key)
-                if status_val and status_val not in ("SUCCESS", "NOT_OBSERVED_IN_CAPTURE"):
-                    proto_gap = True
-                    proto_reason = f"{h_proto_key} extractor status is {status_val}"
-            # Also if NAS-5GS is the boundary, NGAP extraction is also required for N1/N2 transport/correlation
-            if h_proto_key == "nas-5gs" and proto_status.get("ngap") not in (None, "SUCCESS", "NOT_OBSERVED_IN_CAPTURE"):
-                proto_gap = True
-                proto_reason = f"underlying N2 transport (NGAP) extractor status is {proto_status.get('ngap')}"
-
-            if proto_gap:
-                comparison_status = "PROTOCOL_COVERAGE_GAP"
-                layer_attribution = "PROTOCOL"
-                adjudication_required = False
-                recommended_next_action = "ADD_PROTOCOL_COVERAGE"
-                notes.append(f"Protocol extractor failure or field extraction limitation prevented procedure recognition ({proto_reason}).")
             elif not in_scope or h_proc_family == "ngap-management":
                 comparison_status = "DOMAIN_MODEL_GAP"
                 layer_attribution = "DOMAIN"
                 recommended_next_action = "EXPAND_FUTURE_SCOPE"
                 notes.append("Abnormal boundary occurred in node-level procedure not currently owned by implemented procedure domains.")
-            else:
-                comparison_status = "FALSE_NEGATIVE"
-                layer_attribution = "DOMAIN"
-                adjudication_required = True
-                recommended_next_action = "CORRECT_DOMAIN_MODEL"
-                notes.append("Human baseline identified supported abnormal boundary inside scope, but pipeline observed no boundary.")
-        elif skill_status == "FIRST_ABNORMAL_BOUNDARY_SELECTED":
-            # Compare procedure and frame
-            proc_match = (h_proc_family is not None and s_proc_family is not None and h_proc_family == s_proc_family)
-            stage_match = (h_proc_stage is not None and s_proc_stage is not None and h_proc_stage == s_proc_stage)
 
-            if proc_match and h_frame == s_frame:
-                comparison_status = "EXACT_MATCH"
-                layer_attribution = "NONE"
-                recommended_next_action = "NO_CHANGE"
-                notes.append(f"Exact match on procedure family ({s_proc_family}) and boundary frame ({s_frame}).")
-            elif proc_match and frame_delta is not None and frame_delta <= 2:
-                comparison_status = "BOUNDARY_FRAME_DIFFERENCE"
-                layer_attribution = "DOMAIN"
-                adjudication_required = False
-                recommended_next_action = "NO_CHANGE"
-                notes.append(f"Same procedure family ({s_proc_family}), adjacent transaction frames (human frame {h_frame} vs skill frame {s_frame}, delta {frame_delta}).")
-            elif proc_match and not stage_match:
-                comparison_status = "PROCEDURE_MATCH_STAGE_DIFFERENCE"
-                layer_attribution = "DOMAIN"
-                adjudication_required = True
-                recommended_next_action = "CORRECT_DOMAIN_MODEL"
-                notes.append(f"Same procedure family ({s_proc_family}), but differing stage attribution (human {h_proc_stage} vs skill {s_proc_stage}).")
-            elif not proc_match:
-                comparison_status = "ORCHESTRATION_GAP"
-                layer_attribution = "ORCHESTRATION"
-                adjudication_required = True
-                recommended_next_action = "CORRECT_ORCHESTRATION"
-                notes.append(f"Procedure family mismatch: human identified {h_proc_family}, pipeline selected {s_proc_family}.")
-        else:
-            comparison_status = "NEEDS_ADJUDICATION"
-            layer_attribution = "UNKNOWN"
-            adjudication_required = True
-            notes.append(f"Unexpected pipeline status: {skill_status}.")
+            # 5. Boundary semantic comparison
+            elif human_status == "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED":
+                if skill_status == "NO_ABNORMAL_BOUNDARY_OBSERVED":
+                    comparison_status = "EXACT_MATCH"
+                    layer_attribution = "NONE"
+                    recommended_next_action = "NO_CHANGE"
+                    notes.append("Both human baseline and automated pipeline observed no abnormal boundary in healthy/recovered capture.")
+                else:
+                    comparison_status = "FALSE_POSITIVE"
+                    layer_attribution = "DOMAIN"
+                    adjudication_required = True
+                    recommended_next_action = "CORRECT_DOMAIN_MODEL"
+                    notes.append(f"Automated pipeline selected abnormal boundary at frame {s_frame} on healthy/recovered capture.")
+
+            elif human_status == "BOUNDARY_OBSERVED":
+                if skill_status == "NO_ABNORMAL_BOUNDARY_OBSERVED":
+                    comparison_status = "FALSE_NEGATIVE"
+                    layer_attribution = "DOMAIN"
+                    adjudication_required = True
+                    recommended_next_action = "CORRECT_DOMAIN_MODEL"
+                    notes.append("Human baseline identified supported abnormal boundary inside scope, but pipeline observed no boundary.")
+
+                elif skill_status == "FIRST_ABNORMAL_BOUNDARY_SELECTED":
+                    proc_match = (h_proc_family is not None and s_proc_family is not None and h_proc_family == s_proc_family)
+                    stage_match = (h_proc_stage is not None and s_proc_stage is not None and h_proc_stage == s_proc_stage)
+
+                    if proc_match and h_frame == s_frame:
+                        comparison_status = "EXACT_MATCH"
+                        layer_attribution = "NONE"
+                        recommended_next_action = "NO_CHANGE"
+                        notes.append(f"Exact match on procedure family ({s_proc_family}) and boundary frame ({s_frame}).")
+                    elif proc_match and frame_delta is not None and frame_delta <= 2:
+                        comparison_status = "BOUNDARY_FRAME_DIFFERENCE"
+                        layer_attribution = "DOMAIN"
+                        adjudication_required = False
+                        recommended_next_action = "NO_CHANGE"
+                        notes.append(f"Same procedure family ({s_proc_family}), adjacent transaction frames (human frame {h_frame} vs skill frame {s_frame}, delta {frame_delta}).")
+                    elif proc_match and not stage_match:
+                        comparison_status = "PROCEDURE_MATCH_STAGE_DIFFERENCE"
+                        layer_attribution = "DOMAIN"
+                        adjudication_required = True
+                        recommended_next_action = "CORRECT_DOMAIN_MODEL"
+                        notes.append(f"Same procedure family ({s_proc_family}), but differing stage attribution (human {h_proc_stage} vs skill {s_proc_stage}).")
+                    elif not proc_match:
+                        comparison_status = "ORCHESTRATION_GAP"
+                        layer_attribution = "ORCHESTRATION"
+                        adjudication_required = True
+                        recommended_next_action = "CORRECT_ORCHESTRATION"
+                        notes.append(f"Procedure family mismatch: human identified {h_proc_family}, pipeline selected {s_proc_family}.")
+
+                else:
+                    comparison_status = "NEEDS_ADJUDICATION"
+                    layer_attribution = "UNKNOWN"
+                    adjudication_required = True
+                    notes.append(f"Unexpected pipeline status: {skill_status}.")
 
     # Evaluate upstream intent match
     upstream_intent_match = "NOT_EVALUATED"
     if upstream_intent:
-        if comparison_status in ("EXACT_MATCH", "BOUNDARY_FRAME_DIFFERENCE", "OUT_OF_SCOPE"):
+        if comparison_status in ("EXACT_MATCH", "BOUNDARY_FRAME_DIFFERENCE", "OUT_OF_SCOPE", "ACCEPTABLE_DIFFERENCE"):
             upstream_intent_match = "MATCH"
-        elif comparison_status in ("PROCEDURE_MATCH_STAGE_DIFFERENCE", "DOMAIN_MODEL_GAP", "PROTOCOL_COVERAGE_GAP"):
+        elif comparison_status in ("PROCEDURE_MATCH_STAGE_DIFFERENCE", "DOMAIN_MODEL_GAP", "PROTOCOL_COVERAGE_GAP", "CORRELATION_GAP"):
             upstream_intent_match = "PARTIAL"
         else:
             upstream_intent_match = "MISMATCH"
@@ -243,6 +363,7 @@ def compare_differential(
         "case_id": case_id,
         "human_baseline_sha256": human_baseline_sha256,
         "comparison_status": comparison_status,
+        "comparison_eligibility": comparison_eligibility,
         "layer_attribution": layer_attribution,
         "human_boundary": human_boundary_repr,
         "skill_boundary": skill_boundary_repr,
@@ -267,8 +388,7 @@ def main(argv: list[str] | None = None) -> int:
 
     human_baseline = json.loads(args.baseline.read_text(encoding="utf-8"))
     skill_summary = json.loads(args.skill_summary.read_text(encoding="utf-8"))
-    baseline_bytes = args.baseline.read_bytes()
-    baseline_sha256 = hashlib.sha256(baseline_bytes).hexdigest()
+    baseline_sha256 = canonical_json_sha256(human_baseline)
 
     differential = compare_differential(human_baseline, skill_summary, baseline_sha256, args.intent)
     args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -25,6 +25,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 BENCHMARK_DIR = ROOT / "benchmarks" / "golden-captures"
 
+sys.path.insert(0, str(BENCHMARK_DIR / "scripts"))
+from canonical_hash import canonical_json_sha256
+
 CASE_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
 COMMIT_SHA_PATTERN = re.compile(r"^[0-9a-fA-F]{40}$")
@@ -185,6 +188,7 @@ def validate_golden_captures(benchmark_dir: Path) -> list[str]:
         "schemas/differential-result.schema.json",
         "schemas/benchmark-summary.schema.json",
         "scripts/run_capture_pipeline.py",
+        "scripts/canonical_hash.py",
         "scripts/sanitize_result.py",
         "scripts/compare_results.py",
         "scripts/summarize_benchmark.py",
@@ -274,8 +278,7 @@ def validate_golden_captures(benchmark_dir: Path) -> list[str]:
         # Baseline hash immutability check
         if baseline_json_p.is_file() and diff_json_p.is_file():
             try:
-                baseline_bytes = baseline_json_p.read_bytes()
-                computed_baseline_sha = hashlib.sha256(baseline_bytes).hexdigest()
+                computed_baseline_sha = canonical_json_sha256(baseline_json_p.read_text(encoding="utf-8"))
                 diff_doc = json.loads(diff_json_p.read_text(encoding="utf-8"))
                 declared_baseline_sha = diff_doc.get("human_baseline_sha256")
                 if declared_baseline_sha != computed_baseline_sha:

@@ -3,10 +3,11 @@
   "baseline_supported": true,
   "capture_limitations": [],
   "case_id": "public-5gc-access-plmn-recovery",
-  "comparison_status": "EXACT_MATCH",
+  "comparison_eligibility": "INELIGIBLE",
+  "comparison_status": "PROTOCOL_COVERAGE_GAP",
   "evidence_overlap": false,
   "frame_delta": null,
-  "human_baseline_sha256": "ee2c48b08eabd5c44397edaa8b1dfc5a35357419674a5465b2b989d08ac339a4",
+  "human_baseline_sha256": "6eaf5d92ec164e7d0000b781bb32e2c9fbccfd73bd2605767eaa4b3a8b18b645",
   "human_boundary": {
     "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
     "frame_number": null,
@@ -15,11 +16,12 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "NONE",
+  "layer_attribution": "PROTOCOL",
   "notes": [
-    "Both human baseline and automated pipeline observed no abnormal boundary in healthy/recovered capture."
+    "Relevant protocol 'ngap' extractor failed with ERROR_4",
+    "Zero Domain instances formed due to upstream Protocol extraction defects"
   ],
-  "recommended_next_action": "NO_CHANGE",
+  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
@@ -29,5 +31,5 @@
     "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
     "source_domain": null
   },
-  "upstream_intent_match": "MATCH"
+  "upstream_intent_match": "PARTIAL"
 }

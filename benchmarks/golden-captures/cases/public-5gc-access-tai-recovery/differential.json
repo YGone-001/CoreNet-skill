@@ -3,10 +3,11 @@
   "baseline_supported": true,
   "capture_limitations": [],
   "case_id": "public-5gc-access-tai-recovery",
-  "comparison_status": "EXACT_MATCH",
+  "comparison_eligibility": "INELIGIBLE",
+  "comparison_status": "PROTOCOL_COVERAGE_GAP",
   "evidence_overlap": false,
   "frame_delta": null,
-  "human_baseline_sha256": "682c4001c8cfa0831e1c2a9198ff5fb4e5d16c10cf2fe812f1904ef9ed81c493",
+  "human_baseline_sha256": "12e14972c5ed255569ea00dd557b7170dc5addb3766c1d9c39768e23653e7687",
   "human_boundary": {
     "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
     "frame_number": null,
@@ -15,11 +16,12 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "NONE",
+  "layer_attribution": "PROTOCOL",
   "notes": [
-    "Both human baseline and automated pipeline observed no abnormal boundary in healthy/recovered capture."
+    "Relevant protocol 'ngap' extractor failed with ERROR_4",
+    "Zero Domain instances formed due to upstream Protocol extraction defects"
   ],
-  "recommended_next_action": "NO_CHANGE",
+  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
@@ -29,5 +31,5 @@
     "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
     "source_domain": null
   },
-  "upstream_intent_match": "MATCH"
+  "upstream_intent_match": "PARTIAL"
 }

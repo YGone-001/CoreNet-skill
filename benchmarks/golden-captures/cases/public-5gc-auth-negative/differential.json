@@ -3,10 +3,11 @@
   "baseline_supported": true,
   "capture_limitations": [],
   "case_id": "public-5gc-auth-negative",
+  "comparison_eligibility": "INELIGIBLE",
   "comparison_status": "PROTOCOL_COVERAGE_GAP",
   "evidence_overlap": false,
   "frame_delta": null,
-  "human_baseline_sha256": "8988c559573df570ce5c7f330829b8ce5a43cf5bdf0152d669aeacfa0fb94aee",
+  "human_baseline_sha256": "74b7a9596b4687c050715d4b012a6f637bfa34bd3bc4b5478d82880afe2b129d",
   "human_boundary": {
     "analysis_status": "BOUNDARY_OBSERVED",
     "frame_number": 11,
@@ -17,7 +18,8 @@
   },
   "layer_attribution": "PROTOCOL",
   "notes": [
-    "Protocol extractor failure or field extraction limitation prevented procedure recognition (underlying N2 transport (NGAP) extractor status is ERROR_4)."
+    "Relevant protocol 'nas-5gs' extractor failed to extract mandatory message type fields",
+    "Relevant protocol 'ngap' extractor failed with ERROR_4"
   ],
   "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
   "skill_boundary": {

@@ -27,6 +27,7 @@ def calculate_metrics(cases_diffs: list[dict[str, Any]]) -> tuple[dict[str, Any]
     exact_match_count = 0
     procedure_match_count = 0
     stage_match_count = 0
+    acceptable_difference_count = 0
 
     false_positive_count = 0
     false_negative_count = 0
@@ -49,10 +50,14 @@ def calculate_metrics(cases_diffs: list[dict[str, Any]]) -> tuple[dict[str, Any]
 
     case_summaries: list[dict[str, Any]] = []
 
-    for diff in cases_diffs:
+    # Sort input cases deterministically by case_id
+    sorted_diffs = sorted(cases_diffs, key=lambda d: d.get("case_id", ""))
+
+    for diff in sorted_diffs:
         case_id = diff["case_id"]
         status = diff.get("comparison_status", "UNKNOWN")
         layer = diff.get("layer_attribution", "UNKNOWN")
+        eligibility = diff.get("comparison_eligibility", "ELIGIBLE")
         adjudication = bool(diff.get("adjudication_required", False))
         baseline_supp = bool(diff.get("baseline_supported", True))
         action = diff.get("recommended_next_action", "NO_CHANGE")
@@ -66,54 +71,65 @@ def calculate_metrics(cases_diffs: list[dict[str, Any]]) -> tuple[dict[str, Any]
         s_frame = s_boundary.get("boundary_frame")
         delta = diff.get("frame_delta")
 
-        if delta is not None:
-            frame_deltas.append(delta)
-            if delta == 0:
-                exact_frame_match_count += 1
-            if delta <= 1:
-                within_1_frame_count += 1
-            if delta <= 3:
-                within_3_frames_count += 1
+        is_blocked = (
+            eligibility == "BLOCKED"
+            or status == "BLOCKED"
+            or bool(diff.get("blocked", False))
+        )
 
-        executed_case_count += 1
+        if is_blocked:
+            blocked_case_count += 1
+        else:
+            executed_case_count += 1
+            if delta is not None:
+                frame_deltas.append(delta)
+                if delta == 0:
+                    exact_frame_match_count += 1
+                if delta <= 1:
+                    within_1_frame_count += 1
+                if delta <= 3:
+                    within_3_frames_count += 1
 
-        if status == "EXACT_MATCH":
-            exact_match_count += 1
-            procedure_match_count += 1
-            stage_match_count += 1
-        elif status == "BOUNDARY_FRAME_DIFFERENCE":
-            procedure_match_count += 1
-            stage_match_count += 1
-        elif status == "PROCEDURE_MATCH_STAGE_DIFFERENCE":
-            procedure_match_count += 1
-        elif status == "FALSE_POSITIVE":
-            false_positive_count += 1
-        elif status == "FALSE_NEGATIVE":
-            false_negative_count += 1
-        elif status == "UNSAFE_CORRELATION":
-            unsafe_correlation_count += 1
-        elif status == "PROTOCOL_COVERAGE_GAP":
-            protocol_coverage_gap_count += 1
-        elif status == "CORRELATION_GAP":
-            correlation_gap_count += 1
-        elif status == "DOMAIN_MODEL_GAP":
-            domain_model_gap_count += 1
-        elif status == "ORCHESTRATION_GAP":
-            orchestration_gap_count += 1
-        elif status == "CAPTURE_LIMITATION":
-            capture_limitation_count += 1
-        elif status == "OUT_OF_SCOPE":
-            out_of_scope_count += 1
-        elif status == "HUMAN_BASELINE_UNSUPPORTED":
-            human_baseline_unsupported_count += 1
+            if status == "EXACT_MATCH":
+                exact_match_count += 1
+                procedure_match_count += 1
+                stage_match_count += 1
+            elif status == "BOUNDARY_FRAME_DIFFERENCE":
+                procedure_match_count += 1
+                stage_match_count += 1
+            elif status == "PROCEDURE_MATCH_STAGE_DIFFERENCE":
+                procedure_match_count += 1
+            elif status == "ACCEPTABLE_DIFFERENCE":
+                acceptable_difference_count += 1
+            elif status == "FALSE_POSITIVE":
+                false_positive_count += 1
+            elif status == "FALSE_NEGATIVE":
+                false_negative_count += 1
+            elif status == "UNSAFE_CORRELATION":
+                unsafe_correlation_count += 1
+            elif status == "PROTOCOL_COVERAGE_GAP":
+                protocol_coverage_gap_count += 1
+            elif status == "CORRELATION_GAP":
+                correlation_gap_count += 1
+            elif status == "DOMAIN_MODEL_GAP":
+                domain_model_gap_count += 1
+            elif status == "ORCHESTRATION_GAP":
+                orchestration_gap_count += 1
+            elif status == "CAPTURE_LIMITATION":
+                capture_limitation_count += 1
+            elif status == "OUT_OF_SCOPE":
+                out_of_scope_count += 1
+            elif status == "HUMAN_BASELINE_UNSUPPORTED":
+                human_baseline_unsupported_count += 1
 
-        if adjudication or status == "NEEDS_ADJUDICATION":
-            needs_adjudication_count += 1
+            if adjudication or status == "NEEDS_ADJUDICATION":
+                needs_adjudication_count += 1
 
         case_summaries.append({
             "case_id": case_id,
             "comparison_status": status,
             "layer_attribution": layer,
+            "comparison_eligibility": eligibility,
             "human_status": h_status,
             "skill_status": s_status,
             "human_boundary_frame": h_frame,
@@ -138,6 +154,7 @@ def calculate_metrics(cases_diffs: list[dict[str, Any]]) -> tuple[dict[str, Any]
         "exact_match_count": exact_match_count,
         "procedure_match_count": procedure_match_count,
         "stage_match_count": stage_match_count,
+        "acceptable_difference_count": acceptable_difference_count,
         "false_positive_count": false_positive_count,
         "false_negative_count": false_negative_count,
         "unsafe_correlation_count": unsafe_correlation_count,
@@ -171,13 +188,14 @@ def generate_benchmark_summary(
     skill_versions: dict[str, str],
 ) -> dict[str, Any]:
     diffs = []
-    # Deterministic alphabetical ordering by case directory name
     for case_folder in sorted(cases_dir.iterdir()):
         if case_folder.is_dir():
             diff_file = case_folder / "differential.json"
             if diff_file.is_file():
                 diffs.append(json.loads(diff_file.read_text(encoding="utf-8")))
 
+    # Sort diffs deterministically by case_id
+    diffs.sort(key=lambda d: d.get("case_id", ""))
     metrics, case_summaries = calculate_metrics(diffs)
 
     summary: dict[str, Any] = {

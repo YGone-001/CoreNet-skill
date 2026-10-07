@@ -5,10 +5,11 @@
     "Capture contains periodic SCTP heartbeats before UE registration starts"
   ],
   "case_id": "public-5gc-registration-resync",
-  "comparison_status": "EXACT_MATCH",
+  "comparison_eligibility": "INELIGIBLE",
+  "comparison_status": "PROTOCOL_COVERAGE_GAP",
   "evidence_overlap": false,
   "frame_delta": null,
-  "human_baseline_sha256": "335a2a17ac6622cfccb1f1a3c53f1930ec8a2605aa288e82200e652b04986b95",
+  "human_baseline_sha256": "a51c0e534c9f7c97365e4fdb300ebc47b7d53cec36261160dec7804972ccd317",
   "human_boundary": {
     "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
     "frame_number": null,
@@ -17,11 +18,13 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "NONE",
+  "layer_attribution": "PROTOCOL",
   "notes": [
-    "Both human baseline and automated pipeline observed no abnormal boundary in healthy/recovered capture."
+    "Relevant protocol 'nas-5gs' extractor failed with ERROR_5",
+    "Relevant protocol 'ngap' extractor failed with ERROR_4",
+    "Zero Domain instances formed due to upstream Protocol extraction defects"
   ],
-  "recommended_next_action": "NO_CHANGE",
+  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
@@ -31,5 +34,5 @@
     "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
     "source_domain": null
   },
-  "upstream_intent_match": "MATCH"
+  "upstream_intent_match": "PARTIAL"
 }

@@ -39,4 +39,4 @@ planned: external implementation analysis is performed only when users provide
 implementation evidence. The empirical Golden Capture Differential Benchmark
 (`benchmarks/golden-captures/`) is implemented outside the Skill architecture,
 providing empirical evaluation across public 5GC signaling captures without
-claiming full procedure coverage or end-to-end root-cause isolation.
+claiming full procedure coverage or end-to-end root-cause isolation. Public capture differential framework implemented; first corpus exposed Protocol extraction compatibility gaps.
