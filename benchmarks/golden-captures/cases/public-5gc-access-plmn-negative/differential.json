@@ -20,7 +20,7 @@
   },
   "layer_attribution": "PROTOCOL",
   "notes": [
-    "Relevant protocol 'ngap' extractor failed with ERROR_4",
+    "Relevant protocol 'ngap' extractor failed to extract mandatory message type fields",
     "Zero Domain instances formed due to upstream Protocol extraction defects"
   ],
   "recommended_next_action": "ADD_PROTOCOL_COVERAGE",

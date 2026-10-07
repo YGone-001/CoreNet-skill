@@ -8,11 +8,11 @@
     "No Domain instances formed from capture evidence"
   ],
   "protocol_status": {
-    "gtpu": "ERROR_4",
+    "gtpu": "NOT_OBSERVED_IN_CAPTURE",
     "nas-5gs": "NOT_OBSERVED_IN_CAPTURE",
-    "ngap": "ERROR_4",
-    "pfcp": "ERROR_4",
-    "sbi-http2": "ERROR_4"
+    "ngap": "MISSING_MESSAGE_TYPE",
+    "pfcp": "NOT_OBSERVED_IN_CAPTURE",
+    "sbi-http2": "NOT_OBSERVED_IN_CAPTURE"
   },
   "selected_boundary": null,
   "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"

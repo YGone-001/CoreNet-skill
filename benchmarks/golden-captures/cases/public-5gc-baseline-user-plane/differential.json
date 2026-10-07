@@ -20,10 +20,8 @@
   },
   "layer_attribution": "PROTOCOL",
   "notes": [
-    "Relevant protocol 'gtpu' extractor failed with ERROR_4",
-    "Relevant protocol 'nas-5gs' extractor failed with ERROR_5",
-    "Relevant protocol 'ngap' extractor failed with ERROR_4",
-    "Relevant protocol 'pfcp' extractor failed with ERROR_4",
+    "Relevant protocol 'gtpu' extractor failed to extract mandatory message type fields",
+    "Relevant protocol 'pfcp' extractor failed to extract mandatory message type fields",
     "Zero Domain instances formed due to upstream Protocol extraction defects"
   ],
   "recommended_next_action": "ADD_PROTOCOL_COVERAGE",

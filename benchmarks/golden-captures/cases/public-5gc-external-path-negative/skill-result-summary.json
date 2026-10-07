@@ -5,15 +5,15 @@
   "case_id": "public-5gc-external-path-negative",
   "domain_instances_count": 0,
   "evidence_limitations": [
-    "No Domain instances formed from capture evidence"
+    "No diagnostic groups emitted by orchestration"
   ],
   "protocol_status": {
-    "gtpu": "ERROR_4",
+    "gtpu": "MISSING_MESSAGE_TYPE",
     "nas-5gs": "NOT_OBSERVED_IN_CAPTURE",
-    "ngap": "ERROR_4",
-    "pfcp": "ERROR_4",
-    "sbi-http2": "ERROR_4"
+    "ngap": "NOT_OBSERVED_IN_CAPTURE",
+    "pfcp": "NOT_OBSERVED_IN_CAPTURE",
+    "sbi-http2": "NOT_OBSERVED_IN_CAPTURE"
   },
   "selected_boundary": null,
-  "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+  "selection_status": "NO_DOMAIN_INPUTS"
 }

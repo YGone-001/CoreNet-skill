@@ -1,10 +1,10 @@
 {
-  "adjudication_required": false,
+  "adjudication_required": true,
   "baseline_supported": true,
   "capture_limitations": [],
   "case_id": "public-5gc-auth-negative",
-  "comparison_eligibility": "INELIGIBLE",
-  "comparison_status": "PROTOCOL_COVERAGE_GAP",
+  "comparison_eligibility": "ELIGIBLE",
+  "comparison_status": "FALSE_NEGATIVE",
   "evidence_overlap": false,
   "frame_delta": null,
   "human_baseline_sha256": "74b7a9596b4687c050715d4b012a6f637bfa34bd3bc4b5478d82880afe2b129d",
@@ -16,12 +16,11 @@
     "procedure_stage": "security",
     "protocol": "NAS-5GS"
   },
-  "layer_attribution": "PROTOCOL",
+  "layer_attribution": "DOMAIN",
   "notes": [
-    "Relevant protocol 'nas-5gs' extractor failed to extract mandatory message type fields",
-    "Relevant protocol 'ngap' extractor failed with ERROR_4"
+    "Human baseline identified supported abnormal boundary inside scope, but pipeline observed no boundary."
   ],
-  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
+  "recommended_next_action": "CORRECT_DOMAIN_MODEL",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
@@ -31,5 +30,5 @@
     "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
     "source_domain": null
   },
-  "upstream_intent_match": "PARTIAL"
+  "upstream_intent_match": "MISMATCH"
 }

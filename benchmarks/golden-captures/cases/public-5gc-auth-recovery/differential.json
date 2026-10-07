@@ -3,8 +3,8 @@
   "baseline_supported": true,
   "capture_limitations": [],
   "case_id": "public-5gc-auth-recovery",
-  "comparison_eligibility": "INELIGIBLE",
-  "comparison_status": "PROTOCOL_COVERAGE_GAP",
+  "comparison_eligibility": "ELIGIBLE",
+  "comparison_status": "EXACT_MATCH",
   "evidence_overlap": false,
   "frame_delta": null,
   "human_baseline_sha256": "ca7f7491e4e60177bd2dbf18ef28ec7081769018bdbbc1540c799744b40989b1",
@@ -16,13 +16,11 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "PROTOCOL",
+  "layer_attribution": "NONE",
   "notes": [
-    "Relevant protocol 'nas-5gs' extractor failed with ERROR_5",
-    "Relevant protocol 'ngap' extractor failed with ERROR_4",
-    "Zero Domain instances formed due to upstream Protocol extraction defects"
+    "Both human baseline and automated pipeline observed no abnormal boundary in healthy/recovered capture."
   ],
-  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
+  "recommended_next_action": "NO_CHANGE",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
@@ -32,5 +30,5 @@
     "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
     "source_domain": null
   },
-  "upstream_intent_match": "PARTIAL"
+  "upstream_intent_match": "MATCH"
 }

@@ -20,7 +20,7 @@
   },
   "layer_attribution": "PROTOCOL",
   "notes": [
-    "Relevant protocol 'gtpu' extractor failed with ERROR_4",
+    "Relevant protocol 'gtpu' extractor failed to extract mandatory message type fields",
     "Zero Domain instances formed due to upstream Protocol extraction defects"
   ],
   "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
@@ -30,7 +30,7 @@
     "boundary_protocol": null,
     "procedure_family": null,
     "procedure_stage": null,
-    "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+    "selection_status": "NO_DOMAIN_INPUTS",
     "source_domain": null
   },
   "upstream_intent_match": "PARTIAL"
