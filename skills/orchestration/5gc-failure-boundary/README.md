@@ -38,9 +38,9 @@ procedure and protocol interpretation is owned by the source Domain Skills.
   model, failure cases.
 - `examples/inputs/`, `examples/expected/`: deterministic scenario fixtures
   covering selection, no-abnormal, ambiguity, insufficiency, isolation,
-  lifecycle generation, limitation handling, and input robustness. Failure
-  scenarios (`malformed-domain-input`, `incomparable-provenance`) fail loudly
-  and intentionally produce no expected analysis output.
+  lifecycle generation, limitation handling, context bridging, and input
+  robustness. Scenarios designated by the validator as fail-loudly inputs
+  intentionally produce no committed expected analysis output.
 - `tests/`: package-local test suite (`test_5gc_failure_boundary.py`).
 
 ## Usage
@@ -49,12 +49,14 @@ procedure and protocol interpretation is owned by the source Domain Skills.
 python scripts/analyze_failure_boundary.py \
   --registration registration-analysis.json \
   --pdu-session pdu-session-analysis.json \
+  --handover-mobility handover-mobility-analysis.json \
   --output analysis.json \
   --report report.txt
 
-# Or auto-detect Domain inputs from a directory:
+# Or auto-detect Domain inputs from a directory (authoritative JSON
+# discriminators first, documented filename patterns only as fallback):
 python scripts/analyze_failure_boundary.py \
-  --input-dir examples/inputs/registration-complete-pdu-reject \
+  --input-dir examples/inputs/handover-bridge-strong \
   --output analysis.json
 ```
 
@@ -64,7 +66,8 @@ python scripts/analyze_failure_boundary.py \
   structured `evidence_refs`; the Skill never invents a deviation, never parses
   description/limitation/observed_evidence prose for identity or ordering, and
   rejects source Domain versions older than 0.2.0 (registration) / 0.4.0
-  (PDU Session) loudly instead of guessing.
+  (PDU Session) / 0.1.0 (handover mobility) - and malformed contracts -
+  loudly instead of guessing.
 - `MISSING_EXPECTED_COUNTERPART` stays `DERIVED` and is blocked from selection
   when the source Domain marks the observation window partial.
 - First means earliest safely orderable boundary; a later but "more serious"

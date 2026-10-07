@@ -311,6 +311,172 @@ class FailureBoundaryValidatorTests(unittest.TestCase):
             errors = VALIDATOR.validate(root)
             self.assertTrue(isinstance(errors, list))
 
+    def _manifest(self, root):
+        return root / "skills/orchestration/5gc-failure-boundary/manifest.yaml"
+
+    def test_mobility_missing_from_manifest_inputs_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = self._manifest(root)
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+                "  - 5gc-handover-mobility analysis summary JSON (from the 5gc-handover-mobility Skill)\n", ""),
+                encoding="utf-8")
+            self.assert_error(root, "manifest inputs must declare the 5gc-handover-mobility analysis summary source")
+
+    def test_removed_fixture_entry_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = self._manifest(root)
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+                "    - examples/inputs/handover-bridge-strong\n", ""),
+                encoding="utf-8")
+            self.assert_error(root, "manifest testing.fixtures must exactly match the scenario catalog")
+
+    def test_added_nonexistent_fixture_entry_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = self._manifest(root)
+            lines = manifest.read_text(encoding="utf-8").splitlines(keepends=True)
+            for index, line in enumerate(lines):
+                if line.strip() == "- examples/inputs/registration-only":
+                    lines.insert(index + 1, "    - examples/inputs/nonexistent-scenario\n")
+                    break
+            else:
+                self.fail("fixture anchor entry was not found")
+            manifest.write_text("".join(lines), encoding="utf-8")
+            self.assert_error(root, "manifest testing.fixtures must exactly match the scenario catalog")
+
+    def test_removed_expected_result_entry_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = self._manifest(root)
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+                "    - examples/expected/handover-bridge-strong-analysis.json\n", ""),
+                encoding="utf-8")
+            self.assert_error(root, "manifest testing.expected_results must exactly match the expected-output catalog")
+
+    def test_added_nonexistent_expected_result_entry_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = self._manifest(root)
+            lines = manifest.read_text(encoding="utf-8").splitlines(keepends=True)
+            for index, line in enumerate(lines):
+                if line.strip() == "- examples/expected/registration-only-analysis.json":
+                    lines.insert(index + 1, "    - examples/expected/nonexistent-scenario-analysis.json\n")
+                    break
+            else:
+                self.fail("expected anchor entry was not found")
+            manifest.write_text("".join(lines), encoding="utf-8")
+            self.assert_error(root, "manifest testing.expected_results must exactly match the expected-output catalog")
+
+    def test_fail_loudly_scenario_in_expected_results_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = self._manifest(root)
+            lines = manifest.read_text(encoding="utf-8").splitlines(keepends=True)
+            for index, line in enumerate(lines):
+                if line.strip() == "- examples/expected/registration-only-analysis.json":
+                    lines.insert(index + 1, "    - examples/expected/mobility-version-too-old-analysis.json\n")
+                    break
+            else:
+                self.fail("expected anchor entry was not found")
+            manifest.write_text("".join(lines), encoding="utf-8")
+            self.assert_error(root, "manifest testing.expected_results must exactly match the expected-output catalog")
+
+    def test_duplicated_fixture_entry_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = self._manifest(root)
+            lines = manifest.read_text(encoding="utf-8").splitlines(keepends=True)
+            for index, line in enumerate(lines):
+                if line.strip() == "- examples/inputs/registration-only":
+                    lines.insert(index + 1, "    - examples/inputs/registration-only\n")
+                    break
+            else:
+                self.fail("fixture anchor entry was not found")
+            manifest.write_text("".join(lines), encoding="utf-8")
+            self.assert_error(root, "duplicate entries")
+
+    def test_duplicated_expected_result_entry_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = self._manifest(root)
+            lines = manifest.read_text(encoding="utf-8").splitlines(keepends=True)
+            for index, line in enumerate(lines):
+                if line.strip() == "- examples/expected/registration-only-analysis.json":
+                    lines.insert(index + 1, "    - examples/expected/registration-only-analysis.json\n")
+                    break
+            else:
+                self.fail("expected anchor entry was not found")
+            manifest.write_text("".join(lines), encoding="utf-8")
+            self.assert_error(root, "duplicate entries")
+
+    def test_correct_count_wrong_members_fixture_is_detected(self):
+        # Same entry count, wrong member: swap one valid fixture path for a
+        # path that exists on disk but is not a scenario in the contract.
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = self._manifest(root)
+            lines = manifest.read_text(encoding="utf-8").splitlines(keepends=True)
+            for index, line in enumerate(lines):
+                if line.strip() == "- examples/inputs/registration-only":
+                    lines[index] = "    - examples/inputs\n"
+                    break
+            else:
+                self.fail("fixture entry to replace was not found")
+            manifest.write_text("".join(lines), encoding="utf-8")
+            self.assert_error(root, "manifest testing.fixtures must exactly match the scenario catalog")
+
+    def test_correct_count_wrong_members_expected_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = self._manifest(root)
+            lines = manifest.read_text(encoding="utf-8").splitlines(keepends=True)
+            for index, line in enumerate(lines):
+                if line.strip() == "- examples/expected/registration-only-analysis.json":
+                    lines[index] = "    - examples/expected\n"
+                    break
+            else:
+                self.fail("expected entry to replace was not found")
+            manifest.write_text("".join(lines), encoding="utf-8")
+            self.assert_error(root, "manifest testing.expected_results must exactly match the expected-output catalog")
+
+    def test_manifest_catalog_matches_actual_trees(self):
+        # Positive: the authoritative manifest exactly matches the actual
+        # input/expected trees and the validator's scenario contract.
+        manifest = (ROOT / "skills/orchestration/5gc-failure-boundary/manifest.yaml").read_text(encoding="utf-8")
+        declared_fixtures = VALIDATOR.manifest_block_or_flow(manifest, "fixtures")
+        declared_results = VALIDATOR.manifest_block_or_flow(manifest, "expected_results")
+        skill = ROOT / "skills/orchestration/5gc-failure-boundary"
+        actual_fixtures = {f"examples/inputs/{d.name}" for d in (skill / "examples/inputs").iterdir() if d.is_dir()}
+        actual_results = {f"examples/expected/{p.name}" for p in (skill / "examples/expected").glob("*.json")}
+        self.assertEqual(set(declared_fixtures), {f"examples/inputs/{s}" for s in VALIDATOR.EXPECTED_SCENARIOS})
+        self.assertEqual(set(declared_fixtures), actual_fixtures)
+        self.assertEqual(set(declared_results),
+                         {f"examples/expected/{s}-analysis.json"
+                          for s in VALIDATOR.EXPECTED_SCENARIOS - VALIDATOR.FAILURE_EXPECTED_SCENARIOS})
+        self.assertEqual(set(declared_results), actual_results)
+        self.assertEqual(len(declared_fixtures), 70)
+        self.assertEqual(len(declared_results), 65)
+        self.assertEqual(len(declared_fixtures), len(set(declared_fixtures)))
+        self.assertEqual(len(declared_results), len(set(declared_results)))
+
+    def test_skill_documents_mobility_cli_and_discriminators(self):
+        skill_text = (ROOT / "skills/orchestration/5gc-failure-boundary/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("--handover-mobility", skill_text)
+        self.assertIn("analysis_name", skill_text)
+        self.assertIn("procedure_family", skill_text)
+        self.assertIn("procedure_name", skill_text)
+        self.assertIn("never overrides a recognized", skill_text)
+
+    def test_readme_documents_mobility_cli_and_floors(self):
+        readme = (ROOT / "skills/orchestration/5gc-failure-boundary/README.md").read_text(encoding="utf-8")
+        self.assertIn("--handover-mobility", readme)
+        self.assertIn("0.2.0 (registration)", readme)
+        self.assertIn("0.4.0", readme)
+        self.assertIn("0.1.0 (handover mobility)", readme)
+        self.assertIn("discriminators first", readme)
+
 
 if __name__ == "__main__":
     unittest.main()

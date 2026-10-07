@@ -87,10 +87,17 @@ severity, and never reports network or procedure success.
 
 ## Inputs
 
-- `--registration`: 5gc-registration-mobility analysis summary JSON (repeatable).
-- `--pdu-session`: 5gc-pdu-session analysis summary JSON (repeatable).
-- `--input-dir`: directory of Domain analysis JSON files, auto-detected by
-  documented file-name substrings (`registration`, `pdu`).
+- `--registration PATH`: 5gc-registration-mobility analysis summary JSON
+  (repeatable).
+- `--pdu-session PATH`: 5gc-pdu-session analysis summary JSON (repeatable).
+- `--handover-mobility PATH`: 5gc-handover-mobility analysis summary JSON
+  (repeatable).
+- `--input-dir PATH`: directory of Domain analysis JSON files. Authoritative
+  JSON discriminators (`analysis_name`, `procedure_family`, `procedure_name`)
+  are preferred; the documented filename patterns (`registration`, `pdu`,
+  `handover`/`mobility`) are fallback only when a file carries no recognized
+  discriminator. A misleading filename never overrides a recognized
+  discriminator.
 
 ## Outputs
 

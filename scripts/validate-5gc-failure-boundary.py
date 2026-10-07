@@ -144,10 +144,51 @@ def validate(root: Path) -> list[str]:
             + "; ".join(EXPECTED_OPTIONAL_DEPENDENCIES)
         )
 
+    # Manifest inputs: all three supported Domain analysis sources must be
+    # declared; the input contract is Domain analysis JSON only.
+    declared_inputs_text = " ".join(manifest_block_or_flow(manifest, "inputs"))
+    for domain in ("5gc-registration-mobility", "5gc-pdu-session", "5gc-handover-mobility"):
+        if domain not in declared_inputs_text:
+            errors.append(f"manifest inputs must declare the {domain} analysis summary source")
+
+    # Manifest catalog integrity: exact set equality with the authoritative
+    # scenario contract, duplicate-free, plus every path existing on disk.
     for section in ("fixtures", "expected_results"):
-        for relative in manifest_block_or_flow(manifest, section):
+        entries = manifest_block_or_flow(manifest, section)
+        duplicates = sorted({entry for entry in entries if entries.count(entry) > 1})
+        if duplicates:
+            errors.append(f"manifest testing.{section} contains duplicate entries: {duplicates}")
+        for relative in entries:
             if not (skill / relative).exists():
                 errors.append(f"manifest testing.{section} path does not exist: {relative}")
+    expected_fixtures = {f"examples/inputs/{scenario}" for scenario in EXPECTED_SCENARIOS}
+    declared_fixtures = set(manifest_block_or_flow(manifest, "fixtures"))
+    if declared_fixtures != expected_fixtures:
+        missing = sorted(expected_fixtures - declared_fixtures)
+        extra = sorted(declared_fixtures - expected_fixtures)
+        errors.append(
+            "manifest testing.fixtures must exactly match the scenario catalog; "
+            f"missing: {missing}; extra: {extra}"
+        )
+    expected_results = {
+        f"examples/expected/{scenario}-analysis.json"
+        for scenario in EXPECTED_SCENARIOS - FAILURE_EXPECTED_SCENARIOS
+    }
+    declared_results = set(manifest_block_or_flow(manifest, "expected_results"))
+    if declared_results != expected_results:
+        missing = sorted(expected_results - declared_results)
+        extra = sorted(declared_results - expected_results)
+        errors.append(
+            "manifest testing.expected_results must exactly match the expected-output catalog; "
+            f"missing: {missing}; extra: {extra}"
+        )
+
+    # Failure-expected integrity: input directory exists, no expected output.
+    for scenario in sorted(FAILURE_EXPECTED_SCENARIOS):
+        if not (skill / "examples/inputs" / scenario).is_dir():
+            errors.append(f"fail-loudly scenario input directory is missing: {scenario}")
+        if (skill / "examples/expected" / f"{scenario}-analysis.json").is_file():
+            errors.append(f"fail-loudly scenario must not declare an expected output: {scenario}")
 
     try:
         schema = json.loads((skill / "schemas/5gc-failure-boundary-analysis.schema.json").read_text(encoding="utf-8"))

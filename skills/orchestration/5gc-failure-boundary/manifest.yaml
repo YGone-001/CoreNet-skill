@@ -43,6 +43,7 @@ dependencies:
 inputs:
   - 5gc-registration-mobility analysis summary JSON (from the 5gc-registration-mobility Skill)
   - 5gc-pdu-session analysis summary JSON (from the 5gc-pdu-session Skill)
+  - 5gc-handover-mobility analysis summary JSON (from the 5gc-handover-mobility Skill)
 outputs:
   - 5GC failure-boundary analysis summary JSON
   - text investigation report
@@ -70,34 +71,70 @@ testing:
     - examples/inputs/correlation-ambiguity-limitation
     - examples/inputs/description-invariance
     - examples/inputs/duplicate-identical-input
+    - examples/inputs/duplicate-mobility-input
     - examples/inputs/duplicate-only-limitation
     - examples/inputs/earliest-incomparability
+    - examples/inputs/handover-bridge-ambiguous
+    - examples/inputs/handover-bridge-candidates
+    - examples/inputs/handover-bridge-strong
+    - examples/inputs/handover-earlier-than-pdu
+    - examples/inputs/handover-target-only-anchor
+    - examples/inputs/ho-and-ps-one-group
+    - examples/inputs/ho-cancel-no-deviation
+    - examples/inputs/ho-missing-counterpart-partial
+    - examples/inputs/ho-missing-counterpart-window
+    - examples/inputs/ho-notify-no-deviation
+    - examples/inputs/ho-notify-no-path-switch
+    - examples/inputs/ho-preparation-negative
+    - examples/inputs/ho-resource-allocation-negative
+    - examples/inputs/ho-resource-failed-item
+    - examples/inputs/ho-then-ps-unbound-relationship
     - examples/inputs/incomparable-provenance
     - examples/inputs/later-incomparability
     - examples/inputs/lifecycle-ambiguity-limitation
     - examples/inputs/lifecycle-generations-distinct
     - examples/inputs/malformed-domain-input
+    - examples/inputs/misleading-filename
+    - examples/inputs/mobility-context-exact-link
+    - examples/inputs/mobility-correlation-ambiguity-only
+    - examples/inputs/mobility-cross-capture
+    - examples/inputs/mobility-earlier-incomparable-laters
+    - examples/inputs/mobility-malformed-json
+    - examples/inputs/mobility-out-of-order-input-order
+    - examples/inputs/mobility-pdu-same-frame
+    - examples/inputs/mobility-same-ids-different-associations
+    - examples/inputs/mobility-version-floor-accepted
+    - examples/inputs/mobility-version-too-old
     - examples/inputs/namf-202-then-failure-notification
     - examples/inputs/ngap-boundary-before-nas-reject
     - examples/inputs/ngap-failed-resource-boundary
     - examples/inputs/no-deviations-anywhere
     - examples/inputs/out-of-order-input-order
     - examples/inputs/partial-capture-blocks-missing
+    - examples/inputs/pdu-earlier-than-handover
     - examples/inputs/pdu-no-abnormal-no-traffic
     - examples/inputs/pdu-session-only
     - examples/inputs/pfcp-boundary-downstream-neutral
     - examples/inputs/pfcp-negative-boundary
     - examples/inputs/protected-payload-limitation
+    - examples/inputs/ps-ack-no-deviation
+    - examples/inputs/ps-independent-boundary
+    - examples/inputs/ps-negative-outcome
+    - examples/inputs/ps-no-handover-missing-outcome
     - examples/inputs/registration-before-pdu-boundary
     - examples/inputs/registration-complete-pdu-reject
     - examples/inputs/registration-complete-sm-context-error
+    - examples/inputs/registration-earlier-than-handover
     - examples/inputs/registration-missing-counterpart
     - examples/inputs/registration-only
     - examples/inputs/registration-reject-only
     - examples/inputs/same-frame-ambiguity
     - examples/inputs/same-ids-different-associations
+    - examples/inputs/two-handover-attempts-one-subject
+    - examples/inputs/two-path-switch-attempts-one-subject
     - examples/inputs/two-ue-two-groups
     - examples/inputs/unlinked-captures
+    - examples/inputs/unsupported-domain-analysis
     - examples/inputs/valid-release-no-abnormal
   expected_results:
     - examples/expected/adversarial-description-analysis.json
@@ -105,30 +142,63 @@ testing:
     - examples/expected/correlation-ambiguity-limitation-analysis.json
     - examples/expected/description-invariance-analysis.json
     - examples/expected/duplicate-identical-input-analysis.json
+    - examples/expected/duplicate-mobility-input-analysis.json
     - examples/expected/duplicate-only-limitation-analysis.json
     - examples/expected/earliest-incomparability-analysis.json
+    - examples/expected/handover-bridge-ambiguous-analysis.json
+    - examples/expected/handover-bridge-candidates-analysis.json
+    - examples/expected/handover-bridge-strong-analysis.json
+    - examples/expected/handover-earlier-than-pdu-analysis.json
+    - examples/expected/handover-target-only-anchor-analysis.json
+    - examples/expected/ho-and-ps-one-group-analysis.json
+    - examples/expected/ho-cancel-no-deviation-analysis.json
+    - examples/expected/ho-missing-counterpart-partial-analysis.json
+    - examples/expected/ho-missing-counterpart-window-analysis.json
+    - examples/expected/ho-notify-no-deviation-analysis.json
+    - examples/expected/ho-notify-no-path-switch-analysis.json
+    - examples/expected/ho-preparation-negative-analysis.json
+    - examples/expected/ho-resource-allocation-negative-analysis.json
+    - examples/expected/ho-resource-failed-item-analysis.json
+    - examples/expected/ho-then-ps-unbound-relationship-analysis.json
     - examples/expected/later-incomparability-analysis.json
     - examples/expected/lifecycle-ambiguity-limitation-analysis.json
     - examples/expected/lifecycle-generations-distinct-analysis.json
+    - examples/expected/misleading-filename-analysis.json
+    - examples/expected/mobility-context-exact-link-analysis.json
+    - examples/expected/mobility-correlation-ambiguity-only-analysis.json
+    - examples/expected/mobility-cross-capture-analysis.json
+    - examples/expected/mobility-earlier-incomparable-laters-analysis.json
+    - examples/expected/mobility-out-of-order-input-order-analysis.json
+    - examples/expected/mobility-pdu-same-frame-analysis.json
+    - examples/expected/mobility-same-ids-different-associations-analysis.json
+    - examples/expected/mobility-version-floor-accepted-analysis.json
     - examples/expected/namf-202-then-failure-notification-analysis.json
     - examples/expected/ngap-boundary-before-nas-reject-analysis.json
     - examples/expected/ngap-failed-resource-boundary-analysis.json
     - examples/expected/no-deviations-anywhere-analysis.json
     - examples/expected/out-of-order-input-order-analysis.json
     - examples/expected/partial-capture-blocks-missing-analysis.json
+    - examples/expected/pdu-earlier-than-handover-analysis.json
     - examples/expected/pdu-no-abnormal-no-traffic-analysis.json
     - examples/expected/pdu-session-only-analysis.json
     - examples/expected/pfcp-boundary-downstream-neutral-analysis.json
     - examples/expected/pfcp-negative-boundary-analysis.json
     - examples/expected/protected-payload-limitation-analysis.json
+    - examples/expected/ps-ack-no-deviation-analysis.json
+    - examples/expected/ps-independent-boundary-analysis.json
+    - examples/expected/ps-negative-outcome-analysis.json
+    - examples/expected/ps-no-handover-missing-outcome-analysis.json
     - examples/expected/registration-before-pdu-boundary-analysis.json
     - examples/expected/registration-complete-pdu-reject-analysis.json
     - examples/expected/registration-complete-sm-context-error-analysis.json
+    - examples/expected/registration-earlier-than-handover-analysis.json
     - examples/expected/registration-missing-counterpart-analysis.json
     - examples/expected/registration-only-analysis.json
     - examples/expected/registration-reject-only-analysis.json
     - examples/expected/same-frame-ambiguity-analysis.json
     - examples/expected/same-ids-different-associations-analysis.json
+    - examples/expected/two-handover-attempts-one-subject-analysis.json
+    - examples/expected/two-path-switch-attempts-one-subject-analysis.json
     - examples/expected/two-ue-two-groups-analysis.json
     - examples/expected/unlinked-captures-analysis.json
     - examples/expected/valid-release-no-abnormal-analysis.json
