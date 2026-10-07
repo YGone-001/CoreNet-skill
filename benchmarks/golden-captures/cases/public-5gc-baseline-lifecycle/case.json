@@ -1,0 +1,26 @@
+{
+  "capture_packet_count": 64,
+  "capture_sha256": "011d538635fe836c4ee50dcb011e3d46e53fd875baa7980c499829da912d2a97",
+  "capture_size_bytes": 9512,
+  "case_id": "public-5gc-baseline-lifecycle",
+  "first_frame": 1,
+  "first_timestamp": "1785177006.702737000",
+  "last_frame": 64,
+  "last_timestamp": "1785177402.759773000",
+  "notes": [
+    "Public capture from abdelrahman-fawaz18/5g-sa-core-protocol-lab"
+  ],
+  "protocol_inventory": [
+    "SCTP",
+    "NGAP",
+    "NAS-5GS",
+    "PFCP",
+    "GTP-U",
+    "ICMP"
+  ],
+  "source_capture_path": "captures/baseline/full-lifecycle.pcap",
+  "source_class": "external-public-capture",
+  "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+  "source_repository": "abdelrahman-fawaz18/5g-sa-core-protocol-lab",
+  "upstream_scenario_intent": "baseline full lifecycle registration session and release"
+}

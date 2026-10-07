@@ -1,0 +1,35 @@
+{
+  "adjudication_required": false,
+  "baseline_supported": true,
+  "capture_limitations": [
+    "Loopback packet capture with simulated radio connection drop at frame 56"
+  ],
+  "case_id": "public-5gc-baseline-lifecycle",
+  "comparison_status": "EXACT_MATCH",
+  "evidence_overlap": false,
+  "frame_delta": null,
+  "human_baseline_sha256": "d0ec66b950d8efb8a6346af5cc69fc7b8f9d27d687c65285b5777b0756bd846e",
+  "human_boundary": {
+    "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+    "frame_number": null,
+    "message_type": null,
+    "procedure_family": null,
+    "procedure_stage": null,
+    "protocol": null
+  },
+  "layer_attribution": "NONE",
+  "notes": [
+    "Both human baseline and automated pipeline observed no abnormal boundary in healthy/recovered capture."
+  ],
+  "recommended_next_action": "NO_CHANGE",
+  "skill_boundary": {
+    "boundary_frame": null,
+    "boundary_message": null,
+    "boundary_protocol": null,
+    "procedure_family": null,
+    "procedure_stage": null,
+    "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+    "source_domain": null
+  },
+  "upstream_intent_match": "MATCH"
+}

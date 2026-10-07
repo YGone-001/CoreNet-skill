@@ -1,0 +1,55 @@
+{
+  "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+  "baseline_confidence": "HIGH",
+  "baseline_hash": "08d981b015c732eb4e8503580cb5ee3447f24c5200f9ed0172a0e48dc556b8fb",
+  "capture_scope": {
+    "interfaces": [
+      "N2"
+    ],
+    "protocols_present": [
+      "SCTP",
+      "NGAP"
+    ],
+    "traffic_characteristics": [
+      "11 frames captured"
+    ]
+  },
+  "capture_sha256": "4b6615b9741cac1b0a5ac7aa81b3ecf89ec6d1505df61c16ec3e2ca43eda733b",
+  "case_id": "public-5gc-access-tai-recovery",
+  "first_abnormal_boundary": null,
+  "limitations": [],
+  "procedure_observations": [
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 5,
+      "last_frame": 7,
+      "outcome": "COMPLETE",
+      "procedure_family": "ngap-management",
+      "procedure_stage": "ng-setup"
+    }
+  ],
+  "scope_assessment": {
+    "in_corenet_scope": true,
+    "interfaces_in_scope": [
+      "N2"
+    ],
+    "interfaces_out_of_scope": [],
+    "reason": "Node-level NG setup succeeds"
+  },
+  "supporting_evidence": [
+    {
+      "description": "gNB initiated NG setup with matching TAC",
+      "evidence_level": "OBSERVED",
+      "frame_number": 5,
+      "message_type": "NGSetupRequest",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "AMF accepted NG setup",
+      "evidence_level": "OBSERVED",
+      "frame_number": 7,
+      "message_type": "NGSetupResponse",
+      "protocol": "NGAP"
+    }
+  ]
+}

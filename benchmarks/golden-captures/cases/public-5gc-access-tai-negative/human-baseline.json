@@ -1,0 +1,67 @@
+{
+  "analysis_status": "BOUNDARY_OBSERVED",
+  "baseline_confidence": "HIGH",
+  "baseline_hash": "62f2169896384c83665f99a1f4ceb29978ed0e55067224b30f8a7ab0073b60e8",
+  "capture_scope": {
+    "interfaces": [
+      "N2"
+    ],
+    "protocols_present": [
+      "SCTP",
+      "NGAP"
+    ],
+    "traffic_characteristics": [
+      "11 frames captured"
+    ]
+  },
+  "capture_sha256": "aace9deef78b6b575cdf55b26cedef64ce1bc7895684df870ab43c4596ae99de",
+  "case_id": "public-5gc-access-tai-negative",
+  "first_abnormal_boundary": {
+    "evidence_level": "OBSERVED",
+    "frame_number": 7,
+    "message_type": "NGSetupFailure",
+    "observation_window": null,
+    "procedure_family": "ngap-management",
+    "procedure_stage": "ng-setup",
+    "protocol": "NGAP",
+    "reason": "AMF rejected NGSetupRequest with NGSetupFailure cause Misc=unknown-PLMN-or-SNPN",
+    "timestamp": "1785304735.610996000"
+  },
+  "limitations": [
+    "Capture ends after SCTP shutdown following NG setup failure"
+  ],
+  "procedure_observations": [
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 5,
+      "last_frame": 7,
+      "outcome": "FAILURE",
+      "procedure_family": "ngap-management",
+      "procedure_stage": "ng-setup"
+    }
+  ],
+  "scope_assessment": {
+    "in_corenet_scope": false,
+    "interfaces_in_scope": [
+      "N2"
+    ],
+    "interfaces_out_of_scope": [],
+    "reason": "Node-level NGAP management is not owned by current UE procedure domains"
+  },
+  "supporting_evidence": [
+    {
+      "description": "gNB initiated NG setup with mismatched TAC",
+      "evidence_level": "OBSERVED",
+      "frame_number": 5,
+      "message_type": "NGSetupRequest",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "AMF rejected NG setup",
+      "evidence_level": "OBSERVED",
+      "frame_number": 7,
+      "message_type": "NGSetupFailure",
+      "protocol": "NGAP"
+    }
+  ]
+}

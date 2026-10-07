@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/differential-result.schema.json",
+  "title": "Golden Capture Differential Comparison Result",
+  "type": "object",
+  "required": [
+    "case_id",
+    "human_baseline_sha256",
+    "comparison_status",
+    "layer_attribution",
+    "human_boundary",
+    "skill_boundary",
+    "evidence_overlap",
+    "frame_delta",
+    "capture_limitations",
+    "baseline_supported",
+    "adjudication_required",
+    "upstream_intent_match",
+    "notes",
+    "recommended_next_action"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "human_baseline_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{64}$"
+    },
+    "comparison_status": {
+      "type": "string",
+      "enum": [
+        "EXACT_MATCH",
+        "PROCEDURE_MATCH_STAGE_DIFFERENCE",
+        "BOUNDARY_FRAME_DIFFERENCE",
+        "ACCEPTABLE_DIFFERENCE",
+        "FALSE_POSITIVE",
+        "FALSE_NEGATIVE",
+        "UNSAFE_CORRELATION",
+        "PROTOCOL_COVERAGE_GAP",
+        "CORRELATION_GAP",
+        "DOMAIN_MODEL_GAP",
+        "ORCHESTRATION_GAP",
+        "CAPTURE_LIMITATION",
+        "OUT_OF_SCOPE",
+        "HUMAN_BASELINE_UNSUPPORTED",
+        "NEEDS_ADJUDICATION"
+      ]
+    },
+    "layer_attribution": {
+      "type": "string",
+      "enum": [
+        "NONE",
+        "PROTOCOL",
+        "CORRELATION",
+        "DOMAIN",
+        "ORCHESTRATION",
+        "CAPTURE",
+        "OUT_OF_SCOPE",
+        "BASELINE",
+        "MULTIPLE",
+        "UNKNOWN"
+      ]
+    },
+    "human_boundary": {
+      "type": ["object", "null"],
+      "required": [
+        "analysis_status",
+        "procedure_family",
+        "procedure_stage",
+        "protocol",
+        "message_type",
+        "frame_number"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "analysis_status": {"type": "string"},
+        "procedure_family": {"type": ["string", "null"]},
+        "procedure_stage": {"type": ["string", "null"]},
+        "protocol": {"type": ["string", "null"]},
+        "message_type": {"type": ["string", "null"]},
+        "frame_number": {"type": ["integer", "null"]}
+      }
+    },
+    "skill_boundary": {
+      "type": ["object", "null"],
+      "required": [
+        "selection_status",
+        "source_domain",
+        "procedure_family",
+        "procedure_stage",
+        "boundary_protocol",
+        "boundary_message",
+        "boundary_frame"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "selection_status": {"type": "string"},
+        "source_domain": {"type": ["string", "null"]},
+        "procedure_family": {"type": ["string", "null"]},
+        "procedure_stage": {"type": ["string", "null"]},
+        "boundary_protocol": {"type": ["string", "null"]},
+        "boundary_message": {"type": ["string", "null"]},
+        "boundary_frame": {"type": ["integer", "null"]}
+      }
+    },
+    "evidence_overlap": {
+      "type": "boolean"
+    },
+    "frame_delta": {
+      "type": ["integer", "null"]
+    },
+    "capture_limitations": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "baseline_supported": {
+      "type": "boolean"
+    },
+    "adjudication_required": {
+      "type": "boolean"
+    },
+    "upstream_intent_match": {
+      "type": "string",
+      "enum": ["MATCH", "PARTIAL", "MISMATCH", "NOT_EVALUATED"]
+    },
+    "notes": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "recommended_next_action": {
+      "type": "string",
+      "enum": [
+        "NO_CHANGE",
+        "ADJUDICATE_BASELINE",
+        "ADD_PROTOCOL_COVERAGE",
+        "CORRECT_CORRELATION",
+        "CORRECT_DOMAIN_MODEL",
+        "CORRECT_ORCHESTRATION",
+        "EXPAND_FUTURE_SCOPE"
+      ]
+    }
+  }
+}

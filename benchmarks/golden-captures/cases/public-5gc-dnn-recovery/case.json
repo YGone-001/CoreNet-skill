@@ -1,0 +1,24 @@
+{
+  "capture_packet_count": 35,
+  "capture_sha256": "7156491cdc859a67c0f5ceff40e3a545cbb11d593e45b066011e14294431a8c4",
+  "capture_size_bytes": 5556,
+  "case_id": "public-5gc-dnn-recovery",
+  "first_frame": 1,
+  "first_timestamp": "1785304753.840742000",
+  "last_frame": 35,
+  "last_timestamp": "1785304877.013926000",
+  "notes": [
+    "Public capture from abdelrahman-fawaz18/5g-sa-core-protocol-lab"
+  ],
+  "protocol_inventory": [
+    "SCTP",
+    "NGAP",
+    "NAS-5GS",
+    "PFCP"
+  ],
+  "source_capture_path": "captures/fault-injection/unsupported-dnn/recovery.pcap",
+  "source_class": "external-public-capture",
+  "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+  "source_repository": "abdelrahman-fawaz18/5g-sa-core-protocol-lab",
+  "upstream_scenario_intent": "supported dnn session establishment recovery"
+}

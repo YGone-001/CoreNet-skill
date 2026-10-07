@@ -1,0 +1,26 @@
+{
+  "capture_packet_count": 49,
+  "capture_sha256": "6040d3e54f79926d9ae2db70664fc1342d98716ab5c9ec00e147dae079ee81f7",
+  "capture_size_bytes": 7645,
+  "case_id": "public-5gc-baseline-user-plane",
+  "first_frame": 1,
+  "first_timestamp": "1784954809.988821000",
+  "last_frame": 49,
+  "last_timestamp": "1784955130.735888000",
+  "notes": [
+    "Public capture from abdelrahman-fawaz18/5g-sa-core-protocol-lab"
+  ],
+  "protocol_inventory": [
+    "SCTP",
+    "NGAP",
+    "NAS-5GS",
+    "PFCP",
+    "GTP-U",
+    "ICMP"
+  ],
+  "source_capture_path": "captures/baseline/pdu-session-user-plane.pcap",
+  "source_class": "external-public-capture",
+  "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+  "source_repository": "abdelrahman-fawaz18/5g-sa-core-protocol-lab",
+  "upstream_scenario_intent": "baseline pdu session user plane data exchange"
+}

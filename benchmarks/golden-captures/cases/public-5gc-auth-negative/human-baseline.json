@@ -1,0 +1,108 @@
+{
+  "analysis_status": "BOUNDARY_OBSERVED",
+  "baseline_confidence": "HIGH",
+  "baseline_hash": "5c7ef9f9fc27ff187499baf0bee97a0f24d1ecdb76531ec7b31283bf91c02812",
+  "capture_scope": {
+    "interfaces": [
+      "N1",
+      "N2"
+    ],
+    "protocols_present": [
+      "SCTP",
+      "NGAP",
+      "NAS-5GS"
+    ],
+    "traffic_characteristics": [
+      "16 frames captured"
+    ]
+  },
+  "capture_sha256": "70cc13c537a745625fc59d974653f5b819874a8f1a74b14db416dc97a91801c7",
+  "case_id": "public-5gc-auth-negative",
+  "first_abnormal_boundary": {
+    "evidence_level": "OBSERVED",
+    "frame_number": 11,
+    "message_type": "Authentication failure",
+    "observation_window": {
+      "end_frame": 12,
+      "start_frame": 11
+    },
+    "procedure_family": "5gc-registration-mobility",
+    "procedure_stage": "security",
+    "protocol": "NAS-5GS",
+    "reason": "UE rejected network challenge with MAC failure at frame 11; AMF responded with Authentication reject at frame 12",
+    "timestamp": "1785304677.839841000"
+  },
+  "limitations": [],
+  "procedure_observations": [
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 9,
+      "last_frame": 10,
+      "outcome": "INITIATED",
+      "procedure_family": "5gc-registration-mobility",
+      "procedure_stage": "registration"
+    },
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 10,
+      "last_frame": 12,
+      "outcome": "REJECTED",
+      "procedure_family": "5gc-registration-mobility",
+      "procedure_stage": "security"
+    },
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 13,
+      "last_frame": 15,
+      "outcome": "RELEASED",
+      "procedure_family": "5gc-registration-mobility",
+      "procedure_stage": "release"
+    }
+  ],
+  "scope_assessment": {
+    "in_corenet_scope": true,
+    "interfaces_in_scope": [
+      "N1",
+      "N2"
+    ],
+    "interfaces_out_of_scope": [],
+    "reason": "N1 and N2 access signaling failure"
+  },
+  "supporting_evidence": [
+    {
+      "description": "Initial registration request from UE",
+      "evidence_level": "OBSERVED",
+      "frame_number": 9,
+      "message_type": "Registration request",
+      "protocol": "NAS-5GS"
+    },
+    {
+      "description": "AMF authentication challenge",
+      "evidence_level": "OBSERVED",
+      "frame_number": 10,
+      "message_type": "Authentication request",
+      "protocol": "NAS-5GS"
+    },
+    {
+      "description": "UE reports MAC failure",
+      "evidence_level": "OBSERVED",
+      "frame_number": 11,
+      "message_type": "Authentication failure",
+      "protocol": "NAS-5GS"
+    },
+    {
+      "description": "AMF rejects registration",
+      "evidence_level": "OBSERVED",
+      "frame_number": 12,
+      "message_type": "Authentication reject",
+      "protocol": "NAS-5GS"
+    },
+    {
+      "description": "UE context release commanded with Nas=normal-release",
+      "evidence_level": "OBSERVED",
+      "frame_number": 13,
+      "message_type": "UEContextReleaseCommand",
+      "protocol": "NGAP"
+    }
+  ]
+}

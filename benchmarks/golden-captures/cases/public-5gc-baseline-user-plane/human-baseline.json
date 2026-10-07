@@ -1,0 +1,97 @@
+{
+  "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+  "baseline_confidence": "HIGH",
+  "baseline_hash": "b8eafa54c97a694dba6469bfbf92ed9da20e662e0067626ed6e8fc6d3c92c229",
+  "capture_scope": {
+    "interfaces": [
+      "N1",
+      "N2",
+      "N3",
+      "N4"
+    ],
+    "protocols_present": [
+      "SCTP",
+      "NGAP",
+      "NAS-5GS",
+      "PFCP",
+      "GTP-U",
+      "ICMP"
+    ],
+    "traffic_characteristics": [
+      "49 frames captured"
+    ]
+  },
+  "capture_sha256": "6040d3e54f79926d9ae2db70664fc1342d98716ab5c9ec00e147dae079ee81f7",
+  "case_id": "public-5gc-baseline-user-plane",
+  "first_abnormal_boundary": null,
+  "limitations": [
+    "PFCP Session Deletion at frame 2-3 reflects startup environment cleanup"
+  ],
+  "procedure_observations": [
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 1,
+      "last_frame": 11,
+      "outcome": "COMPLETE",
+      "procedure_family": "5gc-registration-mobility",
+      "procedure_stage": "registration"
+    },
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 11,
+      "last_frame": 19,
+      "outcome": "ESTABLISHED",
+      "procedure_family": "5gc-pdu-session",
+      "procedure_stage": "establishment"
+    },
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 20,
+      "last_frame": 49,
+      "outcome": "VERIFIED",
+      "procedure_family": "5gc-pdu-session",
+      "procedure_stage": "user_plane"
+    }
+  ],
+  "scope_assessment": {
+    "in_corenet_scope": true,
+    "interfaces_in_scope": [
+      "N1",
+      "N2",
+      "N3",
+      "N4"
+    ],
+    "interfaces_out_of_scope": [],
+    "reason": "Standard 5GC procedures across N1, N2, N3, and N4"
+  },
+  "supporting_evidence": [
+    {
+      "description": "Context setup request carrying registration accept",
+      "evidence_level": "OBSERVED",
+      "frame_number": 8,
+      "message_type": "InitialContextSetupRequest",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "N4 session established",
+      "evidence_level": "OBSERVED",
+      "frame_number": 14,
+      "message_type": "PFCP Session Establishment Response",
+      "protocol": "PFCP"
+    },
+    {
+      "description": "PDU session resource confirmed",
+      "evidence_level": "OBSERVED",
+      "frame_number": 17,
+      "message_type": "PDUSessionResourceSetupResponse",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "User plane 5-packet ping exchange completed successfully",
+      "evidence_level": "OBSERVED",
+      "frame_number": 49,
+      "message_type": "Echo reply",
+      "protocol": "GTP-U"
+    }
+  ]
+}

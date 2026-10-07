@@ -1,0 +1,22 @@
+{
+  "capture_packet_count": 15,
+  "capture_sha256": "87cb715ef940ce55adb1ab8bdc2c77b59efc040fcad4b4aa703c0747fb974c15",
+  "capture_size_bytes": 2044,
+  "case_id": "public-5gc-external-path-negative",
+  "first_frame": 1,
+  "first_timestamp": "1785304791.758957000",
+  "last_frame": 15,
+  "last_timestamp": "1785304795.834011000",
+  "notes": [
+    "Public capture from abdelrahman-fawaz18/5g-sa-core-protocol-lab"
+  ],
+  "protocol_inventory": [
+    "GTP-U",
+    "ICMP"
+  ],
+  "source_capture_path": "captures/fault-injection/missing-n6-nat/fault.pcap",
+  "source_class": "external-public-capture",
+  "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+  "source_repository": "abdelrahman-fawaz18/5g-sa-core-protocol-lab",
+  "upstream_scenario_intent": "missing n6 return route causing unanswered uplink icmp echo requests"
+}

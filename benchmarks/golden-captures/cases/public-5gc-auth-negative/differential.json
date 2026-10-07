@@ -1,0 +1,33 @@
+{
+  "adjudication_required": false,
+  "baseline_supported": true,
+  "capture_limitations": [],
+  "case_id": "public-5gc-auth-negative",
+  "comparison_status": "PROTOCOL_COVERAGE_GAP",
+  "evidence_overlap": false,
+  "frame_delta": null,
+  "human_baseline_sha256": "8988c559573df570ce5c7f330829b8ce5a43cf5bdf0152d669aeacfa0fb94aee",
+  "human_boundary": {
+    "analysis_status": "BOUNDARY_OBSERVED",
+    "frame_number": 11,
+    "message_type": "Authentication failure",
+    "procedure_family": "5gc-registration-mobility",
+    "procedure_stage": "security",
+    "protocol": "NAS-5GS"
+  },
+  "layer_attribution": "PROTOCOL",
+  "notes": [
+    "Protocol extractor failure or field extraction limitation prevented procedure recognition (underlying N2 transport (NGAP) extractor status is ERROR_4)."
+  ],
+  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
+  "skill_boundary": {
+    "boundary_frame": null,
+    "boundary_message": null,
+    "boundary_protocol": null,
+    "procedure_family": null,
+    "procedure_stage": null,
+    "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+    "source_domain": null
+  },
+  "upstream_intent_match": "PARTIAL"
+}

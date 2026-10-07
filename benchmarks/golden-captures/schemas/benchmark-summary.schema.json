@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/benchmark-summary.schema.json",
+  "title": "Golden Capture Benchmark Summary",
+  "type": "object",
+  "required": [
+    "benchmark_id",
+    "generated_at",
+    "corenet_commit",
+    "external_source_commit",
+    "tshark_version",
+    "python_version",
+    "skill_versions",
+    "metrics",
+    "cases"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "benchmark_id": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "corenet_commit": {
+      "type": "string"
+    },
+    "external_source_commit": {
+      "type": "string"
+    },
+    "tshark_version": {
+      "type": "string"
+    },
+    "python_version": {
+      "type": "string"
+    },
+    "skill_versions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "case_count",
+        "executed_case_count",
+        "blocked_case_count",
+        "exact_match_count",
+        "procedure_match_count",
+        "stage_match_count",
+        "false_positive_count",
+        "false_negative_count",
+        "unsafe_correlation_count",
+        "protocol_coverage_gap_count",
+        "correlation_gap_count",
+        "domain_model_gap_count",
+        "orchestration_gap_count",
+        "capture_limitation_count",
+        "out_of_scope_count",
+        "human_baseline_unsupported_count",
+        "needs_adjudication_count",
+        "exact_match_rate",
+        "procedure_match_rate",
+        "stage_match_rate",
+        "denominator_definition",
+        "exact_frame_match_count",
+        "within_1_frame_count",
+        "within_3_frames_count",
+        "median_absolute_frame_delta"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "case_count": {"type": "integer", "minimum": 0},
+        "executed_case_count": {"type": "integer", "minimum": 0},
+        "blocked_case_count": {"type": "integer", "minimum": 0},
+        "exact_match_count": {"type": "integer", "minimum": 0},
+        "procedure_match_count": {"type": "integer", "minimum": 0},
+        "stage_match_count": {"type": "integer", "minimum": 0},
+        "false_positive_count": {"type": "integer", "minimum": 0},
+        "false_negative_count": {"type": "integer", "minimum": 0},
+        "unsafe_correlation_count": {"type": "integer", "minimum": 0},
+        "protocol_coverage_gap_count": {"type": "integer", "minimum": 0},
+        "correlation_gap_count": {"type": "integer", "minimum": 0},
+        "domain_model_gap_count": {"type": "integer", "minimum": 0},
+        "orchestration_gap_count": {"type": "integer", "minimum": 0},
+        "capture_limitation_count": {"type": "integer", "minimum": 0},
+        "out_of_scope_count": {"type": "integer", "minimum": 0},
+        "human_baseline_unsupported_count": {"type": "integer", "minimum": 0},
+        "needs_adjudication_count": {"type": "integer", "minimum": 0},
+        "exact_match_rate": {"type": ["number", "null"]},
+        "procedure_match_rate": {"type": ["number", "null"]},
+        "stage_match_rate": {"type": ["number", "null"]},
+        "denominator_definition": {"type": "string"},
+        "exact_frame_match_count": {"type": "integer", "minimum": 0},
+        "within_1_frame_count": {"type": "integer", "minimum": 0},
+        "within_3_frames_count": {"type": "integer", "minimum": 0},
+        "median_absolute_frame_delta": {"type": ["number", "null"]}
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "comparison_status",
+          "layer_attribution",
+          "baseline_supported",
+          "adjudication_required",
+          "recommended_next_action"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {"type": "string"},
+          "comparison_status": {"type": "string"},
+          "layer_attribution": {"type": "string"},
+          "human_status": {"type": ["string", "null"]},
+          "skill_status": {"type": ["string", "null"]},
+          "human_boundary_frame": {"type": ["integer", "null"]},
+          "skill_boundary_frame": {"type": ["integer", "null"]},
+          "frame_delta": {"type": ["integer", "null"]},
+          "baseline_supported": {"type": "boolean"},
+          "adjudication_required": {"type": "boolean"},
+          "recommended_next_action": {"type": "string"}
+        }
+      }
+    }
+  }
+}

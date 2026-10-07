@@ -1,0 +1,19 @@
+{
+  "additional_evidence_needed": [],
+  "boundary_confidence": null,
+  "candidate_boundaries_count": 0,
+  "case_id": "public-5gc-auth-negative",
+  "domain_instances_count": 1,
+  "evidence_limitations": [
+    "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure"
+  ],
+  "protocol_status": {
+    "gtpu": "ERROR_4",
+    "nas-5gs": "MISSING_MESSAGE_TYPE",
+    "ngap": "ERROR_4",
+    "pfcp": "ERROR_4",
+    "sbi-http2": "ERROR_4"
+  },
+  "selected_boundary": null,
+  "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+}

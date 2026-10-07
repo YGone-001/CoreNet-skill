@@ -1,0 +1,55 @@
+{
+  "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+  "baseline_confidence": "HIGH",
+  "baseline_hash": "84cc596ddd6522f9853e6223be8e3f7333ffb6d72437adcac492d508aef22030",
+  "capture_scope": {
+    "interfaces": [
+      "N2"
+    ],
+    "protocols_present": [
+      "SCTP",
+      "NGAP"
+    ],
+    "traffic_characteristics": [
+      "11 frames captured"
+    ]
+  },
+  "capture_sha256": "5f97ad0fffa68908bee6c58e451cfc7e1aac8864d65e2d843cefce2bd85a2127",
+  "case_id": "public-5gc-access-plmn-recovery",
+  "first_abnormal_boundary": null,
+  "limitations": [],
+  "procedure_observations": [
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 5,
+      "last_frame": 7,
+      "outcome": "COMPLETE",
+      "procedure_family": "ngap-management",
+      "procedure_stage": "ng-setup"
+    }
+  ],
+  "scope_assessment": {
+    "in_corenet_scope": true,
+    "interfaces_in_scope": [
+      "N2"
+    ],
+    "interfaces_out_of_scope": [],
+    "reason": "Node-level NG setup succeeds"
+  },
+  "supporting_evidence": [
+    {
+      "description": "gNB initiated NG setup with matching PLMN",
+      "evidence_level": "OBSERVED",
+      "frame_number": 5,
+      "message_type": "NGSetupRequest",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "AMF accepted NG setup",
+      "evidence_level": "OBSERVED",
+      "frame_number": 7,
+      "message_type": "NGSetupResponse",
+      "protocol": "NGAP"
+    }
+  ]
+}

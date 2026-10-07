@@ -1,0 +1,104 @@
+{
+  "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+  "baseline_confidence": "HIGH",
+  "baseline_hash": "57083818ee5e4dc8fe50b546b7571e12b7707a37abda064eaefe855b2e47ba6a",
+  "capture_scope": {
+    "interfaces": [
+      "N1",
+      "N2",
+      "N3",
+      "N4"
+    ],
+    "protocols_present": [
+      "SCTP",
+      "NGAP",
+      "NAS-5GS",
+      "PFCP",
+      "GTP-U",
+      "ICMP"
+    ],
+    "traffic_characteristics": [
+      "64 frames captured"
+    ]
+  },
+  "capture_sha256": "011d538635fe836c4ee50dcb011e3d46e53fd875baa7980c499829da912d2a97",
+  "case_id": "public-5gc-baseline-lifecycle",
+  "first_abnormal_boundary": null,
+  "limitations": [
+    "Loopback packet capture with simulated radio connection drop at frame 56"
+  ],
+  "procedure_observations": [
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 39,
+      "last_frame": 47,
+      "outcome": "COMPLETE",
+      "procedure_family": "5gc-registration-mobility",
+      "procedure_stage": "registration"
+    },
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 47,
+      "last_frame": 55,
+      "outcome": "ESTABLISHED",
+      "procedure_family": "5gc-pdu-session",
+      "procedure_stage": "establishment"
+    },
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 56,
+      "last_frame": 60,
+      "outcome": "RELEASED",
+      "procedure_family": "5gc-registration-mobility",
+      "procedure_stage": "deregistration"
+    }
+  ],
+  "scope_assessment": {
+    "in_corenet_scope": true,
+    "interfaces_in_scope": [
+      "N1",
+      "N2",
+      "N3",
+      "N4"
+    ],
+    "interfaces_out_of_scope": [],
+    "reason": "Standard 5GC procedures across N1, N2, N3, and N4"
+  },
+  "supporting_evidence": [
+    {
+      "description": "gNB and AMF association completed successfully",
+      "evidence_level": "OBSERVED",
+      "frame_number": 7,
+      "message_type": "NGSetupResponse",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "Initial context setup request carrying registration accept",
+      "evidence_level": "OBSERVED",
+      "frame_number": 44,
+      "message_type": "InitialContextSetupRequest",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "N4 PFCP session created with successful cause",
+      "evidence_level": "OBSERVED",
+      "frame_number": 50,
+      "message_type": "PFCP Session Establishment Response",
+      "protocol": "PFCP"
+    },
+    {
+      "description": "N2 PDU session resource setup completed successfully",
+      "evidence_level": "OBSERVED",
+      "frame_number": 53,
+      "message_type": "PDUSessionResourceSetupResponse",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "Bidirectional user plane ICMP echo reply traffic verified",
+      "evidence_level": "OBSERVED",
+      "frame_number": 55,
+      "message_type": "Echo reply",
+      "protocol": "GTP-U"
+    }
+  ]
+}

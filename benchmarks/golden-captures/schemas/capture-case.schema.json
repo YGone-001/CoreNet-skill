@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/capture-case.schema.json",
+  "title": "Golden Capture Case Definition",
+  "type": "object",
+  "required": [
+    "case_id",
+    "source_class",
+    "source_repository",
+    "source_commit",
+    "source_capture_path",
+    "capture_sha256",
+    "capture_size_bytes",
+    "capture_packet_count"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "source_class": {
+      "type": "string",
+      "enum": ["external-public-capture", "synthetic-test"]
+    },
+    "source_repository": {
+      "type": "string"
+    },
+    "source_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{40}$"
+    },
+    "source_capture_path": {
+      "type": "string"
+    },
+    "capture_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{64}$"
+    },
+    "capture_size_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "capture_packet_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "first_frame": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "last_frame": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "first_timestamp": {
+      "type": "string"
+    },
+    "last_timestamp": {
+      "type": "string"
+    },
+    "protocol_inventory": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "upstream_scenario_intent": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "capture_packet_count": 29,
+  "capture_sha256": "071add46ff3c429f88896e4ca9c1e45f2c107f6f1ff353118ff8fd06480dcb47",
+  "capture_size_bytes": 4304,
+  "case_id": "public-5gc-auth-recovery",
+  "first_frame": 1,
+  "first_timestamp": "1785304696.128717000",
+  "last_frame": 29,
+  "last_timestamp": "1785304698.375549000",
+  "notes": [
+    "Public capture from abdelrahman-fawaz18/5g-sa-core-protocol-lab"
+  ],
+  "protocol_inventory": [
+    "SCTP",
+    "NGAP",
+    "NAS-5GS"
+  ],
+  "source_capture_path": "captures/fault-injection/authentication-key-mismatch/recovery.pcap",
+  "source_class": "external-public-capture",
+  "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+  "source_repository": "abdelrahman-fawaz18/5g-sa-core-protocol-lab",
+  "upstream_scenario_intent": "authentication recovery with matching keys"
+}

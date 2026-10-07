@@ -36,4 +36,7 @@ mobility, GTP-U on further interfaces, and every later capability remain future 
 GTP-U v0.1.0 proves packet observations at the capture point only, never
 end-to-end user-plane validation. Implementation-specific Skills are not
 planned: external implementation analysis is performed only when users provide
-implementation evidence.
+implementation evidence. The empirical Golden Capture Differential Benchmark
+(`benchmarks/golden-captures/`) is implemented outside the Skill architecture,
+providing empirical evaluation across public 5GC signaling captures without
+claiming full procedure coverage or end-to-end root-cause isolation.

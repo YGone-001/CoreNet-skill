@@ -1,0 +1,22 @@
+{
+  "capture_packet_count": 11,
+  "capture_sha256": "4b6615b9741cac1b0a5ac7aa81b3ecf89ec6d1505df61c16ec3e2ca43eda733b",
+  "capture_size_bytes": 1512,
+  "case_id": "public-5gc-access-tai-recovery",
+  "first_frame": 1,
+  "first_timestamp": "1785304736.786524000",
+  "last_frame": 11,
+  "last_timestamp": "1785304736.789524000",
+  "notes": [
+    "Public capture from abdelrahman-fawaz18/5g-sa-core-protocol-lab"
+  ],
+  "protocol_inventory": [
+    "SCTP",
+    "NGAP"
+  ],
+  "source_capture_path": "captures/fault-injection/tac-mismatch/recovery.pcap",
+  "source_class": "external-public-capture",
+  "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+  "source_repository": "abdelrahman-fawaz18/5g-sa-core-protocol-lab",
+  "upstream_scenario_intent": "tac recovery resulting in NGSetupResponse"
+}

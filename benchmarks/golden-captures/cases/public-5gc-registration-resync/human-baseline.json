@@ -1,0 +1,89 @@
+{
+  "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+  "baseline_confidence": "HIGH",
+  "baseline_hash": "0bc9f90eae1cfc1d648186d8617135780ad98d08a70b7c5d5781a41c897f2039",
+  "capture_scope": {
+    "interfaces": [
+      "N1",
+      "N2"
+    ],
+    "protocols_present": [
+      "SCTP",
+      "NGAP",
+      "NAS-5GS"
+    ],
+    "traffic_characteristics": [
+      "210 frames captured"
+    ]
+  },
+  "capture_sha256": "65a30ad812db1f639bb1ca164b0e78908095ed8cf0a2e0535f5d1086fe41b901",
+  "case_id": "public-5gc-registration-resync",
+  "first_abnormal_boundary": null,
+  "limitations": [
+    "Capture contains periodic SCTP heartbeats before UE registration starts"
+  ],
+  "procedure_observations": [
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 40,
+      "last_frame": 43,
+      "outcome": "RESYNCHRONIZED",
+      "procedure_family": "5gc-registration-mobility",
+      "procedure_stage": "authentication_resync"
+    },
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 39,
+      "last_frame": 49,
+      "outcome": "COMPLETE",
+      "procedure_family": "5gc-registration-mobility",
+      "procedure_stage": "registration"
+    }
+  ],
+  "scope_assessment": {
+    "in_corenet_scope": true,
+    "interfaces_in_scope": [
+      "N1",
+      "N2"
+    ],
+    "interfaces_out_of_scope": [],
+    "reason": "Branch-sensitive registration recovery on N1 and N2"
+  },
+  "supporting_evidence": [
+    {
+      "description": "Initial authentication challenge sent by AMF",
+      "evidence_level": "OBSERVED",
+      "frame_number": 40,
+      "message_type": "Authentication request",
+      "protocol": "NAS-5GS"
+    },
+    {
+      "description": "UE reports Synch failure with AUTS parameter for resynchronization",
+      "evidence_level": "OBSERVED",
+      "frame_number": 41,
+      "message_type": "Authentication failure",
+      "protocol": "NAS-5GS"
+    },
+    {
+      "description": "AMF re-challenges with resynchronized authentication vector",
+      "evidence_level": "OBSERVED",
+      "frame_number": 42,
+      "message_type": "Authentication request",
+      "protocol": "NAS-5GS"
+    },
+    {
+      "description": "UE successfully computes valid RES* challenge response",
+      "evidence_level": "OBSERVED",
+      "frame_number": 43,
+      "message_type": "Authentication response",
+      "protocol": "NAS-5GS"
+    },
+    {
+      "description": "AMF accepts registration following successful resynchronization",
+      "evidence_level": "OBSERVED",
+      "frame_number": 46,
+      "message_type": "InitialContextSetupRequest",
+      "protocol": "NGAP"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "capture_packet_count": 11,
+  "capture_sha256": "aace9deef78b6b575cdf55b26cedef64ce1bc7895684df870ab43c4596ae99de",
+  "capture_size_bytes": 1476,
+  "case_id": "public-5gc-access-tai-negative",
+  "first_frame": 1,
+  "first_timestamp": "1785304735.608560000",
+  "last_frame": 11,
+  "last_timestamp": "1785304735.611726000",
+  "notes": [
+    "Public capture from abdelrahman-fawaz18/5g-sa-core-protocol-lab"
+  ],
+  "protocol_inventory": [
+    "SCTP",
+    "NGAP"
+  ],
+  "source_capture_path": "captures/fault-injection/tac-mismatch/fault.pcap",
+  "source_class": "external-public-capture",
+  "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+  "source_repository": "abdelrahman-fawaz18/5g-sa-core-protocol-lab",
+  "upstream_scenario_intent": "tac mismatch resulting in NGSetupFailure"
+}

@@ -1,0 +1,73 @@
+{
+  "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+  "baseline_confidence": "HIGH",
+  "baseline_hash": "10ea67ae4c509d7c7d4eb03442e588a471e2ff532a07788d98dd821fa271c389",
+  "capture_scope": {
+    "interfaces": [
+      "N1",
+      "N2"
+    ],
+    "protocols_present": [
+      "SCTP",
+      "NGAP",
+      "NAS-5GS"
+    ],
+    "traffic_characteristics": [
+      "29 frames captured"
+    ]
+  },
+  "capture_sha256": "071add46ff3c429f88896e4ca9c1e45f2c107f6f1ff353118ff8fd06480dcb47",
+  "case_id": "public-5gc-auth-recovery",
+  "first_abnormal_boundary": null,
+  "limitations": [],
+  "procedure_observations": [
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 9,
+      "last_frame": 17,
+      "outcome": "COMPLETE",
+      "procedure_family": "5gc-registration-mobility",
+      "procedure_stage": "registration"
+    },
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 17,
+      "last_frame": 21,
+      "outcome": "ESTABLISHED",
+      "procedure_family": "5gc-pdu-session",
+      "procedure_stage": "establishment"
+    }
+  ],
+  "scope_assessment": {
+    "in_corenet_scope": true,
+    "interfaces_in_scope": [
+      "N1",
+      "N2"
+    ],
+    "interfaces_out_of_scope": [],
+    "reason": "Standard registration and session setup"
+  },
+  "supporting_evidence": [
+    {
+      "description": "UE produces valid authentication response",
+      "evidence_level": "OBSERVED",
+      "frame_number": 11,
+      "message_type": "Authentication response",
+      "protocol": "NAS-5GS"
+    },
+    {
+      "description": "Context setup and registration accept",
+      "evidence_level": "OBSERVED",
+      "frame_number": 14,
+      "message_type": "InitialContextSetupRequest",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "PDU session resource confirmed",
+      "evidence_level": "OBSERVED",
+      "frame_number": 21,
+      "message_type": "PDUSessionResourceSetupResponse",
+      "protocol": "NGAP"
+    }
+  ]
+}

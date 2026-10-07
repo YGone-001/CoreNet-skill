@@ -1,0 +1,23 @@
+{
+  "capture_packet_count": 16,
+  "capture_sha256": "70cc13c537a745625fc59d974653f5b819874a8f1a74b14db416dc97a91801c7",
+  "capture_size_bytes": 2300,
+  "case_id": "public-5gc-auth-negative",
+  "first_frame": 1,
+  "first_timestamp": "1785304677.808757000",
+  "last_frame": 16,
+  "last_timestamp": "1785304677.842784000",
+  "notes": [
+    "Public capture from abdelrahman-fawaz18/5g-sa-core-protocol-lab"
+  ],
+  "protocol_inventory": [
+    "SCTP",
+    "NGAP",
+    "NAS-5GS"
+  ],
+  "source_capture_path": "captures/fault-injection/authentication-key-mismatch/fault.pcap",
+  "source_class": "external-public-capture",
+  "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+  "source_repository": "abdelrahman-fawaz18/5g-sa-core-protocol-lab",
+  "upstream_scenario_intent": "authentication key mismatch resulting in MAC failure and reject"
+}

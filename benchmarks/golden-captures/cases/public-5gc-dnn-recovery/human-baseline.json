@@ -1,0 +1,90 @@
+{
+  "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+  "baseline_confidence": "HIGH",
+  "baseline_hash": "0d404240bc541138b433c229f804e38fe9c5097cfbac1e5286565d9fa6ca8bce",
+  "capture_scope": {
+    "interfaces": [
+      "N1",
+      "N2",
+      "N4"
+    ],
+    "protocols_present": [
+      "SCTP",
+      "NGAP",
+      "NAS-5GS",
+      "PFCP"
+    ],
+    "traffic_characteristics": [
+      "35 frames captured"
+    ]
+  },
+  "capture_sha256": "7156491cdc859a67c0f5ceff40e3a545cbb11d593e45b066011e14294431a8c4",
+  "case_id": "public-5gc-dnn-recovery",
+  "first_abnormal_boundary": null,
+  "limitations": [],
+  "procedure_observations": [
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 9,
+      "last_frame": 15,
+      "outcome": "COMPLETE",
+      "procedure_family": "5gc-registration-mobility",
+      "procedure_stage": "registration"
+    },
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 17,
+      "last_frame": 23,
+      "outcome": "COMPLETE",
+      "procedure_family": "5gc-pdu-session",
+      "procedure_stage": "establishment"
+    }
+  ],
+  "scope_assessment": {
+    "in_corenet_scope": true,
+    "interfaces_in_scope": [
+      "N1",
+      "N2",
+      "N4"
+    ],
+    "interfaces_out_of_scope": [],
+    "reason": "Standard registration and PDU session establishment"
+  },
+  "supporting_evidence": [
+    {
+      "description": "Registration context setup succeeds",
+      "evidence_level": "OBSERVED",
+      "frame_number": 14,
+      "message_type": "InitialContextSetupRequest",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "N4 PFCP session requested for supported DNN",
+      "evidence_level": "OBSERVED",
+      "frame_number": 19,
+      "message_type": "PFCP Session Establishment Request",
+      "protocol": "PFCP"
+    },
+    {
+      "description": "N4 PFCP session created",
+      "evidence_level": "OBSERVED",
+      "frame_number": 20,
+      "message_type": "PFCP Session Establishment Response",
+      "protocol": "PFCP"
+    },
+    {
+      "description": "N2 PDU session resource setup requested",
+      "evidence_level": "OBSERVED",
+      "frame_number": 21,
+      "message_type": "PDUSessionResourceSetupRequest",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "N2 PDU session resource setup confirmed",
+      "evidence_level": "OBSERVED",
+      "frame_number": 23,
+      "message_type": "PDUSessionResourceSetupResponse",
+      "protocol": "NGAP"
+    }
+  ]
+}

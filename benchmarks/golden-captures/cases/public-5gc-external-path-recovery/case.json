@@ -1,0 +1,22 @@
+{
+  "capture_packet_count": 30,
+  "capture_sha256": "aa93817d4d962e5af04b642f90053e96e14f2e3eb7531104c61cfee74160a84b",
+  "capture_size_bytes": 4064,
+  "case_id": "public-5gc-external-path-recovery",
+  "first_frame": 1,
+  "first_timestamp": "1785304803.955938000",
+  "last_frame": 30,
+  "last_timestamp": "1785304808.016335000",
+  "notes": [
+    "Public capture from abdelrahman-fawaz18/5g-sa-core-protocol-lab"
+  ],
+  "protocol_inventory": [
+    "GTP-U",
+    "ICMP"
+  ],
+  "source_capture_path": "captures/fault-injection/missing-n6-nat/recovery.pcap",
+  "source_class": "external-public-capture",
+  "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+  "source_repository": "abdelrahman-fawaz18/5g-sa-core-protocol-lab",
+  "upstream_scenario_intent": "n6 return route recovered with bidirectional icmp ping"
+}

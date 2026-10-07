@@ -1,0 +1,33 @@
+{
+  "adjudication_required": false,
+  "baseline_supported": true,
+  "capture_limitations": [],
+  "case_id": "public-5gc-access-tai-recovery",
+  "comparison_status": "EXACT_MATCH",
+  "evidence_overlap": false,
+  "frame_delta": null,
+  "human_baseline_sha256": "682c4001c8cfa0831e1c2a9198ff5fb4e5d16c10cf2fe812f1904ef9ed81c493",
+  "human_boundary": {
+    "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+    "frame_number": null,
+    "message_type": null,
+    "procedure_family": null,
+    "procedure_stage": null,
+    "protocol": null
+  },
+  "layer_attribution": "NONE",
+  "notes": [
+    "Both human baseline and automated pipeline observed no abnormal boundary in healthy/recovered capture."
+  ],
+  "recommended_next_action": "NO_CHANGE",
+  "skill_boundary": {
+    "boundary_frame": null,
+    "boundary_message": null,
+    "boundary_protocol": null,
+    "procedure_family": null,
+    "procedure_stage": null,
+    "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+    "source_domain": null
+  },
+  "upstream_intent_match": "MATCH"
+}

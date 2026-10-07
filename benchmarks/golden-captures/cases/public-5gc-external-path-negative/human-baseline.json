@@ -1,0 +1,66 @@
+{
+  "analysis_status": "OUTSIDE_CURRENT_CORENET_SCOPE",
+  "baseline_confidence": "HIGH",
+  "baseline_hash": "9809af9272fcb542a90725d3c042d9bda192c891ea29016f95309cb5d7d5cf47",
+  "capture_scope": {
+    "interfaces": [
+      "N3"
+    ],
+    "protocols_present": [
+      "GTP-U",
+      "ICMP"
+    ],
+    "traffic_characteristics": [
+      "15 frames captured"
+    ]
+  },
+  "capture_sha256": "87cb715ef940ce55adb1ab8bdc2c77b59efc040fcad4b4aa703c0747fb974c15",
+  "case_id": "public-5gc-external-path-negative",
+  "first_abnormal_boundary": null,
+  "limitations": [
+    "User-plane packet capture only; no control signaling on N1, N2, or N4 is present"
+  ],
+  "procedure_observations": [
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 1,
+      "last_frame": 15,
+      "outcome": "UNANSWERED",
+      "procedure_family": "5gc-user-plane",
+      "procedure_stage": "uplink_transmission"
+    }
+  ],
+  "scope_assessment": {
+    "in_corenet_scope": false,
+    "interfaces_in_scope": [
+      "N3"
+    ],
+    "interfaces_out_of_scope": [
+      "N6"
+    ],
+    "reason": "Missing return route on external N6 data network path is outside current N1/N2/N3/N4/N11 orchestration scope"
+  },
+  "supporting_evidence": [
+    {
+      "description": "Uplink ICMP echo request encapsulated in GTP-U (seq 1)",
+      "evidence_level": "OBSERVED",
+      "frame_number": 1,
+      "message_type": "Echo request",
+      "protocol": "GTP-U"
+    },
+    {
+      "description": "Uplink ICMP echo request (seq 2)",
+      "evidence_level": "OBSERVED",
+      "frame_number": 4,
+      "message_type": "Echo request",
+      "protocol": "GTP-U"
+    },
+    {
+      "description": "Uplink ICMP echo request (seq 5); zero replies received",
+      "evidence_level": "OBSERVED",
+      "frame_number": 13,
+      "message_type": "Echo request",
+      "protocol": "GTP-U"
+    }
+  ]
+}

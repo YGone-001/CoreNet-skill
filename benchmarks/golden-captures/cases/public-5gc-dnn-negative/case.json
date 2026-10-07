@@ -1,0 +1,23 @@
+{
+  "capture_packet_count": 28,
+  "capture_sha256": "fa8daf46694594f0ff007eca49a3ebe5e1ca54d14f6784e9000c11d6b77112a8",
+  "capture_size_bytes": 4168,
+  "case_id": "public-5gc-dnn-negative",
+  "first_frame": 1,
+  "first_timestamp": "1785304741.112464000",
+  "last_frame": 28,
+  "last_timestamp": "1785304863.738096000",
+  "notes": [
+    "Public capture from abdelrahman-fawaz18/5g-sa-core-protocol-lab"
+  ],
+  "protocol_inventory": [
+    "SCTP",
+    "NGAP",
+    "NAS-5GS"
+  ],
+  "source_capture_path": "captures/fault-injection/unsupported-dnn/fault.pcap",
+  "source_class": "external-public-capture",
+  "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+  "source_repository": "abdelrahman-fawaz18/5g-sa-core-protocol-lab",
+  "upstream_scenario_intent": "unsupported dnn request resulting in session rejection without PFCP session"
+}

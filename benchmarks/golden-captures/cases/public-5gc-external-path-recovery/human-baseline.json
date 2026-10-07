@@ -1,0 +1,64 @@
+{
+  "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+  "baseline_confidence": "HIGH",
+  "baseline_hash": "164154200daf54f105e1093158345e061db80bf928257db99c967ebd1071c938",
+  "capture_scope": {
+    "interfaces": [
+      "N3"
+    ],
+    "protocols_present": [
+      "GTP-U",
+      "ICMP"
+    ],
+    "traffic_characteristics": [
+      "30 frames captured"
+    ]
+  },
+  "capture_sha256": "aa93817d4d962e5af04b642f90053e96e14f2e3eb7531104c61cfee74160a84b",
+  "case_id": "public-5gc-external-path-recovery",
+  "first_abnormal_boundary": null,
+  "limitations": [
+    "User-plane packet capture only"
+  ],
+  "procedure_observations": [
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 1,
+      "last_frame": 30,
+      "outcome": "COMPLETE",
+      "procedure_family": "5gc-user-plane",
+      "procedure_stage": "bidirectional_traffic"
+    }
+  ],
+  "scope_assessment": {
+    "in_corenet_scope": true,
+    "interfaces_in_scope": [
+      "N3"
+    ],
+    "interfaces_out_of_scope": [],
+    "reason": "Normal user plane transmission over N3"
+  },
+  "supporting_evidence": [
+    {
+      "description": "Uplink ICMP echo request in GTP-U",
+      "evidence_level": "OBSERVED",
+      "frame_number": 1,
+      "message_type": "Echo request",
+      "protocol": "GTP-U"
+    },
+    {
+      "description": "Downlink ICMP echo reply in GTP-U",
+      "evidence_level": "OBSERVED",
+      "frame_number": 6,
+      "message_type": "Echo reply",
+      "protocol": "GTP-U"
+    },
+    {
+      "description": "Final downlink ICMP echo reply received",
+      "evidence_level": "OBSERVED",
+      "frame_number": 30,
+      "message_type": "Echo reply",
+      "protocol": "GTP-U"
+    }
+  ]
+}

@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/human-baseline.schema.json",
+  "title": "Golden Capture Independent Human Baseline",
+  "type": "object",
+  "required": [
+    "case_id",
+    "capture_sha256",
+    "capture_scope",
+    "analysis_status",
+    "procedure_observations",
+    "first_abnormal_boundary",
+    "supporting_evidence",
+    "limitations",
+    "scope_assessment",
+    "baseline_confidence"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "capture_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{64}$"
+    },
+    "capture_scope": {
+      "type": "object",
+      "required": ["interfaces", "protocols_present"],
+      "additionalProperties": false,
+      "properties": {
+        "interfaces": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "protocols_present": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "traffic_characteristics": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "analysis_status": {
+      "type": "string",
+      "enum": [
+        "BOUNDARY_OBSERVED",
+        "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+        "INSUFFICIENT_EVIDENCE",
+        "OUTSIDE_CURRENT_CORENET_SCOPE",
+        "MULTIPLE_POSSIBLE_BOUNDARIES"
+      ]
+    },
+    "procedure_observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "procedure_family",
+          "procedure_stage",
+          "outcome",
+          "first_frame",
+          "last_frame",
+          "evidence_level"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "procedure_family": {"type": "string"},
+          "procedure_stage": {"type": ["string", "null"]},
+          "outcome": {"type": "string"},
+          "first_frame": {"type": "integer", "minimum": 1},
+          "last_frame": {"type": "integer", "minimum": 1},
+          "evidence_level": {
+            "type": "string",
+            "enum": ["OBSERVED", "DERIVED"]
+          }
+        }
+      }
+    },
+    "first_abnormal_boundary": {
+      "type": ["object", "null"],
+      "required": [
+        "procedure_family",
+        "procedure_stage",
+        "protocol",
+        "message_type",
+        "frame_number",
+        "timestamp",
+        "evidence_level",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "procedure_family": {"type": "string"},
+        "procedure_stage": {"type": ["string", "null"]},
+        "protocol": {"type": "string"},
+        "message_type": {"type": "string"},
+        "frame_number": {"type": ["integer", "null"], "minimum": 1},
+        "observation_window": {
+          "type": ["object", "null"],
+          "required": ["start_frame", "end_frame"],
+          "additionalProperties": false,
+          "properties": {
+            "start_frame": {"type": "integer", "minimum": 1},
+            "end_frame": {"type": "integer", "minimum": 1}
+          }
+        },
+        "timestamp": {"type": ["string", "null"]},
+        "evidence_level": {
+          "type": "string",
+          "enum": ["OBSERVED", "DERIVED"]
+        },
+        "reason": {"type": "string"}
+      }
+    },
+    "supporting_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "frame_number",
+          "protocol",
+          "message_type",
+          "description",
+          "evidence_level"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "frame_number": {"type": "integer", "minimum": 1},
+          "protocol": {"type": "string"},
+          "message_type": {"type": "string"},
+          "description": {"type": "string"},
+          "evidence_level": {
+            "type": "string",
+            "enum": ["OBSERVED", "DERIVED"]
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "scope_assessment": {
+      "type": "object",
+      "required": [
+        "in_corenet_scope",
+        "interfaces_in_scope",
+        "interfaces_out_of_scope",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "in_corenet_scope": {"type": "boolean"},
+        "interfaces_in_scope": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "interfaces_out_of_scope": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "reason": {"type": "string"}
+      }
+    },
+    "baseline_confidence": {
+      "type": "string",
+      "enum": ["HIGH", "MEDIUM", "LOW"]
+    },
+    "baseline_hash": {
+      "type": "string"
+    }
+  }
+}

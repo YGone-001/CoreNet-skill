@@ -1,0 +1,22 @@
+{
+  "capture_packet_count": 11,
+  "capture_sha256": "6b2097195c4575865436f1d744621a30c1041846d8fb478b2727aca2767b051a",
+  "capture_size_bytes": 1476,
+  "case_id": "public-5gc-access-plmn-negative",
+  "first_frame": 1,
+  "first_timestamp": "1785304724.894371000",
+  "last_frame": 11,
+  "last_timestamp": "1785304724.897371000",
+  "notes": [
+    "Public capture from abdelrahman-fawaz18/5g-sa-core-protocol-lab"
+  ],
+  "protocol_inventory": [
+    "SCTP",
+    "NGAP"
+  ],
+  "source_capture_path": "captures/fault-injection/plmn-mismatch/fault.pcap",
+  "source_class": "external-public-capture",
+  "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+  "source_repository": "abdelrahman-fawaz18/5g-sa-core-protocol-lab",
+  "upstream_scenario_intent": "plmn mismatch resulting in NGSetupFailure"
+}

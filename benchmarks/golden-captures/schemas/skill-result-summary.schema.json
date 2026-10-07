@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/skill-result-summary.schema.json",
+  "title": "Sanitized Skill Result Summary",
+  "type": "object",
+  "required": [
+    "case_id",
+    "selection_status",
+    "selected_boundary",
+    "boundary_confidence",
+    "evidence_limitations",
+    "additional_evidence_needed"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "selection_status": {
+      "type": "string"
+    },
+    "selected_boundary": {
+      "type": ["object", "null"],
+      "required": [
+        "selected_source_domain",
+        "selected_procedure_family",
+        "selected_procedure_stage",
+        "deviation_type",
+        "boundary_protocol",
+        "boundary_message",
+        "boundary_frame",
+        "boundary_timestamp",
+        "evidence_level"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "selected_source_domain": {"type": "string"},
+        "selected_procedure_family": {"type": "string"},
+        "selected_procedure_stage": {"type": ["string", "null"]},
+        "deviation_type": {"type": "string"},
+        "boundary_protocol": {"type": "string"},
+        "boundary_message": {"type": "string"},
+        "boundary_frame": {"type": "integer", "minimum": 1},
+        "boundary_timestamp": {"type": "string"},
+        "evidence_level": {"type": "string"}
+      }
+    },
+    "boundary_confidence": {
+      "type": ["string", "null"]
+    },
+    "evidence_limitations": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "additional_evidence_needed": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "domain_instances_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "candidate_boundaries_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "protocol_status": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}

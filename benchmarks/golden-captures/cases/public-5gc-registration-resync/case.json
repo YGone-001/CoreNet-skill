@@ -1,0 +1,23 @@
+{
+  "capture_packet_count": 210,
+  "capture_sha256": "65a30ad812db1f639bb1ca164b0e78908095ed8cf0a2e0535f5d1086fe41b901",
+  "capture_size_bytes": 27760,
+  "case_id": "public-5gc-registration-resync",
+  "first_frame": 1,
+  "first_timestamp": "1784948043.884160000",
+  "last_frame": 210,
+  "last_timestamp": "1784948131.641619000",
+  "notes": [
+    "Public capture from abdelrahman-fawaz18/5g-sa-core-protocol-lab"
+  ],
+  "protocol_inventory": [
+    "SCTP",
+    "NGAP",
+    "NAS-5GS"
+  ],
+  "source_capture_path": "captures/baseline/registration-resynchronization.pcap",
+  "source_class": "external-public-capture",
+  "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+  "source_repository": "abdelrahman-fawaz18/5g-sa-core-protocol-lab",
+  "upstream_scenario_intent": "registration authentication synch failure and subsequent resynchronization recovery"
+}

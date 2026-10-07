@@ -1,0 +1,110 @@
+{
+  "analysis_status": "BOUNDARY_OBSERVED",
+  "baseline_confidence": "HIGH",
+  "baseline_hash": "f2123b62fe616c4c242b66d133a7a6ef45e366d9c447302d3565f4e2c2632fbd",
+  "capture_scope": {
+    "interfaces": [
+      "N1",
+      "N2"
+    ],
+    "protocols_present": [
+      "SCTP",
+      "NGAP",
+      "NAS-5GS"
+    ],
+    "traffic_characteristics": [
+      "28 frames captured"
+    ]
+  },
+  "capture_sha256": "fa8daf46694594f0ff007eca49a3ebe5e1ca54d14f6784e9000c11d6b77112a8",
+  "case_id": "public-5gc-dnn-negative",
+  "first_abnormal_boundary": {
+    "evidence_level": "OBSERVED",
+    "frame_number": 18,
+    "message_type": "DownlinkNASTransport",
+    "observation_window": {
+      "end_frame": 19,
+      "start_frame": 17
+    },
+    "procedure_family": "5gc-pdu-session",
+    "procedure_stage": "pdu_session_establishment",
+    "protocol": "NAS-5GS",
+    "reason": "PDU session establishment requested for unsupported DNN at frame 17; protected response at frame 18/19 followed by no PFCP session and no NGAP resource setup",
+    "timestamp": "1785304750.196435000"
+  },
+  "limitations": [
+    "NAS traffic after Security Mode is encrypted; exact 5GSM cause is protected in envelope"
+  ],
+  "procedure_observations": [
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 9,
+      "last_frame": 15,
+      "outcome": "COMPLETE",
+      "procedure_family": "5gc-registration-mobility",
+      "procedure_stage": "registration"
+    },
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 17,
+      "last_frame": 21,
+      "outcome": "REJECTED_PROTECTED",
+      "procedure_family": "5gc-pdu-session",
+      "procedure_stage": "establishment"
+    },
+    {
+      "evidence_level": "OBSERVED",
+      "first_frame": 22,
+      "last_frame": 24,
+      "outcome": "RELEASED",
+      "procedure_family": "5gc-registration-mobility",
+      "procedure_stage": "release"
+    }
+  ],
+  "scope_assessment": {
+    "in_corenet_scope": true,
+    "interfaces_in_scope": [
+      "N1",
+      "N2"
+    ],
+    "interfaces_out_of_scope": [],
+    "reason": "PDU session establishment failure on N1 and N2"
+  },
+  "supporting_evidence": [
+    {
+      "description": "Registration accepted and initial UE context established",
+      "evidence_level": "OBSERVED",
+      "frame_number": 14,
+      "message_type": "InitialContextSetupRequest",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "UE requests PDU session establishment for unsupported DNN",
+      "evidence_level": "OBSERVED",
+      "frame_number": 17,
+      "message_type": "UplinkNASTransport",
+      "protocol": "NAS-5GS"
+    },
+    {
+      "description": "Protected downlink NAS transport message delivered by AMF",
+      "evidence_level": "OBSERVED",
+      "frame_number": 18,
+      "message_type": "DownlinkNASTransport",
+      "protocol": "NAS-5GS"
+    },
+    {
+      "description": "T3580 retransmission of session request",
+      "evidence_level": "OBSERVED",
+      "frame_number": 20,
+      "message_type": "UplinkNASTransport",
+      "protocol": "NAS-5GS"
+    },
+    {
+      "description": "UE context release initiated",
+      "evidence_level": "OBSERVED",
+      "frame_number": 22,
+      "message_type": "UEContextReleaseRequest",
+      "protocol": "NGAP"
+    }
+  ]
+}

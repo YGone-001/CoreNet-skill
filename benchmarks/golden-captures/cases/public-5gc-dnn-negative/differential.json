@@ -1,0 +1,35 @@
+{
+  "adjudication_required": false,
+  "baseline_supported": true,
+  "capture_limitations": [
+    "NAS traffic after Security Mode is encrypted; exact 5GSM cause is protected in envelope"
+  ],
+  "case_id": "public-5gc-dnn-negative",
+  "comparison_status": "PROTOCOL_COVERAGE_GAP",
+  "evidence_overlap": false,
+  "frame_delta": null,
+  "human_baseline_sha256": "62cc324e8d8991a30cc762d40979fedced34f1a6a26b71d1f02e8568b7d6a658",
+  "human_boundary": {
+    "analysis_status": "BOUNDARY_OBSERVED",
+    "frame_number": 18,
+    "message_type": "DownlinkNASTransport",
+    "procedure_family": "5gc-pdu-session",
+    "procedure_stage": "pdu_session_establishment",
+    "protocol": "NAS-5GS"
+  },
+  "layer_attribution": "PROTOCOL",
+  "notes": [
+    "Protocol extractor failure or field extraction limitation prevented procedure recognition (underlying N2 transport (NGAP) extractor status is ERROR_4)."
+  ],
+  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
+  "skill_boundary": {
+    "boundary_frame": null,
+    "boundary_message": null,
+    "boundary_protocol": null,
+    "procedure_family": null,
+    "procedure_stage": null,
+    "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+    "source_domain": null
+  },
+  "upstream_intent_match": "PARTIAL"
+}

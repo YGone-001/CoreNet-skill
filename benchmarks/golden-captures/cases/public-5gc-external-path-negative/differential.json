@@ -1,0 +1,35 @@
+{
+  "adjudication_required": false,
+  "baseline_supported": true,
+  "capture_limitations": [
+    "User-plane packet capture only; no control signaling on N1, N2, or N4 is present"
+  ],
+  "case_id": "public-5gc-external-path-negative",
+  "comparison_status": "OUT_OF_SCOPE",
+  "evidence_overlap": false,
+  "frame_delta": null,
+  "human_baseline_sha256": "ad99c22301b8657f74b30a0392b556e27c33b586d0e3e22ee9a81f5981d8f4d8",
+  "human_boundary": {
+    "analysis_status": "OUTSIDE_CURRENT_CORENET_SCOPE",
+    "frame_number": null,
+    "message_type": null,
+    "procedure_family": null,
+    "procedure_stage": null,
+    "protocol": null
+  },
+  "layer_attribution": "OUT_OF_SCOPE",
+  "notes": [
+    "Capture condition falls outside implemented CoreNet interfaces (e.g. N6 external path); pipeline safely remained conservative."
+  ],
+  "recommended_next_action": "EXPAND_FUTURE_SCOPE",
+  "skill_boundary": {
+    "boundary_frame": null,
+    "boundary_message": null,
+    "boundary_protocol": null,
+    "procedure_family": null,
+    "procedure_stage": null,
+    "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+    "source_domain": null
+  },
+  "upstream_intent_match": "MATCH"
+}
