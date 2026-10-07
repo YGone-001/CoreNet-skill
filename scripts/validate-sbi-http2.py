@@ -158,7 +158,7 @@ def validate(root: Path) -> list[str]:
         return errors
 
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "sbi-http2"), ("version", "0.2.0"), ("category", "protocol")):
+    for key, expected in (("name", "sbi-http2"), ("version", "0.2.1"), ("category", "protocol")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
     if not re.search(r"(?m)^\s*required:\s*\[\]\s*$", manifest):
@@ -171,6 +171,12 @@ def validate(root: Path) -> list[str]:
         errors.append("manifest interface ownership must be N11 only")
     if manifest_value(manifest, "network_functions") not in (None, "[]"):
         errors.append("manifest network_functions must stay empty for a Protocol Skill")
+
+    model_text = (skill / "scripts" / "sbi_model.py").read_text(encoding="utf-8")
+    if "FieldSpec" not in model_text:
+        errors.append("sbi_model.py must implement FieldSpec compatibility model")
+    if "resolve_field_specs" not in model_text:
+        errors.append("sbi_model.py must provide resolve_field_specs")
 
     local_trace = skill / "schemas" / "trace-event.schema.json"
     shared_trace = root / "shared" / "schemas" / "trace-event.schema.json"

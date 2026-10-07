@@ -173,3 +173,21 @@ rather than observed.
   observed/derived split stays auditable.
 - evidence.source names the capture frame and the procedure code, plus the
   Info-column text when it drove PDU resolution.
+
+## Direct-Capture TShark Compatibility (v0.3.1)
+
+Direct capture extraction uses a bounded compatibility adapter (`FieldSpec`)
+that normalizes TShark dissector field differences into canonical CoreNet keys.
+Tested against TShark 4.7.1 (v4.7.1-0-g667ab240e6de).
+
+| Canonical Field | Reviewed TShark Candidates | Required / Optional | Availability in Tested TShark 4.7.1 | Normalization Rule |
+| --- | --- | --- | --- | --- |
+| `frame.number` | `frame.number` | Required | Available | Direct integer frame identity |
+| `frame.time_epoch` | `frame.time_epoch` | Required | Available | Microsecond epoch timestamp |
+| `ngap.procedureCode` | `ngap.procedureCode` | Required | Available | First token parsed as integer (0..255) |
+| `_ws.col.Info` | `_ws.col.Info`, `_ws.col.info` | Optional | `_ws.col.info` available | Mapped to canonical `_ws.col.Info` key |
+| `ip.src`, `ip.dst`, etc. | Canonical name | Optional | Available | Endpoint address / port |
+| `ngap.AMF_UE_NGAP_ID`, `ngap.RAN_UE_NGAP_ID` | Canonical name | Optional | Available | Mapped directly when present |
+| Bounded PDU Session & Mobility fields | Canonical name | Optional | Available | Mapped directly when present; empty string when absent |
+
+Display filter: `ngap` (verified via `tshark -G protocols`). Optional field absence does not cause extraction failure.

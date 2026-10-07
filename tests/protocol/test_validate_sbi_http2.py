@@ -47,10 +47,17 @@ class SbiHttp2ValidatorTests(unittest.TestCase):
         with temporary:
             manifest = root / "skills/protocol/sbi-http2/manifest.yaml"
             manifest.write_text(
-                manifest.read_text(encoding="utf-8").replace("version: 0.2.0", "version: 0.3.0"),
+                manifest.read_text(encoding="utf-8").replace("version: 0.2.1", "version: 0.3.0"),
                 encoding="utf-8",
             )
-            self.assertTrue(any("manifest version must be 0.2.0" in error for error in VALIDATOR.validate(root)))
+            self.assertTrue(any("manifest version must be 0.2.1" in error for error in VALIDATOR.validate(root)))
+
+    def test_missing_field_spec_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/protocol/sbi-http2/scripts/sbi_model.py"
+            model.write_text(model.read_text(encoding="utf-8").replace("FieldSpec", "OtherSpec"), encoding="utf-8")
+            self.assertTrue(any("FieldSpec compatibility model" in error for error in VALIDATOR.validate(root)))
 
     def test_wrong_interface_is_detected(self):
         temporary, root = self.fixture()

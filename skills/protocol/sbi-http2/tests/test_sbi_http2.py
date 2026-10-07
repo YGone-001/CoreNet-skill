@@ -38,7 +38,7 @@ class ManifestAndSchemaTests(unittest.TestCase):
         self.assertTrue(manifest_path.is_file())
         text = manifest_path.read_text(encoding="utf-8")
         self.assertIn("name: sbi-http2", text)
-        self.assertIn("version: 0.2.0", text)
+        self.assertIn("version: 0.2.1", text)
         self.assertIn("category: protocol", text)
         self.assertIn("interfaces:\n  - N11", text)
         self.assertIn("protocols:\n  - HTTP/2\n  - 3GPP-SBI", text)
@@ -903,6 +903,33 @@ class StandaloneCopyTests(unittest.TestCase):
             self.assertNotIn("SMF FAILURE", tl_text)
             self.assertNotIn("PDU SESSION SUCCESS", tl_text)
             self.assertNotIn("PDU SESSION FAILED", tl_text)
+
+
+class SbiHttp2FieldResolutionTests(unittest.TestCase):
+    def tearDown(self):
+        sbi_model.set_discovery_overrides(None, None)
+
+    def test_candidate_aliases_fallback(self):
+        sbi_model.set_discovery_overrides({
+            "frame.number",
+            "frame.time_epoch",
+            "http2.length",
+            "http2.goaway.last_stream_id",
+            "json.member",
+        })
+        mappings, _ = sbi_model.resolve_field_specs(sbi_model.FIELD_SPECS, sbi_model.get_available_fields(), "test-ver")
+        resolved = dict(mappings)
+        self.assertIn("http2.length", resolved)
+        self.assertEqual(resolved["http2.length"], "http2.data.length")
+        self.assertIn("http2.goaway.last_stream_id", resolved)
+        self.assertEqual(resolved["http2.goaway.last_stream_id"], "http2.goaway.last_streamid")
+        self.assertIn("json.member", resolved)
+        self.assertEqual(resolved["json.member"], "json.member_name")
+
+    def test_missing_required_field_raises(self):
+        sbi_model.set_discovery_overrides({"http2.streamid"})
+        with self.assertRaises(sbi_model.TsharkError):
+            sbi_model.resolve_field_specs(sbi_model.FIELD_SPECS, sbi_model.get_available_fields(), "test-ver")
 
 
 if __name__ == "__main__":

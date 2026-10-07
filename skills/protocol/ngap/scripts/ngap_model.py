@@ -25,12 +25,22 @@ from __future__ import annotations
 
 import csv
 import json
+import os
+import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN
 from pathlib import Path
 from typing import Iterable, Iterator
+
+
+@dataclass(frozen=True)
+class FieldSpec:
+    canonical_name: str
+    tshark_candidates: tuple[str, ...]
+    required: bool = False
 
 
 EXIT_TOOL_UNAVAILABLE = 3
@@ -121,6 +131,17 @@ FIELDS = (
     "ngap.TargetToSource_TransparentContainer",
     "ngap.TargettoSource_Failure_TransparentContainer",
 )
+
+FIELD_SPECS: tuple[FieldSpec, ...] = tuple(
+    FieldSpec(
+        canonical_name=name,
+        tshark_candidates=("_ws.col.Info", "_ws.col.info") if name == "_ws.col.Info" else (name,),
+        required=name in {"frame.number", "frame.time_epoch", "ngap.procedureCode"},
+    )
+    for name in FIELDS
+)
+
+FILTER_CANDIDATES: tuple[str, ...] = ("ngap",)
 
 PDU_INITIATING = "initiatingMessage"
 PDU_SUCCESSFUL = "successfulOutcome"
@@ -480,8 +501,9 @@ def parse_int(value: object, field: str) -> int:
     text = clean(value)
     if text is None:
         raise InputError(f"{field} is required")
+    token = text.split(",")[0].strip()
     try:
-        return int(text)
+        return int(token, 0) if token.startswith(("0x", "0X")) else int(token)
     except ValueError as exc:
         raise InputError(f"{field} must be an integer") from exc
 
@@ -490,8 +512,9 @@ def optional_int(value: object) -> int | None:
     text = clean(value)
     if text is None:
         return None
+    token = text.split(",")[0].strip()
     try:
-        return int(text)
+        return int(token, 0) if token.startswith(("0x", "0X")) else int(token)
     except ValueError:
         return None
 
@@ -1209,9 +1232,115 @@ def read_jsonl(path: Path) -> Iterator[dict[str, object]]:
             yield record
 
 
-def tshark_version() -> str:
+def resolve_tshark_executable() -> str:
+    found = shutil.which("tshark")
+    if found:
+        return found
+    if sys.platform == "win32":
+        for candidate in (r"D:\Wireshark\tshark.exe", r"C:\Program Files\Wireshark\tshark.exe", r"C:\Program Files (x86)\Wireshark\tshark.exe"):
+            if Path(candidate).is_file():
+                return candidate
+    return "tshark"
+
+
+_AVAILABLE_FIELDS_OVERRIDE: set[str] | None = None
+_AVAILABLE_PROTOCOLS_OVERRIDE: set[str] | None = None
+_AVAILABLE_FIELDS_CACHE: set[str] | None = None
+_AVAILABLE_PROTOCOLS_CACHE: set[str] | None = None
+
+
+def set_discovery_overrides(fields: set[str] | None = None, protocols: set[str] | None = None) -> None:
+    global _AVAILABLE_FIELDS_OVERRIDE, _AVAILABLE_PROTOCOLS_OVERRIDE
+    _AVAILABLE_FIELDS_OVERRIDE = fields
+    _AVAILABLE_PROTOCOLS_OVERRIDE = protocols
+
+
+def get_available_fields(tshark_bin: str | None = None) -> set[str] | None:
+    if _AVAILABLE_FIELDS_OVERRIDE is not None:
+        return _AVAILABLE_FIELDS_OVERRIDE
+    global _AVAILABLE_FIELDS_CACHE
+    if _AVAILABLE_FIELDS_CACHE is not None:
+        return _AVAILABLE_FIELDS_CACHE
+    exe = tshark_bin or resolve_tshark_executable()
     try:
-        completed = subprocess.run(["tshark", "--version"], capture_output=True, text=True, check=False)
+        proc = subprocess.run([exe, "-G", "fields"], capture_output=True, encoding="utf-8", errors="replace", check=False)
+        if proc.returncode == 0 and proc.stdout:
+            fields = set()
+            for line in proc.stdout.splitlines():
+                parts = line.split("\t")
+                if len(parts) >= 3:
+                    fields.add(parts[2])
+            _AVAILABLE_FIELDS_CACHE = fields
+            return fields
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
+def get_available_protocols(tshark_bin: str | None = None) -> set[str] | None:
+    if _AVAILABLE_PROTOCOLS_OVERRIDE is not None:
+        return _AVAILABLE_PROTOCOLS_OVERRIDE
+    global _AVAILABLE_PROTOCOLS_CACHE
+    if _AVAILABLE_PROTOCOLS_CACHE is not None:
+        return _AVAILABLE_PROTOCOLS_CACHE
+    exe = tshark_bin or resolve_tshark_executable()
+    try:
+        proc = subprocess.run([exe, "-G", "protocols"], capture_output=True, encoding="utf-8", errors="replace", check=False)
+        if proc.returncode == 0 and proc.stdout:
+            protos = set()
+            for line in proc.stdout.splitlines():
+                parts = line.split("\t")
+                if len(parts) >= 3:
+                    protos.add(parts[2])
+            _AVAILABLE_PROTOCOLS_CACHE = protos
+            return protos
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
+def resolve_filter(candidates: tuple[str, ...], available_protocols: set[str] | None) -> str:
+    if available_protocols is not None:
+        for cand in candidates:
+            if cand in available_protocols:
+                return cand
+        raise TsharkError(f"tshark compatibility error: none of the protocol filter candidates {candidates} are supported by installed TShark")
+    return candidates[0]
+
+
+def resolve_field_specs(
+    specs: tuple[FieldSpec, ...],
+    available_fields: set[str] | None,
+    tshark_ver: str,
+) -> tuple[list[tuple[str, str]], list[str]]:
+    resolved_mappings: list[tuple[str, str]] = []
+    unresolved_optional: list[str] = []
+    for spec in specs:
+        resolved_field: str | None = None
+        if available_fields is not None:
+            for cand in spec.tshark_candidates:
+                if cand in available_fields:
+                    resolved_field = cand
+                    break
+        else:
+            resolved_field = spec.tshark_candidates[0]
+
+        if resolved_field is not None:
+            resolved_mappings.append((resolved_field, spec.canonical_name))
+        elif spec.required:
+            raise TsharkError(
+                f"tshark compatibility error: required field '{spec.canonical_name}' "
+                f"(candidates: {spec.tshark_candidates}) is not available in installed TShark {tshark_ver}"
+            )
+        else:
+            unresolved_optional.append(spec.canonical_name)
+    return resolved_mappings, unresolved_optional
+
+
+def tshark_version() -> str:
+    exe = resolve_tshark_executable()
+    try:
+        completed = subprocess.run([exe, "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
     except FileNotFoundError as exc:
         raise ToolUnavailable("tshark is unavailable; install Wireshark/tshark manually and retry") from exc
     if completed.returncode != 0:
@@ -1220,7 +1349,11 @@ def tshark_version() -> str:
     return completed.stdout.splitlines()[0].strip() if completed.stdout else "tshark (version unavailable)"
 
 
-def build_tshark_fields_command(capture: Path) -> list[str]:
+def build_tshark_fields_command(
+    capture: Path,
+    mappings: list[tuple[str, str]] | None = None,
+    display_filter: str = "ngap",
+) -> list[str]:
     """Build the bounded field-extraction command.
 
     ``occurrence=a`` exports every occurrence of a repeated field
@@ -1228,16 +1361,49 @@ def build_tshark_fields_command(capture: Path) -> list[str]:
     truncated to the first occurrence; single-occurrence fields are
     unaffected.
     """
-    command = ["tshark", "-n", "-r", str(capture), "-T", "fields", "-E", "header=y", "-E", "separator=/t", "-E", "quote=d", "-E", "occurrence=a", "-Y", "ngap"]
-    for field in FIELDS:
-        command.extend(["-e", field])
+    exe = resolve_tshark_executable()
+    command = [
+        exe,
+        "-n",
+        "-r",
+        str(capture),
+        "-T",
+        "fields",
+        "-E",
+        "header=y",
+        "-E",
+        "separator=/t",
+        "-E",
+        "quote=d",
+        "-E",
+        "occurrence=a",
+        "-Y",
+        display_filter,
+    ]
+    if mappings is None:
+        mappings = [(s.tshark_candidates[0], s.canonical_name) for s in FIELD_SPECS]
+    for actual, _ in mappings:
+        command.extend(["-e", actual])
     return command
 
 
 def tshark_records(capture: Path) -> Iterator[dict[str, object]]:
-    command = build_tshark_fields_command(capture)
+    exe = resolve_tshark_executable()
+    ver = tshark_version()
+    avail_fields = get_available_fields(exe)
+    avail_protos = get_available_protocols(exe)
+    resolved_filter = resolve_filter(FILTER_CANDIDATES, avail_protos)
+    mappings, unresolved_optional = resolve_field_specs(FIELD_SPECS, avail_fields, ver)
+    command = build_tshark_fields_command(capture, mappings, resolved_filter)
     try:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
     except FileNotFoundError as exc:
         raise ToolUnavailable("tshark is unavailable; install Wireshark/tshark manually and retry") from exc
     assert process.stdout is not None
@@ -1245,17 +1411,23 @@ def tshark_records(capture: Path) -> Iterator[dict[str, object]]:
     header = next(reader, None)
     if header is None:
         stderr = process.stderr.read().strip() if process.stderr else ""
-        process.wait()
-        raise TsharkError(f"tshark returned no field header: {stderr or 'no output'}")
-    if tuple(header) != FIELDS:
+        return_code = process.wait()
+        if return_code != 0:
+            raise TsharkError(f"tshark returned no field header: {stderr or 'no output'}")
+        return
+    expected_headers = [actual for actual, _ in mappings]
+    if list(header) != expected_headers:
         stderr = process.stderr.read().strip() if process.stderr else ""
         process.wait()
-        raise TsharkError(f"tshark did not expose the required NGAP fields: {stderr or header}")
+        raise TsharkError(f"tshark returned unexpected field header: expected {expected_headers}, got {header}: {stderr}")
     for row in reader:
-        if len(row) > len(FIELDS):
+        if len(row) > len(mappings):
             raise TsharkError("tshark returned more columns than the requested NGAP field set")
-        padded = row + [""] * (len(FIELDS) - len(row))
-        yield dict(zip(FIELDS, padded, strict=True))
+        padded = row + [""] * (len(mappings) - len(row))
+        record = {canonical: padded[i] for i, (_, canonical) in enumerate(mappings)}
+        for opt in unresolved_optional:
+            record[opt] = ""
+        yield record
     stderr = process.stderr.read().strip() if process.stderr else ""
     return_code = process.wait()
     if return_code != 0:

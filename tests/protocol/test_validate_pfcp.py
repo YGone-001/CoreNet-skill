@@ -44,8 +44,15 @@ class PfcpValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/protocol/pfcp/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.1.0", "version: 0.2.0"), encoding="utf-8")
-            self.assertTrue(any("manifest version must be 0.1.0" in error for error in VALIDATOR.validate(root)))
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.1.1", "version: 0.2.0"), encoding="utf-8")
+            self.assertTrue(any("manifest version must be 0.1.1" in error for error in VALIDATOR.validate(root)))
+
+    def test_missing_field_spec_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/protocol/pfcp/scripts/pfcp_model.py"
+            model.write_text(model.read_text(encoding="utf-8").replace("FieldSpec", "OtherSpec"), encoding="utf-8")
+            self.assertTrue(any("FieldSpec compatibility model" in error for error in VALIDATOR.validate(root)))
 
     def test_wrong_category_is_detected(self):
         temporary, root = self.fixture()

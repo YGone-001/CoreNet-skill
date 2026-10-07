@@ -1,5 +1,5 @@
 name: gtpu
-version: 0.1.0
+version: 0.1.1
 category: protocol
 description: >
   Bounded GTP-U semantic extraction for N3 user-plane evidence: message

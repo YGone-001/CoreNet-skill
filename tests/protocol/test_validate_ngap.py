@@ -96,15 +96,36 @@ class NgapValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/protocol/ngap/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.0", "version: 0.1.0"), encoding="utf-8")
-            self.assertTrue(any("manifest version must be 0.3.0" in error for error in VALIDATOR.validate(root)))
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.1", "version: 0.1.0"), encoding="utf-8")
+            self.assertTrue(any("manifest version must be 0.3.1" in error for error in VALIDATOR.validate(root)))
 
     def test_version_left_at_previous_release_is_detected(self):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/protocol/ngap/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.0", "version: 0.2.0"), encoding="utf-8")
-            self.assertTrue(any("manifest version must be 0.3.0" in error for error in VALIDATOR.validate(root)))
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.1", "version: 0.3.0"), encoding="utf-8")
+            self.assertTrue(any("manifest version must be 0.3.1" in error for error in VALIDATOR.validate(root)))
+
+    def test_missing_field_spec_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/protocol/ngap/scripts/ngap_model.py"
+            model.write_text(model.read_text(encoding="utf-8").replace("FieldSpec", "OtherSpec"), encoding="utf-8")
+            self.assertTrue(any("FieldSpec" in error for error in VALIDATOR.validate(root)))
+
+    def test_fuzzy_field_matching_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            model = root / "skills/protocol/ngap/scripts/ngap_model.py"
+            model.write_text(model.read_text(encoding="utf-8") + "\n# fuzzy candidate matching\n", encoding="utf-8")
+            self.assertTrue(any("fuzzy" in error for error in VALIDATOR.validate(root)))
+
+    def test_missing_direct_capture_doc_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            ref = root / "skills/protocol/ngap/references/field-reference.md"
+            ref.write_text(ref.read_text(encoding="utf-8").replace("Direct-Capture TShark Compatibility", "Old Compatibility"), encoding="utf-8")
+            self.assertTrue(any("direct-capture" in error for error in VALIDATOR.validate(root)))
 
     def test_handover_excluded_in_scope_is_detected(self):
         temporary, root = self.fixture()

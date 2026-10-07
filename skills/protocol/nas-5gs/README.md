@@ -1,12 +1,14 @@
 # nas-5gs
 
 `nas-5gs` is a standalone Protocol-layer package for bounded NAS-5GS
-semantic extraction on the N1 interface. Version 0.2.0 implements the
+semantic extraction on the N1 interface. Version 0.2.1 implements the
 5GMM registration, identity, authentication, security mode, service, and
 status subset plus the 5GSM PDU session establishment, modification, and
 release subset and 5GSM status, with security-envelope classification,
 bounded session-management normalization, privacy defaults, and shared
-trace-event projection. It never performs NAS cryptography and never
+trace-event projection. It includes deterministic TShark compatibility
+handling (field and protocol filter candidate resolution) for robust
+direct-PCAP extraction. It never performs NAS cryptography and never
 decides procedure outcomes.
 
 Reviewed basis: 3GPP TS 24.501 version 19.8.0 Release 19 (message types,

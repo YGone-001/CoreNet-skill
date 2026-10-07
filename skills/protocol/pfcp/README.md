@@ -1,12 +1,14 @@
 # pfcp
 
 `pfcp` is a standalone Protocol-layer package for bounded PFCP semantic
-extraction on the N4 interface. Version 0.1.0 implements the Heartbeat,
+extraction on the N4 interface. Version 0.1.1 implements the Heartbeat,
 Association Setup, Session Establishment, Session Modification, and
 Session Deletion subset of 3GPP TS 29.244 version 19.6.0 Release 19, with
 header preservation, distinct header-SEID / CP-F-SEID / UP-F-SEID
 evidence, bounded PDR/FAR/QER/URR rule groups, PFCP Cause preservation, and
-protocol-local request/response transaction correlation. It never parses
+protocol-local request/response transaction correlation. It includes
+deterministic TShark compatibility handling (candidate field alias resolution
+and dynamic header mapping) for direct-PCAP extraction. It never parses
 raw PFCP bytes, never inspects GTP-U traffic, and never decides whether a
 PDU session or a user-plane path works.
 

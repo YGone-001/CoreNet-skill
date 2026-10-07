@@ -150,3 +150,12 @@ Each event lists its derived aspects in `derivations` (nas_family,
 message_type, direction, procedure_family, result, cause_name,
 algorithm_names). OBSERVED-versus-DERIVED stays auditable per event; a
 derived label is never presented as wire observation.
+
+## Direct-Capture TShark Compatibility
+
+Version 0.2.1 introduces deterministic direct-capture compatibility handling:
+
+- **Protocol Filter Resolution**: `resolve_filter` evaluates candidate display filters `("nas-5gs", "nas_5gs")` against discovered protocols in the active TShark installation.
+- **Candidate Field Resolution**: Each field in `FIELD_SPECS` defines deterministic candidate names (e.g. `nas-5gs.<field>` and `nas_5gs.<field>`). Canonical field names are preserved in output records regardless of dissector token naming.
+- **Header Mapping and Padding**: Dynamically maps returned TShark column headers back to canonical field names, filling unavailable optional fields with empty strings.
+- **Hex and Token Tolerance**: Dissector outputs for message types, causes, and authentication codes in hex format (e.g., `0x41`, `0x6a47079d`) or repeated comma-separated occurrences are parsed deterministically.

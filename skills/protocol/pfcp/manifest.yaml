@@ -1,5 +1,5 @@
 name: pfcp
-version: 0.1.0
+version: 0.1.1
 category: protocol
 description: >
   Bounded PFCP semantic extraction for N4 session control: header fields,

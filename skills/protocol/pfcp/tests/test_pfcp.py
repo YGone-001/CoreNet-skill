@@ -62,7 +62,7 @@ class PfcpContractTests(unittest.TestCase):
     def test_manifest_contract(self):
         manifest = (PACKAGE / "manifest.yaml").read_text(encoding="utf-8")
         self.assertIn("name: pfcp", manifest)
-        self.assertIn("version: 0.1.0", manifest)
+        self.assertIn("version: 0.1.1", manifest)
         self.assertIn("category: protocol", manifest)
         self.assertIn("protocols: [PFCP]", manifest)
         self.assertIn("interfaces: [N4]", manifest)
@@ -528,7 +528,8 @@ class PfcpCliTests(unittest.TestCase):
 
     def test_tshark_command_is_argument_list(self):
         command = MODEL.build_tshark_fields_command(Path("sample.pcapng"))
-        self.assertEqual(command[:4], ["tshark", "-n", "-r", "sample.pcapng"])
+        self.assertTrue(command[0].endswith("tshark") or command[0].endswith("tshark.exe"))
+        self.assertEqual(command[1:4], ["-n", "-r", "sample.pcapng"])
         self.assertNotIn("shell=True", command)
         self.assertIn("-Y", command)
         self.assertIn("pfcp", command)
@@ -559,6 +560,31 @@ class PfcpStandaloneTests(unittest.TestCase):
             timeline = subprocess.run([sys.executable, str(scripts / "pfcp_timeline.py"), str(events)], capture_output=True, text=True)
             self.assertEqual(timeline.returncode, 0, timeline.stderr)
             self.assertIn("PFCP Session Establishment Request", timeline.stdout)
+
+
+class PfcpFieldResolutionTests(unittest.TestCase):
+    def tearDown(self):
+        MODEL.set_discovery_overrides(None, None)
+
+    def test_outer_hdr_desc_candidate_fallback(self):
+        MODEL.set_discovery_overrides({"frame.number", "frame.time_epoch", "pfcp.msg_type", "pfcp.out_hdr_desc"})
+        mappings, unresolved = MODEL.resolve_field_specs(MODEL.FIELD_SPECS, MODEL.get_available_fields(), "4.7.1")
+        field_map = dict(mappings)
+        self.assertEqual(field_map.get("pfcp.out_hdr_desc"), "pfcp.outer_hdr_desc")
+
+    def test_required_field_missing_raises_tshark_error(self):
+        MODEL.set_discovery_overrides({"pfcp.outer_hdr_desc"})
+        specs = (
+            MODEL.FieldSpec("frame.number", ("frame.number",), required=True),
+        )
+        with self.assertRaises(MODEL.TsharkError) as ctx:
+            MODEL.resolve_field_specs(specs, MODEL.get_available_fields(), "4.7.1")
+        self.assertIn("required field 'frame.number'", str(ctx.exception))
+
+    def test_filter_resolution_supported(self):
+        MODEL.set_discovery_overrides(protocols={"pfcp"})
+        resolved = MODEL.resolve_filter(("pfcp",), MODEL.get_available_protocols())
+        self.assertEqual(resolved, "pfcp")
 
 
 if __name__ == "__main__":

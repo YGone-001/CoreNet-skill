@@ -1,5 +1,5 @@
 name: sbi-http2
-version: 0.2.0
+version: 0.2.1
 category: protocol
 description: >
   Bounded 3GPP SBI and HTTP/2 semantic extraction for N11 Nsmf_PDUSession and

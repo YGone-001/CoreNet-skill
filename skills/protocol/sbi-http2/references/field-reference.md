@@ -102,3 +102,12 @@ environment with TShark installed, verify with `tshark -G fields`.
 | `problem_details.title` | `title` | Short summary title |
 | `problem_details.invalid_params` | `invalidParams` | List of `{param, reason}` objects |
 | `problem_details.service_error_type` | TS 29.502 | `SmContextCreateError`, `SmContextUpdateError`, or `ProblemDetails` |
+
+## Direct-Capture TShark Compatibility
+
+Version 0.2.1 introduces deterministic direct-capture compatibility handling:
+
+- **Candidate Field Alias Resolution**: `http2.data.length` supports candidate aliases `("http2.data.length", "http2.length")`. `http2.goaway.last_streamid` supports `("http2.goaway.last_streamid", "http2.goaway.last_stream_id")`. `json.member_name` supports `("json.member_name", "json.member")`. MIME multipart header fields support fallback candidates and optional resolution.
+- **Dynamic Header Mapping**: Field headers emitted by TShark are mapped back to canonical field names, filling any unavailable optional fields with empty strings.
+- **Display Filter Resolution**: Uses `-Y http2` to focus extraction exclusively on HTTP/2 frames, preventing full-capture scanning of non-SBI frames.
+- **Empty-Capture Handling**: When zero HTTP/2 records are present in a capture, the extractor cleanly reports exit code 6 (`EXIT_NO_EVENTS`), mapping to `NOT_OBSERVED_IN_CAPTURE` in capture pipelines.

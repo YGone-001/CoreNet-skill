@@ -590,7 +590,8 @@ class TsharkBoundaryTests(unittest.TestCase):
 
     def test_subprocess_uses_argument_list(self):
         command = MODEL.build_tshark_fields_command(Path("sample.pcapng"))
-        self.assertEqual(command[:4], ["tshark", "-n", "-r", "sample.pcapng"])
+        self.assertTrue(command[0].endswith("tshark") or command[0].endswith("tshark.exe"))
+        self.assertEqual(command[1:4], ["-n", "-r", "sample.pcapng"])
         self.assertIn("-Y", command)
         self.assertIn("nas-5gs", command)
         self.assertIn("nas-5gs.mm.message_type", command)
@@ -693,6 +694,36 @@ class StandaloneTests(unittest.TestCase):
             timeline = subprocess.run([sys.executable, str(copied / "scripts" / "nas5gs_timeline.py"), str(events)], capture_output=True, text=True)
             self.assertEqual(timeline.returncode, 0, timeline.stderr)
             self.assertIn("Registration request", timeline.stdout)
+
+
+class Nas5gsFieldResolutionTests(unittest.TestCase):
+    def tearDown(self):
+        MODEL.set_discovery_overrides(None, None)
+
+    def test_field_resolution_with_candidate_fallback(self):
+        MODEL.set_discovery_overrides({"frame.number", "frame.time_epoch", "nas_5gs.mm.message_type"})
+        specs = (
+            MODEL.FieldSpec("frame.number", ("frame.number",), required=True),
+            MODEL.FieldSpec("frame.time_epoch", ("frame.time_epoch",), required=True),
+            MODEL.FieldSpec("nas-5gs.mm.message_type", ("nas-5gs.mm.message_type", "nas_5gs.mm.message_type"), required=False),
+        )
+        mappings, unresolved = MODEL.resolve_field_specs(specs, MODEL.get_available_fields(), "4.7.1")
+        self.assertEqual(mappings, [("frame.number", "frame.number"), ("frame.time_epoch", "frame.time_epoch"), ("nas_5gs.mm.message_type", "nas-5gs.mm.message_type")])
+        self.assertEqual(unresolved, [])
+
+    def test_required_field_missing_raises_tshark_error(self):
+        MODEL.set_discovery_overrides({"nas-5gs.mm.message_type"})
+        specs = (
+            MODEL.FieldSpec("frame.number", ("frame.number",), required=True),
+        )
+        with self.assertRaises(MODEL.TsharkError) as ctx:
+            MODEL.resolve_field_specs(specs, MODEL.get_available_fields(), "4.7.1")
+        self.assertIn("required field 'frame.number'", str(ctx.exception))
+
+    def test_filter_resolution_falls_back(self):
+        MODEL.set_discovery_overrides(protocols={"nas_5gs"})
+        resolved = MODEL.resolve_filter(("nas-5gs", "nas_5gs"), MODEL.get_available_protocols())
+        self.assertEqual(resolved, "nas_5gs")
 
 
 if __name__ == "__main__":

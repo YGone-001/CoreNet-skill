@@ -65,7 +65,7 @@ class GtpuContractTests(unittest.TestCase):
     def test_manifest_contract(self):
         manifest = (PACKAGE / "manifest.yaml").read_text(encoding="utf-8")
         self.assertIn("name: gtpu", manifest)
-        self.assertIn("version: 0.1.0", manifest)
+        self.assertIn("version: 0.1.1", manifest)
         self.assertIn("category: protocol", manifest)
         self.assertIn("protocols: [GTP-U]", manifest)
         self.assertIn("interfaces: [N3]", manifest)
@@ -501,12 +501,38 @@ class GtpuCliTests(unittest.TestCase):
 
     def test_tshark_command_is_argument_list(self):
         command = MODEL.build_tshark_fields_command(Path("sample.pcapng"))
-        self.assertEqual(command[:4], ["tshark", "-n", "-r", "sample.pcapng"])
+        self.assertTrue(command[0].endswith("tshark") or command[0].endswith("tshark.exe"))
+        self.assertEqual(command[1:4], ["-n", "-r", "sample.pcapng"])
         self.assertNotIn("shell=True", command)
         self.assertIn("-Y", command)
         self.assertIn("gtp", command)
         for field in ("gtp.message", "gtp.teid", "gtp.seq_number", "gtp.ext_hdr.pdu_ses_con.qos_flow_id"):
             self.assertIn(field, command)
+
+
+class GtpuFieldResolutionTests(unittest.TestCase):
+    def tearDown(self):
+        MODEL.set_discovery_overrides(None, None)
+
+    def test_pdu_session_container_candidate_fallback(self):
+        MODEL.set_discovery_overrides({
+            "frame.number",
+            "frame.time_epoch",
+            "gtp.message",
+            "gtp.ext_hdr_type",
+            "gtp.ext_hdr.pdu_ses_cont.rqi",
+            "gtp.ext_hdr.pdu_ses_cont.ppi",
+            "gtp.ext_hdr.pdu_ses_cont.ppp",
+        })
+        mappings, _ = MODEL.resolve_field_specs(MODEL.FIELD_SPECS, MODEL.get_available_fields(), "test-ver")
+        resolved = dict(mappings)
+        self.assertIn("gtp.ext_hdr.pdu_ses_cont.rqi", resolved)
+        self.assertEqual(resolved["gtp.ext_hdr.pdu_ses_cont.rqi"], "gtp.ext_hdr.pdu_ses_con.rqi")
+
+    def test_missing_required_field_raises(self):
+        MODEL.set_discovery_overrides({"frame.number"})
+        with self.assertRaises(MODEL.TsharkError):
+            MODEL.resolve_field_specs(MODEL.FIELD_SPECS, MODEL.get_available_fields(), "test-ver")
 
     def test_no_raw_decoder_in_scripts(self):
         for script in SCRIPTS.glob("*.py"):

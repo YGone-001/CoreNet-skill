@@ -132,3 +132,11 @@ Wireshark 2.6.0 to 4.6.9, and several flag fields were restructured over
 that range (for example `pfcp.apply_action_flags` became
 `pfcp.apply_action.*`). Re-verify every field name against the target
 Wireshark release before relying on capture extraction.
+
+## Direct-Capture TShark Compatibility
+
+Version 0.1.1 introduces deterministic direct-capture compatibility handling:
+
+- **Candidate Field Alias Resolution**: `pfcp.outer_hdr_desc` supports candidate aliases `("pfcp.outer_hdr_desc", "pfcp.out_hdr_desc")`. In TShark 4.7.1, `pfcp.out_hdr_desc` is resolved dynamically without altering the canonical field contract.
+- **Dynamic Header Mapping**: Field headers emitted by TShark are mapped back to canonical field names, filling any unavailable optional fields with empty strings.
+- **Protocol Filter Resolution**: `resolve_filter` selects supported display filters (`pfcp`) against discovered protocols in the active TShark installation.

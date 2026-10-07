@@ -23,6 +23,7 @@ import csv
 import json
 import re
 import subprocess
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -66,6 +67,40 @@ FIELDS = (
     "json.member_name",
     "json.value.string",
 )
+
+@dataclass(frozen=True)
+class FieldSpec:
+    """Bounded field specification for direct-capture compatibility."""
+
+    canonical_name: str
+    tshark_candidates: tuple[str, ...]
+    required: bool = False
+
+
+FIELD_SPECS: tuple[FieldSpec, ...] = (
+    FieldSpec("frame.number", ("frame.number",), required=True),
+    FieldSpec("frame.time_epoch", ("frame.time_epoch",), required=True),
+    FieldSpec("http2.data.length", ("http2.data.length", "http2.length"), required=False),
+    FieldSpec("http2.goaway.last_streamid", ("http2.goaway.last_streamid", "http2.goaway.last_stream_id"), required=False),
+    FieldSpec("json.member_name", ("json.member_name", "json.member"), required=False),
+    FieldSpec("mime_multipart.header.name", ("mime_multipart.header.name", "mime_multipart.header.content-type"), required=False),
+    FieldSpec("mime_multipart.header.value", ("mime_multipart.header.value", "mime_multipart.type"), required=False),
+    *(
+        FieldSpec(field, (field,), required=False)
+        for field in FIELDS
+        if field not in (
+            "frame.number",
+            "frame.time_epoch",
+            "http2.data.length",
+            "http2.goaway.last_streamid",
+            "json.member_name",
+            "mime_multipart.header.name",
+            "mime_multipart.header.value",
+        )
+    ),
+)
+
+FILTER_CANDIDATES = ("http2",)
 
 SERVICE_NSMF_PDUSESSION = "Nsmf_PDUSession"
 OP_CREATE_SM_CONTEXT = "CreateSMContext"
@@ -138,12 +173,19 @@ def clean(value: Any) -> str | None:
     return text if text else None
 
 
-def parse_int(value: Any, name: str | None = None, minimum: int | None = None, maximum: int | None = None) -> int | None:
+def first_token(value: Any) -> str | None:
     text = clean(value)
     if text is None:
         return None
+    return text.split(",")[0].strip() or None
+
+
+def parse_int(value: Any, name: str | None = None, minimum: int | None = None, maximum: int | None = None) -> int | None:
+    token = first_token(value)
+    if token is None:
+        return None
     try:
-        result = int(text, 0)
+        result = int(token, 0)
     except ValueError as exc:
         raise InputError(f"invalid integer for {name or 'field'}: {value!r}") from exc
     if minimum is not None and result < minimum:
@@ -1198,14 +1240,178 @@ def records_for_input(input_path: Path, input_format: str = "auto") -> tuple[lis
     return records, None
 
 
+_AVAILABLE_FIELDS_CACHE: set[str] | None = None
+_AVAILABLE_PROTOCOLS_CACHE: set[str] | None = None
+_AVAILABLE_FIELDS_OVERRIDE: set[str] | None = None
+_AVAILABLE_PROTOCOLS_OVERRIDE: set[str] | None = None
+
+
+def set_discovery_overrides(fields: set[str] | None = None, protocols: set[str] | None = None) -> None:
+    global _AVAILABLE_FIELDS_OVERRIDE, _AVAILABLE_PROTOCOLS_OVERRIDE
+    _AVAILABLE_FIELDS_OVERRIDE = fields
+    _AVAILABLE_PROTOCOLS_OVERRIDE = protocols
+
+
+def resolve_tshark_executable() -> str:
+    """Locate the tshark executable across PATH and known platform install paths."""
+    import shutil
+
+    found = shutil.which("tshark")
+    if found:
+        return found
+    candidates = [
+        Path(r"D:\Wireshark\tshark.exe"),
+        Path(r"C:\Program Files\Wireshark\tshark.exe"),
+        Path(r"C:\Program Files (x86)\Wireshark\tshark.exe"),
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    return "tshark"
+
+
+def get_available_fields(tshark_bin: str | None = None) -> set[str] | None:
+    if _AVAILABLE_FIELDS_OVERRIDE is not None:
+        return _AVAILABLE_FIELDS_OVERRIDE
+    global _AVAILABLE_FIELDS_CACHE
+    if _AVAILABLE_FIELDS_CACHE is not None:
+        return _AVAILABLE_FIELDS_CACHE
+    exe = tshark_bin or resolve_tshark_executable()
+    try:
+        proc = subprocess.run([exe, "-G", "fields"], capture_output=True, encoding="utf-8", errors="replace", check=False)
+        if proc.returncode == 0 and proc.stdout:
+            fields = set()
+            for line in proc.stdout.splitlines():
+                parts = line.split("\t")
+                if len(parts) >= 3 and parts[2].strip():
+                    fields.add(parts[2].strip())
+            _AVAILABLE_FIELDS_CACHE = fields
+            return fields
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
+def get_available_protocols(tshark_bin: str | None = None) -> set[str] | None:
+    if _AVAILABLE_PROTOCOLS_OVERRIDE is not None:
+        return _AVAILABLE_PROTOCOLS_OVERRIDE
+    global _AVAILABLE_PROTOCOLS_CACHE
+    if _AVAILABLE_PROTOCOLS_CACHE is not None:
+        return _AVAILABLE_PROTOCOLS_CACHE
+    exe = tshark_bin or resolve_tshark_executable()
+    try:
+        proc = subprocess.run([exe, "-G", "protocols"], capture_output=True, encoding="utf-8", errors="replace", check=False)
+        if proc.returncode == 0 and proc.stdout:
+            protos = set()
+            for line in proc.stdout.splitlines():
+                parts = line.split("\t")
+                if len(parts) >= 3 and parts[2].strip():
+                    protos.add(parts[2].strip().lower())
+            _AVAILABLE_PROTOCOLS_CACHE = protos
+            return protos
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
+def resolve_filter(candidates: tuple[str, ...], available_protocols: set[str] | None) -> str:
+    if available_protocols is not None:
+        for cand in candidates:
+            if cand.lower() in available_protocols:
+                return cand
+        raise TsharkError(f"tshark compatibility error: none of the protocol filter candidates {candidates} are supported by installed TShark")
+    return candidates[0]
+
+
+def resolve_field_specs(
+    specs: tuple[FieldSpec, ...],
+    available_fields: set[str] | None,
+    tshark_ver: str,
+) -> tuple[list[tuple[str, str]], list[str]]:
+    resolved_mappings: list[tuple[str, str]] = []
+    unresolved_optional: list[str] = []
+    for spec in specs:
+        resolved_field: str | None = None
+        if available_fields is not None:
+            for cand in spec.tshark_candidates:
+                if cand in available_fields:
+                    resolved_field = cand
+                    break
+        else:
+            resolved_field = spec.tshark_candidates[0]
+
+        if resolved_field is not None:
+            resolved_mappings.append((resolved_field, spec.canonical_name))
+        elif spec.required:
+            raise TsharkError(
+                f"tshark compatibility error: required field '{spec.canonical_name}' "
+                f"(candidates: {spec.tshark_candidates}) is not available in installed TShark {tshark_ver}"
+            )
+        else:
+            unresolved_optional.append(spec.canonical_name)
+    return resolved_mappings, unresolved_optional
+
+
+def tshark_version() -> str:
+    exe = resolve_tshark_executable()
+    try:
+        completed = subprocess.run([exe, "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+    except FileNotFoundError as exc:
+        raise ToolUnavailable("tshark is unavailable; install Wireshark/tshark manually and retry") from exc
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip() or "unknown tshark failure"
+        raise TsharkError(f"tshark --version failed: {detail}")
+    return completed.stdout.splitlines()[0].strip() if completed.stdout else "tshark (version unavailable)"
+
+
+def build_tshark_fields_command(
+    capture_path: Path,
+    mappings: list[tuple[str, str]] | None = None,
+    display_filter: str = "http2",
+) -> list[str]:
+    exe = resolve_tshark_executable()
+    cmd = [
+        exe,
+        "-n",
+        "-r",
+        str(capture_path),
+        "-T",
+        "fields",
+        "-E",
+        "separator=\t",
+        "-E",
+        "header=y",
+        "-E",
+        "occurrence=a",
+        "-Y",
+        display_filter,
+    ]
+    if mappings is None:
+        mappings = [(s.tshark_candidates[0], s.canonical_name) for s in FIELD_SPECS]
+    for actual, _ in mappings:
+        cmd.extend(["-e", actual])
+    return cmd
+
+
 def run_tshark_extraction(capture_path: Path) -> tuple[list[dict[str, Any]], str | None]:
     """Execute TShark to extract HTTP/2, multipart, JSON, and TCP fields."""
-    cmd = ["tshark", "-r", str(capture_path), "-T", "fields", "-E", "separator=\t", "-E", "header=y", "-E", "occurrence=a"]
-    for field in FIELDS:
-        cmd.extend(["-e", field])
+    exe = resolve_tshark_executable()
+    ver = tshark_version()
+    avail_fields = get_available_fields(exe)
+    avail_protos = get_available_protocols(exe)
+    resolved_filter = resolve_filter(FILTER_CANDIDATES, avail_protos)
+    mappings, unresolved_optional = resolve_field_specs(FIELD_SPECS, avail_fields, ver)
+    cmd = build_tshark_fields_command(capture_path, mappings, resolved_filter)
 
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
     except FileNotFoundError as exc:
         raise ToolUnavailable(f"tshark is not installed or not in PATH: {exc}") from exc
 
@@ -1214,11 +1420,23 @@ def run_tshark_extraction(capture_path: Path) -> tuple[list[dict[str, Any]], str
 
     lines = proc.stdout.splitlines()
     if not lines:
-        return [], None
+        return [], ver
 
-    reader = csv.DictReader(lines, delimiter="\t")
+    reader = csv.reader(lines, delimiter="\t")
+    header = next(reader, None)
+    if header is None:
+        return [], ver
+
+    expected_headers = [actual for actual, _ in mappings]
+    if list(header) != expected_headers:
+        raise TsharkError(f"tshark returned unexpected field header: expected {expected_headers}, got {header}")
+
     records: list[dict[str, Any]] = []
     for row in reader:
-        records.append(dict(row))
+        padded = row + [""] * (len(mappings) - len(row))
+        record = {canonical: padded[i] for i, (_, canonical) in enumerate(mappings)}
+        for opt in unresolved_optional:
+            record[opt] = ""
+        records.append(record)
 
-    return records, "tshark-extracted"
+    return records, ver

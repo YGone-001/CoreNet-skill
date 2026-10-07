@@ -1,7 +1,7 @@
 # gtpu
 
 `gtpu` is a standalone Protocol-layer package for bounded GTP-U evidence
-extraction on the N3 interface. Version 0.1.0 implements the G-PDU, Echo
+extraction on the N3 interface. Version 0.1.1 implements the G-PDU, Echo
 Request, Echo Response, Error Indication, End Marker and Supported
 Extension Headers Notification subset of 3GPP TS 29.281 version 19.2.0
 Release 19, with PDU Session Container content reviewed against 3GPP

@@ -135,7 +135,7 @@ def main() -> int:
         return EXIT_TSHARK_FAILURE
     except InputError as exc:
         print(f"input error: {exc}", file=sys.stderr)
-        return EXIT_MALFORMED_INPUT
+        return EXIT_NO_EVENTS if "no SBI HTTP/2 records" in str(exc) or "empty" in str(exc) or "contains no records" in str(exc) else EXIT_MALFORMED_INPUT
     except OSError as exc:
         print(f"output failure: {exc}", file=sys.stderr)
         return EXIT_OUTPUT_FAILURE

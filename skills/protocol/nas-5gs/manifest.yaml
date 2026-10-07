@@ -1,5 +1,5 @@
 name: nas-5gs
-version: 0.2.0
+version: 0.2.1
 category: protocol
 description: >
   Bounded NAS-5GS semantic extraction for N1 signaling: security-envelope

@@ -22,7 +22,7 @@ These observations must not be collapsed:
 
 ## Supported Operations
 
-In version 0.2.0, semantic support is bounded to N1/N2 delivery and failure reporting:
+In version 0.2.1, semantic support is bounded to N1/N2 delivery and failure reporting:
 
 ### 1. N1N2MessageTransfer
 

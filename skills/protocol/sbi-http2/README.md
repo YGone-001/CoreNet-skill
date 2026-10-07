@@ -1,7 +1,7 @@
 # sbi-http2
 
 `sbi-http2` is a standalone Protocol-layer package for bounded 3GPP Service Based
-Interface (SBI) and HTTP/2 evidence extraction on the N11 interface. Version 0.2.0
+Interface (SBI) and HTTP/2 evidence extraction on the N11 interface. Version 0.2.1
 implements the Nsmf_PDUSession subset and Namf_Communication N1/N2 delivery subset
 reviewed against 3GPP TS 29.500 version 19.7.0 Release 19, 3GPP TS 29.501 version 19.5.0
 Release 19, 3GPP TS 29.502 version 19.8.0 Release 19 (Release 19 lineage),

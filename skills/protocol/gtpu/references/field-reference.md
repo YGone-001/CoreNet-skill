@@ -141,3 +141,11 @@ The GTP display-filter reference documents field availability from Wireshark
 fields are documented from 3.0.0 onwards, and the newer QoS-monitoring
 container fields from 4.4.0. Re-verify every field name against the target
 Wireshark release before relying on capture extraction.
+
+## Direct-Capture TShark Compatibility
+
+Version 0.1.1 introduces deterministic direct-capture compatibility handling:
+
+- **Candidate Field Alias Resolution**: `gtp.next` supports candidate aliases `("gtp.next", "gtp.ext_hdr.next", "gtp.ext_hdr_type")`. PDU session container flags `gtp.ext_hdr.pdu_ses_con.rqi`, `.ppi`, `.ppp` support candidate aliases with `.pdu_ses_cont.*` to handle dissector abbreviation changes in TShark 4.7.1 while preserving the canonical contract.
+- **Dynamic Header Mapping**: Field headers emitted by TShark are mapped back to canonical field names, filling any unavailable optional fields with empty strings.
+- **Protocol Filter Resolution**: `resolve_filter` selects supported display filters (`gtp`) against discovered protocols in the active TShark installation.

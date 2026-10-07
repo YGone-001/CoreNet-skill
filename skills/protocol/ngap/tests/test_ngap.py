@@ -190,11 +190,12 @@ class NgapModelTests(unittest.TestCase):
 
     def test_tshark_command_is_argument_list(self):
         command = MODEL.build_tshark_fields_command(Path("sample.pcapng"))
-        self.assertEqual(command[:4], ["tshark", "-n", "-r", "sample.pcapng"])
+        self.assertTrue(command[0].endswith("tshark") or command[0].endswith("tshark.exe"))
+        self.assertEqual(command[1:4], ["-n", "-r", "sample.pcapng"])
         self.assertNotIn("shell=True", command)
         self.assertIn("-Y", command)
         self.assertIn("ngap", command)
-        for field in ("ngap.procedureCode", "ngap.AMF_UE_NGAP_ID", "ngap.RAN_UE_NGAP_ID", "sctp.assoc_index", "sctp.data_sid", "_ws.col.Info"):
+        for field in ("ngap.procedureCode", "ngap.AMF_UE_NGAP_ID", "ngap.RAN_UE_NGAP_ID", "sctp.assoc_index", "sctp.data_sid"):
             self.assertIn(field, command)
 
     def test_projection_keeps_ngap_ids_out_of_generic_fields(self):
@@ -444,7 +445,7 @@ class NgapStandaloneTests(unittest.TestCase):
 class NgapPduSessionResourceTests(unittest.TestCase):
     def test_version_is_expanded(self):
         manifest = (PACKAGE / "manifest.yaml").read_text(encoding="utf-8")
-        self.assertIn("version: 0.3.0", manifest)
+        self.assertIn("version: 0.3.1", manifest)
         self.assertIn("protocols: [NGAP]", manifest)
         self.assertIn("interfaces: [N2]", manifest)
 
@@ -908,6 +909,79 @@ class NgapMobilityTests(unittest.TestCase):
                                   schema["$defs"]["resourceItem"]["properties"]["resource_list_role"]["enum"])
                 for derivation in event["derivations"]:
                     self.assertIn(derivation, schema["properties"]["derivations"]["items"]["enum"], name)
+
+
+class NgapFieldResolutionTests(unittest.TestCase):
+    def tearDown(self):
+        MODEL.set_discovery_overrides(None, None)
+
+    def test_canonical_field_directly_available(self):
+        MODEL.set_discovery_overrides({"_ws.col.Info", "frame.number", "frame.time_epoch", "ngap.procedureCode"})
+        specs = (
+            MODEL.FieldSpec("_ws.col.Info", ("_ws.col.Info", "_ws.col.info"), required=False),
+            MODEL.FieldSpec("ngap.procedureCode", ("ngap.procedureCode",), required=True),
+        )
+        mappings, unresolved = MODEL.resolve_field_specs(specs, MODEL.get_available_fields(), "4.7.1")
+        self.assertEqual(mappings, [("_ws.col.Info", "_ws.col.Info"), ("ngap.procedureCode", "ngap.procedureCode")])
+        self.assertEqual(unresolved, [])
+
+    def test_alternate_reviewed_field_available(self):
+        MODEL.set_discovery_overrides({"_ws.col.info", "frame.number", "frame.time_epoch", "ngap.procedureCode"})
+        specs = (
+            MODEL.FieldSpec("_ws.col.Info", ("_ws.col.Info", "_ws.col.info"), required=False),
+            MODEL.FieldSpec("ngap.procedureCode", ("ngap.procedureCode",), required=True),
+        )
+        mappings, unresolved = MODEL.resolve_field_specs(specs, MODEL.get_available_fields(), "4.7.1")
+        self.assertEqual(mappings, [("_ws.col.info", "_ws.col.Info"), ("ngap.procedureCode", "ngap.procedureCode")])
+        self.assertEqual(unresolved, [])
+
+    def test_multiple_candidates_deterministic_priority(self):
+        MODEL.set_discovery_overrides({"_ws.col.Info", "_ws.col.info", "ngap.procedureCode"})
+        specs = (
+            MODEL.FieldSpec("_ws.col.Info", ("_ws.col.Info", "_ws.col.info"), required=False),
+        )
+        mappings, _ = MODEL.resolve_field_specs(specs, MODEL.get_available_fields(), "4.7.1")
+        self.assertEqual(mappings[0][0], "_ws.col.Info")
+
+    def test_optional_field_unavailable_omitted(self):
+        MODEL.set_discovery_overrides({"frame.number", "frame.time_epoch", "ngap.procedureCode"})
+        specs = (
+            MODEL.FieldSpec("_ws.col.Info", ("_ws.col.Info", "_ws.col.info"), required=False),
+            MODEL.FieldSpec("ngap.procedureCode", ("ngap.procedureCode",), required=True),
+        )
+        mappings, unresolved = MODEL.resolve_field_specs(specs, MODEL.get_available_fields(), "4.7.1")
+        self.assertEqual(mappings, [("ngap.procedureCode", "ngap.procedureCode")])
+        self.assertEqual(unresolved, ["_ws.col.Info"])
+
+    def test_required_field_unavailable_fails_loudly(self):
+        MODEL.set_discovery_overrides({"_ws.col.Info"})
+        specs = (
+            MODEL.FieldSpec("ngap.procedureCode", ("ngap.procedureCode",), required=True),
+        )
+        with self.assertRaises(MODEL.TsharkError) as ctx:
+            MODEL.resolve_field_specs(specs, MODEL.get_available_fields(), "4.7.1")
+        self.assertIn("ngap.procedureCode", str(ctx.exception))
+        self.assertIn("not available in installed TShark", str(ctx.exception))
+
+    def test_no_fuzzy_matching(self):
+        MODEL.set_discovery_overrides({"_ws.col.info_extra", "ngap.procedureCode"})
+        specs = (
+            MODEL.FieldSpec("_ws.col.Info", ("_ws.col.Info", "_ws.col.info"), required=False),
+        )
+        mappings, unresolved = MODEL.resolve_field_specs(specs, MODEL.get_available_fields(), "4.7.1")
+        self.assertEqual(mappings, [])
+        self.assertEqual(unresolved, ["_ws.col.Info"])
+
+    def test_filter_resolution_supported(self):
+        MODEL.set_discovery_overrides(protocols={"ngap", "sctp"})
+        resolved = MODEL.resolve_filter(("ngap",), MODEL.get_available_protocols())
+        self.assertEqual(resolved, "ngap")
+
+    def test_filter_resolution_unsupported_fails_loudly(self):
+        MODEL.set_discovery_overrides(protocols={"sctp"})
+        with self.assertRaises(MODEL.TsharkError) as ctx:
+            MODEL.resolve_filter(("ngap",), MODEL.get_available_protocols())
+        self.assertIn("none of the protocol filter candidates", str(ctx.exception))
 
 
 if __name__ == "__main__":

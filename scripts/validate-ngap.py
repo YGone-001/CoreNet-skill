@@ -218,7 +218,7 @@ def validate(root: Path) -> list[str]:
         return errors
 
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "ngap"), ("version", "0.3.0"), ("category", "protocol")):
+    for key, expected in (("name", "ngap"), ("version", "0.3.1"), ("category", "protocol")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
     if not re.search(r"(?m)^\s*required:\s*\[\]\s*$", manifest):
@@ -231,6 +231,18 @@ def validate(root: Path) -> list[str]:
         errors.append("manifest interface ownership must be N2")
     if manifest_value(manifest, "network_functions") not in (None, "[]"):
         errors.append("manifest network_functions must stay empty for a Protocol Skill")
+
+    model_text = (skill / "scripts" / "ngap_model.py").read_text(encoding="utf-8")
+    if "FieldSpec" not in model_text:
+        errors.append("ngap_model.py must implement FieldSpec compatibility model")
+    if "_ws.col.info" not in model_text:
+        errors.append("ngap_model.py must include _ws.col.info as reviewed candidate for _ws.col.Info")
+    if re.search(r"(?i)\bfuzzy\b|\blevenshtein\b", model_text):
+        errors.append("ngap_model.py must not use fuzzy field matching")
+
+    field_ref_text = (skill / "references" / "field-reference.md").read_text(encoding="utf-8")
+    if "Direct-Capture TShark Compatibility" not in field_ref_text:
+        errors.append("field-reference.md must document direct-capture TShark compatibility")
 
     includes = " ".join(manifest_list(manifest, "includes")).lower()
     if "handover" not in includes or "path-switch" not in includes:
