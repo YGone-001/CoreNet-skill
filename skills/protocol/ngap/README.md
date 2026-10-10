@@ -2,7 +2,7 @@
 
 `ngap` is a standalone Protocol-layer package for bounded NGAP semantic
 extraction on the N2 interface (NG-RAN to AMF, NGAP over SCTP). Version
-0.3.1 implements direct-capture TShark compatibility adapters alongside the
+0.3.2 implements direct-capture TShark compatibility adapters alongside the
 UE-context, NAS-transport, Initial Context, release, and paging subset, bounded
 PDU Session Resource Setup, Modify, and Release semantics, PDU Session resources
 embedded in Initial Context Setup, and bounded N2 handover/path-switch mobility
@@ -11,6 +11,15 @@ Notification, Handover Cancel, and Path Switch Request) with mobility metadata
 and item-scoped resource-list roles. It never decodes NAS payloads, never
 parses transfer or transparent containers, never derives N3 tunnel identity,
 and never decides whether a PDU Session or handover procedure succeeded.
+
+0.3.2 resolves message identity from the composite TShark Info column: when a
+frame carries SCTP acknowledgement text, a nested NAS message name, or
+coalesced NGAP PDUs, the reviewed branch vocabulary is matched against the
+comma- and bracket-delimited segments rather than the whole string. Only exact
+segment equality resolves, so no message name outside the reviewed table is
+ever produced, and procedures outside the bounded subset (for example NGSetup)
+stay `UNSUPPORTED` with a null identity instead of being reported as an
+extraction failure.
 
 Reviewed basis: 3GPP TS 38.413 version 19.4.0 Release 19, cross-checked
 against the NGAP dissector of Wireshark/TShark 4.7.1

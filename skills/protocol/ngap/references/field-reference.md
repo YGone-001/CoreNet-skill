@@ -38,7 +38,12 @@ was invented. Other Wireshark versions may differ and were not reviewed.
 PDU category note: TShark 4.7.1 exposes no filterable NGAP PDU-category
 field. `pdu_type` comes from an explicit structured-input value
 (`pdu_type`, basis `structured-input`) or from exact Info-column message
-matching (`_ws.col.Info`, basis `message-name`). TShark Info-column wording
+matching (`_ws.col.Info`, basis `message-name`). Because TShark renders the
+Info column as a composite string when a frame also carries SCTP
+acknowledgement text, a nested NAS message name, or coalesced NGAP PDUs, the
+reviewed branch vocabulary is matched against the whole string first and then
+against its comma- and bracket-delimited segments; only exact segment equality
+resolves. TShark Info-column wording
 is Wireshark-version dependent; if it changes, `pdu_type` becomes null and
 the event still validates. Never infer the category from ports, direction,
 or timing.
@@ -174,7 +179,7 @@ rather than observed.
 - evidence.source names the capture frame and the procedure code, plus the
   Info-column text when it drove PDU resolution.
 
-## Direct-Capture TShark Compatibility (v0.3.1)
+## Direct-Capture TShark Compatibility (v0.3.2)
 
 Direct capture extraction uses a bounded compatibility adapter (`FieldSpec`)
 that normalizes TShark dissector field differences into canonical CoreNet keys.
@@ -185,7 +190,7 @@ Tested against TShark 4.7.1 (v4.7.1-0-g667ab240e6de).
 | `frame.number` | `frame.number` | Required | Available | Direct integer frame identity |
 | `frame.time_epoch` | `frame.time_epoch` | Required | Available | Microsecond epoch timestamp |
 | `ngap.procedureCode` | `ngap.procedureCode` | Required | Available | First token parsed as integer (0..255) |
-| `_ws.col.Info` | `_ws.col.Info`, `_ws.col.info` | Optional | `_ws.col.info` available | Mapped to canonical `_ws.col.Info` key |
+| `_ws.col.Info` | `_ws.col.Info`, `_ws.col.info` | Optional | `_ws.col.info` available | Mapped to canonical `_ws.col.Info` key; composite values are segmented on commas and brackets for exact reviewed-name matching |
 | `ip.src`, `ip.dst`, etc. | Canonical name | Optional | Available | Endpoint address / port |
 | `ngap.AMF_UE_NGAP_ID`, `ngap.RAN_UE_NGAP_ID` | Canonical name | Optional | Available | Mapped directly when present |
 | Bounded PDU Session & Mobility fields | Canonical name | Optional | Available | Mapped directly when present; empty string when absent |

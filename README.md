@@ -43,7 +43,7 @@ observed-evidence timeline; no protocol ownership, no verdicts), and the
 with missing-evidence visibility), the bounded `5gc-registration-mobility`
 Domain Skill (N1/N2 registration and access procedure-stage evidence, conditional
 branches, missing-evidence visibility, and lower-layer field findings; no end-to-end
-diagnosis), and the bounded `5gc-pdu-session` Domain Skill (v0.3.0, bounded
+diagnosis), and the bounded `5gc-pdu-session` Domain Skill (v0.4.0, bounded
 5GC PDU Session Establishment, repeated Modification, and Release lifecycle
 analysis across N1/N2/N3/N4/N11 composing already-extracted NAS, NGAP, PFCP,
 GTP-U, and SBI evidence, with lifecycle generation handling so the same UE

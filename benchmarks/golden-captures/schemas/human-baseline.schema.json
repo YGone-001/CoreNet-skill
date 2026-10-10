@@ -172,6 +172,15 @@
     },
     "baseline_hash": {
       "type": "string"
+    },
+    "baseline_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Revision number of an explicitly adjudicated baseline. Present only after a documented independent adjudication."
+    },
+    "revision_reason": {
+      "type": "string",
+      "description": "Why this baseline was revised, citing the exact packet evidence and the corrected claim."
     }
   }
 }

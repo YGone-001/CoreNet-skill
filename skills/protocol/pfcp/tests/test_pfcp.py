@@ -528,7 +528,7 @@ class PfcpCliTests(unittest.TestCase):
 
     def test_tshark_command_is_argument_list(self):
         command = MODEL.build_tshark_fields_command(Path("sample.pcapng"))
-        self.assertTrue(command[0].endswith("tshark") or command[0].endswith("tshark.exe"))
+        self.assertIn(Path(command[0]).name.lower(), ("tshark", "tshark.exe"))
         self.assertEqual(command[1:4], ["-n", "-r", "sample.pcapng"])
         self.assertNotIn("shell=True", command)
         self.assertIn("-Y", command)

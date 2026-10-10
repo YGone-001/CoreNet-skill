@@ -127,6 +127,27 @@
     "adjudication_required": {
       "type": "boolean"
     },
+    "evidence_layers": {
+      "type": ["object", "null"],
+      "description": "Independent per-layer evidence evaluation recorded in pipeline order. Success at one layer never substitutes for missing evidence at the next layer.",
+      "required": [
+        "baseline_support",
+        "capture_sufficiency",
+        "protocol_extraction",
+        "domain_reconstruction",
+        "orchestration_availability",
+        "semantic_comparison"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "baseline_support": {"type": "string"},
+        "capture_sufficiency": {"type": "string"},
+        "protocol_extraction": {"type": "string"},
+        "domain_reconstruction": {"type": "string"},
+        "orchestration_availability": {"type": "string"},
+        "semantic_comparison": {"type": "string"}
+      }
+    },
     "upstream_intent_match": {
       "type": "string",
       "enum": ["MATCH", "PARTIAL", "MISMATCH", "NOT_EVALUATED"]

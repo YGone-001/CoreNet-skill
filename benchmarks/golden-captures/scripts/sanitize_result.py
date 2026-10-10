@@ -69,6 +69,10 @@ def sanitize_failure_boundary_result(raw_result: dict, case_id: str) -> dict:
         "boundary_confidence": primary.get("boundary_confidence"),
         "evidence_limitations": lims,
         "additional_evidence_needed": add_evs,
+        # Instances consumed by the primary diagnostic group. The pipeline
+        # overrides this with the instances produced by executed Domain Skills
+        # and reports the consumed count under orchestration_status, so one
+        # counter never carries both meanings.
         "domain_instances_count": len(primary.get("source_domain_instances") or []),
         "candidate_boundaries_count": len(primary.get("candidate_boundaries") or []),
     }

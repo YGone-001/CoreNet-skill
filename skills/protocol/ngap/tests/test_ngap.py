@@ -132,6 +132,50 @@ class NgapModelTests(unittest.TestCase):
         self.assertEqual(identity.message_type, "InitialUEMessage")
         self.assertNotIn("pdu_type", identity.derivations)
 
+    def test_composite_info_column_resolves_reviewed_message_name(self):
+        # TShark 4.7.1 renders a composite Info column when the frame also
+        # carries SCTP acknowledgement text or a nested NAS message name.
+        identity = MODEL.resolve_procedure(
+            4, "SACK (Ack=1, Arwnd=106496) , DownlinkNASTransport, Authentication request"
+        )
+        self.assertEqual(identity.support_status, "SUPPORTED")
+        self.assertEqual(identity.message_type, "DownlinkNASTransport")
+        self.assertEqual((identity.pdu_type, identity.pdu_type_basis), ("initiatingMessage", "message-name"))
+
+    def test_composite_info_column_resolves_successful_outcome(self):
+        identity = MODEL.resolve_procedure(14, "SACK (Ack=3, Arwnd=106496) , InitialContextSetupResponse")
+        self.assertEqual(identity.message_type, "InitialContextSetupResponse")
+        self.assertEqual(identity.pdu_type, "successfulOutcome")
+
+    def test_bracketed_cause_annotation_does_not_block_identity(self):
+        identity = MODEL.resolve_procedure(
+            41, "SACK (Ack=8, Arwnd=106496) , UEContextReleaseCommand [Cause: RadioNetwork=radio-connection-with-ue-lost]"
+        )
+        self.assertEqual(identity.message_type, "UEContextReleaseCommand")
+        self.assertEqual(identity.pdu_type, "initiatingMessage")
+        self.assertEqual(identity.result, "COMMAND")
+
+    def test_coalesced_ngap_pdus_resolve_one_identity(self):
+        identity = MODEL.resolve_procedure(46, "UplinkNASTransport, UplinkNASTransport")
+        self.assertEqual(identity.message_type, "UplinkNASTransport")
+
+    def test_segment_matching_never_invents_message_names(self):
+        for info in (
+            "DownlinkNASTransportRequest",
+            "PartialDownlinkNASTransport",
+            "SACK (Ack=1, Arwnd=106496) , Authentication request",
+            "NGSetupRequest",
+        ):
+            identity = MODEL.resolve_procedure(4, info)
+            self.assertIsNone(identity.message_type, info)
+            self.assertIsNone(identity.pdu_type, info)
+
+    def test_unsupported_procedure_stays_unsupported_in_composite_column(self):
+        identity = MODEL.resolve_procedure(21, "SACK (Ack=1, Arwnd=106496) , NGSetupRequest")
+        self.assertEqual(identity.support_status, "UNSUPPORTED")
+        self.assertEqual(identity.procedure_name, "NGSetup")
+        self.assertIsNone(identity.message_type)
+
     def test_invalid_pdu_type_is_rejected(self):
         with self.assertRaises(MODEL.InputError):
             MODEL.normalize_record({"frame.number": "1", "frame.time_epoch": "0", "ngap.procedureCode": "15", "pdu_type": "maybe"}, "x.jsonl")
@@ -190,7 +234,7 @@ class NgapModelTests(unittest.TestCase):
 
     def test_tshark_command_is_argument_list(self):
         command = MODEL.build_tshark_fields_command(Path("sample.pcapng"))
-        self.assertTrue(command[0].endswith("tshark") or command[0].endswith("tshark.exe"))
+        self.assertIn(Path(command[0]).name.lower(), ("tshark", "tshark.exe"))
         self.assertEqual(command[1:4], ["-n", "-r", "sample.pcapng"])
         self.assertNotIn("shell=True", command)
         self.assertIn("-Y", command)
@@ -445,7 +489,7 @@ class NgapStandaloneTests(unittest.TestCase):
 class NgapPduSessionResourceTests(unittest.TestCase):
     def test_version_is_expanded(self):
         manifest = (PACKAGE / "manifest.yaml").read_text(encoding="utf-8")
-        self.assertIn("version: 0.3.1", manifest)
+        self.assertIn("version: 0.3.2", manifest)
         self.assertIn("protocols: [NGAP]", manifest)
         self.assertIn("interfaces: [N2]", manifest)
 

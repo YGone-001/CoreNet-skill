@@ -96,15 +96,15 @@ class NgapValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/protocol/ngap/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.1", "version: 0.1.0"), encoding="utf-8")
-            self.assertTrue(any("manifest version must be 0.3.1" in error for error in VALIDATOR.validate(root)))
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.2", "version: 0.1.0"), encoding="utf-8")
+            self.assertTrue(any("manifest version must be 0.3.2" in error for error in VALIDATOR.validate(root)))
 
     def test_version_left_at_previous_release_is_detected(self):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/protocol/ngap/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.1", "version: 0.3.0"), encoding="utf-8")
-            self.assertTrue(any("manifest version must be 0.3.1" in error for error in VALIDATOR.validate(root)))
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.2", "version: 0.3.1"), encoding="utf-8")
+            self.assertTrue(any("manifest version must be 0.3.2" in error for error in VALIDATOR.validate(root)))
 
     def test_missing_field_spec_is_detected(self):
         temporary, root = self.fixture()

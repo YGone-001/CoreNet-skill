@@ -59,11 +59,50 @@
     },
     "domain_instances_count": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "description": "Total procedure instances produced by executed Domain Skills. The count consumed by Orchestration is reported separately as orchestration_status.source_domain_instances_count."
     },
     "candidate_boundaries_count": {
       "type": "integer",
       "minimum": 0
+    },
+    "domain_status": {
+      "type": "object",
+      "description": "Per-Domain execution evidence keyed by registration, pdu_session and handover_mobility.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["execution_status", "output_present", "deviation_count"],
+        "additionalProperties": false,
+        "properties": {
+          "execution_status": {"type": "string"},
+          "output_present": {"type": "boolean"},
+          "instance_count": {"type": "integer", "minimum": 0},
+          "handover_attempt_count": {"type": "integer", "minimum": 0},
+          "path_switch_attempt_count": {"type": "integer", "minimum": 0},
+          "deviation_count": {"type": "integer", "minimum": 0},
+          "first_stop_reason": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "orchestration_status": {
+      "type": "object",
+      "description": "Analysis Orchestration execution evidence, reported separately from Domain evidence.",
+      "required": [
+        "execution_status",
+        "output_present",
+        "diagnostic_group_count",
+        "source_domain_instances_count",
+        "candidate_boundary_count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "execution_status": {"type": "string"},
+        "output_present": {"type": "boolean"},
+        "diagnostic_group_count": {"type": "integer", "minimum": 0},
+        "source_domain_instances_count": {"type": "integer", "minimum": 0},
+        "candidate_boundary_count": {"type": "integer", "minimum": 0},
+        "first_stop_reason": {"type": ["string", "null"]}
+      }
     },
     "protocol_status": {
       "type": "object",

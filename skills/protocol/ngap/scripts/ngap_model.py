@@ -26,6 +26,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -562,6 +563,15 @@ def resolve_procedure(
     ``pdu_type`` (an observed dissector export) wins; otherwise an exact
     match of the observed Info-column message name against a reviewed
     procedure branch is used. Neither source is invented.
+
+    TShark renders the Info column as a composite string when a frame carries
+    SCTP acknowledgements, a nested NAS message name, or coalesced NGAP PDUs
+    (for example ``SACK (Ack=1, Arwnd=106496) , DownlinkNASTransport,
+    Authentication request``). A whole-string comparison therefore misses
+    identities that are present verbatim as one delimited segment, so the
+    reviewed vocabulary is also matched against the comma/bracket-delimited
+    segments. Only exact segment equality resolves; substring matching is
+    never used and no message name outside the reviewed table is produced.
     """
     derivations: list[str] = []
     if code in SUPPORTED_PROCEDURES:
@@ -577,12 +587,19 @@ def resolve_procedure(
             if message_type is not None:
                 derivations.append("message_type")
         elif observed_message is not None:
-            for candidate_pdu, candidate_message in messages.items():
-                if observed_message == candidate_message:
-                    message_type = candidate_message
-                    pdu_type = candidate_pdu
-                    basis = "message-name"
-                    derivations.extend(["message_type", "pdu_type"])
+            candidates = [observed_message]
+            candidates.extend(
+                segment.strip() for segment in re.split(r"[,\[\]]", observed_message)
+            )
+            for candidate in candidates:
+                for candidate_pdu, candidate_message in messages.items():
+                    if candidate == candidate_message:
+                        message_type = candidate_message
+                        pdu_type = candidate_pdu
+                        basis = "message-name"
+                        derivations.extend(["message_type", "pdu_type"])
+                        break
+                if message_type is not None:
                     break
         result = MESSAGE_RESULTS.get(message_type) if message_type else None
         if result is not None:

@@ -29,7 +29,12 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from canonical_hash import canonical_json_bytes, canonical_json_sha256
 from compare_results import compare_differential, evaluate_pipeline_evidence_health, get_relevant_protocols
-from run_capture_pipeline import validate_work_dir_safety
+from run_capture_pipeline import (
+    classify_protocol_extraction,
+    resolve_message_identity,
+    sanitize_reason,
+    validate_work_dir_safety,
+)
 from sanitize_result import sanitize_failure_boundary_result
 from summarize_benchmark import calculate_metrics
 import importlib.util
@@ -515,6 +520,416 @@ class GoldenCaptureDifferentialTests(unittest.TestCase):
         diff = compare_differential(self.base_human, skill_accdiff)
         self.assertEqual(diff["comparison_status"], "ACCEPTABLE_DIFFERENCE")
         self.assertEqual(diff["layer_attribution"], "DOMAIN")
+
+
+class DomainEvidenceQualificationTests(unittest.TestCase):
+    """Healthy matches must be qualified by real per-Domain execution evidence."""
+
+    def setUp(self) -> None:
+        self.healthy_human = {
+            "case_id": "diff-test",
+            "capture_sha256": "c" * 64,
+            "analysis_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+            "capture_scope": {
+                "interfaces": ["N1", "N2"],
+                "protocols_present": ["NGAP", "NAS-5GS"],
+            },
+            "procedure_observations": [
+                {
+                    "procedure_family": "5gc-registration-mobility",
+                    "procedure_stage": "registration",
+                    "outcome": "COMPLETE",
+                    "first_frame": 9,
+                    "last_frame": 15,
+                    "evidence_level": "OBSERVED",
+                }
+            ],
+            "first_abnormal_boundary": None,
+            "supporting_evidence": [],
+            "limitations": [],
+            "scope_assessment": {
+                "in_corenet_scope": True,
+                "interfaces_in_scope": ["N1", "N2"],
+                "interfaces_out_of_scope": [],
+                "reason": "N1/N2",
+            },
+            "baseline_confidence": "HIGH",
+        }
+        self.abnormal_human = copy.deepcopy(self.healthy_human)
+        self.abnormal_human["analysis_status"] = "BOUNDARY_OBSERVED"
+        self.abnormal_human["first_abnormal_boundary"] = {
+            "procedure_family": "5gc-registration-mobility",
+            "procedure_stage": "security",
+            "protocol": "NAS-5GS",
+            "message_type": "Authentication reject",
+            "frame_number": 12,
+            "timestamp": "2026-07-29T00:00:00Z",
+            "evidence_level": "OBSERVED",
+            "reason": "Authentication reject observed",
+        }
+
+    @staticmethod
+    def domain_status(
+        instance_count: int,
+        deviation_count: int,
+        execution_status: str = "EXECUTED",
+        first_stop_reason: str | None = None,
+    ) -> dict:
+        return {
+            "registration": {
+                "execution_status": execution_status,
+                "output_present": execution_status == "EXECUTED",
+                "instance_count": instance_count,
+                "deviation_count": deviation_count,
+                "first_stop_reason": first_stop_reason,
+            },
+            "pdu_session": {
+                "execution_status": "SKIPPED_NO_INPUTS",
+                "output_present": False,
+                "instance_count": 0,
+                "deviation_count": 0,
+                "first_stop_reason": "no N1/N2/N3/N4/N11 protocol evidence extracted",
+            },
+            "handover_mobility": {
+                "execution_status": "SKIPPED_NO_INPUTS",
+                "output_present": False,
+                "handover_attempt_count": 0,
+                "path_switch_attempt_count": 0,
+                "deviation_count": 0,
+                "first_stop_reason": "no mobility protocol evidence extracted",
+            },
+        }
+
+    @staticmethod
+    def orchestration_status(
+        execution_status: str = "EXECUTED",
+        groups: int = 0,
+        consumed: int = 0,
+        candidates: int = 0,
+    ) -> dict:
+        return {
+            "execution_status": execution_status,
+            "output_present": execution_status == "EXECUTED",
+            "diagnostic_group_count": groups,
+            "source_domain_instances_count": consumed,
+            "candidate_boundary_count": candidates,
+            "first_stop_reason": None,
+        }
+
+    def skill_summary(self, **overrides) -> dict:
+        summary = {
+            "case_id": "diff-test",
+            "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+            "selected_boundary": None,
+            "boundary_confidence": None,
+            "evidence_limitations": [],
+            "additional_evidence_needed": [],
+            "domain_instances_count": 1,
+            "candidate_boundaries_count": 0,
+            "protocol_status": {"ngap": "SUCCESS", "nas-5gs": "SUCCESS"},
+        }
+        summary.update(overrides)
+        return summary
+
+    def test_protocol_success_with_zero_domain_instances_is_not_exact_match(self) -> None:
+        skill = self.skill_summary(
+            domain_instances_count=0,
+            domain_status=self.domain_status(0, 0),
+            orchestration_status=self.orchestration_status("SKIPPED_NO_DOMAIN_OUTPUTS"),
+        )
+        diff = compare_differential(self.healthy_human, skill)
+        self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["comparison_status"], "DOMAIN_MODEL_GAP")
+        self.assertEqual(diff["layer_attribution"], "DOMAIN")
+        self.assertEqual(diff["comparison_eligibility"], "INELIGIBLE")
+        self.assertTrue(diff["adjudication_required"])
+
+    def test_domain_input_contract_failure_is_attributed_to_domain(self) -> None:
+        skill = self.skill_summary(
+            domain_instances_count=0,
+            domain_status=self.domain_status(
+                0, 0, "FAILED_INPUT_CONTRACT", "input error: NGAP record 0 lacks a message_type"
+            ),
+            orchestration_status=self.orchestration_status("SKIPPED_NO_DOMAIN_OUTPUTS"),
+        )
+        diff = compare_differential(self.healthy_human, skill)
+        self.assertEqual(diff["comparison_status"], "DOMAIN_MODEL_GAP")
+        self.assertEqual(diff["layer_attribution"], "DOMAIN")
+        self.assertTrue(any("FAILED_INPUT_CONTRACT" in note for note in diff["notes"]))
+        self.assertTrue(any("lacks a message_type" in note for note in diff["notes"]))
+
+    def test_healthy_exact_match_requires_relevant_domain_instance(self) -> None:
+        skill = self.skill_summary(
+            domain_status=self.domain_status(1, 0),
+            orchestration_status=self.orchestration_status("EXECUTED", 0, 0, 0),
+        )
+        diff = compare_differential(self.healthy_human, skill)
+        self.assertEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["comparison_eligibility"], "ELIGIBLE")
+        self.assertEqual(diff["layer_attribution"], "NONE")
+        self.assertFalse(diff["adjudication_required"])
+        self.assertEqual(diff["evidence_layers"]["domain_reconstruction"], "PRESENT")
+        self.assertEqual(diff["evidence_layers"]["semantic_comparison"], "EVALUATED")
+
+    def test_healthy_case_with_domain_deviations_is_not_exact_match(self) -> None:
+        skill = self.skill_summary(
+            domain_status=self.domain_status(1, 3),
+            orchestration_status=self.orchestration_status("EXECUTED", 1, 1, 0),
+        )
+        diff = compare_differential(self.healthy_human, skill)
+        self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["comparison_status"], "NEEDS_ADJUDICATION")
+        self.assertEqual(diff["layer_attribution"], "DOMAIN")
+        self.assertTrue(diff["adjudication_required"])
+
+    def test_healthy_case_with_unconsumed_domain_deviations_is_orchestration_gap(self) -> None:
+        skill = self.skill_summary(
+            domain_status=self.domain_status(1, 3),
+            orchestration_status=self.orchestration_status("EXECUTED", 0, 0, 0),
+        )
+        diff = compare_differential(self.healthy_human, skill)
+        self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["comparison_status"], "ORCHESTRATION_GAP")
+        self.assertEqual(diff["layer_attribution"], "ORCHESTRATION")
+        self.assertEqual(diff["comparison_eligibility"], "INELIGIBLE")
+
+    def test_healthy_case_with_unresolved_boundary_candidates_is_false_positive(self) -> None:
+        skill = self.skill_summary(
+            selection_status="AMBIGUOUS_FIRST_BOUNDARY",
+            candidate_boundaries_count=2,
+            domain_status=self.domain_status(1, 2),
+            orchestration_status=self.orchestration_status("EXECUTED", 1, 2, 2),
+        )
+        diff = compare_differential(self.healthy_human, skill)
+        self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["comparison_status"], "FALSE_POSITIVE")
+        self.assertEqual(diff["layer_attribution"], "DOMAIN")
+
+    def test_abnormal_case_without_domain_deviation_is_domain_false_negative(self) -> None:
+        skill = self.skill_summary(
+            domain_status=self.domain_status(1, 0),
+            orchestration_status=self.orchestration_status("EXECUTED", 0, 0, 0),
+        )
+        diff = compare_differential(self.abnormal_human, skill)
+        self.assertEqual(diff["comparison_status"], "FALSE_NEGATIVE")
+        self.assertEqual(diff["layer_attribution"], "DOMAIN")
+        self.assertTrue(diff["adjudication_required"])
+
+    def test_abnormal_case_with_deviation_but_unconsumed_by_orchestration(self) -> None:
+        skill = self.skill_summary(
+            domain_status=self.domain_status(1, 2),
+            orchestration_status=self.orchestration_status("EXECUTED", 0, 0, 0),
+        )
+        diff = compare_differential(self.abnormal_human, skill)
+        self.assertEqual(diff["comparison_status"], "ORCHESTRATION_GAP")
+        self.assertEqual(diff["layer_attribution"], "ORCHESTRATION")
+        self.assertEqual(diff["recommended_next_action"], "CORRECT_ORCHESTRATION")
+
+    def test_unsupported_protocol_semantics_are_not_an_extractor_failure(self) -> None:
+        skill = self.skill_summary(
+            protocol_status={"ngap": "SUCCESS_WITH_UNSUPPORTED_SEMANTICS", "nas-5gs": "SUCCESS_WITH_PROTECTED_PAYLOAD"},
+            domain_status=self.domain_status(1, 0),
+            orchestration_status=self.orchestration_status("EXECUTED", 0, 0, 0),
+        )
+        eligibility, defects = evaluate_pipeline_evidence_health(self.healthy_human, skill)
+        self.assertEqual(eligibility, "ELIGIBLE")
+        self.assertEqual(defects, [])
+        diff = compare_differential(self.healthy_human, skill)
+        self.assertEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["evidence_layers"]["protocol_extraction"], "HEALTHY")
+
+    def test_missing_message_type_remains_a_protocol_defect(self) -> None:
+        skill = self.skill_summary(
+            protocol_status={"ngap": "MISSING_MESSAGE_TYPE", "nas-5gs": "SUCCESS"},
+            domain_status=self.domain_status(1, 0),
+            orchestration_status=self.orchestration_status("EXECUTED", 1, 1, 0),
+        )
+        eligibility, defects = evaluate_pipeline_evidence_health(self.healthy_human, skill)
+        self.assertEqual(eligibility, "INELIGIBLE")
+        self.assertTrue(defects)
+        diff = compare_differential(self.healthy_human, skill)
+        self.assertEqual(diff["comparison_status"], "PROTOCOL_COVERAGE_GAP")
+        self.assertEqual(diff["layer_attribution"], "PROTOCOL")
+        self.assertEqual(diff["evidence_layers"]["protocol_extraction"], "DEFECT")
+        self.assertEqual(diff["evidence_layers"]["domain_reconstruction"], "NOT_EVALUATED")
+
+    def unowned_family_human(self, analysis_status: str, in_scope: bool) -> dict:
+        human = copy.deepcopy(self.healthy_human)
+        human["analysis_status"] = analysis_status
+        human["capture_scope"] = {
+            "interfaces": ["N3"],
+            "protocols_present": ["GTP-U", "ICMP"],
+        }
+        human["procedure_observations"] = [
+            {
+                "procedure_family": "5gc-user-plane",
+                "procedure_stage": "user_plane_continuity",
+                "outcome": "COMPLETE",
+                "first_frame": 20,
+                "last_frame": 38,
+                "evidence_level": "OBSERVED",
+            }
+        ]
+        human["scope_assessment"] = {
+            "in_corenet_scope": in_scope,
+            "interfaces_in_scope": ["N3"],
+            "interfaces_out_of_scope": [] if in_scope else ["N6"],
+            "reason": "N3 user-plane observation",
+        }
+        return human
+
+    @staticmethod
+    def skipped_domain_status() -> dict:
+        return {
+            "registration": {
+                "execution_status": "SKIPPED_NO_INPUTS",
+                "output_present": False,
+                "instance_count": 0,
+                "deviation_count": 0,
+                "first_stop_reason": "no NGAP or NAS-5GS protocol evidence extracted",
+            },
+            "pdu_session": {
+                "execution_status": "SKIPPED_NO_INPUTS",
+                "output_present": False,
+                "instance_count": 0,
+                "deviation_count": 0,
+                "first_stop_reason": "no N1/N2/N3/N4/N11 protocol evidence extracted",
+            },
+            "handover_mobility": {
+                "execution_status": "SKIPPED_NO_INPUTS",
+                "output_present": False,
+                "handover_attempt_count": 0,
+                "path_switch_attempt_count": 0,
+                "deviation_count": 0,
+                "first_stop_reason": "no mobility protocol evidence extracted",
+            },
+        }
+
+    def test_unowned_procedure_family_is_a_scope_gap_not_a_domain_correction(self) -> None:
+        human = self.unowned_family_human("NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED", True)
+        skill = self.skill_summary(
+            domain_instances_count=0,
+            protocol_status={"gtpu": "SUCCESS"},
+            domain_status=self.skipped_domain_status(),
+            orchestration_status=self.orchestration_status("SKIPPED_NO_DOMAIN_OUTPUTS"),
+        )
+        diff = compare_differential(human, skill)
+        self.assertEqual(diff["comparison_status"], "DOMAIN_MODEL_GAP")
+        self.assertEqual(diff["recommended_next_action"], "EXPAND_FUTURE_SCOPE")
+        self.assertFalse(diff["adjudication_required"])
+        self.assertTrue(any("5gc-user-plane" in note for note in diff["notes"]))
+
+    def test_out_of_scope_case_with_skipped_domains_stays_out_of_scope(self) -> None:
+        human = self.unowned_family_human("OUTSIDE_CURRENT_CORENET_SCOPE", False)
+        skill = self.skill_summary(
+            domain_instances_count=0,
+            protocol_status={"gtpu": "SUCCESS"},
+            domain_status=self.skipped_domain_status(),
+            orchestration_status=self.orchestration_status("SKIPPED_NO_DOMAIN_OUTPUTS"),
+        )
+        diff = compare_differential(human, skill)
+        self.assertEqual(diff["comparison_status"], "OUT_OF_SCOPE")
+        self.assertEqual(diff["layer_attribution"], "OUT_OF_SCOPE")
+        self.assertEqual(diff["comparison_eligibility"], "ELIGIBLE")
+
+    def test_owned_family_takes_precedence_over_an_unowned_family(self) -> None:
+        human = copy.deepcopy(self.healthy_human)
+        human["procedure_observations"].append(
+            {
+                "procedure_family": "ngap-management",
+                "procedure_stage": "ng-setup",
+                "outcome": "COMPLETE",
+                "first_frame": 5,
+                "last_frame": 7,
+                "evidence_level": "OBSERVED",
+            }
+        )
+        skill = self.skill_summary(
+            domain_instances_count=0,
+            domain_status=self.domain_status(
+                0, 0, "FAILED_INPUT_CONTRACT", "input error: NGAP record 0 lacks a message_type"
+            ),
+            orchestration_status=self.orchestration_status("SKIPPED_NO_DOMAIN_OUTPUTS"),
+        )
+        diff = compare_differential(human, skill)
+        self.assertEqual(diff["comparison_status"], "DOMAIN_MODEL_GAP")
+        self.assertEqual(diff["recommended_next_action"], "CORRECT_DOMAIN_MODEL")
+        self.assertTrue(diff["adjudication_required"])
+
+    def test_evidence_layers_are_recorded_independently(self) -> None:
+        skill = self.skill_summary(
+            domain_status=self.domain_status(1, 0),
+            orchestration_status=self.orchestration_status("EXECUTED", 0, 0, 0),
+        )
+        diff = compare_differential(self.healthy_human, skill)
+        self.assertEqual(
+            diff["evidence_layers"],
+            {
+                "baseline_support": "SUPPORTED",
+                "capture_sufficiency": "SUFFICIENT",
+                "protocol_extraction": "HEALTHY",
+                "domain_reconstruction": "PRESENT",
+                "orchestration_availability": "AVAILABLE",
+                "semantic_comparison": "EVALUATED",
+            },
+        )
+
+
+class ProtocolIdentityContractTests(unittest.TestCase):
+    """Protocol health must be judged against each Skill's own identity contract."""
+
+    def test_pfcp_identity_is_read_from_the_header_contract(self) -> None:
+        events = [
+            {"support_status": "SUPPORTED", "header": {"message_type": "PFCP Session Establishment Request", "message_type_code": 50}},
+            {"support_status": "SUPPORTED", "header": {"message_type": "PFCP Session Establishment Response", "message_type_code": 51}},
+        ]
+        self.assertEqual(resolve_message_identity("pfcp", events[0]), "PFCP Session Establishment Request")
+        self.assertEqual(classify_protocol_extraction("pfcp", events), "SUCCESS")
+
+    def test_gtpu_identity_is_read_from_the_header_contract(self) -> None:
+        events = [{"support_status": "SUPPORTED", "header": {"message_type": "G-PDU", "message_type_code": 255}}]
+        self.assertEqual(resolve_message_identity("gtpu", events[0]), "G-PDU")
+        self.assertEqual(classify_protocol_extraction("gtpu", events), "SUCCESS")
+
+    def test_numeric_header_identity_code_is_usable_evidence(self) -> None:
+        events = [{"support_status": "SUPPORTED", "header": {"message_type": None, "message_type_code": 255}}]
+        self.assertEqual(resolve_message_identity("gtpu", events[0]), 255)
+        self.assertEqual(classify_protocol_extraction("gtpu", events), "SUCCESS")
+
+    def test_supported_record_without_identity_is_a_precise_failure(self) -> None:
+        events = [
+            {"support_status": "SUPPORTED", "message_type": "InitialUEMessage"},
+            {"support_status": "SUPPORTED", "message_type": None},
+        ]
+        self.assertEqual(classify_protocol_extraction("ngap", events), "MISSING_MESSAGE_TYPE")
+
+    def test_known_unsupported_procedure_is_not_an_extractor_failure(self) -> None:
+        events = [
+            {"support_status": "UNSUPPORTED", "message_type": None, "procedure_name": "NGSetup"},
+            {"support_status": "SUPPORTED", "message_type": "InitialUEMessage"},
+        ]
+        self.assertEqual(classify_protocol_extraction("ngap", events), "SUCCESS_WITH_UNSUPPORTED_SEMANTICS")
+
+    def test_protected_nas_payload_is_not_an_extractor_failure(self) -> None:
+        events = [
+            {"support_status": "SUPPORTED", "message_type": "Registration request"},
+            {"support_status": "UNKNOWN", "message_type": None, "security": {"ciphered": True, "header_type": 2}},
+        ]
+        self.assertEqual(classify_protocol_extraction("nas-5gs", events), "SUCCESS_WITH_PROTECTED_PAYLOAD")
+
+    def test_empty_and_unknown_shapes_stay_classifiable(self) -> None:
+        self.assertEqual(classify_protocol_extraction("pfcp", []), "SUCCESS")
+        self.assertEqual(classify_protocol_extraction("sbi-http2", [{"support_status": "SUPPORTED"}]), "MISSING_MESSAGE_TYPE")
+        self.assertIsNone(resolve_message_identity("pfcp", {"header": {"message_type": ""}}))
+
+    def test_first_stop_reason_is_bounded_and_path_free(self) -> None:
+        reason = sanitize_reason(
+            "input error: NGAP record 0 in C:\\Users\\someone\\Desktop\\work\\ngap-events.jsonl lacks a message_type\nsecond line"
+        )
+        self.assertIsNotNone(reason)
+        self.assertNotIn("Users", reason)
+        self.assertIn("lacks a message_type", reason)
+        self.assertIsNone(sanitize_reason("   \n"))
 
 
 class GoldenCaptureMetricsTests(unittest.TestCase):

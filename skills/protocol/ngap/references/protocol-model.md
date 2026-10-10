@@ -49,7 +49,12 @@ sources, recorded in `pdu_type_basis`:
 - `structured-input` — the structured input carries an explicit `pdu_type`
   value observed by the dissector export that produced it.
 - `message-name` — the observed Info-column message name exactly matches a
-  reviewed message name of the procedure's outcome branches.
+  reviewed message name of the procedure's outcome branches. TShark renders
+  the Info column as a composite string when a frame also carries SCTP
+  acknowledgement text, a nested NAS message name, or coalesced NGAP PDUs, so
+  the reviewed vocabulary is matched against the whole string first and then
+  against its comma- and bracket-delimited segments. Only exact equality
+  resolves; substring matching is never used.
 
 If neither source identifies the category, `pdu_type` stays null and the
 event remains valid with `support_status` unchanged. The category is never
