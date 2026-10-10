@@ -5,8 +5,16 @@
     "User-plane packet capture only; no control signaling on N1, N2, or N4 is present"
   ],
   "case_id": "public-5gc-external-path-negative",
-  "comparison_eligibility": "INELIGIBLE",
-  "comparison_status": "PROTOCOL_COVERAGE_GAP",
+  "comparison_eligibility": "ELIGIBLE",
+  "comparison_status": "OUT_OF_SCOPE",
+  "evidence_layers": {
+    "baseline_support": "SUPPORTED",
+    "capture_sufficiency": "SUFFICIENT",
+    "domain_reconstruction": "NOT_APPLICABLE",
+    "orchestration_availability": "NOT_APPLICABLE",
+    "protocol_extraction": "HEALTHY",
+    "semantic_comparison": "EVALUATED"
+  },
   "evidence_overlap": false,
   "frame_delta": null,
   "human_baseline_sha256": "7b16e99217d98bfe53625f1b4a1a0a40234f71e034637e61a5314a6d47da170f",
@@ -18,12 +26,11 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "PROTOCOL",
+  "layer_attribution": "OUT_OF_SCOPE",
   "notes": [
-    "Relevant protocol 'gtpu' extractor failed to extract mandatory message type fields",
-    "Zero Domain instances formed due to upstream Protocol extraction defects"
+    "Capture condition falls outside implemented CoreNet interfaces (e.g. N6 external path); pipeline safely remained conservative."
   ],
-  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
+  "recommended_next_action": "EXPAND_FUTURE_SCOPE",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
@@ -33,5 +40,5 @@
     "selection_status": "NO_DOMAIN_INPUTS",
     "source_domain": null
   },
-  "upstream_intent_match": "PARTIAL"
+  "upstream_intent_match": "MATCH"
 }

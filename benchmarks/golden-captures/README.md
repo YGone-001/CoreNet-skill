@@ -100,37 +100,43 @@ Only `MISSING_MESSAGE_TYPE`, `ERROR_*`, a missing status for a relevant protocol
 
 ## 4. Public Capture Corpus and Empirical Results
 
-The benchmark evaluates 13 captures from the public repository `abdelrahman-fawaz18/5g-sa-core-protocol-lab` pinned at commit `82934c2cc231540fa425e48177d4bed33210bfc1`:
+The benchmark evaluates 13 captures from the public repository `abdelrahman-fawaz18/5g-sa-core-protocol-lab` pinned at commit `82934c2cc231540fa425e48177d4bed33210bfc1`. The results below were produced by a single frozen run against CoreNet commit `e6d08d1ff1dbca21d8a6e6f055f5ea1cce3997ea` with TShark 4.7.1 (v4.7.1-0-g667ab240e6de); every capture SHA-256 was verified before execution and no Skill was modified while the run was in progress.
 
-| Case ID | Scenario Type | Human Baseline Status | Pipeline Health | Skill Status | Differential Status | Attribution |
+| Case ID | Scenario Type | Human Baseline Status | Evidence Chain Health | Skill Status | Differential Status | Attribution |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `public-5gc-baseline-lifecycle` | Baseline Lifecycle | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-baseline-user-plane` | Baseline User Plane | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-registration-resync` | Baseline Resynchronization | Healthy (recovered synch) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-auth-recovery` | Auth Recovery | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-access-plmn-recovery` | PLMN Recovery | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-access-tai-recovery` | TAC Recovery | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-dnn-recovery` | DNN Recovery | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-external-path-recovery` | N6 Path Recovery | Healthy (no abnormal boundary) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-external-path-negative` | Missing N6 NAT | Out of Scope (N6 data plane) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-auth-negative` | Auth Key Mismatch | Abnormal Boundary (NAS MAC failure) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-access-plmn-negative` | PLMN Mismatch | Abnormal Boundary (NGSetupFailure) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-access-tai-negative` | TAC Mismatch | Abnormal Boundary (NGSetupFailure) | Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
-| `public-5gc-dnn-negative` | Unsupported DNN | Abnormal Boundary (Downlink NAS Reject)| Protocol Gaps | No boundary | `PROTOCOL_COVERAGE_GAP` | `PROTOCOL` |
+| `public-5gc-baseline-lifecycle` | Baseline Lifecycle | Healthy (no abnormal boundary) | Protocol healthy (NGAP/PFCP/GTP-U identified); Domain rejected input | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-baseline-user-plane` | Baseline User Plane | Healthy (no abnormal boundary) | Full chain executed: 2 Domain instances, 1 diagnostic group, 2 candidates | Ambiguous first boundary | `FALSE_POSITIVE` | `DOMAIN` |
+| `public-5gc-registration-resync` | Baseline Resynchronization | Healthy (recovered synch) | Protocol healthy; Domain rejected input | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-auth-recovery` | Auth Recovery | Healthy (no abnormal boundary) | Protocol healthy; Domain rejected input | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-access-plmn-recovery` | PLMN Recovery | Healthy (no abnormal boundary) | Protocol healthy; only NGSetup present, family unowned | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-access-tai-recovery` | TAC Recovery | Healthy (no abnormal boundary) | Protocol healthy; only NGSetup present, family unowned | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-dnn-recovery` | DNN Recovery | Healthy (no abnormal boundary) | Protocol healthy (NGAP/PFCP identified); Domain rejected input | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-external-path-recovery` | N6 Path Recovery | Healthy (no abnormal boundary) | GTP-U extracted (G-PDU 255); observed family unowned | No Domain inputs | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-external-path-negative` | Missing N6 NAT | Out of Scope (N6 data plane) | GTP-U extracted (G-PDU 255); no N1/N2 signaling | No Domain inputs | `OUT_OF_SCOPE` | `OUT_OF_SCOPE` |
+| `public-5gc-auth-negative` | Auth Key Mismatch | Abnormal Boundary (NAS MAC failure) | Protocol healthy; Domain rejected input before reconstruction | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-access-plmn-negative` | PLMN Mismatch | Abnormal Boundary (NGSetupFailure) | Protocol healthy; NGSetup is unowned node-level management | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-access-tai-negative` | TAC Mismatch | Abnormal Boundary (NGSetupFailure) | Protocol healthy; NGSetup is unowned node-level management | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-dnn-negative` | Unsupported DNN | Abnormal Boundary (protected downlink NAS transport, baseline revision 2) | Protocol healthy; Domain rejected input | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
 
 ### Benchmark Metrics Summary
 - **Total Cases Evaluated**: 13
 - **Executed Case Count**: 13
-- **In-Scope Cases Evaluated**: 13
-- **Comparison Eligibility**: 13 `INELIGIBLE` (upstream protocol dissector gaps)
+- **In-Scope Cases Evaluated**: 12 (denominator excludes 1 out-of-scope case)
+- **Comparison Eligibility**: 7 `ELIGIBLE`, 6 `INELIGIBLE` (Domain reconstruction failed after healthy Protocol extraction)
 - **Exact Match Count**: 0
-- **Exact Match Rate**: 0.0% (0 / 13)
+- **Exact Match Rate**: 0.0% (0 / 12)
 - **Healthy / Recovery Exact Match Rate**: 0.0% (0 / 8)
-- **False Positive Count**: 0 (zero spurious abnormalities detected on healthy signaling)
-- **False Negative Count**: 0 (zero unextracted domain omissions; missing boundaries accounted for by protocol extraction layer)
-- **Protocol Coverage Gaps**: 13 (attributed to TShark 4.7.1 dissector differences)
+- **False Positive Count**: 1 (`public-5gc-baseline-user-plane`: Domain deviations on a capture the independent baseline records as healthy, Orchestration could not resolve a single first boundary)
+- **False Negative Count**: 0
+- **Protocol Coverage Gaps**: 0 (previously 13; every relevant Protocol Skill now exposes usable message identity for the cases it supports)
+- **Domain Model Gaps**: 11 (6 from the Domain input contract rejecting NGAP records without a message identity, 5 from procedure families no implemented Domain owns: 4 node-level `ngap-management` and 1 `5gc-user-plane`)
+- **Out of Scope Count**: 1
+- **Orchestration Gaps**: 0
+- **Needs Adjudication Count**: 7
 - **Blocked Cases**: 0
 - **Acceptable Difference Count**: 0
+
+The single case that exercises the complete chain (`public-5gc-baseline-user-plane`, the only capture in this corpus without an NGSetup preamble) proves Protocol, Correlation, Domain and Orchestration all execute on real captures: NGAP, PFCP and GTP-U identity resolve, 2 Domain instances are reconstructed, and Orchestration forms 1 diagnostic group with 2 candidates. Its `FALSE_POSITIVE` result is an adjudication item about Domain deviation semantics on encrypted-NAS captures, not an extraction failure.
 
 ---
 

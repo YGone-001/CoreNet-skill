@@ -4,13 +4,48 @@
   "candidate_boundaries_count": 0,
   "case_id": "public-5gc-dnn-negative",
   "domain_instances_count": 0,
+  "domain_status": {
+    "handover_mobility": {
+      "deviation_count": 0,
+      "execution_status": "FAILED_INPUT_CONTRACT",
+      "first_stop_reason": "input error: NGAP record 0 in ngap-events.jsonl lacks a message_type",
+      "handover_attempt_count": 0,
+      "output_present": false,
+      "path_switch_attempt_count": 0
+    },
+    "pdu_session": {
+      "deviation_count": 0,
+      "execution_status": "FAILED_INPUT_CONTRACT",
+      "first_stop_reason": "input error: NGAP record 0 in ngap-events.jsonl lacks message_type string",
+      "instance_count": 0,
+      "output_present": false
+    },
+    "registration": {
+      "deviation_count": 0,
+      "execution_status": "FAILED_INPUT_CONTRACT",
+      "first_stop_reason": "input error: NGAP record 0 lacks a message_type",
+      "instance_count": 0,
+      "output_present": false
+    }
+  },
   "evidence_limitations": [
-    "No Domain instances formed from capture evidence"
+    "handover_mobility Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 in ngap-events.jsonl lacks a message_type)",
+    "pdu_session Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 in ngap-events.jsonl lacks message_type string)",
+    "registration Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 lacks a message_type)",
+    "No Domain instance was reconstructed from capture evidence"
   ],
+  "orchestration_status": {
+    "candidate_boundary_count": 0,
+    "diagnostic_group_count": 0,
+    "execution_status": "SKIPPED_NO_DOMAIN_OUTPUTS",
+    "first_stop_reason": "no Domain analysis output was produced",
+    "output_present": false,
+    "source_domain_instances_count": 0
+  },
   "protocol_status": {
     "gtpu": "NOT_OBSERVED_IN_CAPTURE",
-    "nas-5gs": "SUCCESS",
-    "ngap": "SUCCESS",
+    "nas-5gs": "SUCCESS_WITH_PROTECTED_PAYLOAD",
+    "ngap": "SUCCESS_WITH_UNSUPPORTED_SEMANTICS",
     "pfcp": "NOT_OBSERVED_IN_CAPTURE",
     "sbi-http2": "NOT_OBSERVED_IN_CAPTURE"
   },

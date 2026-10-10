@@ -1,10 +1,18 @@
 {
-  "adjudication_required": false,
+  "adjudication_required": true,
   "baseline_supported": true,
   "capture_limitations": [],
   "case_id": "public-5gc-auth-recovery",
-  "comparison_eligibility": "ELIGIBLE",
-  "comparison_status": "EXACT_MATCH",
+  "comparison_eligibility": "INELIGIBLE",
+  "comparison_status": "DOMAIN_MODEL_GAP",
+  "evidence_layers": {
+    "baseline_support": "SUPPORTED",
+    "capture_sufficiency": "SUFFICIENT",
+    "domain_reconstruction": "FAILED",
+    "orchestration_availability": "NOT_RUN",
+    "protocol_extraction": "HEALTHY",
+    "semantic_comparison": "NOT_EVALUATED"
+  },
   "evidence_overlap": false,
   "frame_delta": null,
   "human_baseline_sha256": "ca7f7491e4e60177bd2dbf18ef28ec7081769018bdbbc1540c799744b40989b1",
@@ -16,11 +24,13 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "NONE",
+  "layer_attribution": "DOMAIN",
   "notes": [
-    "Both human baseline and automated pipeline observed no abnormal boundary in healthy/recovered capture."
+    "pdu_session Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 in ngap-events.jsonl lacks message_type string)",
+    "registration Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 lacks a message_type)",
+    "Relevant Protocol extraction succeeded, so the absent procedure reconstruction is attributed to the Domain layer."
   ],
-  "recommended_next_action": "NO_CHANGE",
+  "recommended_next_action": "CORRECT_DOMAIN_MODEL",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
@@ -30,5 +40,5 @@
     "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
     "source_domain": null
   },
-  "upstream_intent_match": "MATCH"
+  "upstream_intent_match": "PARTIAL"
 }

@@ -1,10 +1,18 @@
 {
-  "adjudication_required": false,
+  "adjudication_required": true,
   "baseline_supported": true,
   "capture_limitations": [],
   "case_id": "public-5gc-dnn-recovery",
   "comparison_eligibility": "INELIGIBLE",
-  "comparison_status": "PROTOCOL_COVERAGE_GAP",
+  "comparison_status": "DOMAIN_MODEL_GAP",
+  "evidence_layers": {
+    "baseline_support": "SUPPORTED",
+    "capture_sufficiency": "SUFFICIENT",
+    "domain_reconstruction": "FAILED",
+    "orchestration_availability": "NOT_RUN",
+    "protocol_extraction": "HEALTHY",
+    "semantic_comparison": "NOT_EVALUATED"
+  },
   "evidence_overlap": false,
   "frame_delta": null,
   "human_baseline_sha256": "20eb59466385cc244d9050ba3e4e9f748441ae7e3f99c6b209755dc303b10f32",
@@ -16,12 +24,13 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "PROTOCOL",
+  "layer_attribution": "DOMAIN",
   "notes": [
-    "Relevant protocol 'pfcp' extractor failed to extract mandatory message type fields",
-    "Zero Domain instances formed due to upstream Protocol extraction defects"
+    "pdu_session Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 in ngap-events.jsonl lacks message_type string)",
+    "registration Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 lacks a message_type)",
+    "Relevant Protocol extraction succeeded, so the absent procedure reconstruction is attributed to the Domain layer."
   ],
-  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
+  "recommended_next_action": "CORRECT_DOMAIN_MODEL",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,

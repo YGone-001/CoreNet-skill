@@ -1,7 +1,8 @@
 {
   "analysis_status": "BOUNDARY_OBSERVED",
-  "baseline_confidence": "HIGH",
+  "baseline_confidence": "MEDIUM",
   "baseline_hash": "f2123b62fe616c4c242b66d133a7a6ef45e366d9c447302d3565f4e2c2632fbd",
+  "baseline_revision": 2,
   "capture_scope": {
     "interfaces": [
       "N1",
@@ -19,7 +20,7 @@
   "capture_sha256": "fa8daf46694594f0ff007eca49a3ebe5e1ca54d14f6784e9000c11d6b77112a8",
   "case_id": "public-5gc-dnn-negative",
   "first_abnormal_boundary": {
-    "evidence_level": "OBSERVED",
+    "evidence_level": "DERIVED",
     "frame_number": 18,
     "message_type": "DownlinkNASTransport",
     "observation_window": {
@@ -28,12 +29,16 @@
     },
     "procedure_family": "5gc-pdu-session",
     "procedure_stage": "pdu_session_establishment",
-    "protocol": "NAS-5GS",
-    "reason": "PDU session establishment requested for unsupported DNN at frame 17; protected response at frame 18/19 followed by no PFCP session and no NGAP resource setup",
+    "protocol": "NGAP",
+    "reason": "NGAP DownlinkNASTransport (procedure code 4) at frame 18 delivers a security-protected NAS message inside observation window 17-19. The inner 5GSM payload is ciphered (nas-5gs.security_header_type 2, only nas-5gs.ciphered_msg exposed, no mm or sm message type), so no PDU session establishment reject and no 5GSM cause are decodable from this capture. Within the captured N2 scope no NGAP PDUSessionResourceSetup (procedure code 29) follows, and the capture holds no N4 or N3 traffic, so absence of a PFCP session is not evidence. The unsupported-DNN rejection is therefore derived from the protected NAS exchange plus absent N2 resource allocation; upstream fault-injection intent is not packet evidence.",
     "timestamp": "1785304750.196435000"
   },
   "limitations": [
-    "NAS traffic after Security Mode is encrypted; exact 5GSM cause is protected in envelope"
+    "NAS traffic after Security Mode is encrypted; exact 5GSM cause is protected in envelope",
+    "Frames 13, 14, 17, 18, 19, 20 and 21 expose nas-5gs.security_header_type 2 or 4 with only nas-5gs.ciphered_msg present, so no NAS-5GS message type is decodable at those frames",
+    "UplinkNASTransport and DownlinkNASTransport are NGAP (TS 38.413) message identities; the NAS-5GS layer contributes no message identity at those frames",
+    "Capture contains no N4 (PFCP) and no N3 (GTP-U) traffic, so absence of a PFCP session cannot support a rejection finding",
+    "NGAP procedure code 29 (PDUSessionResourceSetup) never appears in the captured N2 scope"
   ],
   "procedure_observations": [
     {
@@ -45,10 +50,10 @@
       "procedure_stage": "registration"
     },
     {
-      "evidence_level": "OBSERVED",
+      "evidence_level": "DERIVED",
       "first_frame": 17,
       "last_frame": 21,
-      "outcome": "REJECTED_PROTECTED",
+      "outcome": "PROTECTED_OUTCOME_NOT_DECODABLE",
       "procedure_family": "5gc-pdu-session",
       "procedure_stage": "establishment"
     },
@@ -61,6 +66,7 @@
       "procedure_stage": "release"
     }
   ],
+  "revision_reason": "Revision 2, independent raw-capture adjudication of captures/fault-injection/unsupported-dnn/fault.pcap (sha256 fa8daf46694594f0ff007eca49a3ebe5e1ca54d14f6784e9000c11d6b77112a8) with TShark 4.7.1. Previous claim: frames 17, 18 and 20 carried protocol NAS-5GS with message_type UplinkNASTransport or DownlinkNASTransport, and an OBSERVED PDU session establishment reject for an unsupported DNN whose evidence included the absence of a PFCP session. Corrected claim: those message identities are NGAP transport identities observed on N2 (procedure codes 46 and 4), while the NAS-5GS layer at frames 13 to 21 exposes only nas-5gs.ciphered_msg with security_header_type 2 or 4 and no mm or sm message type, so the inner 5GSM message and cause are not decodable and the rejection is DERIVED rather than OBSERVED; the capture contains zero PFCP and zero GTP-U frames, so the previously cited absence of a PFCP session is not evidence. Previous canonical hash ce727cc05fc6989bc3bf5e1ff565a170397c554a813b3dc6d3abc9337e6ecd67.",
   "scope_assessment": {
     "in_corenet_scope": true,
     "interfaces_in_scope": [
@@ -79,25 +85,25 @@
       "protocol": "NGAP"
     },
     {
-      "description": "UE requests PDU session establishment for unsupported DNN",
+      "description": "NGAP UplinkNASTransport (procedure code 46, two coalesced PDUs) carrying a security-protected NAS message; inner 5GSM content is not decodable",
       "evidence_level": "OBSERVED",
       "frame_number": 17,
       "message_type": "UplinkNASTransport",
-      "protocol": "NAS-5GS"
+      "protocol": "NGAP"
     },
     {
-      "description": "Protected downlink NAS transport message delivered by AMF",
+      "description": "NGAP DownlinkNASTransport (procedure code 4) delivering a security-protected NAS message from the AMF; inner 5GSM content is not decodable",
       "evidence_level": "OBSERVED",
       "frame_number": 18,
       "message_type": "DownlinkNASTransport",
-      "protocol": "NAS-5GS"
+      "protocol": "NGAP"
     },
     {
-      "description": "T3580 retransmission of session request",
+      "description": "NGAP UplinkNASTransport retransmission (procedure code 46) carrying a security-protected NAS message; the retransmitted 5GSM message type is not decodable",
       "evidence_level": "OBSERVED",
       "frame_number": 20,
       "message_type": "UplinkNASTransport",
-      "protocol": "NAS-5GS"
+      "protocol": "NGAP"
     },
     {
       "description": "UE context release initiated",

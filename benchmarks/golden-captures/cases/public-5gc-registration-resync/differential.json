@@ -1,12 +1,20 @@
 {
-  "adjudication_required": false,
+  "adjudication_required": true,
   "baseline_supported": true,
   "capture_limitations": [
     "Capture contains periodic SCTP heartbeats before UE registration starts"
   ],
   "case_id": "public-5gc-registration-resync",
-  "comparison_eligibility": "ELIGIBLE",
-  "comparison_status": "EXACT_MATCH",
+  "comparison_eligibility": "INELIGIBLE",
+  "comparison_status": "DOMAIN_MODEL_GAP",
+  "evidence_layers": {
+    "baseline_support": "SUPPORTED",
+    "capture_sufficiency": "SUFFICIENT",
+    "domain_reconstruction": "FAILED",
+    "orchestration_availability": "NOT_RUN",
+    "protocol_extraction": "HEALTHY",
+    "semantic_comparison": "NOT_EVALUATED"
+  },
   "evidence_overlap": false,
   "frame_delta": null,
   "human_baseline_sha256": "a51c0e534c9f7c97365e4fdb300ebc47b7d53cec36261160dec7804972ccd317",
@@ -18,11 +26,12 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "NONE",
+  "layer_attribution": "DOMAIN",
   "notes": [
-    "Both human baseline and automated pipeline observed no abnormal boundary in healthy/recovered capture."
+    "registration Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 lacks a message_type)",
+    "Relevant Protocol extraction succeeded, so the absent procedure reconstruction is attributed to the Domain layer."
   ],
-  "recommended_next_action": "NO_CHANGE",
+  "recommended_next_action": "CORRECT_DOMAIN_MODEL",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
@@ -32,5 +41,5 @@
     "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
     "source_domain": null
   },
-  "upstream_intent_match": "MATCH"
+  "upstream_intent_match": "PARTIAL"
 }

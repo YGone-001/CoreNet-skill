@@ -3,8 +3,16 @@
   "baseline_supported": true,
   "capture_limitations": [],
   "case_id": "public-5gc-auth-negative",
-  "comparison_eligibility": "ELIGIBLE",
-  "comparison_status": "FALSE_NEGATIVE",
+  "comparison_eligibility": "INELIGIBLE",
+  "comparison_status": "DOMAIN_MODEL_GAP",
+  "evidence_layers": {
+    "baseline_support": "SUPPORTED",
+    "capture_sufficiency": "SUFFICIENT",
+    "domain_reconstruction": "FAILED",
+    "orchestration_availability": "NOT_RUN",
+    "protocol_extraction": "HEALTHY",
+    "semantic_comparison": "NOT_EVALUATED"
+  },
   "evidence_overlap": false,
   "frame_delta": null,
   "human_baseline_sha256": "74b7a9596b4687c050715d4b012a6f637bfa34bd3bc4b5478d82880afe2b129d",
@@ -18,7 +26,8 @@
   },
   "layer_attribution": "DOMAIN",
   "notes": [
-    "Human baseline identified supported abnormal boundary inside scope, but pipeline observed no boundary."
+    "registration Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 lacks a message_type)",
+    "Relevant Protocol extraction succeeded, so the absent procedure reconstruction is attributed to the Domain layer."
   ],
   "recommended_next_action": "CORRECT_DOMAIN_MODEL",
   "skill_boundary": {
@@ -30,5 +39,5 @@
     "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
     "source_domain": null
   },
-  "upstream_intent_match": "MISMATCH"
+  "upstream_intent_match": "PARTIAL"
 }

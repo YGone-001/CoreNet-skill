@@ -1,12 +1,20 @@
 {
-  "adjudication_required": false,
+  "adjudication_required": true,
   "baseline_supported": true,
   "capture_limitations": [
     "PFCP Session Deletion at frame 2-3 reflects startup environment cleanup"
   ],
   "case_id": "public-5gc-baseline-user-plane",
-  "comparison_eligibility": "INELIGIBLE",
-  "comparison_status": "PROTOCOL_COVERAGE_GAP",
+  "comparison_eligibility": "ELIGIBLE",
+  "comparison_status": "FALSE_POSITIVE",
+  "evidence_layers": {
+    "baseline_support": "SUPPORTED",
+    "capture_sufficiency": "SUFFICIENT",
+    "domain_reconstruction": "PRESENT",
+    "orchestration_availability": "AVAILABLE",
+    "protocol_extraction": "HEALTHY",
+    "semantic_comparison": "EVALUATED"
+  },
   "evidence_overlap": false,
   "frame_delta": null,
   "human_baseline_sha256": "81f4740c17d638a2a4e9e2339114f15fce6a4beb6b7f0aa2cd142c5833fed6ae",
@@ -18,21 +26,19 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "PROTOCOL",
+  "layer_attribution": "DOMAIN",
   "notes": [
-    "Relevant protocol 'gtpu' extractor failed to extract mandatory message type fields",
-    "Relevant protocol 'pfcp' extractor failed to extract mandatory message type fields",
-    "Zero Domain instances formed due to upstream Protocol extraction defects"
+    "Automated pipeline could not resolve a single first boundary (AMBIGUOUS_FIRST_BOUNDARY) on a healthy/recovered capture with 2 candidate boundary(ies)."
   ],
-  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
+  "recommended_next_action": "CORRECT_DOMAIN_MODEL",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
     "boundary_protocol": null,
     "procedure_family": null,
     "procedure_stage": null,
-    "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+    "selection_status": "AMBIGUOUS_FIRST_BOUNDARY",
     "source_domain": null
   },
-  "upstream_intent_match": "PARTIAL"
+  "upstream_intent_match": "MISMATCH"
 }

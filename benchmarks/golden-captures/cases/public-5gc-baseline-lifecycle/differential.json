@@ -1,12 +1,20 @@
 {
-  "adjudication_required": false,
+  "adjudication_required": true,
   "baseline_supported": true,
   "capture_limitations": [
     "Loopback packet capture with simulated radio connection drop at frame 56"
   ],
   "case_id": "public-5gc-baseline-lifecycle",
   "comparison_eligibility": "INELIGIBLE",
-  "comparison_status": "PROTOCOL_COVERAGE_GAP",
+  "comparison_status": "DOMAIN_MODEL_GAP",
+  "evidence_layers": {
+    "baseline_support": "SUPPORTED",
+    "capture_sufficiency": "SUFFICIENT",
+    "domain_reconstruction": "FAILED",
+    "orchestration_availability": "NOT_RUN",
+    "protocol_extraction": "HEALTHY",
+    "semantic_comparison": "NOT_EVALUATED"
+  },
   "evidence_overlap": false,
   "frame_delta": null,
   "human_baseline_sha256": "b4075cfdf499c1bf3a0fb8002aed5fc1eb4ee8b7448cb07f3e82ed93d1422421",
@@ -18,13 +26,13 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "PROTOCOL",
+  "layer_attribution": "DOMAIN",
   "notes": [
-    "Relevant protocol 'gtpu' extractor failed to extract mandatory message type fields",
-    "Relevant protocol 'pfcp' extractor failed to extract mandatory message type fields",
-    "Zero Domain instances formed due to upstream Protocol extraction defects"
+    "pdu_session Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 in ngap-events.jsonl lacks message_type string)",
+    "registration Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 lacks a message_type)",
+    "Relevant Protocol extraction succeeded, so the absent procedure reconstruction is attributed to the Domain layer."
   ],
-  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
+  "recommended_next_action": "CORRECT_DOMAIN_MODEL",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,

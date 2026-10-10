@@ -5,8 +5,16 @@
     "User-plane packet capture only"
   ],
   "case_id": "public-5gc-external-path-recovery",
-  "comparison_eligibility": "INELIGIBLE",
-  "comparison_status": "PROTOCOL_COVERAGE_GAP",
+  "comparison_eligibility": "ELIGIBLE",
+  "comparison_status": "DOMAIN_MODEL_GAP",
+  "evidence_layers": {
+    "baseline_support": "SUPPORTED",
+    "capture_sufficiency": "SUFFICIENT",
+    "domain_reconstruction": "NOT_APPLICABLE",
+    "orchestration_availability": "NOT_APPLICABLE",
+    "protocol_extraction": "HEALTHY",
+    "semantic_comparison": "EVALUATED"
+  },
   "evidence_overlap": false,
   "frame_delta": null,
   "human_baseline_sha256": "9bba904bf40d3d6ba24e38a5c962fc1a470343e63605d205acdb9e6ceeb027d0",
@@ -18,12 +26,11 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "PROTOCOL",
+  "layer_attribution": "DOMAIN",
   "notes": [
-    "Relevant protocol 'gtpu' extractor failed to extract mandatory message type fields",
-    "Zero Domain instances formed due to upstream Protocol extraction defects"
+    "Observed procedure family is not owned by any implemented Domain Skill: 5gc-user-plane."
   ],
-  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
+  "recommended_next_action": "EXPAND_FUTURE_SCOPE",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,

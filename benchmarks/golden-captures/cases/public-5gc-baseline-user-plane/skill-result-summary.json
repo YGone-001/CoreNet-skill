@@ -1,19 +1,58 @@
 {
-  "additional_evidence_needed": [],
-  "boundary_confidence": null,
-  "candidate_boundaries_count": 0,
-  "case_id": "public-5gc-baseline-user-plane",
-  "domain_instances_count": 0,
-  "evidence_limitations": [
-    "No Domain instances formed from capture evidence"
+  "additional_evidence_needed": [
+    "{'candidate_id': '1-cand-1', 'reason': 'candidates resolve to the same position with no deterministic source relationship ordering them', 'requirement': 'exact frame or stage provenance that separates the tied candidates is required', 'second_candidate_id': '1-cand-2'}"
   ],
+  "boundary_confidence": null,
+  "candidate_boundaries_count": 2,
+  "case_id": "public-5gc-baseline-user-plane",
+  "domain_instances_count": 2,
+  "domain_status": {
+    "handover_mobility": {
+      "deviation_count": 0,
+      "execution_status": "EXECUTED",
+      "first_stop_reason": null,
+      "handover_attempt_count": 0,
+      "output_present": true,
+      "path_switch_attempt_count": 0
+    },
+    "pdu_session": {
+      "deviation_count": 1,
+      "execution_status": "EXECUTED",
+      "first_stop_reason": null,
+      "instance_count": 1,
+      "output_present": true
+    },
+    "registration": {
+      "deviation_count": 12,
+      "execution_status": "EXECUTED",
+      "first_stop_reason": null,
+      "instance_count": 1,
+      "output_present": true
+    }
+  },
+  "evidence_limitations": [
+    "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure",
+    "A protected NAS envelope at frame 7 carried no decodable inner message",
+    "A protected NAS envelope at frame 8 carried no decodable inner message",
+    "A protected NAS envelope at frame 11 carried no decodable inner message",
+    "A protected NAS envelope at frame 12 carried no decodable inner message",
+    "A protected NAS envelope at frame 15 carried no decodable inner message"
+  ],
+  "orchestration_status": {
+    "candidate_boundary_count": 2,
+    "diagnostic_group_count": 1,
+    "execution_status": "EXECUTED",
+    "first_stop_reason": null,
+    "output_present": true,
+    "source_domain_instances_count": 2
+  },
   "protocol_status": {
-    "gtpu": "MISSING_MESSAGE_TYPE",
-    "nas-5gs": "SUCCESS",
+    "gtpu": "SUCCESS",
+    "nas-5gs": "SUCCESS_WITH_PROTECTED_PAYLOAD",
     "ngap": "SUCCESS",
-    "pfcp": "MISSING_MESSAGE_TYPE",
+    "pfcp": "SUCCESS",
     "sbi-http2": "NOT_OBSERVED_IN_CAPTURE"
   },
   "selected_boundary": null,
-  "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+  "selection_status": "AMBIGUOUS_FIRST_BOUNDARY"
 }

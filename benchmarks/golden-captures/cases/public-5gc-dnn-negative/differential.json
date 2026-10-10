@@ -2,25 +2,39 @@
   "adjudication_required": true,
   "baseline_supported": true,
   "capture_limitations": [
-    "NAS traffic after Security Mode is encrypted; exact 5GSM cause is protected in envelope"
+    "NAS traffic after Security Mode is encrypted; exact 5GSM cause is protected in envelope",
+    "Frames 13, 14, 17, 18, 19, 20 and 21 expose nas-5gs.security_header_type 2 or 4 with only nas-5gs.ciphered_msg present, so no NAS-5GS message type is decodable at those frames",
+    "UplinkNASTransport and DownlinkNASTransport are NGAP (TS 38.413) message identities; the NAS-5GS layer contributes no message identity at those frames",
+    "Capture contains no N4 (PFCP) and no N3 (GTP-U) traffic, so absence of a PFCP session cannot support a rejection finding",
+    "NGAP procedure code 29 (PDUSessionResourceSetup) never appears in the captured N2 scope"
   ],
   "case_id": "public-5gc-dnn-negative",
-  "comparison_eligibility": "ELIGIBLE",
-  "comparison_status": "FALSE_NEGATIVE",
+  "comparison_eligibility": "INELIGIBLE",
+  "comparison_status": "DOMAIN_MODEL_GAP",
+  "evidence_layers": {
+    "baseline_support": "SUPPORTED",
+    "capture_sufficiency": "SUFFICIENT",
+    "domain_reconstruction": "FAILED",
+    "orchestration_availability": "NOT_RUN",
+    "protocol_extraction": "HEALTHY",
+    "semantic_comparison": "NOT_EVALUATED"
+  },
   "evidence_overlap": false,
   "frame_delta": null,
-  "human_baseline_sha256": "ce727cc05fc6989bc3bf5e1ff565a170397c554a813b3dc6d3abc9337e6ecd67",
+  "human_baseline_sha256": "02453f7e43b14f600cfce84c99672c12eac38dd0285a58fd8c2cad8ec1f0cd02",
   "human_boundary": {
     "analysis_status": "BOUNDARY_OBSERVED",
     "frame_number": 18,
     "message_type": "DownlinkNASTransport",
     "procedure_family": "5gc-pdu-session",
     "procedure_stage": "pdu_session_establishment",
-    "protocol": "NAS-5GS"
+    "protocol": "NGAP"
   },
   "layer_attribution": "DOMAIN",
   "notes": [
-    "Human baseline identified supported abnormal boundary inside scope, but pipeline observed no boundary."
+    "pdu_session Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 in ngap-events.jsonl lacks message_type string)",
+    "registration Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 lacks a message_type)",
+    "Relevant Protocol extraction succeeded, so the absent procedure reconstruction is attributed to the Domain layer."
   ],
   "recommended_next_action": "CORRECT_DOMAIN_MODEL",
   "skill_boundary": {
@@ -32,5 +46,5 @@
     "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
     "source_domain": null
   },
-  "upstream_intent_match": "MISMATCH"
+  "upstream_intent_match": "PARTIAL"
 }

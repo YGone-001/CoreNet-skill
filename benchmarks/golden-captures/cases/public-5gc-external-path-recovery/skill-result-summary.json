@@ -4,11 +4,43 @@
   "candidate_boundaries_count": 0,
   "case_id": "public-5gc-external-path-recovery",
   "domain_instances_count": 0,
+  "domain_status": {
+    "handover_mobility": {
+      "deviation_count": 0,
+      "execution_status": "EXECUTED",
+      "first_stop_reason": null,
+      "handover_attempt_count": 0,
+      "output_present": true,
+      "path_switch_attempt_count": 0
+    },
+    "pdu_session": {
+      "deviation_count": 0,
+      "execution_status": "EXECUTED",
+      "first_stop_reason": null,
+      "instance_count": 0,
+      "output_present": true
+    },
+    "registration": {
+      "deviation_count": 0,
+      "execution_status": "SKIPPED_NO_INPUTS",
+      "first_stop_reason": "no NGAP or NAS-5GS protocol evidence extracted",
+      "instance_count": 0,
+      "output_present": false
+    }
+  },
   "evidence_limitations": [
     "No diagnostic groups emitted by orchestration"
   ],
+  "orchestration_status": {
+    "candidate_boundary_count": 0,
+    "diagnostic_group_count": 0,
+    "execution_status": "EXECUTED",
+    "first_stop_reason": null,
+    "output_present": true,
+    "source_domain_instances_count": 0
+  },
   "protocol_status": {
-    "gtpu": "MISSING_MESSAGE_TYPE",
+    "gtpu": "SUCCESS",
     "nas-5gs": "NOT_OBSERVED_IN_CAPTURE",
     "ngap": "NOT_OBSERVED_IN_CAPTURE",
     "pfcp": "NOT_OBSERVED_IN_CAPTURE",

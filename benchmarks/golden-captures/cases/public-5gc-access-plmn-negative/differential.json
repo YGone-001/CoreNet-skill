@@ -5,8 +5,16 @@
     "Capture ends after SCTP shutdown following NG setup failure"
   ],
   "case_id": "public-5gc-access-plmn-negative",
-  "comparison_eligibility": "INELIGIBLE",
-  "comparison_status": "PROTOCOL_COVERAGE_GAP",
+  "comparison_eligibility": "ELIGIBLE",
+  "comparison_status": "DOMAIN_MODEL_GAP",
+  "evidence_layers": {
+    "baseline_support": "SUPPORTED",
+    "capture_sufficiency": "SUFFICIENT",
+    "domain_reconstruction": "NOT_APPLICABLE",
+    "orchestration_availability": "NOT_APPLICABLE",
+    "protocol_extraction": "HEALTHY",
+    "semantic_comparison": "EVALUATED"
+  },
   "evidence_overlap": false,
   "frame_delta": null,
   "human_baseline_sha256": "852c291423af34c969153e4ddc7ff6db205162280f504bd7c6bb6bc25761b50a",
@@ -18,12 +26,11 @@
     "procedure_stage": "ng-setup",
     "protocol": "NGAP"
   },
-  "layer_attribution": "PROTOCOL",
+  "layer_attribution": "DOMAIN",
   "notes": [
-    "Relevant protocol 'ngap' extractor failed to extract mandatory message type fields",
-    "Zero Domain instances formed due to upstream Protocol extraction defects"
+    "Observed procedure family is not owned by any implemented Domain Skill: ngap-management."
   ],
-  "recommended_next_action": "ADD_PROTOCOL_COVERAGE",
+  "recommended_next_action": "EXPAND_FUTURE_SCOPE",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
