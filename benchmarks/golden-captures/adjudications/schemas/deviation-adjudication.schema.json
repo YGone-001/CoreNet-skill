@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/deviation-adjudication.schema.json",
+  "title": "Domain Deviation And Boundary Candidate Adjudication",
+  "description": "One independently adjudicated Domain deviation or Orchestration boundary candidate. Records the packet evidence that supports or fails to support it, a bounded status, and the remaining uncertainty. It never records cause attribution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "adjudication_id",
+    "kind",
+    "source_domain",
+    "source_instance_id",
+    "deviation_type",
+    "status",
+    "finality",
+    "evidence_level",
+    "observation_ref",
+    "rationale",
+    "uncertainty"
+  ],
+  "properties": {
+    "adjudication_id": {
+      "type": "string",
+      "pattern": "^adj-[0-9]{2}$"
+    },
+    "kind": {
+      "enum": ["DOMAIN_DEVIATION", "ORCHESTRATION_CANDIDATE"]
+    },
+    "source_domain": {
+      "enum": [
+        "5gc-registration-mobility",
+        "5gc-pdu-session",
+        "5gc-handover-mobility"
+      ]
+    },
+    "source_instance_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "candidate_id": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]+-cand-[0-9]+$"
+    },
+    "deviation_type": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
+        "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+        "MISSING_EXPECTED_COUNTERPART",
+        "UNSUCCESSFUL_OUTCOME_OBSERVED",
+        "PROTOCOL_REJECT_OBSERVED",
+        "PARTIAL_CAPTURE",
+        "CORRELATION_CONFLICT",
+        "DUPLICATE_OR_RETRANSMITTED_EVIDENCE",
+        "OUT_OF_ORDER_EVIDENCE"
+      ]
+    },
+    "stage_id": {
+      "type": ["string", "null"],
+      "maxLength": 80
+    },
+    "status": {
+      "enum": [
+        "SUPPORTED_BY_PACKET_EVIDENCE",
+        "VALID_CAPTURE_LIMITATION",
+        "POTENTIALLY_SPURIOUS",
+        "UNSUPPORTED_BY_PACKET_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE",
+        "OUT_OF_IMPLEMENTED_SCOPE"
+      ]
+    },
+    "finality": {
+      "enum": ["FINAL", "NONFINAL"]
+    },
+    "evidence_level": {
+      "enum": ["OBSERVED", "DERIVED"]
+    },
+    "observation_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_file",
+        "frame_number",
+        "window_first_frame",
+        "window_last_frame",
+        "protocol",
+        "message_type"
+      ],
+      "properties": {
+        "capture_file": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+\\.pcap$"
+        },
+        "frame_number": {"type": ["integer", "null"], "minimum": 1},
+        "window_first_frame": {"type": ["integer", "null"], "minimum": 1},
+        "window_last_frame": {"type": ["integer", "null"], "minimum": 1},
+        "protocol": {"type": ["string", "null"], "maxLength": 40},
+        "message_type": {"type": ["string", "null"], "maxLength": 80}
+      },
+      "anyOf": [
+        {"properties": {"frame_number": {"type": "integer"}}},
+        {
+          "properties": {
+            "window_first_frame": {"type": "integer"},
+            "window_last_frame": {"type": "integer"}
+          }
+        }
+      ]
+    },
+    "packet_evidence": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["capture_file", "frame_number", "field", "observed_value"],
+        "properties": {
+          "capture_file": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+\\.pcap$"
+          },
+          "frame_number": {"type": "integer", "minimum": 1},
+          "field": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+$",
+            "maxLength": 60
+          },
+          "observed_value": {"type": "string", "maxLength": 120}
+        }
+      }
+    },
+    "equivalent_evidence_basis_ids": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {"type": "string", "pattern": "^adj-[0-9]{2}$"}
+    },
+    "proposed_owner_domain": {
+      "enum": [
+        "5gc-registration-mobility",
+        "5gc-pdu-session",
+        "5gc-handover-mobility",
+        "5gc-failure-boundary",
+        "none"
+      ]
+    },
+    "correction_ref": {
+      "type": ["string", "null"],
+      "pattern": "^corr-[0-9]{2}$"
+    },
+    "rationale": {"type": "string", "minLength": 20, "maxLength": 400},
+    "uncertainty": {"type": ["string", "null"], "maxLength": 300}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "POTENTIALLY_SPURIOUS"}}},
+      "then": {"properties": {"finality": {"const": "NONFINAL"}}}
+    },
+    {
+      "if": {"properties": {"evidence_level": {"const": "OBSERVED"}}},
+      "then": {"properties": {"packet_evidence": {"minItems": 1}}}
+    },
+    {
+      "if": {"properties": {"kind": {"const": "ORCHESTRATION_CANDIDATE"}}},
+      "then": {
+        "required": ["candidate_id"],
+        "properties": {"candidate_id": {"type": "string", "pattern": "^[0-9]+-cand-[0-9]+$"}}
+      }
+    },
+    {
+      "if": {"properties": {"kind": {"const": "DOMAIN_DEVIATION"}}},
+      "then": {"properties": {"candidate_id": {"const": null}}}
+    }
+  ]
+}

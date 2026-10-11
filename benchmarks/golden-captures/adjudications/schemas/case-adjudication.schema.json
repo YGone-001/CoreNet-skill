@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/case-adjudication.schema.json",
+  "title": "Case Domain Deviation Adjudication",
+  "description": "One independently adjudicated public capture case. Records the frozen run provenance, the earliest observed differing layer, and every deviation and boundary candidate adjudication for that case.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_name",
+    "adjudication_revision",
+    "case_id",
+    "capture_file",
+    "capture_sha256",
+    "runtime_provenance",
+    "protocol_health",
+    "human_baseline_status",
+    "comparison_status",
+    "first_differing_layer",
+    "status_counts",
+    "adjudications",
+    "limitations"
+  ],
+  "properties": {
+    "schema_name": {"const": "case-adjudication"},
+    "adjudication_revision": {"type": "integer", "minimum": 1},
+    "case_id": {"type": "string", "pattern": "^public-5gc-[a-z0-9-]+$"},
+    "capture_file": {"type": "string", "pattern": "^[A-Za-z0-9._-]+\\.pcap$"},
+    "capture_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "runtime_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["corenet_commit", "source_commit", "tshark_version", "domain_skill_versions"],
+      "properties": {
+        "corenet_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "tshark_version": {"type": "string", "maxLength": 120},
+        "domain_skill_versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["5gc-registration-mobility", "5gc-pdu-session", "5gc-handover-mobility"],
+          "properties": {
+            "5gc-registration-mobility": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+            "5gc-pdu-session": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+            "5gc-handover-mobility": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"}
+          }
+        }
+      }
+    },
+    "protocol_health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ngap", "nas-5gs"],
+      "properties": {
+        "ngap": {"type": "string", "maxLength": 60},
+        "nas-5gs": {"type": "string", "maxLength": 60}
+      }
+    },
+    "human_baseline_status": {"type": "string", "maxLength": 60},
+    "comparison_status": {"type": "string", "maxLength": 60},
+    "first_differing_layer": {
+      "enum": [
+        "PROTOCOL_EXTRACTION",
+        "CORRELATION",
+        "DOMAIN_INSTANCE_FORMATION",
+        "DOMAIN_STAGE_ACTIVATION",
+        "DOMAIN_DEVIATION_EMISSION",
+        "ORCHESTRATION_CANDIDATE_CONSTRUCTION",
+        "ORCHESTRATION_ORDERING",
+        "HUMAN_BASELINE",
+        "CAPTURE_LIMITATION",
+        "NONE_OBSERVED"
+      ]
+    },
+    "status_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "SUPPORTED_BY_PACKET_EVIDENCE",
+        "VALID_CAPTURE_LIMITATION",
+        "POTENTIALLY_SPURIOUS",
+        "UNSUPPORTED_BY_PACKET_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE",
+        "OUT_OF_IMPLEMENTED_SCOPE"
+      ],
+      "properties": {
+        "SUPPORTED_BY_PACKET_EVIDENCE": {"type": "integer", "minimum": 0},
+        "VALID_CAPTURE_LIMITATION": {"type": "integer", "minimum": 0},
+        "POTENTIALLY_SPURIOUS": {"type": "integer", "minimum": 0},
+        "UNSUPPORTED_BY_PACKET_EVIDENCE": {"type": "integer", "minimum": 0},
+        "INSUFFICIENT_EVIDENCE": {"type": "integer", "minimum": 0},
+        "OUT_OF_IMPLEMENTED_SCOPE": {"type": "integer", "minimum": 0}
+      }
+    },
+    "adjudications": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "deviation-adjudication.schema.json"}
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {"type": "string", "minLength": 10, "maxLength": 300}
+    }
+  }
+}
