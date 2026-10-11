@@ -13,7 +13,7 @@
       "layer_attribution": "DOMAIN_COVERAGE",
       "recommended_next_action": "EXPAND_FUTURE_SCOPE",
       "skill_boundary_frame": null,
-      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+      "skill_status": "NO_DOMAIN_INPUTS"
     },
     {
       "adjudication_required": false,
@@ -27,7 +27,7 @@
       "layer_attribution": "DOMAIN_COVERAGE",
       "recommended_next_action": "EXPAND_FUTURE_SCOPE",
       "skill_boundary_frame": null,
-      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+      "skill_status": "NO_DOMAIN_INPUTS"
     },
     {
       "adjudication_required": false,
@@ -41,7 +41,7 @@
       "layer_attribution": "DOMAIN_COVERAGE",
       "recommended_next_action": "EXPAND_FUTURE_SCOPE",
       "skill_boundary_frame": null,
-      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+      "skill_status": "NO_DOMAIN_INPUTS"
     },
     {
       "adjudication_required": false,
@@ -55,49 +55,49 @@
       "layer_attribution": "DOMAIN_COVERAGE",
       "recommended_next_action": "EXPAND_FUTURE_SCOPE",
       "skill_boundary_frame": null,
-      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+      "skill_status": "NO_DOMAIN_INPUTS"
     },
     {
       "adjudication_required": true,
       "baseline_supported": true,
       "case_id": "public-5gc-auth-negative",
-      "comparison_eligibility": "INELIGIBLE",
-      "comparison_status": "DOMAIN_MODEL_GAP",
+      "comparison_eligibility": "ELIGIBLE",
+      "comparison_status": "NEEDS_ADJUDICATION",
       "frame_delta": null,
       "human_boundary_frame": 11,
       "human_status": "BOUNDARY_OBSERVED",
-      "layer_attribution": "DOMAIN",
-      "recommended_next_action": "CORRECT_DOMAIN_MODEL",
+      "layer_attribution": "ORCHESTRATION",
+      "recommended_next_action": "CORRECT_ORCHESTRATION",
       "skill_boundary_frame": null,
-      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
     },
     {
       "adjudication_required": true,
       "baseline_supported": true,
       "case_id": "public-5gc-auth-recovery",
-      "comparison_eligibility": "INELIGIBLE",
-      "comparison_status": "DOMAIN_MODEL_GAP",
+      "comparison_eligibility": "ELIGIBLE",
+      "comparison_status": "NEEDS_ADJUDICATION",
       "frame_delta": null,
       "human_boundary_frame": null,
       "human_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
-      "layer_attribution": "DOMAIN",
-      "recommended_next_action": "CORRECT_DOMAIN_MODEL",
+      "layer_attribution": "MULTIPLE",
+      "recommended_next_action": "NO_CHANGE",
       "skill_boundary_frame": null,
-      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
     },
     {
       "adjudication_required": true,
       "baseline_supported": true,
       "case_id": "public-5gc-baseline-lifecycle",
-      "comparison_eligibility": "INELIGIBLE",
-      "comparison_status": "DOMAIN_MODEL_GAP",
+      "comparison_eligibility": "ELIGIBLE",
+      "comparison_status": "NEEDS_ADJUDICATION",
       "frame_delta": null,
       "human_boundary_frame": null,
       "human_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
-      "layer_attribution": "DOMAIN",
-      "recommended_next_action": "CORRECT_DOMAIN_MODEL",
+      "layer_attribution": "MULTIPLE",
+      "recommended_next_action": "NO_CHANGE",
       "skill_boundary_frame": null,
-      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
     },
     {
       "adjudication_required": true,
@@ -125,21 +125,21 @@
       "layer_attribution": "CAPTURE",
       "recommended_next_action": "NO_CHANGE",
       "skill_boundary_frame": null,
-      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
     },
     {
       "adjudication_required": true,
       "baseline_supported": true,
       "case_id": "public-5gc-dnn-recovery",
-      "comparison_eligibility": "INELIGIBLE",
-      "comparison_status": "DOMAIN_MODEL_GAP",
+      "comparison_eligibility": "ELIGIBLE",
+      "comparison_status": "NEEDS_ADJUDICATION",
       "frame_delta": null,
       "human_boundary_frame": null,
       "human_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
-      "layer_attribution": "DOMAIN",
-      "recommended_next_action": "CORRECT_DOMAIN_MODEL",
+      "layer_attribution": "MULTIPLE",
+      "recommended_next_action": "NO_CHANGE",
       "skill_boundary_frame": null,
-      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
     },
     {
       "adjudication_required": false,
@@ -173,20 +173,20 @@
       "adjudication_required": true,
       "baseline_supported": true,
       "case_id": "public-5gc-registration-resync",
-      "comparison_eligibility": "INELIGIBLE",
-      "comparison_status": "DOMAIN_MODEL_GAP",
+      "comparison_eligibility": "ELIGIBLE",
+      "comparison_status": "NEEDS_ADJUDICATION",
       "frame_delta": null,
       "human_boundary_frame": null,
       "human_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
-      "layer_attribution": "DOMAIN",
-      "recommended_next_action": "CORRECT_DOMAIN_MODEL",
+      "layer_attribution": "MULTIPLE",
+      "recommended_next_action": "NO_CHANGE",
       "skill_boundary_frame": null,
-      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
     }
   ],
-  "corenet_commit": "e6d08d1ff1dbca21d8a6e6f055f5ea1cce3997ea",
+  "corenet_commit": "603075bcb550225acd10bc5df5dacf33ce0e4589",
   "external_source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
-  "generated_at": "2026-10-11T07:28:32.320483+00:00",
+  "generated_at": "2026-10-11T10:43:40.512457+00:00",
   "metrics": {
     "acceptable_difference_count": 0,
     "blocked_case_count": 0,
@@ -195,7 +195,7 @@
     "correlation_gap_count": 0,
     "denominator_definition": "evaluated_in_scope = executed_case_count - (out_of_scope_count + capture_limitation_count + human_baseline_unsupported_count + domain_coverage_gap_count)",
     "domain_coverage_gap_count": 5,
-    "domain_model_gap_count": 5,
+    "domain_model_gap_count": 0,
     "exact_frame_match_count": 0,
     "exact_match_count": 0,
     "exact_match_rate": 0.0,
@@ -219,9 +219,9 @@
   "python_version": "3.12.10",
   "skill_versions": {
     "5gc-failure-boundary": "0.2.0",
-    "5gc-handover-mobility": "0.1.0",
-    "5gc-pdu-session": "0.4.0",
-    "5gc-registration-mobility": "0.2.0",
+    "5gc-handover-mobility": "0.1.1",
+    "5gc-pdu-session": "0.4.1",
+    "5gc-registration-mobility": "0.2.1",
     "c-pro": "0.2.0",
     "core-network-pcap": "0.1.0",
     "cross-protocol-evidence": "0.1.0",

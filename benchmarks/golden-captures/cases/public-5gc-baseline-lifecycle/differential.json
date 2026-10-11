@@ -5,15 +5,15 @@
     "Loopback packet capture with simulated radio connection drop at frame 56"
   ],
   "case_id": "public-5gc-baseline-lifecycle",
-  "comparison_eligibility": "INELIGIBLE",
-  "comparison_status": "DOMAIN_MODEL_GAP",
+  "comparison_eligibility": "ELIGIBLE",
+  "comparison_status": "NEEDS_ADJUDICATION",
   "evidence_layers": {
     "baseline_support": "SUPPORTED",
     "capture_sufficiency": "SUFFICIENT",
-    "domain_reconstruction": "FAILED",
-    "orchestration_availability": "NOT_RUN",
+    "domain_reconstruction": "PRESENT",
+    "orchestration_availability": "AVAILABLE",
     "protocol_extraction": "HEALTHY",
-    "semantic_comparison": "NOT_EVALUATED"
+    "semantic_comparison": "EVALUATED"
   },
   "evidence_overlap": false,
   "frame_delta": null,
@@ -26,21 +26,21 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "DOMAIN",
+  "layer_attribution": "MULTIPLE",
   "notes": [
-    "pdu_session Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 in ngap-events.jsonl lacks message_type string)",
-    "registration Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 lacks a message_type)",
-    "Relevant Protocol extraction succeeded, so the absent procedure reconstruction is attributed to the Domain layer."
+    "2 candidate boundaries were emitted but no boundary was selected; Orchestration preserved the ambiguity (AMBIGUOUS_FIRST_BOUNDARY).",
+    "A confirmed FALSE_POSITIVE requires independent adjudication that a candidate boundary is unsupported by the packet evidence; candidate evidence here may be spurious, which is not yet proven.",
+    "Relevant Domain instance(s) reported 13 deviation(s) on a capture the independent baseline records as healthy, so the candidate evidence needs Domain-layer review."
   ],
-  "recommended_next_action": "CORRECT_DOMAIN_MODEL",
+  "recommended_next_action": "NO_CHANGE",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
     "boundary_protocol": null,
     "procedure_family": null,
     "procedure_stage": null,
-    "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+    "selection_status": "AMBIGUOUS_FIRST_BOUNDARY",
     "source_domain": null
   },
-  "upstream_intent_match": "PARTIAL"
+  "upstream_intent_match": "MISMATCH"
 }

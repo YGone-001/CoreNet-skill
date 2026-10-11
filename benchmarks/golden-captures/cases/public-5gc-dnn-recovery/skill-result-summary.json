@@ -1,46 +1,50 @@
 {
-  "additional_evidence_needed": [],
+  "additional_evidence_needed": [
+    "{'candidate_id': '1-cand-1', 'reason': 'candidates resolve to the same position with no deterministic source relationship ordering them', 'requirement': 'exact frame or stage provenance that separates the tied candidates is required', 'second_candidate_id': '1-cand-2'}"
+  ],
   "boundary_confidence": null,
-  "candidate_boundaries_count": 0,
+  "candidate_boundaries_count": 2,
   "case_id": "public-5gc-dnn-recovery",
-  "domain_instances_count": 0,
+  "domain_instances_count": 2,
   "domain_status": {
     "handover_mobility": {
       "deviation_count": 0,
-      "execution_status": "FAILED_INPUT_CONTRACT",
-      "first_stop_reason": "input error: NGAP record 0 in ngap-events.jsonl lacks a message_type",
+      "execution_status": "EXECUTED",
+      "first_stop_reason": null,
       "handover_attempt_count": 0,
-      "output_present": false,
+      "output_present": true,
       "path_switch_attempt_count": 0
     },
     "pdu_session": {
-      "deviation_count": 0,
-      "execution_status": "FAILED_INPUT_CONTRACT",
-      "first_stop_reason": "input error: NGAP record 0 in ngap-events.jsonl lacks message_type string",
-      "instance_count": 0,
-      "output_present": false
+      "deviation_count": 1,
+      "execution_status": "EXECUTED",
+      "first_stop_reason": null,
+      "instance_count": 1,
+      "output_present": true
     },
     "registration": {
-      "deviation_count": 0,
-      "execution_status": "FAILED_INPUT_CONTRACT",
-      "first_stop_reason": "input error: NGAP record 0 lacks a message_type",
-      "instance_count": 0,
-      "output_present": false
+      "deviation_count": 12,
+      "execution_status": "EXECUTED",
+      "first_stop_reason": null,
+      "instance_count": 1,
+      "output_present": true
     }
   },
   "evidence_limitations": [
-    "handover_mobility Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 in ngap-events.jsonl lacks a message_type)",
-    "pdu_session Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 in ngap-events.jsonl lacks message_type string)",
-    "registration Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 lacks a message_type)",
-    "No Domain instance was reconstructed from capture evidence"
+    "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure",
+    "A protected NAS envelope at frame 13 carried no decodable inner message",
+    "A protected NAS envelope at frame 14 carried no decodable inner message",
+    "A protected NAS envelope at frame 17 carried no decodable inner message",
+    "A protected NAS envelope at frame 18 carried no decodable inner message",
+    "A protected NAS envelope at frame 21 carried no decodable inner message"
   ],
   "orchestration_status": {
-    "candidate_boundary_count": 0,
-    "diagnostic_group_count": 0,
-    "execution_status": "SKIPPED_NO_DOMAIN_OUTPUTS",
-    "first_stop_reason": "no Domain analysis output was produced",
-    "output_present": false,
-    "source_domain_instances_count": 0
+    "candidate_boundary_count": 2,
+    "diagnostic_group_count": 1,
+    "execution_status": "EXECUTED",
+    "first_stop_reason": null,
+    "output_present": true,
+    "source_domain_instances_count": 2
   },
   "protocol_status": {
     "gtpu": "NOT_OBSERVED_IN_CAPTURE",
@@ -50,5 +54,5 @@
     "sbi-http2": "NOT_OBSERVED_IN_CAPTURE"
   },
   "selected_boundary": null,
-  "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+  "selection_status": "AMBIGUOUS_FIRST_BOUNDARY"
 }

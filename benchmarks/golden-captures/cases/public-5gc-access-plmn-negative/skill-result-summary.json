@@ -7,39 +7,36 @@
   "domain_status": {
     "handover_mobility": {
       "deviation_count": 0,
-      "execution_status": "FAILED_INPUT_CONTRACT",
-      "first_stop_reason": "input error: NGAP record 0 in ngap-events.jsonl lacks a message_type",
+      "execution_status": "EXECUTED",
+      "first_stop_reason": null,
       "handover_attempt_count": 0,
-      "output_present": false,
+      "output_present": true,
       "path_switch_attempt_count": 0
     },
     "pdu_session": {
       "deviation_count": 0,
-      "execution_status": "FAILED_INPUT_CONTRACT",
-      "first_stop_reason": "input error: NGAP record 0 in ngap-events.jsonl lacks message_type string",
+      "execution_status": "EXECUTED",
+      "first_stop_reason": null,
       "instance_count": 0,
-      "output_present": false
+      "output_present": true
     },
     "registration": {
       "deviation_count": 0,
-      "execution_status": "FAILED_INPUT_CONTRACT",
-      "first_stop_reason": "input error: NGAP record 0 lacks a message_type",
+      "execution_status": "EXECUTED",
+      "first_stop_reason": null,
       "instance_count": 0,
-      "output_present": false
+      "output_present": true
     }
   },
   "evidence_limitations": [
-    "handover_mobility Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 in ngap-events.jsonl lacks a message_type)",
-    "pdu_session Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 in ngap-events.jsonl lacks message_type string)",
-    "registration Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 lacks a message_type)",
-    "No Domain instance was reconstructed from capture evidence"
+    "No diagnostic groups emitted by orchestration"
   ],
   "orchestration_status": {
     "candidate_boundary_count": 0,
     "diagnostic_group_count": 0,
-    "execution_status": "SKIPPED_NO_DOMAIN_OUTPUTS",
-    "first_stop_reason": "no Domain analysis output was produced",
-    "output_present": false,
+    "execution_status": "EXECUTED",
+    "first_stop_reason": null,
+    "output_present": true,
     "source_domain_instances_count": 0
   },
   "protocol_status": {
@@ -50,5 +47,5 @@
     "sbi-http2": "NOT_OBSERVED_IN_CAPTURE"
   },
   "selected_boundary": null,
-  "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
+  "selection_status": "NO_DOMAIN_INPUTS"
 }
