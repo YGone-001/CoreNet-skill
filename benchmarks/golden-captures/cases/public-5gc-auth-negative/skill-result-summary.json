@@ -5,7 +5,7 @@
   "boundary_confidence": null,
   "candidate_boundaries_count": 3,
   "case_id": "public-5gc-auth-negative",
-  "domain_instances_count": 2,
+  "domain_instances_count": 1,
   "domain_status": {
     "handover_mobility": {
       "deviation_count": 0,
@@ -16,10 +16,10 @@
       "path_switch_attempt_count": 0
     },
     "pdu_session": {
-      "deviation_count": 1,
+      "deviation_count": 0,
       "execution_status": "EXECUTED",
       "first_stop_reason": null,
-      "instance_count": 1,
+      "instance_count": 0,
       "output_present": true
     },
     "registration": {
@@ -30,16 +30,14 @@
       "output_present": true
     }
   },
-  "evidence_limitations": [
-    "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure"
-  ],
+  "evidence_limitations": [],
   "orchestration_status": {
     "candidate_boundary_count": 3,
     "diagnostic_group_count": 1,
     "execution_status": "EXECUTED",
     "first_stop_reason": null,
     "output_present": true,
-    "source_domain_instances_count": 2
+    "source_domain_instances_count": 1
   },
   "protocol_status": {
     "gtpu": "NOT_OBSERVED_IN_CAPTURE",

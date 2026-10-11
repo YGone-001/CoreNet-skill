@@ -184,9 +184,9 @@
       "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
     }
   ],
-  "corenet_commit": "603075bcb550225acd10bc5df5dacf33ce0e4589",
+  "corenet_commit": "315d804a90f70eae6720fed963553937bd59ec68",
   "external_source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
-  "generated_at": "2026-10-11T10:43:40.512457+00:00",
+  "generated_at": "2026-10-11T13:35:30.975684+00:00",
   "metrics": {
     "acceptable_difference_count": 0,
     "blocked_case_count": 0,
@@ -220,7 +220,7 @@
   "skill_versions": {
     "5gc-failure-boundary": "0.2.0",
     "5gc-handover-mobility": "0.1.1",
-    "5gc-pdu-session": "0.4.1",
+    "5gc-pdu-session": "0.4.2",
     "5gc-registration-mobility": "0.2.1",
     "c-pro": "0.2.0",
     "core-network-pcap": "0.1.0",
