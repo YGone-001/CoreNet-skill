@@ -690,8 +690,8 @@ def compare_differential(
                     recommended_next_action = "NO_CHANGE"
                     candidates = skill_summary.get("candidate_boundaries_count", 0)
                     notes.append(
-                        f"Candidate deviations were emitted ({candidates} candidate boundar(ies)) but no boundary was "
-                        f"selected; Orchestration preserved the ambiguity ({skill_status})."
+                        f"{candidates} candidate boundar{'ies were' if candidates != 1 else 'y was'} "
+                        f"emitted but no boundary was selected; Orchestration preserved the ambiguity ({skill_status})."
                     )
                     notes.append(
                         "A confirmed FALSE_POSITIVE requires independent adjudication that a candidate boundary is "

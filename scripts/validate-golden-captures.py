@@ -7,9 +7,11 @@ Enforces:
 3. Case naming, provenance, and identifier consistency.
 4. Binary capture prohibition (no *.pcap, *.pcapng, *.cap in git).
 5. Privacy gate: no subscriber secrets, authentication vectors, or workstation paths.
-6. Baseline hash verification (SHA-256 match).
-7. Implementation-neutral vocabulary governance.
-8. Forbidden root-cause field ban.
+6. Baseline hash verification (SHA-256 match against the canonical baseline digest).
+7. Baseline adjudication governance (an authorized revision cites the digest it
+   supersedes and drops the unverified legacy baseline_hash label).
+8. Implementation-neutral vocabulary governance.
+9. Forbidden root-cause field ban.
 """
 
 from __future__ import annotations
@@ -285,6 +287,26 @@ def validate_golden_captures(benchmark_dir: Path) -> list[str]:
                     fail(errors, f"Baseline hash mismatch in {case_id}: declared {declared_baseline_sha}, computed {computed_baseline_sha}")
             except Exception as exc:
                 fail(errors, f"Error verifying baseline hash for {case_id}: {exc}")
+
+        # Baseline adjudication governance. An authorized revision is recorded
+        # forward: it must cite the canonical digest it supersedes and must not
+        # keep the unverifiable legacy label, which is not a canonical hash and is
+        # never proof of immutability. Frozen baselines are never rewritten here.
+        if baseline_json_p.is_file():
+            try:
+                baseline_doc = json.loads(baseline_json_p.read_text(encoding="utf-8"))
+            except Exception:
+                baseline_doc = None
+            if isinstance(baseline_doc, dict) and baseline_doc.get("baseline_revision") is not None:
+                revision = baseline_doc["baseline_revision"]
+                reason = (baseline_doc.get("revision_reason") or "").strip()
+                superseded = re.search(r"[Pp]revious canonical hash\s+([0-9a-fA-F]{64})", reason)
+                if not reason:
+                    fail(errors, f"Baseline revision {revision} in {case_id} records no revision_reason")
+                elif not superseded:
+                    fail(errors, f"Baseline revision {revision} in {case_id} must cite the superseded canonical hash in revision_reason")
+                if "baseline_hash" in baseline_doc:
+                    fail(errors, f"Revised baseline {case_id} must drop the unverified legacy baseline_hash label")
 
     # Validate benchmark-summary.json if present
     summary_p = benchmark_dir / "benchmark-summary.json"

@@ -6,7 +6,7 @@
   ],
   "case_id": "public-5gc-baseline-user-plane",
   "comparison_eligibility": "ELIGIBLE",
-  "comparison_status": "FALSE_POSITIVE",
+  "comparison_status": "NEEDS_ADJUDICATION",
   "evidence_layers": {
     "baseline_support": "SUPPORTED",
     "capture_sufficiency": "SUFFICIENT",
@@ -26,11 +26,13 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "DOMAIN",
+  "layer_attribution": "MULTIPLE",
   "notes": [
-    "Automated pipeline could not resolve a single first boundary (AMBIGUOUS_FIRST_BOUNDARY) on a healthy/recovered capture with 2 candidate boundary(ies)."
+    "2 candidate boundaries were emitted but no boundary was selected; Orchestration preserved the ambiguity (AMBIGUOUS_FIRST_BOUNDARY).",
+    "A confirmed FALSE_POSITIVE requires independent adjudication that a candidate boundary is unsupported by the packet evidence; candidate evidence here may be spurious, which is not yet proven.",
+    "Relevant Domain instance(s) reported 13 deviation(s) on a capture the independent baseline records as healthy, so the candidate evidence needs Domain-layer review."
   ],
-  "recommended_next_action": "CORRECT_DOMAIN_MODEL",
+  "recommended_next_action": "NO_CHANGE",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,

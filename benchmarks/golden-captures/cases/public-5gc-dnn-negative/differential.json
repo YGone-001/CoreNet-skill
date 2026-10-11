@@ -1,42 +1,37 @@
 {
-  "adjudication_required": true,
+  "adjudication_required": false,
   "baseline_supported": true,
   "capture_limitations": [
-    "NAS traffic after Security Mode is encrypted; exact 5GSM cause is protected in envelope",
+    "No 5GSM layer identity is decodable anywhere in the capture: nas-5gs.sm.message_type and the 5GSM cause fields return no value for any of the 28 frames, so neither a PDU Session Establishment Reject nor an unsupported-DNN cause can be observed",
     "Frames 13, 14, 17, 18, 19, 20 and 21 expose nas-5gs.security_header_type 2 or 4 with only nas-5gs.ciphered_msg present, so no NAS-5GS message type is decodable at those frames",
     "UplinkNASTransport and DownlinkNASTransport are NGAP (TS 38.413) message identities; the NAS-5GS layer contributes no message identity at those frames",
+    "The protected N2 exchange continues after frame 18 with a downlink at frame 19, an uplink at frame 20 and a downlink at frame 21, so no single downlink transport can be identified as a terminal reject",
+    "Absence of NGAP procedure code 29 (PDUSessionResourceSetup) inside the captured N2 window is an absence of evidence, not a packet-visible rejection",
+    "The NGAP UEContextReleaseRequest at frame 22 reports Cause radioNetwork (radio-connection-with-ue-lost); that RAN-side transport observation does not prove a core-side session rejection or its cause",
     "Capture contains no N4 (PFCP) and no N3 (GTP-U) traffic, so absence of a PFCP session cannot support a rejection finding",
-    "NGAP procedure code 29 (PDUSessionResourceSetup) never appears in the captured N2 scope"
+    "Resolving this case requires either a capture whose NAS security context is derivable, or the decoded inner 5GSM message type and cause supplied as independent packet evidence"
   ],
   "case_id": "public-5gc-dnn-negative",
-  "comparison_eligibility": "INELIGIBLE",
-  "comparison_status": "DOMAIN_MODEL_GAP",
-  "evidence_layers": {
-    "baseline_support": "SUPPORTED",
-    "capture_sufficiency": "SUFFICIENT",
-    "domain_reconstruction": "FAILED",
-    "orchestration_availability": "NOT_RUN",
-    "protocol_extraction": "HEALTHY",
-    "semantic_comparison": "NOT_EVALUATED"
-  },
+  "comparison_eligibility": "DEGRADED",
+  "comparison_status": "CAPTURE_LIMITATION",
+  "evidence_layers": null,
   "evidence_overlap": false,
   "frame_delta": null,
-  "human_baseline_sha256": "02453f7e43b14f600cfce84c99672c12eac38dd0285a58fd8c2cad8ec1f0cd02",
+  "human_baseline_sha256": "2f75d0db1b9618c9059dbf25e251ccdfad352d88a3b7f3c32ed6bbe08bcd8ea3",
   "human_boundary": {
-    "analysis_status": "BOUNDARY_OBSERVED",
-    "frame_number": 18,
-    "message_type": "DownlinkNASTransport",
-    "procedure_family": "5gc-pdu-session",
-    "procedure_stage": "pdu_session_establishment",
-    "protocol": "NGAP"
+    "analysis_status": "INSUFFICIENT_EVIDENCE",
+    "frame_number": null,
+    "message_type": null,
+    "procedure_family": null,
+    "procedure_stage": null,
+    "protocol": null
   },
-  "layer_attribution": "DOMAIN",
+  "layer_attribution": "CAPTURE",
   "notes": [
-    "pdu_session Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 in ngap-events.jsonl lacks message_type string)",
-    "registration Domain produced no analysis (FAILED_INPUT_CONTRACT: input error: NGAP record 0 lacks a message_type)",
-    "Relevant Protocol extraction succeeded, so the absent procedure reconstruction is attributed to the Domain layer."
+    "Capture does not contain sufficient packet evidence to form an authoritative boundary.",
+    "Upstream scenario intent is retained as secondary metadata only; the captured packets are too incomplete to confirm or refute it, so the intent match is not evaluated."
   ],
-  "recommended_next_action": "CORRECT_DOMAIN_MODEL",
+  "recommended_next_action": "NO_CHANGE",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
@@ -46,5 +41,5 @@
     "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
     "source_domain": null
   },
-  "upstream_intent_match": "PARTIAL"
+  "upstream_intent_match": "NOT_EVALUATED"
 }

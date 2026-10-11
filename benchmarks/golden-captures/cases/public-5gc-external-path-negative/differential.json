@@ -13,7 +13,7 @@
     "domain_reconstruction": "NOT_APPLICABLE",
     "orchestration_availability": "NOT_APPLICABLE",
     "protocol_extraction": "HEALTHY",
-    "semantic_comparison": "EVALUATED"
+    "semantic_comparison": "NOT_EVALUATED"
   },
   "evidence_overlap": false,
   "frame_delta": null,

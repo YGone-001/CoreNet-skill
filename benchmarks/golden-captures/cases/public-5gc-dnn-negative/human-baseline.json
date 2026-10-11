@@ -1,8 +1,7 @@
 {
-  "analysis_status": "BOUNDARY_OBSERVED",
-  "baseline_confidence": "MEDIUM",
-  "baseline_hash": "f2123b62fe616c4c242b66d133a7a6ef45e366d9c447302d3565f4e2c2632fbd",
-  "baseline_revision": 2,
+  "analysis_status": "INSUFFICIENT_EVIDENCE",
+  "baseline_confidence": "HIGH",
+  "baseline_revision": 3,
   "capture_scope": {
     "interfaces": [
       "N1",
@@ -14,31 +13,23 @@
       "NAS-5GS"
     ],
     "traffic_characteristics": [
-      "28 frames captured"
+      "28 frames captured",
+      "SCTP association established at frames 1-4 and shut down at frames 26-28",
+      "No N3 (GTP-U) and no N4 (PFCP) traffic is present in the capture"
     ]
   },
   "capture_sha256": "fa8daf46694594f0ff007eca49a3ebe5e1ca54d14f6784e9000c11d6b77112a8",
   "case_id": "public-5gc-dnn-negative",
-  "first_abnormal_boundary": {
-    "evidence_level": "DERIVED",
-    "frame_number": 18,
-    "message_type": "DownlinkNASTransport",
-    "observation_window": {
-      "end_frame": 19,
-      "start_frame": 17
-    },
-    "procedure_family": "5gc-pdu-session",
-    "procedure_stage": "pdu_session_establishment",
-    "protocol": "NGAP",
-    "reason": "NGAP DownlinkNASTransport (procedure code 4) at frame 18 delivers a security-protected NAS message inside observation window 17-19. The inner 5GSM payload is ciphered (nas-5gs.security_header_type 2, only nas-5gs.ciphered_msg exposed, no mm or sm message type), so no PDU session establishment reject and no 5GSM cause are decodable from this capture. Within the captured N2 scope no NGAP PDUSessionResourceSetup (procedure code 29) follows, and the capture holds no N4 or N3 traffic, so absence of a PFCP session is not evidence. The unsupported-DNN rejection is therefore derived from the protected NAS exchange plus absent N2 resource allocation; upstream fault-injection intent is not packet evidence.",
-    "timestamp": "1785304750.196435000"
-  },
+  "first_abnormal_boundary": null,
   "limitations": [
-    "NAS traffic after Security Mode is encrypted; exact 5GSM cause is protected in envelope",
+    "No 5GSM layer identity is decodable anywhere in the capture: nas-5gs.sm.message_type and the 5GSM cause fields return no value for any of the 28 frames, so neither a PDU Session Establishment Reject nor an unsupported-DNN cause can be observed",
     "Frames 13, 14, 17, 18, 19, 20 and 21 expose nas-5gs.security_header_type 2 or 4 with only nas-5gs.ciphered_msg present, so no NAS-5GS message type is decodable at those frames",
     "UplinkNASTransport and DownlinkNASTransport are NGAP (TS 38.413) message identities; the NAS-5GS layer contributes no message identity at those frames",
+    "The protected N2 exchange continues after frame 18 with a downlink at frame 19, an uplink at frame 20 and a downlink at frame 21, so no single downlink transport can be identified as a terminal reject",
+    "Absence of NGAP procedure code 29 (PDUSessionResourceSetup) inside the captured N2 window is an absence of evidence, not a packet-visible rejection",
+    "The NGAP UEContextReleaseRequest at frame 22 reports Cause radioNetwork (radio-connection-with-ue-lost); that RAN-side transport observation does not prove a core-side session rejection or its cause",
     "Capture contains no N4 (PFCP) and no N3 (GTP-U) traffic, so absence of a PFCP session cannot support a rejection finding",
-    "NGAP procedure code 29 (PDUSessionResourceSetup) never appears in the captured N2 scope"
+    "Resolving this case requires either a capture whose NAS security context is derivable, or the decoded inner 5GSM message type and cause supplied as independent packet evidence"
   ],
   "procedure_observations": [
     {
@@ -66,7 +57,7 @@
       "procedure_stage": "release"
     }
   ],
-  "revision_reason": "Revision 2, independent raw-capture adjudication of captures/fault-injection/unsupported-dnn/fault.pcap (sha256 fa8daf46694594f0ff007eca49a3ebe5e1ca54d14f6784e9000c11d6b77112a8) with TShark 4.7.1. Previous claim: frames 17, 18 and 20 carried protocol NAS-5GS with message_type UplinkNASTransport or DownlinkNASTransport, and an OBSERVED PDU session establishment reject for an unsupported DNN whose evidence included the absence of a PFCP session. Corrected claim: those message identities are NGAP transport identities observed on N2 (procedure codes 46 and 4), while the NAS-5GS layer at frames 13 to 21 exposes only nas-5gs.ciphered_msg with security_header_type 2 or 4 and no mm or sm message type, so the inner 5GSM message and cause are not decodable and the rejection is DERIVED rather than OBSERVED; the capture contains zero PFCP and zero GTP-U frames, so the previously cited absence of a PFCP session is not evidence. Previous canonical hash ce727cc05fc6989bc3bf5e1ff565a170397c554a813b3dc6d3abc9337e6ecd67.",
+  "revision_reason": "Revision 3, independent raw-capture adjudication of captures/fault-injection/unsupported-dnn/fault.pcap (sha256 fa8daf46694594f0ff007eca49a3ebe5e1ca54d14f6784e9000c11d6b77112a8) with TShark 4.7.1. Previous claim: analysis_status BOUNDARY_OBSERVED with a DERIVED first abnormal boundary at frame 18, NGAP DownlinkNASTransport in 5gc-pdu-session pdu_session_establishment, read as an unsupported-DNN rejection derived from the protected downlink NAS transport plus the absence of any N2 resource setup. Corrected claim: analysis_status INSUFFICIENT_EVIDENCE with no first abnormal boundary, because that derivation is not supported by the packet evidence. Frame 18 exposes only ngap.procedureCode 4 with nas-5gs.security_header_type 2 and no decodable NAS-5GS payload; no 5GSM message type or cause is exposed by any frame in the capture; the protected exchange does not terminate at frame 18 but continues through frames 19, 20 and 21; and the only later abnormal-looking event, the UEContextReleaseRequest at frame 22, carries the RAN-side cause radio-connection-with-ue-lost. A protected NAS envelope plus an absent PDUSessionResourceSetup therefore cannot prove a specific PDU Session Reject or its Cause, and no precise abnormal frame is invented in its place. The upstream fault-injection scenario label is retained only as secondary metadata in case.json and was not used as packet evidence. baseline_confidence HIGH qualifies this sufficiency assessment, not a boundary verdict. The unverified legacy baseline_hash label was removed from this revision; the authoritative baseline digest is the canonical hash recorded as human_baseline_sha256 in differential.json. Previous canonical hash 02453f7e43b14f600cfce84c99672c12eac38dd0285a58fd8c2cad8ec1f0cd02.",
   "scope_assessment": {
     "in_corenet_scope": true,
     "interfaces_in_scope": [
@@ -74,7 +65,7 @@
       "N2"
     ],
     "interfaces_out_of_scope": [],
-    "reason": "PDU session establishment failure on N1 and N2"
+    "reason": "N1 and N2 signaling is inside CoreNet scope; the abnormal boundary itself is not decodable from this capture"
   },
   "supporting_evidence": [
     {
@@ -85,28 +76,42 @@
       "protocol": "NGAP"
     },
     {
-      "description": "NGAP UplinkNASTransport (procedure code 46, two coalesced PDUs) carrying a security-protected NAS message; inner 5GSM content is not decodable",
+      "description": "NGAP UplinkNASTransport (two coalesced PDUs, procedure code 46) carrying security-protected NAS messages with nas-5gs.security_header_type 2; the inner NAS content is not decodable",
       "evidence_level": "OBSERVED",
       "frame_number": 17,
       "message_type": "UplinkNASTransport",
       "protocol": "NGAP"
     },
     {
-      "description": "NGAP DownlinkNASTransport (procedure code 4) delivering a security-protected NAS message from the AMF; inner 5GSM content is not decodable",
+      "description": "NGAP DownlinkNASTransport (procedure code 4) with nas-5gs.security_header_type 2; only nas-5gs.ciphered_msg is exposed, so no 5GSM message type and no cause are visible at this frame",
       "evidence_level": "OBSERVED",
       "frame_number": 18,
       "message_type": "DownlinkNASTransport",
       "protocol": "NGAP"
     },
     {
-      "description": "NGAP UplinkNASTransport retransmission (procedure code 46) carrying a security-protected NAS message; the retransmitted 5GSM message type is not decodable",
+      "description": "Further NGAP DownlinkNASTransport (procedure code 4, security_header_type 2) inside the same protected exchange, so frame 18 is not the last network-side transfer",
+      "evidence_level": "OBSERVED",
+      "frame_number": 19,
+      "message_type": "DownlinkNASTransport",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "NGAP UplinkNASTransport retransmission (procedure code 46, security_header_type 2) carrying a security-protected NAS message; the retransmitted message type is not decodable",
       "evidence_level": "OBSERVED",
       "frame_number": 20,
       "message_type": "UplinkNASTransport",
       "protocol": "NGAP"
     },
     {
-      "description": "UE context release initiated",
+      "description": "Final NGAP DownlinkNASTransport (procedure code 4, security_header_type 2) before the context release; inner NAS content is not decodable",
+      "evidence_level": "OBSERVED",
+      "frame_number": 21,
+      "message_type": "DownlinkNASTransport",
+      "protocol": "NGAP"
+    },
+    {
+      "description": "NGAP UEContextReleaseRequest (procedure code 42) with Cause radioNetwork, radio-connection-with-ue-lost; a RAN-side transport observation whose core-side trigger is not decodable from this capture",
       "evidence_level": "OBSERVED",
       "frame_number": 22,
       "message_type": "UEContextReleaseRequest",

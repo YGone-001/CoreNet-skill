@@ -115,43 +115,45 @@ Only `MISSING_MESSAGE_TYPE`, `ERROR_*`, a missing status for a relevant protocol
 
 ## 4. Public Capture Corpus and Empirical Results
 
-The benchmark evaluates 13 captures from the public repository `abdelrahman-fawaz18/5g-sa-core-protocol-lab` pinned at commit `82934c2cc231540fa425e48177d4bed33210bfc1`. The results below were produced by a single frozen run against CoreNet commit `e6d08d1ff1dbca21d8a6e6f055f5ea1cce3997ea` with TShark 4.7.1 (v4.7.1-0-g667ab240e6de); every capture SHA-256 was verified before execution and no Skill was modified while the run was in progress.
+The benchmark evaluates 13 captures from the public repository `abdelrahman-fawaz18/5g-sa-core-protocol-lab` pinned at commit `82934c2cc231540fa425e48177d4bed33210bfc1`. The sanitized Skill summaries below are the records of a single frozen pipeline run against CoreNet commit `e6d08d1ff1dbca21d8a6e6f055f5ea1cce3997ea` with TShark 4.7.1 (v4.7.1-0-g667ab240e6de); every capture SHA-256 was verified before execution and no Skill was modified while the run was in progress. That Skill runtime is unchanged, and `git diff -- skills/` stays empty across this correction. The differential records and the aggregate summary were then recomputed deterministically from those frozen inputs by the corrected comparator at benchmark framework commit `3d34c77df09683dc4c926323422819eadd4c424b`, with one authorized baseline adjudication described in section 5.
 
 | Case ID | Scenario Type | Human Baseline Status | Evidence Chain Health | Skill Status | Differential Status | Attribution |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | `public-5gc-baseline-lifecycle` | Baseline Lifecycle | Healthy (no abnormal boundary) | Protocol healthy (NGAP/PFCP/GTP-U identified); Domain rejected input | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
-| `public-5gc-baseline-user-plane` | Baseline User Plane | Healthy (no abnormal boundary) | Full chain executed: 2 Domain instances, 1 diagnostic group, 2 candidates | Ambiguous first boundary | `FALSE_POSITIVE` | `DOMAIN` |
+| `public-5gc-baseline-user-plane` | Baseline User Plane | Healthy (no abnormal boundary) | Full chain executed: 2 Domain instances, 1 diagnostic group, 2 candidates, none selected | Ambiguous first boundary | `NEEDS_ADJUDICATION` | `MULTIPLE` |
 | `public-5gc-registration-resync` | Baseline Resynchronization | Healthy (recovered synch) | Protocol healthy; Domain rejected input | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
 | `public-5gc-auth-recovery` | Auth Recovery | Healthy (no abnormal boundary) | Protocol healthy; Domain rejected input | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
-| `public-5gc-access-plmn-recovery` | PLMN Recovery | Healthy (no abnormal boundary) | Protocol healthy; only NGSetup present, family unowned | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
-| `public-5gc-access-tai-recovery` | TAC Recovery | Healthy (no abnormal boundary) | Protocol healthy; only NGSetup present, family unowned | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-access-plmn-recovery` | PLMN Recovery | Healthy (no abnormal boundary) | Protocol healthy; only NGSetup present, family unowned | No boundary | `DOMAIN_COVERAGE_GAP` | `DOMAIN_COVERAGE` |
+| `public-5gc-access-tai-recovery` | TAC Recovery | Healthy (no abnormal boundary) | Protocol healthy; only NGSetup present, family unowned | No boundary | `DOMAIN_COVERAGE_GAP` | `DOMAIN_COVERAGE` |
 | `public-5gc-dnn-recovery` | DNN Recovery | Healthy (no abnormal boundary) | Protocol healthy (NGAP/PFCP identified); Domain rejected input | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
-| `public-5gc-external-path-recovery` | N6 Path Recovery | Healthy (no abnormal boundary) | GTP-U extracted (G-PDU 255); observed family unowned | No Domain inputs | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-external-path-recovery` | N6 Path Recovery | Healthy (no abnormal boundary) | GTP-U extracted (G-PDU 255); observed N3 family unowned | No Domain inputs | `DOMAIN_COVERAGE_GAP` | `DOMAIN_COVERAGE` |
 | `public-5gc-external-path-negative` | Missing N6 NAT | Out of Scope (N6 data plane) | GTP-U extracted (G-PDU 255); no N1/N2 signaling | No Domain inputs | `OUT_OF_SCOPE` | `OUT_OF_SCOPE` |
 | `public-5gc-auth-negative` | Auth Key Mismatch | Abnormal Boundary (NAS MAC failure) | Protocol healthy; Domain rejected input before reconstruction | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
-| `public-5gc-access-plmn-negative` | PLMN Mismatch | Abnormal Boundary (NGSetupFailure) | Protocol healthy; NGSetup is unowned node-level management | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
-| `public-5gc-access-tai-negative` | TAC Mismatch | Abnormal Boundary (NGSetupFailure) | Protocol healthy; NGSetup is unowned node-level management | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
-| `public-5gc-dnn-negative` | Unsupported DNN | Abnormal Boundary (protected downlink NAS transport, baseline revision 2) | Protocol healthy; Domain rejected input | No boundary | `DOMAIN_MODEL_GAP` | `DOMAIN` |
+| `public-5gc-access-plmn-negative` | PLMN Mismatch | Abnormal Boundary (NGSetupFailure) | Protocol healthy; NGSetup is unowned node-level management | No boundary | `DOMAIN_COVERAGE_GAP` | `DOMAIN_COVERAGE` |
+| `public-5gc-access-tai-negative` | TAC Mismatch | Abnormal Boundary (NGSetupFailure) | Protocol healthy; NGSetup is unowned node-level management | No boundary | `DOMAIN_COVERAGE_GAP` | `DOMAIN_COVERAGE` |
+| `public-5gc-dnn-negative` | Unsupported DNN | Insufficient Evidence (protected NAS exchange, baseline revision 3) | Protocol healthy; no 5GSM identity or cause decodable in any frame, so no authoritative boundary is provable | No boundary | `CAPTURE_LIMITATION` | `CAPTURE` |
 
 ### Benchmark Metrics Summary
 - **Total Cases Evaluated**: 13
 - **Executed Case Count**: 13
-- **In-Scope Cases Evaluated**: 12 (denominator excludes 1 out-of-scope case)
-- **Comparison Eligibility**: 7 `ELIGIBLE`, 6 `INELIGIBLE` (Domain reconstruction failed after healthy Protocol extraction)
+- **In-Scope Cases Evaluated**: 6 (denominator excludes 1 out-of-scope case, 1 insufficient-evidence capture limitation, and 5 cases whose procedure family no implemented Domain owns)
+- **Comparison Eligibility**: 7 `ELIGIBLE`, 5 `INELIGIBLE` (Domain reconstruction failed after healthy Protocol extraction), 1 `DEGRADED` (baseline records insufficient packet evidence)
 - **Exact Match Count**: 0
-- **Exact Match Rate**: 0.0% (0 / 12)
-- **Healthy / Recovery Exact Match Rate**: 0.0% (0 / 8)
-- **False Positive Count**: 1 (`public-5gc-baseline-user-plane`: Domain deviations on a capture the independent baseline records as healthy, Orchestration could not resolve a single first boundary)
+- **Exact Match Rate**: 0.0% (0 / 6)
+- **Healthy / Recovery Exact Match Rate**: 0.0% (0 / 5 in-scope healthy or recovered cases)
+- **False Positive Count**: 0 (an unresolved candidate set is no longer scored as a confirmed false positive)
 - **False Negative Count**: 0
-- **Protocol Coverage Gaps**: 0 (previously 13; every relevant Protocol Skill now exposes usable message identity for the cases it supports)
-- **Domain Model Gaps**: 11 (6 from the Domain input contract rejecting NGAP records without a message identity, 5 from procedure families no implemented Domain owns: 4 node-level `ngap-management` and 1 `5gc-user-plane`)
+- **Protocol Coverage Gaps**: 0 (every relevant Protocol Skill exposes usable message identity for the cases it supports)
+- **Domain Model Gaps**: 5 (the Domain input contract rejects NGAP records without a message identity in each of these captures)
+- **Domain Coverage Gaps**: 5 (4 node-level `ngap-management` NGSetup cases and 1 N3-only `5gc-user-plane` case; unowned coverage, excluded from the in-scope denominator)
+- **Capture Limitations**: 1 (`public-5gc-dnn-negative`: ciphered NAS leaves the inner 5GSM message and cause undecodable)
 - **Out of Scope Count**: 1
 - **Orchestration Gaps**: 0
-- **Needs Adjudication Count**: 7
+- **Needs Adjudication Count**: 6
 - **Blocked Cases**: 0
 - **Acceptable Difference Count**: 0
 
-The single case that exercises the complete chain (`public-5gc-baseline-user-plane`, the only capture in this corpus without an NGSetup preamble) proves Protocol, Correlation, Domain and Orchestration all execute on real captures: NGAP, PFCP and GTP-U identity resolve, 2 Domain instances are reconstructed, and Orchestration forms 1 diagnostic group with 2 candidates. Its `FALSE_POSITIVE` result is an adjudication item about Domain deviation semantics on encrypted-NAS captures, not an extraction failure.
+The single case that exercises the complete chain (`public-5gc-baseline-user-plane`, the only capture in this corpus without an NGSetup preamble) proves Protocol, Correlation, Domain and Orchestration all execute on real captures: NGAP, PFCP and GTP-U identity resolve, 2 Domain instances are reconstructed, and Orchestration forms 1 diagnostic group with 2 candidates. Because Orchestration selected no boundary, the corrected comparator reports `NEEDS_ADJUDICATION` rather than a confirmed false positive: the candidate deviations may be spurious Domain semantics on encrypted-NAS captures, which is an adjudication item, not a proven abnormal conclusion.
 
 ---
 
@@ -168,7 +170,14 @@ The authorized correction pass that followed reproduced every case against the f
 5. **NGAP composite Info column**: TShark renders `_ws.col.info` as a composite string when a frame also carries SCTP acknowledgement text, a nested NAS message name, or coalesced NGAP PDUs (for example `SACK (Ack=1, Arwnd=106496) , DownlinkNASTransport, Authentication request`). Exact whole-string matching against the reviewed branch vocabulary left `message_type` null for procedures the bounded NGAP Skill does own. `ngap` 0.3.2 matches the reviewed vocabulary against the whole string first and then against its comma- and bracket-delimited segments; only exact segment equality resolves, so no message name outside the reviewed table is produced and `NGSetup` stays `UNSUPPORTED` with a null identity.
 6. **Domain input contract rejects mixed-ownership captures**: each 5GC Domain Skill requires a `message_type` string on every NGAP record and therefore exits with a malformed-input error on captures containing NGAP procedures outside bounded NGAP ownership (for example `NGSetup` at the start of every capture in this corpus). Reconstruction stops at input validation, before any procedure instance is formed. This is recorded as the first Domain contract gap with the exact per-Domain `first_stop_reason`; Domain runtime semantics are frozen and were not modified.
 
-The original benchmark task altered no Skills. The correction pass changed only the NGAP Protocol runtime (0.3.2) and the benchmark harness; Correlation, Domain and Orchestration runtimes are byte-unchanged.
+A later evidence and scoring contract correction pass reproduced every case against the same frozen corpus and adjudicated four further findings, without touching any Skill runtime:
+
+7. **Encrypted NAS cannot carry a decoded verdict**: independent TShark 4.7.1 field inspection of `captures/fault-injection/unsupported-dnn/fault.pcap` shows no `nas-5gs.sm.message_type` or 5GSM cause value in any of its 28 frames, frames 13 and 17-21 expose only `nas-5gs.security_header_type` 2 or 4 with `nas-5gs.ciphered_msg`, and the protected exchange continues past frame 18 through frames 19, 20 and 21. The `public-5gc-dnn-negative` baseline therefore moved from `BOUNDARY_OBSERVED` to `INSUFFICIENT_EVIDENCE` at `baseline_revision` 3 with no first abnormal boundary: a protected NAS envelope plus an absent `PDUSessionResourceSetup` proves neither a PDU Session Reject nor its Cause, the upstream fault-injection label is secondary metadata only, and no precise abnormal frame was invented. The superseded canonical digest is recorded inside `revision_reason`.
+8. **Frame agreement is not semantic agreement**: the comparator previously reported `EXACT_MATCH` on procedure family plus frame equality alone, and scored a one- or two-frame delta as a near-frame match without checking stage, protocol or abnormal-event identity. Both paths now require compatible reported semantics and treat sanitizer placeholders as unreported detail that must be adjudicated.
+9. **Coverage, ambiguity and Domain relevance**: unowned procedure families were counted as implemented Domain failures, an unresolved `AMBIGUOUS_FIRST_BOUNDARY` on healthy traffic was scored as a confirmed `FALSE_POSITIVE`, and a missing relevant Domain fell back to sorted Domain keys so an unrelated Domain instance could satisfy it. They now report `DOMAIN_COVERAGE_GAP`, `NEEDS_ADJUDICATION` with `MULTIPLE` attribution, and an explicit `NO_RELEVANT_DOMAIN` state respectively, and only relevant Domain keys are read.
+10. **Legacy `baseline_hash` is not a digest proof**: the informational `baseline_hash` recorded in the frozen baselines matches neither `canonical_json_sha256` of the stored document, nor of the document without that field, nor the raw file digest. It is documented as a legacy label, is never verified, and no comparator or metric consumes it; a regression test asserts that removing it changes no comparison result. Baseline immutability rests solely on `differential.human_baseline_sha256`, which `scripts/validate-golden-captures.py` recomputes, and an authorized revision must cite the digest it supersedes while dropping the legacy label.
+
+The original benchmark task altered no Skills. The earlier correction pass changed only the NGAP Protocol runtime (0.3.2) and the benchmark harness; the evidence and scoring correction pass changed only the benchmark harness, its schemas, validators, tests and records, so Correlation, Domain and Orchestration runtimes remain byte-unchanged.
 
 ---
 
@@ -194,7 +203,19 @@ The original benchmark task altered no Skills. The correction pass changed only 
        --output-root benchmarks/golden-captures/cases
    ```
 
-3. Validate benchmark artifacts, schemas, and safety gates:
+3. Recompute differential records from already frozen baselines and sanitized summaries when only the comparison contract or an adjudicated baseline changes. No capture, Protocol, Correlation, Domain or Orchestration execution is involved, so the Skill runtime stays byte-identical:
+   ```bash
+   python benchmarks/golden-captures/scripts/compare_results.py \
+       --baseline benchmarks/golden-captures/cases/<case-id>/human-baseline.json \
+       --skill-summary benchmarks/golden-captures/cases/<case-id>/skill-result-summary.json \
+       --output benchmarks/golden-captures/cases/<case-id>/differential.json \
+       --intent "<upstream scenario intent>"
+   python benchmarks/golden-captures/scripts/summarize_benchmark.py \
+       --corenet-commit <skill-runtime-sha> --source-commit 82934c2cc231540fa425e48177d4bed33210bfc1
+   ```
+   A regenerated corpus records the benchmark framework commit that produced it, the unchanged Skill runtime commit, and the pinned external source commit; section 4 names both CoreNet SHAs, and nothing is edited after the recomputation begins.
+
+4. Validate benchmark artifacts, schemas, and safety gates:
    ```bash
    python scripts/validate-golden-captures.py
    python -m unittest discover -s benchmarks/golden-captures/tests -p 'test_*.py' -v

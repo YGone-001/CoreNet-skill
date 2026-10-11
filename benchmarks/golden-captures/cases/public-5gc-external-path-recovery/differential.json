@@ -6,14 +6,14 @@
   ],
   "case_id": "public-5gc-external-path-recovery",
   "comparison_eligibility": "ELIGIBLE",
-  "comparison_status": "DOMAIN_MODEL_GAP",
+  "comparison_status": "DOMAIN_COVERAGE_GAP",
   "evidence_layers": {
     "baseline_support": "SUPPORTED",
     "capture_sufficiency": "SUFFICIENT",
     "domain_reconstruction": "NOT_APPLICABLE",
     "orchestration_availability": "NOT_APPLICABLE",
     "protocol_extraction": "HEALTHY",
-    "semantic_comparison": "EVALUATED"
+    "semantic_comparison": "NOT_EVALUATED"
   },
   "evidence_overlap": false,
   "frame_delta": null,
@@ -26,9 +26,9 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "DOMAIN",
+  "layer_attribution": "DOMAIN_COVERAGE",
   "notes": [
-    "Observed procedure family is not owned by any implemented Domain Skill: 5gc-user-plane."
+    "Observed procedure family is not owned by any implemented Domain Skill: 5gc-user-plane. This is unimplemented Domain coverage, not an implemented Domain reconstruction failure."
   ],
   "recommended_next_action": "EXPAND_FUTURE_SCOPE",
   "skill_boundary": {

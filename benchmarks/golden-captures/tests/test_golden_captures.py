@@ -1314,6 +1314,74 @@ class GoldenCorpusContractTests(unittest.TestCase):
             self.assertEqual(probe, stripped, case_id)
 
 
+    def test_committed_corpus_passes_validator(self) -> None:
+        self.assertEqual(validate_golden_captures(BENCHMARK_DIR), [])
+
+    def test_committed_differentials_are_reproducible_from_frozen_inputs(self) -> None:
+        for case_id, baseline in self.baselines.items():
+            recomputed = compare_differential(
+                baseline,
+                self.summaries[case_id],
+                human_baseline_sha256=canonical_json_sha256(baseline),
+                upstream_intent=self.intents[case_id],
+            )
+            self.assertEqual(recomputed, self.diffs[case_id], f"differential drift for {case_id}")
+
+    def test_ciphered_nas_case_does_not_force_a_pdu_session_reject_ground_truth(self) -> None:
+        baseline = self.baselines["public-5gc-dnn-negative"]
+        diff = self.diffs["public-5gc-dnn-negative"]
+        self.assertEqual(baseline["analysis_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIsNone(baseline["first_abnormal_boundary"])
+        self.assertEqual(diff["human_boundary"]["analysis_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIsNone(diff["human_boundary"]["frame_number"])
+        self.assertIsNone(diff["human_boundary"]["message_type"])
+        self.assertEqual(diff["comparison_status"], "CAPTURE_LIMITATION")
+        self.assertEqual(diff["comparison_eligibility"], "DEGRADED")
+        self.assertEqual(diff["evidence_layers"], None)
+        self.assertEqual(diff["upstream_intent_match"], "NOT_EVALUATED")
+        joined = " ".join(baseline["limitations"])
+        self.assertIn("5GSM", joined)
+        self.assertIn("nas-5gs.ciphered_msg", joined)
+        frames = [entry["frame_number"] for entry in baseline["supporting_evidence"]]
+        for frame in (17, 18, 19, 20, 21, 22):
+            self.assertIn(frame, frames)
+
+    def test_unowned_procedure_families_are_recorded_as_coverage_gap(self) -> None:
+        for case_id in (
+            "public-5gc-access-plmn-negative",
+            "public-5gc-access-plmn-recovery",
+            "public-5gc-access-tai-negative",
+            "public-5gc-access-tai-recovery",
+            "public-5gc-external-path-recovery",
+        ):
+            self.assertEqual(self.diffs[case_id]["comparison_status"], "DOMAIN_COVERAGE_GAP", case_id)
+            self.assertEqual(self.diffs[case_id]["layer_attribution"], "DOMAIN_COVERAGE", case_id)
+            self.assertEqual(self.diffs[case_id]["evidence_layers"]["domain_reconstruction"], "NOT_APPLICABLE", case_id)
+            self.assertEqual(self.diffs[case_id]["evidence_layers"]["semantic_comparison"], "NOT_EVALUATED", case_id)
+
+    def test_ambiguous_corpus_case_is_adjudicated_not_a_confirmed_false_positive(self) -> None:
+        diff = self.diffs["public-5gc-baseline-user-plane"]
+        self.assertEqual(diff["skill_boundary"]["selection_status"], "AMBIGUOUS_FIRST_BOUNDARY")
+        self.assertNotEqual(diff["comparison_status"], "FALSE_POSITIVE")
+        self.assertEqual(diff["comparison_status"], "NEEDS_ADJUDICATION")
+        self.assertEqual(diff["layer_attribution"], "MULTIPLE")
+        self.assertTrue(diff["adjudication_required"])
+
+    def test_revised_baseline_records_a_new_canonical_digest(self) -> None:
+        baseline = copy.deepcopy(self.baselines["public-5gc-dnn-negative"])
+        current_digest = canonical_json_sha256(baseline)
+        cited = re.search(r"[Pp]revious canonical hash ([0-9a-f]{64})", baseline["revision_reason"])
+        self.assertIsNotNone(cited, "an authorized revision must cite the digest it supersedes")
+        self.assertNotEqual(cited.group(1), current_digest)
+        self.assertEqual(self.diffs[baseline["case_id"]]["human_baseline_sha256"], current_digest)
+
+        revised = copy.deepcopy(baseline)
+        revised["analysis_status"] = "BOUNDARY_OBSERVED"
+        revised["baseline_revision"] = baseline["baseline_revision"] + 1
+        self.assertNotEqual(current_digest, canonical_json_sha256(revised))
+        diff = compare_differential(revised, self.summaries[baseline["case_id"]])
+        self.assertEqual(diff["human_baseline_sha256"], canonical_json_sha256(revised))
+
     def test_identity_normalization_treats_placeholders_as_absent(self) -> None:
         self.assertIsNone(normalize_identity("UNKNOWN"))
         self.assertIsNone(normalize_identity("  "))
