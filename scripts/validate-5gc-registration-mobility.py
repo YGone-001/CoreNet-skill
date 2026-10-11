@@ -108,7 +108,7 @@ def validate(root: Path) -> list[str]:
     if errors:
         return errors
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "5gc-registration-mobility"), ("version", "0.2.0"), ("category", "domain")):
+    for key, expected in (("name", "5gc-registration-mobility"), ("version", "0.2.1"), ("category", "domain")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
     if not re.search(r"(?m)^\s*required:\s*\[\]\s*$", manifest):

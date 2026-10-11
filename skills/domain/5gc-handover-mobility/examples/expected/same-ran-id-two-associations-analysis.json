@@ -1,6 +1,6 @@
 {
   "analysis_name": "5gc-handover-mobility",
-  "analysis_version": "0.1.0",
+  "analysis_version": "0.1.1",
   "handover_attempts": [
     {
       "association": {

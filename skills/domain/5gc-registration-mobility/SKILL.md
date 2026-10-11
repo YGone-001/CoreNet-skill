@@ -56,6 +56,16 @@ questions.
   (optional; preferred for NAS joins, otherwise a minimal direct frame
   join is performed and labeled DERIVED).
 
+NGAP input identity contract: a detailed NGAP event is accepted when it
+exposes a `message_type` identity, or when the ngap Skill declares it
+`UNSUPPORTED` with no identity (a recognized procedure the Protocol Skill
+intentionally does not own, such as NG Setup). Accepted unowned events never
+open or extend a UE-context instance and never contribute a stage, deviation,
+observation window, or identifier binding; the Registration procedure model is
+formed only from owned evidence. An event that declares `SUPPORTED` while
+exposing no identity, or that has no identity and an unreviewed or absent
+`support_status`, fails loudly as malformed input.
+
 ## Outputs
 
 - `scripts/analyze-registration.py --ngap F --nas F [--correlation F]

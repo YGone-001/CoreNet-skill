@@ -104,6 +104,17 @@ Orchestration).
   for lifecycle-generation and N4/N3 binding context; never a mandatory
   runtime dependency; its deviations are never reinterpreted.
 
+NGAP input identity contract: a detailed NGAP event is accepted when it exposes
+a `message_type` identity, or when the ngap Skill declares it `UNSUPPORTED` with
+no identity (a recognized procedure the Protocol Skill intentionally does not
+own, such as NG Setup). Accepted unowned events never open or extend a handover
+half, never form a Handover or Path Switch attempt, and never contribute a
+stage, deviation, observation window, or out-of-order judgement; they stay
+visible only as unbound mobility evidence with their original Protocol
+provenance. An event that declares `SUPPORTED` while exposing no identity, or
+that has no identity and an unreviewed or absent `support_status`, fails loudly
+as malformed input.
+
 ## Outputs
 
 - `scripts/analyze_handover_mobility.py [INPUTS] --output analysis.json

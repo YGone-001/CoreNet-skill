@@ -25,7 +25,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-ANALYSIS_VERSION = "0.4.0"
+ANALYSIS_VERSION = "0.4.1"
 PROCEDURE_NAME = "5gc-pdu-session"
 
 EXIT_MALFORMED_INPUT = 5
@@ -257,6 +257,43 @@ def _require_common_fields(record: Any, index: int, protocol_name: str) -> dict[
     return record
 
 
+# NGAP input identity classes. A detailed NGAP event either exposes a message
+# identity the Domain can reason about, or it is bounded evidence the Protocol
+# Skill declares it does not own.
+NGAP_OWNED = "owned"
+NGAP_UNOWNED = "unowned"
+NGAP_SUPPORTED_WITHOUT_IDENTITY = "supported_without_identity"
+NGAP_UNREVIEWED_IDENTITY = "unreviewed_identity"
+
+SUPPORT_STATUS_SUPPORTED = "SUPPORTED"
+SUPPORT_STATUS_UNSUPPORTED = "UNSUPPORTED"
+
+
+def classify_ngap_identity(record: dict[str, Any]) -> str:
+    """Classify one detailed NGAP event against the Protocol identity contract.
+
+    Identity-first, mirroring the reviewed Protocol health vocabulary: a record
+    that exposes a message identity is usable evidence; a record that declares
+    SUPPORTED while exposing no identity is a lower-layer contract failure; a
+    record the Protocol Skill recognizes but intentionally does not own is
+    bounded evidence that carries no Domain procedure semantics.
+    """
+    identity = record.get("message_type")
+    if isinstance(identity, str) and identity:
+        return NGAP_OWNED
+    status = record.get("support_status")
+    if status == SUPPORT_STATUS_SUPPORTED:
+        return NGAP_SUPPORTED_WITHOUT_IDENTITY
+    if status == SUPPORT_STATUS_UNSUPPORTED:
+        return NGAP_UNOWNED
+    return NGAP_UNREVIEWED_IDENTITY
+
+
+def is_unowned_ngap_event(event: dict[str, Any]) -> bool:
+    """True for valid NGAP evidence that owns no Domain procedure semantics."""
+    return classify_ngap_identity(event) == NGAP_UNOWNED
+
+
 def load_nas_events(path: Path) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
     if not path.is_file():
@@ -289,8 +326,15 @@ def load_ngap_events(path: Path) -> list[dict[str, Any]]:
             except json.JSONDecodeError as exc:
                 raise InputError(f"invalid JSON in {path.name} at line {line_num}: {exc.msg}") from exc
             record = _require_common_fields(data, len(events), "NGAP")
-            if not isinstance(record.get("message_type"), str):
-                raise InputError(f"NGAP record {len(events)} in {path.name} lacks message_type string")
+            identity_class = classify_ngap_identity(record)
+            if identity_class == NGAP_SUPPORTED_WITHOUT_IDENTITY:
+                raise InputError(
+                    f"NGAP record {len(events)} in {path.name} declares support_status SUPPORTED "
+                    "but exposes no message_type")
+            if identity_class == NGAP_UNREVIEWED_IDENTITY:
+                raise InputError(
+                    f"NGAP record {len(events)} in {path.name} exposes no message_type and its "
+                    "support_status is not a reviewed Protocol ownership declaration")
             events.append(record)
     return events
 
@@ -2904,13 +2948,19 @@ def analyze(
     if correlation_groups is None:
         correlation_groups = []
 
+    # NGAP records the Protocol Skill does not own are accepted as bounded input
+    # evidence. They never open or extend a UE context, never form or extend an
+    # instance, and never contribute a frame to a provenance join; they remain
+    # visible only as unbound N2 evidence below.
+    owned_ngap = [event for event in ngap_events if not is_unowned_ngap_event(event)]
+
     # 1. Discover and bind NGAP UE contexts
     # context key: (capture_file, sctp_assoc, ran_id) or (capture_file, sctp_assoc, amf_id)
     ngap_contexts: list[dict[str, Any]] = []
     ran_to_context: dict[tuple[str, Any, int], dict[str, Any]] = {}
     amf_to_context: dict[tuple[str, Any, int], dict[str, Any]] = {}
 
-    for event in sorted(ngap_events, key=_event_sort_key):
+    for event in sorted(owned_ngap, key=_event_sort_key):
         capture = event["capture_file"]
         sctp_assoc = event.get("sctp", {}).get("association_id") if isinstance(event.get("sctp"), dict) else None
         ran_id = event.get("ran_ue_ngap_id")
@@ -3020,9 +3070,9 @@ def analyze(
 
     # If no instances discovered yet, check if there's any single capture candidate
     # (e.g. partial capture with only PFCP or NGAP without explicit resource list)
-    if not discovered_instances and (nas_events or ngap_events or pfcp_events or sbi_events):
+    if not discovered_instances and (nas_events or owned_ngap or pfcp_events or sbi_events):
         first_capture = next(
-            (e["capture_file"] for e in (nas_events + ngap_events + pfcp_events + sbi_events) if "capture_file" in e),
+            (e["capture_file"] for e in (nas_events + owned_ngap + pfcp_events + sbi_events) if "capture_file" in e),
             "capture.pcap",
         )
         # Find any PSI in SBI or PFCP or NAS
@@ -3044,7 +3094,7 @@ def analyze(
     # Attach any NGAP events carrying bound NAS messages to the respective instance
     for inst in discovered_instances.values():
         nas_frames = {(e["capture_file"], e["frame_number"]) for e in inst["nas_events"]}
-        for ngap_ev in ngap_events:
+        for ngap_ev in owned_ngap:
             if (ngap_ev["capture_file"], ngap_ev["frame_number"]) in nas_frames:
                 if ngap_ev not in inst["ngap_events"]:
                     inst["ngap_events"].append(ngap_ev)
@@ -4265,6 +4315,8 @@ def analyze(
     bound_sbi_set = {id(e) for inst in sorted_instances for e in inst["sbi_events"]}
 
     unbound_n1 = [e for e in nas_events if id(e) not in bound_nas_set]
+    # Unowned NGAP records are never bound, so they surface here with their
+    # original Protocol provenance and no procedure semantics.
     unbound_n2 = [e for e in ngap_events if id(e) not in bound_ngap_set]
     unbound_n3 = [e for e in gtpu_events if id(e) not in bound_gtpu_set]
     unbound_n4 = [e for e in pfcp_events if id(e) not in bound_pfcp_set]

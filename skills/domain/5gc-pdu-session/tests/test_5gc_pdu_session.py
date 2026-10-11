@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
 import sys
 import tempfile
 import unittest
@@ -519,6 +520,205 @@ class TimelineAndSanitizationTests(unittest.TestCase):
     def test_forbidden_words_trigger_sanitization_error(self):
         with self.assertRaises(MODEL.InputError):
             MODEL.sanitize_output({"some_field": "identified root cause of failure"})
+
+
+class NgapInputContractTests(unittest.TestCase):
+    """The Domain input contract separates valid unowned evidence from malformed input."""
+
+    UNOWNED = {
+        "amf_ue_ngap_id": None,
+        "capture_file": "sample.pcap",
+        "cause": None,
+        "derivations": ["procedure_name"],
+        "destination": {"address": "127.0.0.5", "port": 38412},
+        "evidence": {"level": "OBSERVED",
+                     "source": "capture:sample.pcap#frame=900; procedure-code=21; tshark-info=NGSetupRequest"},
+        "frame_number": 900,
+        "message_type": None,
+        "nas_pdu_length": None,
+        "nas_pdu_present": False,
+        "paging_identity_present": False,
+        "pdu_type": None,
+        "pdu_type_basis": None,
+        "procedure_code": 21,
+        "procedure_name": "NGSetup",
+        "ran_ue_ngap_id": None,
+        "result": None,
+        "rrc_establishment_cause": None,
+        "sctp": {"association_id": 1, "dstport": 38412, "srcport": 52677, "stream_id": 0},
+        "sender_role": None,
+        "source": {"address": "127.0.0.1", "port": 52677},
+        "support_status": "UNSUPPORTED",
+        "timestamp": "2026-03-01T09:59:59.000000Z",
+        "user_location_information_present": False,
+    }
+
+    @staticmethod
+    def unowned(**overrides) -> dict:
+        """Canonical ngap Skill output for a recognized but unowned procedure."""
+        record = dict(NgapInputContractTests.UNOWNED)
+        record.update(overrides)
+        return record
+
+    def write_ngap(self, directory: Path, records: list[dict]) -> Path:
+        path = directory / "ngap.jsonl"
+        path.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
+        return path
+
+    def run_scenario_with(self, directory: Path, name: str, extra: list[dict]) -> tuple[dict, list[dict]]:
+        variant = f"{name}-{len(extra)}"
+        source = directory / variant
+        shutil.copytree(INPUTS / name, source)
+        with (source / "ngap.jsonl").open("a", encoding="utf-8") as handle:
+            for record in extra:
+                handle.write(json.dumps(record) + "\n")
+        analysis_path = directory / f"{variant}-analysis.json"
+        stages_path = directory / f"{variant}-stages.jsonl"
+        rc = ANALYZE.main(["--input-dir", str(source), "--output", str(analysis_path),
+                           "--stages-output", str(stages_path), "--force"])
+        self.assertEqual(rc, 0, f"scenario {name} with {len(extra)} unowned record(s) failed with {rc}")
+        return json.loads(analysis_path.read_text(encoding="utf-8")), jsonl(stages_path)
+
+    def test_case_a_supported_with_identity_is_accepted(self):
+        record = self.unowned(support_status="SUPPORTED", message_type="InitialUEMessage")
+        with tempfile.TemporaryDirectory() as directory:
+            events = MODEL.load_ngap_events(self.write_ngap(Path(directory), [record]))
+            self.assertEqual(len(events), 1)
+            self.assertFalse(MODEL.is_unowned_ngap_event(events[0]))
+
+    def test_case_c_recognized_unsupported_is_accepted_as_unowned(self):
+        with tempfile.TemporaryDirectory() as directory:
+            events = MODEL.load_ngap_events(self.write_ngap(Path(directory), [self.unowned()]))
+            self.assertEqual(len(events), 1)
+            self.assertTrue(MODEL.is_unowned_ngap_event(events[0]))
+            self.assertIsNone(events[0]["message_type"])
+            self.assertEqual(events[0]["frame_number"], 900)
+            self.assertEqual(events[0]["capture_file"], "sample.pcap")
+
+    def test_case_b_supported_without_identity_fails_loudly(self):
+        record = self.unowned(support_status="SUPPORTED")
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(MODEL.InputError, "support_status SUPPORTED"):
+                MODEL.load_ngap_events(self.write_ngap(Path(directory), [record]))
+
+    def test_case_d_unknown_status_without_identity_fails_loudly(self):
+        record = self.unowned(support_status="UNKNOWN", procedure_name=None, derivations=[])
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(MODEL.InputError, "not a reviewed Protocol ownership declaration"):
+                MODEL.load_ngap_events(self.write_ngap(Path(directory), [record]))
+
+    def test_case_d_absent_status_without_identity_fails_loudly(self):
+        record = self.unowned(support_status=None)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(MODEL.InputError, "not a reviewed Protocol ownership declaration"):
+                MODEL.load_ngap_events(self.write_ngap(Path(directory), [record]))
+
+    def test_reviewed_contradictory_status_with_identity_stays_owned(self):
+        # Reviewed decision: identity decides usability, matching the Protocol
+        # health contract, so a named message is never reclassified as unowned.
+        record = self.unowned(message_type="PDUSessionResourceNotify")
+        with tempfile.TemporaryDirectory() as directory:
+            events = MODEL.load_ngap_events(self.write_ngap(Path(directory), [record]))
+            self.assertFalse(MODEL.is_unowned_ngap_event(events[0]))
+
+    def test_missing_mandatory_provenance_fails_loudly(self):
+        record = self.unowned()
+        del record["capture_file"]
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(MODEL.InputError, "capture_file"):
+                MODEL.load_ngap_events(self.write_ngap(Path(directory), [record]))
+
+    def test_malformed_frame_number_fails_loudly(self):
+        for bad in (0, "900", True, None):
+            with self.subTest(frame=bad):
+                with tempfile.TemporaryDirectory() as directory:
+                    with self.assertRaisesRegex(MODEL.InputError, "frame_number"):
+                        MODEL.load_ngap_events(self.write_ngap(Path(directory), [self.unowned(frame_number=bad)]))
+
+    def test_unsupported_only_capture_creates_no_instance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            output = directory / "analysis.json"
+            rc = ANALYZE.main(["--ngap", str(self.write_ngap(directory, [self.unowned(), self.unowned(frame_number=901)])),
+                               "--output", str(output), "--force"])
+            self.assertEqual(rc, 0)
+            analysis = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(analysis["instances"], [])
+            self.assertEqual(len(analysis["unbound_evidence"]["unbound_n2"]), 2)
+
+    def test_unsupported_preamble_does_not_block_pdu_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_scenario_with(directory, "normal-establishment", [])
+            with_preamble = self.run_scenario_with(directory, "normal-establishment", [self.unowned()])
+            self.assertEqual(with_preamble[0]["instances"], baseline[0]["instances"])
+            self.assertEqual(with_preamble[1], baseline[1])
+
+    def test_unsupported_record_sharing_a_ue_frame_stays_unbound(self):
+        # Same capture and frame as a bound NAS event: the frame join must not
+        # pull an unowned node-level record into the session instance.
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_scenario_with(directory, "normal-establishment", [])
+            collision = self.run_scenario_with(directory, "normal-establishment", [self.unowned(frame_number=6)])
+            self.assertEqual(collision[0]["instances"], baseline[0]["instances"])
+            self.assertEqual(collision[1], baseline[1])
+
+    def test_unsupported_records_do_not_duplicate_procedure_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_scenario_with(directory, "normal-establishment", [])
+            repeated = self.run_scenario_with(
+                directory, "normal-establishment", [self.unowned(), self.unowned(frame_number=901)])
+            self.assertEqual(repeated[0]["instances"], baseline[0]["instances"])
+            for instance in repeated[0]["instances"]:
+                self.assertNotIn("DUPLICATE", json.dumps([deviation["type"] for deviation in instance["deviations"]]))
+
+    def test_unsupported_records_do_not_merge_sctp_associations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_scenario_with(directory, "normal-establishment", [])
+            other = self.run_scenario_with(
+                directory, "normal-establishment",
+                [self.unowned(sctp={"association_id": 77, "dstport": 38412, "srcport": 52677, "stream_id": 0})])
+            self.assertEqual(other[0]["instances"], baseline[0]["instances"])
+
+    def test_unsupported_records_do_not_merge_ue_contexts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_scenario_with(directory, "multi-ue-same-psi", [])
+            with_unowned = self.run_scenario_with(
+                directory, "multi-ue-same-psi", [self.unowned(), self.unowned(frame_number=901)])
+            self.assertEqual(with_unowned[0]["instances"], baseline[0]["instances"])
+            self.assertEqual(len(with_unowned[0]["instances"]), len(baseline[0]["instances"]))
+
+    def test_unsupported_record_does_not_become_the_session_ue_context(self):
+        # A UE-associated unowned record is the sole NGAP context here. It must
+        # not lend its RAN/AMF UE NGAP IDs to a session instance formed from NAS.
+        nas = MODEL.load_nas_events(INPUTS / "normal-establishment" / "nas.jsonl")
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            without_ngap = MODEL.analyze(nas, [], [], [], [], [])
+            with_unowned = MODEL.analyze(
+                nas,
+                MODEL.load_ngap_events(self.write_ngap(
+                    directory, [self.unowned(ran_ue_ngap_id=1, amf_ue_ngap_id=2, frame_number=7)])),
+                [], [], [], [])
+            self.assertEqual(with_unowned[0]["instances"], without_ngap[0]["instances"])
+            self.assertEqual(with_unowned[1], without_ngap[1])
+
+    def test_unsupported_record_keeps_protocol_provenance_when_retained(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with_unowned = self.run_scenario_with(Path(directory), "normal-establishment", [self.unowned()])
+            retained = [event for event in with_unowned[0]["unbound_evidence"]["unbound_n2"]
+                        if event.get("procedure_code") == 21]
+            self.assertEqual(len(retained), 1)
+            self.assertEqual(retained[0]["frame_number"], 900)
+            self.assertEqual(retained[0]["capture_file"], "sample.pcap")
+            self.assertEqual(retained[0]["timestamp"], "2026-03-01T09:59:59.000000Z")
+            self.assertEqual(retained[0]["sctp"]["association_id"], 1)
+            self.assertIsNone(retained[0]["message_type"])
+            self.assertEqual(retained[0]["support_status"], "UNSUPPORTED")
 
 
 if __name__ == "__main__":

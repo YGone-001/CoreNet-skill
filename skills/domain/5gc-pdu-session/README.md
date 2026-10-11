@@ -2,7 +2,7 @@
 
 `5gc-pdu-session` is the bounded Domain Skill for 5GC PDU Session Establishment,
 Modification, and Release procedures and immediate post-establishment /
-post-modification / post-release N3 user-plane observation evidence, version 0.4.0.
+post-modification / post-release N3 user-plane observation evidence, version 0.4.1.
 It consumes already-extracted structured evidence from N1 (nas-5gs), N2 (ngap),
 N3 (gtpu), N4 (pfcp), and N11 (sbi-http2), plus optional cross-protocol-evidence
 correlation output. It forms evidence-safe procedure instances, evaluates the

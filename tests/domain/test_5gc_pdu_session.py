@@ -179,8 +179,8 @@ class PduSessionValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/domain/5gc-pdu-session/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.4.0", "version: 0.3.0"), encoding="utf-8")
-            self.assert_error(root, "version must be 0.4.0")
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.4.1", "version: 0.3.0"), encoding="utf-8")
+            self.assert_error(root, "version must be 0.4.1")
 
     def test_static_modification_object_instead_of_array_detected(self):
         temporary, root = self.fixture()

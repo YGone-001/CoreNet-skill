@@ -616,7 +616,7 @@
     "Absence of evidence does not prove network function failure"
   ],
   "procedure_name": "5gc-pdu-session",
-  "procedure_version": "0.4.0",
+  "procedure_version": "0.4.1",
   "unbound_evidence": {
     "ambiguous_events": [],
     "unbound_n1": [],

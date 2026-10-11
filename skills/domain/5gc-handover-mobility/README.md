@@ -1,7 +1,7 @@
 # 5gc-handover-mobility
 
 `5gc-handover-mobility` is the bounded Domain-layer Skill for 5GC N2
-handover and Path Switch procedure analysis, version 0.1.0. It consumes
+handover and Path Switch procedure analysis, version 0.1.1. It consumes
 already-extracted NGAP (>=0.3.0), PFCP, GTP-U, and SBI-HTTP2 detailed
 events — plus an optional `5gc-pdu-session` (>=0.4.0) analysis summary for
 lifecycle context — and forms two separate attempt families:

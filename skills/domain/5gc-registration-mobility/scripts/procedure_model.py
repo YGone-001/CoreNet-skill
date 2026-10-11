@@ -26,6 +26,9 @@ Procedure instances (multi-UE safety):
 - Timestamp proximity alone never merges instances, and events that
   cannot be resolved to an instance stay UNBOUND rather than being
   assigned.
+- NGAP records the Protocol Skill declares UNSUPPORTED are accepted as
+  bounded input evidence; they never form, extend, or timestamp an
+  instance, and never become a stage or a deviation.
 """
 
 from __future__ import annotations
@@ -39,7 +42,7 @@ EXIT_MALFORMED_INPUT = 5
 EXIT_NO_EVENTS = 6
 EXIT_OUTPUT_FAILURE = 7
 
-ANALYSIS_VERSION = "0.2.0"
+ANALYSIS_VERSION = "0.2.1"
 PROCEDURE_FAMILY = "5gc-registration-mobility"
 
 FORBIDDEN_OUTPUT_PATTERN = re.compile(r"(?i)\b(?:root[ _-]?cause|implementation[ _-]?(?:bug|blame))\b")
@@ -124,6 +127,43 @@ class InputError(ValueError):
     """Raised when lower-layer evidence cannot be accepted."""
 
 
+# NGAP input identity classes. A detailed NGAP event either exposes a message
+# identity the Domain can reason about, or it is bounded evidence the Protocol
+# Skill declares it does not own.
+NGAP_OWNED = "owned"
+NGAP_UNOWNED = "unowned"
+NGAP_SUPPORTED_WITHOUT_IDENTITY = "supported_without_identity"
+NGAP_UNREVIEWED_IDENTITY = "unreviewed_identity"
+
+SUPPORT_STATUS_SUPPORTED = "SUPPORTED"
+SUPPORT_STATUS_UNSUPPORTED = "UNSUPPORTED"
+
+
+def classify_ngap_identity(record: dict[str, object]) -> str:
+    """Classify one detailed NGAP event against the Protocol identity contract.
+
+    Identity-first, mirroring the reviewed Protocol health vocabulary: a record
+    that exposes a message identity is usable evidence; a record that declares
+    SUPPORTED while exposing no identity is a lower-layer contract failure; a
+    record the Protocol Skill recognizes but intentionally does not own is
+    bounded evidence that carries no Domain procedure semantics.
+    """
+    identity = record.get("message_type")
+    if isinstance(identity, str) and identity:
+        return NGAP_OWNED
+    status = record.get("support_status")
+    if status == SUPPORT_STATUS_SUPPORTED:
+        return NGAP_SUPPORTED_WITHOUT_IDENTITY
+    if status == SUPPORT_STATUS_UNSUPPORTED:
+        return NGAP_UNOWNED
+    return NGAP_UNREVIEWED_IDENTITY
+
+
+def is_unowned_ngap_event(event: dict[str, object]) -> bool:
+    """True for valid NGAP evidence that owns no Domain procedure semantics."""
+    return classify_ngap_identity(event) == NGAP_UNOWNED
+
+
 def _require_event_fields(record: object, index: int, kind: str) -> dict[str, object]:
     if not isinstance(record, dict):
         raise InputError(f"{kind} record {index} is not a JSON object")
@@ -147,8 +187,14 @@ def load_ngap_events(path: Path) -> list[dict[str, object]]:
             except json.JSONDecodeError as exc:
                 raise InputError(f"invalid JSON in {path.name} at line {line_number}: {exc.msg}") from exc
             record = _require_event_fields(record, len(events), "NGAP")
-            if not isinstance(record.get("message_type"), str):
-                raise InputError(f"NGAP record {len(events)} lacks a message_type")
+            identity_class = classify_ngap_identity(record)
+            if identity_class == NGAP_SUPPORTED_WITHOUT_IDENTITY:
+                raise InputError(
+                    f"NGAP record {len(events)} declares support_status SUPPORTED but exposes no message_type")
+            if identity_class == NGAP_UNREVIEWED_IDENTITY:
+                raise InputError(
+                    f"NGAP record {len(events)} exposes no message_type and its support_status "
+                    "is not a reviewed Protocol ownership declaration")
             events.append(record)
     return events
 
@@ -219,12 +265,15 @@ def build_instances(
     Returns (instances, conflict_findings). Identifier bindings follow the
     first frame where RAN and AMF UE NGAP IDs appear together; later
     contradictions are surfaced as conflicts, never silently resolved.
+    Events the Protocol Skill does not own never open or extend an instance.
     """
     instances: dict[tuple, dict[str, object]] = {}
     conflicts: list[dict[str, object]] = []
     bindings: dict[tuple[str, str], dict[int, int]] = {}
 
     for order, raw_event in enumerate(ngap_events):
+        if is_unowned_ngap_event(raw_event):
+            continue
         event = dict(raw_event)
         event["input_order"] = order
         capture = str(event["capture_file"])

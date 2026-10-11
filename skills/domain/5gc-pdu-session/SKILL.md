@@ -112,6 +112,16 @@ implementation questions.
 - `--correlation`: cross-protocol-evidence correlation-event JSONL (optional).
 - `--input-dir`: directory containing protocol event JSONL files.
 
+NGAP input identity contract: a detailed NGAP event is accepted when it exposes
+a `message_type` identity, or when the ngap Skill declares it `UNSUPPORTED` with
+no identity (a recognized procedure the Protocol Skill intentionally does not
+own, such as NG Setup). Accepted unowned events never open or extend an NGAP UE
+context, never form or extend a PDU Session instance, never supply a frame to a
+provenance join, and never widen an observation window; they stay visible only
+as unbound N2 evidence with their original Protocol provenance. An event that
+declares `SUPPORTED` while exposing no identity, or that has no identity and an
+unreviewed or absent `support_status`, fails loudly as malformed input.
+
 ## Outputs
 
 - `scripts/analyze_pdu_session.py [INPUTS] --output analysis.json [--stages-output stages.jsonl]`

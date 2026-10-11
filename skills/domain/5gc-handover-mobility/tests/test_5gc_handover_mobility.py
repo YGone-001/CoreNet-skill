@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -61,7 +63,7 @@ class ContractTests(unittest.TestCase):
     def test_manifest_contract(self):
         text = (PACKAGE / "manifest.yaml").read_text(encoding="utf-8")
         self.assertIn("name: 5gc-handover-mobility", text)
-        self.assertIn("version: 0.1.0", text)
+        self.assertIn("version: 0.1.1", text)
         self.assertIn("category: domain", text)
         self.assertIn("required: []", text)
         self.assertIn("ngap >=0.3.0", text)
@@ -102,7 +104,7 @@ class ContractTests(unittest.TestCase):
         self.assertTrue(records)
         for record in records:
             self.assertIn("procedure_name", record)
-            self.assertEqual(record["procedure_version"], "0.1.0")
+            self.assertEqual(record["procedure_version"], "0.1.1")
             self.assertIn(record["evidence_basis"], ("OBSERVED", "DERIVED"))
             self.assertIn(record["confidence"], ("HIGH", "MEDIUM", "LOW"))
 
@@ -558,6 +560,230 @@ class AssociationSafetyTests(unittest.TestCase):
         for entry in attempt["plane_bindings"]["n4"]:
             self.assertEqual(entry["association_strength"], "SUPPORTED")
             self.assertIn("association_basis", entry)
+
+
+class NgapInputContractTests(unittest.TestCase):
+    """The Domain input contract separates valid unowned evidence from malformed input."""
+
+    UNOWNED = {
+        "amf_ue_ngap_id": None,
+        "capture_file": "mobility-test.pcapng",
+        "cause": None,
+        "derivations": ["procedure_name"],
+        "destination": {"address": "127.0.0.5", "port": 38412},
+        "evidence": {"level": "OBSERVED",
+                     "source": "capture:mobility-test.pcapng#frame=900; procedure-code=21; tshark-info=NGSetupRequest"},
+        "frame_number": 900,
+        "message_type": None,
+        "nas_pdu_length": None,
+        "nas_pdu_present": False,
+        "paging_identity_present": False,
+        "pdu_type": None,
+        "pdu_type_basis": None,
+        "procedure_code": 21,
+        "procedure_name": "NGSetup",
+        "ran_ue_ngap_id": None,
+        "result": None,
+        "rrc_establishment_cause": None,
+        "sctp": {"association_id": 0, "dstport": 38412, "srcport": 52677, "stream_id": 0},
+        "sender_role": None,
+        "source": {"address": "127.0.0.1", "port": 52677},
+        "support_status": "UNSUPPORTED",
+        "timestamp": "2026-01-06T00:00:00.500000Z",
+        "user_location_information_present": False,
+    }
+    FLAGS = (("ngap.jsonl", "--ngap"), ("pfcp.jsonl", "--pfcp"), ("gtpu.jsonl", "--gtpu"),
+             ("sbi.jsonl", "--sbi"), ("pdu-session.json", "--pdu-session"))
+
+    @staticmethod
+    def unowned(**overrides) -> dict:
+        """Canonical ngap Skill output for a recognized but unowned procedure."""
+        record = dict(NgapInputContractTests.UNOWNED)
+        record.update(overrides)
+        return record
+
+    def write_ngap(self, directory: Path, records: list[dict]) -> Path:
+        path = directory / "ngap.jsonl"
+        path.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
+        return path
+
+    def invoke(self, directory: Path, source: Path, label: str) -> dict:
+        args = [sys.executable, str(ANALYZE_SCRIPT)]
+        for filename, flag in self.FLAGS:
+            path = source / filename
+            if path.is_file():
+                args += [flag, str(path)]
+        output = directory / f"{label}-analysis.json"
+        args += ["--output", str(output), "--force"]
+        completed = subprocess.run(args, capture_output=True, text=True)
+        assert completed.returncode == 0, f"{label} failed: {completed.stderr}"
+        return json.loads(output.read_text(encoding="utf-8"))
+
+    def run_variant(self, directory: Path, name: str, extra: list[dict]) -> dict:
+        digest = hashlib.sha1(json.dumps(extra, sort_keys=True).encode("utf-8")).hexdigest()[:10]
+        source = directory / f"{name}-{digest}"
+        shutil.copytree(INPUTS / name, source)
+        with (source / "ngap.jsonl").open("a", encoding="utf-8") as handle:
+            for record in extra:
+                handle.write(json.dumps(record) + "\n")
+        return self.invoke(directory, source, f"{name}-{digest}")
+
+    def attempt_ids(self, document: dict) -> list[tuple]:
+        return ([(attempt["attempt_id"], deviation_types(attempt)) for attempt in document["handover_attempts"]]
+                + [(attempt["attempt_id"], deviation_types(attempt)) for attempt in document["path_switch_attempts"]])
+
+    def test_case_a_supported_with_identity_is_accepted(self):
+        record = self.unowned(support_status="SUPPORTED", message_type="HandoverRequired")
+        with tempfile.TemporaryDirectory() as directory:
+            events = MODEL.load_ngap_events(self.write_ngap(Path(directory), [record]))
+            self.assertEqual(len(events), 1)
+            self.assertFalse(MODEL.is_unowned_ngap_event(events[0]))
+
+    def test_case_c_recognized_unsupported_is_accepted_as_unowned(self):
+        with tempfile.TemporaryDirectory() as directory:
+            events = MODEL.load_ngap_events(self.write_ngap(Path(directory), [self.unowned()]))
+            self.assertEqual(len(events), 1)
+            self.assertTrue(MODEL.is_unowned_ngap_event(events[0]))
+            self.assertIsNone(events[0]["message_type"])
+            self.assertEqual(events[0]["frame_number"], 900)
+            self.assertEqual(events[0]["capture_file"], "mobility-test.pcapng")
+
+    def test_case_b_supported_without_identity_fails_loudly(self):
+        record = self.unowned(support_status="SUPPORTED")
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(MODEL.InputError, "support_status SUPPORTED"):
+                MODEL.load_ngap_events(self.write_ngap(Path(directory), [record]))
+
+    def test_case_d_unknown_status_without_identity_fails_loudly(self):
+        record = self.unowned(support_status="UNKNOWN", procedure_name=None, derivations=[])
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(MODEL.InputError, "not a reviewed Protocol ownership declaration"):
+                MODEL.load_ngap_events(self.write_ngap(Path(directory), [record]))
+
+    def test_case_d_absent_status_without_identity_fails_loudly(self):
+        record = self.unowned(support_status=None)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(MODEL.InputError, "not a reviewed Protocol ownership declaration"):
+                MODEL.load_ngap_events(self.write_ngap(Path(directory), [record]))
+
+    def test_reviewed_contradictory_status_with_identity_stays_owned(self):
+        # Reviewed decision: identity decides usability, matching the Protocol
+        # health contract, so a named message is never reclassified as unowned.
+        record = self.unowned(message_type="HandoverSuccess")
+        with tempfile.TemporaryDirectory() as directory:
+            events = MODEL.load_ngap_events(self.write_ngap(Path(directory), [record]))
+            self.assertFalse(MODEL.is_unowned_ngap_event(events[0]))
+
+    def test_missing_mandatory_provenance_fails_loudly(self):
+        record = self.unowned()
+        del record["capture_file"]
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(MODEL.InputError, "capture_file"):
+                MODEL.load_ngap_events(self.write_ngap(Path(directory), [record]))
+
+    def test_malformed_frame_number_fails_loudly(self):
+        for bad in (0, "900", True, None):
+            with self.subTest(frame=bad):
+                with tempfile.TemporaryDirectory() as directory:
+                    with self.assertRaisesRegex(MODEL.InputError, "frame_number"):
+                        MODEL.load_ngap_events(self.write_ngap(Path(directory), [self.unowned(frame_number=bad)]))
+
+    def test_unsupported_only_capture_creates_no_attempt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            output = directory / "analysis.json"
+            completed = subprocess.run(
+                [sys.executable, str(ANALYZE_SCRIPT), "--ngap",
+                 str(self.write_ngap(directory, [self.unowned(), self.unowned(frame_number=901)])),
+                 "--output", str(output), "--force"], capture_output=True, text=True)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            document = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(document["handover_attempts"], [])
+            self.assertEqual(document["path_switch_attempts"], [])
+            self.assertEqual(len(document["unbound_mobility_evidence"]), 2)
+
+    def test_unsupported_preamble_does_not_block_handover_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_variant(directory, "full-n2-handover", [])
+            with_preamble = self.run_variant(directory, "full-n2-handover", [self.unowned()])
+            self.assertEqual(self.attempt_ids(with_preamble), self.attempt_ids(baseline))
+            self.assertEqual(with_preamble["handover_attempts"], baseline["handover_attempts"])
+
+    def test_unsupported_preamble_does_not_block_path_switch_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_variant(directory, "ps-no-handover-evidence", [])
+            with_preamble = self.run_variant(directory, "ps-no-handover-evidence", [self.unowned()])
+            self.assertEqual(self.attempt_ids(with_preamble), self.attempt_ids(baseline))
+
+    def test_unsupported_record_creates_no_out_of_order_deviation(self):
+        # The unowned record is last in input order but earliest in time. It is
+        # not part of any attempt, so it must not inject an out-of-order
+        # deviation into the attempts of its own capture.
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_variant(directory, "full-n2-handover", [])
+            with_unowned = self.run_variant(directory, "full-n2-handover", [self.unowned()])
+            self.assertNotIn("OUT_OF_ORDER_EVIDENCE", self.attempt_ids(baseline)[0][1])
+            for _attempt_id, types in self.attempt_ids(with_unowned):
+                self.assertNotIn("OUT_OF_ORDER_EVIDENCE", types)
+            self.assertEqual(self.attempt_ids(with_unowned), self.attempt_ids(baseline))
+
+    def test_owned_out_of_order_evidence_is_still_detected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_variant(directory, "out-of-order-input", [])
+            with_unowned = self.run_variant(directory, "out-of-order-input", [self.unowned()])
+            self.assertIn("OUT_OF_ORDER_EVIDENCE", self.attempt_ids(baseline)[0][1])
+            self.assertEqual(self.attempt_ids(with_unowned), self.attempt_ids(baseline))
+
+    def test_unsupported_records_do_not_duplicate_procedure_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_variant(directory, "full-n2-handover", [])
+            repeated = self.run_variant(
+                directory, "full-n2-handover", [self.unowned(), self.unowned(frame_number=901)])
+            self.assertEqual(self.attempt_ids(repeated), self.attempt_ids(baseline))
+            for attempt in repeated["handover_attempts"]:
+                self.assertNotIn("DUPLICATE_OR_RETRANSMITTED_EVIDENCE", deviation_types(attempt))
+
+    def test_unsupported_records_do_not_merge_sctp_associations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_variant(directory, "same-ran-id-two-associations", [])
+            other = self.run_variant(
+                directory, "same-ran-id-two-associations",
+                [self.unowned(sctp={"association_id": 77, "dstport": 38412, "srcport": 52677, "stream_id": 0})])
+            self.assertEqual(self.attempt_ids(other), self.attempt_ids(baseline))
+
+    def test_unsupported_records_do_not_merge_ue_contexts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_variant(directory, "two-ue-interleaved", [])
+            with_unowned = self.run_variant(directory, "two-ue-interleaved",
+                                            [self.unowned(), self.unowned(frame_number=901)])
+            self.assertEqual(self.attempt_ids(with_unowned), self.attempt_ids(baseline))
+
+    def test_unsupported_record_is_not_an_identifier_anchor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            baseline = self.run_variant(directory, "full-n2-handover", [])
+            anchoring = self.run_variant(directory, "full-n2-handover",
+                                         [self.unowned(ran_ue_ngap_id=1, amf_ue_ngap_id=99)])
+            self.assertEqual(anchoring["handover_attempts"], baseline["handover_attempts"])
+
+    def test_unsupported_record_keeps_protocol_provenance_when_retained(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with_unowned = self.run_variant(Path(directory), "full-n2-handover", [self.unowned()])
+            retained = [entry for entry in with_unowned["unbound_mobility_evidence"]
+                        if entry.get("frame_number") == 900]
+            self.assertEqual(len(retained), 1)
+            self.assertEqual(retained[0]["capture_file"], "mobility-test.pcapng")
+            self.assertEqual(retained[0]["timestamp"], "2026-01-06T00:00:00.500000Z")
+            self.assertIsNone(retained[0]["message_type"])
+            self.assertEqual(retained[0]["support_status"], "UNSUPPORTED")
+            self.assertIn("no mobility semantics are invented", retained[0]["reason"])
 
 
 if __name__ == "__main__":

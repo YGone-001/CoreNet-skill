@@ -39,7 +39,7 @@ EXIT_NO_EVENTS = 6
 EXIT_OUTPUT_FAILURE = 7
 
 ANALYSIS_NAME = "5gc-handover-mobility"
-ANALYSIS_VERSION = "0.1.0"
+ANALYSIS_VERSION = "0.1.1"
 PROCEDURE_FAMILY = "5gc-handover-mobility"
 
 FORBIDDEN_OUTPUT_PATTERN = re.compile(
@@ -163,6 +163,43 @@ LIMIT_NOT_ROOT_CAUSE = (
 
 class InputError(ValueError):
     """Raised when lower-layer evidence cannot be accepted."""
+
+
+# NGAP input identity classes. A detailed NGAP event either exposes a message
+# identity the Domain can reason about, or it is bounded evidence the Protocol
+# Skill declares it does not own.
+NGAP_OWNED = "owned"
+NGAP_UNOWNED = "unowned"
+NGAP_SUPPORTED_WITHOUT_IDENTITY = "supported_without_identity"
+NGAP_UNREVIEWED_IDENTITY = "unreviewed_identity"
+
+SUPPORT_STATUS_SUPPORTED = "SUPPORTED"
+SUPPORT_STATUS_UNSUPPORTED = "UNSUPPORTED"
+
+
+def classify_ngap_identity(record: dict[str, object]) -> str:
+    """Classify one detailed NGAP event against the Protocol identity contract.
+
+    Identity-first, mirroring the reviewed Protocol health vocabulary: a record
+    that exposes a message identity is usable evidence; a record that declares
+    SUPPORTED while exposing no identity is a lower-layer contract failure; a
+    record the Protocol Skill recognizes but intentionally does not own is
+    bounded evidence that carries no Domain procedure semantics.
+    """
+    identity = record.get("message_type")
+    if isinstance(identity, str) and identity:
+        return NGAP_OWNED
+    status = record.get("support_status")
+    if status == SUPPORT_STATUS_SUPPORTED:
+        return NGAP_SUPPORTED_WITHOUT_IDENTITY
+    if status == SUPPORT_STATUS_UNSUPPORTED:
+        return NGAP_UNOWNED
+    return NGAP_UNREVIEWED_IDENTITY
+
+
+def is_unowned_ngap_event(event: dict[str, object]) -> bool:
+    """True for valid NGAP evidence that owns no Domain procedure semantics."""
+    return classify_ngap_identity(event) == NGAP_UNOWNED
 
 
 def _evidence_ref(
@@ -298,8 +335,14 @@ def _read_jsonl(path: Path, kind: str, extra_check=None) -> list[dict[str, objec
 
 def load_ngap_events(path: Path) -> list[dict[str, object]]:
     def check(record: dict[str, object], index: int, name: str) -> None:
-        if not isinstance(record.get("message_type"), str):
-            raise InputError(f"NGAP record {index} in {name} lacks a message_type")
+        identity_class = classify_ngap_identity(record)
+        if identity_class == NGAP_SUPPORTED_WITHOUT_IDENTITY:
+            raise InputError(
+                f"NGAP record {index} in {name} declares support_status SUPPORTED but exposes no message_type")
+        if identity_class == NGAP_UNREVIEWED_IDENTITY:
+            raise InputError(
+                f"NGAP record {index} in {name} exposes no message_type and its support_status "
+                "is not a reviewed Protocol ownership declaration")
     return _read_jsonl(path, "NGAP", check)
 
 
@@ -2039,9 +2082,13 @@ def analyze(
     for order, event in enumerate(ngap_tagged):
         event["input_order"] = order
 
+    # Chronology is judged on owned mobility evidence only: an unowned record
+    # must never inject an out-of-order deviation into an attempt it is not part of.
     out_of_order_captures: set[str] = set()
     seen_input: dict[str, list[str]] = {}
     for event in ngap_tagged:
+        if is_unowned_ngap_event(event):
+            continue
         seen_input.setdefault(str(event["capture_file"]), []).append(str(event.get("timestamp")))
     for capture, timestamps in seen_input.items():
         if timestamps != sorted(timestamps):

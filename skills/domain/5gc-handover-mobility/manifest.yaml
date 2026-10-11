@@ -1,5 +1,5 @@
 name: 5gc-handover-mobility
-version: 0.1.0
+version: 0.1.1
 category: domain
 description: >
   Bounded 5GC mobility Domain analysis: forms separate handover_attempts and
