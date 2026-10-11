@@ -222,7 +222,9 @@ Prefer the simplest reproducible tooling. Python standard library is preferred w
 
 ## Documentation and Commit Wording
 
-Repository-authored content must not contain numbered lifecycle markers: commit messages, documentation, code, fixtures, and other project files must not include wording such as "Phase 1", "phase2", "PHASE 3", "Milestone B1", or similar stage labels, in any letter case and with or without a separator. Capability status is described directly; stage and milestone numbering belongs to task coordination outside the repository. Frozen upstream snapshots (the `third_party/` tree and package-local `upstream/` directories) are exempt from this rule. Package validators enforce the marker ban over CoreNet-authored files.
+Repository-authored content must not contain numbered lifecycle markers: commit messages, documentation, code, fixtures, and other project files must not include wording such as "Phase 1", "phase2", "PHASE 3", "Phase1", "Phase 2", "phasexxx", "P1", "P2-1", "Stage1", "Stage 2", "Milestone B1", or similar stage labels, in any letter case and with any combination of spaces, hyphens, or other separators (or none at all). The ban covers both spelled-out stage words and their abbreviated or numeric shorthand forms, so "stage 3", "Stage3", "S3", "phase-4", and "P4.2" are equally prohibited. Capability status is described directly; stage and milestone numbering belongs to task coordination outside the repository. Frozen upstream snapshots (the `third_party/` tree and package-local `upstream/` directories) are exempt from this rule. Package validators enforce the marker ban over CoreNet-authored files.
+
+A commit message states the change in one sentence: a single conventional-style subject line, ideally under 72 characters, with no multi-paragraph body, no bulleted change lists, and no restatement of the diff. Detail that does not fit in that sentence belongs in the task report, a design document, or an issue, not in Git history. This wording rule applies forward; already-pushed commits are never rewritten to satisfy it.
 
 ## Security and Fixture Hygiene
 
@@ -250,7 +252,7 @@ Before committing:
 4. Confirm temporary files are not tracked.
 5. Confirm unrelated changes are not included.
 
-Use focused, descriptive conventional-style commit messages where appropriate. Do not bundle unrelated cleanup into feature commits.
+Use focused, descriptive conventional-style commit messages where appropriate, each a single sentence as required in Documentation and Commit Wording. Do not bundle unrelated cleanup into feature commits.
 
 ## Validation and Completion Reporting
 
