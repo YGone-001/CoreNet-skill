@@ -4,7 +4,7 @@
   "capture_limitations": [],
   "case_id": "public-5gc-auth-negative",
   "comparison_eligibility": "ELIGIBLE",
-  "comparison_status": "NEEDS_ADJUDICATION",
+  "comparison_status": "ORCHESTRATION_GAP",
   "evidence_layers": {
     "baseline_support": "SUPPORTED",
     "capture_sufficiency": "SUFFICIENT",
@@ -14,7 +14,7 @@
     "semantic_comparison": "EVALUATED"
   },
   "evidence_overlap": false,
-  "frame_delta": null,
+  "frame_delta": 10,
   "human_baseline_sha256": "74b7a9596b4687c050715d4b012a6f637bfa34bd3bc4b5478d82880afe2b129d",
   "human_boundary": {
     "analysis_status": "BOUNDARY_OBSERVED",
@@ -26,17 +26,17 @@
   },
   "layer_attribution": "ORCHESTRATION",
   "notes": [
-    "Human baseline identified a supported boundary, but Orchestration reported AMBIGUOUS_FIRST_BOUNDARY across 3 candidate boundary(ies)."
+    "Procedure family mismatch: human identified 5gc-registration-mobility, pipeline selected UNKNOWN."
   ],
   "recommended_next_action": "CORRECT_ORCHESTRATION",
   "skill_boundary": {
-    "boundary_frame": null,
-    "boundary_message": null,
-    "boundary_protocol": null,
-    "procedure_family": null,
+    "boundary_frame": 1,
+    "boundary_message": "UNKNOWN",
+    "boundary_protocol": "UNKNOWN",
+    "procedure_family": "UNKNOWN",
     "procedure_stage": null,
-    "selection_status": "AMBIGUOUS_FIRST_BOUNDARY",
-    "source_domain": null
+    "selection_status": "SELECTED",
+    "source_domain": "UNKNOWN"
   },
   "upstream_intent_match": "MISMATCH"
 }

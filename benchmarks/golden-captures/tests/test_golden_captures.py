@@ -1359,12 +1359,15 @@ class GoldenCorpusContractTests(unittest.TestCase):
             self.assertEqual(self.diffs[case_id]["evidence_layers"]["domain_reconstruction"], "NOT_APPLICABLE", case_id)
             self.assertEqual(self.diffs[case_id]["evidence_layers"]["semantic_comparison"], "NOT_EVALUATED", case_id)
 
-    def test_ambiguous_corpus_case_is_adjudicated_not_a_confirmed_false_positive(self) -> None:
+    def test_unanchored_absence_case_is_adjudicated_not_a_confirmed_false_positive(self) -> None:
+        # Before the counterpart-evidence correction this capture tied two window-only
+        # absence candidates against each other. Those candidates are gone, so the case
+        # is no longer ambiguous; it still is not scored as a confirmed false positive.
         diff = self.diffs["public-5gc-baseline-user-plane"]
-        self.assertEqual(diff["skill_boundary"]["selection_status"], "AMBIGUOUS_FIRST_BOUNDARY")
+        self.assertEqual(diff["skill_boundary"]["selection_status"], "NO_ABNORMAL_BOUNDARY_OBSERVED")
         self.assertNotEqual(diff["comparison_status"], "FALSE_POSITIVE")
         self.assertEqual(diff["comparison_status"], "NEEDS_ADJUDICATION")
-        self.assertEqual(diff["layer_attribution"], "MULTIPLE")
+        self.assertEqual(diff["layer_attribution"], "DOMAIN")
         self.assertTrue(diff["adjudication_required"])
 
     def test_revised_baseline_records_a_new_canonical_digest(self) -> None:

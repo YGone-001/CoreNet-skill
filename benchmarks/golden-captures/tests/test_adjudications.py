@@ -464,8 +464,17 @@ class CommittedRecordTests(unittest.TestCase):
             self.assertEqual(document["capture_file"], Path(accepted["source_capture_path"]).name, document["case_id"])
 
     def test_committed_baseline_and_comparison_match_frozen_differential(self):
+        # An adjudication records the differential of the runtime it names. While that
+        # runtime is current the two must agree; once an authorized correction moves the
+        # runtime, the historical record stays frozen and the live record is the current
+        # one, so only same-runtime records are cross-checked here.
+        summary = json.loads((BENCHMARK_DIR / "benchmark-summary.json").read_text(encoding="utf-8"))
+        current_runtime = summary.get("corenet_commit")
         for _path, document in self.cases:
             differential = json.loads((BENCHMARK_DIR / "cases" / document["case_id"] / "differential.json").read_text(encoding="utf-8"))
+            if document["runtime_provenance"]["corenet_commit"] != current_runtime:
+                self.assertNotEqual(document["runtime_provenance"]["corenet_commit"], "", document["case_id"])
+                continue
             self.assertEqual(document["comparison_status"], differential["comparison_status"], document["case_id"])
 
     def test_committed_ids_unique_and_counts_agree(self):

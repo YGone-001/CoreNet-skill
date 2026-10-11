@@ -62,14 +62,14 @@
       "baseline_supported": true,
       "case_id": "public-5gc-auth-negative",
       "comparison_eligibility": "ELIGIBLE",
-      "comparison_status": "NEEDS_ADJUDICATION",
-      "frame_delta": null,
+      "comparison_status": "ORCHESTRATION_GAP",
+      "frame_delta": 10,
       "human_boundary_frame": 11,
       "human_status": "BOUNDARY_OBSERVED",
       "layer_attribution": "ORCHESTRATION",
       "recommended_next_action": "CORRECT_ORCHESTRATION",
-      "skill_boundary_frame": null,
-      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
+      "skill_boundary_frame": 1,
+      "skill_status": "SELECTED"
     },
     {
       "adjudication_required": true,
@@ -80,10 +80,10 @@
       "frame_delta": null,
       "human_boundary_frame": null,
       "human_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
-      "layer_attribution": "MULTIPLE",
-      "recommended_next_action": "NO_CHANGE",
+      "layer_attribution": "DOMAIN",
+      "recommended_next_action": "CORRECT_DOMAIN_MODEL",
       "skill_boundary_frame": null,
-      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
+      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
     },
     {
       "adjudication_required": true,
@@ -94,10 +94,10 @@
       "frame_delta": null,
       "human_boundary_frame": null,
       "human_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
-      "layer_attribution": "MULTIPLE",
-      "recommended_next_action": "NO_CHANGE",
+      "layer_attribution": "DOMAIN",
+      "recommended_next_action": "CORRECT_DOMAIN_MODEL",
       "skill_boundary_frame": null,
-      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
+      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
     },
     {
       "adjudication_required": true,
@@ -108,10 +108,10 @@
       "frame_delta": null,
       "human_boundary_frame": null,
       "human_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
-      "layer_attribution": "MULTIPLE",
-      "recommended_next_action": "NO_CHANGE",
+      "layer_attribution": "DOMAIN",
+      "recommended_next_action": "CORRECT_DOMAIN_MODEL",
       "skill_boundary_frame": null,
-      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
+      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
     },
     {
       "adjudication_required": false,
@@ -125,7 +125,7 @@
       "layer_attribution": "CAPTURE",
       "recommended_next_action": "NO_CHANGE",
       "skill_boundary_frame": null,
-      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
+      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
     },
     {
       "adjudication_required": true,
@@ -136,10 +136,10 @@
       "frame_delta": null,
       "human_boundary_frame": null,
       "human_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
-      "layer_attribution": "MULTIPLE",
-      "recommended_next_action": "NO_CHANGE",
+      "layer_attribution": "DOMAIN",
+      "recommended_next_action": "CORRECT_DOMAIN_MODEL",
       "skill_boundary_frame": null,
-      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
+      "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
     },
     {
       "adjudication_required": false,
@@ -174,19 +174,19 @@
       "baseline_supported": true,
       "case_id": "public-5gc-registration-resync",
       "comparison_eligibility": "ELIGIBLE",
-      "comparison_status": "NEEDS_ADJUDICATION",
+      "comparison_status": "FALSE_POSITIVE",
       "frame_delta": null,
       "human_boundary_frame": null,
       "human_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
-      "layer_attribution": "MULTIPLE",
-      "recommended_next_action": "NO_CHANGE",
-      "skill_boundary_frame": null,
-      "skill_status": "AMBIGUOUS_FIRST_BOUNDARY"
+      "layer_attribution": "DOMAIN",
+      "recommended_next_action": "CORRECT_DOMAIN_MODEL",
+      "skill_boundary_frame": 1,
+      "skill_status": "SELECTED"
     }
   ],
-  "corenet_commit": "93e7d69fcb46b12a158597bfbbe797316a859b47",
+  "corenet_commit": "d527711b263f09ee81614920fc25c5723912e5ab",
   "external_source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
-  "generated_at": "2026-10-11T15:32:55.929696+00:00",
+  "generated_at": "2026-10-11T16:11:25.316868+00:00",
   "metrics": {
     "acceptable_difference_count": 0,
     "blocked_case_count": 0,
@@ -201,11 +201,11 @@
     "exact_match_rate": 0.0,
     "executed_case_count": 13,
     "false_negative_count": 0,
-    "false_positive_count": 0,
+    "false_positive_count": 1,
     "human_baseline_unsupported_count": 0,
-    "median_absolute_frame_delta": null,
+    "median_absolute_frame_delta": 10.0,
     "needs_adjudication_count": 6,
-    "orchestration_gap_count": 0,
+    "orchestration_gap_count": 1,
     "out_of_scope_count": 1,
     "procedure_match_count": 0,
     "procedure_match_rate": 0.0,
@@ -221,7 +221,7 @@
     "5gc-failure-boundary": "0.2.0",
     "5gc-handover-mobility": "0.1.1",
     "5gc-pdu-session": "0.4.2",
-    "5gc-registration-mobility": "0.2.2",
+    "5gc-registration-mobility": "0.2.3",
     "c-pro": "0.2.0",
     "core-network-pcap": "0.1.0",
     "cross-protocol-evidence": "0.1.0",

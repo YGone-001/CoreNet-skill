@@ -38,7 +38,7 @@
     "boundary_protocol": null,
     "procedure_family": null,
     "procedure_stage": null,
-    "selection_status": "AMBIGUOUS_FIRST_BOUNDARY",
+    "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
     "source_domain": null
   },
   "upstream_intent_match": "NOT_EVALUATED"

@@ -1,11 +1,7 @@
 {
-  "additional_evidence_needed": [
-    "{'candidate_id': '1-cand-1', 'reason': 'candidates resolve to the same position with no deterministic source relationship ordering them', 'requirement': 'exact frame or stage provenance that separates the tied candidates is required', 'second_candidate_id': '1-cand-2'}",
-    "{'candidate_id': '1-cand-1', 'reason': 'candidates resolve to the same position with no deterministic source relationship ordering them', 'requirement': 'exact frame or stage provenance that separates the tied candidates is required', 'second_candidate_id': '1-cand-3'}",
-    "{'candidate_id': '1-cand-2', 'reason': 'candidates resolve to the same position with no deterministic source relationship ordering them', 'requirement': 'exact frame or stage provenance that separates the tied candidates is required', 'second_candidate_id': '1-cand-3'}"
-  ],
-  "boundary_confidence": null,
-  "candidate_boundaries_count": 3,
+  "additional_evidence_needed": [],
+  "boundary_confidence": "HIGH",
+  "candidate_boundaries_count": 1,
   "case_id": "public-5gc-registration-resync",
   "domain_instances_count": 2,
   "domain_status": {
@@ -25,7 +21,7 @@
       "output_present": true
     },
     "registration": {
-      "deviation_count": 8,
+      "deviation_count": 6,
       "execution_status": "EXECUTED",
       "first_stop_reason": null,
       "instance_count": 1,
@@ -41,7 +37,7 @@
     "A protected NAS envelope at frame 51 carried no decodable inner message"
   ],
   "orchestration_status": {
-    "candidate_boundary_count": 3,
+    "candidate_boundary_count": 1,
     "diagnostic_group_count": 1,
     "execution_status": "EXECUTED",
     "first_stop_reason": null,
@@ -55,6 +51,16 @@
     "pfcp": "NOT_OBSERVED_IN_CAPTURE",
     "sbi-http2": "NOT_OBSERVED_IN_CAPTURE"
   },
-  "selected_boundary": null,
-  "selection_status": "AMBIGUOUS_FIRST_BOUNDARY"
+  "selected_boundary": {
+    "boundary_frame": 1,
+    "boundary_message": "UNKNOWN",
+    "boundary_protocol": "UNKNOWN",
+    "boundary_timestamp": "",
+    "deviation_type": "UNKNOWN",
+    "evidence_level": "OBSERVED",
+    "selected_procedure_family": "UNKNOWN",
+    "selected_procedure_stage": null,
+    "selected_source_domain": "UNKNOWN"
+  },
+  "selection_status": "SELECTED"
 }
