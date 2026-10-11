@@ -496,6 +496,107 @@ class CommittedRecordTests(unittest.TestCase):
         self.assertEqual(summary["case_count"], len(self.cases))
 
 
+IDENTITY_PROVENANCE = (
+    "OBSERVED_SESSION_ID",
+    "SUPPORTED_DERIVED_SESSION_ID",
+    "FALLBACK_ASSUMED_SESSION_ID",
+    "SESSION_ID_UNRESOLVED",
+)
+CORRECTION_FIELDS = (
+    "correction_ref",
+    "rank",
+    "affected_skill",
+    "observed_defect",
+    "real_captures",
+    "regression_test_to_add",
+    "fixture_families_to_preserve",
+    "expected_behavior_change",
+    "architecture_and_backward_compatibility_risk",
+)
+CORRECTION_SKILLS = (
+    "5gc-registration-mobility",
+    "5gc-pdu-session",
+    "5gc-handover-mobility",
+    "5gc-failure-boundary",
+)
+
+
+class CommittedSummaryTests(unittest.TestCase):
+    """The rollup and the ranked correction plan are part of the committed contract."""
+
+    def setUp(self):
+        self.summary_path = ADJ_DIR / "summary.json"
+        if not self.summary_path.is_file():
+            self.skipTest("no committed adjudication summary yet")
+        self.raw = self.summary_path.read_text(encoding="utf-8")
+        self.summary = json.loads(self.raw)
+        self.cases = committed_cases()
+
+    def test_summary_serialization_is_deterministic(self):
+        self.assertEqual(self.raw, json.dumps(self.summary, indent=2, ensure_ascii=False) + "\n")
+
+    def test_identity_provenance_vocabulary_is_declared_and_bounded(self):
+        self.assertEqual(sorted(self.summary["identity_provenance_vocabulary"]), sorted(IDENTITY_PROVENANCE))
+        for row in self.summary["cases"]:
+            self.assertIn(row["pdu_session_identity_provenance"], IDENTITY_PROVENANCE, row["case_id"])
+
+    def test_fallback_identity_never_claims_observed_frames(self):
+        for row in self.summary["cases"]:
+            if row["pdu_session_identity_provenance"] == "FALLBACK_ASSUMED_SESSION_ID":
+                self.assertEqual(row["observed_pdu_session_id_frames"], [], row["case_id"])
+            else:
+                self.assertTrue(row["observed_pdu_session_id_frames"], row["case_id"])
+                self.assertTrue(all(f >= 1 for f in row["observed_pdu_session_id_frames"]), row["case_id"])
+
+    def test_fallback_identity_cases_have_no_packet_supported_session_claim(self):
+        fallback = {row["case_id"] for row in self.summary["cases"]
+                    if row["pdu_session_identity_provenance"] == "FALLBACK_ASSUMED_SESSION_ID"}
+        for path, document in self.cases:
+            if document["case_id"] not in fallback:
+                continue
+            for item in document["adjudications"]:
+                if item["source_domain"] != "5gc-pdu-session":
+                    continue
+                self.assertNotEqual(item["status"], "SUPPORTED_BY_PACKET_EVIDENCE",
+                                    f"{path.name} {item['adjudication_id']}")
+
+    def test_correction_plan_ranks_are_unique_and_contiguous(self):
+        corrections = self.summary["corrections"]
+        self.assertTrue(corrections)
+        ranks = [item["rank"] for item in corrections]
+        self.assertEqual(ranks, sorted(ranks))
+        self.assertEqual(ranks, list(range(1, len(corrections) + 1)))
+        refs = [item["correction_ref"] for item in corrections]
+        self.assertEqual(len(refs), len(set(refs)))
+        for item in corrections:
+            self.assertRegex(item["correction_ref"], r"^corr-[0-9]{2}$")
+
+    def test_every_correction_names_the_plan_contract(self):
+        for item in self.summary["corrections"]:
+            for field in CORRECTION_FIELDS:
+                self.assertIn(field, item, item["correction_ref"])
+                self.assertTrue(item[field], f"{item['correction_ref']} {field}")
+            self.assertIn(item["affected_skill"], CORRECTION_SKILLS, item["correction_ref"])
+            self.assertTrue(item["real_captures"], item["correction_ref"])
+            self.assertTrue(item["fixture_families_to_preserve"], item["correction_ref"])
+
+    def test_correction_refs_are_bidirectional_with_committed_items(self):
+        planned = {item["correction_ref"] for item in self.summary["corrections"]}
+        cited = set()
+        for _path, document in self.cases:
+            for item in document["adjudications"]:
+                if item.get("correction_ref"):
+                    cited.add(item["correction_ref"])
+        self.assertEqual(cited, planned)
+
+    def test_committed_provenance_is_the_frozen_runtime_for_every_case(self):
+        for _path, document in self.cases:
+            self.assertEqual(document["runtime_provenance"]["corenet_commit"],
+                             self.summary["corenet_commit"], document["case_id"])
+            self.assertEqual(document["runtime_provenance"]["source_commit"],
+                             self.summary["source_commit"], document["case_id"])
+
+
 class SanitizationTests(unittest.TestCase):
     def texts(self) -> list[Path]:
         return [path for path in sorted(ADJ_DIR.rglob("*")) if path.is_file() and path.suffix in (".json", ".md")]

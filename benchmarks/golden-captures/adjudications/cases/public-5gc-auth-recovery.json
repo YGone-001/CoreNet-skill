@@ -1,0 +1,626 @@
+{
+  "schema_name": "case-adjudication",
+  "adjudication_revision": 1,
+  "case_id": "public-5gc-auth-recovery",
+  "capture_file": "recovery.pcap",
+  "capture_sha256": "071add46ff3c429f88896e4ca9c1e45f2c107f6f1ff353118ff8fd06480dcb47",
+  "runtime_provenance": {
+    "corenet_commit": "603075bcb550225acd10bc5df5dacf33ce0e4589",
+    "source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
+    "tshark_version": "TShark (Wireshark) 4.7.1 (v4.7.1-0-g667ab240e6de)",
+    "domain_skill_versions": {
+      "5gc-registration-mobility": "0.2.1",
+      "5gc-pdu-session": "0.4.1",
+      "5gc-handover-mobility": "0.1.1"
+    }
+  },
+  "protocol_health": {
+    "ngap": "SUCCESS_WITH_UNSUPPORTED_SEMANTICS",
+    "nas-5gs": "SUCCESS_WITH_PROTECTED_PAYLOAD"
+  },
+  "human_baseline_status": "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED",
+  "comparison_status": "NEEDS_ADJUDICATION",
+  "first_differing_layer": "DOMAIN_DEVIATION_EMISSION",
+  "status_counts": {
+    "SUPPORTED_BY_PACKET_EVIDENCE": 0,
+    "VALID_CAPTURE_LIMITATION": 8,
+    "POTENTIALLY_SPURIOUS": 2,
+    "UNSUPPORTED_BY_PACKET_EVIDENCE": 5,
+    "INSUFFICIENT_EVIDENCE": 0,
+    "OUT_OF_IMPLEMENTED_SCOPE": 0
+  },
+  "adjudications": [
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": null,
+      "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+      "stage_id": "security-mode",
+      "status": "VALID_CAPTURE_LIMITATION",
+      "finality": "FINAL",
+      "evidence_level": "DERIVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": null,
+        "window_first_frame": 9,
+        "window_last_frame": 25,
+        "protocol": null,
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 9,
+          "field": "nas-5gs.security_header_type",
+          "observed_value": "0"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 9,
+          "field": "nas-5gs.mm.message_type",
+          "observed_value": "0x41"
+        }
+      ],
+      "proposed_owner_domain": "none",
+      "correction_ref": null,
+      "rationale": "Security mode command is observable as plain NAS (mm.message_type 0x5d, security_header_type 3) at frame 12, and every NAS message after it inside the window 9-25 exposes security_header_type 2 or 4 with no decodable message type, so the expected NAS security-mode completion is unobservable from this capture rather than proven absent.",
+      "uncertainty": "Absence inside the observation window is not evidence that the counterpart was never sent; the message may sit inside a ciphered envelope or outside the capture.",
+      "adjudication_id": "adj-01"
+    },
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": null,
+      "deviation_type": "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
+      "stage_id": null,
+      "status": "UNSUPPORTED_BY_PACKET_EVIDENCE",
+      "finality": "FINAL",
+      "evidence_level": "OBSERVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": 13,
+        "window_first_frame": null,
+        "window_last_frame": null,
+        "protocol": "NAS-5GS",
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 13,
+          "field": "nas-5gs.security_header_type",
+          "observed_value": "4"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 13,
+          "field": "nas-5gs.mm.message_type",
+          "observed_value": "absent"
+        }
+      ],
+      "proposed_owner_domain": "5gc-registration-mobility",
+      "correction_ref": "corr-01",
+      "rationale": "Frame 13 exposes NAS-5GS with security_header_type 4 and no decodable mm.message_type octet. The message-type byte is not present in the capture at all, so the packet evidence shows neither an unknown nor a reserved message-type value; the Domain republished the lower-layer UNKNOWN support status under a protocol-value label.",
+      "uncertainty": "The lower-layer support_status UNKNOWN is itself accurate. Without the NAS security context the inner message type cannot be separated into unknown, reserved, or merely undecodable.",
+      "adjudication_id": "adj-02",
+      "equivalent_evidence_basis_ids": [
+        "adj-03"
+      ]
+    },
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": null,
+      "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+      "stage_id": null,
+      "status": "VALID_CAPTURE_LIMITATION",
+      "finality": "FINAL",
+      "evidence_level": "OBSERVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": 13,
+        "window_first_frame": null,
+        "window_last_frame": null,
+        "protocol": "NAS-5GS",
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 13,
+          "field": "nas-5gs.security_header_type",
+          "observed_value": "4"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 13,
+          "field": "nas-5gs.mm.message_type",
+          "observed_value": "absent"
+        }
+      ],
+      "proposed_owner_domain": "none",
+      "correction_ref": null,
+      "rationale": "Frame 13 carries a ciphered NAS-5GS envelope (security_header_type 4) whose inner message the dissector cannot reach, and the record states only that no decodable inner message was available. No message type, cause, or registration outcome was invented from the protected payload.",
+      "uncertainty": "The protected payload may contain any NAS message; this adjudication asserts nothing about its contents and treats the envelope as unobservable rather than abnormal.",
+      "adjudication_id": "adj-03",
+      "equivalent_evidence_basis_ids": [
+        "adj-02"
+      ]
+    },
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": null,
+      "deviation_type": "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
+      "stage_id": null,
+      "status": "UNSUPPORTED_BY_PACKET_EVIDENCE",
+      "finality": "FINAL",
+      "evidence_level": "OBSERVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": 14,
+        "window_first_frame": null,
+        "window_last_frame": null,
+        "protocol": "NAS-5GS",
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 14,
+          "field": "nas-5gs.security_header_type",
+          "observed_value": "2"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 14,
+          "field": "nas-5gs.mm.message_type",
+          "observed_value": "absent"
+        }
+      ],
+      "proposed_owner_domain": "5gc-registration-mobility",
+      "correction_ref": "corr-01",
+      "rationale": "Frame 14 exposes NAS-5GS with security_header_type 2 and no decodable mm.message_type octet. The message-type byte is not present in the capture at all, so the packet evidence shows neither an unknown nor a reserved message-type value; the Domain republished the lower-layer UNKNOWN support status under a protocol-value label.",
+      "uncertainty": "The lower-layer support_status UNKNOWN is itself accurate. Without the NAS security context the inner message type cannot be separated into unknown, reserved, or merely undecodable.",
+      "adjudication_id": "adj-04",
+      "equivalent_evidence_basis_ids": [
+        "adj-05"
+      ]
+    },
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": null,
+      "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+      "stage_id": null,
+      "status": "VALID_CAPTURE_LIMITATION",
+      "finality": "FINAL",
+      "evidence_level": "OBSERVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": 14,
+        "window_first_frame": null,
+        "window_last_frame": null,
+        "protocol": "NAS-5GS",
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 14,
+          "field": "nas-5gs.security_header_type",
+          "observed_value": "2"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 14,
+          "field": "nas-5gs.mm.message_type",
+          "observed_value": "absent"
+        }
+      ],
+      "proposed_owner_domain": "none",
+      "correction_ref": null,
+      "rationale": "Frame 14 carries a ciphered NAS-5GS envelope (security_header_type 2) whose inner message the dissector cannot reach, and the record states only that no decodable inner message was available. No message type, cause, or registration outcome was invented from the protected payload.",
+      "uncertainty": "The protected payload may contain any NAS message; this adjudication asserts nothing about its contents and treats the envelope as unobservable rather than abnormal.",
+      "adjudication_id": "adj-05",
+      "equivalent_evidence_basis_ids": [
+        "adj-04"
+      ]
+    },
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": null,
+      "deviation_type": "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
+      "stage_id": null,
+      "status": "UNSUPPORTED_BY_PACKET_EVIDENCE",
+      "finality": "FINAL",
+      "evidence_level": "OBSERVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": 17,
+        "window_first_frame": null,
+        "window_last_frame": null,
+        "protocol": "NAS-5GS",
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 17,
+          "field": "nas-5gs.security_header_type",
+          "observed_value": "2,2"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 17,
+          "field": "nas-5gs.mm.message_type",
+          "observed_value": "absent"
+        }
+      ],
+      "proposed_owner_domain": "5gc-registration-mobility",
+      "correction_ref": "corr-01",
+      "rationale": "Frame 17 exposes NAS-5GS with security_header_type 2,2 and no decodable mm.message_type octet. The message-type byte is not present in the capture at all, so the packet evidence shows neither an unknown nor a reserved message-type value; the Domain republished the lower-layer UNKNOWN support status under a protocol-value label.",
+      "uncertainty": "The lower-layer support_status UNKNOWN is itself accurate. Without the NAS security context the inner message type cannot be separated into unknown, reserved, or merely undecodable.",
+      "adjudication_id": "adj-06",
+      "equivalent_evidence_basis_ids": [
+        "adj-07"
+      ]
+    },
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": null,
+      "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+      "stage_id": null,
+      "status": "VALID_CAPTURE_LIMITATION",
+      "finality": "FINAL",
+      "evidence_level": "OBSERVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": 17,
+        "window_first_frame": null,
+        "window_last_frame": null,
+        "protocol": "NAS-5GS",
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 17,
+          "field": "nas-5gs.security_header_type",
+          "observed_value": "2,2"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 17,
+          "field": "nas-5gs.mm.message_type",
+          "observed_value": "absent"
+        }
+      ],
+      "proposed_owner_domain": "none",
+      "correction_ref": null,
+      "rationale": "Frame 17 carries a ciphered NAS-5GS envelope (security_header_type 2,2) whose inner message the dissector cannot reach, and the record states only that no decodable inner message was available. No message type, cause, or registration outcome was invented from the protected payload.",
+      "uncertainty": "The protected payload may contain any NAS message; this adjudication asserts nothing about its contents and treats the envelope as unobservable rather than abnormal.",
+      "adjudication_id": "adj-07",
+      "equivalent_evidence_basis_ids": [
+        "adj-06"
+      ]
+    },
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": null,
+      "deviation_type": "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
+      "stage_id": null,
+      "status": "UNSUPPORTED_BY_PACKET_EVIDENCE",
+      "finality": "FINAL",
+      "evidence_level": "OBSERVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": 18,
+        "window_first_frame": null,
+        "window_last_frame": null,
+        "protocol": "NAS-5GS",
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 18,
+          "field": "nas-5gs.security_header_type",
+          "observed_value": "2"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 18,
+          "field": "nas-5gs.mm.message_type",
+          "observed_value": "absent"
+        }
+      ],
+      "proposed_owner_domain": "5gc-registration-mobility",
+      "correction_ref": "corr-01",
+      "rationale": "Frame 18 exposes NAS-5GS with security_header_type 2 and no decodable mm.message_type octet. The message-type byte is not present in the capture at all, so the packet evidence shows neither an unknown nor a reserved message-type value; the Domain republished the lower-layer UNKNOWN support status under a protocol-value label.",
+      "uncertainty": "The lower-layer support_status UNKNOWN is itself accurate. Without the NAS security context the inner message type cannot be separated into unknown, reserved, or merely undecodable.",
+      "adjudication_id": "adj-08",
+      "equivalent_evidence_basis_ids": [
+        "adj-09"
+      ]
+    },
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": null,
+      "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+      "stage_id": null,
+      "status": "VALID_CAPTURE_LIMITATION",
+      "finality": "FINAL",
+      "evidence_level": "OBSERVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": 18,
+        "window_first_frame": null,
+        "window_last_frame": null,
+        "protocol": "NAS-5GS",
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 18,
+          "field": "nas-5gs.security_header_type",
+          "observed_value": "2"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 18,
+          "field": "nas-5gs.mm.message_type",
+          "observed_value": "absent"
+        }
+      ],
+      "proposed_owner_domain": "none",
+      "correction_ref": null,
+      "rationale": "Frame 18 carries a ciphered NAS-5GS envelope (security_header_type 2) whose inner message the dissector cannot reach, and the record states only that no decodable inner message was available. No message type, cause, or registration outcome was invented from the protected payload.",
+      "uncertainty": "The protected payload may contain any NAS message; this adjudication asserts nothing about its contents and treats the envelope as unobservable rather than abnormal.",
+      "adjudication_id": "adj-09",
+      "equivalent_evidence_basis_ids": [
+        "adj-08"
+      ]
+    },
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": null,
+      "deviation_type": "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
+      "stage_id": null,
+      "status": "UNSUPPORTED_BY_PACKET_EVIDENCE",
+      "finality": "FINAL",
+      "evidence_level": "OBSERVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": 19,
+        "window_first_frame": null,
+        "window_last_frame": null,
+        "protocol": "NAS-5GS",
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 19,
+          "field": "nas-5gs.security_header_type",
+          "observed_value": "2"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 19,
+          "field": "nas-5gs.mm.message_type",
+          "observed_value": "absent"
+        }
+      ],
+      "proposed_owner_domain": "5gc-registration-mobility",
+      "correction_ref": "corr-01",
+      "rationale": "Frame 19 exposes NAS-5GS with security_header_type 2 and no decodable mm.message_type octet. The message-type byte is not present in the capture at all, so the packet evidence shows neither an unknown nor a reserved message-type value; the Domain republished the lower-layer UNKNOWN support status under a protocol-value label.",
+      "uncertainty": "The lower-layer support_status UNKNOWN is itself accurate. Without the NAS security context the inner message type cannot be separated into unknown, reserved, or merely undecodable.",
+      "adjudication_id": "adj-10",
+      "equivalent_evidence_basis_ids": [
+        "adj-11"
+      ]
+    },
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": null,
+      "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+      "stage_id": null,
+      "status": "VALID_CAPTURE_LIMITATION",
+      "finality": "FINAL",
+      "evidence_level": "OBSERVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": 19,
+        "window_first_frame": null,
+        "window_last_frame": null,
+        "protocol": "NAS-5GS",
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 19,
+          "field": "nas-5gs.security_header_type",
+          "observed_value": "2"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 19,
+          "field": "nas-5gs.mm.message_type",
+          "observed_value": "absent"
+        }
+      ],
+      "proposed_owner_domain": "none",
+      "correction_ref": null,
+      "rationale": "Frame 19 carries a ciphered NAS-5GS envelope (security_header_type 2) whose inner message the dissector cannot reach, and the record states only that no decodable inner message was available. No message type, cause, or registration outcome was invented from the protected payload.",
+      "uncertainty": "The protected payload may contain any NAS message; this adjudication asserts nothing about its contents and treats the envelope as unobservable rather than abnormal.",
+      "adjudication_id": "adj-11",
+      "equivalent_evidence_basis_ids": [
+        "adj-10"
+      ]
+    },
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": null,
+      "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+      "stage_id": "registration-decision",
+      "status": "VALID_CAPTURE_LIMITATION",
+      "finality": "FINAL",
+      "evidence_level": "DERIVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": null,
+        "window_first_frame": 9,
+        "window_last_frame": 25,
+        "protocol": null,
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 9,
+          "field": "nas-5gs.security_header_type",
+          "observed_value": "0"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 9,
+          "field": "nas-5gs.mm.message_type",
+          "observed_value": "0x41"
+        }
+      ],
+      "proposed_owner_domain": "none",
+      "correction_ref": null,
+      "rationale": "Across frames 9-25 every post-security-mode NAS transport exposes security_header_type 2 or 4 with no decodable mm.message_type, so no Registration accept or reject identity is observable inside the window. The claim stays conditional and window-bounded instead of asserting a decision message.",
+      "uncertainty": "Absence inside the observation window is not evidence that the counterpart was never sent; the message may sit inside a ciphered envelope or outside the capture.",
+      "adjudication_id": "adj-12"
+    },
+    {
+      "kind": "DOMAIN_DEVIATION",
+      "source_domain": "5gc-pdu-session",
+      "source_instance_id": "5gc-pdu-session:recovery.pcap:ran1-amf3:psi1",
+      "candidate_id": null,
+      "deviation_type": "PARTIAL_CAPTURE",
+      "stage_id": "session_request",
+      "status": "VALID_CAPTURE_LIMITATION",
+      "finality": "FINAL",
+      "evidence_level": "DERIVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": null,
+        "window_first_frame": 19,
+        "window_last_frame": 23,
+        "protocol": null,
+        "message_type": null
+      },
+      "packet_evidence": [
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 19,
+          "field": "ngap.pDUSessionID",
+          "observed_value": "1"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 21,
+          "field": "ngap.pDUSessionID",
+          "observed_value": "1"
+        },
+        {
+          "capture_file": "recovery.pcap",
+          "frame_number": 23,
+          "field": "ngap.pDUSessionID",
+          "observed_value": "1"
+        }
+      ],
+      "proposed_owner_domain": "none",
+      "correction_ref": null,
+      "rationale": "The session identity is observable: ngap.pDUSessionID carries a value on the NGAP PDU resource messages inside frames 19-23, while the N1 session-management request sits in a ciphered envelope with no decodable sm.message_type anywhere in the capture, so the initiation evidence is genuinely partial.",
+      "uncertainty": "Partial initiation evidence is a capture boundary condition. It is not evidence that session establishment failed, and no N4 or N3 absence is read as a fault.",
+      "adjudication_id": "adj-13"
+    },
+    {
+      "kind": "ORCHESTRATION_CANDIDATE",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": "1-cand-1",
+      "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+      "stage_id": "registration-decision",
+      "status": "POTENTIALLY_SPURIOUS",
+      "finality": "NONFINAL",
+      "evidence_level": "DERIVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": null,
+        "window_first_frame": 9,
+        "window_last_frame": 25,
+        "protocol": null,
+        "message_type": null
+      },
+      "packet_evidence": [],
+      "equivalent_evidence_basis_ids": [
+        "adj-12"
+      ],
+      "proposed_owner_domain": "5gc-registration-mobility",
+      "correction_ref": "corr-03",
+      "rationale": "The candidate has no frame anchor: its only provenance is the observation window 9-25, and the stage identifier registration-decision is absent from the source instance stage records, so no stage position is published for it. Against the sibling absence candidate on the same window the pair resolves to a tie, which is what yields the ambiguous selection.",
+      "uncertainty": "The underlying absence claim is honestly window-bounded, so the candidate is not dismissed as a false positive; it is not independently orderable either. Adjudication stays nonfinal.",
+      "adjudication_id": "adj-14"
+    },
+    {
+      "kind": "ORCHESTRATION_CANDIDATE",
+      "source_domain": "5gc-registration-mobility",
+      "source_instance_id": "5gc-reg:recovery.pcap:sctp-assoc-65535:r1",
+      "candidate_id": "1-cand-2",
+      "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+      "stage_id": "security-mode",
+      "status": "POTENTIALLY_SPURIOUS",
+      "finality": "NONFINAL",
+      "evidence_level": "DERIVED",
+      "observation_ref": {
+        "capture_file": "recovery.pcap",
+        "frame_number": null,
+        "window_first_frame": 9,
+        "window_last_frame": 25,
+        "protocol": null,
+        "message_type": null
+      },
+      "packet_evidence": [],
+      "equivalent_evidence_basis_ids": [
+        "adj-01"
+      ],
+      "proposed_owner_domain": "5gc-registration-mobility",
+      "correction_ref": "corr-03",
+      "rationale": "The candidate has no frame anchor: its provenance is the observation window 9-25, which is identical to the sibling absence candidate whose stage identifier is absent from the source instance stage records. Because the pair shares one window and only one side carries a stage position, no safe ordering separates them and the selection resolves to a tie.",
+      "uncertainty": "The underlying absence claim is honestly window-bounded, so the candidate is not dismissed as a false positive; it is not independently orderable either. Adjudication stays nonfinal.",
+      "adjudication_id": "adj-15"
+    }
+  ],
+  "limitations": [
+    "Every NAS message after security mode establishment is ciphered, so N1 procedure identity evidence is unobservable and absence claims are bounded to the observation window.",
+    "TShark field output was read directly from the pinned capture; upstream scenario directory naming was never used as packet truth.",
+    "No network function, product, or implementation is assigned responsibility by any adjudication in this file.",
+    "Ambiguous selection is reported as a provenance gap, not as evidence that the procedure succeeded."
+  ]
+}
