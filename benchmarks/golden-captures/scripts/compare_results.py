@@ -2,15 +2,22 @@
 """Compare human/GPT independent baseline with automated CoreNet Skill summary.
 
 Performs deterministic, standards-based differential comparison across procedure
-families, stages, frame boundaries, and coverage categories. Never applies severity
-ranking. Evaluates upstream Protocol evidence health and pipeline eligibility
-before semantic matching. Emits differential.json.
+families, stages, protocol and abnormal-event semantics, frame anchors and
+coverage categories. An abnormal boundary is an exact match only when the
+compared semantics agree as well as the evidence anchor; a frame equality or a
+one- or two-frame delta never substitutes for a stage, protocol or abnormality
+disagreement, and missing semantic detail is reported for adjudication instead of
+being invented. Unowned procedure families are reported as Domain coverage, never
+as an implemented Domain model failure. Never applies severity ranking.
+Evaluates upstream Protocol evidence health and pipeline eligibility before
+semantic matching. Emits differential.json.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -43,6 +50,72 @@ HEALTHY_PROTOCOL_STATUSES = frozenset({
 BOUNDARY_SELECTED_STATUSES = frozenset({"SELECTED", "FIRST_ABNORMAL_BOUNDARY_SELECTED"})
 BOUNDARY_UNRESOLVED_STATUSES = frozenset({"AMBIGUOUS_FIRST_BOUNDARY", "INSUFFICIENT_COMPARABLE_EVIDENCE"})
 NO_BOUNDARY_STATUSES = frozenset({"NO_ABNORMAL_BOUNDARY_OBSERVED", "NO_DOMAIN_INPUTS"})
+
+# Sanitizer placeholders that carry no identity. They must never be treated as a
+# reported value, because matching a placeholder would invent semantic agreement.
+ABSENT_IDENTITY_VALUES = frozenset({"", "unknown", "none", "null", "n/a"})
+
+# Maximum frame separation still reported as a near-frame boundary difference.
+NEAR_FRAME_DELTA = 2
+
+
+def normalize_identity(value: Any) -> str | None:
+    """Normalize a protocol, message or stage identity for comparison.
+
+    Returns None when the identity is absent or is a sanitizer placeholder, so an
+    unreported dimension is never silently equal to anything.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in ABSENT_IDENTITY_VALUES:
+        return None
+    normalized = re.sub(r"[^A-Z0-9]", "", text.upper())
+    return normalized or None
+
+
+def compare_boundary_semantics(
+    human_boundary: dict[str, Any] | None,
+    skill_boundary: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Compare abnormal-boundary semantics independently of the frame anchor.
+
+    Family is evaluated by the caller because a family disagreement is an
+    Orchestration selection defect, not a boundary semantic difference. The
+    remaining dimensions decide whether two boundaries describe the same
+    abnormal event on the same protocol at the same procedure stage.
+    """
+    human_boundary = human_boundary or {}
+    skill_boundary = skill_boundary or {}
+    pairs = {
+        "procedure_stage": (human_boundary.get("procedure_stage"), skill_boundary.get("selected_procedure_stage")),
+        "protocol": (human_boundary.get("protocol"), skill_boundary.get("boundary_protocol")),
+        "abnormal_event": (human_boundary.get("message_type"), skill_boundary.get("boundary_message")),
+    }
+
+    mismatched: list[str] = []
+    mismatched_dimensions: list[str] = []
+    unreported: list[str] = []
+    matched: list[str] = []
+    for dimension, (human_value, skill_value) in pairs.items():
+        h_norm = normalize_identity(human_value)
+        s_norm = normalize_identity(skill_value)
+        if h_norm is None or s_norm is None:
+            unreported.append(f"{dimension} (baseline={human_value if human_value is not None else 'absent'}, summary={skill_value if skill_value is not None else 'absent'})")
+        elif h_norm == s_norm:
+            matched.append(dimension)
+        else:
+            mismatched.append(f"{dimension} (baseline {human_value} vs Skill {skill_value})")
+            mismatched_dimensions.append(dimension)
+
+    return {
+        "matched": matched,
+        "mismatched": mismatched,
+        "mismatched_dimensions": mismatched_dimensions,
+        "unreported": unreported,
+        "complete": not mismatched and not unreported,
+    }
+
 
 
 def get_relevant_protocols(human_baseline: dict[str, Any]) -> set[str]:
@@ -200,12 +273,35 @@ def evaluate_domain_evidence(
     """Evaluate whether a relevant Domain procedure instance was reconstructed.
 
     ``state`` is one of PRESENT (a relevant instance exists), NO_RELEVANT_INSTANCE
-    (a relevant Domain executed and reconstructed nothing) or FAILED (no relevant
-    Domain produced an analysis). ``deviation_count`` is None when the summary
-    carries no per-Domain evidence, so an absent count is never read as zero.
+    (a relevant Domain executed and reconstructed nothing), NO_RELEVANT_DOMAIN (no
+    report exists for a Domain the baseline makes relevant) or FAILED (a relevant
+    Domain produced an unusable result). NOT_APPLICABLE records that no implemented
+    Domain owns any observed procedure family. ``deviation_count`` is None when the
+    summary carries no relevant per-Domain evidence, so an absent count is never
+    read as zero.
+
+    Only the relevant Domain keys are ever inspected. An unrelated Domain instance
+    cannot satisfy a missing relevant Domain, because that would substitute
+    evidence from a procedure the independent baseline never observed.
     """
     relevant = relevant_domain_keys(human_baseline)
     domain_status = skill_summary.get("domain_status")
+    unowned = unowned_procedure_families(human_baseline)
+
+    if not relevant and unowned:
+        return {
+            "state": "NOT_APPLICABLE",
+            "instance_count": 0,
+            "deviation_count": None,
+            "relevant_domains": [],
+            "reasons": [
+                "No implemented Domain Skill owns the observed procedure "
+                + ("family" if len(unowned) == 1 else "families")
+                + ": " + ", ".join(unowned)
+            ],
+            "evidence_reported": False,
+        }
+
     if not isinstance(domain_status, dict) or not domain_status:
         count = int(skill_summary.get("domain_instances_count") or 0)
         return {
@@ -217,7 +313,22 @@ def evaluate_domain_evidence(
             "evidence_reported": False,
         }
 
-    keys = sorted(relevant & set(domain_status)) or sorted(domain_status)
+    keys = sorted(relevant & set(domain_status))
+    absent = sorted(relevant - set(domain_status))
+    if absent:
+        return {
+            "state": "NO_RELEVANT_DOMAIN",
+            "instance_count": 0,
+            "deviation_count": None,
+            "relevant_domains": sorted(relevant),
+            "reasons": [
+                "No execution evidence was reported for the relevant Domain(s) "
+                + ", ".join(absent)
+                + "; unrelated Domain instances were not substituted",
+            ],
+            "evidence_reported": True,
+        }
+
     instances = 0
     deviations = 0
     executed = 0
@@ -319,12 +430,18 @@ def evaluate_evidence_layers(
 
     if protocol_eligibility == "BLOCKED":
         eligibility = "BLOCKED"
-    elif protocol_defects or domain_state in ("FAILED", "NO_RELEVANT_INSTANCE") or orchestration_state == "FAILED":
+    elif (
+        protocol_defects
+        or domain_state in ("FAILED", "NO_RELEVANT_INSTANCE", "NO_RELEVANT_DOMAIN")
+        or orchestration_state == "FAILED"
+    ):
         eligibility = "INELIGIBLE"
     else:
         eligibility = "ELIGIBLE"
 
-    semantic_comparison = "EVALUATED" if eligibility == "ELIGIBLE" else "NOT_EVALUATED"
+    # Boundary semantics are only comparable when an implemented Domain owns the
+    # observed procedure families and actually produced evidence to compare.
+    semantic_comparison = "EVALUATED" if eligibility == "ELIGIBLE" and relevant_domains else "NOT_EVALUATED"
     layers = {
         "baseline_support": "SUPPORTED" if human_baseline.get("baseline_supported", True) else "UNSUPPORTED",
         "capture_sufficiency": (
@@ -515,9 +632,12 @@ def compare_differential(
                 recommended_next_action = "CORRECT_DOMAIN_MODEL"
                 notes.append("Pipeline emitted an abnormal boundary for an out-of-scope capture condition without direct evidence.")
 
-        elif not in_scope or h_proc_family == "ngap-management" or (not relevant_domains and unowned_families):
-            comparison_status = "DOMAIN_MODEL_GAP"
-            layer_attribution = "DOMAIN"
+        elif not relevant_domains and (unowned_families or not in_scope):
+            # No implemented Domain owns what the baseline observed, so this is a
+            # coverage boundary of the repository, not a defect inside an
+            # implemented Domain model.
+            comparison_status = "DOMAIN_COVERAGE_GAP"
+            layer_attribution = "DOMAIN_COVERAGE"
             recommended_next_action = "EXPAND_FUTURE_SCOPE"
             if unowned_families:
                 notes.append(
@@ -525,12 +645,12 @@ def compare_differential(
                     + ("family is" if len(unowned_families) == 1 else "families are")
                     + " not owned by any implemented Domain Skill: "
                     + ", ".join(unowned_families)
-                    + "."
+                    + ". This is unimplemented Domain coverage, not an implemented Domain reconstruction failure."
                 )
             else:
-                notes.append("Abnormal boundary occurred in node-level procedure not currently owned by implemented procedure domains.")
+                notes.append("Observed condition lies outside implemented procedure domains; no Domain model defect is recorded.")
 
-        elif domain_evidence["state"] in ("FAILED", "NO_RELEVANT_INSTANCE"):
+        elif domain_evidence["state"] in ("FAILED", "NO_RELEVANT_INSTANCE", "NO_RELEVANT_DOMAIN"):
             # Protocol evidence succeeded, so a missing procedure reconstruction is
             # a Domain-layer gap and can never be reported as a healthy match.
             comparison_status = "DOMAIN_MODEL_GAP"
@@ -560,14 +680,28 @@ def compare_differential(
                     recommended_next_action = "CORRECT_DOMAIN_MODEL"
                     notes.append(f"Automated pipeline selected abnormal boundary at frame {s_frame} on healthy/recovered capture.")
                 elif skill_status in BOUNDARY_UNRESOLVED_STATUSES:
-                    comparison_status = "FALSE_POSITIVE"
-                    layer_attribution = "DOMAIN"
+                    # Candidate deviations were emitted and no boundary was selected,
+                    # so the Skill never asserted an abnormal conclusion. Declaring a
+                    # confirmed false positive would turn an unresolved candidate set
+                    # into proven causation without independent adjudication.
+                    comparison_status = "NEEDS_ADJUDICATION"
+                    layer_attribution = "MULTIPLE"
                     adjudication_required = True
-                    recommended_next_action = "CORRECT_DOMAIN_MODEL"
+                    recommended_next_action = "NO_CHANGE"
+                    candidates = skill_summary.get("candidate_boundaries_count", 0)
                     notes.append(
-                        f"Automated pipeline could not resolve a single first boundary ({skill_status}) on a healthy/recovered capture "
-                        f"with {skill_summary.get('candidate_boundaries_count', 0)} candidate boundary(ies)."
+                        f"Candidate deviations were emitted ({candidates} candidate boundar(ies)) but no boundary was "
+                        f"selected; Orchestration preserved the ambiguity ({skill_status})."
                     )
+                    notes.append(
+                        "A confirmed FALSE_POSITIVE requires independent adjudication that a candidate boundary is "
+                        "unsupported by the packet evidence; candidate evidence here may be spurious, which is not yet proven."
+                    )
+                    if deviations:
+                        notes.append(
+                            f"Relevant Domain instance(s) reported {deviations} deviation(s) on a capture the independent "
+                            "baseline records as healthy, so the candidate evidence needs Domain-layer review."
+                        )
                 elif skill_status in NO_BOUNDARY_STATUSES:
                     if deviations is None:
                         comparison_status = "EXACT_MATCH"
@@ -622,32 +756,97 @@ def compare_differential(
                         )
 
                 elif skill_status in BOUNDARY_SELECTED_STATUSES:
-                    proc_match = (h_proc_family is not None and s_proc_family is not None and h_proc_family == s_proc_family)
-                    stage_match = (h_proc_stage is not None and s_proc_stage is not None and h_proc_stage == s_proc_stage)
+                    h_family = normalize_identity(h_proc_family)
+                    proc_match = h_family is not None and h_family == normalize_identity(s_proc_family)
 
-                    if proc_match and h_frame == s_frame:
-                        comparison_status = "EXACT_MATCH"
-                        layer_attribution = "NONE"
-                        recommended_next_action = "NO_CHANGE"
-                        notes.append(f"Exact match on procedure family ({s_proc_family}) and boundary frame ({s_frame}).")
-                    elif proc_match and frame_delta is not None and frame_delta <= 2:
-                        comparison_status = "BOUNDARY_FRAME_DIFFERENCE"
-                        layer_attribution = "DOMAIN"
-                        adjudication_required = False
-                        recommended_next_action = "NO_CHANGE"
-                        notes.append(f"Same procedure family ({s_proc_family}), adjacent transaction frames (human frame {h_frame} vs skill frame {s_frame}, delta {frame_delta}).")
-                    elif proc_match and not stage_match:
-                        comparison_status = "PROCEDURE_MATCH_STAGE_DIFFERENCE"
-                        layer_attribution = "DOMAIN"
-                        adjudication_required = True
-                        recommended_next_action = "CORRECT_DOMAIN_MODEL"
-                        notes.append(f"Same procedure family ({s_proc_family}), but differing stage attribution (human {h_proc_stage} vs skill {s_proc_stage}).")
-                    elif not proc_match:
+                    if not proc_match:
                         comparison_status = "ORCHESTRATION_GAP"
                         layer_attribution = "ORCHESTRATION"
                         adjudication_required = True
                         recommended_next_action = "CORRECT_ORCHESTRATION"
                         notes.append(f"Procedure family mismatch: human identified {h_proc_family}, pipeline selected {s_proc_family}.")
+                    else:
+                        semantics = compare_boundary_semantics(human_first_boundary, skill_boundary)
+
+                        if semantics["mismatched"]:
+                            # A shared frame anchor or an adjacent frame can never
+                            # repair a stage, protocol or abnormal-event disagreement.
+                            if "procedure_stage" in semantics["mismatched_dimensions"]:
+                                comparison_status = "PROCEDURE_MATCH_STAGE_DIFFERENCE"
+                            else:
+                                comparison_status = "NEEDS_ADJUDICATION"
+                            layer_attribution = "DOMAIN"
+                            adjudication_required = True
+                            recommended_next_action = "CORRECT_DOMAIN_MODEL"
+                            notes.append(
+                                f"Same procedure family ({s_proc_family}), but the abnormal boundary semantics disagree: "
+                                + "; ".join(semantics["mismatched"])
+                                + ". Frame agreement is not evidence of an exact boundary match."
+                            )
+                        elif semantics["unreported"]:
+                            comparison_status = "NEEDS_ADJUDICATION"
+                            layer_attribution = "UNKNOWN"
+                            adjudication_required = True
+                            notes.append(
+                                "Boundary semantics are not fully reported on at least one side: "
+                                + "; ".join(semantics["unreported"])
+                                + ". Exact equivalence cannot be established without inventing detail, so no match is assumed."
+                            )
+                        elif h_frame is not None and s_frame is not None:
+                            # Compatible abnormal-boundary semantics; adjudicate the anchor.
+                            if h_frame == s_frame:
+                                comparison_status = "EXACT_MATCH"
+                                layer_attribution = "NONE"
+                                recommended_next_action = "NO_CHANGE"
+                                notes.append(
+                                    f"Exact match on procedure family ({s_proc_family}), stage, protocol, abnormal event "
+                                    f"and evidence anchor at frame {s_frame}; matched dimensions: "
+                                    + ", ".join(["procedure_family"] + semantics["matched"])
+                                    + "."
+                                )
+                            elif frame_delta is not None and frame_delta <= NEAR_FRAME_DELTA:
+                                comparison_status = "BOUNDARY_FRAME_DIFFERENCE"
+                                layer_attribution = "DOMAIN"
+                                recommended_next_action = "NO_CHANGE"
+                                notes.append(
+                                    f"Compatible boundary semantics ({s_proc_family}, {s_proto}, {s_msg}) on adjacent "
+                                    f"transaction frames (human frame {h_frame} vs skill frame {s_frame}, delta {frame_delta})."
+                                )
+                            else:
+                                comparison_status = "NEEDS_ADJUDICATION"
+                                layer_attribution = "DOMAIN"
+                                adjudication_required = True
+                                recommended_next_action = "CORRECT_DOMAIN_MODEL"
+                                notes.append(
+                                    f"Boundary semantics agree but the exact anchors are not adjacent (human frame {h_frame} "
+                                    f"vs skill frame {s_frame}, delta {frame_delta}); the first abnormal boundary needs adjudication."
+                                )
+                        elif human_first_boundary.get("observation_window") and s_frame is not None:
+                            win = human_first_boundary["observation_window"]
+                            if win["start_frame"] <= s_frame <= win["end_frame"]:
+                                # The baseline holds only a window, so no exact frame
+                                # anchor exists to declare an exact match against.
+                                comparison_status = "BOUNDARY_FRAME_DIFFERENCE"
+                                layer_attribution = "DOMAIN"
+                                recommended_next_action = "NO_CHANGE"
+                                notes.append(
+                                    f"Boundary semantics agree and the Skill frame {s_frame} falls inside the derived "
+                                    f"observation window {win['start_frame']}-{win['end_frame']}; the baseline records no exact authoritative frame."
+                                )
+                            else:
+                                comparison_status = "NEEDS_ADJUDICATION"
+                                layer_attribution = "DOMAIN"
+                                adjudication_required = True
+                                recommended_next_action = "CORRECT_DOMAIN_MODEL"
+                                notes.append(
+                                    f"Boundary semantics agree but Skill frame {s_frame} lies outside the derived "
+                                    f"observation window {win['start_frame']}-{win['end_frame']}."
+                                )
+                        else:
+                            comparison_status = "NEEDS_ADJUDICATION"
+                            layer_attribution = "UNKNOWN"
+                            adjudication_required = True
+                            notes.append("Neither the baseline nor the Skill summary provides a usable evidence anchor for the boundary.")
 
                 elif skill_status in BOUNDARY_UNRESOLVED_STATUSES:
                     comparison_status = "NEEDS_ADJUDICATION"
@@ -665,13 +864,29 @@ def compare_differential(
                     adjudication_required = True
                     notes.append(f"Unexpected pipeline status: {skill_status}.")
 
-    # Evaluate upstream intent match
+            elif human_status == "MULTIPLE_POSSIBLE_BOUNDARIES":
+                comparison_status = "NEEDS_ADJUDICATION"
+                layer_attribution = "MULTIPLE"
+                adjudication_required = True
+                notes.append(
+                    "The independent baseline records several possible first boundaries and carries no candidate set the "
+                    f"Skill output can be matched against (pipeline status {skill_status}); boundary selection needs adjudication."
+                )
+
+    # Evaluate upstream intent match. Upstream scenario labels are secondary
+    # metadata: they are never packet evidence, and an insufficient-evidence
+    # baseline can neither confirm nor refute them.
     upstream_intent_match = "NOT_EVALUATED"
     if upstream_intent:
         if comparison_status in ("EXACT_MATCH", "BOUNDARY_FRAME_DIFFERENCE", "OUT_OF_SCOPE", "ACCEPTABLE_DIFFERENCE"):
             upstream_intent_match = "MATCH"
-        elif comparison_status in ("PROCEDURE_MATCH_STAGE_DIFFERENCE", "DOMAIN_MODEL_GAP", "PROTOCOL_COVERAGE_GAP", "CORRELATION_GAP"):
+        elif comparison_status in ("PROCEDURE_MATCH_STAGE_DIFFERENCE", "DOMAIN_MODEL_GAP", "DOMAIN_COVERAGE_GAP", "PROTOCOL_COVERAGE_GAP", "CORRELATION_GAP"):
             upstream_intent_match = "PARTIAL"
+        elif comparison_status == "CAPTURE_LIMITATION":
+            notes.append(
+                "Upstream scenario intent is retained as secondary metadata only; the captured packets are too incomplete "
+                "to confirm or refute it, so the intent match is not evaluated."
+            )
         else:
             upstream_intent_match = "MISMATCH"
 

@@ -36,6 +36,7 @@ def calculate_metrics(cases_diffs: list[dict[str, Any]]) -> tuple[dict[str, Any]
     protocol_coverage_gap_count = 0
     correlation_gap_count = 0
     domain_model_gap_count = 0
+    domain_coverage_gap_count = 0
     orchestration_gap_count = 0
 
     capture_limitation_count = 0
@@ -113,6 +114,8 @@ def calculate_metrics(cases_diffs: list[dict[str, Any]]) -> tuple[dict[str, Any]
                 correlation_gap_count += 1
             elif status == "DOMAIN_MODEL_GAP":
                 domain_model_gap_count += 1
+            elif status == "DOMAIN_COVERAGE_GAP":
+                domain_coverage_gap_count += 1
             elif status == "ORCHESTRATION_GAP":
                 orchestration_gap_count += 1
             elif status == "CAPTURE_LIMITATION":
@@ -140,8 +143,15 @@ def calculate_metrics(cases_diffs: list[dict[str, Any]]) -> tuple[dict[str, Any]
             "recommended_next_action": action,
         })
 
-    # Denominator rule: exclude OUT_OF_SCOPE, CAPTURE_LIMITATION, and HUMAN_BASELINE_UNSUPPORTED
-    denom = executed_case_count - (out_of_scope_count + capture_limitation_count + human_baseline_unsupported_count)
+    # Denominator rule: exclude OUT_OF_SCOPE, CAPTURE_LIMITATION,
+    # HUMAN_BASELINE_UNSUPPORTED and DOMAIN_COVERAGE_GAP. No implemented Domain
+    # owns the coverage-gap procedures, so they cannot count against in-scope accuracy.
+    denom = executed_case_count - (
+        out_of_scope_count
+        + capture_limitation_count
+        + human_baseline_unsupported_count
+        + domain_coverage_gap_count
+    )
     exact_match_rate = round(exact_match_count / denom, 4) if denom > 0 else None
     procedure_match_rate = round(procedure_match_count / denom, 4) if denom > 0 else None
     stage_match_rate = round(stage_match_count / denom, 4) if denom > 0 else None
@@ -161,6 +171,7 @@ def calculate_metrics(cases_diffs: list[dict[str, Any]]) -> tuple[dict[str, Any]
         "protocol_coverage_gap_count": protocol_coverage_gap_count,
         "correlation_gap_count": correlation_gap_count,
         "domain_model_gap_count": domain_model_gap_count,
+        "domain_coverage_gap_count": domain_coverage_gap_count,
         "orchestration_gap_count": orchestration_gap_count,
         "capture_limitation_count": capture_limitation_count,
         "out_of_scope_count": out_of_scope_count,
@@ -169,7 +180,7 @@ def calculate_metrics(cases_diffs: list[dict[str, Any]]) -> tuple[dict[str, Any]
         "exact_match_rate": exact_match_rate,
         "procedure_match_rate": procedure_match_rate,
         "stage_match_rate": stage_match_rate,
-        "denominator_definition": "evaluated_in_scope = executed_case_count - (out_of_scope_count + capture_limitation_count + human_baseline_unsupported_count)",
+        "denominator_definition": "evaluated_in_scope = executed_case_count - (out_of_scope_count + capture_limitation_count + human_baseline_unsupported_count + domain_coverage_gap_count)",
         "exact_frame_match_count": exact_frame_match_count,
         "within_1_frame_count": within_1_frame_count,
         "within_3_frames_count": within_3_frames_count,

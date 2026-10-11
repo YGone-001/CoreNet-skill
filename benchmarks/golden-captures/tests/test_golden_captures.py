@@ -5,10 +5,12 @@ Covers:
 1. JSON Schema validation and forbidden field rejection.
 2. Canonical cross-platform JSON semantic hash invariance (LF vs CRLF, indentation, key order, semantic mutations).
 3. Evidentiary pipeline health and comparison eligibility.
-4. Differential comparator taxonomy (all 15 comparison statuses).
-5. Safe out-of-scope and healthy baseline evidence checks.
-6. Blocked case semantics and deterministic metric aggregation.
-7. Workstation privacy and binary capture safety gates.
+4. Differential comparator taxonomy (all 16 comparison statuses).
+5. Abnormal-boundary semantic matching: stage, protocol, abnormal event and anchor.
+6. Safe out-of-scope, healthy baseline and Domain coverage evidence checks.
+7. Blocked case semantics and deterministic metric aggregation.
+8. Public corpus identity, baseline adjudication and legacy hash governance.
+9. Workstation privacy and binary capture safety gates.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,7 +31,13 @@ sys.path.insert(0, str(BENCHMARK_DIR / "scripts"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from canonical_hash import canonical_json_bytes, canonical_json_sha256
-from compare_results import compare_differential, evaluate_pipeline_evidence_health, get_relevant_protocols
+from compare_results import (
+    compare_differential,
+    evaluate_domain_evidence,
+    evaluate_pipeline_evidence_health,
+    get_relevant_protocols,
+    normalize_identity,
+)
 from run_capture_pipeline import (
     classify_protocol_extraction,
     resolve_message_identity,
@@ -37,6 +46,7 @@ from run_capture_pipeline import (
 )
 from sanitize_result import sanitize_failure_boundary_result
 from summarize_benchmark import calculate_metrics
+from run_public_corpus import PUBLIC_CORPUS
 import importlib.util
 
 validator_path = ROOT / "scripts" / "validate-golden-captures.py"
@@ -282,7 +292,7 @@ class GoldenCaptureDifferentialTests(unittest.TestCase):
                 "selected_procedure_stage": "security",
                 "deviation_type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
                 "boundary_protocol": "NAS-5GS",
-                "boundary_message": "Authentication failure",
+                "boundary_message": "Authentication reject",
                 "boundary_frame": 11,
                 "boundary_timestamp": "2026-07-29T00:00:00Z",
                 "evidence_level": "OBSERVED",
@@ -300,6 +310,7 @@ class GoldenCaptureDifferentialTests(unittest.TestCase):
         self.assertEqual(diff["comparison_status"], "BOUNDARY_FRAME_DIFFERENCE")
         self.assertEqual(diff["frame_delta"], 1)
         self.assertEqual(diff["layer_attribution"], "DOMAIN")
+        self.assertFalse(diff["adjudication_required"])
 
     def test_procedure_match_stage_difference(self) -> None:
         human = copy.deepcopy(self.base_human)
@@ -522,6 +533,134 @@ class GoldenCaptureDifferentialTests(unittest.TestCase):
         self.assertEqual(diff["layer_attribution"], "DOMAIN")
 
 
+class BoundarySemanticMatchTests(unittest.TestCase):
+    """An abnormal-boundary match is decided by semantics, never by a frame alone."""
+
+    def setUp(self) -> None:
+        self.human = {
+            "case_id": "semantics-test",
+            "capture_sha256": "c" * 64,
+            "analysis_status": "BOUNDARY_OBSERVED",
+            "capture_scope": {"interfaces": ["N1", "N2"], "protocols_present": ["NGAP", "NAS-5GS"]},
+            "procedure_observations": [
+                {
+                    "procedure_family": "5gc-registration-mobility",
+                    "procedure_stage": "security",
+                    "outcome": "REJECT",
+                    "first_frame": 10,
+                    "last_frame": 12,
+                    "evidence_level": "OBSERVED",
+                }
+            ],
+            "first_abnormal_boundary": {
+                "procedure_family": "5gc-registration-mobility",
+                "procedure_stage": "security",
+                "protocol": "NAS-5GS",
+                "message_type": "Authentication reject",
+                "frame_number": 12,
+                "timestamp": "2026-07-29T00:00:00Z",
+                "evidence_level": "OBSERVED",
+                "reason": "Network rejected the authentication procedure",
+            },
+            "supporting_evidence": [],
+            "limitations": [],
+            "scope_assessment": {
+                "in_corenet_scope": True,
+                "interfaces_in_scope": ["N1", "N2"],
+                "interfaces_out_of_scope": [],
+                "reason": "N1/N2",
+            },
+            "baseline_confidence": "HIGH",
+        }
+
+    def skill(self, **overrides) -> dict:
+        boundary = {
+            "selected_source_domain": "5gc-registration-mobility",
+            "selected_procedure_family": "5gc-registration-mobility",
+            "selected_procedure_stage": "security",
+            "deviation_type": "PROTOCOL_REJECT_OBSERVED",
+            "boundary_protocol": "NAS-5GS",
+            "boundary_message": "Authentication reject",
+            "boundary_frame": 12,
+            "boundary_timestamp": "2026-07-29T00:00:00Z",
+            "evidence_level": "OBSERVED",
+        }
+        summary_fields = {}
+        for key, value in overrides.items():
+            if key in boundary:
+                boundary[key] = value
+            else:
+                summary_fields[key] = value
+        summary = {
+            "case_id": "semantics-test",
+            "selection_status": "FIRST_ABNORMAL_BOUNDARY_SELECTED",
+            "selected_boundary": boundary,
+            "boundary_confidence": "HIGH",
+            "evidence_limitations": [],
+            "additional_evidence_needed": [],
+            "domain_instances_count": 1,
+            "protocol_status": {"ngap": "SUCCESS", "nas-5gs": "SUCCESS"},
+        }
+        summary.update(summary_fields)
+        return summary
+
+    def test_supported_semantic_boundary_with_exact_anchor_is_exact(self) -> None:
+        diff = compare_differential(self.human, self.skill())
+        self.assertEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["layer_attribution"], "NONE")
+        self.assertFalse(diff["adjudication_required"])
+        self.assertTrue(diff["evidence_overlap"])
+
+    def test_same_frame_with_different_stage_is_not_exact(self) -> None:
+        diff = compare_differential(self.human, self.skill(selected_procedure_stage="registration"))
+        self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["comparison_status"], "PROCEDURE_MATCH_STAGE_DIFFERENCE")
+        self.assertTrue(diff["adjudication_required"])
+        self.assertEqual(diff["frame_delta"], 0)
+
+    def test_same_frame_with_different_protocol_is_not_exact(self) -> None:
+        diff = compare_differential(self.human, self.skill(boundary_protocol="NGAP"))
+        self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["comparison_status"], "NEEDS_ADJUDICATION")
+        self.assertEqual(diff["layer_attribution"], "DOMAIN")
+        self.assertTrue(diff["adjudication_required"])
+        self.assertTrue(any("protocol" in note for note in diff["notes"]))
+
+    def test_near_frame_with_different_abnormality_is_not_a_near_frame_match(self) -> None:
+        diff = compare_differential(self.human, self.skill(boundary_message="Authentication failure", boundary_frame=11))
+        self.assertNotEqual(diff["comparison_status"], "BOUNDARY_FRAME_DIFFERENCE")
+        self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["comparison_status"], "NEEDS_ADJUDICATION")
+        self.assertTrue(diff["adjudication_required"])
+
+    def test_near_frame_with_compatible_semantics_is_a_frame_difference(self) -> None:
+        diff = compare_differential(self.human, self.skill(boundary_frame=11))
+        self.assertEqual(diff["comparison_status"], "BOUNDARY_FRAME_DIFFERENCE")
+        self.assertEqual(diff["frame_delta"], 1)
+
+    def test_unreported_semantic_detail_is_adjudicated_instead_of_matched(self) -> None:
+        # The sanitizer records an absent identity as the placeholder UNKNOWN.
+        diff = compare_differential(self.human, self.skill(boundary_message="UNKNOWN", selected_procedure_stage="UNKNOWN"))
+        self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["comparison_status"], "NEEDS_ADJUDICATION")
+        self.assertEqual(diff["layer_attribution"], "UNKNOWN")
+        self.assertTrue(any("cannot be established" in note for note in diff["notes"]))
+
+    def test_window_only_boundary_anchor_is_never_an_exact_frame_match(self) -> None:
+        human = copy.deepcopy(self.human)
+        human["first_abnormal_boundary"]["frame_number"] = None
+        human["first_abnormal_boundary"]["observation_window"] = {"start_frame": 11, "end_frame": 13}
+        diff = compare_differential(human, self.skill(boundary_frame=12))
+        self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["comparison_status"], "BOUNDARY_FRAME_DIFFERENCE")
+        self.assertTrue(diff["evidence_overlap"])
+
+    def test_family_mismatch_stays_an_orchestration_selection_defect(self) -> None:
+        diff = compare_differential(self.human, self.skill(selected_procedure_family="5gc-pdu-session", boundary_frame=12))
+        self.assertEqual(diff["comparison_status"], "ORCHESTRATION_GAP")
+        self.assertEqual(diff["layer_attribution"], "ORCHESTRATION")
+
+
 class DomainEvidenceQualificationTests(unittest.TestCase):
     """Healthy matches must be qualified by real per-Domain execution evidence."""
 
@@ -693,7 +832,7 @@ class DomainEvidenceQualificationTests(unittest.TestCase):
         self.assertEqual(diff["layer_attribution"], "ORCHESTRATION")
         self.assertEqual(diff["comparison_eligibility"], "INELIGIBLE")
 
-    def test_healthy_case_with_unresolved_boundary_candidates_is_false_positive(self) -> None:
+    def test_healthy_case_with_unresolved_boundary_candidates_requires_adjudication(self) -> None:
         skill = self.skill_summary(
             selection_status="AMBIGUOUS_FIRST_BOUNDARY",
             candidate_boundaries_count=2,
@@ -702,6 +841,34 @@ class DomainEvidenceQualificationTests(unittest.TestCase):
         )
         diff = compare_differential(self.healthy_human, skill)
         self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertNotEqual(diff["comparison_status"], "FALSE_POSITIVE")
+        self.assertEqual(diff["comparison_status"], "NEEDS_ADJUDICATION")
+        self.assertTrue(diff["adjudication_required"])
+        self.assertEqual(diff["layer_attribution"], "MULTIPLE")
+        self.assertTrue(any("no boundary was selected" in note for note in diff["notes"]))
+        self.assertTrue(any("may be spurious" in note for note in diff["notes"]))
+
+    def test_healthy_case_with_selected_boundary_remains_a_confirmed_false_positive(self) -> None:
+        # A selected abnormal boundary is an emitted abnormal conclusion, unlike an
+        # unresolved candidate set.
+        skill = self.skill_summary(
+            selection_status="FIRST_ABNORMAL_BOUNDARY_SELECTED",
+            candidate_boundaries_count=2,
+            domain_status=self.domain_status(1, 2),
+            orchestration_status=self.orchestration_status("EXECUTED", 1, 2, 2),
+            selected_boundary={
+                "selected_source_domain": "5gc-registration-mobility",
+                "selected_procedure_family": "5gc-registration-mobility",
+                "selected_procedure_stage": "registration",
+                "deviation_type": "PROTOCOL_REJECT_OBSERVED",
+                "boundary_protocol": "NAS-5GS",
+                "boundary_message": "Registration reject",
+                "boundary_frame": 8,
+                "boundary_timestamp": "2026-07-29T00:00:00Z",
+                "evidence_level": "OBSERVED",
+            },
+        )
+        diff = compare_differential(self.healthy_human, skill)
         self.assertEqual(diff["comparison_status"], "FALSE_POSITIVE")
         self.assertEqual(diff["layer_attribution"], "DOMAIN")
 
@@ -805,7 +972,7 @@ class DomainEvidenceQualificationTests(unittest.TestCase):
             },
         }
 
-    def test_unowned_procedure_family_is_a_scope_gap_not_a_domain_correction(self) -> None:
+    def test_unowned_procedure_family_is_coverage_gap_not_domain_correction(self) -> None:
         human = self.unowned_family_human("NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED", True)
         skill = self.skill_summary(
             domain_instances_count=0,
@@ -814,10 +981,54 @@ class DomainEvidenceQualificationTests(unittest.TestCase):
             orchestration_status=self.orchestration_status("SKIPPED_NO_DOMAIN_OUTPUTS"),
         )
         diff = compare_differential(human, skill)
-        self.assertEqual(diff["comparison_status"], "DOMAIN_MODEL_GAP")
+        self.assertNotEqual(diff["comparison_status"], "DOMAIN_MODEL_GAP")
+        self.assertEqual(diff["comparison_status"], "DOMAIN_COVERAGE_GAP")
+        self.assertEqual(diff["layer_attribution"], "DOMAIN_COVERAGE")
         self.assertEqual(diff["recommended_next_action"], "EXPAND_FUTURE_SCOPE")
         self.assertFalse(diff["adjudication_required"])
+        self.assertEqual(diff["evidence_layers"]["domain_reconstruction"], "NOT_APPLICABLE")
+        self.assertEqual(diff["evidence_layers"]["semantic_comparison"], "NOT_EVALUATED")
         self.assertTrue(any("5gc-user-plane" in note for note in diff["notes"]))
+        self.assertTrue(any("not an implemented Domain reconstruction failure" in note for note in diff["notes"]))
+
+    def test_relevant_domain_absent_never_substitutes_unrelated_domain_evidence(self) -> None:
+        # The baseline makes only the Registration Domain relevant; an executed PDU
+        # Session Domain with instances must not satisfy it.
+        domain_status = {
+            "pdu_session": {
+                "execution_status": "EXECUTED",
+                "output_present": True,
+                "instance_count": 3,
+                "deviation_count": 2,
+                "first_stop_reason": None,
+            },
+            "handover_mobility": {
+                "execution_status": "EXECUTED",
+                "output_present": True,
+                "instance_count": 1,
+                "deviation_count": 0,
+                "handover_attempt_count": 1,
+                "path_switch_attempt_count": 0,
+                "first_stop_reason": None,
+            },
+        }
+        skill = self.skill_summary(
+            domain_instances_count=4,
+            domain_status=domain_status,
+            orchestration_status=self.orchestration_status("EXECUTED", 1, 4, 1),
+        )
+        evidence = evaluate_domain_evidence(self.healthy_human, skill)
+        self.assertEqual(evidence["state"], "NO_RELEVANT_DOMAIN")
+        self.assertEqual(evidence["instance_count"], 0)
+        self.assertIsNone(evidence["deviation_count"])
+        self.assertEqual(evidence["relevant_domains"], ["registration"])
+        self.assertTrue(any("unrelated Domain instances were not substituted" in reason for reason in evidence["reasons"]))
+
+        diff = compare_differential(self.healthy_human, skill)
+        self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["comparison_status"], "DOMAIN_MODEL_GAP")
+        self.assertEqual(diff["evidence_layers"]["domain_reconstruction"], "NO_RELEVANT_DOMAIN")
+        self.assertTrue(any("registration" in note for note in diff["notes"]))
 
     def test_out_of_scope_case_with_skipped_domains_stays_out_of_scope(self) -> None:
         human = self.unowned_family_human("OUTSIDE_CURRENT_CORENET_SCOPE", False)
@@ -980,6 +1191,64 @@ class GoldenCaptureMetricsTests(unittest.TestCase):
         self.assertEqual([c["case_id"] for c in cases1], ["case-a", "case-b", "case-c"])
         self.assertEqual([c["case_id"] for c in cases2], ["case-a", "case-b", "case-c"])
 
+    def test_domain_coverage_gap_is_excluded_from_the_in_scope_denominator(self) -> None:
+        diffs = [
+            {"case_id": "c1", "comparison_status": "EXACT_MATCH", "layer_attribution": "NONE"},
+            {"case_id": "c2", "comparison_status": "FALSE_NEGATIVE", "layer_attribution": "DOMAIN"},
+            {"case_id": "c3", "comparison_status": "DOMAIN_MODEL_GAP", "layer_attribution": "DOMAIN"},
+            {"case_id": "c4", "comparison_status": "DOMAIN_COVERAGE_GAP", "layer_attribution": "DOMAIN_COVERAGE"},
+            {"case_id": "c5", "comparison_status": "DOMAIN_COVERAGE_GAP", "layer_attribution": "DOMAIN_COVERAGE"},
+            {"case_id": "c6", "comparison_status": "OUT_OF_SCOPE", "layer_attribution": "OUT_OF_SCOPE"},
+            {"case_id": "c7", "comparison_status": "CAPTURE_LIMITATION", "layer_attribution": "CAPTURE"},
+        ]
+        metrics, _ = calculate_metrics(diffs)
+        self.assertEqual(metrics["executed_case_count"], 7)
+        self.assertEqual(metrics["domain_coverage_gap_count"], 2)
+        self.assertEqual(metrics["domain_model_gap_count"], 1)
+        # Unowned coverage is excluded exactly like an out-of-scope interface, so the
+        # denominator counts only cases an implemented Domain was able to answer.
+        self.assertEqual(metrics["exact_match_rate"], 0.3333)
+        self.assertIn("domain_coverage_gap_count", metrics["denominator_definition"])
+
+    def test_unowned_ng_setup_and_user_plane_cases_are_coverage_not_accuracy_failures(self) -> None:
+        coverage_cases = [
+            {"case_id": f"ng{i}", "comparison_status": "DOMAIN_COVERAGE_GAP", "layer_attribution": "DOMAIN_COVERAGE"}
+            for i in range(4)
+        ] + [
+            {"case_id": "n3only", "comparison_status": "DOMAIN_COVERAGE_GAP", "layer_attribution": "DOMAIN_COVERAGE"},
+            {"case_id": "owned-gap", "comparison_status": "DOMAIN_MODEL_GAP", "layer_attribution": "DOMAIN"},
+            {"case_id": "owned-match", "comparison_status": "EXACT_MATCH", "layer_attribution": "NONE"},
+        ]
+        metrics, _ = calculate_metrics(coverage_cases)
+        self.assertEqual(metrics["domain_coverage_gap_count"], 5)
+        self.assertEqual(metrics["domain_model_gap_count"], 1)
+        self.assertEqual(metrics["executed_case_count"], 7)
+        # Only the two cases an implemented Domain owns stay in the denominator, so
+        # unowned coverage neither dilutes nor inflates in-scope accuracy.
+        self.assertEqual(metrics["exact_match_rate"], 0.5)
+
+        all_unowned = [
+            {"case_id": f"ng{i}", "comparison_status": "DOMAIN_COVERAGE_GAP", "layer_attribution": "DOMAIN_COVERAGE"}
+            for i in range(4)
+        ]
+        empty_metrics, _ = calculate_metrics(all_unowned)
+        self.assertIsNone(empty_metrics["exact_match_rate"])
+        self.assertEqual(empty_metrics["executed_case_count"], 4)
+
+    def test_denominators_stay_stable_under_input_ordering(self) -> None:
+        diffs = [
+            {"case_id": "a", "comparison_status": "EXACT_MATCH", "frame_delta": 0},
+            {"case_id": "b", "comparison_status": "DOMAIN_COVERAGE_GAP", "frame_delta": None},
+            {"case_id": "c", "comparison_status": "CAPTURE_LIMITATION", "frame_delta": None},
+            {"case_id": "d", "comparison_status": "NEEDS_ADJUDICATION", "frame_delta": 4, "adjudication_required": True},
+            {"case_id": "e", "comparison_status": "DOMAIN_MODEL_GAP", "frame_delta": None},
+        ]
+        baseline_metrics, baseline_cases = calculate_metrics(diffs)
+        for permutation in (list(reversed(diffs)), diffs[2:] + diffs[:2], sorted(diffs, key=lambda d: d["comparison_status"])):
+            metrics, case_summaries = calculate_metrics(permutation)
+            self.assertEqual(metrics, baseline_metrics)
+            self.assertEqual([c["case_id"] for c in case_summaries], ["a", "b", "c", "d", "e"])
+
     def test_taxonomy_metrics_complete_coverage(self) -> None:
         all_statuses = [
             ("EXACT_MATCH", "exact_match_count"),
@@ -992,6 +1261,7 @@ class GoldenCaptureMetricsTests(unittest.TestCase):
             ("PROTOCOL_COVERAGE_GAP", "protocol_coverage_gap_count"),
             ("CORRELATION_GAP", "correlation_gap_count"),
             ("DOMAIN_MODEL_GAP", "domain_model_gap_count"),
+            ("DOMAIN_COVERAGE_GAP", "domain_coverage_gap_count"),
             ("ORCHESTRATION_GAP", "orchestration_gap_count"),
             ("CAPTURE_LIMITATION", "capture_limitation_count"),
             ("OUT_OF_SCOPE", "out_of_scope_count"),
@@ -1002,6 +1272,54 @@ class GoldenCaptureMetricsTests(unittest.TestCase):
         self.assertEqual(metrics["case_count"], len(all_statuses))
         for _, metric_field in all_statuses:
             self.assertGreaterEqual(metrics[metric_field], 1)
+
+
+class GoldenCorpusContractTests(unittest.TestCase):
+    """Committed corpus records must stay reproducible, adjudicated and honest."""
+
+    def setUp(self) -> None:
+        self.cases_dir = BENCHMARK_DIR / "cases"
+        self.intents = {item["case_id"]: item["upstream_intent"] for item in PUBLIC_CORPUS}
+        self.diffs: dict[str, dict] = {}
+        self.baselines: dict[str, dict] = {}
+        self.summaries: dict[str, dict] = {}
+        for case_dir in sorted(self.cases_dir.iterdir()):
+            if not case_dir.is_dir():
+                continue
+            self.diffs[case_dir.name] = json.loads((case_dir / "differential.json").read_text(encoding="utf-8"))
+            self.baselines[case_dir.name] = json.loads((case_dir / "human-baseline.json").read_text(encoding="utf-8"))
+            self.summaries[case_dir.name] = json.loads((case_dir / "skill-result-summary.json").read_text(encoding="utf-8"))
+
+    def test_corpus_identity_is_pinned(self) -> None:
+        self.assertEqual(len(self.diffs), len(PUBLIC_CORPUS))
+        for item in PUBLIC_CORPUS:
+            case = json.loads((self.cases_dir / item["case_id"] / "case.json").read_text(encoding="utf-8"))
+            self.assertEqual(case["capture_sha256"], item["expected_sha256"])
+            self.assertEqual(case["source_commit"], "82934c2cc231540fa425e48177d4bed33210bfc1")
+            self.assertEqual(self.baselines[item["case_id"]]["capture_sha256"], item["expected_sha256"])
+
+    def test_legacy_baseline_hash_is_not_an_authenticated_digest(self) -> None:
+        for case_id, baseline in self.baselines.items():
+            declared = baseline.get("baseline_hash")
+            if not declared:
+                continue
+            without_label = {k: v for k, v in baseline.items() if k != "baseline_hash"}
+            raw = (self.cases_dir / case_id / "human-baseline.json").read_bytes()
+            self.assertNotEqual(declared, canonical_json_sha256(baseline), case_id)
+            self.assertNotEqual(declared, canonical_json_sha256(without_label), case_id)
+            self.assertNotEqual(declared, hashlib.sha256(raw).hexdigest(), case_id)
+            # Nothing in the comparison consumes the unverifiable label.
+            probe = compare_differential(baseline, self.summaries[case_id], human_baseline_sha256="0" * 64)
+            stripped = compare_differential(without_label, self.summaries[case_id], human_baseline_sha256="0" * 64)
+            self.assertEqual(probe, stripped, case_id)
+
+
+    def test_identity_normalization_treats_placeholders_as_absent(self) -> None:
+        self.assertIsNone(normalize_identity("UNKNOWN"))
+        self.assertIsNone(normalize_identity("  "))
+        self.assertIsNone(normalize_identity(None))
+        self.assertEqual(normalize_identity("NAS-5GS"), normalize_identity("nas_5gs"))
+        self.assertEqual(normalize_identity("NGAP"), "NGAP")
 
 
 class GoldenCaptureSafetyTests(unittest.TestCase):

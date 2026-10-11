@@ -22,7 +22,7 @@ The benchmark framework is testing and evaluation infrastructure; it is **not** 
 To prevent bias, human/agent baseline analyses are conducted independently before running automated Skill execution:
 1. **Raw Capture Inspection**: The packet capture is decoded and inspected against 3GPP and IETF normative specifications (3GPP TS 38.413 for NGAP, 3GPP TS 24.501 for NAS-5GS, 3GPP TS 29.244 for PFCP, 3GPP TS 29.281 for GTP-U, and RFC 7540 / 3GPP TS 29.500 for SBI HTTP/2).
 2. **Independent Baseline Authoring**: An independent baseline record (`human-baseline.json`) is authored defining observed procedures, abnormal boundaries, supporting packet evidence, capture limitations, and baseline confidence.
-3. **Canonical Schema and Hash Freezing**: The baseline is validated against `human-baseline.schema.json` and its deterministic, platform-independent canonical JSON hash (`canonical_json_sha256`) is computed and recorded. This guarantees cross-platform digest invariance across operating systems, line endings (LF vs CRLF), indentation, and JSON key ordering.
+3. **Canonical Schema and Hash Freezing**: The baseline is validated against `human-baseline.schema.json` and its deterministic, platform-independent canonical JSON hash (`canonical_json_sha256`) is computed and recorded in `differential.json` as `human_baseline_sha256`. That recorded digest is recomputed and compared by `scripts/validate-golden-captures.py` on every validation run and is the only baseline immutability proof the repository relies on. It guarantees cross-platform digest invariance across operating systems, line endings (LF vs CRLF), indentation, and JSON key ordering. The optional `baseline_hash` property in older baseline records is a legacy informational label: it is not produced by `canonical_json_sha256`, is not reproducible from the stored document, is not verified by any validator, and must never be presented or reused as an authenticated canonical hash. An authorized adjudication records the superseded digest inside `revision_reason` and increments `baseline_revision` rather than rewriting any file in Git history.
 4. **Automated Skill Pipeline Execution**: The automated pipeline is executed mechanically in an isolated external working directory.
 5. **Differential Comparison**: The frozen baseline and sanitized Skill summary are compared deterministically without tuning or modifying Skill implementations.
 
@@ -36,18 +36,21 @@ Comparison eligibility is evaluated across six independent layers in pipeline or
 | 1 | Baseline support | Is the independent baseline itself supported and validated? | `SUPPORTED`, `UNSUPPORTED` |
 | 2 | Capture sufficiency | Does the capture hold enough packet evidence for an authoritative boundary? | `SUFFICIENT`, `INSUFFICIENT` |
 | 3 | Relevant Protocol extraction | Did every relevant Protocol Skill expose usable message identity? | `HEALTHY`, `DEFECT`, `BLOCKED` |
-| 4 | Relevant Domain reconstruction | Did the relevant Domain Skill actually reconstruct a procedure instance? | `PRESENT`, `NO_RELEVANT_INSTANCE`, `FAILED`, `NOT_APPLICABLE`, `NOT_EVALUATED` |
+| 4 | Relevant Domain reconstruction | Did the relevant Domain Skill actually reconstruct a procedure instance? | `PRESENT`, `NO_RELEVANT_INSTANCE`, `NO_RELEVANT_DOMAIN`, `FAILED`, `NOT_APPLICABLE`, `NOT_EVALUATED` |
 | 5 | Orchestration availability | Did Orchestration consume the reconstructed Domain evidence? | `AVAILABLE`, `FAILED`, `NOT_RUN`, `NOT_REPORTED`, `NOT_APPLICABLE`, `NOT_EVALUATED` |
 | 6 | Semantic boundary comparison | Do the human and automated boundaries agree? | `EVALUATED`, `NOT_EVALUATED` |
 
 Per-Domain execution evidence is reported separately from Orchestration evidence in `skill-result-summary.json` (`domain_status` and `orchestration_status`), so one counter never carries two meanings: `domain_instances_count` is the number of procedure instances produced by executed Domain Skills, while `orchestration_status.source_domain_instances_count` is what Orchestration consumed. Each `domain_status` entry also records `execution_status`, `output_present`, `deviation_count` and a bounded, path-free `first_stop_reason` so a reconstruction that never started is never reported as a reconstruction that found nothing.
 
-Layers 4 and 5 are `NOT_APPLICABLE` when the baseline observes only procedure families that no implemented Domain Skill owns (for example node-level `ngap-management` or a planned `5gc-user-plane` family): no Domain instance is expected, so absent reconstruction is an ownership gap reported as `DOMAIN_MODEL_GAP` with `EXPAND_FUTURE_SCOPE`, never as a Domain model defect requiring correction.
+Layers 4 and 5 are `NOT_APPLICABLE` when the baseline observes only procedure families that no implemented Domain Skill owns (for example node-level `ngap-management` or a planned `5gc-user-plane` family): no Domain instance is expected, so absent reconstruction is reported as `DOMAIN_COVERAGE_GAP` with `DOMAIN_COVERAGE` attribution and `EXPAND_FUTURE_SCOPE`, never as a failure of an implemented Domain model, and such cases are excluded from the in-scope accuracy denominator. Semantic boundary comparison is recorded as `NOT_EVALUATED` there because no automated boundary evidence exists to compare.
+
+`NO_RELEVANT_DOMAIN` records that the summary carries no execution evidence at all for a Domain the baseline makes relevant. Only relevant Domain keys are read: an executed instance of some other Domain never satisfies a missing relevant Domain, because that would substitute evidence from a procedure the independent baseline never observed.
 
 The following states are strictly non-equivalent:
 - **Evidence-Supported Health**: relevant protocol signaling parsed -> relevant Domain instance reconstructed with no deviation -> Orchestration ran -> no abnormal boundary observed (`EXACT_MATCH`, eligibility `ELIGIBLE`).
 - **Domain Reconstruction Failure**: protocol extraction healthy -> the relevant Domain Skill produced no instance, for example an input-contract rejection -> no boundary produced (`DOMAIN_MODEL_GAP`, layer `DOMAIN`).
 - **Unextracted Pipeline Failure**: protocol extraction failed, or exposed no message identity for a case it reports as supported -> zero Domain instances -> no boundary produced (`PROTOCOL_COVERAGE_GAP`, layer `PROTOCOL`).
+- **Unimplemented Domain Coverage**: the baseline observes a procedure family that no implemented Domain Skill owns -> Domain reconstruction is `NOT_APPLICABLE` -> there is no automated boundary evidence to compare (`DOMAIN_COVERAGE_GAP`, layer `DOMAIN_COVERAGE`, excluded from the in-scope accuracy denominator).
 
 A healthy `EXACT_MATCH` therefore requires a relevant Domain instance to have been produced and consumed. Protocol success with zero relevant Domain instances is never `EXACT_MATCH`.
 
@@ -66,25 +69,37 @@ The benchmark evaluates standardized protocol signaling behavior exclusively. Ca
 ## 3. Differential Taxonomy and Discrepancy Attribution
 
 ### 3.1 Comparison Statuses
-- `EXACT_MATCH`: Automated Skill selected the exact same procedure family and frame boundary, or both observed no abnormal boundary in healthy/recovered traffic **and** a relevant Domain instance was actually reconstructed with zero deviations under an eligible evidence pipeline.
-- `BOUNDARY_FRAME_DIFFERENCE`: Procedure family matches, but the selected frame differs by 1–2 adjacent transaction frames.
-- `PROCEDURE_MATCH_STAGE_DIFFERENCE`: Procedure family matches, but stage attribution differs.
+- `EXACT_MATCH`: For an abnormal boundary, the Skill selected a boundary whose analysis status, procedure family, procedure stage, protocol identity and abnormal-event identity are all compatible **and** whose evidence anchor is the same exact frame the baseline records (or the same window when the baseline holds no exact authoritative frame). For healthy traffic, both sides observed no abnormal boundary **and** a relevant Domain instance was actually reconstructed with zero deviations under an eligible evidence pipeline.
+- `BOUNDARY_FRAME_DIFFERENCE`: All abnormal-boundary semantics are compatible and the selected frame differs by 1–2 adjacent transaction frames, or the baseline records only a derived observation window that contains the selected frame. Adjacency alone is never enough.
+- `PROCEDURE_MATCH_STAGE_DIFFERENCE`: Procedure family matches, but stage attribution differs, even when the frame anchor is identical.
 - `ACCEPTABLE_DIFFERENCE`: Human baseline and Skill selected valid alternative boundaries supported by capture evidence.
-- `FALSE_POSITIVE`: Skill selected an abnormal boundary in healthy/recovered signaling.
+- `FALSE_POSITIVE`: The Skill selected a concrete abnormal boundary in healthy/recovered signaling, or asserted one for an out-of-scope condition.
 - `FALSE_NEGATIVE`: A relevant Domain instance was reconstructed but reported no deviation supporting an abnormal boundary the independent baseline observed. (A missing Domain instance is `DOMAIN_MODEL_GAP`, and a Domain deviation that Orchestration did not consume is `ORCHESTRATION_GAP`; the benchmark never jumps from Protocol success to a generic false negative without recording the Domain evidence state.)
 - `PROTOCOL_COVERAGE_GAP`: Protocol extractor encountered an unhandled dissector field or decode error.
 - `CORRELATION_GAP`: Cross-protocol correlation failed to group interrelated signaling events.
-- `DOMAIN_MODEL_GAP`: Observed procedure is unowned by currently implemented domain skills (e.g. node-level management vs UE signaling), or the relevant Domain Skill executed and reconstructed no procedure instance / emitted no deviation supporting a boundary the independent baseline observed.
+- `DOMAIN_MODEL_GAP`: An implemented Domain owns the observed procedure but reconstructed no relevant instance, emitted no deviation supporting a boundary the independent baseline observed, or reported no execution evidence for a Domain the baseline makes relevant.
+- `DOMAIN_COVERAGE_GAP`: The observed procedure family is owned by no implemented Domain Skill (for example node-level `ngap-management` or `5gc-user-plane`). This is unimplemented coverage, not a defect of an implemented Domain model, and the case is excluded from the in-scope accuracy denominator.
 - `ORCHESTRATION_GAP`: Domain detected the issue, but failure-boundary orchestration selected the wrong diagnostic candidate, declined to resolve a single first boundary, or failed to consume Domain instances that reported deviations.
-- `CAPTURE_LIMITATION`: Truncated packet capture or missing interfaces prevent authoritative analysis.
+- `CAPTURE_LIMITATION`: Truncated packet capture, encrypted payload or missing interfaces prevent authoritative analysis. Upstream scenario labels are not treated as evidence for this status.
 - `OUT_OF_SCOPE`: Signaling occurs on interfaces outside current CoreNet scope (e.g. external N6 data routing).
+- `NEEDS_ADJUDICATION`: Boundary semantics disagree or are not reported on at least one side, an ambiguous candidate set was never resolved, or the recorded evidence does not identify a responsible layer. No match and no fault is assumed.
 
-### 3.2 Lowest-Layer Attribution Rule
+### 3.2 Abnormal-Boundary Semantic Matching Contract
+A shared frame number is an anchor, not a meaning. Before any anchor is consulted, the comparator requires compatible values on every reported dimension: analysis status, procedure family, procedure stage, protocol identity and abnormal-event (message) identity.
+
+- Frame equality with a stage, protocol or abnormal-event disagreement is never `EXACT_MATCH`; a stage disagreement reports `PROCEDURE_MATCH_STAGE_DIFFERENCE`, and a protocol or abnormality disagreement reports `NEEDS_ADJUDICATION`.
+- A one- or two-frame delta never overrides a stage, protocol or abnormality disagreement, so request/response adjacency is not automatic semantic equivalence.
+- Sanitizer placeholders (`UNKNOWN`, empty, `None`) count as unreported, not as agreement. When the sanitized summary or the baseline lacks the detail needed to establish equivalence, the result is `NEEDS_ADJUDICATION`; missing semantic fields are never invented.
+- Exact frames, observation windows and derived missing-evidence boundaries stay distinct. A baseline whose boundary carries only an observation window can at best yield `BOUNDARY_FRAME_DIFFERENCE`, because it holds no exact authoritative frame to match.
+- Healthy traffic with an unresolved candidate set (`AMBIGUOUS_FIRST_BOUNDARY`, `INSUFFICIENT_COMPARABLE_EVIDENCE`) reports `NEEDS_ADJUDICATION` with `MULTIPLE` attribution, recording separately that candidate deviations were emitted, that no boundary was selected, and that the ambiguity was preserved. A confirmed `FALSE_POSITIVE` requires evidence that the Skill emitted an unsupported abnormal conclusion, not merely an unresolved candidate set.
+- `layer_attribution` is `UNKNOWN` when the recorded evidence does not identify a responsible layer, and `MULTIPLE` when more than one layer legitimately shares the outcome, so no single-layer fault is invented.
+
+### 3.3 Lowest-Layer Attribution Rule
 When a discrepancy occurs between the independent baseline and automated execution, the discrepancy is attributed to the **lowest layer** that accounts for it:
 $$\text{Protocol} \longrightarrow \text{Correlation} \longrightarrow \text{Domain} \longrightarrow \text{Orchestration}$$
 If a protocol extractor fails to extract a message or field, the discrepancy is attributed to `PROTOCOL` (`PROTOCOL_COVERAGE_GAP`), rather than blaming higher Domain or Orchestration layers for missing evidence.
 
-### 3.3 Protocol Extraction Statuses
+### 3.4 Protocol Extraction Statuses
 `skill-result-summary.json.protocol_status` records one status per Protocol Skill, judged against that Skill's own message-identity contract: PFCP and GTP-U expose identity inside the bounded `header` object, while NGAP, NAS-5GS and SBI-HTTP2 expose it at the detailed-event top level. Probing a single shared path for every protocol misreports healthy extraction as a failure.
 
 - `SUCCESS`: extraction succeeded and every record the Skill reports as `SUPPORTED` exposes a usable message identity.
@@ -149,7 +164,7 @@ During empirical benchmark execution with TShark 4.7.1, several protocol extract
 
 The authorized correction pass that followed reproduced every case against the frozen corpus and adjudicated three further findings:
 
-4. **Benchmark identity probe read one shared JSON path**: the pipeline checked a top-level `message_type` for every protocol, while the accepted PFCP and GTP-U Skills expose identity inside their bounded `header` object (`header.message_type`, `header.message_type_code`). Healthy extraction of `PFCP Session Establishment Request` (50) and `G-PDU` (255) was therefore reported as `MISSING_MESSAGE_TYPE`. The probe is now contract-aware per protocol (see 3.3).
+4. **Benchmark identity probe read one shared JSON path**: the pipeline checked a top-level `message_type` for every protocol, while the accepted PFCP and GTP-U Skills expose identity inside their bounded `header` object (`header.message_type`, `header.message_type_code`). Healthy extraction of `PFCP Session Establishment Request` (50) and `G-PDU` (255) was therefore reported as `MISSING_MESSAGE_TYPE`. The probe is now contract-aware per protocol (see 3.4).
 5. **NGAP composite Info column**: TShark renders `_ws.col.info` as a composite string when a frame also carries SCTP acknowledgement text, a nested NAS message name, or coalesced NGAP PDUs (for example `SACK (Ack=1, Arwnd=106496) , DownlinkNASTransport, Authentication request`). Exact whole-string matching against the reviewed branch vocabulary left `message_type` null for procedures the bounded NGAP Skill does own. `ngap` 0.3.2 matches the reviewed vocabulary against the whole string first and then against its comma- and bracket-delimited segments; only exact segment equality resolves, so no message name outside the reviewed table is produced and `NGSetup` stays `UNSUPPORTED` with a null identity.
 6. **Domain input contract rejects mixed-ownership captures**: each 5GC Domain Skill requires a `message_type` string on every NGAP record and therefore exits with a malformed-input error on captures containing NGAP procedures outside bounded NGAP ownership (for example `NGSetup` at the start of every capture in this corpus). Reconstruction stops at input validation, before any procedure instance is formed. This is recorded as the first Domain contract gap with the exact per-Domain `first_stop_reason`; Domain runtime semantics are frozen and were not modified.
 

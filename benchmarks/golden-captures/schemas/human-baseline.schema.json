@@ -171,12 +171,13 @@
       "enum": ["HIGH", "MEDIUM", "LOW"]
     },
     "baseline_hash": {
-      "type": "string"
+      "type": "string",
+      "description": "Legacy informational label recorded by early baseline authoring. It is not produced by canonical_json_sha256, is not reproducible from the stored document, and is never verified by any validator, so it must not be used as proof of baseline immutability. The authoritative baseline digest is differential.human_baseline_sha256, which scripts/validate-golden-captures.py recomputes and compares on every run. New or revised baselines omit this field."
     },
     "baseline_revision": {
       "type": "integer",
       "minimum": 1,
-      "description": "Revision number of an explicitly adjudicated baseline. Present only after a documented independent adjudication."
+      "description": "Revision number of an explicitly adjudicated baseline. revision_reason records the canonical hash of the superseded baseline document."
     },
     "revision_reason": {
       "type": "string",

@@ -36,6 +36,7 @@
     },
     "comparison_status": {
       "type": "string",
+      "description": "Differential outcome. An abnormal-boundary EXACT_MATCH requires compatible analysis status, procedure family, procedure stage, protocol identity, abnormal-event semantics and the same evidence anchor whenever the baseline holds an exact authoritative frame; a frame equality alone is insufficient. DOMAIN_COVERAGE_GAP records that no implemented Domain Skill owns the observed procedure family; it is unimplemented coverage, not an implemented Domain model failure.",
       "enum": [
         "EXACT_MATCH",
         "PROCEDURE_MATCH_STAGE_DIFFERENCE",
@@ -47,6 +48,7 @@
         "PROTOCOL_COVERAGE_GAP",
         "CORRELATION_GAP",
         "DOMAIN_MODEL_GAP",
+        "DOMAIN_COVERAGE_GAP",
         "ORCHESTRATION_GAP",
         "CAPTURE_LIMITATION",
         "OUT_OF_SCOPE",
@@ -56,11 +58,13 @@
     },
     "layer_attribution": {
       "type": "string",
+      "description": "Lowest layer that accounts for the discrepancy. DOMAIN_COVERAGE attributes the outcome to Domain ownership rather than to an implemented Domain model, and UNKNOWN records that the reported evidence does not identify a responsible layer.",
       "enum": [
         "NONE",
         "PROTOCOL",
         "CORRELATION",
         "DOMAIN",
+        "DOMAIN_COVERAGE",
         "ORCHESTRATION",
         "CAPTURE",
         "OUT_OF_SCOPE",
