@@ -237,7 +237,7 @@
             "NAS-5GS Registration request observed at frame 10 (2024-01-02T03:04:10.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "0.2.1",
+          "procedure_version": "0.2.2",
           "stage": {
             "expected_message_types": [
               "InitialUEMessage",
@@ -261,7 +261,7 @@
       }
     }
   ],
-  "analysis_version": "0.2.1",
+  "analysis_version": "0.2.2",
   "correlation_conflicts": [],
   "procedure_family": "5gc-registration-mobility",
   "unbound_records": []

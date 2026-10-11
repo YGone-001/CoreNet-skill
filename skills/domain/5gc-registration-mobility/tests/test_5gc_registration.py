@@ -567,5 +567,98 @@ class StandaloneTests(unittest.TestCase):
             self.assertIn("instance=5gc-reg:", timeline.stdout)
 
 
+class ProtectedEnvelopeCarrierTests(unittest.TestCase):
+    """corr-01: a ciphered NAS envelope is reported once, not twice.
+
+    A security-protected record exposes no message-type octet at all, so its
+    lower-layer UNKNOWN status is the protected-envelope limitation itself and
+    must not also surface as an unknown or reserved protocol value. A genuinely
+    dissected message-type byte the Domain does not own keeps its protocol-value
+    deviation.
+    """
+
+    FIXTURE = "ciphered-envelope-unknown-status"
+
+    @staticmethod
+    def types(deviations):
+        return [deviation["type"] for deviation in deviations]
+
+    def fixture_events(self):
+        source = INPUTS / self.FIXTURE
+        return (MODEL.load_ngap_events(source / "ngap.jsonl"),
+                MODEL.load_nas_events(source / "nas.jsonl"),
+                MODEL.load_correlation_groups(source / "correlation.jsonl"))
+
+    def deviations_for(self, nas_events, correlation=None):
+        ngap, _nas, own_corr = self.fixture_events()
+        document = MODEL.analyze(ngap, nas_events,
+                                 own_corr if correlation is None else correlation, RULES)
+        return document["analyses"][0]["deviations"]
+
+    def test_ciphered_envelopes_report_only_the_protected_limitation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario(self.FIXTURE, Path(directory))
+        deviations = analysis["analyses"][0]["deviations"]
+        self.assertEqual(self.types(deviations).count("UNKNOWN_OR_RESERVED_PROTOCOL_VALUE"), 0)
+        self.assertEqual(self.types(deviations).count("PROTECTED_INNER_MESSAGE_UNAVAILABLE"), 2)
+        frames = sorted(ref["frame_number"] for deviation in deviations
+                        if deviation["type"] == "PROTECTED_INNER_MESSAGE_UNAVAILABLE"
+                        for ref in deviation["evidence_refs"])
+        self.assertEqual(frames, [12, 13])
+
+    def test_one_physical_observation_never_yields_two_deviation_types(self):
+        carriers = [deviation for deviation in self.deviations_for(self.fixture_events()[1])
+                    if deviation["type"] in ("UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
+                                             "PROTECTED_INNER_MESSAGE_UNAVAILABLE")]
+        by_frame: dict[int, set] = {}
+        for deviation in carriers:
+            for ref in deviation["evidence_refs"]:
+                by_frame.setdefault(ref["frame_number"], set()).add(deviation["type"])
+        self.assertEqual(by_frame, {12: {"PROTECTED_INNER_MESSAGE_UNAVAILABLE"},
+                                    13: {"PROTECTED_INNER_MESSAGE_UNAVAILABLE"}})
+
+    def test_unknown_support_without_security_object_still_reports_protocol_value(self):
+        _ngap, nas, _corr = self.fixture_events()
+        stripped = [{key: value for key, value in event.items() if key != "security"}
+                    if event.get("support_status") == "UNKNOWN" else event for event in nas]
+        types = self.types(self.deviations_for(stripped, correlation=[]))
+        self.assertEqual(types.count("UNKNOWN_OR_RESERVED_PROTOCOL_VALUE"), 2,
+                         "an unknown status with no stated protected envelope stays reported")
+        self.assertEqual(types.count("PROTECTED_INNER_MESSAGE_UNAVAILABLE"), 0)
+
+    def test_genuinely_dissected_unsupported_message_type_is_preserved(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("unsupported-nas", Path(directory))
+        deviations = analysis["analyses"][0]["deviations"]
+        unknown = [d for d in deviations if d["type"] == "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE"]
+        self.assertEqual(len(unknown), 1)
+        ref = unknown[0]["evidence_refs"][0]
+        self.assertEqual([ref["frame_number"], ref["message_type"]], [11, "Deregistration request (UE originating)"])
+        self.assertEqual(self.types(deviations).count("PROTECTED_INNER_MESSAGE_UNAVAILABLE"), 0)
+
+    def test_unowned_ngap_unknown_record_is_preserved(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("unknown-ngap", Path(directory))
+        deviations = analysis["analyses"][0]["deviations"]
+        unknown = [d for d in deviations if d["type"] == "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE"]
+        self.assertEqual(len(unknown), 1)
+        self.assertEqual(unknown[0]["evidence_refs"][0]["message_type"], "UnknownProcedure")
+
+    def test_supported_protected_envelope_family_shape_unchanged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("protected-unavailable", Path(directory))
+        deviations = analysis["analyses"][0]["deviations"]
+        self.assertEqual(self.types(deviations).count("PROTECTED_INNER_MESSAGE_UNAVAILABLE"), 1)
+        self.assertEqual(self.types(deviations).count("UNKNOWN_OR_RESERVED_PROTOCOL_VALUE"), 0)
+
+    def test_confidence_and_terminal_are_unaffected_by_the_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario(self.FIXTURE, Path(directory))
+        instance = analysis["analyses"][0]
+        self.assertEqual(instance["confidence"], "LOW")
+        self.assertEqual(instance["terminal"]["observation"],
+                         "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW")
+
+
 if __name__ == "__main__":
     unittest.main()

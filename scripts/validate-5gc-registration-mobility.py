@@ -34,6 +34,7 @@ SCENARIOS = {
     "complete-then-release", "release-paging-no-response", "paging-then-service", "service-reject",
     "two-ue", "cross-association", "out-of-order", "duplicate", "binding-conflict",
     "unsupported-nas", "unknown-ngap", "partial-start", "auth-truncated", "protected-unavailable",
+    "ciphered-envelope-unknown-status",
 }
 CAPTURE_SUFFIXES = {".pcap", ".pcapng", ".cap"}
 TEXT_SUFFIXES = {".md", ".py", ".yaml", ".json", ".jsonl", ".txt"}
@@ -108,7 +109,7 @@ def validate(root: Path) -> list[str]:
     if errors:
         return errors
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "5gc-registration-mobility"), ("version", "0.2.1"), ("category", "domain")):
+    for key, expected in (("name", "5gc-registration-mobility"), ("version", "0.2.2"), ("category", "domain")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
     if not re.search(r"(?m)^\s*required:\s*\[\]\s*$", manifest):

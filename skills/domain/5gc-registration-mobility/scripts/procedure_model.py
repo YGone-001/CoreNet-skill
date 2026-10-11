@@ -42,7 +42,7 @@ EXIT_MALFORMED_INPUT = 5
 EXIT_NO_EVENTS = 6
 EXIT_OUTPUT_FAILURE = 7
 
-ANALYSIS_VERSION = "0.2.1"
+ANALYSIS_VERSION = "0.2.2"
 PROCEDURE_FAMILY = "5gc-registration-mobility"
 
 FORBIDDEN_OUTPUT_PATTERN = re.compile(r"(?i)\b(?:root[ _-]?cause|implementation[ _-]?(?:bug|blame))\b")
@@ -118,6 +118,20 @@ def _window_evidence_ref(capture_file: str | None, first_frame: int | None, last
         window_first_frame=first_frame,
         window_last_frame=last_frame,
     )
+
+
+def _protected_envelope_without_inner_message(event: dict[str, object]) -> bool:
+    """True when a NAS record's security envelope carries no decodable inner message.
+
+    Such a record exposes no message-type octet at all, so its unknown lower-layer
+    support status is the protected-envelope limitation itself and must not also be
+    reported as an unknown or reserved protocol value.
+    """
+    if str(event.get("protocol")) != "NAS-5GS":
+        return False
+    security = event.get("security")
+    return isinstance(security, dict) and security.get("inner_message_available") is False
+
 
 REJECT_MESSAGES = {"Registration reject", "Authentication reject", "Security mode reject", "Service reject"}
 UNSUCCESSFUL_MESSAGES = {"InitialContextSetupFailure", "Authentication failure"}
@@ -671,7 +685,8 @@ def evaluate_instance(
                 "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
                 "evidence_refs": [_event_evidence_ref(event)],
             })
-        if event.get("support_status") in ("UNSUPPORTED", "UNKNOWN"):
+        protected_envelope = _protected_envelope_without_inner_message(event)
+        if event.get("support_status") in ("UNSUPPORTED", "UNKNOWN") and not protected_envelope:
             deviations.append({
                 "type": DEVIATION_UNKNOWN_VALUE,
                 "stage_id": None,
@@ -681,8 +696,7 @@ def evaluate_instance(
                 "evidence_refs": [_event_evidence_ref(event)],
             })
         if protocol == "NAS-5GS":
-            security = event.get("security")
-            if isinstance(security, dict) and security.get("inner_message_available") is False:
+            if protected_envelope:
                 deviations.append({
                     "type": DEVIATION_PROTECTED_UNAVAILABLE,
                     "stage_id": None,

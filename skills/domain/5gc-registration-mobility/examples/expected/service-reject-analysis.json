@@ -244,7 +244,7 @@
             "NAS-5GS Service reject observed at frame 11 (2024-01-02T03:04:11.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r2",
-          "procedure_version": "0.2.1",
+          "procedure_version": "0.2.2",
           "stage": {
             "expected_message_types": [
               "Service accept",
@@ -268,7 +268,7 @@
       }
     }
   ],
-  "analysis_version": "0.2.1",
+  "analysis_version": "0.2.2",
   "correlation_conflicts": [],
   "procedure_family": "5gc-registration-mobility",
   "unbound_records": []

@@ -113,8 +113,11 @@ Malformed lower-layer events, missing provenance, 5GSM-family records,
 verdict wording, and unsafe output replacement fail loudly with
 non-zero exits. Unsupported or unknown lower-layer messages are
 preserved with the UNKNOWN_OR_RESERVED deviation and limit procedure
-interpretation; no semantics are invented. When context cannot resolve
-a record to a procedure instance, it stays UNBOUND.
+interpretation; no semantics are invented. A protected NAS envelope
+that exposes no decodable inner message carries no message-type octet,
+so it is reported once as PROTECTED_INNER_MESSAGE_UNAVAILABLE and never
+also as an unknown or reserved protocol value. When context cannot
+resolve a record to a procedure instance, it stays UNBOUND.
 
 ## Validation
 
