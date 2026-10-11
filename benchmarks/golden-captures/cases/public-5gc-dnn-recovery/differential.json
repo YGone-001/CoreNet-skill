@@ -28,7 +28,7 @@
   "notes": [
     "2 candidate boundaries were emitted but no boundary was selected; Orchestration preserved the ambiguity (AMBIGUOUS_FIRST_BOUNDARY).",
     "A confirmed FALSE_POSITIVE requires independent adjudication that a candidate boundary is unsupported by the packet evidence; candidate evidence here may be spurious, which is not yet proven.",
-    "Relevant Domain instance(s) reported 13 deviation(s) on a capture the independent baseline records as healthy, so the candidate evidence needs Domain-layer review."
+    "Relevant Domain instance(s) reported 8 deviation(s) on a capture the independent baseline records as healthy, so the candidate evidence needs Domain-layer review."
   ],
   "recommended_next_action": "NO_CHANGE",
   "skill_boundary": {
