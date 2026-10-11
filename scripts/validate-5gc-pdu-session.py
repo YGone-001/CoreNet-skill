@@ -207,7 +207,7 @@ def validate(root: Path) -> list[str]:
         return errors
 
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "5gc-pdu-session"), ("version", "0.4.1"), ("category", "domain")):
+    for key, expected in (("name", "5gc-pdu-session"), ("version", "0.4.2"), ("category", "domain")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
 

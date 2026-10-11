@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -719,6 +721,248 @@ class NgapInputContractTests(unittest.TestCase):
             self.assertEqual(retained[0]["sctp"]["association_id"], 1)
             self.assertIsNone(retained[0]["message_type"])
             self.assertEqual(retained[0]["support_status"], "UNSUPPORTED")
+
+
+class SessionIdentityGatingTests(unittest.TestCase):
+    """A PDU Session instance requires an explicit, bindable session identity.
+
+    Generic UE-context signalling, security-protected NAS, an unrelated PFCP
+    transaction, or unbound SBI traffic is valid packet evidence but never
+    establishes a particular PDU Session, and no identifier may be assumed.
+    """
+
+    CAPTURE = "identity.pcap"
+
+    @staticmethod
+    def _ts(frame: int) -> str:
+        return f"2026-10-05T08:00:{frame:02d}.000000Z"
+
+    def nas(self, frame, message_type=None, **fields):
+        event = {"frame_number": frame, "timestamp": self._ts(frame), "capture_file": self.CAPTURE,
+                 "message_type": message_type}
+        event.update(fields)
+        return event
+
+    def ngap(self, frame, message_type, ran=1, amf=1, resources=None, **fields):
+        event = {"frame_number": frame, "timestamp": self._ts(frame), "capture_file": self.CAPTURE,
+                 "message_type": message_type, "ran_ue_ngap_id": ran, "amf_ue_ngap_id": amf}
+        if resources is not None:
+            event["pdu_session_resources"] = resources
+        event.update(fields)
+        return event
+
+    def pfcp(self, frame, **fields):
+        event = {"frame_number": frame, "timestamp": self._ts(frame), "capture_file": self.CAPTURE,
+                 "message_type": "Session Establishment Request", "header": {"seid": 1423, "ipv4": "127.0.0.4"}}
+        event.update(fields)
+        return event
+
+    def gtpu(self, frame, teid=5001):
+        return {"frame_number": frame, "timestamp": self._ts(frame), "capture_file": self.CAPTURE,
+                "message_type": "G-PDUTDPPDU", "header": {"teid": teid},
+                "outer": {"source_address": "127.0.0.2", "destination_address": "127.0.0.1"}}
+
+    def sbi(self, frame, psi=None, message_type="CreateSmContext"):
+        event = {"frame_number": frame, "timestamp": self._ts(frame), "capture_file": self.CAPTURE,
+                 "message_type": message_type, "protocol": "3GPP-SBI"}
+        if psi is not None:
+            event["session_management"] = {"pdu_session_id": psi}
+        return event
+
+    def analyze(self, nas=(), ngap=(), pfcp=(), gtpu=(), sbi=(), correlation=()):
+        return MODEL.analyze(list(nas), list(ngap), list(pfcp), list(gtpu), list(sbi), list(correlation))
+
+    def assert_no_session(self, document):
+        self.assertEqual(document["instances"], [], "no instance may be created without a session identity")
+        self.assertNotIn("PARTIAL_CAPTURE", [d["type"] for i in document["instances"] for d in i["deviations"]])
+
+    def test_generic_ue_context_alone_creates_no_instance(self):
+        document, _ = self.analyze(ngap=[
+            self.ngap(3, "InitialUEMessage", amf=None),
+            self.ngap(4, "DownlinkNASTransport"),
+            self.ngap(5, "UplinkNASTransport"),
+            self.ngap(6, "UEContextReleaseCommand"),
+        ])
+        self.assertEqual(document["instances"], [])
+
+    def test_registration_only_nas_creates_no_instance(self):
+        document, _ = self.analyze(nas=[
+            self.nas(1, "Registration request"),
+            self.nas(2, "Authentication request"),
+            self.nas(3, "Authentication response"),
+            self.nas(4, "Security mode command"),
+        ], ngap=[self.ngap(5, "InitialContextSetupRequest")])
+        self.assertEqual(document["instances"], [])
+
+    def test_ciphered_nas_without_identity_creates_no_instance(self):
+        protected = self.nas(7, None, support_status="UNKNOWN", security={
+            "ciphered": True, "header_type": 2, "inner_message_available": False})
+        document, _ = self.analyze(nas=[protected], ngap=[self.ngap(8, "UplinkNASTransport")])
+        self.assertEqual(document["instances"], [])
+
+    def test_initial_ue_to_release_pair_creates_no_instance(self):
+        document, _ = self.analyze(ngap=[
+            self.ngap(2, "InitialUEMessage", amf=None),
+            self.ngap(9, "UEContextReleaseCommand"),
+        ])
+        self.assertEqual(document["instances"], [])
+        self.assertNotIn("PARTIAL_CAPTURE", [
+            d["type"] for instance in document["instances"] for d in instance["deviations"]])
+
+    def test_pfcp_transaction_alone_invents_no_session_id(self):
+        document, _ = self.analyze(pfcp=[self.pfcp(4)])
+        self.assertEqual(document["instances"], [])
+
+    def test_gtpu_traffic_alone_invents_no_session_id(self):
+        document, _ = self.analyze(gtpu=[self.gtpu(4)])
+        self.assertEqual(document["instances"], [])
+
+    def test_generic_ue_context_plus_pfcp_and_gtpu_still_creates_no_instance(self):
+        document, _ = self.analyze(
+            ngap=[self.ngap(3, "InitialUEMessage", amf=None), self.ngap(12, "UEContextReleaseCommand")],
+            pfcp=[self.pfcp(4)], gtpu=[self.gtpu(14)])
+        self.assertEqual(document["instances"], [])
+
+    def test_explicit_ngap_resource_item_creates_instance(self):
+        document, _ = self.analyze(ngap=[
+            self.ngap(5, "PDUSessionResourceSetupRequest",
+                      resources=[{"pdu_session_id": 7, "item_status": "SUCCEEDED", "qfi": 1}]),
+            self.ngap(6, "PDUSessionResourceSetupResponse",
+                      resources=[{"pdu_session_id": 7, "item_status": "SUCCEEDED"}]),
+        ])
+        self.assertEqual(len(document["instances"]), 1)
+        instance = document["instances"][0]
+        self.assertEqual(instance["pdu_session_id"], 7)
+        self.assertIsNotNone(instance["observation_window"]["first_frame"])
+
+    def test_explicit_nas_5gsm_identity_creates_bounded_instance(self):
+        document, _ = self.analyze(
+            nas=[self.nas(2, "PduSessionEstablishmentRequest", session_management={"pdu_session_id": 4, "pti": 1}),
+                 self.nas(3, "PduSessionEstablishmentAccept",
+                          session_management={"pdu_session_id": 4, "pti": 1})],
+            ngap=[self.ngap(1, "InitialUEMessage", amf=None)])
+        self.assertEqual(len(document["instances"]), 1)
+        instance = document["instances"][0]
+        self.assertEqual(instance["pdu_session_id"], 4)
+        window = instance["observation_window"]
+        self.assertEqual([window["first_frame"], window["last_frame"]], [2, 3])
+
+    def test_explicit_sbi_identity_creates_instance_only_with_unambiguous_context(self):
+        single = self.analyze(
+            ngap=[self.ngap(2, "InitialUEMessage")], sbi=[self.sbi(6, psi=5)])[0]
+        self.assertEqual(len(single["instances"]), 1)
+        instance = single["instances"][0]
+        self.assertEqual(instance["pdu_session_id"], 5)
+        self.assertEqual(instance["ue_context"]["ran_ue_ngap_id"], 1)
+
+        # Two distinct UE contexts share the capture: an equal numeric session id is
+        # not a safe association, so the identity stays context-unresolved instead
+        # of being bound to whichever context happens to come first.
+        ambiguous = self.analyze(
+            ngap=[self.ngap(2, "InitialUEMessage", ran=1, amf=1),
+                  self.ngap(3, "InitialUEMessage", ran=2, amf=2)],
+            sbi=[self.sbi(6, psi=5)])[0]
+        self.assertEqual(len(ambiguous["instances"]), 1)
+        context = ambiguous["instances"][0]["ue_context"]
+        self.assertIsNone(context["ran_ue_ngap_id"])
+        self.assertIsNone(context["amf_ue_ngap_id"])
+        self.assertIn(":psi5", ambiguous["instances"][0]["instance_id"])
+
+    def test_unbound_sbi_without_identity_creates_no_instance(self):
+        document, _ = self.analyze(sbi=[self.sbi(6, psi=None)])
+        self.assertEqual(document["instances"], [])
+
+    def test_multi_ue_input_never_merges_sessions(self):
+        document, _ = self.analyze(nas=[
+            self.nas(3, "PduSessionEstablishmentRequest", session_management={"pdu_session_id": 1, "pti": 1}),
+            self.nas(5, "PduSessionEstablishmentRequest", session_management={"pdu_session_id": 1, "pti": 2}),
+        ], ngap=[
+            self.ngap(3, "UplinkNASTransport", ran=1, amf=1),
+            self.ngap(5, "UplinkNASTransport", ran=2, amf=2),
+        ])
+        instances = document["instances"]
+        self.assertEqual(len(instances), 2)
+        self.assertEqual({i["pdu_session_id"] for i in instances}, {1})
+        self.assertEqual(sorted(i["ue_context"]["ran_ue_ngap_id"] for i in instances), [1, 2])
+        self.assertEqual(len({i["instance_id"] for i in instances}), 2)
+        self.assertEqual(sorted((i["observation_window"]["first_frame"],
+                                 i["observation_window"]["last_frame"]) for i in instances),
+                         [(3, 3), (5, 5)], "each session keeps only its own frame provenance")
+
+    def test_identical_psi_in_separate_ue_contexts_stays_separate(self):
+        document, _ = self.analyze(ngap=[
+            self.ngap(3, "PDUSessionResourceSetupRequest", ran=1, amf=1,
+                      resources=[{"pdu_session_id": 1, "item_status": "SUCCEEDED"}]),
+            self.ngap(4, "PDUSessionResourceSetupRequest", ran=2, amf=2,
+                      resources=[{"pdu_session_id": 1, "item_status": "SUCCEEDED"}]),
+        ])
+        instances = document["instances"]
+        self.assertEqual(len(instances), 2)
+        self.assertEqual(len({i["instance_id"] for i in instances}), 2)
+        for instance in instances:
+            ran = instance["ue_context"]["ran_ue_ngap_id"]
+            self.assertEqual(instance["observation_window"],
+                             {"first_frame": ran + 2, "last_frame": ran + 2})
+            for deviation in instance["deviations"]:
+                for ref in deviation["evidence_refs"]:
+                    self.assertEqual(ref["window_first_frame"], ran + 2)
+                    self.assertEqual(ref["window_last_frame"], ran + 2)
+
+    def test_repeated_psi_in_new_lifecycle_keeps_generation_rules(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("release-psi-reuse-after-complete", Path(directory))
+            instances = analysis["instances"]
+            self.assertEqual([i.get("session_generation") for i in instances], [1, 2])
+            self.assertEqual(instances[1].get("reuse_status"), "REESTABLISHED_AFTER_RELEASE_COMPLETE")
+
+    def test_valid_partial_capture_keeps_window_and_references(self):
+        document, _ = self.analyze(ngap=[
+            self.ngap(9, "PDUSessionResourceSetupRequest",
+                      resources=[{"pdu_session_id": 2, "item_status": "SUCCEEDED", "qfi": 1}]),
+        ])
+        self.assertEqual(len(document["instances"]), 1)
+        instance = document["instances"][0]
+        partials = [d for d in instance["deviations"] if d["type"] == "PARTIAL_CAPTURE"]
+        self.assertTrue(partials, "a session without its initiation stage keeps partial-capture visibility")
+        for deviation in partials:
+            self.assertTrue(deviation["evidence_refs"], "a partial-capture claim must stay anchored")
+            self.assertIsNotNone(deviation["evidence_refs"][0]["window_first_frame"])
+
+    def test_removed_instance_takes_its_partial_capture_with_it(self):
+        for kwargs in ({"ngap": [self.ngap(3, "InitialUEMessage", amf=None)]},
+                       {"pfcp": [self.pfcp(4)]},
+                       {"gtpu": [self.gtpu(4)]},
+                       {"nas": [self.nas(7, None, support_status="UNKNOWN")]},
+                       {"sbi": [self.sbi(6, psi=None)]}):
+            with self.subTest(input=sorted(kwargs)):
+                self.assert_no_session(self.analyze(**kwargs)[0])
+
+    def test_protected_nas_never_becomes_a_session_reject(self):
+        document, _ = self.analyze(
+            nas=[self.nas(2, "Registration request"),
+                 self.nas(7, None, support_status="UNKNOWN", security={
+                     "ciphered": True, "header_type": 2, "inner_message_available": False})],
+            ngap=[self.ngap(8, "DownlinkNASTransport", ran=1, amf=1)])
+        self.assertEqual(document["instances"], [])
+        self.assertNotIn("ESTABLISHMENT_REJECT_OBSERVED", str(document))
+
+    def test_package_runs_standalone_without_repository_root(self):
+        scripts = str(SCRIPTS)
+        with tempfile.TemporaryDirectory() as directory:
+            probe = Path(directory) / "probe.py"
+            probe.write_text(
+                "import sys\n"
+                "import pdu_session_model as model\n"
+                "bad = [m for m in sys.modules.values() if getattr(m, '__file__', None)\n"
+                "         and str(getattr(m, '__file__')).replace('\\\\', '/')]\n"
+                "print('OK', model.ANALYSIS_VERSION)\n",
+                encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(probe)],
+                cwd=directory, env={"PYTHONPATH": scripts, "SYSTEMROOT": os.environ.get("SYSTEMROOT", "")},
+                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr[-300:])
+        self.assertIn("OK", result.stdout)
 
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-ANALYSIS_VERSION = "0.4.1"
+ANALYSIS_VERSION = "0.4.2"
 PROCEDURE_NAME = "5gc-pdu-session"
 
 EXIT_MALFORMED_INPUT = 5
@@ -3068,28 +3068,28 @@ def analyze(
                     if ngap_ev not in inst["ngap_events"]:
                         inst["ngap_events"].append(ngap_ev)
 
-    # If no instances discovered yet, check if there's any single capture candidate
-    # (e.g. partial capture with only PFCP or NGAP without explicit resource list)
-    if not discovered_instances and (nas_events or owned_ngap or pfcp_events or sbi_events):
-        first_capture = next(
-            (e["capture_file"] for e in (nas_events + owned_ngap + pfcp_events + sbi_events) if "capture_file" in e),
-            "capture.pcap",
-        )
-        # Find any PSI in SBI or PFCP or NAS
-        found_psi = 1
-        for ev in sbi_events:
-            sm = ev.get("session_management")
-            if isinstance(sm, dict) and sm.get("pdu_session_id") is not None:
-                found_psi = sm["pdu_session_id"]
-                break
-        ctx = ngap_contexts[0] if ngap_contexts else {}
-        inst = get_or_create_instance(
-            first_capture,
-            ctx.get("ran_ue_ngap_id"),
-            ctx.get("amf_ue_ngap_id"),
-            ctx.get("sctp_association"),
-            found_psi,
-        )
+    # An instance requires an explicit, evidence-supported PDU Session ID. A generic
+    # UE context, security-protected NAS traffic, an unrelated PFCP transaction, or
+    # unbound SBI traffic is valid packet evidence but never establishes a session, so
+    # an unresolved identity stays unbound instead of being assumed.
+    if not discovered_instances:
+        for sbi_ev in sorted(sbi_events, key=_event_sort_key):
+            sm = sbi_ev.get("session_management")
+            psi = sm.get("pdu_session_id") if isinstance(sm, dict) else None
+            if psi is None:
+                continue
+            capture = sbi_ev["capture_file"]
+            same_capture = [c for c in ngap_contexts if c["capture_file"] == capture]
+            # Bind a UE context only when the capture leaves exactly one candidate;
+            # an equal numeric identifier across contexts is not a safe association.
+            ctx = same_capture[0] if len(same_capture) == 1 else {}
+            get_or_create_instance(
+                capture,
+                ctx.get("ran_ue_ngap_id"),
+                ctx.get("amf_ue_ngap_id"),
+                ctx.get("sctp_association"),
+                psi,
+            )
 
     # Attach any NGAP events carrying bound NAS messages to the respective instance
     for inst in discovered_instances.values():

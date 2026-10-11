@@ -19,6 +19,14 @@ implementation questions.
 - Form evidence-safe procedure instances from NGAP UE context (capture_file,
   SCTP association context, ran_ue_ngap_id, amf_ue_ngap_id) and pdu_session_id,
   with frame-provenance NAS joins.
+- Session identity gate: an instance is created only when a PDU Session ID is
+  explicitly present in a decoded 5GSM NAS message, an NGAP PDU Session Resource
+  item, or an SBI session-management payload that the model can bind. A generic UE
+  context, security-protected NAS with no decoded inner message, an unrelated PFCP
+  transaction, or unbound SBI or GTP-U traffic never creates an instance, and no
+  session identifier is ever assumed. A PFCP SEID, GTP-U TEID, or QFI is never
+  treated as a PDU Session ID. Evidence that cannot be bound stays visible in the
+  unbound-evidence sections.
 - Evaluate the 7 bounded establishment stages:
   1. `session_request` (N1 NAS-5GS)
   2. `sm_context_control` (N11 3GPP-SBI)

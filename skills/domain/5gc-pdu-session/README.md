@@ -2,11 +2,14 @@
 
 `5gc-pdu-session` is the bounded Domain Skill for 5GC PDU Session Establishment,
 Modification, and Release procedures and immediate post-establishment /
-post-modification / post-release N3 user-plane observation evidence, version 0.4.1.
+post-modification / post-release N3 user-plane observation evidence, version 0.4.2.
 It consumes already-extracted structured evidence from N1 (nas-5gs), N2 (ngap),
 N3 (gtpu), N4 (pfcp), and N11 (sbi-http2), plus optional cross-protocol-evidence
-correlation output. It forms evidence-safe procedure instances, evaluates the
-partial-order stage model across 7 establishment stages, 7 modification stages,
+correlation output. It forms evidence-safe procedure instances, each gated on an
+explicitly observed PDU Session ID from a decoded 5GSM message, an NGAP PDU Session
+Resource item, or a bindable SBI session payload — never from a generic UE context,
+ciphered NAS, an unrelated PFCP transaction, or an assumed default identifier,
+evaluates the partial-order stage model across 7 establishment stages, 7 modification stages,
 and 7 release stages per repeated attempt, associates cross-plane modification and
 release evidence through an explicit candidate model with per-attempt control and
 observation windows, splits lifecycle generations when the same UE context
