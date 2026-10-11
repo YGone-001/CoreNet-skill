@@ -8,10 +8,13 @@ limitations are structural, not defects.
 - The analysis sees only the supplied events. First and last timestamps
   and frames are preserved on every instance so the window stays
   explicit.
-- An expected counterpart absent near the capture end may simply be
-  outside the window; the analysis states that capture termination may
-  explain the missing evidence rather than asserting absence on the
-  network.
+- An expected counterpart that stays unobserved is not automatically an
+  absence claim. When the observation window ends at the stage trigger,
+  or when the counterpart could be inside a protected NAS envelope, the
+  stage records that limitation and no missing-counterpart deviation is
+  published; a deviation is published only when the branch was entered,
+  the counterpart stayed observable, and the window continued past the
+  trigger without it.
 - A capture that begins mid-procedure is marked PARTIAL_CAPTURE: earlier
   stages may exist outside the capture, and entry/conditional decisions
   made before the window are unknowable from this evidence.

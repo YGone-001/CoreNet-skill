@@ -13,28 +13,6 @@
       },
       "deviations": [
         {
-          "description": "The NAS security establishment branch was entered (trigger at frame 11) but none of its expected outcomes was observed",
-          "evidence_level": "DERIVED",
-          "evidence_refs": [
-            {
-              "capture_file": "reg.pcapng",
-              "evidence_level": "DERIVED",
-              "field_name": null,
-              "frame_number": null,
-              "kind": "OBSERVATION_WINDOW",
-              "message_type": null,
-              "protocol": null,
-              "stage_id": "security-mode",
-              "timestamp": null,
-              "window_first_frame": 10,
-              "window_last_frame": 13
-            }
-          ],
-          "limitation": "Capture termination may explain the missing evidence",
-          "stage_id": "security-mode",
-          "type": "MISSING_EXPECTED_COUNTERPART"
-        },
-        {
           "description": "A protected NAS envelope at frame 12 carried no decodable inner message",
           "evidence_level": "OBSERVED",
           "evidence_refs": [
@@ -77,28 +55,6 @@
           "limitation": "Inner contents were never guessed",
           "stage_id": null,
           "type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE"
-        },
-        {
-          "description": "No Registration accept or Registration reject was observed within the available observation window",
-          "evidence_level": "DERIVED",
-          "evidence_refs": [
-            {
-              "capture_file": "reg.pcapng",
-              "evidence_level": "DERIVED",
-              "field_name": null,
-              "frame_number": null,
-              "kind": "OBSERVATION_WINDOW",
-              "message_type": null,
-              "protocol": null,
-              "stage_id": "registration-decision",
-              "timestamp": null,
-              "window_first_frame": 10,
-              "window_last_frame": 13
-            }
-          ],
-          "limitation": "Capture termination may explain the missing evidence",
-          "stage_id": "registration-decision",
-          "type": "MISSING_EXPECTED_COUNTERPART"
         }
       ],
       "events": [
@@ -442,14 +398,16 @@
           "confidence": "MEDIUM",
           "evidence_basis": "OBSERVED",
           "expected_evidence": [],
-          "limitations": [],
+          "limitations": [
+            "No Registration accept or Registration reject was observable within the available observation window; the terminal decision branch is activated only by an observed accept or reject, so this absence is an evidence limitation and not an asserted missing counterpart"
+          ],
           "missing_evidence": [],
           "observation_group": "reg.pcapng",
           "observed_evidence": [
             "NAS-5GS Registration request observed at frame 10 (2024-01-02T03:04:10.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "0.2.2",
+          "procedure_version": "0.2.3",
           "stage": {
             "expected_message_types": [
               "InitialUEMessage",
@@ -471,7 +429,7 @@
             "NAS-5GS Security mode reject"
           ],
           "limitations": [
-            "Capture termination may explain the missing evidence if the counterpart falls outside the observation window"
+            "The expected NAS counterpart may be inside the protected envelope at frame(s) 12, 13; the inner message identity was not decoded, so its absence is recorded as an evidence limitation and not asserted"
           ],
           "missing_evidence": [
             "NAS-5GS Security mode complete evidence was not observed within the available observation window",
@@ -482,7 +440,7 @@
             "NAS-5GS Security mode command observed at frame 11 (2024-01-02T03:04:11.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "0.2.2",
+          "procedure_version": "0.2.3",
           "stage": {
             "expected_message_types": [
               "Security mode command",
@@ -506,7 +464,7 @@
       }
     }
   ],
-  "analysis_version": "0.2.2",
+  "analysis_version": "0.2.3",
   "correlation_conflicts": [],
   "procedure_family": "5gc-registration-mobility",
   "unbound_records": []

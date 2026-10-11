@@ -146,11 +146,19 @@ class ProcedureModelTests(unittest.TestCase):
             self.assertTrue(any(f["field_name"] == "5GMM cause" for f in instance["field_findings"]))
 
     def test_missing_expected_counterpart(self):
+        # Only branches that are entered and whose counterpart stays observable inside a
+        # window that continues past the trigger may assert a missing counterpart.
         with tempfile.TemporaryDirectory() as directory:
-            for scenario in ("security-command-truncated", "auth-truncated", "accept-no-complete"):
+            for scenario in ("accept-no-complete", "binding-conflict", "complete-then-release",
+                             "duplicate", "partial-start", "release-paging-no-response"):
                 analysis, _stages = run_scenario(scenario, Path(directory))
                 instance = first_instance(analysis)
-                self.assertIn(MODEL.DEVIATION_MISSING_COUNTERPART, {d["type"] for d in instance["deviations"]}, scenario)
+                counterparts = [d for d in instance["deviations"]
+                                if d["type"] == MODEL.DEVIATION_MISSING_COUNTERPART]
+                self.assertTrue(counterparts, scenario)
+                stage_ids = {record["stage"]["stage_id"] for record in instance["stage_records"]}
+                for deviation in counterparts:
+                    self.assertIn(deviation["stage_id"], stage_ids, scenario)
 
     def test_initial_context_setup_outcomes(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -658,6 +666,261 @@ class ProtectedEnvelopeCarrierTests(unittest.TestCase):
         self.assertEqual(instance["confidence"], "LOW")
         self.assertEqual(instance["terminal"]["observation"],
                          "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW")
+
+
+class CounterpartEvidenceGatingTests(unittest.TestCase):
+    """corr-03: an absence is asserted only when the evidence can support it.
+
+    Not observed, not decodable, not expected on this branch and an incomplete window
+    are four different statements. Only a branch that was demonstrably entered, whose
+    counterpart stays observable, and whose window continues past the trigger may
+    publish a selectable missing-counterpart deviation.
+    """
+
+    NAS_TEMPLATE = {
+        "capture_file": "reg.pcapng", "cause": {"code": None, "name": None},
+        "identity": {"value": None}, "nas_family": "5GMM",
+        "registration": {"type_name": None},
+        "security": {"header_type": 2, "inner_message_available": True},
+        "security_mode": {"ciphering_algorithm_name": None, "integrity_algorithm_name": None},
+        "support_status": "SUPPORTED",
+    }
+    NGAP_TEMPLATE = {
+        "amf_ue_ngap_id": 1, "capture_file": "reg.pcapng", "cause": None,
+        "pdu_type": None, "procedure_name": None, "protocol": "NGAP", "ran_ue_ngap_id": 1,
+        "sctp": {"association_id": 0, "dstport": 38412, "srcport": 31000, "stream_id": 0},
+        "support_status": "SUPPORTED",
+    }
+
+    def write_events(self, directory: Path, name: str, rows, template):
+        path = directory / f"{name}.jsonl"
+        with path.open("w", encoding="utf-8", newline="\n") as handle:
+            for row in rows:
+                record = dict(template)
+                record.update(row)
+                handle.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+        return path
+
+    def analyze_synthetic(self, nas_rows, ngap_rows, directory: Path):
+        nas_path = self.write_events(directory, "nas", nas_rows, self.NAS_TEMPLATE)
+        ngap_path = self.write_events(directory, "ngap", ngap_rows, self.NGAP_TEMPLATE)
+        return MODEL.analyze(MODEL.load_ngap_events(ngap_path), MODEL.load_nas_events(nas_path), [], RULES)
+
+    @staticmethod
+    def stamp(frame: int) -> str:
+        return f"2024-01-02T03:04:{frame:02d}.00Z"
+
+    def nas_row(self, frame, message_type, **extra):
+        row = {"frame_number": frame, "message_type": message_type, "timestamp": self.stamp(frame)}
+        row.update(extra)
+        return row
+
+    def ngap_row(self, frame, message_type, **extra):
+        row = {"frame_number": frame, "message_type": message_type, "timestamp": self.stamp(frame)}
+        row.update(extra)
+        return row
+
+    @staticmethod
+    def protected(frame: int):
+        return {"ciphered": True, "header_type": 2, "inner_message_available": False}
+
+    @staticmethod
+    def counterparts(document):
+        return [deviation for instance in document["analyses"] for deviation in instance["deviations"]
+                if deviation["type"] == MODEL.DEVIATION_MISSING_COUNTERPART]
+
+    def test_initial_ue_message_alone_does_not_assert_missing_decision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            document = self.analyze_synthetic(
+                [], [self.ngap_row(10, "InitialUEMessage")], Path(directory))
+        self.assertEqual(self.counterparts(document), [])
+        limitations = [line for record in document["stage_records"] for line in record["limitations"]]
+        self.assertTrue(any("terminal decision branch is activated only by an observed" in line
+                            for line in limitations), "terminal absence must stay visible as a limitation")
+
+    def test_authentication_negative_does_not_assert_missing_decision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            document = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, "Authentication request"),
+                 self.nas_row(12, "Authentication failure"),
+                 self.nas_row(13, "Authentication reject")],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "UplinkNASTransport"),
+                 self.ngap_row(12, "DownlinkNASTransport"),
+                 self.ngap_row(13, "UplinkNASTransport")],
+                Path(directory))
+        instance = document["analyses"][0]
+        self.assertEqual(self.counterparts(document), [],
+                         "a procedure that stopped at Authentication owes no terminal Registration decision")
+        types = {d["type"] for d in instance["deviations"]}
+        self.assertIn(MODEL.DEVIATION_PROTOCOL_REJECT, types)
+        self.assertIn(MODEL.DEVIATION_UNSUCCESSFUL, types)
+
+    def test_protected_uplink_hides_the_security_mode_counterpart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            document = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, "Security mode command"),
+                 self.nas_row(12, None, support_status="UNKNOWN", security=self.protected(12)),
+                 self.nas_row(13, "Registration complete")],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "DownlinkNASTransport"),
+                 self.ngap_row(12, "UplinkNASTransport"),
+                 self.ngap_row(13, "UplinkNASTransport")],
+                Path(directory))
+        security = [c for c in self.counterparts(document) if c["stage_id"] == "security-mode"]
+        self.assertEqual(security, [], "a ciphered uplink cannot prove Security mode complete was absent")
+        record = next(r for r in document["stage_records"] if r["stage"]["stage_id"] == "security-mode")
+        self.assertTrue(any("may be inside the protected envelope at frame(s) 12" in line
+                            for line in record["limitations"]))
+        self.assertEqual(record["evidence_basis"], "DERIVED")
+        self.assertEqual(record["confidence"], "LOW")
+
+    def test_protected_terminal_traffic_does_not_prove_terminal_absence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            document = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, None, support_status="UNKNOWN", security=self.protected(11)),
+                 self.nas_row(12, None, support_status="UNKNOWN", security=self.protected(12))],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "UplinkNASTransport"),
+                 self.ngap_row(12, "DownlinkNASTransport")],
+                Path(directory))
+        self.assertEqual(self.counterparts(document), [])
+        instance = document["analyses"][0]
+        self.assertEqual(instance["terminal"]["observation"], "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW")
+        self.assertIsNone(instance["terminal"]["message_type"])
+
+    def test_window_ending_at_the_trigger_is_a_capture_limitation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            document = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, "Security mode command")],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "DownlinkNASTransport")],
+                Path(directory))
+        self.assertEqual(self.counterparts(document), [])
+        record = next(r for r in document["stage_records"] if r["stage"]["stage_id"] == "security-mode")
+        self.assertTrue(any("observation window ends at the stage trigger frame 11" in line
+                            for line in record["limitations"]))
+        self.assertTrue(any("Security mode complete" in line for line in record["missing_evidence"]))
+
+    def test_continued_decodable_traffic_still_asserts_the_counterpart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            document = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, "Authentication request"),
+                 self.nas_row(12, "Security mode command")],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "UplinkNASTransport"),
+                 self.ngap_row(12, "DownlinkNASTransport")],
+                Path(directory))
+        counterparts = self.counterparts(document)
+        self.assertEqual([c["stage_id"] for c in counterparts], ["authentication"],
+                         "a branch that is entered and stays observable must keep reporting its missing outcome")
+        stage_ids = {r["stage"]["stage_id"] for r in document["analyses"][0]["stage_records"]}
+        self.assertTrue({c["stage_id"] for c in counterparts} <= stage_ids)
+
+    def test_no_stage_position_is_invented_for_an_unentered_branch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            document = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request")],
+                [self.ngap_row(10, "InitialUEMessage")], Path(directory))
+        stage_ids = {r["stage"]["stage_id"] for r in document["stage_records"]}
+        self.assertNotIn("registration-decision", stage_ids,
+                         "an absent counterpart must not fabricate an observed stage")
+        self.assertNotIn("registration-completion", stage_ids)
+
+    def test_eligible_absence_claims_publish_a_stage_record_position(self):
+        for source in sorted(path.name for path in INPUTS.iterdir() if path.is_dir()):
+            with self.subTest(scenario=source):
+                with tempfile.TemporaryDirectory() as directory:
+                    analysis, _ = run_scenario(source, Path(directory))
+                eligible = {MODEL.DEVIATION_MISSING_COUNTERPART, MODEL.DEVIATION_PROTOCOL_REJECT,
+                            MODEL.DEVIATION_UNSUCCESSFUL}
+                for instance in analysis["analyses"]:
+                    stage_ids = {r["stage"]["stage_id"] for r in instance["stage_records"]}
+                    for deviation in instance["deviations"]:
+                        if deviation["type"] in eligible and deviation["stage_id"] is not None:
+                            self.assertIn(deviation["stage_id"], stage_ids)
+
+    def test_no_synthetic_terminal_message_is_introduced(self):
+        with tempfile.TemporaryDirectory() as directory:
+            document = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, None, support_status="UNKNOWN", security=self.protected(11)),
+                 self.nas_row(12, "Service request")],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "UplinkNASTransport"),
+                 self.ngap_row(12, "UplinkNASTransport")],
+                Path(directory))
+        instance = document["analyses"][0]
+        observed = {event["message_type"] for event in instance["events"]}
+        self.assertNotIn("Registration accept", observed)
+        self.assertNotIn("Registration complete", observed)
+        self.assertEqual(instance["terminal"]["observation"], "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW")
+
+    def test_observed_negative_outcomes_keep_frame_provenance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            document = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, "Authentication request"),
+                 self.nas_row(12, "Authentication failure"),
+                 self.nas_row(13, "Authentication reject")],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "UplinkNASTransport"),
+                 self.ngap_row(12, "DownlinkNASTransport"),
+                 self.ngap_row(13, "UplinkNASTransport")],
+                Path(directory))
+        frames = {}
+        for deviation in document["analyses"][0]["deviations"]:
+            if deviation["type"] in (MODEL.DEVIATION_UNSUCCESSFUL, MODEL.DEVIATION_PROTOCOL_REJECT):
+                ref = deviation["evidence_refs"][0]
+                self.assertEqual(ref["kind"], "EVENT")
+                frames[deviation["type"]] = ref["frame_number"]
+        self.assertEqual(frames, {MODEL.DEVIATION_UNSUCCESSFUL: 12, MODEL.DEVIATION_PROTOCOL_REJECT: 13})
+
+    def test_existing_partial_capture_semantics_remain_intact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("partial-start", Path(directory))
+        instance = first_instance(analysis)
+        self.assertIn(MODEL.DEVIATION_PARTIAL_CAPTURE, {d["type"] for d in instance["deviations"]})
+        self.assertIn(MODEL.DEVIATION_MISSING_COUNTERPART, {d["type"] for d in instance["deviations"]},
+                      "the entered authentication branch stays asserted")
+
+    def test_multi_ue_and_association_isolation_remain_intact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("cross-association", Path(directory))
+        instances = analysis["analyses"]
+        self.assertEqual(len(instances), 2)
+        self.assertNotEqual(instances[0]["instance_id"], instances[1]["instance_id"])
+        frames_a = {e["frame_number"] for e in instances[0]["events"]}
+        frames_b = {e["frame_number"] for e in instances[1]["events"]}
+        self.assertEqual(frames_a & frames_b, set())
+
+    def test_explicit_registration_reject_remains_intact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("registration-reject", Path(directory))
+        instance = first_instance(analysis)
+        self.assertEqual(instance["terminal"]["observation"], "REGISTRATION_REJECT_OBSERVED")
+        self.assertTrue(isinstance(instance["terminal"]["frame_number"], int))
+        self.assertIn(MODEL.DEVIATION_PROTOCOL_REJECT, {d["type"] for d in instance["deviations"]})
+
+    def test_explicit_registration_complete_remains_intact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("full-registration", Path(directory))
+        instance = first_instance(analysis)
+        self.assertEqual(instance["terminal"]["observation"], "REGISTRATION_COMPLETE_OBSERVED")
+        self.assertEqual(instance["deviations"], [])
+
+    def test_corr01_protected_envelope_carrier_remains_intact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("ciphered-envelope-unknown-status", Path(directory))
+        types = [d["type"] for d in analysis["analyses"][0]["deviations"]]
+        self.assertEqual(types.count("PROTECTED_INNER_MESSAGE_UNAVAILABLE"), 2)
+        self.assertEqual(types.count("UNKNOWN_OR_RESERVED_PROTOCOL_VALUE"), 0)
+        self.assertEqual(types.count(MODEL.DEVIATION_MISSING_COUNTERPART), 0)
 
 
 if __name__ == "__main__":

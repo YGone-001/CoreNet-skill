@@ -42,7 +42,7 @@ EXIT_MALFORMED_INPUT = 5
 EXIT_NO_EVENTS = 6
 EXIT_OUTPUT_FAILURE = 7
 
-ANALYSIS_VERSION = "0.2.2"
+ANALYSIS_VERSION = "0.2.3"
 PROCEDURE_FAMILY = "5gc-registration-mobility"
 
 FORBIDDEN_OUTPUT_PATTERN = re.compile(r"(?i)\b(?:root[ _-]?cause|implementation[ _-]?(?:bug|blame))\b")
@@ -131,6 +131,21 @@ def _protected_envelope_without_inner_message(event: dict[str, object]) -> bool:
         return False
     security = event.get("security")
     return isinstance(security, dict) and security.get("inner_message_available") is False
+
+
+def _undecodable_nas_frames_after(events: list[dict[str, object]], trigger_frame: int | None) -> list[int]:
+    """Frames of protected NAS envelopes that appear after a stage trigger.
+
+    A protected envelope hides its inner message identity, so a NAS counterpart that
+    should have appeared somewhere after the trigger may be inside one of them. Absence
+    of a decodable record of it is not evidence that the message did not occur.
+    """
+    if trigger_frame is None:
+        return []
+    return sorted({
+        int(event["frame_number"]) for event in events
+        if _protected_envelope_without_inner_message(event) and int(event["frame_number"]) > trigger_frame
+    })
 
 
 REJECT_MESSAGES = {"Registration reject", "Authentication reject", "Security mode reject", "Service reject"}
@@ -641,18 +656,36 @@ def evaluate_instance(
         if outcome_keys and not state["outcomes"]:
             for protocol_name, message in outcome_keys:
                 missing_statements.append(f"{protocol_name} {message} evidence was not observed within the available observation window")
-            deviations.append({
-                "type": DEVIATION_MISSING_COUNTERPART,
-                "stage_id": stage["stage_id"],
-                "description": f"The {stage['stage_name']} branch was entered (trigger at frame {state['trigger']['frame_number'] if state['trigger'] else 'n/a'}) but none of its expected outcomes was observed",
-                "evidence_level": "DERIVED",
-                "limitation": "Capture termination may explain the missing evidence",
-                "evidence_refs": [_window_evidence_ref(capture_file, instance_window[0], instance_window[1],
-                                                       stage_id=stage["stage_id"])] if instance_window else [],
-            })
-            limitations.append("Capture termination may explain the missing evidence if the counterpart falls outside the observation window")
+            trigger_frame = int(state["trigger"]["frame_number"]) if state["trigger"] is not None else None
+            later_frames = [int(event["frame_number"]) for event in merged
+                            if trigger_frame is not None and int(event["frame_number"]) > trigger_frame]
+            hidden_in = _undecodable_nas_frames_after(
+                merged, trigger_frame) if any(protocol == "NAS-5GS" for protocol, _ in outcome_keys) else []
             basis = "DERIVED"
             confidence = "LOW"
+            if hidden_in:
+                limitations.append(
+                    "The expected NAS counterpart may be inside the protected envelope at frame(s) "
+                    f"{', '.join(str(frame) for frame in hidden_in)}; the inner message identity was not "
+                    "decoded, so its absence is recorded as an evidence limitation and not asserted"
+                )
+            elif not later_frames:
+                limitations.append(
+                    f"The observation window ends at the stage trigger frame {trigger_frame}; the capture may "
+                    "have stopped before the counterpart could appear, so its absence is recorded as an evidence "
+                    "limitation and not asserted"
+                )
+            else:
+                deviations.append({
+                    "type": DEVIATION_MISSING_COUNTERPART,
+                    "stage_id": stage["stage_id"],
+                    "description": f"The {stage['stage_name']} branch was entered (trigger at frame {state['trigger']['frame_number'] if state['trigger'] else 'n/a'}) but none of its expected outcomes was observed",
+                    "evidence_level": "DERIVED",
+                    "limitation": "Capture termination may explain the missing evidence",
+                    "evidence_refs": [_window_evidence_ref(capture_file, instance_window[0], instance_window[1],
+                                                           stage_id=stage["stage_id"])] if instance_window else [],
+                })
+                limitations.append("Capture termination may explain the missing evidence if the counterpart falls outside the observation window")
         elif outcome_keys:
             confidence = "HIGH"
         stage_records.append(_stage_record(
@@ -730,15 +763,21 @@ def evaluate_instance(
         }
         registration_messages = {"Registration request", "Registration accept", "Registration reject", "Registration complete"}
         if any(str(event.get("message_type")) in registration_messages or str(event.get("message_type")) == "InitialUEMessage" for event in merged):
-            deviations.append({
-                "type": DEVIATION_MISSING_COUNTERPART,
-                "stage_id": "registration-decision",
-                "description": "No Registration accept or Registration reject was observed within the available observation window",
-                "evidence_level": "DERIVED",
-                "limitation": "Capture termination may explain the missing evidence",
-                "evidence_refs": [_window_evidence_ref(capture_file, instance_window[0], instance_window[1],
-                                                       stage_id="registration-decision")] if instance_window else [],
-            })
+            # The decision branch is activated by an observed accept or reject, so neither
+            # is present here and no stage record carries its position. Absence of both is
+            # therefore a limitation on the visible evidence, never an asserted counterpart.
+            carrier = next(
+                (record for record in stage_records
+                 if record["stage"]["stage_id"] in ("registration-decision", "registration-initiation")),
+                None,
+            )
+            if carrier is not None:
+                carrier["limitations"].append(
+                    "No Registration accept or Registration reject was observable within the available "
+                    "observation window; the terminal decision branch is activated only by an observed "
+                    "accept or reject, so this absence is an evidence limitation and not an asserted "
+                    "missing counterpart"
+                )
 
     deviation_types = {deviation["type"] for deviation in deviations}
     if DEVIATION_CORRELATION_CONFLICT in deviation_types:

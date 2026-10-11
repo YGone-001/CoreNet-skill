@@ -19,9 +19,10 @@ the nas-5gs Skill.
   analyzer asserts no further completion expectation: only the
   reject/accept observations are definitive in the reviewed basis, and
   Service accept is not claimed as mandatory in every context.
-- A Service request with neither accept nor reject visible before the
-  capture ends is a MISSING_EXPECTED_COUNTERPART deviation with the
-  capture-boundary limitation.
+- A Service request with neither accept nor reject visible is a
+  MISSING_EXPECTED_COUNTERPART deviation only when the capture continued
+  past the request with decodable evidence; a request at the end of the
+  window records the capture limitation instead.
 
 ## Boundary
 

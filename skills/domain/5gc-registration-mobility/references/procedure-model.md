@@ -27,9 +27,14 @@ Identity, authentication, and security mode depend on existing context
 and validly may be absent. If a conditional branch was not entered, its
 absence is not a deviation. If its trigger was observed, the branch's
 expected outcomes become relevant evidence: observing the trigger
-without any outcome within the observation window produces a
-MISSING_EXPECTED_COUNTERPART deviation with capture-boundary
-limitations.
+without any outcome produces a MISSING_EXPECTED_COUNTERPART deviation
+only when the counterpart stayed observable and the observation window
+continued past the trigger. When the window ends at the trigger, or a
+protected NAS envelope could carry the inner counterpart, the stage
+records that limitation instead, and the Registration terminal decision
+absence is carried by the terminal observation rather than by a
+selectable deviation, because that branch is activated only by an
+observed accept or reject.
 
 ## Reaction-driven expectations
 

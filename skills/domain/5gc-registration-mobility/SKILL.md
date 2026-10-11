@@ -116,8 +116,15 @@ preserved with the UNKNOWN_OR_RESERVED deviation and limit procedure
 interpretation; no semantics are invented. A protected NAS envelope
 that exposes no decodable inner message carries no message-type octet,
 so it is reported once as PROTECTED_INNER_MESSAGE_UNAVAILABLE and never
-also as an unknown or reserved protocol value. When context cannot
-resolve a record to a procedure instance, it stays UNBOUND.
+also as an unknown or reserved protocol value. A missing counterpart is
+asserted only when its branch was entered, the counterpart stayed
+observable, and the window continued past the trigger; a counterpart
+that could be inside a protected envelope, or a window that ends at the
+trigger, is recorded as a stage limitation instead. Absence of a
+Registration accept or reject stays a terminal-evidence limitation,
+because that branch activates only on an observed accept or reject. When
+context cannot resolve a record to a procedure instance, it stays
+UNBOUND.
 
 ## Validation
 

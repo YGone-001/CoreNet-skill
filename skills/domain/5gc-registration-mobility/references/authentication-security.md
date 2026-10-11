@@ -12,9 +12,11 @@ semantics supplied by the nas-5gs Skill.
 - Authentication reject and Authentication failure are
   PROTOCOL_REJECT_OBSERVED / UNSUCCESSFUL_OUTCOME_OBSERVED deviations
   with the 5GMM Cause preserved (for example Synch failure).
-- An Authentication request with no visible outcome inside the
-  observation window is MISSING_EXPECTED_COUNTERPART with capture-
-  boundary limitations.
+- An Authentication request with no visible outcome inside an
+  observation window that continues past the request with decodable
+  evidence is MISSING_EXPECTED_COUNTERPART. When the window ends at the
+  request, the stage records the capture limitation instead of asserting
+  the absence.
 - Prohibited conclusions: defective SIM, defective UDM or AUSF,
   defective AMF, or clock problems. Those are hypotheses that require
   evidence this Skill does not hold.
@@ -35,8 +37,10 @@ output.
   envelope context are preserved as field findings.
 - Security mode complete is not proof that the security context is
   correct; it proves the message was observed. A command with neither
-  outcome visible is a missing-counterpart deviation with the
-  capture-boundary limitation.
+  outcome visible is a missing-counterpart deviation only when the
+  counterpart stayed observable and the window continued past the
+  command; a following ciphered uplink or a window that ends at the
+  command yields a stage limitation instead.
 
 ## Protected NAS envelopes
 

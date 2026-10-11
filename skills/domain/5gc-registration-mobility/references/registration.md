@@ -36,9 +36,11 @@ Security mode command triggers the branch; Security mode complete or
 Security mode reject are the observed outcomes. Selected NAS ciphering
 and integrity protection algorithms, when supplied by nas-5gs, are
 recorded as protocol-level field findings; no cryptographic assessment
-is performed. A command with neither outcome visible in the observation
-window is a missing-expected-counterpart deviation, never an
-implementation failure.
+is performed. A command with neither outcome visible is a
+missing-expected-counterpart deviation only when the window continued
+past the command with decodable evidence; where the following uplink NAS
+is ciphered, or the window ends at the command, the stage records the
+limitation instead. Neither case is an implementation failure.
 
 ## Decision
 

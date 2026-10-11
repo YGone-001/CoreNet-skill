@@ -37,6 +37,11 @@ SCENARIOS = {
     "ciphered-envelope-unknown-status",
 }
 CAPTURE_SUFFIXES = {".pcap", ".pcapng", ".cap"}
+# Deviation types Analysis Orchestration may promote to a boundary candidate. A
+# candidate-eligible deviation may only cite a stage its own instance published.
+CANDIDATE_ELIGIBLE_TYPES = {
+    "PROTOCOL_REJECT_OBSERVED", "UNSUCCESSFUL_OUTCOME_OBSERVED", "MISSING_EXPECTED_COUNTERPART",
+}
 TEXT_SUFFIXES = {".md", ".py", ".yaml", ".json", ".jsonl", ".txt"}
 ABSOLUTE_PATH = re.compile(r"(?i)(?:[a-z]:[\\/]+users[\\/]|(?:^|[\s\"'])/(?:home|users)/)")
 SUBSCRIBER_VALUE = re.compile(r'(?i)"(?:imsi|supi|suci|msisdn|imei)"\s*:\s*"[^"\n]+"')
@@ -69,7 +74,8 @@ def manifest_block_or_flow(text: str, key: str) -> list[str]:
 def check_structured_provenance(root: Path, errors: list[str]) -> None:
     """Every OBSERVED boundary-eligible deviation must carry structured event
     provenance; every MISSING_EXPECTED_COUNTERPART must carry an
-    observation-window ref. Prose is never a machine identity contract."""
+    observation-window ref and may only cite a stage its instance published.
+    Prose is never a machine identity contract."""
     expected_dir = root / "skills/domain/5gc-registration-mobility/examples/expected"
     if not expected_dir.is_dir():
         return
@@ -83,11 +89,18 @@ def check_structured_provenance(root: Path, errors: list[str]) -> None:
         except json.JSONDecodeError:
             continue
         for analysis in doc.get("analyses", []):
+            stage_ids = {record.get("stage", {}).get("stage_id") for record in analysis.get("stage_records", [])}
             for deviation in analysis.get("deviations", []):
                 refs = deviation.get("evidence_refs")
                 if not isinstance(refs, list) or not refs:
                     errors.append(f"{path.name}: deviation {deviation.get('type')} lacks structured evidence_refs")
                     continue
+                if (deviation.get("type") in CANDIDATE_ELIGIBLE_TYPES and deviation.get("stage_id") is not None
+                        and deviation["stage_id"] not in stage_ids):
+                    errors.append(
+                        f"{path.name}: candidate-eligible deviation {deviation.get('type')} cites stage "
+                        f"{deviation['stage_id']!r}, which has no stage record in the same instance"
+                    )
                 if deviation.get("type") in eligible_observed and deviation.get("evidence_level") == "OBSERVED":
                     if not any(r.get("kind") == "EVENT" and r.get("frame_number") is not None for r in refs):
                         errors.append(f"{path.name}: OBSERVED deviation {deviation.get('type')} lacks a structured EVENT ref with frame provenance")
@@ -109,7 +122,7 @@ def validate(root: Path) -> list[str]:
     if errors:
         return errors
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "5gc-registration-mobility"), ("version", "0.2.2"), ("category", "domain")):
+    for key, expected in (("name", "5gc-registration-mobility"), ("version", "0.2.3"), ("category", "domain")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
     if not re.search(r"(?m)^\s*required:\s*\[\]\s*$", manifest):
