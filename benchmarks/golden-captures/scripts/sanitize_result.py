@@ -13,6 +13,110 @@ import sys
 from pathlib import Path
 
 
+class SanitizeError(ValueError):
+    """A raw orchestration artifact violates the selected-boundary contract.
+
+    The sanitizer must never fabricate a semantic identity or a frame anchor when
+    the authoritative Orchestration model produced none. Contract violations fail
+    loudly so the original evidence survives outside the tracked repository instead
+    of being silently rewritten into a bogus selected boundary.
+    """
+
+
+def _require_identity(value, field_label: str, case_id: str):
+    """Reject a missing required identity instead of substituting a placeholder."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        raise SanitizeError(f"{case_id}: selected boundary is missing required {field_label}")
+    return value
+
+
+def _extract_selected_boundary(primary: dict, selected_boundary, case_id: str) -> dict:
+    """Extract the selected boundary from the authoritative nested contract.
+
+    The Orchestration model publishes::
+
+        selected_boundary = {"candidate_id": ..., "boundary_ref": <candidate>}
+
+    and every semantic property (source domain, procedure family/stage, deviation
+    type, evidence level, frame anchor) lives inside ``boundary_ref``. This helper
+    reads that structure, verifies the selected candidate identity against the
+    group's ``candidate_boundaries``, preserves the legitimately nullable procedure
+    stage, and fails loudly instead of inventing a frame or an ``UNKNOWN`` identity.
+    """
+    if not isinstance(selected_boundary, dict):
+        raise SanitizeError(f"{case_id}: selected_boundary is not an object")
+
+    candidate_id = selected_boundary.get("candidate_id")
+    if not isinstance(candidate_id, str) or not candidate_id.strip():
+        raise SanitizeError(f"{case_id}: selected_boundary is missing candidate_id")
+
+    boundary_ref = selected_boundary.get("boundary_ref")
+    if not isinstance(boundary_ref, dict):
+        raise SanitizeError(f"{case_id}: selected_boundary.boundary_ref is missing or not an object")
+
+    ref_candidate_id = boundary_ref.get("candidate_id")
+    if ref_candidate_id != candidate_id:
+        raise SanitizeError(
+            f"{case_id}: selected_boundary.candidate_id {candidate_id!r} does not match "
+            f"boundary_ref.candidate_id {ref_candidate_id!r}"
+        )
+
+    # Candidate identity integrity: the selected candidate must be one of the
+    # candidate boundaries the Orchestration runtime actually emitted.
+    candidate_boundaries = primary.get("candidate_boundaries")
+    if not isinstance(candidate_boundaries, list) or not any(
+        isinstance(candidate, dict) and candidate.get("candidate_id") == candidate_id
+        for candidate in candidate_boundaries
+    ):
+        raise SanitizeError(
+            f"{case_id}: selected candidate {candidate_id!r} is not present in candidate_boundaries"
+        )
+
+    anchor = boundary_ref.get("boundary_anchor")
+    if not isinstance(anchor, dict):
+        raise SanitizeError(
+            f"{case_id}: selected_boundary.boundary_ref.boundary_anchor is missing or not an object"
+        )
+
+    frame = anchor.get("frame_number")
+    if isinstance(frame, bool) or not isinstance(frame, int) or frame < 1:
+        raise SanitizeError(
+            f"{case_id}: selected boundary has no valid frame-number anchor; "
+            "refusing to fabricate a frame"
+        )
+
+    timestamp = anchor.get("timestamp")
+    if timestamp is None:
+        timestamp = ""
+    elif not isinstance(timestamp, str):
+        timestamp = str(timestamp)
+
+    return {
+        "selected_source_domain": _require_identity(
+            boundary_ref.get("source_domain"), "source_domain", case_id
+        ),
+        "selected_procedure_family": _require_identity(
+            boundary_ref.get("procedure_family"), "procedure_family", case_id
+        ),
+        # procedure_stage is legitimately nullable in the Domain contract.
+        "selected_procedure_stage": boundary_ref.get("procedure_stage"),
+        "deviation_type": _require_identity(
+            boundary_ref.get("deviation_type"), "deviation_type", case_id
+        ),
+        "boundary_protocol": _require_identity(
+            anchor.get("protocol"), "boundary_anchor.protocol", case_id
+        ),
+        "boundary_message": _require_identity(
+            anchor.get("message_type"), "boundary_anchor.message_type", case_id
+        ),
+        "boundary_frame": frame,
+        "boundary_timestamp": timestamp,
+        "evidence_level": _require_identity(
+            boundary_ref.get("evidence_level"), "evidence_level", case_id
+        ),
+    }
+
+
 def sanitize_failure_boundary_result(raw_result: dict, case_id: str) -> dict:
     """Extract sanitized summary from failure boundary orchestration output."""
     groups = raw_result.get("diagnostic_groups") or []
@@ -33,20 +137,20 @@ def sanitize_failure_boundary_result(raw_result: dict, case_id: str) -> dict:
     selection_status = primary.get("selection_status", "UNKNOWN")
     selected_boundary_raw = primary.get("selected_boundary")
 
+    # Only a SELECTED result may carry a selected boundary. The diagnostic-group
+    # properties live inside selected_boundary.boundary_ref (see the authoritative
+    # Orchestration model); reading them flat fabricated UNKNOWN identities and a
+    # frame-1 anchor. Any non-SELECTED status (no abnormal boundary, ambiguous,
+    # insufficient comparable evidence) keeps selected_boundary null; ambiguity is
+    # never silently resolved into a selection, and a missing frame anchor is never
+    # silently replaced with frame 1.
     sanitized_boundary = None
-    if selected_boundary_raw:
-        anchor = selected_boundary_raw.get("boundary_anchor") or {}
-        sanitized_boundary = {
-            "selected_source_domain": selected_boundary_raw.get("source_domain") or "UNKNOWN",
-            "selected_procedure_family": selected_boundary_raw.get("procedure_family") or "UNKNOWN",
-            "selected_procedure_stage": selected_boundary_raw.get("procedure_stage"),
-            "deviation_type": selected_boundary_raw.get("deviation_type") or "UNKNOWN",
-            "boundary_protocol": anchor.get("protocol") or "UNKNOWN",
-            "boundary_message": anchor.get("message_type") or "UNKNOWN",
-            "boundary_frame": int(anchor.get("frame_number")) if anchor.get("frame_number") is not None else 1,
-            "boundary_timestamp": anchor.get("timestamp") or "",
-            "evidence_level": selected_boundary_raw.get("evidence_level") or "OBSERVED",
-        }
+    if selection_status == "SELECTED":
+        if not selected_boundary_raw:
+            raise SanitizeError(
+                f"{case_id}: selection_status is SELECTED but no selected_boundary is present"
+            )
+        sanitized_boundary = _extract_selected_boundary(primary, selected_boundary_raw, case_id)
 
     lims = []
     for item in (primary.get("evidence_limitations") or []):
