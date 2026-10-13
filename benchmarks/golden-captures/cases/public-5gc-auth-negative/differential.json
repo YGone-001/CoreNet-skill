@@ -4,7 +4,7 @@
   "capture_limitations": [],
   "case_id": "public-5gc-auth-negative",
   "comparison_eligibility": "ELIGIBLE",
-  "comparison_status": "ORCHESTRATION_GAP",
+  "comparison_status": "NEEDS_ADJUDICATION",
   "evidence_layers": {
     "baseline_support": "SUPPORTED",
     "capture_sufficiency": "SUFFICIENT",
@@ -13,8 +13,8 @@
     "protocol_extraction": "HEALTHY",
     "semantic_comparison": "EVALUATED"
   },
-  "evidence_overlap": false,
-  "frame_delta": 10,
+  "evidence_overlap": true,
+  "frame_delta": 0,
   "human_baseline_sha256": "74b7a9596b4687c050715d4b012a6f637bfa34bd3bc4b5478d82880afe2b129d",
   "human_boundary": {
     "analysis_status": "BOUNDARY_OBSERVED",
@@ -24,19 +24,19 @@
     "procedure_stage": "security",
     "protocol": "NAS-5GS"
   },
-  "layer_attribution": "ORCHESTRATION",
+  "layer_attribution": "UNKNOWN",
   "notes": [
-    "Procedure family mismatch: human identified 5gc-registration-mobility, pipeline selected UNKNOWN."
+    "Boundary semantics are not fully reported on at least one side: procedure_stage (baseline=security, summary=absent). Exact equivalence cannot be established without inventing detail, so no match is assumed."
   ],
-  "recommended_next_action": "CORRECT_ORCHESTRATION",
+  "recommended_next_action": "NO_CHANGE",
   "skill_boundary": {
-    "boundary_frame": 1,
-    "boundary_message": "UNKNOWN",
-    "boundary_protocol": "UNKNOWN",
-    "procedure_family": "UNKNOWN",
+    "boundary_frame": 11,
+    "boundary_message": "Authentication failure",
+    "boundary_protocol": "NAS-5GS",
+    "procedure_family": "5gc-registration-mobility",
     "procedure_stage": null,
     "selection_status": "SELECTED",
-    "source_domain": "UNKNOWN"
+    "source_domain": "5gc-registration-mobility"
   },
   "upstream_intent_match": "MISMATCH"
 }

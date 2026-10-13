@@ -28,17 +28,17 @@
   },
   "layer_attribution": "DOMAIN",
   "notes": [
-    "Automated pipeline selected abnormal boundary at frame 1 on healthy/recovered capture."
+    "Automated pipeline selected abnormal boundary at frame 41 on healthy/recovered capture."
   ],
   "recommended_next_action": "CORRECT_DOMAIN_MODEL",
   "skill_boundary": {
-    "boundary_frame": 1,
-    "boundary_message": "UNKNOWN",
-    "boundary_protocol": "UNKNOWN",
-    "procedure_family": "UNKNOWN",
+    "boundary_frame": 41,
+    "boundary_message": "Authentication failure",
+    "boundary_protocol": "NAS-5GS",
+    "procedure_family": "5gc-registration-mobility",
     "procedure_stage": null,
     "selection_status": "SELECTED",
-    "source_domain": "UNKNOWN"
+    "source_domain": "5gc-registration-mobility"
   },
   "upstream_intent_match": "MISMATCH"
 }

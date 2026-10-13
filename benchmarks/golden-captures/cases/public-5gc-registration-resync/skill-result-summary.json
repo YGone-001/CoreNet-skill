@@ -52,15 +52,15 @@
     "sbi-http2": "NOT_OBSERVED_IN_CAPTURE"
   },
   "selected_boundary": {
-    "boundary_frame": 1,
-    "boundary_message": "UNKNOWN",
-    "boundary_protocol": "UNKNOWN",
-    "boundary_timestamp": "",
-    "deviation_type": "UNKNOWN",
+    "boundary_frame": 41,
+    "boundary_message": "Authentication failure",
+    "boundary_protocol": "NAS-5GS",
+    "boundary_timestamp": "2026-07-25T02:55:31.146613Z",
+    "deviation_type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
     "evidence_level": "OBSERVED",
-    "selected_procedure_family": "UNKNOWN",
+    "selected_procedure_family": "5gc-registration-mobility",
     "selected_procedure_stage": null,
-    "selected_source_domain": "UNKNOWN"
+    "selected_source_domain": "5gc-registration-mobility"
   },
   "selection_status": "SELECTED"
 }
