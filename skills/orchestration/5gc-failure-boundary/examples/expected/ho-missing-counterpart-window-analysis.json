@@ -1,6 +1,6 @@
 {
   "analysis_name": "5gc-failure-boundary",
-  "analysis_version": "0.2.0",
+  "analysis_version": "0.2.1",
   "diagnostic_groups": [
     {
       "additional_evidence_needed": [

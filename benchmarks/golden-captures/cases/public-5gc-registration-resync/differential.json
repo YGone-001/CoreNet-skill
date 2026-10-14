@@ -6,7 +6,7 @@
   ],
   "case_id": "public-5gc-registration-resync",
   "comparison_eligibility": "ELIGIBLE",
-  "comparison_status": "FALSE_POSITIVE",
+  "comparison_status": "NEEDS_ADJUDICATION",
   "evidence_layers": {
     "baseline_support": "SUPPORTED",
     "capture_sufficiency": "SUFFICIENT",
@@ -28,17 +28,17 @@
   },
   "layer_attribution": "DOMAIN",
   "notes": [
-    "Automated pipeline selected abnormal boundary at frame 41 on healthy/recovered capture."
+    "Pipeline selected no abnormal boundary, but the relevant Domain instance(s) reported 6 deviation(s) on a capture the independent baseline records as healthy."
   ],
   "recommended_next_action": "CORRECT_DOMAIN_MODEL",
   "skill_boundary": {
-    "boundary_frame": 41,
-    "boundary_message": "Authentication failure",
-    "boundary_protocol": "NAS-5GS",
-    "procedure_family": "5gc-registration-mobility",
+    "boundary_frame": null,
+    "boundary_message": null,
+    "boundary_protocol": null,
+    "procedure_family": null,
     "procedure_stage": null,
-    "selection_status": "SELECTED",
-    "source_domain": "5gc-registration-mobility"
+    "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+    "source_domain": null
   },
   "upstream_intent_match": "MISMATCH"
 }

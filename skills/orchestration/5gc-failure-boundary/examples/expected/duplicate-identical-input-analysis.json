@@ -1,6 +1,6 @@
 {
   "analysis_name": "5gc-failure-boundary",
-  "analysis_version": "0.2.0",
+  "analysis_version": "0.2.1",
   "diagnostic_groups": [
     {
       "additional_evidence_needed": [],
@@ -33,7 +33,7 @@
         {
           "capture_file": "reg.pcapng",
           "source_domain": "5gc-registration-mobility",
-          "source_file": "registration-analysis.json",
+          "source_file": "registration-analysis-copy.json",
           "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1"
         }
       ],
@@ -67,7 +67,7 @@
     {
       "reason": "no evidence-safe cross-domain subject link exists for this analysis",
       "source_domain": "5gc-registration-mobility",
-      "source_file": "registration-analysis.json",
+      "source_file": "registration-analysis-copy.json",
       "source_instance_id": "5gc-reg:reg.pcapng:sctp-assoc-0:r1"
     }
   ]

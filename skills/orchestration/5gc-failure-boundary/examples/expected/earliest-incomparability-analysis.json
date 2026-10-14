@@ -1,16 +1,17 @@
 {
   "analysis_name": "5gc-failure-boundary",
-  "analysis_version": "0.2.0",
+  "analysis_version": "0.2.1",
   "diagnostic_groups": [
     {
       "additional_evidence_needed": [
         {
           "candidate_id": "1-cand-1",
-          "reason": "selected boundary is derived missing evidence bounded by the source observation window",
-          "requirement": "a capture covering the expected counterpart would strengthen the boundary selection"
+          "reason": "candidates resolve to the same position with no deterministic source relationship ordering them",
+          "requirement": "exact frame or stage provenance that separates the tied candidates is required",
+          "second_candidate_id": "1-cand-2"
         }
       ],
-      "boundary_confidence": "MEDIUM",
+      "boundary_confidence": null,
       "candidate_boundaries": [
         {
           "boundary_anchor": {
@@ -93,6 +94,88 @@
               "timestamp": null
             }
           }
+        },
+        {
+          "boundary_anchor": {
+            "capture_file": "reg.pcapng",
+            "frame_number": null,
+            "message_type": null,
+            "protocol": null,
+            "timestamp": null
+          },
+          "candidate_id": "1-cand-2",
+          "description": "Expected counterpart not observed within the available capture window",
+          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
+          "evidence_level": "DERIVED",
+          "limitations": [
+            "Capture coverage insufficient to establish the absence"
+          ],
+          "mobility_attempt_family": null,
+          "ordering_basis": {
+            "frame_number": null,
+            "observation_window": {
+              "end_frame": 40,
+              "start_frame": 20
+            },
+            "stage_position": null
+          },
+          "procedure_family": "5gc-pdu-session",
+          "procedure_stage": null,
+          "selectability": "SELECTABLE",
+          "source_attempt_id": null,
+          "source_domain": "5gc-pdu-session",
+          "source_instance_id": "5gc-pdu-session:reg.pcapng:ran1-amf2:psi3",
+          "supporting_evidence": {
+            "evidence_refs": [
+              {
+                "capture_file": "reg.pcapng",
+                "evidence_level": "DERIVED",
+                "field_name": null,
+                "frame_number": null,
+                "kind": "OBSERVATION_WINDOW",
+                "message_type": null,
+                "protocol": null,
+                "stage_id": "release_terminal",
+                "timestamp": null,
+                "window_first_frame": 20,
+                "window_last_frame": 40
+              }
+            ],
+            "source_deviation": {
+              "description": "Expected counterpart not observed within the available capture window",
+              "evidence_level": "DERIVED",
+              "evidence_refs": [
+                {
+                  "capture_file": "reg.pcapng",
+                  "evidence_level": "DERIVED",
+                  "field_name": null,
+                  "frame_number": null,
+                  "kind": "OBSERVATION_WINDOW",
+                  "message_type": null,
+                  "protocol": null,
+                  "stage_id": "release_terminal",
+                  "timestamp": null,
+                  "window_first_frame": 20,
+                  "window_last_frame": 40
+                }
+              ],
+              "limitation": "Capture coverage insufficient to establish the absence",
+              "stage_id": null,
+              "type": "MISSING_EXPECTED_COUNTERPART"
+            },
+            "source_observation_window": {
+              "first_frame": 20,
+              "last_frame": 40
+            },
+            "source_terminal": {
+              "evidence_level": "DERIVED",
+              "frame_number": null,
+              "message_type": null,
+              "observation": "NO_N1_TERMINAL_OBSERVATION",
+              "protocol_observations": [],
+              "timestamp": null
+            }
+          }
         }
       ],
       "diagnostic_id": "diag-1",
@@ -114,94 +197,10 @@
         "capture_files": [
           "reg.pcapng"
         ],
-        "source_count": 1
+        "source_count": 2
       },
-      "selected_boundary": {
-        "boundary_ref": {
-          "boundary_anchor": {
-            "capture_file": "reg.pcapng",
-            "frame_number": null,
-            "message_type": null,
-            "protocol": null,
-            "timestamp": null
-          },
-          "candidate_id": "1-cand-1",
-          "description": "Expected counterpart not observed within the available capture window",
-          "deviation_type": "MISSING_EXPECTED_COUNTERPART",
-          "evidence_level": "DERIVED",
-          "limitations": [
-            "Capture coverage insufficient to establish the absence"
-          ],
-          "mobility_attempt_family": null,
-          "ordering_basis": {
-            "frame_number": null,
-            "observation_window": {
-              "end_frame": 30,
-              "start_frame": 10
-            },
-            "stage_position": null
-          },
-          "procedure_family": "5gc-pdu-session",
-          "procedure_stage": null,
-          "selectability": "SELECTABLE",
-          "source_attempt_id": null,
-          "source_domain": "5gc-pdu-session",
-          "source_instance_id": "5gc-pdu-session:reg.pcapng:ran1-amf2:psi2",
-          "supporting_evidence": {
-            "evidence_refs": [
-              {
-                "capture_file": "reg.pcapng",
-                "evidence_level": "DERIVED",
-                "field_name": null,
-                "frame_number": null,
-                "kind": "OBSERVATION_WINDOW",
-                "message_type": null,
-                "protocol": null,
-                "stage_id": "modification_completion",
-                "timestamp": null,
-                "window_first_frame": 10,
-                "window_last_frame": 30
-              }
-            ],
-            "source_deviation": {
-              "description": "Expected counterpart not observed within the available capture window",
-              "evidence_level": "DERIVED",
-              "evidence_refs": [
-                {
-                  "capture_file": "reg.pcapng",
-                  "evidence_level": "DERIVED",
-                  "field_name": null,
-                  "frame_number": null,
-                  "kind": "OBSERVATION_WINDOW",
-                  "message_type": null,
-                  "protocol": null,
-                  "stage_id": "modification_completion",
-                  "timestamp": null,
-                  "window_first_frame": 10,
-                  "window_last_frame": 30
-                }
-              ],
-              "limitation": "Capture coverage insufficient to establish the absence",
-              "stage_id": null,
-              "type": "MISSING_EXPECTED_COUNTERPART"
-            },
-            "source_observation_window": {
-              "first_frame": 10,
-              "last_frame": 30
-            },
-            "source_terminal": {
-              "evidence_level": "DERIVED",
-              "frame_number": null,
-              "message_type": null,
-              "observation": "NO_N1_TERMINAL_OBSERVATION",
-              "protocol_observations": [],
-              "timestamp": null
-            }
-          }
-        },
-        "candidate_id": "1-cand-1"
-      },
-      "selection_status": "SELECTED",
+      "selected_boundary": null,
+      "selection_status": "AMBIGUOUS_FIRST_BOUNDARY",
       "source_domain_instances": [
         {
           "capture_file": "reg.pcapng",
@@ -209,10 +208,17 @@
           "source_domain": "5gc-pdu-session",
           "source_file": "pdu-session-analysis.json",
           "source_instance_id": "5gc-pdu-session:reg.pcapng:ran1-amf2:psi2"
+        },
+        {
+          "capture_file": "reg.pcapng",
+          "pdu_session_id": 3,
+          "source_domain": "5gc-pdu-session",
+          "source_file": "pdu-session-analysis-2.json",
+          "source_instance_id": "5gc-pdu-session:reg.pcapng:ran1-amf2:psi3"
         }
       ],
       "subject_link": {
-        "basis": "no_cross_domain_link_single_source",
+        "basis": "capture_sctp_association_and_ngap_ue_context_exact_match",
         "source_contexts": [
           {
             "amf_ue_ngap_id": 2,
@@ -221,9 +227,17 @@
             "sctp_association": 0,
             "source_domain": "5gc-pdu-session",
             "source_instance_id": "5gc-pdu-session:reg.pcapng:ran1-amf2:psi2"
+          },
+          {
+            "amf_ue_ngap_id": 2,
+            "capture_file": "reg.pcapng",
+            "ran_ue_ngap_id": 1,
+            "sctp_association": 0,
+            "source_domain": "5gc-pdu-session",
+            "source_instance_id": "5gc-pdu-session:reg.pcapng:ran1-amf2:psi3"
           }
         ],
-        "strength": "UNBOUND"
+        "strength": "STRONG"
       },
       "supporting_anomalies": []
     }
@@ -237,12 +251,5 @@
     "Handover and Path Switch attempts remain separately addressable; one diagnostic group never implies one procedure",
     "A handover source/target context bridge is consumed only from a Domain-authorized STRONG or SUPPORTED association; association candidates are ambiguity evidence and never join groups"
   ],
-  "unbound_domain_analyses": [
-    {
-      "reason": "no evidence-safe cross-domain subject link exists for this analysis",
-      "source_domain": "5gc-pdu-session",
-      "source_file": "pdu-session-analysis.json",
-      "source_instance_id": "5gc-pdu-session:reg.pcapng:ran1-amf2:psi2"
-    }
-  ]
+  "unbound_domain_analyses": []
 }
