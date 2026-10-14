@@ -124,7 +124,7 @@ def validate(root: Path) -> list[str]:
         return errors
 
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "5gc-failure-boundary"), ("version", "0.2.0"), ("category", "orchestration")):
+    for key, expected in (("name", "5gc-failure-boundary"), ("version", "0.2.1"), ("category", "orchestration")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
 

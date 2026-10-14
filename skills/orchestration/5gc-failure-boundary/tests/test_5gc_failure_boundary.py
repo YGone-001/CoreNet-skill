@@ -60,7 +60,7 @@ class ManifestAndPackageTests(unittest.TestCase):
     def test_manifest_contract(self):
         text = (PACKAGE / "manifest.yaml").read_text(encoding="utf-8")
         self.assertIn("name: 5gc-failure-boundary", text)
-        self.assertIn("version: 0.2.0", text)
+        self.assertIn("version: 0.2.1", text)
         self.assertIn("category: orchestration", text)
         self.assertIn("required: []", text)
         for dep in ("5gc-registration-mobility >=0.2.0", "5gc-pdu-session >=0.4.0",

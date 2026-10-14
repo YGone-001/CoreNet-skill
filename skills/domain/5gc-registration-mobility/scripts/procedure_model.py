@@ -42,13 +42,14 @@ EXIT_MALFORMED_INPUT = 5
 EXIT_NO_EVENTS = 6
 EXIT_OUTPUT_FAILURE = 7
 
-ANALYSIS_VERSION = "0.2.3"
+ANALYSIS_VERSION = "0.2.4"
 PROCEDURE_FAMILY = "5gc-registration-mobility"
 
 FORBIDDEN_OUTPUT_PATTERN = re.compile(r"(?i)\b(?:root[ _-]?cause|implementation[ _-]?(?:bug|blame))\b")
 
 DEVIATION_PROTOCOL_REJECT = "PROTOCOL_REJECT_OBSERVED"
 DEVIATION_UNSUCCESSFUL = "UNSUCCESSFUL_OUTCOME_OBSERVED"
+DEVIATION_RECOVERED_INTERMEDIATE = "RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED"
 DEVIATION_MISSING_COUNTERPART = "MISSING_EXPECTED_COUNTERPART"
 DEVIATION_UNKNOWN_VALUE = "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE"
 DEVIATION_CORRELATION_CONFLICT = "CORRELATION_CONFLICT"
@@ -60,6 +61,10 @@ DEVIATION_DUPLICATE = "DUPLICATE_OR_RETRANSMITTED_EVIDENCE"
 TERMINAL_COMPLETE = "REGISTRATION_COMPLETE_OBSERVED"
 TERMINAL_REJECT = "REGISTRATION_REJECT_OBSERVED"
 TERMINAL_NONE = "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW"
+
+AUTHENTICATION_REQUEST = "Authentication request"
+AUTHENTICATION_RESPONSE = "Authentication response"
+AUTHENTICATION_FAILURE = "Authentication failure"
 
 
 def _evidence_ref(
@@ -146,6 +151,40 @@ def _undecodable_nas_frames_after(events: list[dict[str, object]], trigger_frame
         int(event["frame_number"]) for event in events
         if _protected_envelope_without_inner_message(event) and int(event["frame_number"]) > trigger_frame
     })
+
+
+def _authentication_recovery_events(
+    events: list[dict[str, object]],
+    failure_event: dict[str, object],
+) -> tuple[dict[str, object], dict[str, object]] | None:
+    """Positive subsequent evidence that an Authentication failure was recovered.
+
+    Returns the (request, response) pair when, within the same procedure
+    instance, a later Authentication request and a still-later Authentication
+    response both follow the failure frame. ``events`` is the per-instance
+    merged list, so cross-UE, cross-association, and cross-capture joins are
+    impossible by construction. Temporal continuity is strict frame ordering;
+    timestamp proximity alone never establishes recovery, and Security Mode or
+    N2 evidence is never required. Returns None when the supported sequence is
+    absent or incomplete.
+    """
+    failure_frame = int(failure_event["frame_number"])
+    after_failure = [event for event in events if int(event["frame_number"]) > failure_frame]
+    request = next(
+        (event for event in after_failure if str(event.get("message_type")) == AUTHENTICATION_REQUEST),
+        None,
+    )
+    if request is None:
+        return None
+    request_frame = int(request["frame_number"])
+    response = next(
+        (event for event in after_failure
+         if str(event.get("message_type")) == AUTHENTICATION_RESPONSE and int(event["frame_number"]) > request_frame),
+        None,
+    )
+    if response is None:
+        return None
+    return (request, response)
 
 
 REJECT_MESSAGES = {"Registration reject", "Authentication reject", "Security mode reject", "Service reject"}
@@ -710,14 +749,41 @@ def evaluate_instance(
                 "evidence_refs": [_event_evidence_ref(event)],
             })
         elif message in UNSUCCESSFUL_MESSAGES:
-            deviations.append({
-                "type": DEVIATION_UNSUCCESSFUL,
-                "stage_id": None,
-                "description": f"{protocol} {message} observed at frame {event['frame_number']}",
-                "evidence_level": "OBSERVED",
-                "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
-                "evidence_refs": [_event_evidence_ref(event)],
-            })
+            recovery = None
+            if message == AUTHENTICATION_FAILURE:
+                recovery = _authentication_recovery_events(merged, event)
+            if recovery is not None:
+                request_event, response_event = recovery
+                deviations.append({
+                    "type": DEVIATION_RECOVERED_INTERMEDIATE,
+                    "stage_id": None,
+                    "description": (
+                        f"{protocol} {message} observed at frame {event['frame_number']} was followed by a "
+                        f"subsequent authentication challenge at frame {request_event['frame_number']} and "
+                        f"authentication response at frame {response_event['frame_number']} within the same "
+                        "procedure instance; the intermediate outcome is recorded as recovered"
+                    ),
+                    "evidence_level": "OBSERVED",
+                    "limitation": (
+                        "A recovered intermediate outcome is procedure evidence that the authentication sequence "
+                        "progressed; it is not candidate-eligible and never proves Registration Complete or "
+                        "end-to-end service success"
+                    ),
+                    "evidence_refs": [
+                        _event_evidence_ref(event),
+                        _event_evidence_ref(request_event),
+                        _event_evidence_ref(response_event),
+                    ],
+                })
+            else:
+                deviations.append({
+                    "type": DEVIATION_UNSUCCESSFUL,
+                    "stage_id": None,
+                    "description": f"{protocol} {message} observed at frame {event['frame_number']}",
+                    "evidence_level": "OBSERVED",
+                    "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
+                    "evidence_refs": [_event_evidence_ref(event)],
+                })
         protected_envelope = _protected_envelope_without_inner_message(event)
         if event.get("support_status") in ("UNSUPPORTED", "UNKNOWN") and not protected_envelope:
             deviations.append({

@@ -13,6 +13,11 @@
       "evidence_level": "OBSERVED"
     },
     {
+      "type": "RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED",
+      "description": "An intermediate unsuccessful outcome was followed by positive subsequent evidence within the same procedure instance (Authentication failure followed by a later Authentication request and response), recording the outcome as recovered rather than a final abnormal candidate",
+      "evidence_level": "OBSERVED"
+    },
+    {
       "type": "MISSING_EXPECTED_COUNTERPART",
       "description": "An entered procedure branch's expected counterpart was not observed within the observation window",
       "evidence_level": "DERIVED"

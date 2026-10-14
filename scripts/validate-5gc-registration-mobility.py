@@ -81,6 +81,7 @@ def check_structured_provenance(root: Path, errors: list[str]) -> None:
         return
     eligible_observed = {
         "PROTOCOL_REJECT_OBSERVED", "UNSUCCESSFUL_OUTCOME_OBSERVED",
+        "RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED",
         "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE", "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
     }
     for path in sorted(expected_dir.glob("*-analysis.json")):
@@ -122,7 +123,7 @@ def validate(root: Path) -> list[str]:
     if errors:
         return errors
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "5gc-registration-mobility"), ("version", "0.2.3"), ("category", "domain")):
+    for key, expected in (("name", "5gc-registration-mobility"), ("version", "0.2.4"), ("category", "domain")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
     if not re.search(r"(?m)^\s*required:\s*\[\]\s*$", manifest):
