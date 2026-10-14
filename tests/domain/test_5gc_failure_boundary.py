@@ -183,9 +183,9 @@ class FailureBoundaryValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/orchestration/5gc-failure-boundary/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.2.0", "version: 9.9.0"),
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.2.1", "version: 9.9.0"),
                                 encoding="utf-8")
-            self.assert_error(root, "manifest version must be 0.2.0")
+            self.assert_error(root, "manifest version must be 0.2.1")
 
     def test_downgraded_registration_dependency_floor_is_detected(self):
         temporary, root = self.fixture()
@@ -228,9 +228,9 @@ class FailureBoundaryValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/orchestration/5gc-failure-boundary/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.2.0", "version: 0.1.0"),
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.2.1", "version: 0.1.0"),
                                 encoding="utf-8")
-            self.assert_error(root, "manifest version must be 0.2.0")
+            self.assert_error(root, "manifest version must be 0.2.1")
 
     def test_missing_mobility_dependency_is_detected(self):
         temporary, root = self.fixture()
