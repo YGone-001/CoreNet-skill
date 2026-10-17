@@ -30,7 +30,6 @@
   },
   "evidence_limitations": [
     "The observation window begins after the procedure's initiation evidence; capture starts mid-procedure",
-    "NAS-5GS Authentication failure observed at frame 41 was followed by a subsequent authentication challenge at frame 42 and authentication response at frame 43 within the same procedure instance; the intermediate outcome is recorded as recovered",
     "A protected NAS envelope at frame 45 carried no decodable inner message",
     "A protected NAS envelope at frame 46 carried no decodable inner message",
     "A protected NAS envelope at frame 49 carried no decodable inner message",

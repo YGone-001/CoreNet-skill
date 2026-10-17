@@ -184,9 +184,9 @@
       "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
     }
   ],
-  "corenet_commit": "60854c81565972785c32676458c60d1012608ebe",
+  "corenet_commit": "d271f02adb15bfcf16d3572f23e9d8e7a8938c41",
   "external_source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
-  "generated_at": "2026-10-14T15:44:36.869123+00:00",
+  "generated_at": "2026-10-17T17:35:13.775572+00:00",
   "metrics": {
     "acceptable_difference_count": 0,
     "blocked_case_count": 0,
@@ -218,10 +218,10 @@
   },
   "python_version": "3.12.10",
   "skill_versions": {
-    "5gc-failure-boundary": "0.2.1",
+    "5gc-failure-boundary": "0.2.2",
     "5gc-handover-mobility": "0.1.1",
     "5gc-pdu-session": "0.4.2",
-    "5gc-registration-mobility": "0.2.4",
+    "5gc-registration-mobility": "0.2.5",
     "c-pro": "0.2.0",
     "core-network-pcap": "0.1.0",
     "cross-protocol-evidence": "0.1.0",
