@@ -42,7 +42,7 @@ EXIT_MALFORMED_INPUT = 5
 EXIT_NO_EVENTS = 6
 EXIT_OUTPUT_FAILURE = 7
 
-ANALYSIS_VERSION = "0.2.4"
+ANALYSIS_VERSION = "0.2.5"
 PROCEDURE_FAMILY = "5gc-registration-mobility"
 
 FORBIDDEN_OUTPUT_PATTERN = re.compile(r"(?i)\b(?:root[ _-]?cause|implementation[ _-]?(?:bug|blame))\b")
@@ -65,6 +65,26 @@ TERMINAL_NONE = "NO_REGISTRATION_TERMINAL_OBSERVATION_IN_WINDOW"
 AUTHENTICATION_REQUEST = "Authentication request"
 AUTHENTICATION_RESPONSE = "Authentication response"
 AUTHENTICATION_FAILURE = "Authentication failure"
+
+# The only decoded 5GMM cause that authorizes a synchronization-failure recovery
+# classification (TS 24.501 cause 21, "synch failure"). A cause-20 MAC failure,
+# an absent cause, an unknown cause, or any unsupported code never establishes
+# recovery and leaves the original unsuccessful-outcome deviation intact.
+SUPPORTED_SYNC_FAILURE_CAUSE = 21
+
+# Messages that terminate or re-scope the bounded authentication procedure. A
+# later Authentication request/response pair that appears only after one of
+# these barriers must not retroactively recover an earlier Authentication
+# failure.
+AUTHENTICATION_RECOVERY_BARRIER_MESSAGES = frozenset({
+    "Authentication reject",
+    "Registration reject",
+    "Registration request",
+    "Authentication failure",
+    "UEContextReleaseRequest",
+    "UEContextReleaseCommand",
+    "UEContextReleaseComplete",
+})
 
 
 def _evidence_ref(
@@ -156,18 +176,35 @@ def _undecodable_nas_frames_after(events: list[dict[str, object]], trigger_frame
 def _authentication_recovery_events(
     events: list[dict[str, object]],
     failure_event: dict[str, object],
+    binding_conflict: bool = False,
 ) -> tuple[dict[str, object], dict[str, object]] | None:
-    """Positive subsequent evidence that an Authentication failure was recovered.
+    """Positive same-cycle evidence that a synchronization failure was recovered.
 
-    Returns the (request, response) pair when, within the same procedure
-    instance, a later Authentication request and a still-later Authentication
-    response both follow the failure frame. ``events`` is the per-instance
-    merged list, so cross-UE, cross-association, and cross-capture joins are
-    impossible by construction. Temporal continuity is strict frame ordering;
-    timestamp proximity alone never establishes recovery, and Security Mode or
-    N2 evidence is never required. Returns None when the supported sequence is
-    absent or incomplete.
+    Recovery requires, in order: a decoded 5GMM synchronization-failure cause
+    (cause 21) on the observed Authentication failure; no conflicting
+    UE-context binding in this instance; a later Authentication request; a
+    still-later Authentication response; and no termination or re-scoping
+    barrier strictly between the failure and the request or between the request
+    and the response. A cause-20 MAC failure, an unknown/absent cause, an
+    unsupported code, or any intervening authentication/procedure termination
+    barrier leaves the original unsuccessful-outcome deviation intact.
+    ``events`` is the per-instance merged list, so cross-UE, cross-association,
+    and cross-capture joins are impossible by construction. Ambiguous or
+    incomplete continuity returns None and remains unresolved.
     """
+    cause = failure_event.get("cause")
+    if not isinstance(cause, dict) or cause.get("code") != SUPPORTED_SYNC_FAILURE_CAUSE:
+        return None
+    if binding_conflict:
+        return None
+
+    def _barrier_between(after_frame: int, before_frame: int) -> bool:
+        return any(
+            str(event.get("message_type")) in AUTHENTICATION_RECOVERY_BARRIER_MESSAGES
+            and after_frame < int(event["frame_number"]) < before_frame
+            for event in events
+        )
+
     failure_frame = int(failure_event["frame_number"])
     after_failure = [event for event in events if int(event["frame_number"]) > failure_frame]
     request = next(
@@ -177,12 +214,17 @@ def _authentication_recovery_events(
     if request is None:
         return None
     request_frame = int(request["frame_number"])
+    if _barrier_between(failure_frame, request_frame):
+        return None
     response = next(
         (event for event in after_failure
          if str(event.get("message_type")) == AUTHENTICATION_RESPONSE and int(event["frame_number"]) > request_frame),
         None,
     )
     if response is None:
+        return None
+    response_frame = int(response["frame_number"])
+    if _barrier_between(request_frame, response_frame):
         return None
     return (request, response)
 
@@ -751,17 +793,18 @@ def evaluate_instance(
         elif message in UNSUCCESSFUL_MESSAGES:
             recovery = None
             if message == AUTHENTICATION_FAILURE:
-                recovery = _authentication_recovery_events(merged, event)
+                recovery = _authentication_recovery_events(merged, event, binding_conflict=bool(instance_conflicts))
             if recovery is not None:
                 request_event, response_event = recovery
                 deviations.append({
                     "type": DEVIATION_RECOVERED_INTERMEDIATE,
                     "stage_id": None,
                     "description": (
-                        f"{protocol} {message} observed at frame {event['frame_number']} was followed by a "
-                        f"subsequent authentication challenge at frame {request_event['frame_number']} and "
-                        f"authentication response at frame {response_event['frame_number']} within the same "
-                        "procedure instance; the intermediate outcome is recorded as recovered"
+                        f"{protocol} {message} with decoded 5GMM synchronization-failure "
+                        f"cause 21 observed at frame {event['frame_number']} was followed by a "
+                        f"same-cycle authentication challenge at frame {request_event['frame_number']} and "
+                        f"authentication response at frame {response_event['frame_number']}; the "
+                        "intermediate outcome is recorded as recovered"
                     ),
                     "evidence_level": "OBSERVED",
                     "limitation": (

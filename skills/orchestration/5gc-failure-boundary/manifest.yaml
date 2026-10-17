@@ -1,5 +1,5 @@
 name: 5gc-failure-boundary
-version: 0.2.1
+version: 0.2.2
 category: orchestration
 description: >
   Bounded Analysis Orchestration Skill composing already-produced 5GC Domain

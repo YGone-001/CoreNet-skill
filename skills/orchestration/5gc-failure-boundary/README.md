@@ -2,7 +2,7 @@
 
 `5gc-failure-boundary` is the bounded Analysis Orchestration Skill for
 evidence-safe first abnormal boundary localization across currently supported
-5GC Domain analyses, version 0.2.0.
+5GC Domain analyses, version 0.2.2.
 It composes already-produced analysis JSON from `5gc-registration-mobility`
 (>=0.2.0), `5gc-pdu-session` (>=0.4.0), and `5gc-handover-mobility`
 (>=0.1.0) into diagnostic groups linked only by

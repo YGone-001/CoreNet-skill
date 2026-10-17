@@ -217,7 +217,7 @@
             "NAS-5GS Registration request observed at frame 10 (2024-01-02T03:04:10.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "0.2.4",
+          "procedure_version": "0.2.5",
           "stage": {
             "expected_message_types": [
               "InitialUEMessage",
@@ -242,7 +242,7 @@
             "NAS-5GS Registration accept observed at frame 11 (2024-01-02T03:04:11.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "0.2.4",
+          "procedure_version": "0.2.5",
           "stage": {
             "expected_message_types": [
               "Registration accept",
@@ -272,7 +272,7 @@
             "NAS-5GS Registration accept observed at frame 11 (2024-01-02T03:04:11.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "0.2.4",
+          "procedure_version": "0.2.5",
           "stage": {
             "expected_message_types": [
               "Registration accept",
@@ -295,7 +295,7 @@
       }
     }
   ],
-  "analysis_version": "0.2.4",
+  "analysis_version": "0.2.5",
   "correlation_conflicts": [],
   "procedure_family": "5gc-registration-mobility",
   "unbound_records": []

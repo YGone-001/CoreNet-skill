@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any
 
 ANALYSIS_NAME = "5gc-failure-boundary"
-ANALYSIS_VERSION = "0.2.1"
+ANALYSIS_VERSION = "0.2.2"
 
 EXIT_MALFORMED_INPUT = 5
 EXIT_NO_INPUT = 6
@@ -71,8 +71,8 @@ ELIGIBLE_DEVIATION_TYPES = frozenset({
     "FIELD_CONFLICT",
 })
 
-# Deviation types that describe evidence quality, association limitations, or
-# recovered intermediate outcomes that are not candidate-eligible.
+# Deviation types that describe evidence quality or association limitations and
+# are never candidate-eligible.
 EVIDENCE_LIMITATION_TYPES = frozenset({
     "PARTIAL_CAPTURE",
     "CORRELATION_AMBIGUITY",
@@ -82,11 +82,15 @@ EVIDENCE_LIMITATION_TYPES = frozenset({
     "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
     "OUT_OF_ORDER_EVIDENCE",
     "DUPLICATE_OR_RETRANSMITTED_EVIDENCE",
-    "RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED",
 })
 
+# Non-candidate supporting evidence (never boundary candidates): an unknown or
+# reserved protocol value and a packet-observed recovered intermediate outcome.
+# A recovered Authentication failure is supporting evidence, not an
+# unavailable-payload or missing-evidence limitation.
 SUPPORTING_ANOMALY_TYPES = frozenset({
     "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE",
+    "RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED",
 })
 
 SELECTION_SELECTED = "SELECTED"

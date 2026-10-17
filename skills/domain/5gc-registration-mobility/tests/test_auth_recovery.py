@@ -354,5 +354,272 @@ class AuthRecoveryDetectionTests(unittest.TestCase):
             self.assertIn(MODEL.DEVIATION_RECOVERED_INTERMEDIATE, deviation_types(instance))
 
 
+class AuthRecoveryCauseBarrierTests(unittest.TestCase):
+    """Cause-aware recovery qualification: only cause 21 authorizes recovery."""
+
+    def _assert_not_recovered(self, nas, ngap):
+        with tempfile.TemporaryDirectory() as d:
+            analysis = write_and_load(Path(d), nas, ngap)
+            instance = first_instance(analysis)
+            self.assertIn(MODEL.DEVIATION_UNSUCCESSFUL, deviation_types(instance))
+            self.assertNotIn(MODEL.DEVIATION_RECOVERED_INTERMEDIATE, deviation_types(instance))
+            return instance
+
+    def test_16_cause_20_mac_failure_not_recovered(self):
+        """Cause 20 (MAC failure) with later request+response is not recovered."""
+        nas = [
+            nas_record(10, "Registration request"),
+            nas_record(11, "Authentication request"),
+            nas_record(12, "Authentication failure", cause_code=20, cause_name="Mac failure"),
+            nas_record(13, "Authentication request"),
+            nas_record(14, "Authentication response"),
+        ]
+        ngap = [
+            ngap_record(10, "InitialUEMessage", amf_id=None),
+            ngap_record(11, "DownlinkNASTransport"),
+            ngap_record(12, "UplinkNASTransport"),
+            ngap_record(13, "DownlinkNASTransport"),
+            ngap_record(14, "UplinkNASTransport"),
+        ]
+        self._assert_not_recovered(nas, ngap)
+
+    def test_17_unknown_cause_not_recovered(self):
+        """An unknown/reserved cause code with later request+response is not recovered."""
+        nas = [
+            nas_record(10, "Registration request"),
+            nas_record(11, "Authentication request"),
+            nas_record(12, "Authentication failure", cause_code=99, cause_name="Reserved"),
+            nas_record(13, "Authentication request"),
+            nas_record(14, "Authentication response"),
+        ]
+        ngap = [
+            ngap_record(10, "InitialUEMessage", amf_id=None),
+            ngap_record(11, "DownlinkNASTransport"),
+            ngap_record(12, "UplinkNASTransport"),
+            ngap_record(13, "DownlinkNASTransport"),
+            ngap_record(14, "UplinkNASTransport"),
+        ]
+        self._assert_not_recovered(nas, ngap)
+
+    def test_18_missing_cause_not_recovered(self):
+        """An Authentication failure with no decoded cause is not recovered."""
+        nas = [
+            nas_record(10, "Registration request"),
+            nas_record(11, "Authentication request"),
+            nas_record(12, "Authentication failure"),
+            nas_record(13, "Authentication request"),
+            nas_record(14, "Authentication response"),
+        ]
+        ngap = [
+            ngap_record(10, "InitialUEMessage", amf_id=None),
+            ngap_record(11, "DownlinkNASTransport"),
+            ngap_record(12, "UplinkNASTransport"),
+            ngap_record(13, "DownlinkNASTransport"),
+            ngap_record(14, "UplinkNASTransport"),
+        ]
+        self._assert_not_recovered(nas, ngap)
+
+    def test_19_cause_21_with_none_cause_code_not_recovered(self):
+        """A cause dict with code None must not match cause 21."""
+        nas = [
+            nas_record(10, "Registration request"),
+            nas_record(11, "Authentication request"),
+            nas_record(12, "Authentication failure", cause_code=None, cause_name=None),
+            nas_record(13, "Authentication request"),
+            nas_record(14, "Authentication response"),
+        ]
+        ngap = [
+            ngap_record(10, "InitialUEMessage", amf_id=None),
+            ngap_record(11, "DownlinkNASTransport"),
+            ngap_record(12, "UplinkNASTransport"),
+            ngap_record(13, "DownlinkNASTransport"),
+            ngap_record(14, "UplinkNASTransport"),
+        ]
+        self._assert_not_recovered(nas, ngap)
+
+
+class AuthRecoveryTerminationBarrierTests(unittest.TestCase):
+    """Termination and re-scoping barriers block retroactive recovery."""
+
+    def _assert_not_recovered(self, nas, ngap):
+        with tempfile.TemporaryDirectory() as d:
+            analysis = write_and_load(Path(d), nas, ngap)
+            instance = first_instance(analysis)
+            self.assertIn(MODEL.DEVIATION_UNSUCCESSFUL, deviation_types(instance))
+            self.assertNotIn(MODEL.DEVIATION_RECOVERED_INTERMEDIATE, deviation_types(instance))
+            return instance
+
+    def test_20_auth_reject_before_request_blocks_recovery(self):
+        """Authentication reject between failure and later request blocks recovery."""
+        nas = [
+            nas_record(10, "Registration request"),
+            nas_record(11, "Authentication request"),
+            nas_record(12, "Authentication failure", cause_code=21, cause_name="Synch failure"),
+            nas_record(13, "Authentication reject"),
+            nas_record(14, "Authentication request"),
+            nas_record(15, "Authentication response"),
+        ]
+        ngap = [
+            ngap_record(10, "InitialUEMessage", amf_id=None),
+            ngap_record(11, "DownlinkNASTransport"),
+            ngap_record(12, "UplinkNASTransport"),
+            ngap_record(13, "UplinkNASTransport"),
+            ngap_record(14, "DownlinkNASTransport"),
+            ngap_record(15, "UplinkNASTransport"),
+        ]
+        self._assert_not_recovered(nas, ngap)
+
+    def test_21_registration_reject_blocks_recovery(self):
+        """Registration reject between failure and later request blocks recovery."""
+        nas = [
+            nas_record(10, "Registration request"),
+            nas_record(11, "Authentication request"),
+            nas_record(12, "Authentication failure", cause_code=21, cause_name="Synch failure"),
+            nas_record(13, "Registration reject"),
+            nas_record(14, "Authentication request"),
+            nas_record(15, "Authentication response"),
+        ]
+        ngap = [
+            ngap_record(10, "InitialUEMessage", amf_id=None),
+            ngap_record(11, "DownlinkNASTransport"),
+            ngap_record(12, "UplinkNASTransport"),
+            ngap_record(13, "DownlinkNASTransport"),
+            ngap_record(14, "DownlinkNASTransport"),
+            ngap_record(15, "UplinkNASTransport"),
+        ]
+        self._assert_not_recovered(nas, ngap)
+
+    def test_22_ue_context_release_blocks_recovery(self):
+        """A terminating UE context release between failure and request blocks recovery."""
+        nas = [
+            nas_record(10, "Registration request"),
+            nas_record(11, "Authentication request"),
+            nas_record(12, "Authentication failure", cause_code=21, cause_name="Synch failure"),
+            nas_record(14, "Authentication request"),
+            nas_record(15, "Authentication response"),
+        ]
+        ngap = [
+            ngap_record(10, "InitialUEMessage", amf_id=None),
+            ngap_record(11, "DownlinkNASTransport"),
+            ngap_record(12, "UplinkNASTransport"),
+            ngap_record(13, "UEContextReleaseCommand"),
+            ngap_record(14, "DownlinkNASTransport"),
+            ngap_record(15, "UplinkNASTransport"),
+        ]
+        self._assert_not_recovered(nas, ngap)
+
+    def test_23_new_registration_request_blocks_recovery(self):
+        """A new independent Registration request between failure and re-challenge blocks recovery."""
+        nas = [
+            nas_record(10, "Registration request"),
+            nas_record(11, "Authentication request"),
+            nas_record(12, "Authentication failure", cause_code=21, cause_name="Synch failure"),
+            nas_record(13, "Registration request"),
+            nas_record(14, "Authentication request"),
+            nas_record(15, "Authentication response"),
+        ]
+        ngap = [
+            ngap_record(10, "InitialUEMessage", amf_id=None),
+            ngap_record(11, "DownlinkNASTransport"),
+            ngap_record(12, "UplinkNASTransport"),
+            ngap_record(13, "InitialUEMessage"),
+            ngap_record(14, "DownlinkNASTransport"),
+            ngap_record(15, "UplinkNASTransport"),
+        ]
+        self._assert_not_recovered(nas, ngap)
+
+    def test_24_later_auth_failure_blocks_recovery(self):
+        """A later Authentication failure blocks recovery of the earlier failure.
+
+        The first failure (frame 12) must stay UNSUCCESSFUL because a later
+        Authentication failure (frame 13) is a re-scoping barrier. The second
+        failure is evaluated independently and may recover on its own.
+        """
+        nas = [
+            nas_record(10, "Registration request"),
+            nas_record(11, "Authentication request"),
+            nas_record(12, "Authentication failure", cause_code=21, cause_name="Synch failure"),
+            nas_record(13, "Authentication failure", cause_code=21, cause_name="Synch failure"),
+            nas_record(14, "Authentication request"),
+            nas_record(15, "Authentication response"),
+        ]
+        ngap = [
+            ngap_record(10, "InitialUEMessage", amf_id=None),
+            ngap_record(11, "DownlinkNASTransport"),
+            ngap_record(12, "UplinkNASTransport"),
+            ngap_record(13, "UplinkNASTransport"),
+            ngap_record(14, "DownlinkNASTransport"),
+            ngap_record(15, "UplinkNASTransport"),
+        ]
+        with tempfile.TemporaryDirectory() as d:
+            analysis = write_and_load(Path(d), nas, ngap)
+            instance = first_instance(analysis)
+            types = deviation_types(instance)
+            self.assertIn(MODEL.DEVIATION_UNSUCCESSFUL, types)
+            recovered = [dev for dev in instance["deviations"]
+                         if dev["type"] == MODEL.DEVIATION_RECOVERED_INTERMEDIATE]
+            for dev in recovered:
+                refs = dev.get("evidence_refs", [])
+                failure_frames = [r.get("frame_number") for r in refs
+                                  if r.get("kind") == "EVENT" and r.get("message_type") == "Authentication failure"]
+                self.assertNotIn(12, failure_frames,
+                                 "the first failure must not be recovered when a later failure intervenes")
+
+    def test_25_barrier_between_request_and_response_blocks_recovery(self):
+        """A barrier between the re-challenge request and response blocks recovery."""
+        nas = [
+            nas_record(10, "Registration request"),
+            nas_record(11, "Authentication request"),
+            nas_record(12, "Authentication failure", cause_code=21, cause_name="Synch failure"),
+            nas_record(13, "Authentication request"),
+            nas_record(14, "Authentication reject"),
+            nas_record(15, "Authentication response"),
+        ]
+        ngap = [
+            ngap_record(10, "InitialUEMessage", amf_id=None),
+            ngap_record(11, "DownlinkNASTransport"),
+            ngap_record(12, "UplinkNASTransport"),
+            ngap_record(13, "DownlinkNASTransport"),
+            ngap_record(14, "UplinkNASTransport"),
+            ngap_record(15, "UplinkNASTransport"),
+        ]
+        self._assert_not_recovered(nas, ngap)
+
+
+class AuthRecoveryEvidencePreservationTests(unittest.TestCase):
+    """Recovered outcomes preserve original and recovery evidence references."""
+
+    def test_26_recovered_retains_cause_21_in_description(self):
+        """The recovered deviation description records the decoded cause 21."""
+        with tempfile.TemporaryDirectory() as d:
+            analysis = write_and_load(Path(d), recovery_nas_events(), recovery_ngap_events())
+            instance = first_instance(analysis)
+            recovered = [d for d in instance["deviations"]
+                         if d["type"] == MODEL.DEVIATION_RECOVERED_INTERMEDIATE]
+            self.assertIn("cause 21", recovered[0]["description"])
+
+    def test_27_cause_20_failure_remains_unsuccessful_with_cause(self):
+        """A cause-20 failure is preserved as UNSUCCESSFUL with its original cause."""
+        nas = [
+            nas_record(10, "Registration request"),
+            nas_record(11, "Authentication request"),
+            nas_record(12, "Authentication failure", cause_code=20, cause_name="Mac failure"),
+            nas_record(13, "Authentication request"),
+            nas_record(14, "Authentication response"),
+        ]
+        ngap = [
+            ngap_record(10, "InitialUEMessage", amf_id=None),
+            ngap_record(11, "DownlinkNASTransport"),
+            ngap_record(12, "UplinkNASTransport"),
+            ngap_record(13, "DownlinkNASTransport"),
+            ngap_record(14, "UplinkNASTransport"),
+        ]
+        with tempfile.TemporaryDirectory() as d:
+            analysis = write_and_load(Path(d), nas, ngap)
+            instance = first_instance(analysis)
+            self.assertIn(MODEL.DEVIATION_UNSUCCESSFUL, deviation_types(instance))
+            self.assertNotIn(MODEL.DEVIATION_RECOVERED_INTERMEDIATE, deviation_types(instance))
+
+
 if __name__ == "__main__":
     unittest.main()

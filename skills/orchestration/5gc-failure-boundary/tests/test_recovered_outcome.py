@@ -1,8 +1,9 @@
 """Synthetic regression tests for Orchestration non-candidate classification of recovered deviations.
 
 These tests verify that RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED deviations from
-the Registration Domain are classified as non-candidate limitations by the
-Orchestration model, while UNSUCCESSFUL_OUTCOME_OBSERVED remains candidate-eligible.
+the Registration Domain are classified as non-candidate supporting evidence by
+the Orchestration model, while UNSUCCESSFUL_OUTCOME_OBSERVED remains
+candidate-eligible.
 """
 
 from __future__ import annotations
@@ -51,7 +52,7 @@ def _event_ref(frame: int, message_type: str, protocol: str = "NAS-5GS") -> dict
 def _registration_analysis(deviation_type: str, evidence_refs: list[dict]) -> dict:
     """Build a minimal Registration Domain analysis with one deviation."""
     return {
-        "analysis_version": "0.2.4",
+        "analysis_version": "0.2.5",
         "procedure_family": "5gc-registration-mobility",
         "correlation_conflicts": [],
         "unbound_records": [],
@@ -95,7 +96,7 @@ def _registration_analysis(deviation_type: str, evidence_refs: list[dict]) -> di
                         "observation_group": "reg.pcapng",
                         "observed_evidence": ["NAS-5GS Registration request observed at frame 10"],
                         "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-                        "procedure_version": "0.2.4",
+                        "procedure_version": "0.2.5",
                         "stage": {
                             "expected_message_types": ["InitialUEMessage", "Registration request"],
                             "expected_protocols": ["NAS-5GS", "NGAP"],
@@ -150,15 +151,21 @@ UNSUCCESSFUL_REFS = [
 class OrchestrationRecoveryClassificationTests(unittest.TestCase):
     """Verify Orchestration classifies recovered deviations as non-candidate."""
 
-    def test_16_recovered_deviation_classified_as_limitation(self):
+    def test_16_recovered_deviation_classified_as_supporting_anomaly(self):
+        """Recovered deviation is non-candidate supporting evidence, not a limitation."""
         analysis = _registration_analysis("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", RECOVERED_REFS)
         result = _run_orchestration(analysis)
+        all_supporting_types = set()
         all_limitation_types = set()
         for group in result["diagnostic_groups"]:
+            for sup in group.get("supporting_anomalies", []):
+                if isinstance(sup, dict):
+                    all_supporting_types.add(sup.get("type"))
             for lim in group.get("evidence_limitations", []):
                 if isinstance(lim, dict):
                     all_limitation_types.add(lim.get("type"))
-        self.assertIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", all_limitation_types)
+        self.assertIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", all_supporting_types)
+        self.assertNotIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", all_limitation_types)
 
     def test_17_recovered_deviation_not_in_candidates(self):
         analysis = _registration_analysis("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", RECOVERED_REFS)
@@ -187,9 +194,10 @@ class OrchestrationRecoveryClassificationTests(unittest.TestCase):
         self.assertIn("UNSUCCESSFUL_OUTCOME_OBSERVED", MODEL.ELIGIBLE_DEVIATION_TYPES)
         self.assertNotIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", MODEL.ELIGIBLE_DEVIATION_TYPES)
 
-    def test_20_recovered_type_in_evidence_limitation_set(self):
-        """The recovered type is explicitly classified in EVIDENCE_LIMITATION_TYPES."""
-        self.assertIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", MODEL.EVIDENCE_LIMITATION_TYPES)
+    def test_20_recovered_type_in_supporting_anomaly_set(self):
+        """The recovered type is explicitly classified in SUPPORTING_ANOMALY_TYPES."""
+        self.assertIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", MODEL.SUPPORTING_ANOMALY_TYPES)
+        self.assertNotIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", MODEL.EVIDENCE_LIMITATION_TYPES)
 
 
 if __name__ == "__main__":
