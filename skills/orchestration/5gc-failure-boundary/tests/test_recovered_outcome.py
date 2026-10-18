@@ -51,6 +51,20 @@ def _event_ref(frame: int, message_type: str, protocol: str = "NAS-5GS") -> dict
 
 def _registration_analysis(deviation_type: str, evidence_refs: list[dict]) -> dict:
     """Build a minimal Registration Domain analysis with one deviation."""
+    return _registration_analysis_deviations([
+        {
+            "type": deviation_type,
+            "stage_id": None,
+            "description": f"Deviation {deviation_type} at frame 12",
+            "evidence_level": "OBSERVED",
+            "limitation": "Procedure evidence",
+            "evidence_refs": evidence_refs,
+        },
+    ])
+
+
+def _registration_analysis_deviations(deviations: list[dict]) -> dict:
+    """Build a minimal Registration Domain analysis with explicit deviations."""
     return {
         "analysis_version": "0.2.5",
         "procedure_family": "5gc-registration-mobility",
@@ -105,16 +119,7 @@ def _registration_analysis(deviation_type: str, evidence_refs: list[dict]) -> di
                         },
                     },
                 ],
-                "deviations": [
-                    {
-                        "type": deviation_type,
-                        "stage_id": None,
-                        "description": f"Deviation {deviation_type} at frame 12",
-                        "evidence_level": "OBSERVED",
-                        "limitation": "Procedure evidence",
-                        "evidence_refs": evidence_refs,
-                    },
-                ],
+                "deviations": deviations,
                 "field_findings": [],
                 "confidence": "MEDIUM",
                 "events": [],
@@ -198,6 +203,124 @@ class OrchestrationRecoveryClassificationTests(unittest.TestCase):
         """The recovered type is explicitly classified in SUPPORTING_ANOMALY_TYPES."""
         self.assertIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", MODEL.SUPPORTING_ANOMALY_TYPES)
         self.assertNotIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", MODEL.EVIDENCE_LIMITATION_TYPES)
+
+
+class OrchestrationRecoveryCoexistenceTests(unittest.TestCase):
+    """Verify recovered and unsuccessful deviations coexist safely."""
+
+    def test_21_independent_unsuccessful_outcome_not_suppressed(self):
+        """An independent eligible unsuccessful outcome stays candidate-eligible
+        when a recovered outcome exists in the same instance.
+
+        The recovered intermediate outcome must never suppress an
+        independently eligible unsuccessful deviation: the unsuccessful
+        deviation must remain a selectable candidate while the recovered
+        deviation stays supporting evidence with structured evidence
+        references.
+        """
+        analysis = _registration_analysis_deviations([
+            {
+                "type": "RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED",
+                "stage_id": None,
+                "description": "Recovered synchronization failure at frame 12",
+                "evidence_level": "OBSERVED",
+                "limitation": "Procedure evidence",
+                "evidence_refs": RECOVERED_REFS,
+            },
+            {
+                "type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
+                "stage_id": None,
+                "description": "Authentication failure at frame 20",
+                "evidence_level": "OBSERVED",
+                "limitation": "Procedure evidence",
+                "evidence_refs": [_event_ref(20, "Authentication failure")],
+            },
+        ])
+        result = _run_orchestration(analysis)
+        self.assertTrue(result["diagnostic_groups"])
+        for group in result["diagnostic_groups"]:
+            supporting_types = {
+                entry.get("type") for entry in group.get("supporting_anomalies", [])
+                if isinstance(entry, dict)
+            }
+            candidate_types = {
+                candidate.get("deviation_type") for candidate in group.get("candidate_boundaries", [])
+                if isinstance(candidate, dict)
+            }
+            self.assertIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", supporting_types)
+            self.assertNotIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", candidate_types)
+            self.assertIn("UNSUCCESSFUL_OUTCOME_OBSERVED", candidate_types)
+            for entry in group.get("supporting_anomalies", []):
+                if entry.get("type") == "RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED":
+                    refs = entry.get("_refs") or []
+                    event_refs = [ref for ref in refs if ref.get("kind") == "EVENT"]
+                    self.assertTrue(event_refs)
+                    self.assertEqual(
+                        [ref.get("frame_number") for ref in event_refs],
+                        [12, 13, 14],
+                    )
+
+    def test_22_recovered_supporting_entry_preserves_structured_refs(self):
+        """The recovered supporting anomaly preserves the structured evidence
+        references of the source deviation.
+
+        The entry must carry the structured event references (kind, frame
+        number, protocol, message type) that downstream ordering uses;
+        human-readable description is never the machine provenance
+        contract.
+        """
+        analysis = _registration_analysis("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", RECOVERED_REFS)
+        result = _run_orchestration(analysis)
+        recovered_entries = []
+        for group in result["diagnostic_groups"]:
+            for entry in group.get("supporting_anomalies", []):
+                if isinstance(entry, dict) and entry.get("type") == "RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED":
+                    recovered_entries.append(entry)
+        self.assertTrue(recovered_entries)
+        for entry in recovered_entries:
+            refs = entry.get("_refs") or []
+            event_refs = [ref for ref in refs
+                          if isinstance(ref, dict) and ref.get("kind") == "EVENT"]
+            self.assertEqual(len(event_refs), 3)
+            self.assertEqual([ref.get("frame_number") for ref in event_refs], [12, 13, 14])
+            self.assertEqual([ref.get("protocol") for ref in event_refs],
+                             ["NAS-5GS", "NAS-5GS", "NAS-5GS"])
+            self.assertEqual([ref.get("message_type") for ref in event_refs],
+                             ["Authentication failure", "Authentication request", "Authentication response"])
+            self.assertEqual(
+                {ref.get("evidence_level") for ref in event_refs},
+                {"OBSERVED"},
+            )
+
+    def test_23_recovered_never_enters_evidence_limitation_types(self):
+        """The recovered type never leaks into the evidence-limitation set."""
+        self.assertNotIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", MODEL.EVIDENCE_LIMITATION_TYPES)
+        self.assertIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", MODEL.SUPPORTING_ANOMALY_TYPES)
+        analysis = _registration_analysis_deviations([
+            {
+                "type": "RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED",
+                "stage_id": None,
+                "description": "Recovered synchronization failure at frame 12",
+                "evidence_level": "OBSERVED",
+                "limitation": "Procedure evidence",
+                "evidence_refs": RECOVERED_REFS,
+            },
+            {
+                "type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
+                "stage_id": None,
+                "description": "Authentication failure at frame 20",
+                "evidence_level": "OBSERVED",
+                "limitation": "Procedure evidence",
+                "evidence_refs": [_event_ref(20, "Authentication failure")],
+            },
+        ])
+        result = _run_orchestration(analysis)
+        for group in result["diagnostic_groups"]:
+            limitation_types = {
+                entry.get("type") for entry in group.get("evidence_limitations", [])
+                if isinstance(entry, dict)
+            }
+            self.assertNotIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", limitation_types)
 
 
 if __name__ == "__main__":
