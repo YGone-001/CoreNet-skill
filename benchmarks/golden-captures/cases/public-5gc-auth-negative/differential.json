@@ -4,7 +4,7 @@
   "capture_limitations": [],
   "case_id": "public-5gc-auth-negative",
   "comparison_eligibility": "ELIGIBLE",
-  "comparison_status": "NEEDS_ADJUDICATION",
+  "comparison_status": "PROCEDURE_MATCH_STAGE_DIFFERENCE",
   "evidence_layers": {
     "baseline_support": "SUPPORTED",
     "capture_sufficiency": "SUFFICIENT",
@@ -24,19 +24,19 @@
     "procedure_stage": "security",
     "protocol": "NAS-5GS"
   },
-  "layer_attribution": "UNKNOWN",
+  "layer_attribution": "DOMAIN",
   "notes": [
-    "Boundary semantics are not fully reported on at least one side: procedure_stage (baseline=security, summary=absent). Exact equivalence cannot be established without inventing detail, so no match is assumed."
+    "Same procedure family (5gc-registration-mobility), but the abnormal boundary semantics disagree: procedure_stage (baseline security vs Skill authentication). Frame agreement is not evidence of an exact boundary match."
   ],
-  "recommended_next_action": "NO_CHANGE",
+  "recommended_next_action": "CORRECT_DOMAIN_MODEL",
   "skill_boundary": {
     "boundary_frame": 11,
     "boundary_message": "Authentication failure",
     "boundary_protocol": "NAS-5GS",
     "procedure_family": "5gc-registration-mobility",
-    "procedure_stage": null,
+    "procedure_stage": "authentication",
     "selection_status": "SELECTED",
     "source_domain": "5gc-registration-mobility"
   },
-  "upstream_intent_match": "MISMATCH"
+  "upstream_intent_match": "PARTIAL"
 }

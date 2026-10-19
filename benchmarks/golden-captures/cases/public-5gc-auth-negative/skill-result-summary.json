@@ -52,7 +52,7 @@
     "deviation_type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
     "evidence_level": "OBSERVED",
     "selected_procedure_family": "5gc-registration-mobility",
-    "selected_procedure_stage": null,
+    "selected_procedure_stage": "authentication",
     "selected_source_domain": "5gc-registration-mobility"
   },
   "selection_status": "SELECTED"
