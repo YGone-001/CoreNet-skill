@@ -46,14 +46,14 @@
               "kind": "EVENT",
               "message_type": "InitialContextSetupFailure",
               "protocol": "NGAP",
-              "stage_id": null,
+              "stage_id": "n2-context-establishment",
               "timestamp": "2024-01-02T03:04:11.00Z",
               "window_first_frame": null,
               "window_last_frame": null
             }
           ],
           "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
-          "stage_id": null,
+          "stage_id": "n2-context-establishment",
           "type": "UNSUCCESSFUL_OUTCOME_OBSERVED"
         }
       ],
@@ -187,7 +187,7 @@
             "NGAP InitialContextSetupFailure observed at frame 11 (2024-01-02T03:04:11.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "0.2.5",
+          "procedure_version": "0.2.6",
           "stage": {
             "expected_message_types": [
               "InitialContextSetupFailure",
@@ -211,7 +211,7 @@
       }
     }
   ],
-  "analysis_version": "0.2.5",
+  "analysis_version": "0.2.6",
   "correlation_conflicts": [],
   "procedure_family": "5gc-registration-mobility",
   "unbound_records": []

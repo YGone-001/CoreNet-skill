@@ -24,14 +24,14 @@
               "kind": "EVENT",
               "message_type": "Authentication failure",
               "protocol": "NAS-5GS",
-              "stage_id": null,
+              "stage_id": "authentication",
               "timestamp": "2024-01-02T03:04:12.00Z",
               "window_first_frame": null,
               "window_last_frame": null
             }
           ],
           "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
-          "stage_id": null,
+          "stage_id": "authentication",
           "type": "UNSUCCESSFUL_OUTCOME_OBSERVED"
         }
       ],
@@ -285,7 +285,7 @@
             "NAS-5GS Registration request observed at frame 10 (2024-01-02T03:04:10.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "0.2.5",
+          "procedure_version": "0.2.6",
           "stage": {
             "expected_message_types": [
               "InitialUEMessage",
@@ -316,7 +316,7 @@
             "NAS-5GS Authentication failure observed at frame 12 (2024-01-02T03:04:12.00Z)"
           ],
           "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
-          "procedure_version": "0.2.5",
+          "procedure_version": "0.2.6",
           "stage": {
             "expected_message_types": [
               "Authentication failure",
@@ -342,7 +342,7 @@
       }
     }
   ],
-  "analysis_version": "0.2.5",
+  "analysis_version": "0.2.6",
   "correlation_conflicts": [],
   "procedure_family": "5gc-registration-mobility",
   "unbound_records": []

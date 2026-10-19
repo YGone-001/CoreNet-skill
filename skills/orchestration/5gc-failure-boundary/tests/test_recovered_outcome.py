@@ -322,6 +322,107 @@ class OrchestrationRecoveryCoexistenceTests(unittest.TestCase):
             }
             self.assertNotIn("RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED", limitation_types)
 
+    def test_24_auth_negative_stage_attribution_consumed_by_orchestration(self):
+        """Orchestration consumes the newly supported authentication stage identity
+        without changing its candidate-selection algorithm or boundary anchor."""
+        stage_records = [
+            {
+                "confidence": "MEDIUM",
+                "evidence_basis": "OBSERVED",
+                "expected_evidence": [],
+                "limitations": [],
+                "missing_evidence": [],
+                "observation_group": "reg.pcapng",
+                "observed_evidence": ["NAS-5GS Registration request observed at frame 1"],
+                "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+                "procedure_version": "0.2.6",
+                "stage": {
+                    "expected_message_types": ["InitialUEMessage", "Registration request"],
+                    "expected_protocols": ["NAS-5GS", "NGAP"],
+                    "stage_id": "registration-initiation",
+                    "stage_name": "Registration initiation",
+                },
+            },
+            {
+                "confidence": "MEDIUM",
+                "evidence_basis": "OBSERVED",
+                "expected_evidence": [],
+                "limitations": [],
+                "missing_evidence": [],
+                "observation_group": "reg.pcapng",
+                "observed_evidence": ["NAS-5GS Authentication request observed at frame 10"],
+                "procedure_name": "5gc-reg:reg.pcapng:sctp-assoc-0:r1",
+                "procedure_version": "0.2.6",
+                "stage": {
+                    "expected_message_types": ["Authentication request", "Authentication response"],
+                    "expected_protocols": ["NAS-5GS"],
+                    "stage_id": "authentication",
+                    "stage_name": "Primary authentication and key agreement",
+                },
+            },
+        ]
+        deviations = [
+            {
+                "type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
+                "stage_id": "authentication",
+                "description": "NAS-5GS Authentication failure observed at frame 11",
+                "evidence_level": "OBSERVED",
+                "limitation": "Procedure evidence",
+                "evidence_refs": [
+                    {
+                        "capture_file": "reg.pcapng",
+                        "evidence_level": "OBSERVED",
+                        "field_name": None,
+                        "frame_number": 11,
+                        "kind": "EVENT",
+                        "message_type": "Authentication failure",
+                        "protocol": "NAS-5GS",
+                        "stage_id": "authentication",
+                        "timestamp": "2024-01-02T03:04:11.00Z",
+                        "window_first_frame": None,
+                        "window_last_frame": None,
+                    }
+                ],
+            },
+            {
+                "type": "PROTOCOL_REJECT_OBSERVED",
+                "stage_id": "authentication",
+                "description": "NAS-5GS Authentication reject observed at frame 12",
+                "evidence_level": "OBSERVED",
+                "limitation": "Procedure evidence",
+                "evidence_refs": [
+                    {
+                        "capture_file": "reg.pcapng",
+                        "evidence_level": "OBSERVED",
+                        "field_name": None,
+                        "frame_number": 12,
+                        "kind": "EVENT",
+                        "message_type": "Authentication reject",
+                        "protocol": "NAS-5GS",
+                        "stage_id": "authentication",
+                        "timestamp": "2024-01-02T03:04:12.00Z",
+                        "window_first_frame": None,
+                        "window_last_frame": None,
+                    }
+                ],
+            },
+        ]
+        doc = _registration_analysis_deviations(deviations)
+        doc["analysis_version"] = "0.2.6"
+        doc["analyses"][0]["stage_records"] = stage_records
+        result = _run_orchestration(doc)
+        group = result["diagnostic_groups"][0]
+        selected = group["selected_boundary"]
+        self.assertIsNotNone(selected)
+        ref = selected["boundary_ref"]
+        self.assertEqual(ref["boundary_anchor"]["frame_number"], 11)
+        self.assertEqual(ref["boundary_anchor"]["protocol"], "NAS-5GS")
+        self.assertEqual(ref["boundary_anchor"]["message_type"], "Authentication failure")
+        self.assertEqual(ref["procedure_stage"], "authentication")
+        self.assertEqual(ref["ordering_basis"]["stage_position"], 1)
+        self.assertNotEqual(ref["procedure_stage"], "security",
+                            "No equivalence between authentication and security may be assumed")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -923,5 +923,297 @@ class CounterpartEvidenceGatingTests(unittest.TestCase):
         self.assertEqual(types.count(MODEL.DEVIATION_MISSING_COUNTERPART), 0)
 
 
+class StageAttributionTests(unittest.TestCase):
+    """corr-05-B: Evidence-bounded registration deviation stage attribution."""
+
+    NAS_TEMPLATE = {
+        "capture_file": "reg.pcapng", "cause": {"code": None, "name": None},
+        "identity": {"value": None}, "nas_family": "5GMM",
+        "registration": {"type_name": None},
+        "security": {"header_type": 2, "inner_message_available": True},
+        "security_mode": {"ciphering_algorithm_name": None, "integrity_algorithm_name": None},
+        "support_status": "SUPPORTED",
+    }
+    NGAP_TEMPLATE = {
+        "amf_ue_ngap_id": 1, "capture_file": "reg.pcapng", "cause": None,
+        "pdu_type": None, "procedure_name": None, "protocol": "NGAP", "ran_ue_ngap_id": 1,
+        "sctp": {"association_id": 0, "dstport": 38412, "srcport": 31000, "stream_id": 0},
+        "support_status": "SUPPORTED",
+    }
+
+    @staticmethod
+    def stamp(frame: int) -> str:
+        return f"2024-01-02T03:04:{frame:02d}.00Z"
+
+    def nas_row(self, frame, message_type, **extra):
+        row = {"frame_number": frame, "message_type": message_type, "timestamp": self.stamp(frame)}
+        row.update(extra)
+        return row
+
+    def ngap_row(self, frame, message_type, **extra):
+        row = {"frame_number": frame, "message_type": message_type, "timestamp": self.stamp(frame)}
+        row.update(extra)
+        return row
+
+    def write_events(self, directory: Path, name: str, rows, template):
+        path = directory / f"{name}.jsonl"
+        with path.open("w", encoding="utf-8", newline="\n") as handle:
+            for row in rows:
+                record = dict(template)
+                record.update(row)
+                handle.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+        return path
+
+    def analyze_synthetic(self, nas_rows, ngap_rows, directory: Path, correlation_rows=None):
+        nas_path = self.write_events(directory, "nas", nas_rows, self.NAS_TEMPLATE)
+        ngap_path = self.write_events(directory, "ngap", ngap_rows, self.NGAP_TEMPLATE)
+        corr_groups = []
+        if correlation_rows:
+            corr_path = directory / "correlation.jsonl"
+            with corr_path.open("w", encoding="utf-8", newline="\n") as handle:
+                for row in correlation_rows:
+                    handle.write(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
+            corr_groups = MODEL.load_correlation_groups(corr_path)
+        return MODEL.analyze(MODEL.load_ngap_events(ngap_path), MODEL.load_nas_events(nas_path), corr_groups, RULES)
+
+    def test_01_auth_failure_cause_20_stage_attribution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            doc = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, "Authentication request"),
+                 self.nas_row(12, "Authentication failure", cause={"code": 20, "name": "MAC failure"})],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "DownlinkNASTransport"),
+                 self.ngap_row(12, "UplinkNASTransport")],
+                Path(directory))
+        instance = doc["analyses"][0]
+        unsuccessful = [d for d in instance["deviations"] if d["type"] == MODEL.DEVIATION_UNSUCCESSFUL]
+        self.assertEqual(len(unsuccessful), 1)
+        dev = unsuccessful[0]
+        self.assertEqual(dev["stage_id"], "authentication")
+        self.assertEqual(dev["evidence_level"], "OBSERVED")
+        self.assertEqual(len(dev["evidence_refs"]), 1)
+        ref = dev["evidence_refs"][0]
+        self.assertEqual(ref["stage_id"], "authentication")
+        self.assertEqual(ref["frame_number"], 12)
+        self.assertEqual(ref["kind"], "EVENT")
+        self.assertEqual(ref["protocol"], "NAS-5GS")
+        self.assertEqual(ref["message_type"], "Authentication failure")
+        ev = next(e for e in instance["events"] if e["frame_number"] == 12)
+        self.assertEqual(ev["cause"], {"code": 20, "name": "MAC failure"})
+        self.assertEqual(dev["description"], "NAS-5GS Authentication failure observed at frame 12")
+
+    def test_02_auth_reject_stage_attribution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            doc = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, "Authentication request"),
+                 self.nas_row(12, "Authentication reject", cause={"code": 73, "name": "Serving network not authorized"})],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "DownlinkNASTransport"),
+                 self.ngap_row(12, "UplinkNASTransport")],
+                Path(directory))
+        instance = doc["analyses"][0]
+        rejects = [d for d in instance["deviations"] if d["type"] == MODEL.DEVIATION_PROTOCOL_REJECT]
+        self.assertEqual(len(rejects), 1)
+        dev = rejects[0]
+        self.assertEqual(dev["stage_id"], "authentication")
+        self.assertEqual(dev["evidence_level"], "OBSERVED")
+        self.assertEqual(len(dev["evidence_refs"]), 1)
+        ref = dev["evidence_refs"][0]
+        self.assertEqual(ref["stage_id"], "authentication")
+        self.assertEqual(ref["frame_number"], 12)
+        self.assertEqual(ref["message_type"], "Authentication reject")
+
+    def test_03_cause_21_confirmed_recovery_stage_attribution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            doc = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, "Authentication request"),
+                 self.nas_row(12, "Authentication failure", cause={"code": 21, "name": "Synch failure"}),
+                 self.nas_row(13, "Authentication request"),
+                 self.nas_row(14, "Authentication response"),
+                 self.nas_row(15, "Registration accept"),
+                 self.nas_row(16, "Registration complete")],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "DownlinkNASTransport"),
+                 self.ngap_row(12, "UplinkNASTransport"),
+                 self.ngap_row(13, "DownlinkNASTransport"),
+                 self.ngap_row(14, "UplinkNASTransport"),
+                 self.ngap_row(15, "DownlinkNASTransport"),
+                 self.ngap_row(16, "UplinkNASTransport")],
+                Path(directory))
+        instance = doc["analyses"][0]
+        recovered = [d for d in instance["deviations"] if d["type"] == "RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED"]
+        self.assertEqual(len(recovered), 1)
+        dev = recovered[0]
+        self.assertEqual(dev["stage_id"], "authentication")
+        self.assertEqual(dev["evidence_level"], "OBSERVED")
+        self.assertEqual(len(dev["evidence_refs"]), 3)
+        for ref in dev["evidence_refs"]:
+            self.assertEqual(ref["stage_id"], "authentication")
+            self.assertEqual(ref["kind"], "EVENT")
+            self.assertEqual(ref["evidence_level"], "OBSERVED")
+        self.assertEqual([r["frame_number"] for r in dev["evidence_refs"]], [12, 13, 14])
+        self.assertNotEqual(dev["type"], MODEL.DEVIATION_UNSUCCESSFUL)
+        self.assertNotEqual(dev["type"], MODEL.DEVIATION_PROTOCOL_REJECT)
+
+    def test_04_ics_failure_stage_attribution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            doc = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, "Authentication request"),
+                 self.nas_row(12, "Authentication response")],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "DownlinkNASTransport"),
+                 self.ngap_row(12, "UplinkNASTransport"),
+                 self.ngap_row(13, "InitialContextSetupRequest"),
+                 self.ngap_row(14, "InitialContextSetupFailure", cause="Radio Network Cause")],
+                Path(directory))
+        instance = doc["analyses"][0]
+        unsuccessful = [d for d in instance["deviations"] if d["type"] == MODEL.DEVIATION_UNSUCCESSFUL]
+        self.assertEqual(len(unsuccessful), 1)
+        dev = unsuccessful[0]
+        self.assertEqual(dev["stage_id"], "n2-context-establishment")
+        self.assertEqual(dev["evidence_refs"][0]["stage_id"], "n2-context-establishment")
+        self.assertEqual(dev["evidence_refs"][0]["frame_number"], 14)
+        self.assertEqual(dev["evidence_refs"][0]["protocol"], "NGAP")
+        self.assertEqual(dev["evidence_refs"][0]["message_type"], "InitialContextSetupFailure")
+
+    def test_05_protected_nas_unknown_inner_message_preserves_null(self):
+        with tempfile.TemporaryDirectory() as directory:
+            doc = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, "Security mode command"),
+                 self.nas_row(12, None, support_status="UNKNOWN",
+                               security={"ciphered": True, "header_type": 2, "inner_message_available": False})],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "DownlinkNASTransport"),
+                 self.ngap_row(12, "UplinkNASTransport")],
+                Path(directory))
+        instance = doc["analyses"][0]
+        protected = [d for d in instance["deviations"] if d["type"] == "PROTECTED_INNER_MESSAGE_UNAVAILABLE"]
+        self.assertEqual(len(protected), 1)
+        self.assertIsNone(protected[0]["stage_id"])
+        self.assertIsNone(protected[0]["evidence_refs"][0]["stage_id"])
+
+    def test_06_unknown_message_value_no_invented_stage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            doc = self.analyze_synthetic(
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, "NonExistentNasMessage", support_status="UNSUPPORTED")],
+                [self.ngap_row(10, "InitialUEMessage"),
+                 self.ngap_row(11, "UplinkNASTransport")],
+                Path(directory))
+        instance = doc["analyses"][0]
+        unknown = [d for d in instance["deviations"] if d["type"] == "UNKNOWN_OR_RESERVED_PROTOCOL_VALUE"]
+        self.assertEqual(len(unknown), 1)
+        self.assertIsNone(unknown[0]["stage_id"])
+        self.assertIsNone(unknown[0]["evidence_refs"][0]["stage_id"])
+
+    def test_07_message_in_multiple_stages_preserves_ambiguity(self):
+        rules = MODEL.load_rules(RULES)
+        event = {"protocol": "NAS-5GS", "message_type": "Registration accept",
+                 "security": {"inner_message_available": True}}
+        activated = {"registration-initiation", "registration-decision", "registration-completion"}
+        stage_id = MODEL._unique_stage_id_for_event(rules, event, activated)
+        self.assertIsNone(stage_id, "Registration accept participates in both decision and completion; ambiguity must be preserved")
+
+    def test_08_unactivated_stage_no_forced_assignment(self):
+        rules = MODEL.load_rules(RULES)
+        event = {"protocol": "NAS-5GS", "message_type": "Authentication failure",
+                 "security": {"inner_message_available": True}}
+        # Stage 'authentication' was not activated in this instance
+        activated = {"registration-initiation"}
+        stage_id = MODEL._unique_stage_id_for_event(rules, event, activated)
+        self.assertIsNone(stage_id, "Unactivated stage must not be assigned")
+
+    def test_09_cross_instance_evidence_no_stage_leakage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            doc = self.analyze_synthetic(
+                # UE 1 (RAN UE NGAP ID 1)
+                [self.nas_row(10, "Registration request"),
+                 self.nas_row(11, "Authentication request"),
+                 self.nas_row(12, "Authentication failure", cause={"code": 20, "name": "MAC failure"}),
+                 # UE 2 (RAN UE NGAP ID 2)
+                 self.nas_row(20, "Registration request")],
+                [self.ngap_row(10, "InitialUEMessage", ran_ue_ngap_id=1, amf_ue_ngap_id=1),
+                 self.ngap_row(11, "DownlinkNASTransport", ran_ue_ngap_id=1, amf_ue_ngap_id=1),
+                 self.ngap_row(12, "UplinkNASTransport", ran_ue_ngap_id=1, amf_ue_ngap_id=1),
+                 self.ngap_row(20, "InitialUEMessage", ran_ue_ngap_id=2, amf_ue_ngap_id=2),
+                 self.ngap_row(21, "UEContextReleaseCommand", ran_ue_ngap_id=2, amf_ue_ngap_id=2)],
+                Path(directory))
+        self.assertEqual(len(doc["analyses"]), 2)
+        inst_1 = next(a for a in doc["analyses"] if a["context"]["ngap_context"]["ran_ue_ngap_id"] == 1)
+        inst_2 = next(a for a in doc["analyses"] if a["context"]["ngap_context"]["ran_ue_ngap_id"] == 2)
+        devs_1 = [d for d in inst_1["deviations"] if d["type"] == MODEL.DEVIATION_UNSUCCESSFUL]
+        self.assertEqual(len(devs_1), 1)
+        self.assertEqual(devs_1[0]["stage_id"], "authentication")
+        stage_ids_2 = {r["stage"]["stage_id"] for r in inst_2["stage_records"]}
+        self.assertNotIn("authentication", stage_ids_2)
+        for dev in inst_2["deviations"]:
+            self.assertNotEqual(dev.get("stage_id"), "authentication")
+
+    def test_10_binding_conflict_preserves_null_stage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("binding-conflict", Path(directory))
+        instance = first_instance(analysis)
+        conflicts = [d for d in instance["deviations"] if d["type"] == "CORRELATION_CONFLICT"]
+        self.assertTrue(conflicts)
+        for c in conflicts:
+            self.assertIsNone(c["stage_id"])
+
+    def test_11_duplicate_event_preserves_null_stage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("duplicate", Path(directory))
+        instance = first_instance(analysis)
+        duplicates = [d for d in instance["deviations"] if d["type"] == MODEL.DEVIATION_DUPLICATE]
+        self.assertTrue(duplicates)
+        for d in duplicates:
+            self.assertIsNone(d["stage_id"])
+
+    def test_12_out_of_order_preserves_null_stage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            analysis, _ = run_scenario("out-of-order", Path(directory))
+        instance = first_instance(analysis)
+        ooo = [d for d in instance["deviations"] if d["type"] == MODEL.DEVIATION_OUT_OF_ORDER]
+        self.assertTrue(ooo)
+        for d in ooo:
+            self.assertIsNone(d["stage_id"])
+
+    def test_13_synthetic_auth_negative_domain_preserves_boundary_and_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            doc = self.analyze_synthetic(
+                [self.nas_row(1, "Registration request"),
+                 self.nas_row(10, "Authentication request"),
+                 self.nas_row(11, "Authentication failure", cause={"code": 20, "name": "MAC failure"}),
+                 self.nas_row(12, "Authentication reject", cause={"code": 73, "name": "Serving network not authorized"})],
+                [self.ngap_row(1, "InitialUEMessage"),
+                 self.ngap_row(10, "DownlinkNASTransport"),
+                 self.ngap_row(11, "UplinkNASTransport"),
+                 self.ngap_row(12, "DownlinkNASTransport"),
+                 self.ngap_row(14, "UEContextReleaseCommand"),
+                 self.ngap_row(15, "UEContextReleaseComplete")],
+                Path(directory))
+        instance = doc["analyses"][0]
+        unsuccessful = [d for d in instance["deviations"] if d["type"] == MODEL.DEVIATION_UNSUCCESSFUL]
+        self.assertEqual(len(unsuccessful), 1)
+        dev = unsuccessful[0]
+        self.assertEqual(dev["stage_id"], "authentication")
+        self.assertEqual(dev["evidence_level"], "OBSERVED")
+        ref = dev["evidence_refs"][0]
+        self.assertEqual(ref["stage_id"], "authentication")
+        self.assertEqual(ref["frame_number"], 11)
+        self.assertEqual(ref["protocol"], "NAS-5GS")
+        self.assertEqual(ref["message_type"], "Authentication failure")
+        ev = next(e for e in instance["events"] if e["frame_number"] == 11)
+        self.assertEqual(ev["cause"], {"code": 20, "name": "MAC failure"})
+        rejects = [d for d in instance["deviations"] if d["type"] == MODEL.DEVIATION_PROTOCOL_REJECT]
+        self.assertEqual(len(rejects), 1)
+        self.assertEqual(rejects[0]["stage_id"], "authentication")
+        self.assertEqual(rejects[0]["evidence_refs"][0]["frame_number"], 12)
+        self.assertLess(ref["frame_number"], rejects[0]["evidence_refs"][0]["frame_number"])
+
+
 if __name__ == "__main__":
     unittest.main()

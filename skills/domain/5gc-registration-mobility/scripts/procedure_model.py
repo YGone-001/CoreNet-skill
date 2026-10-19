@@ -42,7 +42,7 @@ EXIT_MALFORMED_INPUT = 5
 EXIT_NO_EVENTS = 6
 EXIT_OUTPUT_FAILURE = 7
 
-ANALYSIS_VERSION = "0.2.5"
+ANALYSIS_VERSION = "0.2.6"
 PROCEDURE_FAMILY = "5gc-registration-mobility"
 
 FORBIDDEN_OUTPUT_PATTERN = re.compile(r"(?i)\b(?:root[ _-]?cause|implementation[ _-]?(?:bug|blame))\b")
@@ -602,6 +602,58 @@ def _message_key(event: dict[str, object]) -> tuple[str, str]:
     return (str(event.get("protocol")), str(event.get("message_type")))
 
 
+def _unique_stage_id_for_event(
+    rules: dict,
+    event: dict[str, object],
+    activated_stage_ids: set[str],
+) -> str | None:
+    """Resolve a defensible procedure-stage identity for an observed event.
+
+    A deviation may receive a non-null stage identity only when:
+    - Its originating event belongs to the current procedure instance.
+    - The event's protocol and decoded message identity are available.
+    - The existing procedure rules establish a unique applicable stage.
+    - The stage is present in the evaluated instance's activated stage records.
+    - The association requires no inference about unavailable messages or
+      unobserved procedure behavior.
+    If these conditions are not satisfied, returns None.
+    """
+    if _protected_envelope_without_inner_message(event):
+        return None
+    protocol = event.get("protocol")
+    message_type = event.get("message_type")
+    if not isinstance(protocol, str) or not isinstance(message_type, str) or not message_type:
+        return None
+
+    key = (protocol, message_type)
+    matching_stages: list[str] = []
+    for stage in rules.get("stages", []):
+        stage_id = stage.get("stage_id")
+        if not isinstance(stage_id, str):
+            continue
+        trigger_keys = {
+            (item.get("protocol"), item.get("message_type"))
+            for item in (stage.get("trigger", {}).get("any_of") or [])
+            if isinstance(item, dict)
+        }
+        outcome_keys = {
+            (item.get("protocol"), item.get("message_type"))
+            for item in ((stage.get("expected_outcomes") or {}).get("any_of") or [])
+            if isinstance(item, dict)
+        }
+        if key in trigger_keys or key in outcome_keys:
+            matching_stages.append(stage_id)
+
+    if len(matching_stages) != 1:
+        return None
+
+    candidate_stage = matching_stages[0]
+    if candidate_stage not in activated_stage_ids:
+        return None
+
+    return candidate_stage
+
+
 def evaluate_instance(
     instance: dict[str, object],
     instance_id: str,
@@ -774,6 +826,12 @@ def evaluate_instance(
             observed_statements, missing_statements, basis, confidence, limitations,
         ))
 
+    activated_stage_ids = {
+        record["stage"]["stage_id"]
+        for record in stage_records
+        if isinstance(record.get("stage"), dict) and isinstance(record["stage"].get("stage_id"), str)
+    }
+
     ngap_only = [event for event in merged if event.get("protocol") == "NGAP"]
     nas_only = [event for event in merged if event.get("protocol") == "NAS-5GS"]
     field_findings = collect_field_findings(ngap_only, nas_only, instance_conflicts)
@@ -782,13 +840,14 @@ def evaluate_instance(
         message = str(event.get("message_type"))
         protocol = str(event.get("protocol"))
         if message in REJECT_MESSAGES:
+            stage_id = _unique_stage_id_for_event(rules, event, activated_stage_ids)
             deviations.append({
                 "type": DEVIATION_PROTOCOL_REJECT,
-                "stage_id": None,
+                "stage_id": stage_id,
                 "description": f"{protocol} {message} observed at frame {event['frame_number']}",
                 "evidence_level": "OBSERVED",
                 "limitation": "A protocol-defined reject is procedure evidence; it never attributes blame to any network element or implementation",
-                "evidence_refs": [_event_evidence_ref(event)],
+                "evidence_refs": [_event_evidence_ref(event, stage_id=stage_id)],
             })
         elif message in UNSUCCESSFUL_MESSAGES:
             recovery = None
@@ -796,9 +855,12 @@ def evaluate_instance(
                 recovery = _authentication_recovery_events(merged, event, binding_conflict=bool(instance_conflicts))
             if recovery is not None:
                 request_event, response_event = recovery
+                stage_id = _unique_stage_id_for_event(rules, event, activated_stage_ids)
+                req_stage = _unique_stage_id_for_event(rules, request_event, activated_stage_ids)
+                resp_stage = _unique_stage_id_for_event(rules, response_event, activated_stage_ids)
                 deviations.append({
                     "type": DEVIATION_RECOVERED_INTERMEDIATE,
-                    "stage_id": None,
+                    "stage_id": stage_id,
                     "description": (
                         f"{protocol} {message} with decoded 5GMM synchronization-failure "
                         f"cause 21 observed at frame {event['frame_number']} was followed by a "
@@ -813,29 +875,31 @@ def evaluate_instance(
                         "end-to-end service success"
                     ),
                     "evidence_refs": [
-                        _event_evidence_ref(event),
-                        _event_evidence_ref(request_event),
-                        _event_evidence_ref(response_event),
+                        _event_evidence_ref(event, stage_id=stage_id),
+                        _event_evidence_ref(request_event, stage_id=req_stage),
+                        _event_evidence_ref(response_event, stage_id=resp_stage),
                     ],
                 })
             else:
+                stage_id = _unique_stage_id_for_event(rules, event, activated_stage_ids)
                 deviations.append({
                     "type": DEVIATION_UNSUCCESSFUL,
-                    "stage_id": None,
+                    "stage_id": stage_id,
                     "description": f"{protocol} {message} observed at frame {event['frame_number']}",
                     "evidence_level": "OBSERVED",
                     "limitation": "An unsuccessful protocol outcome is procedure evidence; it never attributes blame to any network element or implementation",
-                    "evidence_refs": [_event_evidence_ref(event)],
+                    "evidence_refs": [_event_evidence_ref(event, stage_id=stage_id)],
                 })
         protected_envelope = _protected_envelope_without_inner_message(event)
         if event.get("support_status") in ("UNSUPPORTED", "UNKNOWN") and not protected_envelope:
+            stage_id = _unique_stage_id_for_event(rules, event, activated_stage_ids)
             deviations.append({
                 "type": DEVIATION_UNKNOWN_VALUE,
-                "stage_id": None,
+                "stage_id": stage_id,
                 "description": f"{protocol} {message} at frame {event['frame_number']} was reported {event.get('support_status')} by the lower layer; procedure interpretation is limited",
                 "evidence_level": "OBSERVED",
                 "limitation": "No semantics are invented for the unsupported or unknown message",
-                "evidence_refs": [_event_evidence_ref(event)],
+                "evidence_refs": [_event_evidence_ref(event, stage_id=stage_id)],
             })
         if protocol == "NAS-5GS":
             if protected_envelope:
@@ -845,7 +909,7 @@ def evaluate_instance(
                     "description": f"A protected NAS envelope at frame {event['frame_number']} carried no decodable inner message",
                     "evidence_level": "OBSERVED",
                     "limitation": "Inner contents were never guessed",
-                    "evidence_refs": [_event_evidence_ref(event)],
+                    "evidence_refs": [_event_evidence_ref(event, stage_id=None)],
                 })
 
     terminal_events = [
