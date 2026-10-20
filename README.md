@@ -127,6 +127,8 @@ python -m unittest discover -s tests -p "test_*.py"
 
 Python's standard library is sufficient for the repository foundation. The checks parse JSON schemas and fixture documents, but do not claim full runtime JSON Schema validation; [docs/TESTING.md](docs/TESTING.md) explains the deliberate limitation.
 
+Ubuntu 24.04 developers can use `./scripts/dev.sh` (`doctor`, `bootstrap`, `validate`, `golden-preflight`); see [docs/DEVELOPMENT-UBUNTU.md](docs/DEVELOPMENT-UBUNTU.md).
+
 ## Contribution expectations
 
 Keep Scope and Non-Goals explicit, use lowercase kebab-case names, preserve artifact provenance, attach evidence levels to claims, and add focused fixtures/tests for executable or rule-driven work. Do not add protocol expertise until its planned milestone is authorized. Review [docs/NAMING.md](docs/NAMING.md), [docs/UPSTREAM.md](docs/UPSTREAM.md), and [docs/ROADMAP.md](docs/ROADMAP.md) before proposing a Skill.
