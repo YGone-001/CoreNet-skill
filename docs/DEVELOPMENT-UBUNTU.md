@@ -93,7 +93,7 @@ Environment status values:
 
 | Status | Meaning |
 | --- | --- |
-| `READY` | Essential prerequisites are satisfied and the Golden Capture decoder matches 4.7.1 |
+| `READY` | Essential prerequisites are satisfied and the Golden Capture decoder matches 4.7.1 (decoder baseline verified; external corpus not verified) |
 | `READY_WITH_LIMITATIONS` | Standard repository work is possible; optional Golden Capture reproduction tools are missing or differ |
 | `BLOCKED` | An essential prerequisite is missing or wrong |
 
@@ -242,7 +242,9 @@ Checks performed:
 7. Case metadata in `benchmarks/golden-captures/cases/` references captures
    that exist under the supplied corpus root.
 8. No capture path, work directory, or output directory points inside the
-   CoreNet Skill repository.
+   CoreNet Skill repository. Paths are validated using canonicalization that
+   resolves existing ancestor symlinks, parent traversal (`..`), and nested
+   future directories safely without creating directories on disk.
 
 Paths are never hardcoded. Every external location must be provided by the
 developer.

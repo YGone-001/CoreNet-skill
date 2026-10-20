@@ -420,6 +420,9 @@ class TSharkOptionalTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertIn(f"matches {GOLDEN_TSHARK_VERSION}", completed.stdout)
             self.assertIn("READY\n", completed.stdout)
+            self.assertIn("decoder baseline verified; external corpus not verified", completed.stdout)
+            self.assertNotIn("full reproduction toolchain present", completed.stdout)
+            self.assertIn("external corpus checkout and verification remain required for full reproduction", completed.stdout)
 
 
 class ExternalSourcePathTests(unittest.TestCase):
@@ -483,6 +486,243 @@ class ExternalSourcePathTests(unittest.TestCase):
             )
             self.assertEqual(completed.returncode, 2)
             self.assertIn("must be a path", completed.stderr)
+
+
+class ExternalPathContainmentTests(unittest.TestCase):
+    """Regression tests for external path containment across source, work, and output roots."""
+
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp = Path(self.temp_dir.name)
+        self.corpus = self.tmp / "corpus"
+        self.corpus.mkdir()
+        self.fake_tshark = make_fake_tshark(self.tmp, GOLDEN_TSHARK_VERSION)
+        self.fake_git = make_fake_git(self.tmp, head=GOLDEN_SOURCE_COMMIT)
+        self.env = {
+            "CORENET_DEV_TSHARK": str(self.fake_tshark),
+            "CORENET_DEV_GIT": str(self.fake_git),
+        }
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    def test_existing_repository_root_is_rejected(self):
+        # 1. Existing repository directory rejection.
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--work-root",
+            str(ROOT),
+            env=self.env,
+        )
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("must be outside the CoreNet Skill repository", completed.stderr)
+
+    def test_existing_repository_child_directory_is_rejected(self):
+        # 2. Existing repository child directory rejection.
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--work-root",
+            str(ROOT / "scripts"),
+            env=self.env,
+        )
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("must be outside the CoreNet Skill repository", completed.stderr)
+
+    def test_symlink_alias_pointing_into_repository_is_rejected(self):
+        # 3. Symlink alias pointing into the repository.
+        alias = self.tmp / "repo_alias"
+        alias.symlink_to(ROOT)
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--work-root",
+            str(alias),
+            env=self.env,
+        )
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("must be outside the CoreNet Skill repository", completed.stderr)
+
+    def test_symlink_alias_with_nonexistent_child_is_rejected(self):
+        # 4. Symlink alias with a nonexistent child directory.
+        alias = self.tmp / "repo_alias"
+        alias.symlink_to(ROOT)
+        target = alias / "nonexistent" / "work"
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--work-root",
+            str(target),
+            env=self.env,
+        )
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("must be outside the CoreNet Skill repository", completed.stderr)
+        self.assertFalse(target.exists(), "Preflight must not create the target directory")
+
+    def test_symlink_alias_with_multiple_nonexistent_descendants_is_rejected(self):
+        # 5. Multiple nonexistent descendant directories.
+        alias = self.tmp / "repo_alias"
+        alias.symlink_to(ROOT)
+        target = alias / "nested" / "deep" / "nonexistent" / "work"
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--output-root",
+            str(target),
+            env=self.env,
+        )
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("must be outside the CoreNet Skill repository", completed.stderr)
+        self.assertFalse(target.exists())
+
+    def test_parent_traversal_resolving_into_repository_is_rejected(self):
+        # 6. Parent traversal using ..
+        traversal = ROOT / "scripts" / ".." / "tests"
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--work-root",
+            str(traversal),
+            env=self.env,
+        )
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("must be outside the CoreNet Skill repository", completed.stderr)
+
+    def test_existing_external_directory_is_accepted(self):
+        # 7. An existing external directory.
+        work_dir = self.tmp / "external_work"
+        work_dir.mkdir()
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--work-root",
+            str(work_dir),
+            env=self.env,
+        )
+        self.assertIn(f"Work root          {work_dir.resolve()}", completed.stdout)
+        self.assertNotIn("must be outside the CoreNet Skill repository", completed.stderr)
+
+    def test_future_external_directory_is_accepted_without_creation(self):
+        # 8. A future external directory.
+        future_work = self.tmp / "future_work"
+        self.assertFalse(future_work.exists())
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--work-root",
+            str(future_work),
+            env=self.env,
+        )
+        self.assertIn(f"Work root          {future_work.resolve()}", completed.stdout)
+        self.assertFalse(future_work.exists(), "Preflight must not create future directories")
+
+    def test_similarly_named_external_directory_is_accepted(self):
+        # 9. A similarly named but unrelated external directory.
+        sibling = self.tmp / f"{ROOT.name}-sibling"
+        sibling.mkdir()
+        future_sub = sibling / "nested" / "work"
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--work-root",
+            str(future_sub),
+            env=self.env,
+        )
+        self.assertIn(f"Work root          {future_sub.resolve()}", completed.stdout)
+        self.assertFalse(future_sub.exists())
+
+    def test_relative_existing_and_future_external_paths_canonicalized(self):
+        # 10. Relative existing path canonicalization.
+        work_dir = self.tmp / "rel_work"
+        work_dir.mkdir()
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            "./corpus",
+            "--work-root",
+            "./rel_work",
+            env=self.env,
+            cwd=self.tmp,
+        )
+        self.assertIn(f"Work root          {work_dir.resolve()}", completed.stdout)
+        self.assertIn(f"Source root        {self.corpus.resolve()}", completed.stdout)
+
+    def test_relative_path_inside_repository_is_rejected(self):
+        # Relative path resolving inside repository.
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--work-root",
+            "./scripts",
+            env=self.env,
+            cwd=ROOT,
+        )
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("must be outside the CoreNet Skill repository", completed.stderr)
+
+    def test_symlink_loop_fails_closed(self):
+        # 11. Symlink loops or canonicalization failures.
+        loop_a = self.tmp / "loop_a"
+        loop_b = self.tmp / "loop_b"
+        loop_a.symlink_to(loop_b)
+        loop_b.symlink_to(loop_a)
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--work-root",
+            str(loop_a / "sub" / "work"),
+            env=self.env,
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("canonicalization failed", completed.stderr)
+
+    def test_preflight_is_read_only_and_does_not_create_directories(self):
+        # 12. No directory creation during preflight.
+        future_work = self.tmp / "no_create_work" / "deep"
+        future_output = self.tmp / "no_create_out" / "deep"
+        self.assertFalse(future_work.exists())
+        self.assertFalse(future_output.exists())
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--work-root",
+            str(future_work),
+            "--output-root",
+            str(future_output),
+            env=self.env,
+        )
+        self.assertFalse(future_work.exists())
+        self.assertFalse(future_output.exists())
+        self.assertFalse((self.tmp / "no_create_work").exists())
+        self.assertFalse((self.tmp / "no_create_out").exists())
+
+    def test_existing_regular_file_rejected_as_directory(self):
+        # Existing regular file cannot be used as work or output directory.
+        plain_file = self.tmp / "regular.txt"
+        plain_file.write_text("not a directory", encoding="utf-8")
+        completed = run_dev(
+            "golden-preflight",
+            "--source-root",
+            str(self.corpus),
+            "--work-root",
+            str(plain_file),
+            env=self.env,
+        )
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("must be a directory or future directory, not an existing file", completed.stderr)
 
 
 class ExternalCommitTests(unittest.TestCase):
@@ -835,8 +1075,23 @@ class RepositoryHygieneTests(unittest.TestCase):
         before = tree_digest(GOLDEN_DIR)
         with tempfile.TemporaryDirectory() as directory:
             tmp = Path(directory)
+            fake_tshark = make_fake_tshark(tmp, GOLDEN_TSHARK_VERSION)
+            fake_git = make_fake_git(tmp, head=GOLDEN_SOURCE_COMMIT)
+            corpus = tmp / "corpus"
+            corpus.mkdir()
             run_dev("doctor", env={"CORENET_DEV_VENV_DIR": str(tmp / "venv")})
             run_dev("bootstrap", "--dry-run", env={"CORENET_DEV_VENV_DIR": str(tmp / "venv")})
+            run_dev(
+                "golden-preflight",
+                "--source-root",
+                str(corpus),
+                "--work-root",
+                str(tmp / "work"),
+                env={
+                    "CORENET_DEV_TSHARK": str(fake_tshark),
+                    "CORENET_DEV_GIT": str(fake_git),
+                },
+            )
         self.assertEqual(before, tree_digest(GOLDEN_DIR))
 
     def test_helper_does_not_modify_git_configuration(self):
@@ -849,8 +1104,23 @@ class RepositoryHygieneTests(unittest.TestCase):
         ).stdout
         with tempfile.TemporaryDirectory() as directory:
             tmp = Path(directory)
+            fake_tshark = make_fake_tshark(tmp, GOLDEN_TSHARK_VERSION)
+            fake_git = make_fake_git(tmp, head=GOLDEN_SOURCE_COMMIT)
+            corpus = tmp / "corpus"
+            corpus.mkdir()
             run_dev("doctor", env={"CORENET_DEV_VENV_DIR": str(tmp / "venv")})
             run_dev("bootstrap", env={"CORENET_DEV_VENV_DIR": str(tmp / "venv")})
+            run_dev(
+                "golden-preflight",
+                "--source-root",
+                str(corpus),
+                "--work-root",
+                str(tmp / "work"),
+                env={
+                    "CORENET_DEV_TSHARK": str(fake_tshark),
+                    "CORENET_DEV_GIT": str(fake_git),
+                },
+            )
         git_local_after, git_blob_after = git_config_snapshot()
         remote_after = subprocess.run(
             ["git", "-C", str(ROOT), "remote", "-v"],

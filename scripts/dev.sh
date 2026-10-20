@@ -155,26 +155,49 @@ die_failed() {
 
 canonical_path() {
   local target="$1"
-  local parent base
-  if [[ -d "$target" ]]; then
-    (cd "$target" && pwd -P)
-    return 0
-  fi
-  parent="$(dirname "$target")"
-  base="$(basename "$target")"
-  if [[ -d "$parent" ]]; then
-    printf '%s/%s\n' "$(cd "$parent" && pwd -P)" "$base"
-  else
-    printf '%s\n' "$target"
-  fi
+  run_tool "$PYTHON_BIN" - "$target" <<'PY'
+import errno
+import sys
+from pathlib import Path
+
+try:
+    target = Path(sys.argv[1])
+    resolved = target.resolve(strict=False)
+    curr = target if target.is_absolute() else (Path.cwd() / target)
+    while curr.parent != curr:
+        try:
+            if curr.is_symlink() or (hasattr(curr, "is_junction") and curr.is_junction()) or curr.exists():
+                curr.resolve(strict=True)
+                break
+        except (OSError, RuntimeError) as exc:
+            err = getattr(exc, "errno", 0)
+            winerr = getattr(exc, "winerror", 0)
+            if err == getattr(errno, "ELOOP", 40) or winerr == 1920 or "loop" in str(exc).lower():
+                raise
+        curr = curr.parent
+    if not resolved.is_absolute():
+        sys.exit(1)
+    print(resolved)
+except Exception:
+    sys.exit(1)
+PY
 }
 
 is_inside_repo() {
   local candidate="$1"
-  case "$candidate" in
-    "$ROOT"|"$ROOT"/*) return 0 ;;
-    *) return 1 ;;
-  esac
+  run_tool "$PYTHON_BIN" - "$ROOT" "$candidate" <<'PY'
+import sys
+from pathlib import Path
+
+try:
+    repo_root = Path(sys.argv[1]).resolve(strict=False)
+    candidate = Path(sys.argv[2]).resolve(strict=False)
+    if candidate == repo_root or candidate.is_relative_to(repo_root):
+        sys.exit(0)
+    sys.exit(1)
+except Exception:
+    sys.exit(0)
+PY
 }
 
 # Validate an external path and publish its canonical form in EXTERNAL_PATH.
@@ -194,23 +217,66 @@ check_external_path() {
     echo "error: $label must be a path, not an option: $raw" >&2
     return 2
   fi
-  if [[ "$must_exist" -eq 1 && ! -e "$raw" ]]; then
-    echo "error: $label does not exist: $raw" >&2
-    return 1
+  local py_out rc=0
+  py_out="$(run_tool "$PYTHON_BIN" - "$ROOT" "$label" "$raw" "$must_exist" <<'PY'
+import errno
+import sys
+from pathlib import Path
+
+repo_root_arg = sys.argv[1]
+label = sys.argv[2]
+raw_arg = sys.argv[3]
+must_exist = (sys.argv[4] == "1")
+
+raw = Path(raw_arg)
+
+try:
+    resolved = raw.resolve(strict=False)
+    curr = raw if raw.is_absolute() else (Path.cwd() / raw)
+    while curr.parent != curr:
+        try:
+            if curr.is_symlink() or (hasattr(curr, "is_junction") and curr.is_junction()) or curr.exists():
+                curr.resolve(strict=True)
+                break
+        except (OSError, RuntimeError) as exc:
+            err = getattr(exc, "errno", 0)
+            winerr = getattr(exc, "winerror", 0)
+            if err == getattr(errno, "ELOOP", 40) or winerr == 1920 or "loop" in str(exc).lower():
+                raise
+        curr = curr.parent
+except Exception as exc:
+    print(f"error: {label} canonicalization failed for {raw_arg}: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+if must_exist and not resolved.exists():
+    print(f"error: {label} does not exist: {raw_arg}", file=sys.stderr)
+    sys.exit(1)
+
+if not must_exist and resolved.exists() and not resolved.is_dir():
+    print(f"error: {label} must be a directory or future directory, not an existing file: {raw_arg}", file=sys.stderr)
+    sys.exit(1)
+
+if not resolved.is_absolute():
+    print(f"error: {label} must be an absolute path or an existing relative path: {raw_arg}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    repo_root = Path(repo_root_arg).resolve(strict=False)
+    if resolved == repo_root or resolved.is_relative_to(repo_root):
+        print(f"error: {label} must be outside the CoreNet Skill repository: {resolved}", file=sys.stderr)
+        sys.exit(1)
+except Exception as exc:
+    print(f"error: {label} containment check failed for {raw_arg}: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+print(resolved)
+PY
+)" || rc=$?
+
+  if [[ "$rc" -ne 0 ]]; then
+    return "$rc"
   fi
-  local canonical
-  canonical="$(canonical_path "$raw")"
-  if [[ "$canonical" == /* ]]; then
-    :
-  else
-    echo "error: $label must be an absolute path or an existing relative path: $raw" >&2
-    return 1
-  fi
-  if is_inside_repo "$canonical"; then
-    echo "error: $label must be outside the CoreNet Skill repository: $canonical" >&2
-    return 1
-  fi
-  EXTERNAL_PATH="$canonical"
+  EXTERNAL_PATH="$py_out"
   return 0
 }
 
@@ -372,7 +438,7 @@ cmd_doctor() {
 
   if [[ -n "${tshark_version:-}" ]]; then
     if [[ "$tshark_version" == "$GOLDEN_TSHARK_VERSION" ]]; then
-      golden_line="matches $GOLDEN_TSHARK_VERSION (full reproduction toolchain present)"
+      golden_line="matches $GOLDEN_TSHARK_VERSION (decoder baseline verified; external corpus not verified)"
     else
       golden_line="requires $GOLDEN_TSHARK_VERSION (found ${tshark_version}; do not substitute)"
     fi
@@ -445,7 +511,9 @@ cmd_doctor() {
   if [[ "$worktree_line" == "dirty" ]]; then
     notes+=("Working tree has local changes; standard validation still runs.")
   fi
-  if [[ "$tshark_version" != "$GOLDEN_TSHARK_VERSION" ]]; then
+  if [[ "$tshark_version" == "$GOLDEN_TSHARK_VERSION" ]]; then
+    notes+=("TShark ${GOLDEN_TSHARK_VERSION} matches baseline; external corpus checkout and verification remain required for full reproduction.")
+  else
     notes+=("Golden Capture corpus reproduction needs TShark ${GOLDEN_TSHARK_VERSION} exactly.")
     notes+=("Standard repository unit tests do not require the pinned decoder.")
   fi
