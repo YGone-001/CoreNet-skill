@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[3]
 BENCHMARK_DIR = ROOT / "benchmarks" / "golden-captures"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from deviation_classification import build_classification_block
 from sanitize_result import sanitize_failure_boundary_result
 
 # Skill exit-code contract shared by the Protocol and Domain packages.
@@ -155,6 +156,25 @@ def _deviation_count(domain: str, payload: dict[str, Any]) -> int:
     )
 
 
+def _deviation_types(domain: str, payload: dict[str, Any]) -> list[Any]:
+    """Collect the deviation type values the Domain output actually reported.
+
+    A deviation entry that is not an object, or that carries no usable type
+    identity, is preserved as a null type so it can never be classified as a
+    benign evidence limitation.
+    """
+    types: list[Any] = []
+    for record in _domain_records(domain, payload):
+        if not isinstance(record, dict):
+            continue
+        for deviation in record.get("deviations") or []:
+            if isinstance(deviation, dict):
+                types.append(deviation.get("type"))
+            else:
+                types.append(None)
+    return types
+
+
 def domain_evidence(domain: str) -> dict[str, Any]:
     """Zeroed per-Domain execution evidence record."""
     record: dict[str, Any] = {
@@ -187,6 +207,14 @@ def record_domain_executed(domain: str, output_path: Path) -> dict[str, Any]:
     record["execution_status"] = "EXECUTED"
     record["output_present"] = True
     record["deviation_count"] = _deviation_count(domain, payload)
+    # Evidence-type-aware classification of the deviations the Domain actually
+    # emitted. Counts and bounded type names only; no raw Domain analysis object
+    # is copied into the sanitized summary. The block is built from the same
+    # deviation lists that produced deviation_count, so the required count
+    # invariant holds by construction and is re-verified before publication.
+    record["deviation_classification"] = build_classification_block(
+        _deviation_types(domain, payload)
+    )
     if domain == "handover_mobility":
         record["handover_attempt_count"] = len(payload.get("handover_attempts") or [])
         record["path_switch_attempt_count"] = len(payload.get("path_switch_attempts") or [])

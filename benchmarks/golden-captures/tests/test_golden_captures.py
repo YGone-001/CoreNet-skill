@@ -1266,12 +1266,22 @@ class GoldenCaptureMetricsTests(unittest.TestCase):
             ("CAPTURE_LIMITATION", "capture_limitation_count"),
             ("OUT_OF_SCOPE", "out_of_scope_count"),
             ("HUMAN_BASELINE_UNSUPPORTED", "human_baseline_unsupported_count"),
+            (
+                "NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE",
+                "no_abnormal_boundary_agreement_with_noncandidate_evidence_count",
+            ),
         ]
         diffs = [{"case_id": f"c_{idx}", "comparison_status": st} for idx, (st, _) in enumerate(all_statuses)]
         metrics, _ = calculate_metrics(diffs)
         self.assertEqual(metrics["case_count"], len(all_statuses))
         for _, metric_field in all_statuses:
             self.assertGreaterEqual(metrics[metric_field], 1)
+        # Every case contributes to exactly one comparison-status count, and the
+        # bounded no-boundary agreement is never folded into exact matches.
+        self.assertEqual(metrics["exact_match_count"], 1)
+        self.assertEqual(
+            metrics["no_abnormal_boundary_agreement_with_noncandidate_evidence_count"], 1
+        )
 
 
 class GoldenCorpusContractTests(unittest.TestCase):
@@ -1363,12 +1373,31 @@ class GoldenCorpusContractTests(unittest.TestCase):
         # Before the counterpart-evidence correction this capture tied two window-only
         # absence candidates against each other. Those candidates are gone, so the case
         # is no longer ambiguous; it still is not scored as a confirmed false positive.
+        # The R-2 evidence-type classification now proves every remaining deviation is
+        # non-candidate evidence, so the case is a bounded no-boundary agreement that
+        # still never asserts service success and never becomes an exact match.
         diff = self.diffs["public-5gc-baseline-user-plane"]
         self.assertEqual(diff["skill_boundary"]["selection_status"], "NO_ABNORMAL_BOUNDARY_OBSERVED")
         self.assertNotEqual(diff["comparison_status"], "FALSE_POSITIVE")
-        self.assertEqual(diff["comparison_status"], "NEEDS_ADJUDICATION")
-        self.assertEqual(diff["layer_attribution"], "DOMAIN")
-        self.assertTrue(diff["adjudication_required"])
+        self.assertEqual(
+            diff["comparison_status"],
+            "NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE",
+        )
+        self.assertEqual(diff["layer_attribution"], "NONE")
+        self.assertFalse(diff["adjudication_required"])
+        self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
+
+        summary = self.summaries["public-5gc-baseline-user-plane"]
+        for record in summary["domain_status"].values():
+            block = record.get("deviation_classification")
+            if not block:
+                continue
+            self.assertEqual(block["candidate_eligible_count"], 0)
+            self.assertEqual(block["unclassified_count"], 0)
+            self.assertEqual(
+                block["total_count"],
+                block["evidence_limitation_count"] + block["supporting_anomaly_count"],
+            )
 
     def test_revised_baseline_records_a_new_canonical_digest(self) -> None:
         baseline = copy.deepcopy(self.baselines["public-5gc-dnn-negative"])

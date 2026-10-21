@@ -80,7 +80,50 @@
           "handover_attempt_count": {"type": "integer", "minimum": 0},
           "path_switch_attempt_count": {"type": "integer", "minimum": 0},
           "deviation_count": {"type": "integer", "minimum": 0},
-          "first_stop_reason": {"type": ["string", "null"]}
+          "first_stop_reason": {"type": ["string", "null"]},
+          "deviation_classification": {
+            "type": "object",
+            "description": "Bounded evidence-type-aware classification of the deviations this Domain actually emitted. Category semantics are shared with the accepted Orchestration contract: candidate_eligible matches ELIGIBLE_DEVIATION_TYPES, evidence_limitation matches EVIDENCE_LIMITATION_TYPES, supporting_anomaly matches SUPPORTING_ANOMALY_TYPES, and every other deviation type is unclassified and never silently treated as benign. Required count invariant: total_count = candidate_eligible_count + evidence_limitation_count + supporting_anomaly_count + unclassified_count, and each category count equals the sum of its per-type map. Contains categorical deviation type names and counts only; never raw Domain or Orchestration documents, subscriber identities, payloads, or filesystem paths. Absent on legacy summaries, which the comparator must never read as zero candidate deviations.",
+            "required": [
+              "total_count",
+              "candidate_eligible_count",
+              "evidence_limitation_count",
+              "supporting_anomaly_count",
+              "unclassified_count",
+              "candidate_eligible_types",
+              "evidence_limitation_types",
+              "supporting_anomaly_types",
+              "unclassified_types"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "total_count": {"type": "integer", "minimum": 0},
+              "candidate_eligible_count": {"type": "integer", "minimum": 0},
+              "evidence_limitation_count": {"type": "integer", "minimum": 0},
+              "supporting_anomaly_count": {"type": "integer", "minimum": 0},
+              "unclassified_count": {"type": "integer", "minimum": 0},
+              "candidate_eligible_types": {
+                "type": "object",
+                "description": "Per-type counts for candidate-eligible deviations that were actually observed.",
+                "additionalProperties": {"type": "integer", "minimum": 0}
+              },
+              "evidence_limitation_types": {
+                "type": "object",
+                "description": "Per-type counts for evidence limitations that were actually observed.",
+                "additionalProperties": {"type": "integer", "minimum": 0}
+              },
+              "supporting_anomaly_types": {
+                "type": "object",
+                "description": "Per-type counts for supporting anomalies that were actually observed.",
+                "additionalProperties": {"type": "integer", "minimum": 0}
+              },
+              "unclassified_types": {
+                "type": "object",
+                "description": "Per-type counts for deviation types that match no known category. Retained explicitly so unknown evidence always forces review.",
+                "additionalProperties": {"type": "integer", "minimum": 0}
+              }
+            }
+          }
         }
       }
     },

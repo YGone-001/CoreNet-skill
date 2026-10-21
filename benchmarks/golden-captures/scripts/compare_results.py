@@ -24,6 +24,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from canonical_hash import canonical_json_sha256
+from deviation_classification import summarize_classification, validate_classification_block
 
 
 # Domain family names used by the independent baselines, mapped to the
@@ -57,6 +58,16 @@ ABSENT_IDENTITY_VALUES = frozenset({"", "unknown", "none", "null", "n/a"})
 
 # Maximum frame separation still reported as a near-frame boundary difference.
 NEAR_FRAME_DELTA = 2
+
+# Bounded agreement that both sides observed no abnormal boundary, reached only
+# when every relevant Domain deviation is classified as non-candidate evidence.
+# This status is an agreement on the absence of a supported abnormal boundary
+# within the capture and the implemented procedure scope; it never asserts
+# SUCCESS, HEALTHY_NETWORK, END_TO_END_SUCCESS or SERVICE_PASSED, and it is
+# never counted as EXACT_MATCH under the zero-deviation exact-match policy.
+NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE = (
+    "NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE"
+)
 
 
 def normalize_identity(value: Any) -> str | None:
@@ -333,6 +344,8 @@ def evaluate_domain_evidence(
     deviations = 0
     executed = 0
     reasons: list[str] = []
+    classification_blocks: list[Any] = []
+    unclassified_domains: list[str] = []
     for key in keys:
         record = domain_status.get(key) or {}
         execution = record.get("execution_status")
@@ -340,6 +353,10 @@ def evaluate_domain_evidence(
             executed += 1
             instances += _domain_instance_count(record)
             deviations += int(record.get("deviation_count") or 0)
+            if record.get("deviation_classification") is None:
+                unclassified_domains.append(key)
+            else:
+                classification_blocks.append(record.get("deviation_classification"))
         elif execution in ("SKIPPED_NO_INPUTS", "NOT_RUN"):
             reason = record.get("first_stop_reason")
             reasons.append(f"{key} Domain did not execute ({execution}" + (f": {reason}" if reason else "") + ")")
@@ -354,6 +371,33 @@ def evaluate_domain_evidence(
         reasons.append("Relevant Domain Skill executed but reconstructed no procedure instance")
     else:
         state = "FAILED"
+    # Evidence-type-aware classification of the relevant Domain deviations. A
+    # summary that omits the classification contract is never assumed to report
+    # zero candidate deviations: absent evidence stays explicitly unavailable.
+    if unclassified_domains:
+        classification: dict[str, Any] = {
+            "available": False,
+            "consistent": False,
+            "reasons": [
+                "no deviation classification was reported for relevant Domain(s) "
+                + ", ".join(unclassified_domains)
+            ],
+        }
+    elif not classification_blocks:
+        classification = {
+            "available": False,
+            "consistent": False,
+            "reasons": ["no executed relevant Domain reported deviation classification"],
+        }
+    else:
+        classification = summarize_classification(classification_blocks)
+        if classification.get("available") and classification.get("total_count") != deviations:
+            classification["consistent"] = False
+            classification["reasons"] = list(classification.get("reasons") or []) + [
+                f"aggregated classification total {classification.get('total_count')} "
+                f"does not match the reported deviation count {deviations}"
+            ]
+
     return {
         "state": state,
         "instance_count": instances,
@@ -361,6 +405,7 @@ def evaluate_domain_evidence(
         "relevant_domains": keys,
         "reasons": reasons,
         "evidence_reported": True,
+        "classification": classification,
     }
 
 
@@ -720,14 +765,110 @@ def compare_differential(
                             f"{domain_evidence['instance_count']} relevant Domain instance(s) were reconstructed with zero deviations."
                         )
                     else:
-                        comparison_status = "NEEDS_ADJUDICATION"
-                        layer_attribution = "DOMAIN"
-                        adjudication_required = True
-                        recommended_next_action = "CORRECT_DOMAIN_MODEL"
-                        notes.append(
-                            f"Pipeline selected no abnormal boundary, but the relevant Domain instance(s) reported {deviations} "
-                            "deviation(s) on a capture the independent baseline records as healthy."
-                        )
+                        # A nonzero Domain deviation count is not evidence of a
+                        # confirmed abnormal boundary. The structured per-Domain
+                        # classification decides whether every deviation is
+                        # proven non-candidate evidence, or whether candidates or
+                        # unknown types still require review.
+                        classification = (domain_evidence.get("classification") or {})
+                        cls_available = bool(classification.get("available"))
+                        cls_consistent = bool(classification.get("consistent"))
+                        candidate_count = int(classification.get("candidate_eligible_count") or 0)
+                        unclassified_count = int(classification.get("unclassified_count") or 0)
+                        limitation_count = int(classification.get("evidence_limitation_count") or 0)
+                        supporting_count = int(classification.get("supporting_anomaly_count") or 0)
+
+                        if not cls_available:
+                            # Case E: legacy or partial summary. Missing
+                            # classification metadata is never read as zero
+                            # candidate deviations, so conservative compatibility
+                            # behavior is preserved.
+                            comparison_status = "NEEDS_ADJUDICATION"
+                            layer_attribution = "DOMAIN"
+                            adjudication_required = True
+                            recommended_next_action = "CORRECT_DOMAIN_MODEL"
+                            # Case E output stays byte-identical to the legacy
+                            # comparator so frozen differentials remain
+                            # reproducible; the conservative NEEDS_ADJUDICATION
+                            # already reports that the deviations are not proven
+                            # non-candidate.
+                            notes.append(
+                                f"Pipeline selected no abnormal boundary, but the relevant Domain instance(s) reported {deviations} "
+                                "deviation(s) on a capture the independent baseline records as healthy."
+                            )
+                        elif not cls_consistent:
+                            # Case E: inconsistent category totals require review
+                            # and are never reconciled silently.
+                            comparison_status = "NEEDS_ADJUDICATION"
+                            layer_attribution = "DOMAIN"
+                            adjudication_required = True
+                            recommended_next_action = "CORRECT_DOMAIN_MODEL"
+                            notes.append(
+                                "The reported deviation classification is internally inconsistent with the "
+                                "reported deviation count, so the deviation evidence cannot be accepted as "
+                                "proven non-candidate evidence."
+                            )
+                            notes.extend(
+                                str(reason) for reason in (classification.get("reasons") or [])
+                            )
+                        elif unclassified_count > 0:
+                            # Case D: an unknown deviation type is never treated as
+                            # benign and never folded into the non-candidate set.
+                            comparison_status = "NEEDS_ADJUDICATION"
+                            layer_attribution = "UNKNOWN"
+                            adjudication_required = True
+                            recommended_next_action = "CORRECT_DOMAIN_MODEL"
+                            notes.append(
+                                f"{unclassified_count} unclassified deviation(s) remain in the relevant Domain "
+                                f"evidence (candidate-eligible {candidate_count}, evidence limitations "
+                                f"{limitation_count}, supporting anomalies {supporting_count}). An unknown "
+                                "deviation type is never treated as non-candidate evidence by default, so "
+                                "this case requires review."
+                            )
+                        elif candidate_count > 0:
+                            # Case C: candidate-eligible deviations exist but
+                            # Orchestration selected no boundary. Retain an
+                            # evidence-preserving discrepancy instead of declaring
+                            # a confirmed false positive without its required
+                            # evidence.
+                            comparison_status = "NEEDS_ADJUDICATION"
+                            layer_attribution = "DOMAIN"
+                            adjudication_required = True
+                            recommended_next_action = "CORRECT_DOMAIN_MODEL"
+                            notes.append(
+                                f"Pipeline selected no abnormal boundary, but the relevant Domain instance(s) "
+                                f"reported {deviations} deviation(s), of which {candidate_count} are "
+                                "candidate-eligible and were not selected as a boundary. Candidate eligibility "
+                                "does not imply selection, and no confirmed FALSE_POSITIVE is reported without "
+                                "its required independent evidence."
+                            )
+                            notes.append(
+                                f"Non-candidate evidence retained: {limitation_count} evidence limitation(s) "
+                                f"and {supporting_count} supporting anomal(y/ies)."
+                            )
+                        else:
+                            # Case B: every relevant deviation is classified and
+                            # proven non-candidate. This is a bounded agreement on
+                            # the absence of an observed abnormal boundary, never a
+                            # claim that the network or service succeeded.
+                            comparison_status = (
+                                NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE
+                            )
+                            layer_attribution = "NONE"
+                            adjudication_required = False
+                            recommended_next_action = "NO_CHANGE"
+                            notes.append(
+                                f"Both the independent baseline and the automated pipeline observed no "
+                                f"abnormal boundary within the capture and the implemented procedure scope; "
+                                f"all {deviations} relevant Domain deviation(s) are classified non-candidate "
+                                f"evidence ({limitation_count} evidence limitation(s), {supporting_count} "
+                                "supporting anomal(y/ies)) and are retained as evidence."
+                            )
+                            notes.append(
+                                "This bounded agreement is limited to the absence of a supported abnormal "
+                                "boundary; it is not an assertion of SUCCESS, HEALTHY_NETWORK, "
+                                "END_TO_END_SUCCESS or SERVICE_PASSED."
+                            )
                 else:
                     comparison_status = "NEEDS_ADJUDICATION"
                     layer_attribution = "UNKNOWN"
@@ -880,8 +1021,21 @@ def compare_differential(
     if upstream_intent:
         if comparison_status in ("EXACT_MATCH", "BOUNDARY_FRAME_DIFFERENCE", "OUT_OF_SCOPE", "ACCEPTABLE_DIFFERENCE"):
             upstream_intent_match = "MATCH"
-        elif comparison_status in ("PROCEDURE_MATCH_STAGE_DIFFERENCE", "DOMAIN_MODEL_GAP", "DOMAIN_COVERAGE_GAP", "PROTOCOL_COVERAGE_GAP", "CORRELATION_GAP"):
+        elif comparison_status in (
+            "PROCEDURE_MATCH_STAGE_DIFFERENCE",
+            "DOMAIN_MODEL_GAP",
+            "DOMAIN_COVERAGE_GAP",
+            "PROTOCOL_COVERAGE_GAP",
+            "CORRELATION_GAP",
+            NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE,
+        ):
             upstream_intent_match = "PARTIAL"
+            if comparison_status == NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE:
+                notes.append(
+                    "Upstream scenario intent remains secondary metadata and is never independent proof of "
+                    "packet-level success; the bounded no-boundary agreement only reports the absence of a "
+                    "supported abnormal boundary in the captured scope."
+                )
         elif comparison_status == "CAPTURE_LIMITATION":
             notes.append(
                 "Upstream scenario intent is retained as secondary metadata only; the captured packets are too incomplete "

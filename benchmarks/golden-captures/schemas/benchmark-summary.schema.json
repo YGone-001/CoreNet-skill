@@ -99,7 +99,12 @@
         "exact_frame_match_count": {"type": "integer", "minimum": 0},
         "within_1_frame_count": {"type": "integer", "minimum": 0},
         "within_3_frames_count": {"type": "integer", "minimum": 0},
-        "median_absolute_frame_delta": {"type": ["number", "null"]}
+        "median_absolute_frame_delta": {"type": ["number", "null"]},
+        "no_abnormal_boundary_agreement_with_noncandidate_evidence_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Cases classified as a bounded no-abnormal-boundary agreement with only non-candidate evidence. Counted in its own category, never as exact_match_count, and not excluded from the in-scope accuracy denominator. Emitted by the current summarizer; absent on aggregate summaries generated before this contract, which are never read as reporting zero."
+        }
       }
     },
     "cases": {

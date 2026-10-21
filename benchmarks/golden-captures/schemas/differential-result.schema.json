@@ -36,7 +36,7 @@
     },
     "comparison_status": {
       "type": "string",
-      "description": "Differential outcome. An abnormal-boundary EXACT_MATCH requires compatible analysis status, procedure family, procedure stage, protocol identity, abnormal-event semantics and the same evidence anchor whenever the baseline holds an exact authoritative frame; a frame equality alone is insufficient. DOMAIN_COVERAGE_GAP records that no implemented Domain Skill owns the observed procedure family; it is unimplemented coverage, not an implemented Domain model failure.",
+      "description": "Differential outcome. An abnormal-boundary EXACT_MATCH requires compatible analysis status, procedure family, procedure stage, protocol identity, abnormal-event semantics and the same evidence anchor whenever the baseline holds an exact authoritative frame; a frame equality alone is insufficient. DOMAIN_COVERAGE_GAP records that no implemented Domain Skill owns the observed procedure family; it is unimplemented coverage, not an implemented Domain model failure. NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE is a bounded agreement that both sides observed no abnormal boundary, reached only when every relevant Domain deviation is classified as non-candidate evidence with zero candidate-eligible and zero unclassified deviations; it is never counted as EXACT_MATCH and never asserts SUCCESS, HEALTHY_NETWORK, END_TO_END_SUCCESS or SERVICE_PASSED.",
       "enum": [
         "EXACT_MATCH",
         "PROCEDURE_MATCH_STAGE_DIFFERENCE",
@@ -53,7 +53,8 @@
         "CAPTURE_LIMITATION",
         "OUT_OF_SCOPE",
         "HUMAN_BASELINE_UNSUPPORTED",
-        "NEEDS_ADJUDICATION"
+        "NEEDS_ADJUDICATION",
+        "NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE"
       ]
     },
     "layer_attribution": {

@@ -43,6 +43,7 @@ def calculate_metrics(cases_diffs: list[dict[str, Any]]) -> tuple[dict[str, Any]
     out_of_scope_count = 0
     human_baseline_unsupported_count = 0
     needs_adjudication_count = 0
+    no_abnormal_boundary_agreement_with_noncandidate_evidence_count = 0
 
     exact_frame_match_count = 0
     within_1_frame_count = 0
@@ -124,6 +125,12 @@ def calculate_metrics(cases_diffs: list[dict[str, Any]]) -> tuple[dict[str, Any]
                 out_of_scope_count += 1
             elif status == "HUMAN_BASELINE_UNSUPPORTED":
                 human_baseline_unsupported_count += 1
+            elif status == "NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE":
+                # Bounded no-boundary agreement. Counted in its own category and
+                # never as EXACT_MATCH, so the frozen accuracy denominator and the
+                # exact-match statistics cannot be inflated by non-candidate
+                # evidence alone.
+                no_abnormal_boundary_agreement_with_noncandidate_evidence_count += 1
 
             if adjudication or status == "NEEDS_ADJUDICATION":
                 needs_adjudication_count += 1
@@ -177,6 +184,9 @@ def calculate_metrics(cases_diffs: list[dict[str, Any]]) -> tuple[dict[str, Any]
         "out_of_scope_count": out_of_scope_count,
         "human_baseline_unsupported_count": human_baseline_unsupported_count,
         "needs_adjudication_count": needs_adjudication_count,
+        "no_abnormal_boundary_agreement_with_noncandidate_evidence_count": (
+            no_abnormal_boundary_agreement_with_noncandidate_evidence_count
+        ),
         "exact_match_rate": exact_match_rate,
         "procedure_match_rate": procedure_match_rate,
         "stage_match_rate": stage_match_rate,
