@@ -6,6 +6,17 @@
   "domain_instances_count": 2,
   "domain_status": {
     "handover_mobility": {
+      "deviation_classification": {
+        "candidate_eligible_count": 0,
+        "candidate_eligible_types": {},
+        "evidence_limitation_count": 0,
+        "evidence_limitation_types": {},
+        "supporting_anomaly_count": 0,
+        "supporting_anomaly_types": {},
+        "total_count": 0,
+        "unclassified_count": 0,
+        "unclassified_types": {}
+      },
       "deviation_count": 0,
       "execution_status": "EXECUTED",
       "first_stop_reason": null,
@@ -14,6 +25,19 @@
       "path_switch_attempt_count": 0
     },
     "pdu_session": {
+      "deviation_classification": {
+        "candidate_eligible_count": 0,
+        "candidate_eligible_types": {},
+        "evidence_limitation_count": 1,
+        "evidence_limitation_types": {
+          "PARTIAL_CAPTURE": 1
+        },
+        "supporting_anomaly_count": 0,
+        "supporting_anomaly_types": {},
+        "total_count": 1,
+        "unclassified_count": 0,
+        "unclassified_types": {}
+      },
       "deviation_count": 1,
       "execution_status": "EXECUTED",
       "first_stop_reason": null,
@@ -21,6 +45,19 @@
       "output_present": true
     },
     "registration": {
+      "deviation_classification": {
+        "candidate_eligible_count": 0,
+        "candidate_eligible_types": {},
+        "evidence_limitation_count": 5,
+        "evidence_limitation_types": {
+          "PROTECTED_INNER_MESSAGE_UNAVAILABLE": 5
+        },
+        "supporting_anomaly_count": 0,
+        "supporting_anomaly_types": {},
+        "total_count": 5,
+        "unclassified_count": 0,
+        "unclassified_types": {}
+      },
       "deviation_count": 5,
       "execution_status": "EXECUTED",
       "first_stop_reason": null,

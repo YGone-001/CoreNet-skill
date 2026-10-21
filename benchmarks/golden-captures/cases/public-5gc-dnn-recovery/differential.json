@@ -1,10 +1,10 @@
 {
-  "adjudication_required": true,
+  "adjudication_required": false,
   "baseline_supported": true,
   "capture_limitations": [],
   "case_id": "public-5gc-dnn-recovery",
   "comparison_eligibility": "ELIGIBLE",
-  "comparison_status": "NEEDS_ADJUDICATION",
+  "comparison_status": "NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE",
   "evidence_layers": {
     "baseline_support": "SUPPORTED",
     "capture_sufficiency": "SUFFICIENT",
@@ -24,11 +24,13 @@
     "procedure_stage": null,
     "protocol": null
   },
-  "layer_attribution": "DOMAIN",
+  "layer_attribution": "NONE",
   "notes": [
-    "Pipeline selected no abnormal boundary, but the relevant Domain instance(s) reported 6 deviation(s) on a capture the independent baseline records as healthy."
+    "Both the independent baseline and the automated pipeline observed no abnormal boundary within the capture and the implemented procedure scope; all 6 relevant Domain deviation(s) are classified non-candidate evidence (6 evidence limitation(s), 0 supporting anomal(y/ies)) and are retained as evidence.",
+    "This bounded agreement is limited to the absence of a supported abnormal boundary; it is not an assertion of SUCCESS, HEALTHY_NETWORK, END_TO_END_SUCCESS or SERVICE_PASSED.",
+    "Upstream scenario intent remains secondary metadata and is never independent proof of packet-level success; the bounded no-boundary agreement only reports the absence of a supported abnormal boundary in the captured scope."
   ],
-  "recommended_next_action": "CORRECT_DOMAIN_MODEL",
+  "recommended_next_action": "NO_CHANGE",
   "skill_boundary": {
     "boundary_frame": null,
     "boundary_message": null,
@@ -38,5 +40,5 @@
     "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
     "source_domain": null
   },
-  "upstream_intent_match": "MISMATCH"
+  "upstream_intent_match": "PARTIAL"
 }
