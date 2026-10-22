@@ -146,6 +146,32 @@ def skill_summary(
     orchestration_status: dict | None = None,
     **overrides,
 ) -> dict:
+    orch = dict(orchestration_status) if orchestration_status else {
+        "execution_status": "EXECUTED",
+        "output_present": True,
+        "diagnostic_group_count": 1,
+        "source_domain_instances_count": 1,
+        "candidate_boundary_count": 0,
+        "first_stop_reason": None,
+    }
+    # Positive results require positively verified per-Domain consumption, so
+    # fixtures carry the bounded count-only map unless a test deliberately
+    # exercises the legacy shape without it.
+    if orch.get("execution_status") == "EXECUTED" and "consumed_domain_instance_counts" not in orch:
+        produced = {
+            key: int((record or {}).get("instance_count") or 0)
+            for key, record in (domain_status or {}).items()
+            if key in ("registration", "pdu_session", "handover_mobility")
+        }
+        consumed_total = int(orch.get("source_domain_instances_count") or 0)
+        counts = {"registration": 0, "pdu_session": 0, "handover_mobility": 0}
+        remaining = consumed_total
+        for key in ("registration", "pdu_session", "handover_mobility"):
+            take = min(produced.get(key, 0), remaining)
+            counts[key] = take
+            remaining -= take
+        orch["consumed_domain_instance_counts"] = counts
+        orch["consumed_unmapped_source_domain_instance_count"] = 0
     summary = {
         "case_id": "cls-test",
         "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
@@ -157,15 +183,7 @@ def skill_summary(
         "candidate_boundaries_count": 0,
         "protocol_status": {"ngap": "SUCCESS", "nas-5gs": "SUCCESS"},
         "domain_status": domain_status,
-        "orchestration_status": orchestration_status
-        or {
-            "execution_status": "EXECUTED",
-            "output_present": True,
-            "diagnostic_group_count": 1,
-            "source_domain_instances_count": 1,
-            "candidate_boundary_count": 0,
-            "first_stop_reason": None,
-        },
+        "orchestration_status": orch,
     }
     summary.update(overrides)
     return summary
@@ -994,14 +1012,35 @@ class LegacyCompatibilityTests(unittest.TestCase):
     def test_legacy_summary_without_classification_keeps_adjudication(self) -> None:
         status = domain_status_with(["PARTIAL_CAPTURE", "PROTOCOL_REJECT_OBSERVED"])
         del status["registration"]["deviation_classification"]
-        diff = compare_differential(healthy_baseline(), skill_summary(status))
+        diff = compare_differential(
+            healthy_baseline(),
+            skill_summary(
+                status,
+                orchestration_status={
+                    "execution_status": "EXECUTED",
+                    "output_present": True,
+                    "diagnostic_group_count": 1,
+                    "source_domain_instances_count": 1,
+                    "candidate_boundary_count": 0,
+                    "first_stop_reason": None,
+                    "consumed_domain_instance_counts": {
+                        "registration": 1, "pdu_session": 0, "handover_mobility": 0,
+                    },
+                    "consumed_unmapped_source_domain_instance_count": 0,
+                },
+            ),
+        )
         self.assertEqual(diff["comparison_status"], "NEEDS_ADJUDICATION")
         self.assertEqual(diff["layer_attribution"], "DOMAIN")
         self.assertEqual(diff["recommended_next_action"], "CORRECT_DOMAIN_MODEL")
         self.assertIn("6 deviation(s)", "6 deviation(s)")  # note wording contract
         self.assertTrue(any("deviation(s)" in n for n in diff["notes"]))
 
-    def test_legacy_summary_without_domain_status_is_unchanged(self) -> None:
+    def test_legacy_summary_without_domain_status_is_conservative(self) -> None:
+        # A summary that reports no per-Domain execution evidence cannot prove
+        # that a relevant Domain instance was reconstructed and consumed, so the
+        # accepted contract refuses an unsupported positive match and stays
+        # readable as a conservative legacy outcome.
         summary = {
             "case_id": "legacy",
             "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
@@ -1014,7 +1053,8 @@ class LegacyCompatibilityTests(unittest.TestCase):
             "protocol_status": {"ngap": "SUCCESS", "nas-5gs": "SUCCESS"},
         }
         diff = compare_differential(healthy_baseline("legacy"), summary)
-        self.assertEqual(diff["comparison_status"], "EXACT_MATCH")
+        self.assertEqual(diff["comparison_status"], "NEEDS_ADJUDICATION")
+        self.assertNotEqual(diff["comparison_status"], "EXACT_MATCH")
 
 
 class CommittedCorpusTests(unittest.TestCase):

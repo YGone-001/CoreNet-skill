@@ -25,7 +25,7 @@ BENCHMARK_DIR = ROOT / "benchmarks" / "golden-captures"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deviation_classification import build_classification_block
-from sanitize_result import sanitize_failure_boundary_result
+from sanitize_result import consumed_domain_instance_counts, sanitize_failure_boundary_result
 
 # Skill exit-code contract shared by the Protocol and Domain packages.
 EXIT_MALFORMED_INPUT = 5
@@ -588,14 +588,25 @@ def run_pipeline(
         if rc == 0 and orch_out.is_file():
             raw_orch = json.loads(orch_out.read_text(encoding="utf-8"))
             sanitized_summary = sanitize_failure_boundary_result(raw_orch, case_id)
+            # Structural consumption evidence is produced by the sanitizer from
+            # the primary diagnostic group, including the per-Domain consumed
+            # instance counts. Execution status is the runner's own evidence and
+            # is layered on top, so one record never carries both meanings.
             groups = raw_orch.get("diagnostic_groups") or []
             primary = groups[0] if groups and isinstance(groups[0], dict) else {}
+            counts, unmapped = consumed_domain_instance_counts(primary.get("source_domain_instances"))
             orchestration_status.update({
                 "execution_status": "EXECUTED",
                 "output_present": True,
                 "diagnostic_group_count": len(groups),
                 "source_domain_instances_count": len(primary.get("source_domain_instances") or []),
                 "candidate_boundary_count": len(primary.get("candidate_boundaries") or []),
+                # Bounded count-only consumption evidence from the primary
+                # diagnostic group: which Domain contributed the consumed
+                # instances. Instance identifiers, source filenames and capture
+                # paths are deliberately excluded.
+                "consumed_domain_instance_counts": counts,
+                "consumed_unmapped_source_domain_instance_count": unmapped,
             })
             pipeline_log["artifacts_produced"].extend([orch_out.name, orch_report.name])
         else:

@@ -25,6 +25,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from canonical_hash import canonical_json_sha256
 from deviation_classification import summarize_classification, validate_classification_block
+from sanitize_result import BENCHMARK_DOMAIN_KEYS
 
 
 # Domain family names used by the independent baselines, mapped to the
@@ -409,33 +410,248 @@ def evaluate_domain_evidence(
     }
 
 
+def selection_consistency_problems(skill_summary: dict[str, Any]) -> list[str]:
+    """Return every selection/candidate inconsistency for a no-boundary outcome.
+
+    A bounded no-abnormal-boundary agreement must rest on a consistent record:
+    the selection status must positively report the absence of an abnormal
+    boundary, no selected boundary may be present, and the candidate counts
+    reported at summary level and at Orchestration level must both be zero and
+    must agree with each other. Contradictory candidate counts are recorded as
+    discrepancies and never resolved by discarding actual candidates.
+    """
+    problems: list[str] = []
+    status = skill_summary.get("selection_status")
+    if status != "NO_ABNORMAL_BOUNDARY_OBSERVED":
+        problems.append(
+            f"selection_status {status!r} does not positively report an observed absence of an "
+            "abnormal boundary"
+        )
+    if skill_summary.get("selected_boundary") is not None:
+        problems.append("a selected boundary is present although selection_status reports no abnormal boundary")
+
+    orch_status = skill_summary.get("orchestration_status")
+    orch_candidates = orch_status.get("candidate_boundary_count") if isinstance(orch_status, dict) else None
+    summary_candidates = skill_summary.get("candidate_boundaries_count")
+
+    for label, value in (
+        ("candidate_boundaries_count", summary_candidates),
+        ("orchestration_status.candidate_boundary_count", orch_candidates),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int):
+            problems.append(f"{label} must be a non-negative integer")
+        elif value < 0:
+            problems.append(f"{label} must not be negative")
+        elif value != 0:
+            problems.append(f"{label} is {value}, so an unresolved candidate set cannot be read as agreement")
+
+    if (
+        isinstance(summary_candidates, int)
+        and not isinstance(summary_candidates, bool)
+        and isinstance(orch_candidates, int)
+        and not isinstance(orch_candidates, bool)
+        and summary_candidates != orch_candidates
+    ):
+        problems.append(
+            f"candidate counts disagree (summary {summary_candidates} vs Orchestration {orch_candidates})"
+        )
+    return problems
+
+
+def _nonneg_int(value: Any, label: str, problems: list[str]) -> int | None:
+    """Read a bounded count field, recording every contract violation."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        problems.append(f"{label} must be a non-negative integer")
+        return None
+    if value < 0:
+        problems.append(f"{label} must not be negative")
+        return None
+    return value
+
+
 def evaluate_orchestration_evidence(
     skill_summary: dict[str, Any],
     domain_evidence: dict[str, Any],
+    relevant_domains: Any = frozenset(),
 ) -> dict[str, Any]:
-    """Evaluate whether Orchestration consumed the reconstructed Domain evidence."""
+    """Positively verify that Orchestration consumed the relevant Domain instances.
+
+    States:
+
+    - ``AVAILABLE``: consumption of every relevant Domain instance is
+      positively established from structured evidence.
+    - ``FAILED``: an actual failure to consume or to produce a diagnostic
+      result is positively established.
+    - ``UNVERIFIED``: the reported metadata is missing or internally
+      inconsistent, so consumption cannot be established and no failing layer
+      is proven. A legacy summary without the consumed-Domain map lands here
+      and is never read as a successful consumption.
+    - ``NOT_RUN``: Orchestration was skipped because no Domain analysis existed.
+    - ``NOT_REPORTED``: no Orchestration execution evidence was reported at all.
+
+    A diagnostic-group count is not consumption evidence, and an aggregate
+    consumed-instance count does not identify the contributing Domain.
+    """
+    empty = {"consumption_verified": False, "consumed_domain_instance_counts": None}
     status = skill_summary.get("orchestration_status")
     if not isinstance(status, dict):
-        return {"state": "NOT_REPORTED", "reasons": []}
+        return {
+            "state": "NOT_REPORTED",
+            "reasons": ["no Orchestration execution evidence was reported"],
+            **empty,
+        }
     execution = status.get("execution_status")
-    if execution == "EXECUTED":
-        groups = int(status.get("diagnostic_group_count") or 0)
-        consumed = int(status.get("source_domain_instances_count") or 0)
+    if execution == "SKIPPED_NO_DOMAIN_OUTPUTS":
+        return {
+            "state": "NOT_RUN",
+            "reasons": ["Orchestration did not run because no Domain analysis was produced"],
+            **empty,
+        }
+    if execution != "EXECUTED":
+        reason = status.get("first_stop_reason")
+        return {
+            "state": "FAILED",
+            "reasons": [
+                "Orchestration produced no diagnostic result ("
+                + str(execution)
+                + (f": {reason}" if reason else "")
+                + ")"
+            ],
+            **empty,
+        }
+
+    # Execution metadata must be internally consistent before any positive
+    # result can rest on it.
+    problems: list[str] = []
+    if status.get("output_present") is not True:
+        problems.append("Orchestration reports execution_status EXECUTED but output_present is not true")
+    groups = _nonneg_int(status.get("diagnostic_group_count"), "diagnostic_group_count", problems)
+    aggregate = _nonneg_int(
+        status.get("source_domain_instances_count"), "source_domain_instances_count", problems
+    )
+    _nonneg_int(status.get("candidate_boundary_count"), "candidate_boundary_count", problems)
+    if problems:
+        return {"state": "UNVERIFIED", "reasons": problems, **empty}
+
+    if not groups:
         pending_deviations = int(domain_evidence.get("deviation_count") or 0)
-        if domain_evidence["instance_count"] > 0 and pending_deviations > 0 and groups == 0 and consumed == 0:
+        if int(domain_evidence.get("instance_count") or 0) > 0 and pending_deviations > 0:
+            # The original established-failure condition: Domain instances that
+            # reported deviations produced no diagnostic group at all.
             return {
                 "state": "FAILED",
                 "reasons": [
-                    "Orchestration executed but formed no diagnostic group from Domain instances that reported deviations"
+                    "Orchestration executed but formed no diagnostic group from Domain instances "
+                    "that reported deviations"
                 ],
+                **empty,
             }
-        return {"state": "AVAILABLE", "reasons": []}
-    if execution == "SKIPPED_NO_DOMAIN_OUTPUTS":
-        return {"state": "NOT_RUN", "reasons": ["Orchestration did not run because no Domain analysis was produced"]}
-    reason = status.get("first_stop_reason")
+        return {
+            "state": "UNVERIFIED",
+            "reasons": [
+                "Orchestration executed but reported no diagnostic group, so relevant Domain "
+                "consumption cannot be positively verified"
+            ],
+            **empty,
+        }
+
+    raw_counts = status.get("consumed_domain_instance_counts")
+    if raw_counts is None:
+        return {
+            "state": "UNVERIFIED",
+            "reasons": [
+                "Orchestration report carries no per-Domain consumed-instance map, so relevant "
+                "Domain consumption cannot be positively verified"
+            ],
+            **empty,
+        }
+    if not isinstance(raw_counts, dict):
+        return {
+            "state": "UNVERIFIED",
+            "reasons": ["consumed_domain_instance_counts is not an object"],
+            **empty,
+        }
+
+    counts: dict[str, int] = {}
+    for key, value in raw_counts.items():
+        if key not in BENCHMARK_DOMAIN_KEYS:
+            return {
+                "state": "UNVERIFIED",
+                "reasons": [f"consumed_domain_instance_counts contains unsupported Domain key {key!r}"],
+                **empty,
+            }
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return {
+                "state": "UNVERIFIED",
+                "reasons": [f"consumed_domain_instance_counts[{key!r}] must be a non-negative integer"],
+                **empty,
+            }
+        counts[key] = value
+
+    unmapped = _nonneg_int(
+        status.get("consumed_unmapped_source_domain_instance_count", 0),
+        "consumed_unmapped_source_domain_instance_count",
+        problems,
+    )
+    if unmapped is None:
+        return {"state": "UNVERIFIED", "reasons": problems, **empty}
+
+    if sum(counts.values()) + unmapped != aggregate:
+        return {
+            "state": "UNVERIFIED",
+            "reasons": [
+                f"per-Domain consumed instance counts disagree with the reported aggregate ({aggregate})"
+            ],
+            "consumption_verified": False,
+            "consumed_domain_instance_counts": counts,
+        }
+
+    produced: dict[str, int] = {}
+    for key, record in (skill_summary.get("domain_status") or {}).items():
+        if isinstance(record, dict):
+            produced[key] = _domain_instance_count(record)
+    for key, value in counts.items():
+        if value > produced.get(key, 0):
+            return {
+                "state": "UNVERIFIED",
+                "reasons": [
+                    f"consumed {key} instance count {value} exceeds the produced instance count "
+                    f"{produced.get(key, 0)}"
+                ],
+                "consumption_verified": False,
+                "consumed_domain_instance_counts": counts,
+            }
+
+    relevant = set(relevant_domains or ())
+    missing = sorted(key for key in relevant if counts.get(key, 0) <= 0)
+    if missing:
+        unproduced_missing = [key for key in missing if produced.get(key, 0) <= 0]
+        consumed_missing = [key for key in missing if produced.get(key, 0) > 0]
+        if consumed_missing:
+            return {
+                "state": "FAILED",
+                "reasons": [
+                    "Orchestration consumed no instance of relevant Domain(s) "
+                    + ", ".join(consumed_missing)
+                    + " that were reconstructed from capture evidence"
+                ],
+                "consumption_verified": False,
+                "consumed_domain_instance_counts": counts,
+            }
+        return {
+            "state": "UNVERIFIED",
+            "reasons": [
+                "relevant Domain consumption is not established for " + ", ".join(unproduced_missing)
+            ],
+            "consumption_verified": False,
+            "consumed_domain_instance_counts": counts,
+        }
+
     return {
-        "state": "FAILED",
-        "reasons": ["Orchestration produced no diagnostic result (" + str(execution) + (f": {reason}" if reason else "") + ")"],
+        "state": "AVAILABLE",
+        "reasons": [],
+        "consumption_verified": True,
+        "consumed_domain_instance_counts": counts,
     }
 
 
@@ -453,8 +669,8 @@ def evaluate_evidence_layers(
     """
     protocol_eligibility, protocol_defects = evaluate_pipeline_evidence_health(human_baseline, skill_summary)
     domain_evidence = evaluate_domain_evidence(human_baseline, skill_summary)
-    orchestration = evaluate_orchestration_evidence(skill_summary, domain_evidence)
     relevant_domains = relevant_domain_keys(human_baseline)
+    orchestration = evaluate_orchestration_evidence(skill_summary, domain_evidence, relevant_domains)
 
     if protocol_eligibility == "BLOCKED" or protocol_defects:
         domain_state = "NOT_EVALUATED"
@@ -748,7 +964,42 @@ def compare_differential(
                             "baseline records as healthy, so the candidate evidence needs Domain-layer review."
                         )
                 elif skill_status in NO_BOUNDARY_STATUSES:
-                    if deviations is None:
+                    gate_problems = selection_consistency_problems(skill_summary)
+                    if orchestration_evidence["state"] != "AVAILABLE":
+                        gate_problems = list(orchestration_evidence.get("reasons") or []) + gate_problems
+                    if gate_problems:
+                        # Positive agreement must rest on positively verified
+                        # Orchestration consumption of the relevant Domain
+                        # instances. An absence of evidence never satisfies a
+                        # positive acceptance condition, and a missing
+                        # newly-introduced field is never read as consumption
+                        # or as a proven Orchestration defect.
+                        # Positive agreement must rest on positively verified
+                        # Orchestration consumption of the relevant Domain
+                        # instances and on internally consistent selection and
+                        # candidate metadata. An absence of evidence never
+                        # satisfies a positive acceptance condition, and a
+                        # missing newly-introduced field is never read as
+                        # consumption or as a proven Orchestration defect.
+                        comparison_status = "NEEDS_ADJUDICATION"
+                        layer_attribution = (
+                            "ORCHESTRATION"
+                            if orchestration_evidence["state"] == "FAILED"
+                            else "UNKNOWN"
+                        )
+                        adjudication_required = True
+                        recommended_next_action = (
+                            "CORRECT_ORCHESTRATION"
+                            if orchestration_evidence["state"] == "FAILED"
+                            else "NO_CHANGE"
+                        )
+                        notes.extend(str(reason) for reason in gate_problems)
+                        notes.append(
+                            "A positive no-abnormal-boundary result requires positively verified Orchestration "
+                            "consumption of the relevant Domain instances together with consistent selection and "
+                            "candidate metadata; missing or inconsistent evidence is never read as consumption."
+                        )
+                    elif deviations is None:
                         comparison_status = "EXACT_MATCH"
                         layer_attribution = "NONE"
                         recommended_next_action = "NO_CHANGE"

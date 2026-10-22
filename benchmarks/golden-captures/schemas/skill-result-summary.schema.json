@@ -144,7 +144,17 @@
         "diagnostic_group_count": {"type": "integer", "minimum": 0},
         "source_domain_instances_count": {"type": "integer", "minimum": 0},
         "candidate_boundary_count": {"type": "integer", "minimum": 0},
-        "first_stop_reason": {"type": ["string", "null"]}
+        "first_stop_reason": {"type": ["string", "null"]},
+        "consumed_domain_instance_counts": {
+          "type": "object",
+          "description": "Bounded count-only evidence of which Domain contributed the instances the primary diagnostic group consumed, keyed by benchmark Domain key. Orchestration source Domain identities are mapped explicitly (5gc-registration-mobility -> registration, 5gc-pdu-session -> pdu_session, 5gc-handover-mobility -> handover_mobility); an unknown identity is retained in consumed_unmapped_source_domain_instance_count and never silently mapped to a known Domain. Counts are non-negative integers and the sum plus consumed_unmapped_source_domain_instance_count equals source_domain_instances_count. Contains no instance identifiers, source filenames or capture paths. Absent on legacy summaries, which the comparator must never read as evidence of consumption.",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "consumed_unmapped_source_domain_instance_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Consumed instances whose Orchestration source Domain identity the benchmark does not own. Retained explicitly so unknown evidence is never attributed to a known Domain."
+        }
       }
     },
     "protocol_status": {

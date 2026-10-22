@@ -421,7 +421,21 @@ class GoldenCaptureDifferentialTests(unittest.TestCase):
         human = copy.deepcopy(self.base_human)
         human["analysis_status"] = "NO_SUPPORTED_ABNORMAL_BOUNDARY_OBSERVED"
         human["first_abnormal_boundary"] = None
+        human["procedure_observations"] = [
+            {
+                "procedure_family": "5gc-registration-mobility",
+                "procedure_stage": "registration",
+                "outcome": "COMPLETE",
+                "first_frame": 9,
+                "last_frame": 15,
+                "evidence_level": "OBSERVED",
+            }
+        ]
 
+        # Healthy acceptance requires positively verified Orchestration
+        # consumption of the reconstructed relevant Domain instance, so the
+        # fixture carries the structured Domain and consumption evidence the
+        # accepted contract demands.
         skill = {
             "case_id": "diff-test",
             "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
@@ -430,9 +444,59 @@ class GoldenCaptureDifferentialTests(unittest.TestCase):
             "evidence_limitations": [],
             "additional_evidence_needed": [],
             "domain_instances_count": 1,
+            "candidate_boundaries_count": 0,
             "protocol_status": {
                 "ngap": "SUCCESS",
                 "nas-5gs": "SUCCESS",
+            },
+            "domain_status": {
+                "registration": {
+                    "execution_status": "EXECUTED",
+                    "output_present": True,
+                    "instance_count": 1,
+                    "deviation_count": 0,
+                    "first_stop_reason": None,
+                    "deviation_classification": {
+                        "total_count": 0,
+                        "candidate_eligible_count": 0,
+                        "evidence_limitation_count": 0,
+                        "supporting_anomaly_count": 0,
+                        "unclassified_count": 0,
+                        "candidate_eligible_types": {},
+                        "evidence_limitation_types": {},
+                        "supporting_anomaly_types": {},
+                        "unclassified_types": {},
+                    },
+                },
+                "pdu_session": {
+                    "execution_status": "SKIPPED_NO_INPUTS",
+                    "output_present": False,
+                    "instance_count": 0,
+                    "deviation_count": 0,
+                    "first_stop_reason": "no N1/N2/N3/N4/N11 protocol evidence extracted",
+                },
+                "handover_mobility": {
+                    "execution_status": "SKIPPED_NO_INPUTS",
+                    "output_present": False,
+                    "handover_attempt_count": 0,
+                    "path_switch_attempt_count": 0,
+                    "deviation_count": 0,
+                    "first_stop_reason": "no mobility protocol evidence extracted",
+                },
+            },
+            "orchestration_status": {
+                "execution_status": "EXECUTED",
+                "output_present": True,
+                "diagnostic_group_count": 1,
+                "source_domain_instances_count": 1,
+                "candidate_boundary_count": 0,
+                "first_stop_reason": None,
+                "consumed_domain_instance_counts": {
+                    "registration": 1,
+                    "pdu_session": 0,
+                    "handover_mobility": 0,
+                },
+                "consumed_unmapped_source_domain_instance_count": 0,
             },
         }
         diff = compare_differential(human, skill)
@@ -746,6 +810,9 @@ class DomainEvidenceQualificationTests(unittest.TestCase):
         consumed: int = 0,
         candidates: int = 0,
     ) -> dict:
+        # Positive results require positively verified per-Domain consumption,
+        # so the fixture carries the bounded count-only map alongside the
+        # aggregate count.
         return {
             "execution_status": execution_status,
             "output_present": execution_status == "EXECUTED",
@@ -753,6 +820,12 @@ class DomainEvidenceQualificationTests(unittest.TestCase):
             "source_domain_instances_count": consumed,
             "candidate_boundary_count": candidates,
             "first_stop_reason": None,
+            "consumed_domain_instance_counts": {
+                "registration": consumed,
+                "pdu_session": 0,
+                "handover_mobility": 0,
+            },
+            "consumed_unmapped_source_domain_instance_count": 0,
         }
 
     def skill_summary(self, **overrides) -> dict:
@@ -800,7 +873,7 @@ class DomainEvidenceQualificationTests(unittest.TestCase):
     def test_healthy_exact_match_requires_relevant_domain_instance(self) -> None:
         skill = self.skill_summary(
             domain_status=self.domain_status(1, 0),
-            orchestration_status=self.orchestration_status("EXECUTED", 0, 0, 0),
+            orchestration_status=self.orchestration_status("EXECUTED", 1, 1, 0),
         )
         diff = compare_differential(self.healthy_human, skill)
         self.assertEqual(diff["comparison_status"], "EXACT_MATCH")
@@ -896,7 +969,7 @@ class DomainEvidenceQualificationTests(unittest.TestCase):
         skill = self.skill_summary(
             protocol_status={"ngap": "SUCCESS_WITH_UNSUPPORTED_SEMANTICS", "nas-5gs": "SUCCESS_WITH_PROTECTED_PAYLOAD"},
             domain_status=self.domain_status(1, 0),
-            orchestration_status=self.orchestration_status("EXECUTED", 0, 0, 0),
+            orchestration_status=self.orchestration_status("EXECUTED", 1, 1, 0),
         )
         eligibility, defects = evaluate_pipeline_evidence_health(self.healthy_human, skill)
         self.assertEqual(eligibility, "ELIGIBLE")
@@ -1070,7 +1143,7 @@ class DomainEvidenceQualificationTests(unittest.TestCase):
     def test_evidence_layers_are_recorded_independently(self) -> None:
         skill = self.skill_summary(
             domain_status=self.domain_status(1, 0),
-            orchestration_status=self.orchestration_status("EXECUTED", 0, 0, 0),
+            orchestration_status=self.orchestration_status("EXECUTED", 1, 1, 0),
         )
         diff = compare_differential(self.healthy_human, skill)
         self.assertEqual(

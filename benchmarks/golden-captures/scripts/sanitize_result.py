@@ -13,6 +13,53 @@ import sys
 from pathlib import Path
 
 
+# Orchestration source Domain identities mapped explicitly to the benchmark
+# Domain keys. The strings are not identical and must never be assumed to be.
+# An identity outside this map is retained as explicit unsupported evidence and
+# is never silently folded into a known Domain.
+SOURCE_DOMAIN_IDENTITY_MAP = {
+    "5gc-registration-mobility": "registration",
+    "5gc-pdu-session": "pdu_session",
+    "5gc-handover-mobility": "handover_mobility",
+}
+
+BENCHMARK_DOMAIN_KEYS = tuple(SOURCE_DOMAIN_IDENTITY_MAP.values())
+
+
+def map_source_domain_key(value) -> str | None:
+    """Map one Orchestration source Domain identity to a benchmark Domain key.
+
+    Returns None for any identity the benchmark does not own, so unknown
+    evidence is retained explicitly instead of being attributed to a known
+    Domain.
+    """
+    if not isinstance(value, str):
+        return None
+    return SOURCE_DOMAIN_IDENTITY_MAP.get(value)
+
+
+def consumed_domain_instance_counts(source_domain_instances) -> tuple[dict, int]:
+    """Count consumed instances per benchmark Domain key from raw Orchestration records.
+
+    Returns ``(counts, unmapped)`` where ``counts`` holds a non-negative integer
+    per known benchmark Domain key and ``unmapped`` counts instances whose
+    source Domain identity the benchmark does not own. Totals always agree with
+    the number of source records examined.
+    """
+    counts = {key: 0 for key in BENCHMARK_DOMAIN_KEYS}
+    unmapped = 0
+    for entry in source_domain_instances or []:
+        if not isinstance(entry, dict):
+            unmapped += 1
+            continue
+        key = map_source_domain_key(entry.get("source_domain"))
+        if key is None:
+            unmapped += 1
+            continue
+        counts[key] += 1
+    return counts, unmapped
+
+
 class SanitizeError(ValueError):
     """A raw orchestration artifact violates the selected-boundary contract.
 
