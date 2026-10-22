@@ -184,9 +184,9 @@
       "skill_status": "NO_ABNORMAL_BOUNDARY_OBSERVED"
     }
   ],
-  "corenet_commit": "cda1c89fb5f682a2d15aa7c53bbda5067f922eb3",
+  "corenet_commit": "6d53019b96e26c7681c9921cd670aa6cce8292a4",
   "external_source_commit": "82934c2cc231540fa425e48177d4bed33210bfc1",
-  "generated_at": "2026-10-21T09:43:58.371715+00:00",
+  "generated_at": "2026-10-22T08:53:54.659006+00:00",
   "metrics": {
     "acceptable_difference_count": 0,
     "blocked_case_count": 0,

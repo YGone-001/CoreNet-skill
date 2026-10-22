@@ -77,6 +77,12 @@
   ],
   "orchestration_status": {
     "candidate_boundary_count": 0,
+    "consumed_domain_instance_counts": {
+      "handover_mobility": 0,
+      "pdu_session": 1,
+      "registration": 1
+    },
+    "consumed_unmapped_source_domain_instance_count": 0,
     "diagnostic_group_count": 1,
     "execution_status": "EXECUTED",
     "first_stop_reason": null,
