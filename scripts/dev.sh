@@ -41,7 +41,7 @@ DEFAULT_WORK_ROOT="/tmp/corenet-golden-run"
 # Required standard-library modules for repository validators and tests.
 REQUIRED_STDLIB_MODULES=(
   argparse ast copy hashlib importlib.util json pathlib py_compile re
-  shutil subprocess sys tempfile typing unittest venv
+  shutil subprocess sys tempfile typing unittest venv xml
 )
 
 # Validators in the order exercised by .github/workflows/validate.yml.
@@ -53,6 +53,7 @@ VALIDATOR_SCRIPTS=(
   scripts/validate-core-network-pcap.py
   scripts/validate-s1ap.py
   scripts/validate-nas-eps.py
+  scripts/validate-gtpv2.py
   scripts/validate-epc-procedures.py
   scripts/validate-ngap.py
   scripts/validate-nas-5gs.py
@@ -75,6 +76,7 @@ COMPILEALL_DIRS=(
   skills/protocol/core-network-pcap/scripts
   skills/protocol/s1ap/scripts
   skills/protocol/nas-eps/scripts
+  skills/protocol/gtpv2/scripts
   skills/domain/epc-procedures/scripts
   skills/protocol/ngap/scripts
   skills/protocol/nas-5gs/scripts
@@ -762,6 +764,7 @@ cmd_validate() {
 
   run_unittests "unit tests: s1ap" "skills/protocol/s1ap/tests" "test_*.py"
   run_unittests "unit tests: nas-eps" "skills/protocol/nas-eps/tests" "test_*.py"
+  run_unittests "unit tests: gtpv2" "skills/protocol/gtpv2/tests" "test_*.py"
   run_unittests "unit tests: epc-procedures" "skills/domain/epc-procedures/tests" "test_*.py"
   run_unittests "unit tests: golden captures" "benchmarks/golden-captures/tests" "test_*.py"
   run_unittests "unit tests: repository root" "tests" "test_*.py"

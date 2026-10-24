@@ -1,0 +1,2 @@
+{"frame.time_epoch":"1792850300.100000000","ip.src":"10.0.0.1","ip.dst":"10.0.0.2","gtpv2.message_type":"32"}
+{"frame.number":"2","frame.time_epoch":"1792850300.200000000","ip.src":"10.0.0.1","ip.dst":"10.0.0.2","gtpv2.message_type":"999"}

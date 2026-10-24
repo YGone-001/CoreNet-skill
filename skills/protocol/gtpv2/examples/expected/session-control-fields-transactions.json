@@ -1,0 +1,431 @@
+{
+  "ambiguous_count": 0,
+  "capture_files": [
+    "session-control-fields.jsonl"
+  ],
+  "limitations": [
+    "correlation is protocol-local and never asserts session, PDN-connection or bearer success",
+    "a response is only paired with a request captured in the same file",
+    "sequence numbers and TEIDs are not globally unique; endpoint scoping is mandatory"
+  ],
+  "matched_count": 6,
+  "open_request_count": 0,
+  "protocol": "GTPv2-C",
+  "response_only_count": 0,
+  "retransmission_count": 0,
+  "transaction_count": 6,
+  "transactions": [
+    {
+      "correlation_basis": [
+        "same capture provenance",
+        "request/response message identity",
+        "reversed endpoint tuple",
+        "equal sequence number"
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "SUPPORTED",
+      "corroboration": {
+        "decoder_link_frame": null,
+        "teid_echo": null,
+        "teid_relation": "established_context_request"
+      },
+      "evidence_refs": [
+        {
+          "frame_number": 1,
+          "header_teid": 64,
+          "header_teid_state": "PRESENT",
+          "message_type": "Delete Session Request",
+          "message_type_code": 36,
+          "sequence_number": 22
+        },
+        {
+          "frame_number": 4,
+          "header_teid": 6,
+          "header_teid_state": "PRESENT",
+          "message_type": "Delete Session Response",
+          "message_type_code": 37,
+          "sequence_number": 22
+        }
+      ],
+      "limitations": [],
+      "message_family": "delete-session",
+      "observation_window": {
+        "end_frame": 4,
+        "start_frame": 1
+      },
+      "procedure_family": "delete-session",
+      "request": {
+        "frame_number": 1,
+        "header_teid": 64,
+        "header_teid_state": "PRESENT",
+        "message_type": "Delete Session Request",
+        "message_type_code": 36,
+        "sequence_number": 22
+      },
+      "response": {
+        "frame_number": 4,
+        "header_teid": 6,
+        "header_teid_state": "PRESENT",
+        "message_type": "Delete Session Response",
+        "message_type_code": 37,
+        "sequence_number": 22
+      },
+      "response_candidates": [
+        {
+          "frame_number": 4,
+          "header_teid": 6,
+          "header_teid_state": "PRESENT",
+          "message_type": "Delete Session Response",
+          "message_type_code": 37,
+          "sequence_number": 22
+        }
+      ],
+      "retransmissions": [],
+      "transaction_reference": "gtpv2-delete-session-1-22"
+    },
+    {
+      "correlation_basis": [
+        "same capture provenance",
+        "request/response message identity",
+        "reversed endpoint tuple",
+        "equal sequence number"
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "SUPPORTED",
+      "corroboration": {
+        "decoder_link_frame": null,
+        "teid_echo": null,
+        "teid_relation": "established_context_request"
+      },
+      "evidence_refs": [
+        {
+          "frame_number": 2,
+          "header_teid": 859,
+          "header_teid_state": "PRESENT",
+          "message_type": "Delete Session Request",
+          "message_type_code": 36,
+          "sequence_number": 10
+        },
+        {
+          "frame_number": 3,
+          "header_teid": 3806,
+          "header_teid_state": "PRESENT",
+          "message_type": "Delete Session Response",
+          "message_type_code": 37,
+          "sequence_number": 10
+        }
+      ],
+      "limitations": [],
+      "message_family": "delete-session",
+      "observation_window": {
+        "end_frame": 3,
+        "start_frame": 2
+      },
+      "procedure_family": "delete-session",
+      "request": {
+        "frame_number": 2,
+        "header_teid": 859,
+        "header_teid_state": "PRESENT",
+        "message_type": "Delete Session Request",
+        "message_type_code": 36,
+        "sequence_number": 10
+      },
+      "response": {
+        "frame_number": 3,
+        "header_teid": 3806,
+        "header_teid_state": "PRESENT",
+        "message_type": "Delete Session Response",
+        "message_type_code": 37,
+        "sequence_number": 10
+      },
+      "response_candidates": [
+        {
+          "frame_number": 3,
+          "header_teid": 3806,
+          "header_teid_state": "PRESENT",
+          "message_type": "Delete Session Response",
+          "message_type_code": 37,
+          "sequence_number": 10
+        }
+      ],
+      "retransmissions": [],
+      "transaction_reference": "gtpv2-delete-session-2-10"
+    },
+    {
+      "correlation_basis": [
+        "same capture provenance",
+        "request/response message identity",
+        "reversed endpoint tuple",
+        "equal sequence number"
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "SUPPORTED",
+      "corroboration": {
+        "decoder_link_frame": null,
+        "teid_echo": null,
+        "teid_relation": "initial_zero_teid_request"
+      },
+      "evidence_refs": [
+        {
+          "frame_number": 5,
+          "header_teid": 0,
+          "header_teid_state": "ZERO",
+          "message_type": "Create Session Request",
+          "message_type_code": 32,
+          "sequence_number": 23
+        },
+        {
+          "frame_number": 8,
+          "header_teid": 6,
+          "header_teid_state": "PRESENT",
+          "message_type": "Create Session Response",
+          "message_type_code": 33,
+          "sequence_number": 23
+        }
+      ],
+      "limitations": [
+        "the request carried header TEID 0; the TEID alone cannot identify the session"
+      ],
+      "message_family": "create-session",
+      "observation_window": {
+        "end_frame": 8,
+        "start_frame": 5
+      },
+      "procedure_family": "create-session",
+      "request": {
+        "frame_number": 5,
+        "header_teid": 0,
+        "header_teid_state": "ZERO",
+        "message_type": "Create Session Request",
+        "message_type_code": 32,
+        "sequence_number": 23
+      },
+      "response": {
+        "frame_number": 8,
+        "header_teid": 6,
+        "header_teid_state": "PRESENT",
+        "message_type": "Create Session Response",
+        "message_type_code": 33,
+        "sequence_number": 23
+      },
+      "response_candidates": [
+        {
+          "frame_number": 8,
+          "header_teid": 6,
+          "header_teid_state": "PRESENT",
+          "message_type": "Create Session Response",
+          "message_type_code": 33,
+          "sequence_number": 23
+        }
+      ],
+      "retransmissions": [],
+      "transaction_reference": "gtpv2-create-session-5-23"
+    },
+    {
+      "correlation_basis": [
+        "same capture provenance",
+        "request/response message identity",
+        "reversed endpoint tuple",
+        "equal sequence number"
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "SUPPORTED",
+      "corroboration": {
+        "decoder_link_frame": null,
+        "teid_echo": null,
+        "teid_relation": "initial_zero_teid_request"
+      },
+      "evidence_refs": [
+        {
+          "frame_number": 6,
+          "header_teid": 0,
+          "header_teid_state": "ZERO",
+          "message_type": "Create Session Request",
+          "message_type_code": 32,
+          "sequence_number": 11
+        },
+        {
+          "frame_number": 7,
+          "header_teid": 3051,
+          "header_teid_state": "PRESENT",
+          "message_type": "Create Session Response",
+          "message_type_code": 33,
+          "sequence_number": 11
+        }
+      ],
+      "limitations": [
+        "the request carried header TEID 0; the TEID alone cannot identify the session"
+      ],
+      "message_family": "create-session",
+      "observation_window": {
+        "end_frame": 7,
+        "start_frame": 6
+      },
+      "procedure_family": "create-session",
+      "request": {
+        "frame_number": 6,
+        "header_teid": 0,
+        "header_teid_state": "ZERO",
+        "message_type": "Create Session Request",
+        "message_type_code": 32,
+        "sequence_number": 11
+      },
+      "response": {
+        "frame_number": 7,
+        "header_teid": 3051,
+        "header_teid_state": "PRESENT",
+        "message_type": "Create Session Response",
+        "message_type_code": 33,
+        "sequence_number": 11
+      },
+      "response_candidates": [
+        {
+          "frame_number": 7,
+          "header_teid": 3051,
+          "header_teid_state": "PRESENT",
+          "message_type": "Create Session Response",
+          "message_type_code": 33,
+          "sequence_number": 11
+        }
+      ],
+      "retransmissions": [],
+      "transaction_reference": "gtpv2-create-session-6-11"
+    },
+    {
+      "correlation_basis": [
+        "same capture provenance",
+        "request/response message identity",
+        "reversed endpoint tuple",
+        "equal sequence number"
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "SUPPORTED",
+      "corroboration": {
+        "decoder_link_frame": null,
+        "teid_echo": null,
+        "teid_relation": "established_context_request"
+      },
+      "evidence_refs": [
+        {
+          "frame_number": 9,
+          "header_teid": 969,
+          "header_teid_state": "PRESENT",
+          "message_type": "Modify Bearer Request",
+          "message_type_code": 34,
+          "sequence_number": 24
+        },
+        {
+          "frame_number": 10,
+          "header_teid": 6,
+          "header_teid_state": "PRESENT",
+          "message_type": "Modify Bearer Response",
+          "message_type_code": 35,
+          "sequence_number": 24
+        }
+      ],
+      "limitations": [],
+      "message_family": "modify-bearer",
+      "observation_window": {
+        "end_frame": 10,
+        "start_frame": 9
+      },
+      "procedure_family": "modify-bearer",
+      "request": {
+        "frame_number": 9,
+        "header_teid": 969,
+        "header_teid_state": "PRESENT",
+        "message_type": "Modify Bearer Request",
+        "message_type_code": 34,
+        "sequence_number": 24
+      },
+      "response": {
+        "frame_number": 10,
+        "header_teid": 6,
+        "header_teid_state": "PRESENT",
+        "message_type": "Modify Bearer Response",
+        "message_type_code": 35,
+        "sequence_number": 24
+      },
+      "response_candidates": [
+        {
+          "frame_number": 10,
+          "header_teid": 6,
+          "header_teid_state": "PRESENT",
+          "message_type": "Modify Bearer Response",
+          "message_type_code": 35,
+          "sequence_number": 24
+        }
+      ],
+      "retransmissions": [],
+      "transaction_reference": "gtpv2-modify-bearer-9-24"
+    },
+    {
+      "correlation_basis": [
+        "same capture provenance",
+        "request/response message identity",
+        "reversed endpoint tuple",
+        "equal sequence number"
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "SUPPORTED",
+      "corroboration": {
+        "decoder_link_frame": null,
+        "teid_echo": null,
+        "teid_relation": "established_context_request"
+      },
+      "evidence_refs": [
+        {
+          "frame_number": 11,
+          "header_teid": 969,
+          "header_teid_state": "PRESENT",
+          "message_type": "Release Access Bearers Request",
+          "message_type_code": 170,
+          "sequence_number": 25
+        },
+        {
+          "frame_number": 12,
+          "header_teid": 6,
+          "header_teid_state": "PRESENT",
+          "message_type": "Release Access Bearers Response",
+          "message_type_code": 171,
+          "sequence_number": 25
+        }
+      ],
+      "limitations": [],
+      "message_family": "release-access-bearers",
+      "observation_window": {
+        "end_frame": 12,
+        "start_frame": 11
+      },
+      "procedure_family": "release-access-bearers",
+      "request": {
+        "frame_number": 11,
+        "header_teid": 969,
+        "header_teid_state": "PRESENT",
+        "message_type": "Release Access Bearers Request",
+        "message_type_code": 170,
+        "sequence_number": 25
+      },
+      "response": {
+        "frame_number": 12,
+        "header_teid": 6,
+        "header_teid_state": "PRESENT",
+        "message_type": "Release Access Bearers Response",
+        "message_type_code": 171,
+        "sequence_number": 25
+      },
+      "response_candidates": [
+        {
+          "frame_number": 12,
+          "header_teid": 6,
+          "header_teid_state": "PRESENT",
+          "message_type": "Release Access Bearers Response",
+          "message_type_code": 171,
+          "sequence_number": 25
+        }
+      ],
+      "retransmissions": [],
+      "transaction_reference": "gtpv2-release-access-bearers-11-25"
+    }
+  ]
+}

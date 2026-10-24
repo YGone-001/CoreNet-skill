@@ -1,0 +1,1391 @@
+<?xml version='1.0' encoding='utf-8'?>
+<pdml version="0.0.0">
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792850867.161952174" show="1792850867.161952174" />
+   <field name="frame.number" showname="Frame Number: 1" show="1" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" showname="Source Address: 127.0.0.2" show="127.0.0.2" />
+   <field name="ip.dst" showname="Destination Address: 127.0.0.3" show="127.0.0.3" />
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" showname="Source Port: 2123" show="2123" />
+   <field name="udp.dstport" showname="Destination Port: 2123" show="2123" />
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2" size="48" pos="42">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="010. .... = Version: 2" show="2" />
+    <field name="gtpv2.p" showname="...0 .... = Piggybacking flag (P): 0" show="0" />
+    <field name="gtpv2.t" showname=".... 1... = TEID flag (T): 1" show="1" />
+    <field name="gtpv2.mp" showname=".... .0.. = Message Priority(MP): 0" show="0" />
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Delete Session Request (36)" show="36" />
+   <field name="gtpv2.msg_length" showname="Message Length: 44" show="44" />
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x00000040 (64)" show="0x00000040" />
+   <field name="gtpv2.seq" showname="Sequence Number: 0x000016 (22)" show="0x000016" />
+   <field name="gtpv2.spare" showname="Spare: 0" show="0" />
+   <field name="" show="EPS Bearer ID (EBI): Linked EPS Bearer ID (LBI): 5">
+    <field name="gtpv2.ie_type" showname="IE Type: EPS Bearer ID (EBI) (73)" show="73" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.spare_bits" showname="0000 .... = Spare bit(s): 0" show="0" />
+    <field name="gtpv2.ebi" showname=".... 0101 = EPS Bearer ID (EBI): 5" show="5" />
+   </field>
+   <field name="" show="User Location Info (ULI): TAI ECGI ">
+    <field name="gtpv2.ie_type" showname="IE Type: User Location Info (ULI) (86)" show="86" />
+    <field name="gtpv2.ie_len" showname="IE Length: 13" show="13" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.uli_flags" showname="ULI Flags: 0x18, ECGI Present, TAI Present" show="0x18">
+     <field name="gtpv2.uli_ext_macro_enb_id_flg" showname="0... .... = Extended Macro eNodeB ID Present: False" show="False" />
+     <field name="gtpv2.uli_macro_enb_id_flg" showname=".0.. .... = Macro eNodeB ID Present: False" show="False" />
+     <field name="gtpv2.uli_lai_flg" showname="..0. .... = LAI Present: False" show="False" />
+     <field name="gtpv2.uli_ecgi_flg" showname="...1 .... = ECGI Present: True" show="True" />
+     <field name="gtpv2.uli_tai_flg" showname=".... 1... = TAI Present: True" show="True" />
+     <field name="gtpv2.uli_rai_flg" showname=".... .0.. = RAI Present: False" show="False" />
+     <field name="gtpv2.uli_sai_flg" showname=".... ..0. = SAI Present: False" show="False" />
+     <field name="gtpv2.uli_cgi_flg" showname=".... ...0 = CGI Present: False" show="False" />
+    </field>
+    <field name="" show="Tracking Area Identity (TAI)">
+     <field name="e212.tai.mcc" showname="Mobile Country Code (MCC): China (460)" show="460" />
+     <field name="e212.tai.mnc" showname="Mobile Network Code (MNC): China Mobile (02)" show="02" />
+     <field name="gtpv2.tai_tac" showname="Tracking Area Code: 0x0001 (1)" show="0x0001" />
+    </field>
+    <field name="" show="E-UTRAN Cell Global Identifier (ECGI)">
+     <field name="e212.ecgi.mcc" showname="Mobile Country Code (MCC): China (460)" show="460" />
+     <field name="e212.ecgi.mnc" showname="Mobile Network Code (MNC): China Mobile (02)" show="02" />
+     <field name="gtpv2.uli_ecgi_eci_spare" showname="Spare: 0" show="0" />
+     <field name="gtpv2.ecgi_eci" showname="ECI (E-UTRAN Cell Identifier): 105216" show="105216">
+      <field name="gtpv2.enodebid" showname=".... 0000 0000 0001 1001 1011 .... .... = eNodeB Id: 411" show="411" />
+      <field name="gtpv2.cellid" showname=".... .... .... .... .... .... 0000 0000 = CellId: 0" show="0" />
+     </field>
+    </field>
+   </field>
+   <field name="" show="Indication: ">
+    <field name="gtpv2.ie_type" showname="IE Type: Indication (77)" show="77" />
+    <field name="gtpv2.ie_len" showname="IE Length: 10" show="10" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.daf" showname="0... .... = DAF (Dual Address Bearer Flag): False" show="False" />
+    <field name="gtpv2.dtf" showname=".0.. .... = DTF (Direct Tunnel Flag): False" show="False" />
+    <field name="gtpv2.hi" showname="..0. .... = HI (Handover Indication): False" show="False" />
+    <field name="gtpv2.dfi" showname="...0 .... = DFI (Direct Forwarding Indication): False" show="False" />
+    <field name="gtpv2.oi" showname=".... 1... = OI (Operation Indication): True" show="True" />
+    <field name="gtpv2.isrsi" showname=".... .0.. = ISRSI (Idle mode Signalling Reduction Supported Indication): False" show="False" />
+    <field name="gtpv2.israi" showname=".... ..0. = ISRAI (Idle mode Signalling Reduction Activation Indication): False" show="False" />
+    <field name="gtpv2.sgwci" showname=".... ...0 = SGWCI (SGW Change Indication): False" show="False" />
+    <field name="gtpv2.sqci" showname="0... .... = SQCI (Subscribed QoS Change Indication): False" show="False" />
+    <field name="gtpv2.uimsi" showname=".0.. .... = UIMSI (Unauthenticated IMSI): False" show="False" />
+    <field name="gtpv2.cfsi" showname="..0. .... = CFSI (Change F-TEID support indication): False" show="False" />
+    <field name="gtpv2.crsi" showname="...0 .... = CRSI (Change Reporting support indication): False" show="False" />
+    <field name="gtpv2.ps" showname=".... 0... = PS (Piggybacking Supported): False" show="False" />
+    <field name="gtpv2.pt" showname=".... .0.. = PT (Protocol Type): False" show="False" />
+    <field name="gtpv2.si" showname=".... ..0. = SI (Scope Indication): False" show="False" />
+    <field name="gtpv2.msv" showname=".... ...0 = MSV (MS Validated): False" show="False" />
+    <field name="gtpv2.retloc" showname="0... .... = RetLoc (Retrieve Location Indication Flag): False" show="False" />
+    <field name="gtpv2.pbic" showname=".0.. .... = PBIC (Propagate BBAI Information Change): False" show="False" />
+    <field name="gtpv2.snri" showname="..0. .... = SRNI (SGW Restoration Needed Indication): False" show="False" />
+    <field name="gtpv2.s6af" showname="...0 .... = S6AF (Static IPv6 Address Flag): False" show="False" />
+    <field name="gtpv2.s4af" showname=".... 0... = S4AF (Static IPv4 Address Flag): False" show="False" />
+    <field name="gtpv2.mbmdt" showname=".... .0.. = MBMDT (Management Based MDT allowed flag): False" show="False" />
+    <field name="gtpv2.israu" showname=".... ..0. = ISRAU (ISR is activated for the UE): False" show="False" />
+    <field name="gtpv2.ccrsi" showname=".... ...0 = CCRSI (CSG Change Reporting support indication): False" show="False" />
+    <field name="gtpv2.cprai" showname="0... .... = CPRAI (Change of Presence Reporting Area information Indication): False" show="False" />
+    <field name="gtpv2.arrl" showname=".0.. .... = ARRL (Abnormal Release of Radio Link): False" show="False" />
+    <field name="gtpv2.ppof" showname="..0. .... = PPOFF (PDN Pause Off Indication): False" show="False" />
+    <field name="gtpv2.ppon_ppei" showname="...0 .... = PPON (PDN Pause On Indication) / PPEI (PDN Pause Enabled Indication): False" show="False" />
+    <field name="gtpv2.ppsi" showname=".... 0... = PPSI (PDN Pause Support Indication): False" show="False" />
+    <field name="gtpv2.csfbi" showname=".... .0.. = CSFBI (CSFB Indication): False" show="False" />
+    <field name="gtpv2.clii" showname=".... ..0. = CLII (Change of Location Information Indication): False" show="False" />
+    <field name="gtpv2.cpsr" showname=".... ...0 = CPSR (CS to PS SRVCC Indication): False" show="False" />
+    <field name="gtpv2.nsi" showname="0... .... = NSI (NBIFOM Support Indication): False" show="False" />
+    <field name="gtpv2.uasi" showname=".0.. .... = UASI (UE Available for Signalling Indication): False" show="False" />
+    <field name="gtpv2.dtci" showname="..0. .... = DTCI (Delay Tolerant Connection Indication): False" show="False" />
+    <field name="gtpv2.bdwi" showname="...0 .... = BDWI (Buffered DL Data Waiting Indication): False" show="False" />
+    <field name="gtpv2.psci" showname=".... 0... = PSCI (Pending Subscription Change Indication): False" show="False" />
+    <field name="gtpv2.pcri" showname=".... .0.. = PCRI (P-CSCF Restoration Indication): False" show="False" />
+    <field name="gtpv2.aosi" showname=".... ..0. = AOSI (Associate OCI with SGW node's Identity): False" show="False" />
+    <field name="gtpv2.aopi" showname=".... ...0 = AOPI (Associate OCI with PGW node's Identity): False" show="False" />
+    <field name="gtpv2.roaai" showname="0... .... = ROAAI (Release Over Any Access Indication): False" show="False" />
+    <field name="gtpv2.epcosi" showname=".0.. .... = EPCOSI (Extended PCO Support Indication): False" show="False" />
+    <field name="gtpv2.cpopci" showname="..0. .... = CPOPCI (Control Plane Only PDN Connection Indication): False" show="False" />
+    <field name="gtpv2.pmtsmi" showname="...0 .... = PMTSMI (Pending MT Short Message Indication): False" show="False" />
+    <field name="gtpv2.s11tf" showname=".... 0... = S11TF (S11-U Tunnel Flag): False" show="False" />
+    <field name="gtpv2.pnsi" showname=".... .0.. = PNSI (Pending Network Initiated PDN Connection Signalling Indication): False" show="False" />
+    <field name="gtpv2.unaccsi" showname=".... ..0. = UNACCSI (UE Not Authorized Cause Code Support Indication): False" show="False" />
+    <field name="gtpv2.wpmsi" showname=".... ...0 = WPMSI (WLCP PDN Connection Modification Support Indication): False" show="False" />
+    <field name="gtpv2.5gsnn26" showname="0... .... = 5GSNN26 (5GS Interworking without N26 Indication): False" show="False" />
+    <field name="gtpv2.reprefi" showname=".0.. .... = REPREFI (Return Preferred Indication): False" show="False" />
+    <field name="gtpv2.5gsiwk" showname="..0. .... = 5GSIWKI (5GS Interworking Indication): False" show="False" />
+    <field name="gtpv2.eevrsi" showname="...0 .... = EEVRSI (Extended EBI Value Range Support Indication): False" show="False" />
+    <field name="gtpv2.ltemui" showname=".... 0... = LTEMUI (LTE-M UE Indication): False" show="False" />
+    <field name="gtpv2.ltempi" showname=".... .0.. = LTEMPI (LTE-M RAT Type reporting to PGW Indication): False" show="False" />
+    <field name="gtpv2.enbcrsi" showname=".... ..0. = ENBCRSI (eNB Change Reporting Support Indication): False" show="False" />
+    <field name="gtpv2.tspcmi" showname=".... ...0 = TSPCMI (Triggering SGSN Initiated PDP Context Creation/Modification Indication): False" show="False" />
+    <field name="gtpv2.csrmfi" showname="0... .... = CSRMFI (Create Session Request Message Forwarded Indication): False" show="False" />
+    <field name="gtpv2.mtedtn" showname=".0.. .... = MTEDTN (MT-EDT Not Applicable): Not Applicable" show="False" />
+    <field name="gtpv2.mtedta" showname="..0. .... = MTEDTA (MT-EDT Applicable): Not Applicable" show="False" />
+    <field name="gtpv2.n5gnmi" showname="...0 .... = N5GNMI (No 5GS N26 Mobility Indication): False" show="False" />
+    <field name="gtpv2.5gcnrs" showname=".... 0... = 5GCNRS (5GC Not Restricted Support): Not supported" show="False" />
+    <field name="gtpv2.5gcnri" showname=".... .0.. = 5GCNRI (5GC Not Restricted Indication): Not supported" show="False" />
+    <field name="gtpv2.5srhoi" showname=".... ..0. = 5SRHOI (5G-SRVCC HO Indication): Not supported" show="False" />
+    <field name="gtpv2.ethpdn" showname=".... ...0 = ETHPDN (Ethernet PDN Support Indication): Not supported" show="False" />
+    <field name="gtpv2.nspusi" showname="0... .... = NSPUSI (Notify Start of Pause of Charging via User plane Support Indication): False" show="False" />
+    <field name="gtpv2.pgwrnsi" showname=".0.. .... = PGWRNSI (PGW Redirection due to mismatch with Network Slice subscribed by UE Support Indication): False" show="False" />
+    <field name="gtpv2.rppcsi" showname="..0. .... = RPPCSI (Restoration of PDN connections after an PGW-C/SMF change Support Indication): False" show="False" />
+    <field name="gtpv2.pgwchi" showname="...0 .... = PGWCHI (PGW CHange Indication): False" show="False" />
+    <field name="gtpv2.sissme" showname=".... 0... = SISSME (Same IWK-SCEF Selected for Monitoring Event Indication): False" show="False" />
+    <field name="gtpv2.nsenbi" showname=".... .0.. = NSENBI (Notify Source eNodeB Indication): False" show="False" />
+    <field name="gtpv2.idfupf" showname=".... ..0. = IDFUPF (Indirect Data Forwarding with UPF Indication): False" show="False" />
+    <field name="gtpv2.emci" showname=".... ...0 = EMCI (Emergency PDU Session Indication): False" show="False" />
+    <field name="gtpv2.spare.b7_b4" showname="0000 .... = Spare: 0x0" show="0x00" />
+    <field name="gtpv2.lapcosi" showname=".... 0... = LAPCOSI (Large Additional Protocol Configuration Options Support Indication): False" show="False" />
+    <field name="gtpv2.ltemsai" showname=".... .0.. = LTEMSAI (LTE-M Satellite Access Indication): False" show="False" />
+    <field name="gtpv2.srtpi" showname=".... ..0. = SRTPI (Satellite RAT Type reporting to PGW Indication): False" show="False" />
+    <field name="gtpv2.upipsi" showname=".... ...0 = UPIPSI (User Plane Integrity Protection Support Indication): False" show="False" />
+   </field>
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792850867.168486355" show="1792850867.168486355" />
+   <field name="frame.number" showname="Frame Number: 2" show="2" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" showname="Source Address: 127.0.0.3" show="127.0.0.3" />
+   <field name="ip.dst" showname="Destination Address: 127.0.0.34" show="127.0.0.34" />
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" showname="Source Port: 2123" show="2123" />
+   <field name="udp.dstport" showname="Destination Port: 2123" show="2123" />
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2" size="48" pos="42">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="010. .... = Version: 2" show="2" />
+    <field name="gtpv2.p" showname="...0 .... = Piggybacking flag (P): 0" show="0" />
+    <field name="gtpv2.t" showname=".... 1... = TEID flag (T): 1" show="1" />
+    <field name="gtpv2.mp" showname=".... .0.. = Message Priority(MP): 0" show="0" />
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Delete Session Request (36)" show="36" />
+   <field name="gtpv2.msg_length" showname="Message Length: 44" show="44" />
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x0000035b (859)" show="0x0000035b" />
+   <field name="gtpv2.seq" showname="Sequence Number: 0x00000a (10)" show="0x00000a" />
+   <field name="gtpv2.spare" showname="Spare: 0" show="0" />
+   <field name="" show="EPS Bearer ID (EBI): Linked EPS Bearer ID (LBI): 5">
+    <field name="gtpv2.ie_type" showname="IE Type: EPS Bearer ID (EBI) (73)" show="73" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.spare_bits" showname="0000 .... = Spare bit(s): 0" show="0" />
+    <field name="gtpv2.ebi" showname=".... 0101 = EPS Bearer ID (EBI): 5" show="5" />
+   </field>
+   <field name="" show="User Location Info (ULI): TAI ECGI ">
+    <field name="gtpv2.ie_type" showname="IE Type: User Location Info (ULI) (86)" show="86" />
+    <field name="gtpv2.ie_len" showname="IE Length: 13" show="13" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.uli_flags" showname="ULI Flags: 0x18, ECGI Present, TAI Present" show="0x18">
+     <field name="gtpv2.uli_ext_macro_enb_id_flg" showname="0... .... = Extended Macro eNodeB ID Present: False" show="False" />
+     <field name="gtpv2.uli_macro_enb_id_flg" showname=".0.. .... = Macro eNodeB ID Present: False" show="False" />
+     <field name="gtpv2.uli_lai_flg" showname="..0. .... = LAI Present: False" show="False" />
+     <field name="gtpv2.uli_ecgi_flg" showname="...1 .... = ECGI Present: True" show="True" />
+     <field name="gtpv2.uli_tai_flg" showname=".... 1... = TAI Present: True" show="True" />
+     <field name="gtpv2.uli_rai_flg" showname=".... .0.. = RAI Present: False" show="False" />
+     <field name="gtpv2.uli_sai_flg" showname=".... ..0. = SAI Present: False" show="False" />
+     <field name="gtpv2.uli_cgi_flg" showname=".... ...0 = CGI Present: False" show="False" />
+    </field>
+    <field name="" show="Tracking Area Identity (TAI)">
+     <field name="e212.tai.mcc" showname="Mobile Country Code (MCC): China (460)" show="460" />
+     <field name="e212.tai.mnc" showname="Mobile Network Code (MNC): China Mobile (02)" show="02" />
+     <field name="gtpv2.tai_tac" showname="Tracking Area Code: 0x0001 (1)" show="0x0001" />
+    </field>
+    <field name="" show="E-UTRAN Cell Global Identifier (ECGI)">
+     <field name="e212.ecgi.mcc" showname="Mobile Country Code (MCC): China (460)" show="460" />
+     <field name="e212.ecgi.mnc" showname="Mobile Network Code (MNC): China Mobile (02)" show="02" />
+     <field name="gtpv2.uli_ecgi_eci_spare" showname="Spare: 0" show="0" />
+     <field name="gtpv2.ecgi_eci" showname="ECI (E-UTRAN Cell Identifier): 105216" show="105216">
+      <field name="gtpv2.enodebid" showname=".... 0000 0000 0001 1001 1011 .... .... = eNodeB Id: 411" show="411" />
+      <field name="gtpv2.cellid" showname=".... .... .... .... .... .... 0000 0000 = CellId: 0" show="0" />
+     </field>
+    </field>
+   </field>
+   <field name="" show="Indication: ">
+    <field name="gtpv2.ie_type" showname="IE Type: Indication (77)" show="77" />
+    <field name="gtpv2.ie_len" showname="IE Length: 10" show="10" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.daf" showname="0... .... = DAF (Dual Address Bearer Flag): False" show="False" />
+    <field name="gtpv2.dtf" showname=".0.. .... = DTF (Direct Tunnel Flag): False" show="False" />
+    <field name="gtpv2.hi" showname="..0. .... = HI (Handover Indication): False" show="False" />
+    <field name="gtpv2.dfi" showname="...0 .... = DFI (Direct Forwarding Indication): False" show="False" />
+    <field name="gtpv2.oi" showname=".... 1... = OI (Operation Indication): True" show="True" />
+    <field name="gtpv2.isrsi" showname=".... .0.. = ISRSI (Idle mode Signalling Reduction Supported Indication): False" show="False" />
+    <field name="gtpv2.israi" showname=".... ..0. = ISRAI (Idle mode Signalling Reduction Activation Indication): False" show="False" />
+    <field name="gtpv2.sgwci" showname=".... ...0 = SGWCI (SGW Change Indication): False" show="False" />
+    <field name="gtpv2.sqci" showname="0... .... = SQCI (Subscribed QoS Change Indication): False" show="False" />
+    <field name="gtpv2.uimsi" showname=".0.. .... = UIMSI (Unauthenticated IMSI): False" show="False" />
+    <field name="gtpv2.cfsi" showname="..0. .... = CFSI (Change F-TEID support indication): False" show="False" />
+    <field name="gtpv2.crsi" showname="...0 .... = CRSI (Change Reporting support indication): False" show="False" />
+    <field name="gtpv2.ps" showname=".... 0... = PS (Piggybacking Supported): False" show="False" />
+    <field name="gtpv2.pt" showname=".... .0.. = PT (Protocol Type): False" show="False" />
+    <field name="gtpv2.si" showname=".... ..0. = SI (Scope Indication): False" show="False" />
+    <field name="gtpv2.msv" showname=".... ...0 = MSV (MS Validated): False" show="False" />
+    <field name="gtpv2.retloc" showname="0... .... = RetLoc (Retrieve Location Indication Flag): False" show="False" />
+    <field name="gtpv2.pbic" showname=".0.. .... = PBIC (Propagate BBAI Information Change): False" show="False" />
+    <field name="gtpv2.snri" showname="..0. .... = SRNI (SGW Restoration Needed Indication): False" show="False" />
+    <field name="gtpv2.s6af" showname="...0 .... = S6AF (Static IPv6 Address Flag): False" show="False" />
+    <field name="gtpv2.s4af" showname=".... 0... = S4AF (Static IPv4 Address Flag): False" show="False" />
+    <field name="gtpv2.mbmdt" showname=".... .0.. = MBMDT (Management Based MDT allowed flag): False" show="False" />
+    <field name="gtpv2.israu" showname=".... ..0. = ISRAU (ISR is activated for the UE): False" show="False" />
+    <field name="gtpv2.ccrsi" showname=".... ...0 = CCRSI (CSG Change Reporting support indication): False" show="False" />
+    <field name="gtpv2.cprai" showname="0... .... = CPRAI (Change of Presence Reporting Area information Indication): False" show="False" />
+    <field name="gtpv2.arrl" showname=".0.. .... = ARRL (Abnormal Release of Radio Link): False" show="False" />
+    <field name="gtpv2.ppof" showname="..0. .... = PPOFF (PDN Pause Off Indication): False" show="False" />
+    <field name="gtpv2.ppon_ppei" showname="...0 .... = PPON (PDN Pause On Indication) / PPEI (PDN Pause Enabled Indication): False" show="False" />
+    <field name="gtpv2.ppsi" showname=".... 0... = PPSI (PDN Pause Support Indication): False" show="False" />
+    <field name="gtpv2.csfbi" showname=".... .0.. = CSFBI (CSFB Indication): False" show="False" />
+    <field name="gtpv2.clii" showname=".... ..0. = CLII (Change of Location Information Indication): False" show="False" />
+    <field name="gtpv2.cpsr" showname=".... ...0 = CPSR (CS to PS SRVCC Indication): False" show="False" />
+    <field name="gtpv2.nsi" showname="0... .... = NSI (NBIFOM Support Indication): False" show="False" />
+    <field name="gtpv2.uasi" showname=".0.. .... = UASI (UE Available for Signalling Indication): False" show="False" />
+    <field name="gtpv2.dtci" showname="..0. .... = DTCI (Delay Tolerant Connection Indication): False" show="False" />
+    <field name="gtpv2.bdwi" showname="...0 .... = BDWI (Buffered DL Data Waiting Indication): False" show="False" />
+    <field name="gtpv2.psci" showname=".... 0... = PSCI (Pending Subscription Change Indication): False" show="False" />
+    <field name="gtpv2.pcri" showname=".... .0.. = PCRI (P-CSCF Restoration Indication): False" show="False" />
+    <field name="gtpv2.aosi" showname=".... ..0. = AOSI (Associate OCI with SGW node's Identity): False" show="False" />
+    <field name="gtpv2.aopi" showname=".... ...0 = AOPI (Associate OCI with PGW node's Identity): False" show="False" />
+    <field name="gtpv2.roaai" showname="0... .... = ROAAI (Release Over Any Access Indication): False" show="False" />
+    <field name="gtpv2.epcosi" showname=".0.. .... = EPCOSI (Extended PCO Support Indication): False" show="False" />
+    <field name="gtpv2.cpopci" showname="..0. .... = CPOPCI (Control Plane Only PDN Connection Indication): False" show="False" />
+    <field name="gtpv2.pmtsmi" showname="...0 .... = PMTSMI (Pending MT Short Message Indication): False" show="False" />
+    <field name="gtpv2.s11tf" showname=".... 0... = S11TF (S11-U Tunnel Flag): False" show="False" />
+    <field name="gtpv2.pnsi" showname=".... .0.. = PNSI (Pending Network Initiated PDN Connection Signalling Indication): False" show="False" />
+    <field name="gtpv2.unaccsi" showname=".... ..0. = UNACCSI (UE Not Authorized Cause Code Support Indication): False" show="False" />
+    <field name="gtpv2.wpmsi" showname=".... ...0 = WPMSI (WLCP PDN Connection Modification Support Indication): False" show="False" />
+    <field name="gtpv2.5gsnn26" showname="0... .... = 5GSNN26 (5GS Interworking without N26 Indication): False" show="False" />
+    <field name="gtpv2.reprefi" showname=".0.. .... = REPREFI (Return Preferred Indication): False" show="False" />
+    <field name="gtpv2.5gsiwk" showname="..0. .... = 5GSIWKI (5GS Interworking Indication): False" show="False" />
+    <field name="gtpv2.eevrsi" showname="...0 .... = EEVRSI (Extended EBI Value Range Support Indication): False" show="False" />
+    <field name="gtpv2.ltemui" showname=".... 0... = LTEMUI (LTE-M UE Indication): False" show="False" />
+    <field name="gtpv2.ltempi" showname=".... .0.. = LTEMPI (LTE-M RAT Type reporting to PGW Indication): False" show="False" />
+    <field name="gtpv2.enbcrsi" showname=".... ..0. = ENBCRSI (eNB Change Reporting Support Indication): False" show="False" />
+    <field name="gtpv2.tspcmi" showname=".... ...0 = TSPCMI (Triggering SGSN Initiated PDP Context Creation/Modification Indication): False" show="False" />
+    <field name="gtpv2.csrmfi" showname="0... .... = CSRMFI (Create Session Request Message Forwarded Indication): False" show="False" />
+    <field name="gtpv2.mtedtn" showname=".0.. .... = MTEDTN (MT-EDT Not Applicable): Not Applicable" show="False" />
+    <field name="gtpv2.mtedta" showname="..0. .... = MTEDTA (MT-EDT Applicable): Not Applicable" show="False" />
+    <field name="gtpv2.n5gnmi" showname="...0 .... = N5GNMI (No 5GS N26 Mobility Indication): False" show="False" />
+    <field name="gtpv2.5gcnrs" showname=".... 0... = 5GCNRS (5GC Not Restricted Support): Not supported" show="False" />
+    <field name="gtpv2.5gcnri" showname=".... .0.. = 5GCNRI (5GC Not Restricted Indication): Not supported" show="False" />
+    <field name="gtpv2.5srhoi" showname=".... ..0. = 5SRHOI (5G-SRVCC HO Indication): Not supported" show="False" />
+    <field name="gtpv2.ethpdn" showname=".... ...0 = ETHPDN (Ethernet PDN Support Indication): Not supported" show="False" />
+    <field name="gtpv2.nspusi" showname="0... .... = NSPUSI (Notify Start of Pause of Charging via User plane Support Indication): False" show="False" />
+    <field name="gtpv2.pgwrnsi" showname=".0.. .... = PGWRNSI (PGW Redirection due to mismatch with Network Slice subscribed by UE Support Indication): False" show="False" />
+    <field name="gtpv2.rppcsi" showname="..0. .... = RPPCSI (Restoration of PDN connections after an PGW-C/SMF change Support Indication): False" show="False" />
+    <field name="gtpv2.pgwchi" showname="...0 .... = PGWCHI (PGW CHange Indication): False" show="False" />
+    <field name="gtpv2.sissme" showname=".... 0... = SISSME (Same IWK-SCEF Selected for Monitoring Event Indication): False" show="False" />
+    <field name="gtpv2.nsenbi" showname=".... .0.. = NSENBI (Notify Source eNodeB Indication): False" show="False" />
+    <field name="gtpv2.idfupf" showname=".... ..0. = IDFUPF (Indirect Data Forwarding with UPF Indication): False" show="False" />
+    <field name="gtpv2.emci" showname=".... ...0 = EMCI (Emergency PDU Session Indication): False" show="False" />
+    <field name="gtpv2.spare.b7_b4" showname="0000 .... = Spare: 0x0" show="0x00" />
+    <field name="gtpv2.lapcosi" showname=".... 0... = LAPCOSI (Large Additional Protocol Configuration Options Support Indication): False" show="False" />
+    <field name="gtpv2.ltemsai" showname=".... .0.. = LTEMSAI (LTE-M Satellite Access Indication): False" show="False" />
+    <field name="gtpv2.srtpi" showname=".... ..0. = SRTPI (Satellite RAT Type reporting to PGW Indication): False" show="False" />
+    <field name="gtpv2.upipsi" showname=".... ...0 = UPIPSI (User Plane Integrity Protection Support Indication): False" show="False" />
+   </field>
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792850867.237468989" show="1792850867.237468989" />
+   <field name="frame.number" showname="Frame Number: 3" show="3" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" showname="Source Address: 127.0.0.34" show="127.0.0.34" />
+   <field name="ip.dst" showname="Destination Address: 127.0.0.3" show="127.0.0.3" />
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" showname="Source Port: 2123" show="2123" />
+   <field name="udp.dstport" showname="Destination Port: 2123" show="2123" />
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2" size="18" pos="42">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="010. .... = Version: 2" show="2" />
+    <field name="gtpv2.p" showname="...0 .... = Piggybacking flag (P): 0" show="0" />
+    <field name="gtpv2.t" showname=".... 1... = TEID flag (T): 1" show="1" />
+    <field name="gtpv2.mp" showname=".... .0.. = Message Priority(MP): 0" show="0" />
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Delete Session Response (37)" show="37" />
+   <field name="gtpv2.msg_length" showname="Message Length: 14" show="14" />
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x00000ede (3806)" show="0x00000ede" />
+   <field name="gtpv2.seq" showname="Sequence Number: 0x00000a (10)" show="0x00000a" />
+   <field name="gtpv2.spare" showname="Spare: 0" show="0" />
+   <field name="" show="Cause: Request accepted (16)">
+    <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2" />
+    <field name="gtpv2.ie_len" showname="IE Length: 2" show="2" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16" />
+    <field name="gtpv2.spare_b7_b3" showname="0000 0... = Spare bit(s): 0" show="0" />
+    <field name="gtpv2.pce" showname=".... .0.. = PCE (PDN Connection IE Error): False" show="False" />
+    <field name="gtpv2.bce" showname=".... ..0. = BCE (Bearer Context IE Error): False" show="False" />
+    <field name="gtpv2.cs" showname=".... ...0 = CS (Cause Source): Originated by node sending the message" show="False" />
+   </field>
+   <field name="gtpv2.response_to" showname="Response To: 2" show="2" />
+   <field name="gtpv2.response_time" showname="Response Time: 68.982634 milliseconds" show="0.068982634" />
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792850867.245968863" show="1792850867.245968863" />
+   <field name="frame.number" showname="Frame Number: 4" show="4" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" showname="Source Address: 127.0.0.3" show="127.0.0.3" />
+   <field name="ip.dst" showname="Destination Address: 127.0.0.2" show="127.0.0.2" />
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" showname="Source Port: 2123" show="2123" />
+   <field name="udp.dstport" showname="Destination Port: 2123" show="2123" />
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2" size="18" pos="42">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="010. .... = Version: 2" show="2" />
+    <field name="gtpv2.p" showname="...0 .... = Piggybacking flag (P): 0" show="0" />
+    <field name="gtpv2.t" showname=".... 1... = TEID flag (T): 1" show="1" />
+    <field name="gtpv2.mp" showname=".... .0.. = Message Priority(MP): 0" show="0" />
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Delete Session Response (37)" show="37" />
+   <field name="gtpv2.msg_length" showname="Message Length: 14" show="14" />
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x00000006 (6)" show="0x00000006" />
+   <field name="gtpv2.seq" showname="Sequence Number: 0x000016 (22)" show="0x000016" />
+   <field name="gtpv2.spare" showname="Spare: 0" show="0" />
+   <field name="" show="Cause: Request accepted (16)">
+    <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2" />
+    <field name="gtpv2.ie_len" showname="IE Length: 2" show="2" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16" />
+    <field name="gtpv2.spare_b7_b3" showname="0000 0... = Spare bit(s): 0" show="0" />
+    <field name="gtpv2.pce" showname=".... .0.. = PCE (PDN Connection IE Error): False" show="False" />
+    <field name="gtpv2.bce" showname=".... ..0. = BCE (Bearer Context IE Error): False" show="False" />
+    <field name="gtpv2.cs" showname=".... ...0 = CS (Cause Source): Originated by node sending the message" show="False" />
+   </field>
+   <field name="gtpv2.response_to" showname="Response To: 1" show="1" />
+   <field name="gtpv2.response_time" showname="Response Time: 84.016689 milliseconds" show="0.084016689" />
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792850867.335937897" show="1792850867.335937897" />
+   <field name="frame.number" showname="Frame Number: 5" show="5" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" showname="Source Address: 127.0.0.2" show="127.0.0.2" />
+   <field name="ip.dst" showname="Destination Address: 127.0.0.3" show="127.0.0.3" />
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" showname="Source Port: 2123" show="2123" />
+   <field name="udp.dstport" showname="Destination Port: 2123" show="2123" />
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2" size="204" pos="42">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="010. .... = Version: 2" show="2" />
+    <field name="gtpv2.p" showname="...0 .... = Piggybacking flag (P): 0" show="0" />
+    <field name="gtpv2.t" showname=".... 1... = TEID flag (T): 1" show="1" />
+    <field name="gtpv2.mp" showname=".... .0.. = Message Priority(MP): 0" show="0" />
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Create Session Request (32)" show="32" />
+   <field name="gtpv2.msg_length" showname="Message Length: 200" show="200" />
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x00000000 (0)" show="0x00000000" />
+   <field name="gtpv2.seq" showname="Sequence Number: 0x000017 (23)" show="0x000017" />
+   <field name="gtpv2.spare" showname="Spare: 0" show="0" />
+   <field name="" show="International Mobile Subscriber Identity (IMSI): 000000000000000">
+    <field name="gtpv2.ie_type" showname="IE Type: International Mobile Subscriber Identity (IMSI) (1)" show="1" />
+    <field name="gtpv2.ie_len" showname="IE Length: 8" show="8" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="e212.imsi" showname="000000000000000000000" show="000000000000000" />
+    <field name="e212.assoc.imsi" showname="000000000000000000000000000000000" show="000000000000000">
+     <field name="e212.mcc" showname="Mobile Country Code (MCC): China (460)" show="460" />
+     <field name="e212.mnc" showname="Mobile Network Code (MNC): China Mobile (02)" show="02" />
+    </field>
+   </field>
+   <field name="" show="MSISDN: 000000000">
+    <field name="gtpv2.ie_type" showname="IE Type: MSISDN (76)" show="76" />
+    <field name="gtpv2.ie_len" showname="IE Length: 5" show="5" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="e164.msisdn" showname="00000000000000000000000000000000" show="000000000">
+     <field name="e164.country_code" showname="Country Code: India (Republic of) (91)" show="91" />
+    </field>
+   </field>
+   <field name="" show="Mobile Equipment Identity (MEI): 0000000000000000">
+    <field name="gtpv2.ie_type" showname="IE Type: Mobile Equipment Identity (MEI) (75)" show="75" />
+    <field name="gtpv2.ie_len" showname="IE Length: 8" show="8" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.mei" showname="000000000000000000000000000000000000000000000000" show="0000000000000000" />
+   </field>
+   <field name="" show="User Location Info (ULI): User Location Info: TAI ECGI ">
+    <field name="gtpv2.ie_type" showname="IE Type: User Location Info (ULI) (86)" show="86" />
+    <field name="gtpv2.ie_len" showname="IE Length: 13" show="13" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.uli_flags" showname="ULI Flags: 0x18, ECGI Present, TAI Present" show="0x18">
+     <field name="gtpv2.uli_ext_macro_enb_id_flg" showname="0... .... = Extended Macro eNodeB ID Present: False" show="False" />
+     <field name="gtpv2.uli_macro_enb_id_flg" showname=".0.. .... = Macro eNodeB ID Present: False" show="False" />
+     <field name="gtpv2.uli_lai_flg" showname="..0. .... = LAI Present: False" show="False" />
+     <field name="gtpv2.uli_ecgi_flg" showname="...1 .... = ECGI Present: True" show="True" />
+     <field name="gtpv2.uli_tai_flg" showname=".... 1... = TAI Present: True" show="True" />
+     <field name="gtpv2.uli_rai_flg" showname=".... .0.. = RAI Present: False" show="False" />
+     <field name="gtpv2.uli_sai_flg" showname=".... ..0. = SAI Present: False" show="False" />
+     <field name="gtpv2.uli_cgi_flg" showname=".... ...0 = CGI Present: False" show="False" />
+    </field>
+    <field name="" show="Tracking Area Identity (TAI)">
+     <field name="e212.tai.mcc" showname="Mobile Country Code (MCC): China (460)" show="460" />
+     <field name="e212.tai.mnc" showname="Mobile Network Code (MNC): China Mobile (02)" show="02" />
+     <field name="gtpv2.tai_tac" showname="Tracking Area Code: 0x0001 (1)" show="0x0001" />
+    </field>
+    <field name="" show="E-UTRAN Cell Global Identifier (ECGI)">
+     <field name="e212.ecgi.mcc" showname="Mobile Country Code (MCC): China (460)" show="460" />
+     <field name="e212.ecgi.mnc" showname="Mobile Network Code (MNC): China Mobile (02)" show="02" />
+     <field name="gtpv2.uli_ecgi_eci_spare" showname="Spare: 0" show="0" />
+     <field name="gtpv2.ecgi_eci" showname="ECI (E-UTRAN Cell Identifier): 105216" show="105216">
+      <field name="gtpv2.enodebid" showname=".... 0000 0000 0001 1001 1011 .... .... = eNodeB Id: 411" show="411" />
+      <field name="gtpv2.cellid" showname=".... .... .... .... .... .... 0000 0000 = CellId: 0" show="0" />
+     </field>
+    </field>
+   </field>
+   <field name="" show="Serving Network: MCC 460 China, MNC 02 China Mobile">
+    <field name="gtpv2.ie_type" showname="IE Type: Serving Network (83)" show="83" />
+    <field name="gtpv2.ie_len" showname="IE Length: 3" show="3" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="e212.serv_net.mcc" showname="Mobile Country Code (MCC): China (460)" show="460" />
+    <field name="e212.serv_net.mnc" showname="Mobile Network Code (MNC): China Mobile (02)" show="02" />
+   </field>
+   <field name="" show="RAT Type: EUTRAN (6)">
+    <field name="gtpv2.ie_type" showname="IE Type: RAT Type (82)" show="82" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.rat_type" showname="RAT Type: EUTRAN (6)" show="6" />
+   </field>
+   <field name="" show="Indication: ">
+    <field name="gtpv2.ie_type" showname="IE Type: Indication (77)" show="77" />
+    <field name="gtpv2.ie_len" showname="IE Length: 10" show="10" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.daf" showname="0... .... = DAF (Dual Address Bearer Flag): False" show="False" />
+    <field name="gtpv2.dtf" showname=".0.. .... = DTF (Direct Tunnel Flag): False" show="False" />
+    <field name="gtpv2.hi" showname="..0. .... = HI (Handover Indication): False" show="False" />
+    <field name="gtpv2.dfi" showname="...0 .... = DFI (Direct Forwarding Indication): False" show="False" />
+    <field name="gtpv2.oi" showname=".... 0... = OI (Operation Indication): False" show="False" />
+    <field name="gtpv2.isrsi" showname=".... .0.. = ISRSI (Idle mode Signalling Reduction Supported Indication): False" show="False" />
+    <field name="gtpv2.israi" showname=".... ..0. = ISRAI (Idle mode Signalling Reduction Activation Indication): False" show="False" />
+    <field name="gtpv2.sgwci" showname=".... ...0 = SGWCI (SGW Change Indication): False" show="False" />
+    <field name="gtpv2.sqci" showname="0... .... = SQCI (Subscribed QoS Change Indication): False" show="False" />
+    <field name="gtpv2.uimsi" showname=".0.. .... = UIMSI (Unauthenticated IMSI): False" show="False" />
+    <field name="gtpv2.cfsi" showname="..0. .... = CFSI (Change F-TEID support indication): False" show="False" />
+    <field name="gtpv2.crsi" showname="...1 .... = CRSI (Change Reporting support indication): True" show="True" />
+    <field name="gtpv2.ps" showname=".... 0... = PS (Piggybacking Supported): False" show="False" />
+    <field name="gtpv2.pt" showname=".... .0.. = PT (Protocol Type): False" show="False" />
+    <field name="gtpv2.si" showname=".... ..0. = SI (Scope Indication): False" show="False" />
+    <field name="gtpv2.msv" showname=".... ...0 = MSV (MS Validated): False" show="False" />
+    <field name="gtpv2.retloc" showname="0... .... = RetLoc (Retrieve Location Indication Flag): False" show="False" />
+    <field name="gtpv2.pbic" showname=".0.. .... = PBIC (Propagate BBAI Information Change): False" show="False" />
+    <field name="gtpv2.snri" showname="..0. .... = SRNI (SGW Restoration Needed Indication): False" show="False" />
+    <field name="gtpv2.s6af" showname="...0 .... = S6AF (Static IPv6 Address Flag): False" show="False" />
+    <field name="gtpv2.s4af" showname=".... 0... = S4AF (Static IPv4 Address Flag): False" show="False" />
+    <field name="gtpv2.mbmdt" showname=".... .0.. = MBMDT (Management Based MDT allowed flag): False" show="False" />
+    <field name="gtpv2.israu" showname=".... ..0. = ISRAU (ISR is activated for the UE): False" show="False" />
+    <field name="gtpv2.ccrsi" showname=".... ...0 = CCRSI (CSG Change Reporting support indication): False" show="False" />
+    <field name="gtpv2.cprai" showname="0... .... = CPRAI (Change of Presence Reporting Area information Indication): False" show="False" />
+    <field name="gtpv2.arrl" showname=".0.. .... = ARRL (Abnormal Release of Radio Link): False" show="False" />
+    <field name="gtpv2.ppof" showname="..0. .... = PPOFF (PDN Pause Off Indication): False" show="False" />
+    <field name="gtpv2.ppon_ppei" showname="...0 .... = PPON (PDN Pause On Indication) / PPEI (PDN Pause Enabled Indication): False" show="False" />
+    <field name="gtpv2.ppsi" showname=".... 0... = PPSI (PDN Pause Support Indication): False" show="False" />
+    <field name="gtpv2.csfbi" showname=".... .0.. = CSFBI (CSFB Indication): False" show="False" />
+    <field name="gtpv2.clii" showname=".... ..0. = CLII (Change of Location Information Indication): False" show="False" />
+    <field name="gtpv2.cpsr" showname=".... ...0 = CPSR (CS to PS SRVCC Indication): False" show="False" />
+    <field name="gtpv2.nsi" showname="0... .... = NSI (NBIFOM Support Indication): False" show="False" />
+    <field name="gtpv2.uasi" showname=".0.. .... = UASI (UE Available for Signalling Indication): False" show="False" />
+    <field name="gtpv2.dtci" showname="..0. .... = DTCI (Delay Tolerant Connection Indication): False" show="False" />
+    <field name="gtpv2.bdwi" showname="...0 .... = BDWI (Buffered DL Data Waiting Indication): False" show="False" />
+    <field name="gtpv2.psci" showname=".... 0... = PSCI (Pending Subscription Change Indication): False" show="False" />
+    <field name="gtpv2.pcri" showname=".... .0.. = PCRI (P-CSCF Restoration Indication): False" show="False" />
+    <field name="gtpv2.aosi" showname=".... ..0. = AOSI (Associate OCI with SGW node's Identity): False" show="False" />
+    <field name="gtpv2.aopi" showname=".... ...0 = AOPI (Associate OCI with PGW node's Identity): False" show="False" />
+    <field name="gtpv2.roaai" showname="0... .... = ROAAI (Release Over Any Access Indication): False" show="False" />
+    <field name="gtpv2.epcosi" showname=".0.. .... = EPCOSI (Extended PCO Support Indication): False" show="False" />
+    <field name="gtpv2.cpopci" showname="..0. .... = CPOPCI (Control Plane Only PDN Connection Indication): False" show="False" />
+    <field name="gtpv2.pmtsmi" showname="...0 .... = PMTSMI (Pending MT Short Message Indication): False" show="False" />
+    <field name="gtpv2.s11tf" showname=".... 0... = S11TF (S11-U Tunnel Flag): False" show="False" />
+    <field name="gtpv2.pnsi" showname=".... .0.. = PNSI (Pending Network Initiated PDN Connection Signalling Indication): False" show="False" />
+    <field name="gtpv2.unaccsi" showname=".... ..0. = UNACCSI (UE Not Authorized Cause Code Support Indication): False" show="False" />
+    <field name="gtpv2.wpmsi" showname=".... ...0 = WPMSI (WLCP PDN Connection Modification Support Indication): False" show="False" />
+    <field name="gtpv2.5gsnn26" showname="0... .... = 5GSNN26 (5GS Interworking without N26 Indication): False" show="False" />
+    <field name="gtpv2.reprefi" showname=".0.. .... = REPREFI (Return Preferred Indication): False" show="False" />
+    <field name="gtpv2.5gsiwk" showname="..0. .... = 5GSIWKI (5GS Interworking Indication): False" show="False" />
+    <field name="gtpv2.eevrsi" showname="...0 .... = EEVRSI (Extended EBI Value Range Support Indication): False" show="False" />
+    <field name="gtpv2.ltemui" showname=".... 0... = LTEMUI (LTE-M UE Indication): False" show="False" />
+    <field name="gtpv2.ltempi" showname=".... .0.. = LTEMPI (LTE-M RAT Type reporting to PGW Indication): False" show="False" />
+    <field name="gtpv2.enbcrsi" showname=".... ..1. = ENBCRSI (eNB Change Reporting Support Indication): True" show="True" />
+    <field name="gtpv2.tspcmi" showname=".... ...0 = TSPCMI (Triggering SGSN Initiated PDP Context Creation/Modification Indication): False" show="False" />
+    <field name="gtpv2.csrmfi" showname="0... .... = CSRMFI (Create Session Request Message Forwarded Indication): False" show="False" />
+    <field name="gtpv2.mtedtn" showname=".0.. .... = MTEDTN (MT-EDT Not Applicable): Not Applicable" show="False" />
+    <field name="gtpv2.mtedta" showname="..0. .... = MTEDTA (MT-EDT Applicable): Not Applicable" show="False" />
+    <field name="gtpv2.n5gnmi" showname="...0 .... = N5GNMI (No 5GS N26 Mobility Indication): False" show="False" />
+    <field name="gtpv2.5gcnrs" showname=".... 0... = 5GCNRS (5GC Not Restricted Support): Not supported" show="False" />
+    <field name="gtpv2.5gcnri" showname=".... .0.. = 5GCNRI (5GC Not Restricted Indication): Not supported" show="False" />
+    <field name="gtpv2.5srhoi" showname=".... ..0. = 5SRHOI (5G-SRVCC HO Indication): Not supported" show="False" />
+    <field name="gtpv2.ethpdn" showname=".... ...0 = ETHPDN (Ethernet PDN Support Indication): Not supported" show="False" />
+    <field name="gtpv2.nspusi" showname="0... .... = NSPUSI (Notify Start of Pause of Charging via User plane Support Indication): False" show="False" />
+    <field name="gtpv2.pgwrnsi" showname=".0.. .... = PGWRNSI (PGW Redirection due to mismatch with Network Slice subscribed by UE Support Indication): False" show="False" />
+    <field name="gtpv2.rppcsi" showname="..0. .... = RPPCSI (Restoration of PDN connections after an PGW-C/SMF change Support Indication): False" show="False" />
+    <field name="gtpv2.pgwchi" showname="...0 .... = PGWCHI (PGW CHange Indication): False" show="False" />
+    <field name="gtpv2.sissme" showname=".... 0... = SISSME (Same IWK-SCEF Selected for Monitoring Event Indication): False" show="False" />
+    <field name="gtpv2.nsenbi" showname=".... .0.. = NSENBI (Notify Source eNodeB Indication): False" show="False" />
+    <field name="gtpv2.idfupf" showname=".... ..0. = IDFUPF (Indirect Data Forwarding with UPF Indication): False" show="False" />
+    <field name="gtpv2.emci" showname=".... ...0 = EMCI (Emergency PDU Session Indication): False" show="False" />
+    <field name="gtpv2.spare.b7_b4" showname="0000 .... = Spare: 0x0" show="0x00" />
+    <field name="gtpv2.lapcosi" showname=".... 0... = LAPCOSI (Large Additional Protocol Configuration Options Support Indication): False" show="False" />
+    <field name="gtpv2.ltemsai" showname=".... .0.. = LTEMSAI (LTE-M Satellite Access Indication): False" show="False" />
+    <field name="gtpv2.srtpi" showname=".... ..0. = SRTPI (Satellite RAT Type reporting to PGW Indication): False" show="False" />
+    <field name="gtpv2.upipsi" showname=".... ...0 = UPIPSI (User Plane Integrity Protection Support Indication): False" show="False" />
+   </field>
+   <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID): Sender F-TEID for Control Plane: S11 MME GTP-C interface, TEID/GRE Key: 0x00000006, IPv4 127.0.0.2">
+    <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87" />
+    <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.f_teid_v4" showname="1... .... = V4: IPv4 address present" show="True" />
+    <field name="gtpv2.f_teid_v6" showname=".0.. .... = V6: IPv6 address not present" show="False" />
+    <field name="gtpv2.f_teid_interface_type" showname="..00 1010 = Interface Type: S11 MME GTP-C interface (10)" show="10" />
+    <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x00000006 (6)" show="0x00000006" />
+    <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 127.0.0.2" show="127.0.0.2" />
+   </field>
+   <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID): PGW S5/S8 Address for Control Plane or PMIP: S5/S8 PGW GTP-C interface, TEID/GRE Key: 0x00000000, IPv4 127.0.0.34">
+    <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87" />
+    <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0001 = Instance: 1" show="1" />
+    <field name="gtpv2.f_teid_v4" showname="1... .... = V4: IPv4 address present" show="True" />
+    <field name="gtpv2.f_teid_v6" showname=".0.. .... = V6: IPv6 address not present" show="False" />
+    <field name="gtpv2.f_teid_interface_type" showname="..00 0111 = Interface Type: S5/S8 PGW GTP-C interface (7)" show="7" />
+    <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x00000000 (0)" show="0x00000000" />
+    <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 127.0.0.34" show="127.0.0.34" />
+   </field>
+   <field name="" show="Access Point Name (APN): internet">
+    <field name="gtpv2.ie_type" showname="IE Type: Access Point Name (APN) (71)" show="71" />
+    <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.apn" showname="APN (Access Point Name): internet" show="internet" />
+   </field>
+   <field name="" show="Selection Mode: MS or network provided APN, subscribed verified">
+    <field name="gtpv2.ie_type" showname="IE Type: Selection Mode (128)" show="128" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.selec_mode" showname=".... ..00 = Selection Mode: MS or network provided APN, subscribed verified (0)" show="0" />
+   </field>
+   <field name="" show="PDN Type: IPv4">
+    <field name="gtpv2.ie_type" showname="IE Type: PDN Type (99)" show="99" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.spare_bits" showname="0000 0... = Spare bit(s): 0" show="0" />
+    <field name="gtpv2.pdn_type" showname=".... .001 = PDN Type: IPv4 (1)" show="1" />
+   </field>
+   <field name="" show="PDN Address Allocation (PAA): IPv4 0.0.0.0">
+    <field name="gtpv2.ie_type" showname="IE Type: PDN Address Allocation (PAA) (79)" show="79" />
+    <field name="gtpv2.ie_len" showname="IE Length: 5" show="5" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.pdn_type" showname=".... .001 = PDN Type: IPv4 (1)" show="1" />
+    <field name="gtpv2.pdn_addr_and_prefix.ipv4" showname="PDN Address and Prefix(IPv4): 0.0.0.0" show="0.0.0.0" />
+   </field>
+   <field name="" show="APN Restriction: No Existing Contexts or Restriction (0)">
+    <field name="gtpv2.ie_type" showname="IE Type: APN Restriction (127)" show="127" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.apn_rest" showname="APN Restriction: No Existing Contexts or Restriction (0)" show="0" />
+   </field>
+   <field name="" show="Aggregate Maximum Bit Rate (AMBR): ">
+    <field name="gtpv2.ie_type" showname="IE Type: Aggregate Maximum Bit Rate (AMBR) (72)" show="72" />
+    <field name="gtpv2.ie_len" showname="IE Length: 8" show="8" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.ambr_up" showname="AMBR Uplink (Aggregate Maximum Bit Rate for Uplink): 1000000Kbps" show="1000000" />
+    <field name="gtpv2.ambr_down" showname="AMBR Downlink (Aggregate Maximum Bit Rate for Downlink): 1000000Kbps" show="1000000" />
+   </field>
+   <field name="" show="Bearer Context: Bearer Contexts to be Created: [Grouped IE]">
+    <field name="gtpv2.ie_type" showname="IE Type: Bearer Context (93)" show="93" />
+    <field name="gtpv2.ie_len" showname="IE Length: 31" show="31" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="" show="EPS Bearer ID (EBI): 5">
+     <field name="gtpv2.ie_type" showname="IE Type: EPS Bearer ID (EBI) (73)" show="73" />
+     <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.spare_bits" showname="0000 .... = Spare bit(s): 0" show="0" />
+     <field name="gtpv2.ebi" showname=".... 0101 = EPS Bearer ID (EBI): 5" show="5" />
+    </field>
+    <field name="" show="Bearer Level Quality of Service (Bearer QoS): ">
+     <field name="gtpv2.ie_type" showname="IE Type: Bearer Level Quality of Service (Bearer QoS) (80)" show="80" />
+     <field name="gtpv2.ie_len" showname="IE Length: 22" show="22" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.bearer_qos_pci" showname=".1.. .... = PCI (Pre-emption Capability): Disabled" show="True" />
+     <field name="gtpv2.bearer_qos_pl" showname="..10 00.. = PL (Priority Level): 8" show="8" />
+     <field name="gtpv2.bearer_qos_pvi" showname=".... ...1 = PVI (Pre-emption Vulnerability): Disabled" show="True" />
+     <field name="gtpv2.bearer_qos_label_qci" showname="Label (QCI): 9" show="9" />
+     <field name="gtpv2.bearer_qos_mbr_up" showname="Maximum Bit Rate For Uplink: 0Kbps" show="0" />
+     <field name="gtpv2.bearer_qos_mbr_down" showname="Maximum Bit Rate For Downlink: 0Kbps" show="0" />
+     <field name="gtpv2.bearer_qos_gbr_up" showname="Guaranteed Bit Rate For Uplink: 0Kbps" show="0" />
+     <field name="gtpv2.bearer_qos_gbr_down" showname="Guaranteed Bit Rate For Downlink: 0Kbps" show="0" />
+    </field>
+   </field>
+   <field name="" show="UE Time Zone: ">
+    <field name="gtpv2.ie_type" showname="IE Type: UE Time Zone (114)" show="114" />
+    <field name="gtpv2.ie_len" showname="IE Length: 2" show="2" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gsm_a.dtap.timezone" showname="Timezone: GMT + 8 hours 0 minutes" show="0x20" />
+    <field name="gtpv2.ue_time_zone_dst" showname=".... ..00 = Daylight Saving Time: No Adjustments for Daylight Saving Time (0)" show="0" />
+   </field>
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792850867.354974886" show="1792850867.354974886" />
+   <field name="frame.number" showname="Frame Number: 6" show="6" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" showname="Source Address: 127.0.0.3" show="127.0.0.3" />
+   <field name="ip.dst" showname="Destination Address: 127.0.0.34" show="127.0.0.34" />
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" showname="Source Port: 2123" show="2123" />
+   <field name="udp.dstport" showname="Destination Port: 2123" show="2123" />
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2" size="204" pos="42">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="010. .... = Version: 2" show="2" />
+    <field name="gtpv2.p" showname="...0 .... = Piggybacking flag (P): 0" show="0" />
+    <field name="gtpv2.t" showname=".... 1... = TEID flag (T): 1" show="1" />
+    <field name="gtpv2.mp" showname=".... .0.. = Message Priority(MP): 0" show="0" />
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Create Session Request (32)" show="32" />
+   <field name="gtpv2.msg_length" showname="Message Length: 200" show="200" />
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x00000000 (0)" show="0x00000000" />
+   <field name="gtpv2.seq" showname="Sequence Number: 0x00000b (11)" show="0x00000b" />
+   <field name="gtpv2.spare" showname="Spare: 0" show="0" />
+   <field name="" show="International Mobile Subscriber Identity (IMSI): 000000000000000">
+    <field name="gtpv2.ie_type" showname="IE Type: International Mobile Subscriber Identity (IMSI) (1)" show="1" />
+    <field name="gtpv2.ie_len" showname="IE Length: 8" show="8" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="e212.imsi" showname="000000000000000000000" show="000000000000000" />
+    <field name="e212.assoc.imsi" showname="000000000000000000000000000000000" show="000000000000000">
+     <field name="e212.mcc" showname="Mobile Country Code (MCC): China (460)" show="460" />
+     <field name="e212.mnc" showname="Mobile Network Code (MNC): China Mobile (02)" show="02" />
+    </field>
+   </field>
+   <field name="" show="MSISDN: 000000000">
+    <field name="gtpv2.ie_type" showname="IE Type: MSISDN (76)" show="76" />
+    <field name="gtpv2.ie_len" showname="IE Length: 5" show="5" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="e164.msisdn" showname="00000000000000000000000000000000" show="000000000">
+     <field name="e164.country_code" showname="Country Code: India (Republic of) (91)" show="91" />
+    </field>
+   </field>
+   <field name="" show="Mobile Equipment Identity (MEI): 0000000000000000">
+    <field name="gtpv2.ie_type" showname="IE Type: Mobile Equipment Identity (MEI) (75)" show="75" />
+    <field name="gtpv2.ie_len" showname="IE Length: 8" show="8" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.mei" showname="000000000000000000000000000000000000000000000000" show="0000000000000000" />
+   </field>
+   <field name="" show="User Location Info (ULI): User Location Info: TAI ECGI ">
+    <field name="gtpv2.ie_type" showname="IE Type: User Location Info (ULI) (86)" show="86" />
+    <field name="gtpv2.ie_len" showname="IE Length: 13" show="13" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.uli_flags" showname="ULI Flags: 0x18, ECGI Present, TAI Present" show="0x18">
+     <field name="gtpv2.uli_ext_macro_enb_id_flg" showname="0... .... = Extended Macro eNodeB ID Present: False" show="False" />
+     <field name="gtpv2.uli_macro_enb_id_flg" showname=".0.. .... = Macro eNodeB ID Present: False" show="False" />
+     <field name="gtpv2.uli_lai_flg" showname="..0. .... = LAI Present: False" show="False" />
+     <field name="gtpv2.uli_ecgi_flg" showname="...1 .... = ECGI Present: True" show="True" />
+     <field name="gtpv2.uli_tai_flg" showname=".... 1... = TAI Present: True" show="True" />
+     <field name="gtpv2.uli_rai_flg" showname=".... .0.. = RAI Present: False" show="False" />
+     <field name="gtpv2.uli_sai_flg" showname=".... ..0. = SAI Present: False" show="False" />
+     <field name="gtpv2.uli_cgi_flg" showname=".... ...0 = CGI Present: False" show="False" />
+    </field>
+    <field name="" show="Tracking Area Identity (TAI)">
+     <field name="e212.tai.mcc" showname="Mobile Country Code (MCC): China (460)" show="460" />
+     <field name="e212.tai.mnc" showname="Mobile Network Code (MNC): China Mobile (02)" show="02" />
+     <field name="gtpv2.tai_tac" showname="Tracking Area Code: 0x0001 (1)" show="0x0001" />
+    </field>
+    <field name="" show="E-UTRAN Cell Global Identifier (ECGI)">
+     <field name="e212.ecgi.mcc" showname="Mobile Country Code (MCC): China (460)" show="460" />
+     <field name="e212.ecgi.mnc" showname="Mobile Network Code (MNC): China Mobile (02)" show="02" />
+     <field name="gtpv2.uli_ecgi_eci_spare" showname="Spare: 0" show="0" />
+     <field name="gtpv2.ecgi_eci" showname="ECI (E-UTRAN Cell Identifier): 105216" show="105216">
+      <field name="gtpv2.enodebid" showname=".... 0000 0000 0001 1001 1011 .... .... = eNodeB Id: 411" show="411" />
+      <field name="gtpv2.cellid" showname=".... .... .... .... .... .... 0000 0000 = CellId: 0" show="0" />
+     </field>
+    </field>
+   </field>
+   <field name="" show="Serving Network: MCC 460 China, MNC 02 China Mobile">
+    <field name="gtpv2.ie_type" showname="IE Type: Serving Network (83)" show="83" />
+    <field name="gtpv2.ie_len" showname="IE Length: 3" show="3" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="e212.serv_net.mcc" showname="Mobile Country Code (MCC): China (460)" show="460" />
+    <field name="e212.serv_net.mnc" showname="Mobile Network Code (MNC): China Mobile (02)" show="02" />
+   </field>
+   <field name="" show="RAT Type: EUTRAN (6)">
+    <field name="gtpv2.ie_type" showname="IE Type: RAT Type (82)" show="82" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.rat_type" showname="RAT Type: EUTRAN (6)" show="6" />
+   </field>
+   <field name="" show="Indication: ">
+    <field name="gtpv2.ie_type" showname="IE Type: Indication (77)" show="77" />
+    <field name="gtpv2.ie_len" showname="IE Length: 10" show="10" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.daf" showname="0... .... = DAF (Dual Address Bearer Flag): False" show="False" />
+    <field name="gtpv2.dtf" showname=".0.. .... = DTF (Direct Tunnel Flag): False" show="False" />
+    <field name="gtpv2.hi" showname="..0. .... = HI (Handover Indication): False" show="False" />
+    <field name="gtpv2.dfi" showname="...0 .... = DFI (Direct Forwarding Indication): False" show="False" />
+    <field name="gtpv2.oi" showname=".... 0... = OI (Operation Indication): False" show="False" />
+    <field name="gtpv2.isrsi" showname=".... .0.. = ISRSI (Idle mode Signalling Reduction Supported Indication): False" show="False" />
+    <field name="gtpv2.israi" showname=".... ..0. = ISRAI (Idle mode Signalling Reduction Activation Indication): False" show="False" />
+    <field name="gtpv2.sgwci" showname=".... ...0 = SGWCI (SGW Change Indication): False" show="False" />
+    <field name="gtpv2.sqci" showname="0... .... = SQCI (Subscribed QoS Change Indication): False" show="False" />
+    <field name="gtpv2.uimsi" showname=".0.. .... = UIMSI (Unauthenticated IMSI): False" show="False" />
+    <field name="gtpv2.cfsi" showname="..0. .... = CFSI (Change F-TEID support indication): False" show="False" />
+    <field name="gtpv2.crsi" showname="...1 .... = CRSI (Change Reporting support indication): True" show="True" />
+    <field name="gtpv2.ps" showname=".... 0... = PS (Piggybacking Supported): False" show="False" />
+    <field name="gtpv2.pt" showname=".... .0.. = PT (Protocol Type): False" show="False" />
+    <field name="gtpv2.si" showname=".... ..0. = SI (Scope Indication): False" show="False" />
+    <field name="gtpv2.msv" showname=".... ...0 = MSV (MS Validated): False" show="False" />
+    <field name="gtpv2.retloc" showname="0... .... = RetLoc (Retrieve Location Indication Flag): False" show="False" />
+    <field name="gtpv2.pbic" showname=".0.. .... = PBIC (Propagate BBAI Information Change): False" show="False" />
+    <field name="gtpv2.snri" showname="..0. .... = SRNI (SGW Restoration Needed Indication): False" show="False" />
+    <field name="gtpv2.s6af" showname="...0 .... = S6AF (Static IPv6 Address Flag): False" show="False" />
+    <field name="gtpv2.s4af" showname=".... 0... = S4AF (Static IPv4 Address Flag): False" show="False" />
+    <field name="gtpv2.mbmdt" showname=".... .0.. = MBMDT (Management Based MDT allowed flag): False" show="False" />
+    <field name="gtpv2.israu" showname=".... ..0. = ISRAU (ISR is activated for the UE): False" show="False" />
+    <field name="gtpv2.ccrsi" showname=".... ...0 = CCRSI (CSG Change Reporting support indication): False" show="False" />
+    <field name="gtpv2.cprai" showname="0... .... = CPRAI (Change of Presence Reporting Area information Indication): False" show="False" />
+    <field name="gtpv2.arrl" showname=".0.. .... = ARRL (Abnormal Release of Radio Link): False" show="False" />
+    <field name="gtpv2.ppof" showname="..0. .... = PPOFF (PDN Pause Off Indication): False" show="False" />
+    <field name="gtpv2.ppon_ppei" showname="...0 .... = PPON (PDN Pause On Indication) / PPEI (PDN Pause Enabled Indication): False" show="False" />
+    <field name="gtpv2.ppsi" showname=".... 0... = PPSI (PDN Pause Support Indication): False" show="False" />
+    <field name="gtpv2.csfbi" showname=".... .0.. = CSFBI (CSFB Indication): False" show="False" />
+    <field name="gtpv2.clii" showname=".... ..0. = CLII (Change of Location Information Indication): False" show="False" />
+    <field name="gtpv2.cpsr" showname=".... ...0 = CPSR (CS to PS SRVCC Indication): False" show="False" />
+    <field name="gtpv2.nsi" showname="0... .... = NSI (NBIFOM Support Indication): False" show="False" />
+    <field name="gtpv2.uasi" showname=".0.. .... = UASI (UE Available for Signalling Indication): False" show="False" />
+    <field name="gtpv2.dtci" showname="..0. .... = DTCI (Delay Tolerant Connection Indication): False" show="False" />
+    <field name="gtpv2.bdwi" showname="...0 .... = BDWI (Buffered DL Data Waiting Indication): False" show="False" />
+    <field name="gtpv2.psci" showname=".... 0... = PSCI (Pending Subscription Change Indication): False" show="False" />
+    <field name="gtpv2.pcri" showname=".... .0.. = PCRI (P-CSCF Restoration Indication): False" show="False" />
+    <field name="gtpv2.aosi" showname=".... ..0. = AOSI (Associate OCI with SGW node's Identity): False" show="False" />
+    <field name="gtpv2.aopi" showname=".... ...0 = AOPI (Associate OCI with PGW node's Identity): False" show="False" />
+    <field name="gtpv2.roaai" showname="0... .... = ROAAI (Release Over Any Access Indication): False" show="False" />
+    <field name="gtpv2.epcosi" showname=".0.. .... = EPCOSI (Extended PCO Support Indication): False" show="False" />
+    <field name="gtpv2.cpopci" showname="..0. .... = CPOPCI (Control Plane Only PDN Connection Indication): False" show="False" />
+    <field name="gtpv2.pmtsmi" showname="...0 .... = PMTSMI (Pending MT Short Message Indication): False" show="False" />
+    <field name="gtpv2.s11tf" showname=".... 0... = S11TF (S11-U Tunnel Flag): False" show="False" />
+    <field name="gtpv2.pnsi" showname=".... .0.. = PNSI (Pending Network Initiated PDN Connection Signalling Indication): False" show="False" />
+    <field name="gtpv2.unaccsi" showname=".... ..0. = UNACCSI (UE Not Authorized Cause Code Support Indication): False" show="False" />
+    <field name="gtpv2.wpmsi" showname=".... ...0 = WPMSI (WLCP PDN Connection Modification Support Indication): False" show="False" />
+    <field name="gtpv2.5gsnn26" showname="0... .... = 5GSNN26 (5GS Interworking without N26 Indication): False" show="False" />
+    <field name="gtpv2.reprefi" showname=".0.. .... = REPREFI (Return Preferred Indication): False" show="False" />
+    <field name="gtpv2.5gsiwk" showname="..0. .... = 5GSIWKI (5GS Interworking Indication): False" show="False" />
+    <field name="gtpv2.eevrsi" showname="...0 .... = EEVRSI (Extended EBI Value Range Support Indication): False" show="False" />
+    <field name="gtpv2.ltemui" showname=".... 0... = LTEMUI (LTE-M UE Indication): False" show="False" />
+    <field name="gtpv2.ltempi" showname=".... .0.. = LTEMPI (LTE-M RAT Type reporting to PGW Indication): False" show="False" />
+    <field name="gtpv2.enbcrsi" showname=".... ..1. = ENBCRSI (eNB Change Reporting Support Indication): True" show="True" />
+    <field name="gtpv2.tspcmi" showname=".... ...0 = TSPCMI (Triggering SGSN Initiated PDP Context Creation/Modification Indication): False" show="False" />
+    <field name="gtpv2.csrmfi" showname="0... .... = CSRMFI (Create Session Request Message Forwarded Indication): False" show="False" />
+    <field name="gtpv2.mtedtn" showname=".0.. .... = MTEDTN (MT-EDT Not Applicable): Not Applicable" show="False" />
+    <field name="gtpv2.mtedta" showname="..0. .... = MTEDTA (MT-EDT Applicable): Not Applicable" show="False" />
+    <field name="gtpv2.n5gnmi" showname="...0 .... = N5GNMI (No 5GS N26 Mobility Indication): False" show="False" />
+    <field name="gtpv2.5gcnrs" showname=".... 0... = 5GCNRS (5GC Not Restricted Support): Not supported" show="False" />
+    <field name="gtpv2.5gcnri" showname=".... .0.. = 5GCNRI (5GC Not Restricted Indication): Not supported" show="False" />
+    <field name="gtpv2.5srhoi" showname=".... ..0. = 5SRHOI (5G-SRVCC HO Indication): Not supported" show="False" />
+    <field name="gtpv2.ethpdn" showname=".... ...0 = ETHPDN (Ethernet PDN Support Indication): Not supported" show="False" />
+    <field name="gtpv2.nspusi" showname="0... .... = NSPUSI (Notify Start of Pause of Charging via User plane Support Indication): False" show="False" />
+    <field name="gtpv2.pgwrnsi" showname=".0.. .... = PGWRNSI (PGW Redirection due to mismatch with Network Slice subscribed by UE Support Indication): False" show="False" />
+    <field name="gtpv2.rppcsi" showname="..0. .... = RPPCSI (Restoration of PDN connections after an PGW-C/SMF change Support Indication): False" show="False" />
+    <field name="gtpv2.pgwchi" showname="...0 .... = PGWCHI (PGW CHange Indication): False" show="False" />
+    <field name="gtpv2.sissme" showname=".... 0... = SISSME (Same IWK-SCEF Selected for Monitoring Event Indication): False" show="False" />
+    <field name="gtpv2.nsenbi" showname=".... .0.. = NSENBI (Notify Source eNodeB Indication): False" show="False" />
+    <field name="gtpv2.idfupf" showname=".... ..0. = IDFUPF (Indirect Data Forwarding with UPF Indication): False" show="False" />
+    <field name="gtpv2.emci" showname=".... ...0 = EMCI (Emergency PDU Session Indication): False" show="False" />
+    <field name="gtpv2.spare.b7_b4" showname="0000 .... = Spare: 0x0" show="0x00" />
+    <field name="gtpv2.lapcosi" showname=".... 0... = LAPCOSI (Large Additional Protocol Configuration Options Support Indication): False" show="False" />
+    <field name="gtpv2.ltemsai" showname=".... .0.. = LTEMSAI (LTE-M Satellite Access Indication): False" show="False" />
+    <field name="gtpv2.srtpi" showname=".... ..0. = SRTPI (Satellite RAT Type reporting to PGW Indication): False" show="False" />
+    <field name="gtpv2.upipsi" showname=".... ...0 = UPIPSI (User Plane Integrity Protection Support Indication): False" show="False" />
+   </field>
+   <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID): Sender F-TEID for Control Plane: S5/S8 SGW GTP-C interface, TEID/GRE Key: 0x00000beb, IPv4 127.0.0.3">
+    <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87" />
+    <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.f_teid_v4" showname="1... .... = V4: IPv4 address present" show="True" />
+    <field name="gtpv2.f_teid_v6" showname=".0.. .... = V6: IPv6 address not present" show="False" />
+    <field name="gtpv2.f_teid_interface_type" showname="..00 0110 = Interface Type: S5/S8 SGW GTP-C interface (6)" show="6" />
+    <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x00000beb (3051)" show="0x00000beb" />
+    <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 127.0.0.3" show="127.0.0.3" />
+   </field>
+   <field name="" show="Access Point Name (APN): internet">
+    <field name="gtpv2.ie_type" showname="IE Type: Access Point Name (APN) (71)" show="71" />
+    <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.apn" showname="APN (Access Point Name): internet" show="internet" />
+   </field>
+   <field name="" show="Selection Mode: MS or network provided APN, subscribed verified">
+    <field name="gtpv2.ie_type" showname="IE Type: Selection Mode (128)" show="128" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.selec_mode" showname=".... ..00 = Selection Mode: MS or network provided APN, subscribed verified (0)" show="0" />
+   </field>
+   <field name="" show="PDN Type: IPv4">
+    <field name="gtpv2.ie_type" showname="IE Type: PDN Type (99)" show="99" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.spare_bits" showname="0000 0... = Spare bit(s): 0" show="0" />
+    <field name="gtpv2.pdn_type" showname=".... .001 = PDN Type: IPv4 (1)" show="1" />
+   </field>
+   <field name="" show="PDN Address Allocation (PAA): IPv4 0.0.0.0">
+    <field name="gtpv2.ie_type" showname="IE Type: PDN Address Allocation (PAA) (79)" show="79" />
+    <field name="gtpv2.ie_len" showname="IE Length: 5" show="5" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.pdn_type" showname=".... .001 = PDN Type: IPv4 (1)" show="1" />
+    <field name="gtpv2.pdn_addr_and_prefix.ipv4" showname="PDN Address and Prefix(IPv4): 0.0.0.0" show="0.0.0.0" />
+   </field>
+   <field name="" show="APN Restriction: No Existing Contexts or Restriction (0)">
+    <field name="gtpv2.ie_type" showname="IE Type: APN Restriction (127)" show="127" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.apn_rest" showname="APN Restriction: No Existing Contexts or Restriction (0)" show="0" />
+   </field>
+   <field name="" show="Aggregate Maximum Bit Rate (AMBR): ">
+    <field name="gtpv2.ie_type" showname="IE Type: Aggregate Maximum Bit Rate (AMBR) (72)" show="72" />
+    <field name="gtpv2.ie_len" showname="IE Length: 8" show="8" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.ambr_up" showname="AMBR Uplink (Aggregate Maximum Bit Rate for Uplink): 1000000Kbps" show="1000000" />
+    <field name="gtpv2.ambr_down" showname="AMBR Downlink (Aggregate Maximum Bit Rate for Downlink): 1000000Kbps" show="1000000" />
+   </field>
+   <field name="" show="Bearer Context: Bearer Contexts to be Created: [Grouped IE]">
+    <field name="gtpv2.ie_type" showname="IE Type: Bearer Context (93)" show="93" />
+    <field name="gtpv2.ie_len" showname="IE Length: 44" show="44" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="" show="EPS Bearer ID (EBI): 5">
+     <field name="gtpv2.ie_type" showname="IE Type: EPS Bearer ID (EBI) (73)" show="73" />
+     <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.spare_bits" showname="0000 .... = Spare bit(s): 0" show="0" />
+     <field name="gtpv2.ebi" showname=".... 0101 = EPS Bearer ID (EBI): 5" show="5" />
+    </field>
+    <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID): S5/S8 SGW GTP-U interface, TEID/GRE Key: 0x0000e85a, IPv4 192.168.64.128">
+     <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87" />
+     <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0010 = Instance: 2" show="2" />
+     <field name="gtpv2.f_teid_v4" showname="1... .... = V4: IPv4 address present" show="True" />
+     <field name="gtpv2.f_teid_v6" showname=".0.. .... = V6: IPv6 address not present" show="False" />
+     <field name="gtpv2.f_teid_interface_type" showname="..00 0100 = Interface Type: S5/S8 SGW GTP-U interface (4)" show="4" />
+     <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x0000e85a (59482)" show="0x0000e85a" />
+     <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 192.168.64.128" show="192.168.64.128" />
+    </field>
+    <field name="" show="Bearer Level Quality of Service (Bearer QoS): ">
+     <field name="gtpv2.ie_type" showname="IE Type: Bearer Level Quality of Service (Bearer QoS) (80)" show="80" />
+     <field name="gtpv2.ie_len" showname="IE Length: 22" show="22" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.bearer_qos_pci" showname=".1.. .... = PCI (Pre-emption Capability): Disabled" show="True" />
+     <field name="gtpv2.bearer_qos_pl" showname="..10 00.. = PL (Priority Level): 8" show="8" />
+     <field name="gtpv2.bearer_qos_pvi" showname=".... ...1 = PVI (Pre-emption Vulnerability): Disabled" show="True" />
+     <field name="gtpv2.bearer_qos_label_qci" showname="Label (QCI): 9" show="9" />
+     <field name="gtpv2.bearer_qos_mbr_up" showname="Maximum Bit Rate For Uplink: 0Kbps" show="0" />
+     <field name="gtpv2.bearer_qos_mbr_down" showname="Maximum Bit Rate For Downlink: 0Kbps" show="0" />
+     <field name="gtpv2.bearer_qos_gbr_up" showname="Guaranteed Bit Rate For Uplink: 0Kbps" show="0" />
+     <field name="gtpv2.bearer_qos_gbr_down" showname="Guaranteed Bit Rate For Downlink: 0Kbps" show="0" />
+    </field>
+   </field>
+   <field name="" show="UE Time Zone: ">
+    <field name="gtpv2.ie_type" showname="IE Type: UE Time Zone (114)" show="114" />
+    <field name="gtpv2.ie_len" showname="IE Length: 2" show="2" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gsm_a.dtap.timezone" showname="Timezone: GMT + 8 hours 0 minutes" show="0x20" />
+    <field name="gtpv2.ue_time_zone_dst" showname=".... ..00 = Daylight Saving Time: No Adjustments for Daylight Saving Time (0)" show="0" />
+   </field>
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792850867.415110710" show="1792850867.415110710" />
+   <field name="frame.number" showname="Frame Number: 7" show="7" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" showname="Source Address: 127.0.0.34" show="127.0.0.34" />
+   <field name="ip.dst" showname="Destination Address: 127.0.0.3" show="127.0.0.3" />
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" showname="Source Port: 2123" show="2123" />
+   <field name="udp.dstport" showname="Destination Port: 2123" show="2123" />
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2" size="81" pos="42">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="010. .... = Version: 2" show="2" />
+    <field name="gtpv2.p" showname="...0 .... = Piggybacking flag (P): 0" show="0" />
+    <field name="gtpv2.t" showname=".... 1... = TEID flag (T): 1" show="1" />
+    <field name="gtpv2.mp" showname=".... .0.. = Message Priority(MP): 0" show="0" />
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Create Session Response (33)" show="33" />
+   <field name="gtpv2.msg_length" showname="Message Length: 77" show="77" />
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x00000beb (3051)" show="0x00000beb" />
+   <field name="gtpv2.seq" showname="Sequence Number: 0x00000b (11)" show="0x00000b" />
+   <field name="gtpv2.spare" showname="Spare: 0" show="0" />
+   <field name="" show="Cause: Request accepted (16)">
+    <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2" />
+    <field name="gtpv2.ie_len" showname="IE Length: 2" show="2" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16" />
+    <field name="gtpv2.spare_b7_b3" showname="0000 0... = Spare bit(s): 0" show="0" />
+    <field name="gtpv2.pce" showname=".... .0.. = PCE (PDN Connection IE Error): False" show="False" />
+    <field name="gtpv2.bce" showname=".... ..0. = BCE (Bearer Context IE Error): False" show="False" />
+    <field name="gtpv2.cs" showname=".... ...0 = CS (Cause Source): Originated by node sending the message" show="False" />
+   </field>
+   <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID): PGW S5/S8 Address for Control Plane or PMIP: S5/S8 PGW GTP-C interface, TEID/GRE Key: 0x0000069b, IPv4 127.0.0.34">
+    <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87" />
+    <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0001 = Instance: 1" show="1" />
+    <field name="gtpv2.f_teid_v4" showname="1... .... = V4: IPv4 address present" show="True" />
+    <field name="gtpv2.f_teid_v6" showname=".0.. .... = V6: IPv6 address not present" show="False" />
+    <field name="gtpv2.f_teid_interface_type" showname="..00 0111 = Interface Type: S5/S8 PGW GTP-C interface (7)" show="7" />
+    <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x0000069b (1691)" show="0x0000069b" />
+    <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 127.0.0.34" show="127.0.0.34" />
+   </field>
+   <field name="" show="PDN Address Allocation (PAA): IPv4 10.45.0.7">
+    <field name="gtpv2.ie_type" showname="IE Type: PDN Address Allocation (PAA) (79)" show="79" />
+    <field name="gtpv2.ie_len" showname="IE Length: 5" show="5" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.pdn_type" showname=".... .001 = PDN Type: IPv4 (1)" show="1" />
+    <field name="gtpv2.pdn_addr_and_prefix.ipv4" showname="PDN Address and Prefix(IPv4): 10.45.0.7" show="10.45.0.7" />
+   </field>
+   <field name="" show="APN Restriction: No Existing Contexts or Restriction (0)">
+    <field name="gtpv2.ie_type" showname="IE Type: APN Restriction (127)" show="127" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.apn_rest" showname="APN Restriction: No Existing Contexts or Restriction (0)" show="0" />
+   </field>
+   <field name="" show="Bearer Context: Bearer Contexts to be Created: [Grouped IE]">
+    <field name="gtpv2.ie_type" showname="IE Type: Bearer Context (93)" show="93" />
+    <field name="gtpv2.ie_len" showname="IE Length: 32" show="32" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="" show="EPS Bearer ID (EBI): 5">
+     <field name="gtpv2.ie_type" showname="IE Type: EPS Bearer ID (EBI) (73)" show="73" />
+     <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.spare_bits" showname="0000 .... = Spare bit(s): 0" show="0" />
+     <field name="gtpv2.ebi" showname=".... 0101 = EPS Bearer ID (EBI): 5" show="5" />
+    </field>
+    <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID): S5/S8 PGW GTP-U interface, TEID/GRE Key: 0x00006269, IPv4 127.0.0.37">
+     <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87" />
+     <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0010 = Instance: 2" show="2" />
+     <field name="gtpv2.f_teid_v4" showname="1... .... = V4: IPv4 address present" show="True" />
+     <field name="gtpv2.f_teid_v6" showname=".0.. .... = V6: IPv6 address not present" show="False" />
+     <field name="gtpv2.f_teid_interface_type" showname="..00 0101 = Interface Type: S5/S8 PGW GTP-U interface (5)" show="5" />
+     <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x00006269 (25193)" show="0x00006269" />
+     <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 127.0.0.37" show="127.0.0.37" />
+    </field>
+    <field name="" show="Cause: Request accepted (16)">
+     <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2" />
+     <field name="gtpv2.ie_len" showname="IE Length: 2" show="2" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16" />
+     <field name="gtpv2.spare_b7_b3" showname="0000 0... = Spare bit(s): 0" show="0" />
+     <field name="gtpv2.pce" showname=".... .0.. = PCE (PDN Connection IE Error): False" show="False" />
+     <field name="gtpv2.bce" showname=".... ..0. = BCE (Bearer Context IE Error): False" show="False" />
+     <field name="gtpv2.cs" showname=".... ...0 = CS (Cause Source): Originated by node sending the message" show="False" />
+    </field>
+    <field name="" show="Charging ID: ">
+     <field name="gtpv2.ie_type" showname="IE Type: Charging ID (94)" show="94" />
+     <field name="gtpv2.ie_len" showname="IE Length: 4" show="4" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.charging_id" showname="Charging id: 6" show="6" />
+    </field>
+   </field>
+   <field name="gtpv2.response_to" showname="Response To: 6" show="6" />
+   <field name="gtpv2.response_time" showname="Response Time: 60.135824 milliseconds" show="0.060135824" />
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792850867.419250457" show="1792850867.419250457" />
+   <field name="frame.number" showname="Frame Number: 8" show="8" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" showname="Source Address: 127.0.0.3" show="127.0.0.3" />
+   <field name="ip.dst" showname="Destination Address: 127.0.0.2" show="127.0.0.2" />
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" showname="Source Port: 2123" show="2123" />
+   <field name="udp.dstport" showname="Destination Port: 2123" show="2123" />
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2" size="107" pos="42">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="010. .... = Version: 2" show="2" />
+    <field name="gtpv2.p" showname="...0 .... = Piggybacking flag (P): 0" show="0" />
+    <field name="gtpv2.t" showname=".... 1... = TEID flag (T): 1" show="1" />
+    <field name="gtpv2.mp" showname=".... .0.. = Message Priority(MP): 0" show="0" />
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Create Session Response (33)" show="33" />
+   <field name="gtpv2.msg_length" showname="Message Length: 103" show="103" />
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x00000006 (6)" show="0x00000006" />
+   <field name="gtpv2.seq" showname="Sequence Number: 0x000017 (23)" show="0x000017" />
+   <field name="gtpv2.spare" showname="Spare: 0" show="0" />
+   <field name="" show="Cause: Request accepted (16)">
+    <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2" />
+    <field name="gtpv2.ie_len" showname="IE Length: 2" show="2" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16" />
+    <field name="gtpv2.spare_b7_b3" showname="0000 0... = Spare bit(s): 0" show="0" />
+    <field name="gtpv2.pce" showname=".... .0.. = PCE (PDN Connection IE Error): False" show="False" />
+    <field name="gtpv2.bce" showname=".... ..0. = BCE (Bearer Context IE Error): False" show="False" />
+    <field name="gtpv2.cs" showname=".... ...0 = CS (Cause Source): Originated by node sending the message" show="False" />
+   </field>
+   <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID): Sender F-TEID for Control Plane: S11/S4 SGW GTP-C interface, TEID/GRE Key: 0x000003c9, IPv4 127.0.0.3">
+    <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87" />
+    <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.f_teid_v4" showname="1... .... = V4: IPv4 address present" show="True" />
+    <field name="gtpv2.f_teid_v6" showname=".0.. .... = V6: IPv6 address not present" show="False" />
+    <field name="gtpv2.f_teid_interface_type" showname="..00 1011 = Interface Type: S11/S4 SGW GTP-C interface (11)" show="11" />
+    <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x000003c9 (969)" show="0x000003c9" />
+    <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 127.0.0.3" show="127.0.0.3" />
+   </field>
+   <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID): PGW S5/S8 Address for Control Plane or PMIP: S5/S8 PGW GTP-C interface, TEID/GRE Key: 0x0000069b, IPv4 127.0.0.34">
+    <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87" />
+    <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0001 = Instance: 1" show="1" />
+    <field name="gtpv2.f_teid_v4" showname="1... .... = V4: IPv4 address present" show="True" />
+    <field name="gtpv2.f_teid_v6" showname=".0.. .... = V6: IPv6 address not present" show="False" />
+    <field name="gtpv2.f_teid_interface_type" showname="..00 0111 = Interface Type: S5/S8 PGW GTP-C interface (7)" show="7" />
+    <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x0000069b (1691)" show="0x0000069b" />
+    <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 127.0.0.34" show="127.0.0.34" />
+   </field>
+   <field name="" show="PDN Address Allocation (PAA): IPv4 10.45.0.7">
+    <field name="gtpv2.ie_type" showname="IE Type: PDN Address Allocation (PAA) (79)" show="79" />
+    <field name="gtpv2.ie_len" showname="IE Length: 5" show="5" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.pdn_type" showname=".... .001 = PDN Type: IPv4 (1)" show="1" />
+    <field name="gtpv2.pdn_addr_and_prefix.ipv4" showname="PDN Address and Prefix(IPv4): 10.45.0.7" show="10.45.0.7" />
+   </field>
+   <field name="" show="APN Restriction: No Existing Contexts or Restriction (0)">
+    <field name="gtpv2.ie_type" showname="IE Type: APN Restriction (127)" show="127" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.apn_rest" showname="APN Restriction: No Existing Contexts or Restriction (0)" show="0" />
+   </field>
+   <field name="" show="Bearer Context: Bearer Contexts to be Created: [Grouped IE]">
+    <field name="gtpv2.ie_type" showname="IE Type: Bearer Context (93)" show="93" />
+    <field name="gtpv2.ie_len" showname="IE Length: 45" show="45" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="" show="EPS Bearer ID (EBI): 5">
+     <field name="gtpv2.ie_type" showname="IE Type: EPS Bearer ID (EBI) (73)" show="73" />
+     <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.spare_bits" showname="0000 .... = Spare bit(s): 0" show="0" />
+     <field name="gtpv2.ebi" showname=".... 0101 = EPS Bearer ID (EBI): 5" show="5" />
+    </field>
+    <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID): S1-U SGW GTP-U interface, TEID/GRE Key: 0x0000862f, IPv4 192.168.64.128">
+     <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87" />
+     <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.f_teid_v4" showname="1... .... = V4: IPv4 address present" show="True" />
+     <field name="gtpv2.f_teid_v6" showname=".0.. .... = V6: IPv6 address not present" show="False" />
+     <field name="gtpv2.f_teid_interface_type" showname="..00 0001 = Interface Type: S1-U SGW GTP-U interface (1)" show="1" />
+     <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x0000862f (34351)" show="0x0000862f" />
+     <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 192.168.64.128" show="192.168.64.128" />
+    </field>
+    <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID): S5/S8 PGW GTP-U interface, TEID/GRE Key: 0x00006269, IPv4 127.0.0.37">
+     <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87" />
+     <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0010 = Instance: 2" show="2" />
+     <field name="gtpv2.f_teid_v4" showname="1... .... = V4: IPv4 address present" show="True" />
+     <field name="gtpv2.f_teid_v6" showname=".0.. .... = V6: IPv6 address not present" show="False" />
+     <field name="gtpv2.f_teid_interface_type" showname="..00 0101 = Interface Type: S5/S8 PGW GTP-U interface (5)" show="5" />
+     <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x00006269 (25193)" show="0x00006269" />
+     <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 127.0.0.37" show="127.0.0.37" />
+    </field>
+    <field name="" show="Cause: Request accepted (16)">
+     <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2" />
+     <field name="gtpv2.ie_len" showname="IE Length: 2" show="2" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16" />
+     <field name="gtpv2.spare_b7_b3" showname="0000 0... = Spare bit(s): 0" show="0" />
+     <field name="gtpv2.pce" showname=".... .0.. = PCE (PDN Connection IE Error): False" show="False" />
+     <field name="gtpv2.bce" showname=".... ..0. = BCE (Bearer Context IE Error): False" show="False" />
+     <field name="gtpv2.cs" showname=".... ...0 = CS (Cause Source): Originated by node sending the message" show="False" />
+    </field>
+    <field name="" show="Charging ID: ">
+     <field name="gtpv2.ie_type" showname="IE Type: Charging ID (94)" show="94" />
+     <field name="gtpv2.ie_len" showname="IE Length: 4" show="4" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.charging_id" showname="Charging id: 6" show="6" />
+    </field>
+   </field>
+   <field name="gtpv2.response_to" showname="Response To: 5" show="5" />
+   <field name="gtpv2.response_time" showname="Response Time: 83.312560 milliseconds" show="0.083312560" />
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792850867.648081536" show="1792850867.648081536" />
+   <field name="frame.number" showname="Frame Number: 9" show="9" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" showname="Source Address: 127.0.0.2" show="127.0.0.2" />
+   <field name="ip.dst" showname="Destination Address: 127.0.0.3" show="127.0.0.3" />
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" showname="Source Port: 2123" show="2123" />
+   <field name="udp.dstport" showname="Destination Port: 2123" show="2123" />
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2" size="34" pos="42">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="010. .... = Version: 2" show="2" />
+    <field name="gtpv2.p" showname="...0 .... = Piggybacking flag (P): 0" show="0" />
+    <field name="gtpv2.t" showname=".... 1... = TEID flag (T): 1" show="1" />
+    <field name="gtpv2.mp" showname=".... .0.. = Message Priority(MP): 0" show="0" />
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Modify Bearer Request (34)" show="34" />
+   <field name="gtpv2.msg_length" showname="Message Length: 30" show="30" />
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x000003c9 (969)" show="0x000003c9" />
+   <field name="gtpv2.seq" showname="Sequence Number: 0x000018 (24)" show="0x000018" />
+   <field name="gtpv2.spare" showname="Spare: 0" show="0" />
+   <field name="" show="Bearer Context: Bearer Contexts to be Modified: [Grouped IE]">
+    <field name="gtpv2.ie_type" showname="IE Type: Bearer Context (93)" show="93" />
+    <field name="gtpv2.ie_len" showname="IE Length: 18" show="18" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="" show="EPS Bearer ID (EBI): 5">
+     <field name="gtpv2.ie_type" showname="IE Type: EPS Bearer ID (EBI) (73)" show="73" />
+     <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.spare_bits" showname="0000 .... = Spare bit(s): 0" show="0" />
+     <field name="gtpv2.ebi" showname=".... 0101 = EPS Bearer ID (EBI): 5" show="5" />
+    </field>
+    <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID): S1-U eNodeB GTP-U interface, TEID/GRE Key: 0x285704b5, IPv4 127.0.0.5">
+     <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87" />
+     <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.f_teid_v4" showname="1... .... = V4: IPv4 address present" show="True" />
+     <field name="gtpv2.f_teid_v6" showname=".0.. .... = V6: IPv6 address not present" show="False" />
+     <field name="gtpv2.f_teid_interface_type" showname="..00 0000 = Interface Type: S1-U eNodeB GTP-U interface (0)" show="0" />
+     <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x285704b5 (676791477)" show="0x285704b5" />
+     <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 127.0.0.5" show="127.0.0.5" />
+    </field>
+   </field>
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792850867.649796921" show="1792850867.649796921" />
+   <field name="frame.number" showname="Frame Number: 10" show="10" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" showname="Source Address: 127.0.0.3" show="127.0.0.3" />
+   <field name="ip.dst" showname="Destination Address: 127.0.0.2" show="127.0.0.2" />
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" showname="Source Port: 2123" show="2123" />
+   <field name="udp.dstport" showname="Destination Port: 2123" show="2123" />
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2" size="46" pos="42">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="010. .... = Version: 2" show="2" />
+    <field name="gtpv2.p" showname="...0 .... = Piggybacking flag (P): 0" show="0" />
+    <field name="gtpv2.t" showname=".... 1... = TEID flag (T): 1" show="1" />
+    <field name="gtpv2.mp" showname=".... .0.. = Message Priority(MP): 0" show="0" />
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Modify Bearer Response (35)" show="35" />
+   <field name="gtpv2.msg_length" showname="Message Length: 42" show="42" />
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x00000006 (6)" show="0x00000006" />
+   <field name="gtpv2.seq" showname="Sequence Number: 0x000018 (24)" show="0x000018" />
+   <field name="gtpv2.spare" showname="Spare: 0" show="0" />
+   <field name="" show="Cause: Request accepted (16)">
+    <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2" />
+    <field name="gtpv2.ie_len" showname="IE Length: 2" show="2" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16" />
+    <field name="gtpv2.spare_b7_b3" showname="0000 0... = Spare bit(s): 0" show="0" />
+    <field name="gtpv2.pce" showname=".... .0.. = PCE (PDN Connection IE Error): False" show="False" />
+    <field name="gtpv2.bce" showname=".... ..0. = BCE (Bearer Context IE Error): False" show="False" />
+    <field name="gtpv2.cs" showname=".... ...0 = CS (Cause Source): Originated by node sending the message" show="False" />
+   </field>
+   <field name="" show="Bearer Context: Bearer Contexts to be Modified: [Grouped IE]">
+    <field name="gtpv2.ie_type" showname="IE Type: Bearer Context (93)" show="93" />
+    <field name="gtpv2.ie_len" showname="IE Length: 24" show="24" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="" show="EPS Bearer ID (EBI): 5">
+     <field name="gtpv2.ie_type" showname="IE Type: EPS Bearer ID (EBI) (73)" show="73" />
+     <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.spare_bits" showname="0000 .... = Spare bit(s): 0" show="0" />
+     <field name="gtpv2.ebi" showname=".... 0101 = EPS Bearer ID (EBI): 5" show="5" />
+    </field>
+    <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID): S1-U eNodeB GTP-U interface, TEID/GRE Key: 0x285704b5, IPv4 127.0.0.5">
+     <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87" />
+     <field name="gtpv2.ie_len" showname="IE Length: 9" show="9" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.f_teid_v4" showname="1... .... = V4: IPv4 address present" show="True" />
+     <field name="gtpv2.f_teid_v6" showname=".0.. .... = V6: IPv6 address not present" show="False" />
+     <field name="gtpv2.f_teid_interface_type" showname="..00 0000 = Interface Type: S1-U eNodeB GTP-U interface (0)" show="0" />
+     <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x285704b5 (676791477)" show="0x285704b5" />
+     <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 127.0.0.5" show="127.0.0.5" />
+    </field>
+    <field name="" show="Cause: Request accepted (16)">
+     <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2" />
+     <field name="gtpv2.ie_len" showname="IE Length: 2" show="2" />
+     <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+     <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+     <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16" />
+     <field name="gtpv2.spare_b7_b3" showname="0000 0... = Spare bit(s): 0" show="0" />
+     <field name="gtpv2.pce" showname=".... .0.. = PCE (PDN Connection IE Error): False" show="False" />
+     <field name="gtpv2.bce" showname=".... ..0. = BCE (Bearer Context IE Error): False" show="False" />
+     <field name="gtpv2.cs" showname=".... ...0 = CS (Cause Source): Originated by node sending the message" show="False" />
+    </field>
+   </field>
+   <field name="gtpv2.response_to" showname="Response To: 9" show="9" />
+   <field name="gtpv2.response_time" showname="Response Time: 1.715385 milliseconds" show="0.001715385" />
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792850953.122824021" show="1792850953.122824021" />
+   <field name="frame.number" showname="Frame Number: 11" show="11" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" showname="Source Address: 127.0.0.2" show="127.0.0.2" />
+   <field name="ip.dst" showname="Destination Address: 127.0.0.3" show="127.0.0.3" />
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" showname="Source Port: 2123" show="2123" />
+   <field name="udp.dstport" showname="Destination Port: 2123" show="2123" />
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2" size="17" pos="42">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="010. .... = Version: 2" show="2" />
+    <field name="gtpv2.p" showname="...0 .... = Piggybacking flag (P): 0" show="0" />
+    <field name="gtpv2.t" showname=".... 1... = TEID flag (T): 1" show="1" />
+    <field name="gtpv2.mp" showname=".... .0.. = Message Priority(MP): 0" show="0" />
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Release Access Bearers Request (170)" show="170" />
+   <field name="gtpv2.msg_length" showname="Message Length: 13" show="13" />
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x000003c9 (969)" show="0x000003c9" />
+   <field name="gtpv2.seq" showname="Sequence Number: 0x000019 (25)" show="0x000019" />
+   <field name="gtpv2.spare" showname="Spare: 0" show="0" />
+   <field name="" show="Node Type: MME">
+    <field name="gtpv2.ie_type" showname="IE Type: Node Type (135)" show="135" />
+    <field name="gtpv2.ie_len" showname="IE Length: 1" show="1" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.node_type" showname="Node Type: MME (0)" show="0" />
+   </field>
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792850953.124296416" show="1792850953.124296416" />
+   <field name="frame.number" showname="Frame Number: 12" show="12" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" showname="Source Address: 127.0.0.3" show="127.0.0.3" />
+   <field name="ip.dst" showname="Destination Address: 127.0.0.2" show="127.0.0.2" />
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" showname="Source Port: 2123" show="2123" />
+   <field name="udp.dstport" showname="Destination Port: 2123" show="2123" />
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2" size="18" pos="42">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="010. .... = Version: 2" show="2" />
+    <field name="gtpv2.p" showname="...0 .... = Piggybacking flag (P): 0" show="0" />
+    <field name="gtpv2.t" showname=".... 1... = TEID flag (T): 1" show="1" />
+    <field name="gtpv2.mp" showname=".... .0.. = Message Priority(MP): 0" show="0" />
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Release Access Bearers Response (171)" show="171" />
+   <field name="gtpv2.msg_length" showname="Message Length: 14" show="14" />
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x00000006 (6)" show="0x00000006" />
+   <field name="gtpv2.seq" showname="Sequence Number: 0x000019 (25)" show="0x000019" />
+   <field name="gtpv2.spare" showname="Spare: 0" show="0" />
+   <field name="" show="Cause: Request accepted (16)">
+    <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2" />
+    <field name="gtpv2.ie_len" showname="IE Length: 2" show="2" />
+    <field name="gtpv2.cr" showname="0000 .... = CR flag: 0" show="0" />
+    <field name="gtpv2.instance" showname=".... 0000 = Instance: 0" show="0" />
+    <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16" />
+    <field name="gtpv2.spare_b7_b3" showname="0000 0... = Spare bit(s): 0" show="0" />
+    <field name="gtpv2.pce" showname=".... .0.. = PCE (PDN Connection IE Error): False" show="False" />
+    <field name="gtpv2.bce" showname=".... ..0. = BCE (Bearer Context IE Error): False" show="False" />
+    <field name="gtpv2.cs" showname=".... ...0 = CS (Cause Source): Originated by node sending the message" show="False" />
+   </field>
+   <field name="gtpv2.response_to" showname="Response To: 11" show="11" />
+   <field name="gtpv2.response_time" showname="Response Time: 1.472395 milliseconds" show="0.001472395" />
+  </proto>
+ </packet>
+</pdml>

@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/gtpv2-event.schema.json",
+  "title": "Bounded GTPv2-C Detailed Event",
+  "description": "One normalized GTPv2-C observation from a PDML dissection or a flat fields JSONL input. Subscriber identities, APN names, PAA addresses and raw IE bytes are never included; only presence, length and address-family metadata are retained.",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "frame_number",
+    "message_occurrence",
+    "capture_file",
+    "protocol",
+    "transport",
+    "message_type_code",
+    "message_type",
+    "procedure_family",
+    "message_family",
+    "support_status",
+    "hierarchy_basis",
+    "header",
+    "message_cause",
+    "information_elements",
+    "identity_ies",
+    "f_teids",
+    "bearer_contexts",
+    "unbound_ie_metadata",
+    "ie_summary",
+    "extraction_limitations",
+    "evidence",
+    "derivations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {"type": "string", "description": "UTC ISO-8601 observation time with microsecond precision."},
+    "frame_number": {"type": "integer", "minimum": 1},
+    "message_occurrence": {"type": "integer", "minimum": 0},
+    "capture_file": {"type": "string", "minLength": 1},
+    "protocol": {"const": "GTPv2-C"},
+    "transport": {"const": "UDP"},
+    "message_type_code": {"type": "integer", "minimum": 0, "maximum": 255},
+    "message_type": {"type": ["string", "null"]},
+    "procedure_family": {"type": ["string", "null"]},
+    "message_family": {"type": ["string", "null"]},
+    "support_status": {"type": "string", "enum": ["SUPPORTED", "UNSUPPORTED", "UNKNOWN"]},
+    "hierarchy_basis": {"type": "string", "enum": ["pdml_grouped_ie", "flat_fields"]},
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "flags", "teid_flag", "piggybacking_flag", "message_length", "teid", "teid_state", "sequence_number"],
+      "properties": {
+        "version": {"type": ["integer", "null"]},
+        "flags": {"type": ["integer", "null"]},
+        "teid_flag": {"type": ["boolean", "null"]},
+        "piggybacking_flag": {"type": ["boolean", "null"]},
+        "message_length": {"type": ["integer", "null"]},
+        "teid": {"type": ["integer", "null"]},
+        "teid_state": {"type": "string", "enum": ["ABSENT", "ZERO", "PRESENT"]},
+        "sequence_number": {"type": ["integer", "null"]}
+      }
+    },
+    "message_cause": {"anyOf": [{"$ref": "#/$defs/cause"}, {"type": "null"}]},
+    "information_elements": {"$ref": "#/$defs/informationElements"},
+    "identity_ies": {"$ref": "#/$defs/identityIes"},
+    "f_teids": {"type": "array", "items": {"$ref": "#/$defs/fteid"}},
+    "bearer_contexts": {"type": "array", "items": {"$ref": "#/$defs/bearerContext"}},
+    "unbound_ie_metadata": {"anyOf": [{"$ref": "#/$defs/unbound"}, {"type": "null"}]},
+    "ie_summary": {"type": "array", "items": {"$ref": "#/$defs/ieSummary"}},
+    "extraction_limitations": {"type": "array", "items": {"type": "string"}},
+    "evidence": {"$ref": "#/$defs/evidence"},
+    "derivations": {"type": "array", "items": {"type": "string"}},
+    "source": {"$ref": "#/$defs/endpoint"},
+    "destination": {"$ref": "#/$defs/endpoint"},
+    "decoder_link": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "response_to_frame": {"type": "integer", "minimum": 1},
+        "response_time_seconds": {"type": "string"}
+      }
+    }
+  },
+  "$defs": {
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "address": {"type": ["string", "null"]},
+        "port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535}
+      }
+    },
+    "cause": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cause_code", "cause_name", "scope"],
+      "properties": {
+        "cause_code": {"type": "integer", "minimum": 0, "maximum": 255},
+        "cause_name": {"type": ["string", "null"]},
+        "scope": {"type": "string", "enum": ["message", "bearer"]},
+        "cause_source_flag": {"type": "boolean"},
+        "pdn_connection_ie_error": {"type": "boolean"},
+        "bearer_context_ie_error": {"type": "boolean"}
+      }
+    },
+    "informationElements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "apn_present": {"type": "boolean"},
+        "apn_length": {"type": "integer", "minimum": 0},
+        "pdn_type": {"$ref": "#/$defs/enumValue"},
+        "paa_present": {"type": "boolean"},
+        "paa_address_family": {"type": "string", "enum": ["IPv4", "IPv6"]},
+        "rat_type": {"$ref": "#/$defs/enumValue"},
+        "ambr_present": {"type": "boolean"},
+        "ambr_uplink": {"type": ["integer", "null"]},
+        "ambr_downlink": {"type": ["integer", "null"]},
+        "charging_id_present": {"type": "boolean"}
+      }
+    },
+    "enumValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "name"],
+      "properties": {
+        "value": {"type": ["integer", "null"]},
+        "name": {"type": ["string", "null"]}
+      }
+    },
+    "identityIes": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Presence only. Identity values are never published.",
+      "properties": {
+        "imsi_present": {"type": "boolean"},
+        "mei_present": {"type": "boolean"},
+        "msisdn_present": {"type": "boolean"},
+        "tmsi_present": {"type": "boolean"}
+      }
+    },
+    "fteid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "interface_type", "interface_type_name", "teid", "ipv4", "ipv6", "ipv4_present", "ipv6_present"],
+      "properties": {
+        "scope": {"type": "string", "enum": ["message", "bearer", "unbound"]},
+        "interface_type": {"type": ["integer", "null"]},
+        "interface_type_name": {"type": ["string", "null"]},
+        "teid": {"type": ["integer", "null"]},
+        "ipv4": {"type": ["string", "null"]},
+        "ipv6": {"type": ["string", "null"]},
+        "ipv4_present": {"type": "boolean"},
+        "ipv6_present": {"type": "boolean"}
+      }
+    },
+    "bearerContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_index", "ebi", "cause", "f_teids", "charging_id_present", "binding_basis"],
+      "properties": {
+        "item_index": {"type": "integer", "minimum": 0},
+        "ebi": {"type": ["integer", "null"]},
+        "cause": {"anyOf": [{"$ref": "#/$defs/cause"}, {"type": "null"}]},
+        "f_teids": {"type": "array", "items": {"$ref": "#/$defs/fteid"}},
+        "charging_id_present": {"type": "boolean"},
+        "binding_basis": {"type": "string"},
+        "other_ie_names": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "unbound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding_basis", "limitations"],
+      "properties": {
+        "binding_basis": {"type": "string"},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "additional_causes": {"type": "array", "items": {"$ref": "#/$defs/cause"}},
+        "ebi_values": {"type": "array", "items": {"type": "integer"}},
+        "f_teid_values": {"type": "array", "items": {"type": "object"}}
+      }
+    },
+    "ieSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ie_type", "ie_name", "instance"],
+      "properties": {
+        "ie_type": {"type": ["integer", "null"]},
+        "ie_name": {"type": ["string", "null"]},
+        "instance": {"type": ["integer", "null"]}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "source"],
+      "properties": {
+        "level": {"type": "string", "enum": ["OBSERVED", "DERIVED", "INFERRED", "HYPOTHESIS", "CONFIRMED"]},
+        "source": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

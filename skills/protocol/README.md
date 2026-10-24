@@ -134,5 +134,21 @@ security mode control stay distinct procedures. It never publishes subscriber
 identities, authentication parameters or payload bytes, and it does not decode
 ESM, model bearer state, or determine Attach outcomes.
 
-Planned: `gtpv2`, `sip`, `sdp-rtp`,
+Implemented: `gtpv2`, the GTPv2-C session-control Protocol Skill. Version 0.1.0
+implements a bounded subset of TS 29.274 on S11 and S5/S8, verified against the
+GTPv2 dissector of Wireshark/TShark 4.7.1: Echo request/response, Create
+Session request/response, Modify Bearer request/response, Delete Session
+request/response, and Release Access Bearers request/response, with header
+semantics that keep ABSENT, ZERO and PRESENT header TEID states distinct,
+message-scope and bearer-scope Cause preservation, message-scope and item-scoped
+F-TEID evidence with reviewed interface types, EBI, APN presence and length
+only, PDN type, PAA address family, RAT type, AMBR presence, and protocol-local
+transaction correlation with MATCHED, OPEN_REQUEST, RESPONSE_ONLY and AMBIGUOUS
+classifications. Grouped Bearer Context binding is published only when the
+dissector tree proves the item boundary; flat field input is reported as
+explicitly unbound. It never publishes subscriber identities, APN names, PAA
+addresses or raw IE bytes, and it does not model session, PDN-connection or
+bearer lifecycle state.
+
+Planned: `sip`, `sdp-rtp`,
 `diameter-core` and its domain layers, and remaining 5GC SBI services.

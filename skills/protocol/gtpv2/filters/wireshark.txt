@@ -1,0 +1,34 @@
+# Wireshark / TShark filters for bounded GTPv2-C session control.
+#
+# The GTPv2-C dissector is registered as `gtpv2`. `gtp` matches GTPv1 and must
+# not be used as a substitute: GTPv1 has no session-control message set.
+#
+# All traffic on the GTPv2-C port:
+#   udp.port == 2123
+#
+# Any decoded GTPv2-C message:
+#   gtpv2
+#
+# Session-establishment family:
+#   gtpv2.message_type == 32 || gtpv2.message_type == 33
+#
+# Session-modification family:
+#   gtpv2.message_type == 34 || gtpv2.message_type == 35
+#
+# Session-release family:
+#   gtpv2.message_type == 36 || gtpv2.message_type == 37
+#
+# Bearer release triggered by an access change:
+#   gtpv2.message_type == 170 || gtpv2.message_type == 171
+#
+# Echo keepalive:
+#   gtpv2.message_type == 1 || gtpv2.message_type == 2
+#
+# Messages carrying a grouped Bearer Context IE:
+#   gtpv2.ie_type == 93
+#
+# Initial requests that still use header TEID 0:
+#   gtpv2.teid == 0 && (gtpv2.message_type == 32 || gtpv2.message_type == 36)
+#
+# Note: display filters cannot separate a message-scope Cause from a
+# bearer-scope Cause. Use the PDML tree (`-T pdml`) for scope-correct evidence.

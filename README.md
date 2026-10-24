@@ -65,8 +65,9 @@ and their machine-readable evidence_refs (Domain contracts 5gc-registration-mobi
 >=0.2.0, 5gc-pdu-session >=0.4.0, and 5gc-handover-mobility >=0.1.0), provenance-based
 ordering with no severity ranking, and no root-cause or blame output). The unified
 `scripts/corenet-analyze.py` analysis workflow executes that accepted 5GC chain from
-a single command-line entry point. The bounded `s1ap` S1-MME Protocol Skill and the bounded
-`nas-eps` EPS NAS Protocol Skill extract EPC access-signaling and NAS message
+a single command-line entry point. The bounded `s1ap` S1-MME Protocol Skill, the bounded
+`nas-eps` EPS NAS Protocol Skill and the bounded `gtpv2` GTPv2-C session-control
+Protocol Skill extract EPC access-signaling, NAS message and session-control
 evidence from LTE captures, and the bounded `epc-procedures` Domain Skill analyzes
 observed EPS Attach procedure stages with procedure-local deviations and no bearer,
 PDN or service verdict. The extensions provide investigation context only.
@@ -75,8 +76,8 @@ NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
 relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
 semantics), remaining
-5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (GTPv2, SIP, SDP/RTP, Diameter), IMS Domain procedures,
-broader EPC procedures (bearer and session lifecycle, GTPv2-C, Diameter EPC),
+5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (SIP, SDP/RTP, Diameter), IMS Domain procedures,
+broader EPC procedures (bearer and session lifecycle, GTPv2-C Domain integration, Diameter EPC),
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper
 diagnosis orchestration.
 
@@ -102,7 +103,7 @@ CoreNet Skill focuses on network signaling evidence analysis rather than impleme
 
 ## EPC, IMS, 5GC, and Diameter
 
-Future EPC procedures will reuse NAS-EPS, S1AP, GTPv2/GTP-U, and Diameter EPC. IMS procedures will reuse SIP, SDP/RTP, Diameter IMS, and Diameter Charging. 5GC procedures will reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
+Future EPC procedures will reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS procedures will reuse SIP, SDP/RTP, Diameter IMS, and Diameter Charging. 5GC procedures will reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
 
 Diameter is explicitly cross-domain—not an IMS-owned protocol. `diameter-core` will own base-protocol behavior; `diameter-epc`, `diameter-ims`, and `diameter-charging` will own their bounded applications and shared credit-control semantics. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

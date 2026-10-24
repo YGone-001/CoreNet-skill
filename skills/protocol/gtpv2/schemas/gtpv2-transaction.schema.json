@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/gtpv2-transaction.schema.json",
+  "title": "Bounded GTPv2-C Transaction Correlation",
+  "description": "Protocol-local request/response correlation over one or more detailed GTPv2-C event files. The result never asserts session, PDN-connection or bearer lifecycle state.",
+  "type": "object",
+  "required": [
+    "protocol",
+    "capture_files",
+    "transaction_count",
+    "matched_count",
+    "open_request_count",
+    "response_only_count",
+    "ambiguous_count",
+    "retransmission_count",
+    "transactions",
+    "limitations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "protocol": {"const": "GTPv2-C"},
+    "capture_files": {"type": "array", "items": {"type": "string"}},
+    "transaction_count": {"type": "integer", "minimum": 0},
+    "matched_count": {"type": "integer", "minimum": 0},
+    "open_request_count": {"type": "integer", "minimum": 0},
+    "response_only_count": {"type": "integer", "minimum": 0},
+    "ambiguous_count": {"type": "integer", "minimum": 0},
+    "retransmission_count": {"type": "integer", "minimum": 0},
+    "transactions": {"type": "array", "items": {"$ref": "#/$defs/transaction"}},
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame_number", "message_type", "message_type_code", "sequence_number", "header_teid", "header_teid_state"],
+      "properties": {
+        "frame_number": {"type": ["integer", "null"], "minimum": 1},
+        "message_type": {"type": ["string", "null"]},
+        "message_type_code": {"type": ["integer", "null"]},
+        "sequence_number": {"type": ["integer", "null"]},
+        "header_teid": {"type": ["integer", "null"]},
+        "header_teid_state": {"type": ["string", "null"], "enum": ["ABSENT", "ZERO", "PRESENT", null]}
+      }
+    },
+    "transaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transaction_reference",
+        "procedure_family",
+        "message_family",
+        "request",
+        "response",
+        "response_candidates",
+        "correlation_status",
+        "correlation_strength",
+        "correlation_basis",
+        "corroboration",
+        "retransmissions",
+        "observation_window",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "transaction_reference": {"type": "string", "minLength": 1},
+        "procedure_family": {"type": ["string", "null"]},
+        "message_family": {"type": ["string", "null"]},
+        "request": {"anyOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]},
+        "response": {"anyOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]},
+        "response_candidates": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
+        "correlation_status": {"type": "string", "enum": ["MATCHED", "OPEN_REQUEST", "RESPONSE_ONLY", "AMBIGUOUS"]},
+        "correlation_strength": {"type": "string", "enum": ["STRONG", "SUPPORTED", "NONE"]},
+        "correlation_basis": {"type": "array", "items": {"type": "string"}},
+        "corroboration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["decoder_link_frame", "teid_echo", "teid_relation"],
+          "properties": {
+            "decoder_link_frame": {"type": ["integer", "null"]},
+            "teid_echo": {"type": ["boolean", "null"]},
+            "teid_relation": {"type": "string"}
+          }
+        },
+        "retransmissions": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
+        "observation_window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start_frame", "end_frame"],
+          "properties": {
+            "start_frame": {"type": "integer", "minimum": 1},
+            "end_frame": {"type": "integer", "minimum": 1}
+          }
+        },
+        "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

@@ -1,0 +1,180 @@
+{
+  "ambiguous_count": 0,
+  "capture_files": [
+    "teid-states.jsonl"
+  ],
+  "limitations": [
+    "correlation is protocol-local and never asserts session, PDN-connection or bearer success",
+    "a response is only paired with a request captured in the same file",
+    "sequence numbers and TEIDs are not globally unique; endpoint scoping is mandatory"
+  ],
+  "matched_count": 1,
+  "open_request_count": 2,
+  "protocol": "GTPv2-C",
+  "response_only_count": 0,
+  "retransmission_count": 0,
+  "transaction_count": 3,
+  "transactions": [
+    {
+      "correlation_basis": [
+        "same capture provenance",
+        "request/response message identity",
+        "reversed endpoint tuple",
+        "equal sequence number"
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "SUPPORTED",
+      "corroboration": {
+        "decoder_link_frame": null,
+        "teid_echo": null,
+        "teid_relation": "teid_absent_request"
+      },
+      "evidence_refs": [
+        {
+          "frame_number": 10,
+          "header_teid": null,
+          "header_teid_state": "ABSENT",
+          "message_type": "Echo Request",
+          "message_type_code": 1,
+          "sequence_number": 1
+        },
+        {
+          "frame_number": 11,
+          "header_teid": null,
+          "header_teid_state": "ABSENT",
+          "message_type": "Echo Response",
+          "message_type_code": 2,
+          "sequence_number": 1
+        }
+      ],
+      "limitations": [],
+      "message_family": "echo",
+      "observation_window": {
+        "end_frame": 11,
+        "start_frame": 10
+      },
+      "procedure_family": "echo",
+      "request": {
+        "frame_number": 10,
+        "header_teid": null,
+        "header_teid_state": "ABSENT",
+        "message_type": "Echo Request",
+        "message_type_code": 1,
+        "sequence_number": 1
+      },
+      "response": {
+        "frame_number": 11,
+        "header_teid": null,
+        "header_teid_state": "ABSENT",
+        "message_type": "Echo Response",
+        "message_type_code": 2,
+        "sequence_number": 1
+      },
+      "response_candidates": [
+        {
+          "frame_number": 11,
+          "header_teid": null,
+          "header_teid_state": "ABSENT",
+          "message_type": "Echo Response",
+          "message_type_code": 2,
+          "sequence_number": 1
+        }
+      ],
+      "retransmissions": [],
+      "transaction_reference": "gtpv2-echo-10-1"
+    },
+    {
+      "correlation_basis": [
+        "same capture provenance",
+        "request/response message identity",
+        "reversed endpoint tuple",
+        "equal sequence number"
+      ],
+      "correlation_status": "OPEN_REQUEST",
+      "correlation_strength": "NONE",
+      "corroboration": {
+        "decoder_link_frame": null,
+        "teid_echo": null,
+        "teid_relation": "initial_zero_teid_request"
+      },
+      "evidence_refs": [
+        {
+          "frame_number": 12,
+          "header_teid": 0,
+          "header_teid_state": "ZERO",
+          "message_type": "Create Session Request",
+          "message_type_code": 32,
+          "sequence_number": 2
+        }
+      ],
+      "limitations": [
+        "an unmatched request is an open transaction inside this capture, not a proven timeout",
+        "the request carried header TEID 0; the TEID alone cannot identify the session"
+      ],
+      "message_family": "create-session",
+      "observation_window": {
+        "end_frame": 12,
+        "start_frame": 12
+      },
+      "procedure_family": "create-session",
+      "request": {
+        "frame_number": 12,
+        "header_teid": 0,
+        "header_teid_state": "ZERO",
+        "message_type": "Create Session Request",
+        "message_type_code": 32,
+        "sequence_number": 2
+      },
+      "response": null,
+      "response_candidates": [],
+      "retransmissions": [],
+      "transaction_reference": "gtpv2-create-session-12-2"
+    },
+    {
+      "correlation_basis": [
+        "same capture provenance",
+        "request/response message identity",
+        "reversed endpoint tuple",
+        "equal sequence number"
+      ],
+      "correlation_status": "OPEN_REQUEST",
+      "correlation_strength": "NONE",
+      "corroboration": {
+        "decoder_link_frame": null,
+        "teid_echo": null,
+        "teid_relation": "unavailable"
+      },
+      "evidence_refs": [
+        {
+          "frame_number": 13,
+          "header_teid": 969,
+          "header_teid_state": "PRESENT",
+          "message_type": "Modify Bearer Request",
+          "message_type_code": 34,
+          "sequence_number": 3
+        }
+      ],
+      "limitations": [
+        "an unmatched request is an open transaction inside this capture, not a proven timeout"
+      ],
+      "message_family": "modify-bearer",
+      "observation_window": {
+        "end_frame": 13,
+        "start_frame": 13
+      },
+      "procedure_family": "modify-bearer",
+      "request": {
+        "frame_number": 13,
+        "header_teid": 969,
+        "header_teid_state": "PRESENT",
+        "message_type": "Modify Bearer Request",
+        "message_type_code": 34,
+        "sequence_number": 3
+      },
+      "response": null,
+      "response_candidates": [],
+      "retransmissions": [],
+      "transaction_reference": "gtpv2-modify-bearer-13-3"
+    }
+  ]
+}

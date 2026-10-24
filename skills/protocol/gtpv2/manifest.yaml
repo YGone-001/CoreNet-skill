@@ -1,0 +1,85 @@
+name: gtpv2
+version: 0.1.0
+category: protocol
+description: >
+  Bounded GTPv2-C semantic extraction for the S11 and S5/S8 control plane:
+  header and TEID-state semantics, message identification for the Echo,
+  Create Session, Modify Bearer, Delete Session and Release Access Bearers
+  set, message-scope and bearer-scope Cause preservation, message-scope and
+  item-scoped F-TEID evidence, EBI, APN presence and length only, PDN/PAA
+  metadata, RAT type, AMBR presence, protocol-local transaction correlation,
+  detailed GTPv2-C events, and normalized trace-event projection.
+scope:
+  includes:
+    - GTPv2 header semantics and distinct ABSENT, ZERO and PRESENT header TEID states
+    - message type identification for the bounded session-control set
+    - message-scope and bearer-scope Cause preservation with explicit scope
+    - message-scope and item-scoped F-TEID evidence with interface type
+    - EBI, APN presence and length only, PDN type, PAA address family, RAT type, AMBR presence
+    - provable grouped Bearer Context binding from the dissector tree
+    - deterministic protocol-local request/response correlation with explicit strength and ambiguity
+    - detailed GTPv2-C event JSONL, transaction JSON and shared trace-event projection
+    - tshark-assisted capture extraction plus PDML and flat fields offline input
+  excludes:
+    - GTPv1, GTP-U payload and user-plane semantics
+    - session, PDN-connection or bearer lifecycle reconstruction
+    - cross-interface S11/S5-C association and SGW/PGW implementation mapping
+    - first-abnormal-boundary selection, severity ranking or root-cause output
+    - Diameter, NAS, S1AP or IMS semantics
+    - subscriber identity, APN name, PAA address or raw IE byte publication
+    - bearer grouping inferred from flat list order
+dependencies:
+  required: []
+  optional:
+    - core-network-pcap >=0.1.0
+    - wireshark-analysis >=0.2.0
+    - tshark
+inputs:
+  - PCAP or PCAPNG capture containing GTPv2-C over UDP (requires user-installed tshark)
+  - stored PDML dissection of the same capture (no decoder required at run time)
+  - structured GTPv2-C fields JSONL (deterministic offline input, documented in references/field-reference.md)
+outputs:
+  - detailed GTPv2-C event JSON Lines (schemas/gtpv2-event.schema.json)
+  - normalized trace-event JSON Lines projection (schemas/trace-event.schema.json)
+  - transaction correlation JSON (schemas/gtpv2-transaction.schema.json)
+  - protocol-local GTPv2-C timeline (text or JSON)
+protocols: [GTPv2-C]
+interfaces: [S11, S5/S8]
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Protocol-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/pdml/session-control.pdml
+    - examples/extracted/session-control-fields.jsonl
+    - examples/extracted/teid-states.jsonl
+    - examples/extracted/unsupported-messages.jsonl
+    - examples/extracted/correlation-ambiguous-events.jsonl
+    - examples/extracted/correlation-retransmission-events.jsonl
+    - examples/extracted/correlation-response-only-events.jsonl
+    - examples/extracted/correlation-endpoints-events.jsonl
+    - examples/extracted/malformed.jsonl
+    - examples/extracted/missing-required.jsonl
+  expected_results:
+    - examples/expected/session-control-events.jsonl
+    - examples/expected/session-control-trace.jsonl
+    - examples/expected/session-control-transactions.json
+    - examples/expected/session-control-fields-events.jsonl
+    - examples/expected/session-control-fields-transactions.json
+    - examples/expected/teid-states-events.jsonl
+    - examples/expected/teid-states-transactions.json
+    - examples/expected/unsupported-messages-events.jsonl
+    - examples/expected/correlation-ambiguous-transactions.json
+    - examples/expected/correlation-retransmission-transactions.json
+    - examples/expected/correlation-response-only-transactions.json
+    - examples/expected/correlation-endpoints-transactions.json

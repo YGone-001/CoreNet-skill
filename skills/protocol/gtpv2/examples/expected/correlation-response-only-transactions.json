@@ -1,0 +1,105 @@
+{
+  "ambiguous_count": 0,
+  "capture_files": [
+    "correlation-response-only.pcap"
+  ],
+  "limitations": [
+    "correlation is protocol-local and never asserts session, PDN-connection or bearer success",
+    "a response is only paired with a request captured in the same file",
+    "sequence numbers and TEIDs are not globally unique; endpoint scoping is mandatory"
+  ],
+  "matched_count": 0,
+  "open_request_count": 0,
+  "protocol": "GTPv2-C",
+  "response_only_count": 2,
+  "retransmission_count": 0,
+  "transaction_count": 2,
+  "transactions": [
+    {
+      "correlation_basis": [
+        "response present without a request in this capture"
+      ],
+      "correlation_status": "RESPONSE_ONLY",
+      "correlation_strength": "NONE",
+      "corroboration": {
+        "decoder_link_frame": null,
+        "teid_echo": null,
+        "teid_relation": "unavailable"
+      },
+      "evidence_refs": [
+        {
+          "frame_number": 4,
+          "header_teid": 6,
+          "header_teid_state": "PRESENT",
+          "message_type": "Delete Session Response",
+          "message_type_code": 37,
+          "sequence_number": 22
+        }
+      ],
+      "limitations": [
+        "the request was not captured; no transaction relationship is asserted"
+      ],
+      "message_family": "delete-session",
+      "observation_window": {
+        "end_frame": 4,
+        "start_frame": 4
+      },
+      "procedure_family": "delete-session",
+      "request": null,
+      "response": {
+        "frame_number": 4,
+        "header_teid": 6,
+        "header_teid_state": "PRESENT",
+        "message_type": "Delete Session Response",
+        "message_type_code": 37,
+        "sequence_number": 22
+      },
+      "response_candidates": [],
+      "retransmissions": [],
+      "transaction_reference": "gtpv2-response-only-4"
+    },
+    {
+      "correlation_basis": [
+        "response present without a request in this capture"
+      ],
+      "correlation_status": "RESPONSE_ONLY",
+      "correlation_strength": "NONE",
+      "corroboration": {
+        "decoder_link_frame": null,
+        "teid_echo": null,
+        "teid_relation": "unavailable"
+      },
+      "evidence_refs": [
+        {
+          "frame_number": 9,
+          "header_teid": 6,
+          "header_teid_state": "PRESENT",
+          "message_type": "Modify Bearer Response",
+          "message_type_code": 35,
+          "sequence_number": 24
+        }
+      ],
+      "limitations": [
+        "the request was not captured; no transaction relationship is asserted"
+      ],
+      "message_family": "modify-bearer",
+      "observation_window": {
+        "end_frame": 9,
+        "start_frame": 9
+      },
+      "procedure_family": "modify-bearer",
+      "request": null,
+      "response": {
+        "frame_number": 9,
+        "header_teid": 6,
+        "header_teid_state": "PRESENT",
+        "message_type": "Modify Bearer Response",
+        "message_type_code": 35,
+        "sequence_number": 24
+      },
+      "response_candidates": [],
+      "retransmissions": [],
+      "transaction_reference": "gtpv2-response-only-9"
+    }
+  ]
+}
