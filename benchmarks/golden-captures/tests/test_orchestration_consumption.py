@@ -643,9 +643,12 @@ class CommittedCorpusConsumptionTests(unittest.TestCase):
                 if record.get("execution_status") == "EXECUTED" and record.get("instance_count", 0) > 0:
                     self.assertGreater(counts.get(key, 0), 0, f"{cid}/{key}")
 
-    def test_eight_control_cases_preserved(self) -> None:
+    def test_committed_case_statuses_preserved(self) -> None:
+        # The authentication-negative case is an exact match after its human baseline
+        # stage identity was revised under an authorized correction; the remaining
+        # seven cases are the frozen non-agreement controls.
         expected = {
-            "public-5gc-auth-negative": "PROCEDURE_MATCH_STAGE_DIFFERENCE",
+            "public-5gc-auth-negative": "EXACT_MATCH",
             "public-5gc-dnn-negative": "CAPTURE_LIMITATION",
             "public-5gc-access-plmn-negative": "DOMAIN_COVERAGE_GAP",
             "public-5gc-access-plmn-recovery": "DOMAIN_COVERAGE_GAP",
@@ -662,12 +665,12 @@ class CommittedCorpusConsumptionTests(unittest.TestCase):
         diff = json.loads(
             (self.cases_dir / "public-5gc-auth-negative" / "differential.json").read_text(encoding="utf-8")
         )
-        self.assertEqual(diff["comparison_status"], "PROCEDURE_MATCH_STAGE_DIFFERENCE")
+        self.assertEqual(diff["comparison_status"], "EXACT_MATCH")
         self.assertEqual(diff["skill_boundary"]["boundary_frame"], 11)
         self.assertEqual(diff["skill_boundary"]["boundary_protocol"], "NAS-5GS")
         self.assertEqual(diff["skill_boundary"]["boundary_message"], "Authentication failure")
         self.assertEqual(diff["skill_boundary"]["procedure_stage"], "authentication")
-        self.assertEqual(diff["human_boundary"]["procedure_stage"], "security")
+        self.assertEqual(diff["human_boundary"]["procedure_stage"], "authentication")
 
     def test_frozen_human_baseline_hashes_unchanged(self) -> None:
         for case_dir in sorted(p for p in self.cases_dir.iterdir() if p.is_dir()):
@@ -700,10 +703,10 @@ class CommittedCorpusConsumptionTests(unittest.TestCase):
         )["metrics"]
         self.assertEqual(summary["case_count"], 13)
         self.assertEqual(summary["executed_case_count"], 13)
-        self.assertEqual(summary["exact_match_count"], 0)
+        self.assertEqual(summary["exact_match_count"], 1)
         self.assertEqual(summary["procedure_match_count"], 1)
-        self.assertEqual(summary["stage_match_count"], 0)
-        self.assertEqual(summary["needs_adjudication_count"], 1)
+        self.assertEqual(summary["stage_match_count"], 1)
+        self.assertEqual(summary["needs_adjudication_count"], 0)
         self.assertEqual(summary["no_abnormal_boundary_agreement_with_noncandidate_evidence_count"], 5)
         self.assertIn("domain_coverage_gap_count", summary["denominator_definition"])
 

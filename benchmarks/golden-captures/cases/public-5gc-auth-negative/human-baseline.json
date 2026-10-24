@@ -1,7 +1,7 @@
 {
   "analysis_status": "BOUNDARY_OBSERVED",
   "baseline_confidence": "HIGH",
-  "baseline_hash": "5c7ef9f9fc27ff187499baf0bee97a0f24d1ecdb76531ec7b31283bf91c02812",
+  "baseline_revision": 1,
   "capture_scope": {
     "interfaces": [
       "N1",
@@ -27,7 +27,7 @@
       "start_frame": 11
     },
     "procedure_family": "5gc-registration-mobility",
-    "procedure_stage": "security",
+    "procedure_stage": "authentication",
     "protocol": "NAS-5GS",
     "reason": "UE rejected network challenge with MAC failure at frame 11; AMF responded with Authentication reject at frame 12",
     "timestamp": "1785304677.839841000"
@@ -48,7 +48,7 @@
       "last_frame": 12,
       "outcome": "REJECTED",
       "procedure_family": "5gc-registration-mobility",
-      "procedure_stage": "security"
+      "procedure_stage": "authentication"
     },
     {
       "evidence_level": "OBSERVED",
@@ -59,6 +59,7 @@
       "procedure_stage": "release"
     }
   ],
+  "revision_reason": "Authorized stage correction under the accepted independent adjudication in benchmarks/golden-captures/adjudications/authentication-stage-baseline-review.md (the accepted U-1 review, finding F-1). Two stage references changed from the superseded label security to authentication: first_abnormal_boundary.procedure_stage for the frame 11 boundary, and the 5gc-registration-mobility procedure observation spanning frames 10-12. Packet basis: frame 10 carries a plain NAS-5GS Authentication request, frame 11 carries a plain NAS-5GS Authentication failure with 5GMM cause 20 (MAC failure), and frame 12 carries a plain NAS-5GS Authentication reject, all three sharing one UE-NGAP-ID pair. No Security mode command, Security mode complete or Security mode reject exists anywhere in the 16-frame capture, and no protected envelope could conceal one, so the observed exchange is the NAS primary authentication procedure and not NAS security mode control, which 3GPP TS 24.501 clause 5.4.2 defines as the separate procedure that takes a NAS security context into use and is triggered only by a Security mode command. Frame numbers, message identity, protocol identity, observation windows, supporting evidence, capture scope, capture SHA-256, evidence levels, procedure family and analysis status are unchanged. Previous canonical hash 74b7a9596b4687c050715d4b012a6f637bfa34bd3bc4b5478d82880afe2b129d. The correction was decided on packet and normative evidence and was not motivated by any match-rate, score or acceptance improvement.",
   "scope_assessment": {
     "in_corenet_scope": true,
     "interfaces_in_scope": [

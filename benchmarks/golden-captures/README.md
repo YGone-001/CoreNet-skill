@@ -156,7 +156,7 @@ The table below reflects the committed `differential.json` of every case. The up
 | `public-5gc-registration-resync` | registration authentication synch failure and subsequent resynchronization recovery | No supported abnormal boundary observed (recovered synchronization) | No abnormal boundary observed; Registration 1 instance / 6 deviations (5 protected-envelope limitations, 1 supporting anomaly `RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED`), PDU Session 1 instance / 1 deviation (partial-capture limitation), 1 diagnostic group, 0 candidates | `NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE` | `NONE` | not required |
 | `public-5gc-auth-recovery` | authentication recovery with matching keys | No supported abnormal boundary observed | No abnormal boundary observed; Registration 1 instance / 5 deviations (protected-envelope limitations), PDU Session 1 instance / 1 deviation (partial-capture limitation), 1 diagnostic group, 0 candidates | `NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE` | `NONE` | not required |
 | `public-5gc-dnn-recovery` | supported dnn session establishment recovery | No supported abnormal boundary observed | No abnormal boundary observed; Registration 1 instance / 5 deviations (protected-envelope limitations), PDU Session 1 instance / 1 deviation (partial-capture limitation), 1 diagnostic group, 0 candidates | `NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE` | `NONE` | not required |
-| `public-5gc-auth-negative` | authentication key mismatch resulting in MAC failure and reject (metadata only) | Boundary observed at frame 11, NAS-5GS `Authentication failure`, procedure family `5gc-registration-mobility`, stage `security` | Boundary selected at frame 11, NAS-5GS `Authentication failure`, procedure family `5gc-registration-mobility`, stage `authentication`; Registration 1 instance / 2 candidate-eligible deviations (frame 11 `Authentication failure`, frame 12 `Authentication reject`), 2 frame-anchored candidates, 1 selected | `PROCEDURE_MATCH_STAGE_DIFFERENCE` | `DOMAIN` | required |
+| `public-5gc-auth-negative` | authentication key mismatch resulting in MAC failure and reject (metadata only) | Boundary observed at frame 11, NAS-5GS `Authentication failure`, procedure family `5gc-registration-mobility`, stage `authentication` (baseline revision 1) | Boundary selected at frame 11, NAS-5GS `Authentication failure`, procedure family `5gc-registration-mobility`, stage `authentication`; Registration 1 instance / 2 candidate-eligible deviations (frame 11 `Authentication failure`, frame 12 `Authentication reject`), 2 frame-anchored candidates, 1 selected | `EXACT_MATCH` | `NONE` | not required |
 | `public-5gc-access-plmn-negative` | plmn mismatch resulting in NGSetupFailure (metadata only) | Boundary observed at frame 7, NGAP `NGSetupFailure`, stage `ng-setup` | No Domain inputs; observed procedure family `ngap-management` is owned by no implemented Domain Skill | `DOMAIN_COVERAGE_GAP` | `DOMAIN_COVERAGE` | not required |
 | `public-5gc-access-plmn-recovery` | plmn recovery resulting in NGSetupResponse (metadata only) | No supported abnormal boundary observed | No Domain inputs; observed procedure family `ngap-management` is owned by no implemented Domain Skill | `DOMAIN_COVERAGE_GAP` | `DOMAIN_COVERAGE` | not required |
 | `public-5gc-access-tai-negative` | tac mismatch resulting in NGSetupFailure (metadata only) | Boundary observed at frame 7, NGAP `NGSetupFailure`, stage `ng-setup` | No Domain inputs; observed procedure family `ngap-management` is owned by no implemented Domain Skill | `DOMAIN_COVERAGE_GAP` | `DOMAIN_COVERAGE` | not required |
@@ -167,7 +167,7 @@ The table below reflects the committed `differential.json` of every case. The up
 
 Observed evidence is reported separately from upstream test intent in every row: a scenario label such as "session rejection" is never read as packet evidence of a rejection, and an unimplemented Domain family is never converted into an implemented Domain failure.
 
-### 4.3 Authentication-Negative Case (procedure-stage difference)
+### 4.3 Authentication-Negative Case (exact match after an authorized baseline revision)
 
 The committed result is presented exactly as recorded:
 
@@ -191,22 +191,34 @@ Message:
 Authentication failure
 
 Human stage:
-security
+authentication
 
 Skill stage:
 authentication
 
 Comparison:
-PROCEDURE_MATCH_STAGE_DIFFERENCE
+EXACT_MATCH
 
 Layer:
-DOMAIN
+NONE
 
 Adjudication:
-required
+not required
 ```
 
-Frame agreement is not sufficient for semantic agreement: both sides anchor the boundary at frame 11 with the same protocol and message identity, yet the stage attribution differs (`security` on the human baseline side, `authentication` on the Skill side), so the comparison is `PROCEDURE_MATCH_STAGE_DIFFERENCE` and never `EXACT_MATCH`. The frozen human stage label is not changed, and the current Skill stage is explicitly reported as `authentication` — it is not missing and not `UNKNOWN`. The difference remains unresolved and is subject to a separate independent baseline review (section 9); it is not resolved through this README.
+Both sides anchor the boundary at frame 11 with the same protocol, message identity, procedure family
+and stage, so the comparison is `EXACT_MATCH`. The Skill stage `authentication` is unchanged and was
+never missing or `UNKNOWN`; what changed is the independent human baseline's stage identity.
+
+The human baseline records `authentication` at `baseline_revision` 1. The superseded label was
+`security`, in exactly two places: the frame 11 boundary stage and the procedure observation spanning
+frames 10-12. The correction rests on packet and normative evidence — a plain NAS-5GS Authentication
+request at frame 10, a plain NAS-5GS Authentication failure with 5GMM cause 20 at frame 11 and a plain
+NAS-5GS Authentication reject at frame 12, with no security mode exchange anywhere in the 16-frame
+capture — and it was not motivated by the match-rate consequence. The superseded canonical digest is
+preserved inside `revision_reason`. The revision is recorded in
+`adjudications/authentication-stage-baseline-revision.md`; the accepted review
+`adjudications/authentication-stage-baseline-review.md` is unchanged.
 
 ### 4.4 Five Bounded No-Abnormal-Boundary Agreements
 
@@ -257,23 +269,23 @@ All values are read directly from `benchmarks/golden-captures/benchmark-summary.
 | `case_count` | 13 |
 | `executed_case_count` | 13 |
 | `blocked_case_count` | 0 |
-| `exact_match_count` | 0 |
+| `exact_match_count` | 1 |
 | `procedure_match_count` | 1 |
-| `stage_match_count` | 0 |
+| `stage_match_count` | 1 |
 | `false_positive_count` | 0 |
 | `false_negative_count` | 0 |
 | `domain_coverage_gap_count` | 5 |
 | `capture_limitation_count` | 1 |
 | `out_of_scope_count` | 1 |
-| `needs_adjudication_count` | 1 |
+| `needs_adjudication_count` | 0 |
 | `no_abnormal_boundary_agreement_with_noncandidate_evidence_count` | 5 |
 | `exact_frame_match_count` | 1 |
 | `median_absolute_frame_delta` | 0.0 |
 | `within_1_frame_count` | 1 |
 | `within_3_frames_count` | 1 |
-| `exact_match_rate` | 0.0 |
+| `exact_match_rate` | 0.1667 |
 | `procedure_match_rate` | 0.1667 |
-| `stage_match_rate` | 0.0 |
+| `stage_match_rate` | 0.1667 |
 | `acceptable_difference_count` | 0 |
 | `correlation_gap_count` | 0 |
 | `domain_model_gap_count` | 0 |
@@ -293,17 +305,17 @@ evaluated_in_scope =
     - domain_coverage_gap_count
 ```
 
-With the current committed values this is `13 - 1 - 1 - 0 - 5 = 6` evaluated in-scope cases. Current exact-match rate: `0 / 6 = 0.0`. Current procedure-match rate: `1 / 6 = 0.1667` (recorded as `procedure_match_rate` `0.1667`).
+With the current committed values this is `13 - 1 - 1 - 0 - 5 = 6` evaluated in-scope cases. Current exact-match rate: `1 / 6 = 0.1667`. Current procedure-match rate: `1 / 6 = 0.1667` (recorded as `procedure_match_rate` `0.1667`), because an exact match entails a procedure match. Current stage-match rate: `1 / 6 = 0.1667`.
 
 ### 4.7 Metric Interpretation
 
 The metric families answer different questions and must not be conflated:
 
-- **Exact abnormal-boundary matching** (`exact_match_count`): full semantic agreement on the abnormal boundary, including stage, protocol, abnormal-event identity and evidence anchor. Currently `0`.
-- **Frame agreement** (`exact_frame_match_count` `1`, `median_absolute_frame_delta` `0.0`): the authentication-negative case anchors both sides on frame 11, but frame agreement alone is not semantic agreement, so it does not raise `exact_match_count`.
-- **Procedure-level matching** (`procedure_match_count` `1`): the procedure family matches even though the stage differs — the single adjudication-required `PROCEDURE_MATCH_STAGE_DIFFERENCE` case.
+- **Exact abnormal-boundary matching** (`exact_match_count`): full semantic agreement on the abnormal boundary, including stage, protocol, abnormal-event identity and evidence anchor. Currently `1`.
+- **Frame agreement** (`exact_frame_match_count` `1`, `median_absolute_frame_delta` `0.0`): the authentication-negative case anchors both sides on frame 11. Frame agreement is never sufficient by itself: that case counts as an exact match only because its stage, protocol and abnormal-event identities agree as well.
+- **Procedure-level matching** (`procedure_match_count` `1`): the procedure family matches. An exact match entails a procedure match, so this count includes the authentication-negative case and does not decrease when that case's stage disagreement is resolved.
 - **Bounded no-abnormal-boundary agreement** (`no_abnormal_boundary_agreement_with_noncandidate_evidence_count` `5`): both sides observed no supported abnormal boundary and all relevant deviations are proven non-candidate. These five cases are **not** added to the exact-match count, and their zero contribution to `exact_match_count` is not evidence that they failed: they agree, boundedly, on the absence of a supported abnormal boundary.
-- **Adjudication-required mismatches** (`needs_adjudication_count` `1`): the single authentication-negative stage difference.
+- **Adjudication-required mismatches** (`needs_adjudication_count` `0`): no case currently requires adjudication; the authentication-negative stage difference was resolved by an authorized baseline revision.
 - **Coverage exclusions** (`out_of_scope_count` `1`, `capture_limitation_count` `1`, `domain_coverage_gap_count` `5`): excluded from the in-scope denominator because no implemented Domain evidence can decide them; they are coverage boundaries, not accuracy failures.
 
 ---
@@ -630,26 +642,42 @@ To keep historical records from being read as current results, the following his
 
 - The registration-resynchronization case is **no longer** reported as `FALSE_POSITIVE`; its current committed comparison is `NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE` with the recovered intermediate Authentication outcome retained as supporting anomaly `RECOVERED_INTERMEDIATE_OUTCOME_OBSERVED`.
 - The five bounded-agreement cases are **no longer** reported as `NEEDS_ADJUDICATION`; their current committed comparison is `NO_ABNORMAL_BOUNDARY_AGREEMENT_WITH_NONCANDIDATE_EVIDENCE` with `NONE` attribution.
-- The authentication-negative case is **no longer** reported with an unreported/`UNKNOWN` stage or as `NEEDS_ADJUDICATION`/`ORCHESTRATION_GAP`; its current committed comparison is `PROCEDURE_MATCH_STAGE_DIFFERENCE` with `DOMAIN` attribution and Skill stage `authentication`.
-- The current adjudication-required count is **one**, not six.
+- The authentication-negative case is **no longer** reported with an unreported/`UNKNOWN` stage, as `NEEDS_ADJUDICATION`/`ORCHESTRATION_GAP`, or as a stage difference; its current committed comparison is `EXACT_MATCH` with `NONE` attribution and no adjudication requirement, after the authorized human-baseline revision recorded in `adjudications/authentication-stage-baseline-revision.md`.
+- The current adjudication-required count is **zero**; the authentication-negative stage difference that previously accounted for the single adjudication requirement was resolved by an authorized baseline revision.
 - Statements in earlier notes that "the comparator is unchanged" describe only the pass in which they were written; the comparator has since gained evidence-type classification and verified Orchestration consumption (sections 5 and 6).
 
 ---
 
-## 9. Remaining Limitations and Open Baseline Review
+## 9. Remaining Limitations and Open Governance Questions
 
-The authentication-negative case currently retains a procedure-stage difference:
+The authentication-negative procedure-stage difference is resolved. The independent human baseline now
+records the stage `authentication` at `baseline_revision` 1, matching the Skill Domain stage, and the
+case is an `EXACT_MATCH` with `NONE` attribution and no adjudication requirement. The correction is
+recorded in `adjudications/authentication-stage-baseline-revision.md`.
 
-```text
-Human baseline stage:
-security
+Resolving that single case did not resolve the corpus-wide governance questions the accepted
+independent review recorded:
 
-Skill Domain stage:
-authentication
-```
+- **Baseline stage vocabulary.** The baseline schema still leaves `procedure_stage` free-form while the
+  comparator requires exact normalized identity, and the other 12 baselines still use a vocabulary
+  disjoint from the Domain stage catalog. Stage agreement therefore remains undefined for any baseline
+  label not drawn from that catalog; this case is simply no longer the visible instance of the gap,
+  because it no longer carries a mismatched label. Whether a shared vocabulary or an explicit mapping
+  should exist is a governance decision no benchmark record settles.
+- **Layer attribution expressiveness.** The differential still assigns `DOMAIN` and
+  `CORRECT_DOMAIN_MODEL` to any in-family boundary-semantics mismatch without evaluating which side
+  departed. That policy is unchanged; the `NONE` attribution now recorded for this case is its ordinary
+  exact-match outcome, not a repair of the attribution gap.
 
-This difference remains unresolved and is subject to an independent baseline review that is separately authorized. It is not resolved through this README. Neither stage is labelled definitively wrong without the separately authorized evidence adjudication, and no human baseline revision is authorized here. The frozen human stage label stays `security`; the committed Skill stage stays `authentication`.
+Both questions require their own separate authorization.
 
-Other documented limitations of the current benchmark scope are the coverage exclusions of section 4.5 (unimplemented `ngap-management` and `5gc-user-plane` procedure families, the external N6 path) and the protected-NAS capture limitation of `public-5gc-dnn-negative`. These are scope boundaries of the current repository, not asserted defects.
+Two further limitations remain unchanged. The timestamp-provenance discrepancy between the original
+capture epochs and the timestamps stored in the historical case and baseline records is unresolved and
+was deliberately left outside the authorized correction: `case.json` is byte-identical, the boundary
+timestamp is unchanged, and no timestamp agreement is asserted. The documented coverage exclusions of
+section 4.5 (unimplemented `ngap-management` and `5gc-user-plane` procedure families, the external N6
+path) and the protected-NAS capture limitation of `public-5gc-dnn-negative` are scope boundaries of the
+current repository, not asserted defects.
 
-Further work beyond this documentation synchronization requires separate authorization.
+Further work beyond this baseline revision and its required synchronization requires separate
+authorization.

@@ -1,10 +1,10 @@
 {
-  "adjudication_required": true,
+  "adjudication_required": false,
   "baseline_supported": true,
   "capture_limitations": [],
   "case_id": "public-5gc-auth-negative",
   "comparison_eligibility": "ELIGIBLE",
-  "comparison_status": "PROCEDURE_MATCH_STAGE_DIFFERENCE",
+  "comparison_status": "EXACT_MATCH",
   "evidence_layers": {
     "baseline_support": "SUPPORTED",
     "capture_sufficiency": "SUFFICIENT",
@@ -15,20 +15,20 @@
   },
   "evidence_overlap": true,
   "frame_delta": 0,
-  "human_baseline_sha256": "74b7a9596b4687c050715d4b012a6f637bfa34bd3bc4b5478d82880afe2b129d",
+  "human_baseline_sha256": "281f2af9d8676d03c8c63a0d1dd2448f4c6081c65f152d7e3d6375436e394edc",
   "human_boundary": {
     "analysis_status": "BOUNDARY_OBSERVED",
     "frame_number": 11,
     "message_type": "Authentication failure",
     "procedure_family": "5gc-registration-mobility",
-    "procedure_stage": "security",
+    "procedure_stage": "authentication",
     "protocol": "NAS-5GS"
   },
-  "layer_attribution": "DOMAIN",
+  "layer_attribution": "NONE",
   "notes": [
-    "Same procedure family (5gc-registration-mobility), but the abnormal boundary semantics disagree: procedure_stage (baseline security vs Skill authentication). Frame agreement is not evidence of an exact boundary match."
+    "Exact match on procedure family (5gc-registration-mobility), stage, protocol, abnormal event and evidence anchor at frame 11; matched dimensions: procedure_family, procedure_stage, protocol, abnormal_event."
   ],
-  "recommended_next_action": "CORRECT_DOMAIN_MODEL",
+  "recommended_next_action": "NO_CHANGE",
   "skill_boundary": {
     "boundary_frame": 11,
     "boundary_message": "Authentication failure",
@@ -38,5 +38,5 @@
     "selection_status": "SELECTED",
     "source_domain": "5gc-registration-mobility"
   },
-  "upstream_intent_match": "PARTIAL"
+  "upstream_intent_match": "MATCH"
 }
