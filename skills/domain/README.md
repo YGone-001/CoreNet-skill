@@ -10,5 +10,9 @@ handover and Path Switch procedure analysis from already-extracted NGAP/PFCP/
 GTP-U/SBI evidence with separate handover and path-switch attempt families,
 evidence-bounded source/target association, branch-aware stages, item-scoped
 PDU Session resource outcomes, bounded N11/N4/N3 supporting evidence, and
-structured deviation provenance. The concrete packages do not own protocol
+structured deviation provenance, and `epc-procedures` (v0.1.0), performing bounded
+EPS Attach procedure evidence analysis from already-extracted S1AP and NAS-EPS
+events with frame-anchored UE association, conditional stage evaluation, procedure-local
+deviations and explicit limitations (no bearer, PDN or service verdict, and no global EPC
+boundary). The concrete packages do not own protocol
 decoding, implementation mapping, or end-to-end root-cause diagnosis.

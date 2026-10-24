@@ -1,0 +1,117 @@
+# EPC Procedures
+
+## Purpose
+
+Answer HOW an observed EPS Attach procedure behaves at the procedure layer: which
+UE contexts ran an Attach attempt, which conditional stages were observed, which
+explicit protocol rejection or failure the network or the UE emitted, and which
+evidence is missing or protected.
+
+This is a Domain-layer Skill. It consumes already-extracted S1AP and NAS-EPS events
+and produces procedure-stage evidence, procedure-local deviations and explicit
+limitations. It never decodes protocols, never reads subscriber identity, and never
+produces a verdict about bearer, PDN or service success.
+
+## Scope
+
+Bounded EPS Attach signaling evidence model (version 0.1.0):
+
+- Attach initiation (`Attach request`).
+- Conditional identity procedure (`Identity request`/`Identity response`).
+- Conditional EPS AKA authentication (`Authentication request`/`response`/`failure`/`reject`).
+- Conditional NAS security mode control (`Security mode command`/`complete`/`reject`).
+- Attach decision (`Attach accept`/`Attach reject`).
+- Attach completion (`Attach complete`).
+- Associated S1AP Initial Context Setup evidence (request/response/failure).
+- Associated S1AP UE context release observations.
+- Protected-envelope and partial-capture limitations.
+
+## Non-Goals
+
+- No GTPv2-C, Diameter, S6a, S5/S8 or S11 session signalling.
+- No complete ESM decoding, PDN connection lifecycle or EPS bearer state.
+- No S1-U user-plane validation.
+- No success, failure or root-cause verdict, and no network-function blame.
+- No global EPC first-abnormal-boundary selection: no EPC Analysis Orchestration exists.
+- No subscriber identity handling of any kind.
+- No vendor or implementation-specific mapping.
+
+## Inputs
+
+| Input | Description |
+| --- | --- |
+| S1AP event JSONL | Detailed events from the `s1ap` Protocol Skill. |
+| NAS-EPS event JSONL | Detailed events from the `nas-eps` Protocol Skill. |
+
+Both inputs are validated for required provenance before analysis. A malformed event
+fails loudly instead of being skipped.
+
+## Outputs
+
+| Output | Description |
+| --- | --- |
+| Analysis JSON | Procedure instances, stages, observations, deviations, limitations (`schemas/epc-attach-analysis.schema.json`). |
+| Stage timeline JSONL | One row per procedure stage. |
+| Text timeline | Protocol-local rendering of the same evidence. |
+
+## Association Rules
+
+A NAS-EPS event is bound to an S1AP UE context only when the same capture contains
+exactly one S1AP message on the same frame that carries a NAS-PDU. A NAS event with
+no such enclosing message is reported as unbound; a frame with several NAS-carrying
+S1AP messages is reported as ambiguous. Timestamps are never used for binding.
+
+A context observed before the MME allocates its identifier is extended to that
+identifier only when exactly one MME-UE-S1AP-ID is observed for the same capture,
+association and eNB identifier. Conflicting identifiers stay separate and are marked
+ambiguous.
+
+## Evidence and Deviations
+
+Every deviation carries `deviation_type`, `procedure_stage`, `protocol`,
+`message_type`, `frame_number`, `evidence_level`, `evidence_refs`,
+`observation_window`, `explanation` and `limitations`.
+
+An explicit `Attach reject` is reported as `ATTACH_REJECT_OBSERVED` with the observed
+EMM cause. Authentication failure, authentication reject, security mode reject and S1
+context setup failure are reported as procedure-local deviations. A protected
+envelope is reported as `PROTECTED_INNER_MESSAGE_UNAVAILABLE`; the inner message is
+unavailable, not absent. An attempt without a terminal decision is reported as
+`INSUFFICIENT_TERMINAL_EVIDENCE`.
+
+`global_boundary_evaluation` is always `NOT_EVALUATED` and
+`global_first_abnormal_boundary` is always `null`.
+
+## Failure Behavior
+
+| Condition | Behavior |
+| --- | --- |
+| Missing or malformed input file | Exit 5 with the offending file and line. |
+| Event missing required provenance | Exit 5 naming the field. |
+| No Attach procedure instance formed | Exit 6; the analysis JSON is still written. |
+| Output exists without `--force` | Exit 7; the existing file is left intact. |
+
+## Standalone Usage
+
+```bash
+python3 scripts/analyze_epc_attach.py \
+  --s1ap s1ap-events.jsonl --nas nas-eps-events.jsonl \
+  --output epc-attach-analysis.json --stage-output epc-attach-stages.jsonl
+
+python3 scripts/epc_attach_timeline.py epc-attach-analysis.json --format text
+```
+
+The package copies and runs outside the main repository; it has no external
+dependency beyond the Python standard library.
+
+## Testing
+
+```bash
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+## Provenance
+
+Original CoreNet Domain-layer package. No upstream material imported. Normative
+references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the accepted
+`s1ap` and `nas-eps` Protocol Skill contracts. Version 0.1.0.

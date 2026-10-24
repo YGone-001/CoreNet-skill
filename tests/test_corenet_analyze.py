@@ -312,6 +312,63 @@ def zero_instances(summary: dict) -> dict:
     return summary
 
 
+def epc_payload(instances: int = 1) -> dict:
+    """Shaped like the EPC Attach Domain analysis for one rejected attempt."""
+    procedure_instances = []
+    for index in range(instances):
+        procedure_instances.append({
+            "procedure_reference": f"epc-attach-{index:010x}",
+            "procedure": "eps-attach",
+            "attempt_index": 1,
+            "association": {
+                "basis": "pre_assignment_extension_unique_mme_identifier",
+                "strength": "STRONG",
+                "capture_file": "fixture.pcap",
+                "sctp_association": "sctp-assoc-0",
+                "enb_ue_s1ap_id": 24 + index,
+                "mme_ue_s1ap_id": 24 + index,
+            },
+            "first_frame": 33,
+            "last_frame": 53,
+            "stages": [
+                {"stage_id": "attach-initiation", "stage_name": "Attach initiation", "conditional": False,
+                 "status": "OBSERVED", "messages": ["Attach request"], "first_frame": 33, "last_frame": 33,
+                 "evidence_refs": []},
+                {"stage_id": "attach-decision", "stage_name": "Attach decision", "conditional": False,
+                 "status": "OBSERVED", "messages": ["Attach reject"], "first_frame": 47, "last_frame": 47,
+                 "evidence_refs": []},
+            ],
+            "observations": [
+                {"observation_type": "ATTACH_REQUEST_OBSERVED", "procedure_stage": "attach-initiation",
+                 "protocol": "NAS-EPS", "message_type": "Attach request", "frame_number": 33,
+                 "evidence_level": "OBSERVED"},
+            ],
+            "deviations": [
+                {"deviation_type": "ATTACH_REJECT_OBSERVED", "procedure_stage": "attach-decision",
+                 "protocol": "NAS-EPS", "message_type": "Attach reject", "frame_number": 47,
+                 "evidence_level": "OBSERVED", "evidence_refs": [], "observation_window": None,
+                 "explanation": "explicit Attach rejection observed with EMM cause 19 (ESM failure)",
+                 "limitations": []},
+            ],
+            "evidence_limitations": ["underlying ESM evidence unavailable"],
+            "additional_evidence_needed": ["capture the NAS Attach complete for this UE context"],
+        })
+    return {
+        "analysis": {
+            "domain": "epc-procedures",
+            "domain_version": "0.1.0",
+            "procedure_instances": procedure_instances,
+            "instance_count": instances,
+            "limitations": [
+                "No EPC Analysis Orchestration exists, so no global first-abnormal boundary is selected."
+            ],
+            "additional_evidence_needed": [],
+        },
+        "s1ap_event_count": 40 * instances,
+        "nas_eps_event_count": 32 * instances,
+    }
+
+
 class WorkflowTestCase(unittest.TestCase):
     """Base class wiring deterministic fakes into the two external boundaries."""
 
@@ -327,16 +384,20 @@ class WorkflowTestCase(unittest.TestCase):
         self.work = self.base / "work"
         self.output = self.base / "out"
         self.pipeline_calls: list[tuple[str, str]] = []
+        self.epc_pipeline_calls: list[tuple[str, str]] = []
         self._original_inventory = MODULE.inventory_capture
         self._original_pipeline = MODULE.execute_5gc_pipeline
+        self._original_epc_pipeline = MODULE.execute_epc_pipeline
         self._original_revision = MODULE.repository_revision
         MODULE.inventory_capture = self.fake_inventory
         MODULE.execute_5gc_pipeline = self.fake_pipeline
+        MODULE.execute_epc_pipeline = self.fake_epc_pipeline
         MODULE.repository_revision = lambda root=MODULE.ROOT: "0" * 40
 
     def tearDown(self) -> None:
         MODULE.inventory_capture = self._original_inventory
         MODULE.execute_5gc_pipeline = self._original_pipeline
+        MODULE.execute_epc_pipeline = self._original_epc_pipeline
         MODULE.repository_revision = self._original_revision
         self._temporary.cleanup()
 
@@ -350,6 +411,10 @@ class WorkflowTestCase(unittest.TestCase):
         (artifacts / "nas-5gs-events.jsonl").write_text('{"a":1}\n{"b":2}\n', encoding="utf-8")
         (artifacts / "ngap-events.jsonl").write_text('{"c":3}\n', encoding="utf-8")
         return self.summary_factory(), self.orchestration_factory(), artifacts
+
+    def fake_epc_pipeline(self, capture: Path, work_dir: Path, case_id: str) -> dict:
+        self.epc_pipeline_calls.append((str(capture), case_id))
+        return epc_payload()
 
     def run_cli(self, *extra: str, domains: str = "auto") -> int:
         argv = [
@@ -385,16 +450,24 @@ class CapabilityContractTests(unittest.TestCase):
     def test_domain_identities_are_fixed(self) -> None:
         self.assertEqual(set(MODULE.DOMAIN_CAPABILITIES), {"5gc", "epc", "ims"})
 
-    def test_only_5gc_is_implemented(self) -> None:
-        self.assertEqual(MODULE.DOMAIN_CAPABILITIES["5gc"]["implementation_status"], "IMPLEMENTED")
-        for domain in ("epc", "ims"):
+    def test_implemented_domains_are_declared(self) -> None:
+        for domain in ("5gc", "epc"):
             capability = MODULE.DOMAIN_CAPABILITIES[domain]
-            self.assertEqual(capability["implementation_status"], "UNSUPPORTED")
-            self.assertIsNone(capability["entry_point"])
-            self.assertFalse(capability["entry_point_available"])
-            self.assertTrue(capability["unsupported_reason"])
-            self.assertEqual(capability["supported_protocol_families"], [])
-            self.assertEqual(capability["analysis_capabilities"], [])
+            self.assertEqual(capability["implementation_status"], "IMPLEMENTED", domain)
+            self.assertTrue(capability["entry_point_available"], domain)
+            self.assertIsNotNone(capability["entry_point"], domain)
+            self.assertTrue(capability["analysis_capabilities"], domain)
+        capability = MODULE.DOMAIN_CAPABILITIES["ims"]
+        self.assertEqual(capability["implementation_status"], "UNSUPPORTED")
+        self.assertIsNone(capability["entry_point"])
+        self.assertTrue(capability["unsupported_reason"])
+
+    def test_epc_capability_stays_bounded(self) -> None:
+        capability = MODULE.DOMAIN_CAPABILITIES["epc"]
+        self.assertIn("eps-attach-procedure-evidence", capability["analysis_capabilities"])
+        for absent in ("GTPv2-C session signalling", "end-to-end EPC failure-boundary orchestration"):
+            self.assertIn(absent, capability["not_implemented_capabilities"])
+        self.assertNotIn("gtpv2", " ".join(capability["supported_protocol_families"]).lower())
 
     def test_5gc_entry_point_is_the_accepted_pipeline(self) -> None:
         capability = MODULE.DOMAIN_CAPABILITIES["5gc"]
@@ -973,6 +1046,78 @@ class PublicationTests(WorkflowTestCase):
 # ---------------------------------------------------------------------------
 
 
+class EpcDomainTests(WorkflowTestCase):
+    def test_epc_subject_preserves_procedure_local_deviation(self) -> None:
+        self.run_cli(domains="epc")
+        result = self.domain_result()
+        subject = result["diagnostic_subjects"][0]
+        self.assertRegex(subject["diagnostic_group_reference"], r"^epc-attach-[0-9a-f]+$")
+        self.assertEqual(subject["boundary_selection_status"], "NOT_EVALUATED")
+        self.assertIsNone(subject["first_abnormal_boundary"])
+        deviations = subject["procedure_deviations"]
+        self.assertEqual(deviations[0]["deviation_type"], "ATTACH_REJECT_OBSERVED")
+        self.assertEqual(deviations[0]["frame_number"], 47)
+        self.assertIn("EMM cause 19", deviations[0]["explanation"])
+        self.assertEqual([p["protocol"] for p in result["protocol_evidence"]], ["S1AP", "NAS-EPS"])
+
+    def test_epc_report_states_no_global_boundary(self) -> None:
+        self.run_cli(domains="epc")
+        report = self.read_report()
+        result = self.domain_result()
+        self.assertIsNone(result["first_abnormal_boundary"])
+        self.assertEqual(result["boundary_selection_status"], "NOT_EVALUATED")
+        self.assertTrue(
+            any("boundary selection is not evaluated" in item for item in report["limitations"])
+        )
+        text = self.read_text()
+        self.assertIn("NOT_EVALUATED", text)
+        self.assertIn("ATTACH_REJECT_OBSERVED", text)
+
+    def test_epc_report_never_claims_bearer_or_service_success(self) -> None:
+        self.run_cli(domains="epc")
+        published = (self.output / "analysis.json").read_text(encoding="utf-8") + self.read_text()
+        lowered = published.lower()
+        for forbidden in ("bearer_active", "pdn_connectivity_success", "user_plane_ready", "service_success"):
+            self.assertNotIn(forbidden, lowered)
+        self.assertIn("does not establish", lowered)
+
+    def test_epc_extraction_failure_is_surfaced(self) -> None:
+        def failing(capture, work_dir, case_id):
+            raise MODULE.AnalysisError("EXTRACTION_FAILED", "S1AP extraction exited with 4")
+
+        MODULE.execute_epc_pipeline = failing
+        self.assertEqual(self.run_cli(domains="epc"), MODULE.EXIT_FAILED)
+        result = self.domain_result()
+        self.assertEqual(result["execution_status"], "FAILED")
+        self.assertEqual(result["failure_code"], "EXTRACTION_FAILED")
+        self.assertIsNone(result["first_abnormal_boundary"])
+
+    def test_epc_without_attach_instance_is_insufficient_evidence(self) -> None:
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: epc_payload(instances=0)
+        self.assertEqual(self.run_cli(domains="epc"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
+        result = self.domain_result()
+        self.assertEqual(result["execution_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertEqual(result["diagnostic_subject_count"], 0)
+        self.assertTrue(result["degradation"])
+
+    def test_mixed_request_keeps_three_domain_results(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "ngap", "nas-5gs", "s1ap"])
+        self.assertEqual(self.run_cli(domains="5gc,epc,ims"), 0)
+        report = self.read_report()
+        self.assertEqual(report["overall_execution_status"], "PARTIAL")
+        statuses = {result["domain"]: result["execution_status"] for result in report["domain_results"]}
+        self.assertEqual(statuses, {"5gc": "COMPLETED", "epc": "COMPLETED", "ims": "UNSUPPORTED"})
+
+    def test_epc_execution_is_deterministic(self) -> None:
+        first, second = self.base / "epc-a", self.base / "epc-b"
+        self.output = first
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        self.output = second
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        for name in ("analysis.json", "report.txt"):
+            self.assertEqual((first / name).read_bytes(), (second / name).read_bytes(), name)
+
+
 class DetectionTests(WorkflowTestCase):
     def test_auto_selects_5gc_on_access_signaling(self) -> None:
         self.assertEqual(self.run_cli(domains="auto"), 0)
@@ -997,29 +1142,34 @@ class DetectionTests(WorkflowTestCase):
         self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
         self.assertEqual(self.pipeline_calls, [])
 
-    def test_epc_signaling_is_confirmed_but_unsupported(self) -> None:
+    def test_epc_signaling_selects_the_epc_adapter(self) -> None:
         self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "s1ap", "nas-eps"])
-        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_UNSUPPORTED)
+        self.assertEqual(self.run_cli(domains="auto"), 0)
         self.assertEqual(self.read_report()["requested_domains"], ["epc"])
+        self.assertEqual(len(self.epc_pipeline_calls), 1)
         self.assertEqual(self.pipeline_calls, [])
 
     def test_mixed_5gc_and_epc_evidence_is_not_collapsed(self) -> None:
         self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "ngap", "nas-5gs", "s1ap"])
         self.assertEqual(self.run_cli(domains="auto"), 0)
         report = self.read_report()
-        self.assertEqual(report["overall_execution_status"], "PARTIAL")
+        self.assertEqual(report["overall_execution_status"], "COMPLETED")
         statuses = {result["domain"]: result["execution_status"] for result in report["domain_results"]}
-        self.assertEqual(statuses, {"5gc": "COMPLETED", "epc": "UNSUPPORTED"})
+        self.assertEqual(statuses, {"5gc": "COMPLETED", "epc": "COMPLETED"})
+        self.assertEqual(len(self.pipeline_calls), 1)
+        self.assertEqual(len(self.epc_pipeline_calls), 1)
 
 
 class UnsupportedDomainTests(WorkflowTestCase):
-    def test_epc_request_is_unsupported(self) -> None:
-        self.assertEqual(self.run_cli(domains="epc"), MODULE.EXIT_UNSUPPORTED)
+    def test_epc_request_runs_bounded_attach_analysis(self) -> None:
+        self.assertEqual(self.run_cli(domains="epc"), 0)
         report = self.read_report()
-        self.assertEqual(report["overall_execution_status"], "UNSUPPORTED")
+        self.assertEqual(report["overall_execution_status"], "COMPLETED")
         result = report["domain_results"][0]
-        self.assertEqual(result["execution_status"], "UNSUPPORTED")
-        self.assertTrue(result["unsupported_reason"])
+        self.assertEqual(result["domain"], "epc")
+        self.assertEqual(result["execution_status"], "COMPLETED")
+        self.assertEqual(result["diagnostic_subject_count"], 1)
+        self.assertEqual(len(self.epc_pipeline_calls), 1)
         self.assertEqual(self.pipeline_calls, [])
 
     def test_ims_request_is_unsupported(self) -> None:
@@ -1046,11 +1196,11 @@ class UnsupportedDomainTests(WorkflowTestCase):
         self.assertEqual(report["overall_execution_status"], "FAILED")
 
     def test_domain_without_adapter_fails_visibly(self) -> None:
-        capability = MODULE.DOMAIN_CAPABILITIES["epc"]
+        capability = MODULE.DOMAIN_CAPABILITIES["ims"]
         original = capability["implementation_status"]
         capability["implementation_status"] = "IMPLEMENTED"
         try:
-            self.assertEqual(self.run_cli(domains="epc"), MODULE.EXIT_FAILED)
+            self.assertEqual(self.run_cli(domains="ims"), MODULE.EXIT_FAILED)
             result = self.read_report()["domain_results"][0]
             self.assertEqual(result["execution_status"], "FAILED")
             self.assertEqual(result["failure_code"], "NO_DOMAIN_ADAPTER")

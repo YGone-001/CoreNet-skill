@@ -1,0 +1,61 @@
+{
+  "additional_evidence_needed": [],
+  "ambiguous_evidence": [],
+  "analysis_scope": "bounded EPS Attach procedure evidence",
+  "domain": "epc-procedures",
+  "domain_version": "0.1.0",
+  "global_boundary_evaluation": "NOT_EVALUATED",
+  "global_first_abnormal_boundary": null,
+  "input_provenance": {
+    "nas_eps_events": {
+      "event_count": 2,
+      "file": "unbound-nas.jsonl"
+    },
+    "s1ap_events": {
+      "event_count": 0,
+      "file": "unbound-nas-s1ap.jsonl"
+    }
+  },
+  "instance_count": 0,
+  "limitations": [
+    "No EPC Analysis Orchestration exists, so no global first-abnormal boundary is selected. Deviations below are procedure-local and frame-anchored.",
+    "2 NAS-EPS event(s) have no enclosing S1AP UE context and remain unbound",
+    "no EPS Attach procedure instance could be formed from the supplied evidence"
+  ],
+  "model_version": "1.0.0",
+  "not_confirmed": [
+    "default bearer activation is not established by this analysis",
+    "PDN connectivity success is not established by this analysis",
+    "S1-U user-plane readiness is not established by this analysis",
+    "end-to-end service success is not established by this analysis",
+    "root cause and network-function blame are not established by this analysis",
+    "HSS, MME, SIM or implementation behaviour is not assessed"
+  ],
+  "procedure": "eps-attach",
+  "procedure_instances": [],
+  "procedure_label": "EPS Attach",
+  "stage_vocabulary": [
+    "attach-initiation",
+    "identity",
+    "authentication",
+    "security-mode",
+    "attach-decision",
+    "attach-completion",
+    "s1-context-setup",
+    "context-release"
+  ],
+  "unbound_evidence": [
+    {
+      "capture_file": "fixture.pcap",
+      "frame_number": 40,
+      "message_type": "Attach request",
+      "reason": "no enclosing S1AP message carrying a NAS-PDU on this frame"
+    },
+    {
+      "capture_file": "fixture.pcap",
+      "frame_number": 41,
+      "message_type": "Attach reject",
+      "reason": "no enclosing S1AP message carrying a NAS-PDU on this frame"
+    }
+  ]
+}

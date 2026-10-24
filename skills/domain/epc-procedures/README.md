@@ -1,0 +1,69 @@
+# EPC Procedures Domain Skill
+
+Bounded EPS Attach procedure analysis over accepted S1AP and NAS-EPS events.
+
+```text
+skills/domain/epc-procedures/
+├── SKILL.md        Skill contract
+├── README.md       This file
+├── manifest.yaml   Machine-readable manifest
+├── references/     Procedure model, stage map, evidence rules, limitations
+├── rules/          Stage vocabulary and deviation catalogue
+├── schemas/        Analysis JSON Schema
+├── scripts/        analyze_epc_attach.py, epc_attach_timeline.py, epc_attach_model.py
+├── examples/       Event fixtures and expected analysis
+└── tests/          Standalone unit tests
+```
+
+## Quick start
+
+```bash
+# 1. Extract protocol events (from the Protocol Skills)
+python3 ../../protocol/s1ap/scripts/extract-s1ap.py capture.pcap --output s1ap-events.jsonl
+python3 ../../protocol/nas-eps/scripts/extract-nas-eps.py capture.pcap --output nas-eps-events.jsonl
+
+# 2. Analyze the EPS Attach procedure
+python3 scripts/analyze_epc_attach.py \
+  --s1ap s1ap-events.jsonl \
+  --nas nas-eps-events.jsonl \
+  --output epc-attach-analysis.json \
+  --stage-output epc-attach-stages.jsonl
+
+# 3. Read the procedure timeline
+python3 scripts/epc_attach_timeline.py epc-attach-analysis.json --format text
+```
+
+Or run everything through the unified workflow:
+
+```bash
+python3 scripts/corenet-analyze.py --capture capture.pcap --domains epc \
+  --work-dir /tmp/corenet-work --output-dir /tmp/corenet-report
+```
+
+## What it reports
+
+| Evidence | Detail |
+| --- | --- |
+| Procedure instances | One per UE context and Attach attempt, with a pseudonymous reference |
+| Stages | attach-initiation, identity, authentication, security-mode, attach-decision, attach-completion, s1-context-setup, context-release |
+| Observations | Attach request/accept/complete, authentication response, security mode complete, S1 context response, context release, identity exchange |
+| Deviations | Attach reject (with EMM cause), authentication failure/reject, security mode reject, S1 context setup failure, protected inner message, insufficient terminal evidence |
+| Limitations | Protected envelopes, partial captures, unbound and ambiguous NAS evidence |
+
+## What it does not do
+
+No ESM decoding, no bearer or PDN state, no user-plane validation, no root cause, no
+global failure boundary, no subscriber identity. See `SKILL.md`.
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Analysis written with at least one procedure instance |
+| 5 | Malformed input or missing provenance |
+| 6 | Analysis written but no Attach procedure instance formed |
+| 7 | Output failure, including a refused overwrite |
+
+## Version
+
+0.1.0

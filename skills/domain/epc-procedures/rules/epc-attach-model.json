@@ -1,0 +1,105 @@
+{
+  "model_version": "1.0.0",
+  "procedure_family": "eps-attach",
+  "normative_basis": "3GPP TS 23.401 (EPS attach procedure), 3GPP TS 24.301 (EPS NAS message identities, security header type and EMM causes), 3GPP TS 36.413 (S1AP messages), consumed through the accepted s1ap and nas-eps Protocol Skill contracts",
+  "stages": [
+    {
+      "stage_id": "attach-initiation",
+      "stage_name": "Attach initiation",
+      "conditional": false,
+      "trigger": {"any_of": [{"protocol": "NAS-EPS", "message_type": "Attach request"}]},
+      "basis": "TS 23.401 attach procedure initiation over NAS"
+    },
+    {
+      "stage_id": "identity",
+      "stage_name": "Identity procedure",
+      "conditional": true,
+      "trigger": {"any_of": [{"protocol": "NAS-EPS", "message_type": "Identity request"}]},
+      "expected_outcomes": {"any_of": [{"protocol": "NAS-EPS", "message_type": "Identity response"}]},
+      "basis": "TS 24.301 identity procedure; entered only when the network requests an identity"
+    },
+    {
+      "stage_id": "authentication",
+      "stage_name": "Authentication procedure",
+      "conditional": true,
+      "trigger": {"any_of": [{"protocol": "NAS-EPS", "message_type": "Authentication request"}]},
+      "expected_outcomes": {"any_of": [
+        {"protocol": "NAS-EPS", "message_type": "Authentication response"},
+        {"protocol": "NAS-EPS", "message_type": "Authentication failure"},
+        {"protocol": "NAS-EPS", "message_type": "Authentication reject"}
+      ]},
+      "basis": "TS 23.401 / TS 24.301 EPS AKA; conditional on the UE context available at the MME"
+    },
+    {
+      "stage_id": "security-mode",
+      "stage_name": "NAS security mode control",
+      "conditional": true,
+      "trigger": {"any_of": [{"protocol": "NAS-EPS", "message_type": "Security mode command"}]},
+      "expected_outcomes": {"any_of": [
+        {"protocol": "NAS-EPS", "message_type": "Security mode complete"},
+        {"protocol": "NAS-EPS", "message_type": "Security mode reject"}
+      ]},
+      "basis": "TS 24.301 security mode control; a separate procedure from authentication"
+    },
+    {
+      "stage_id": "attach-decision",
+      "stage_name": "Attach decision",
+      "conditional": false,
+      "trigger": {"any_of": [
+        {"protocol": "NAS-EPS", "message_type": "Attach accept"},
+        {"protocol": "NAS-EPS", "message_type": "Attach reject"}
+      ]},
+      "basis": "TS 24.301 attach accept and attach reject outcomes"
+    },
+    {
+      "stage_id": "attach-completion",
+      "stage_name": "Attach completion",
+      "conditional": false,
+      "trigger": {"any_of": [{"protocol": "NAS-EPS", "message_type": "Attach complete"}]},
+      "basis": "TS 24.301 attach complete; a signaling observation only"
+    },
+    {
+      "stage_id": "s1-context-setup",
+      "stage_name": "S1 context setup",
+      "conditional": true,
+      "trigger": {"any_of": [{"protocol": "S1AP", "message_type": "InitialContextSetupRequest"}]},
+      "expected_outcomes": {"any_of": [
+        {"protocol": "S1AP", "message_type": "InitialContextSetupResponse"},
+        {"protocol": "S1AP", "message_type": "InitialContextSetupFailure"}
+      ]},
+      "basis": "TS 36.413 initial context setup; S1 evidence only, never an Attach verdict"
+    },
+    {
+      "stage_id": "context-release",
+      "stage_name": "UE context release",
+      "conditional": false,
+      "trigger": {"any_of": [
+        {"protocol": "S1AP", "message_type": "UEContextReleaseRequest"},
+        {"protocol": "S1AP", "message_type": "UEContextReleaseCommand"}
+      ]},
+      "basis": "TS 36.413 UE context release; a separate observed procedure"
+    }
+  ],
+  "observations": [
+    "ATTACH_REQUEST_OBSERVED",
+    "ATTACH_ACCEPT_OBSERVED",
+    "ATTACH_COMPLETE_OBSERVED",
+    "AUTHENTICATION_RESPONSE_OBSERVED",
+    "SECURITY_MODE_COMPLETE_OBSERVED",
+    "S1_CONTEXT_SETUP_RESPONSE_OBSERVED",
+    "CONTEXT_RELEASE_OBSERVED",
+    "IDENTITY_EXCHANGE_OBSERVED",
+    "REPEATED_ATTACH_REQUEST_OBSERVED"
+  ],
+  "deviations": [
+    "ATTACH_REJECT_OBSERVED",
+    "AUTHENTICATION_FAILURE_OBSERVED",
+    "AUTHENTICATION_REJECT_OBSERVED",
+    "SECURITY_MODE_REJECT_OBSERVED",
+    "S1_CONTEXT_SETUP_FAILURE_OBSERVED",
+    "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+    "INSUFFICIENT_TERMINAL_EVIDENCE"
+  ],
+  "association_strengths": ["STRONG", "SUPPORTED", "AMBIGUOUS", "UNBOUND"],
+  "global_boundary_evaluation": "NOT_EVALUATED"
+}

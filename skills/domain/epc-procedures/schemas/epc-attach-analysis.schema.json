@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/epc-attach-analysis.schema.json",
+  "title": "Bounded EPS Attach Procedure Analysis",
+  "description": "Procedure-instance analysis of observed EPS Attach signaling. Contains no subscriber identity, no bearer or PDN success claim, and no globally selected failure boundary.",
+  "type": "object",
+  "required": [
+    "domain",
+    "domain_version",
+    "model_version",
+    "analysis_scope",
+    "input_provenance",
+    "procedure",
+    "stage_vocabulary",
+    "procedure_instances",
+    "instance_count",
+    "unbound_evidence",
+    "ambiguous_evidence",
+    "global_first_abnormal_boundary",
+    "global_boundary_evaluation",
+    "limitations",
+    "additional_evidence_needed",
+    "not_confirmed"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "domain": {"type": "string"},
+    "domain_version": {"type": "string"},
+    "model_version": {"type": "string"},
+    "analysis_scope": {"type": "string"},
+    "input_provenance": {
+      "type": "object",
+      "required": ["s1ap_events", "nas_eps_events"],
+      "additionalProperties": false,
+      "properties": {
+        "s1ap_events": {"$ref": "#/$defs/provenance"},
+        "nas_eps_events": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "procedure": {"type": "string"},
+    "procedure_label": {"type": "string"},
+    "stage_vocabulary": {"type": "array", "items": {"type": "string"}},
+    "procedure_instances": {"type": "array", "items": {"$ref": "#/$defs/instance"}},
+    "instance_count": {"type": "integer", "minimum": 0},
+    "unbound_evidence": {"type": "array", "items": {"$ref": "#/$defs/unbound"}},
+    "ambiguous_evidence": {"type": "array", "items": {"$ref": "#/$defs/ambiguous"}},
+    "global_first_abnormal_boundary": {"type": "null"},
+    "global_boundary_evaluation": {"type": "string", "enum": ["NOT_EVALUATED"]},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "additional_evidence_needed": {"type": "array", "items": {"type": "string"}},
+    "not_confirmed": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "provenance": {
+      "type": "object",
+      "required": ["file", "event_count"],
+      "additionalProperties": false,
+      "properties": {
+        "file": {"type": "string"},
+        "event_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "association": {
+      "type": "object",
+      "required": ["basis", "strength", "capture_file", "sctp_association"],
+      "additionalProperties": false,
+      "properties": {
+        "basis": {"type": "string"},
+        "strength": {"type": "string", "enum": ["STRONG", "SUPPORTED", "AMBIGUOUS", "UNBOUND"]},
+        "capture_file": {"type": "string"},
+        "sctp_association": {"type": "string"},
+        "enb_ue_s1ap_id": {"type": ["integer", "null"]},
+        "mme_ue_s1ap_id": {"type": ["integer", "null"]}
+      }
+    },
+    "stage": {
+      "type": "object",
+      "required": ["stage_id", "stage_name", "conditional", "status", "messages", "first_frame", "last_frame", "evidence_refs"],
+      "additionalProperties": false,
+      "properties": {
+        "stage_id": {"type": "string"},
+        "stage_name": {"type": "string"},
+        "conditional": {"type": "boolean"},
+        "status": {"type": "string", "enum": ["OBSERVED", "INCOMPLETE", "NOT_OBSERVED", "UNAVAILABLE_PROTECTED"]},
+        "messages": {"type": "array", "items": {"type": ["string", "null"]}},
+        "first_frame": {"type": ["integer", "null"]},
+        "last_frame": {"type": ["integer", "null"]},
+        "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/evidence_ref"}}
+      }
+    },
+    "evidence_ref": {
+      "type": "object",
+      "required": ["protocol", "frame_number", "message_type", "evidence_level"],
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {"type": "string"},
+        "frame_number": {"type": ["integer", "null"]},
+        "message_type": {"type": ["string", "null"]},
+        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]}
+      }
+    },
+    "observation": {
+      "type": "object",
+      "required": ["observation_type", "procedure_stage", "protocol", "message_type", "frame_number", "evidence_level"],
+      "additionalProperties": false,
+      "properties": {
+        "observation_type": {"type": "string"},
+        "procedure_stage": {"type": "string"},
+        "protocol": {"type": "string"},
+        "message_type": {"type": ["string", "null"]},
+        "frame_number": {"type": ["integer", "null"]},
+        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]}
+      }
+    },
+    "deviation": {
+      "type": "object",
+      "required": [
+        "deviation_type",
+        "procedure_stage",
+        "protocol",
+        "message_type",
+        "frame_number",
+        "evidence_level",
+        "evidence_refs",
+        "observation_window",
+        "explanation",
+        "limitations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "deviation_type": {"type": "string"},
+        "procedure_stage": {"type": "string"},
+        "protocol": {"type": "string"},
+        "message_type": {"type": ["string", "null"]},
+        "frame_number": {"type": ["integer", "null"]},
+        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
+        "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/evidence_ref"}},
+        "observation_window": {
+          "type": ["object", "null"],
+          "required": ["start_frame", "end_frame"],
+          "additionalProperties": false,
+          "properties": {
+            "start_frame": {"type": "integer"},
+            "end_frame": {"type": "integer"}
+          }
+        },
+        "explanation": {"type": "string"},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "instance": {
+      "type": "object",
+      "required": [
+        "procedure_reference",
+        "procedure",
+        "attempt_index",
+        "association",
+        "first_frame",
+        "last_frame",
+        "stages",
+        "observations",
+        "deviations",
+        "evidence_limitations",
+        "additional_evidence_needed"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "procedure_reference": {"type": "string", "pattern": "^epc-attach-[0-9a-f]{10}$"},
+        "procedure": {"type": "string"},
+        "procedure_label": {"type": "string"},
+        "attempt_index": {"type": "integer", "minimum": 1},
+        "association": {"$ref": "#/$defs/association"},
+        "first_frame": {"type": ["integer", "null"]},
+        "last_frame": {"type": ["integer", "null"]},
+        "stages": {"type": "array", "items": {"$ref": "#/$defs/stage"}},
+        "observations": {"type": "array", "items": {"$ref": "#/$defs/observation"}},
+        "deviations": {"type": "array", "items": {"$ref": "#/$defs/deviation"}},
+        "evidence_limitations": {"type": "array", "items": {"type": "string"}},
+        "additional_evidence_needed": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "unbound": {
+      "type": "object",
+      "required": ["frame_number", "capture_file", "message_type", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "frame_number": {"type": ["integer", "null"]},
+        "capture_file": {"type": ["string", "null"]},
+        "message_type": {"type": ["string", "null"]},
+        "reason": {"type": "string"}
+      }
+    },
+    "ambiguous": {
+      "type": "object",
+      "required": ["frame_number", "capture_file", "message_type", "reason", "candidates"],
+      "additionalProperties": false,
+      "properties": {
+        "frame_number": {"type": ["integer", "null"]},
+        "capture_file": {"type": ["string", "null"]},
+        "message_type": {"type": ["string", "null"]},
+        "reason": {"type": "string"},
+        "candidates": {"type": "array", "items": {"type": "object"}}
+      }
+    }
+  }
+}

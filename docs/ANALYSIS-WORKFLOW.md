@@ -306,11 +306,10 @@ Three capabilities must not be conflated:
 | Capability | Status |
 | --- | --- |
 | EPC protocol extraction (S1AP, EPS NAS) | Implemented as standalone Protocol Skills |
-| EPC procedure diagnosis (Attach, bearer, mobility) | Not implemented |
-| Unified EPC execution through this workflow | Not implemented |
+| EPC procedure diagnosis | Implemented for bounded EPS Attach evidence only |
+| Unified EPC execution through this workflow | Implemented for the bounded Attach path |
 
-The two EPC Protocol Skills are independently executable and are not wired into this
-workflow yet:
+The two EPC Protocol Skills remain independently executable:
 
 ```bash
 python3 skills/protocol/s1ap/scripts/extract-s1ap.py capture.pcap --output s1ap-events.jsonl
@@ -320,11 +319,14 @@ python3 skills/protocol/nas-eps/scripts/extract-nas-eps.py capture.pcap --output
 python3 skills/protocol/nas-eps/scripts/nas_eps_timeline.py nas-eps-events.jsonl --format text
 ```
 
-Because no EPC Domain analyzer exists, `--domains epc` and `--domains auto` on an
-EPC-only capture continue to report `UNSUPPORTED`. Automatic detection does identify
-EPC signaling from observed protocols; it does not claim that EPC procedure analysis
-is available. A future EPC Domain adapter will consume the S1AP and NAS-EPS event
-contracts without changing the 5GC path or the report envelope.
+`--domains epc` runs the bounded chain — S1AP extraction, NAS-EPS extraction, EPS
+Attach analysis — and `--domains auto` selects it when EPC access signaling is
+confirmed. The EPC result reports procedure instances, per-stage observations and
+procedure-local deviations with exact frames. It never reports a bearer, PDN or
+service verdict, and it never selects a global first-abnormal boundary: EPC boundary
+selection is reported as `NOT_EVALUATED` until an EPC Analysis Orchestration Skill
+exists. GTPv2-C, Diameter EPC, complete ESM semantics and user-plane verification
+remain outside the implemented scope.
 
 ## 11. Roadmap for EPC and IMS
 

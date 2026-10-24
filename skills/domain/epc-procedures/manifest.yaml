@@ -1,0 +1,80 @@
+name: epc-procedures
+version: 0.1.0
+category: domain
+description: >
+  Bounded EPS Attach procedure analysis over already-extracted S1AP and NAS-EPS
+  events: deterministic procedure-instance formation from frame-anchored
+  cross-protocol evidence, conditional attach/identity/authentication/security-mode/
+  decision/completion stages, bounded S1 context setup and UE context release
+  observations, procedure-local deviations with exact evidence references, and
+  explicit evidence limitations. No protocol decoding, no bearer or PDN success
+  claim, no global failure-boundary selection, no root cause.
+scope:
+  includes:
+    - EPS Attach procedure instance formation scoped by capture, SCTP association and S1AP UE identifiers
+    - frame-anchored NAS-EPS to S1AP UE context association
+    - conditional stage evaluation for attach initiation, identity, authentication, security mode control, attach decision, attach completion, S1 context setup and context release
+    - procedure-local deviation classification with machine-readable evidence references
+    - protected-envelope and partial-capture limitations
+  excludes:
+    - GTPv2-C, Diameter, S6a, S5/S8 or S11 session signalling
+    - complete ESM decoding, PDN connection lifecycle and EPS bearer state
+    - S1-U user-plane validation
+    - success, failure or root-cause verdicts and network-function blame
+    - global EPC first-abnormal-boundary selection (no EPC Analysis Orchestration exists)
+    - subscriber identity handling of any kind
+dependencies:
+  required: []
+  optional:
+    - procedure-evidence >=0.1.0
+    - s1ap >=0.1.0
+    - nas-eps >=0.1.0
+inputs:
+  - detailed S1AP event JSONL produced by the s1ap Protocol Skill
+  - detailed NAS-EPS event JSONL produced by the nas-eps Protocol Skill
+outputs:
+  - EPS Attach analysis JSON (schemas/epc-attach-analysis.schema.json)
+  - stage timeline JSON Lines
+  - protocol-local text timeline
+protocols: [S1AP, NAS-EPS]
+interfaces: [S1-MME, N1]
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Domain-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/extracted/attach-reject-s1ap.jsonl
+    - examples/extracted/attach-reject-nas.jsonl
+    - examples/extracted/auth-failure-s1ap.jsonl
+    - examples/extracted/auth-failure-nas.jsonl
+    - examples/extracted/smc-reject-s1ap.jsonl
+    - examples/extracted/smc-reject-nas.jsonl
+    - examples/extracted/conflicting-ids-s1ap.jsonl
+    - examples/extracted/conflicting-ids-nas.jsonl
+    - examples/extracted/protected-inner-s1ap.jsonl
+    - examples/extracted/protected-inner-nas.jsonl
+    - examples/extracted/unbound-nas-s1ap.jsonl
+    - examples/extracted/unbound-nas.jsonl
+    - examples/extracted/malformed-nas.jsonl
+  expected_results:
+    - examples/expected/attach-reject-analysis.json
+    - examples/expected/attach-reject-stages.jsonl
+    - examples/expected/auth-failure-analysis.json
+    - examples/expected/auth-failure-stages.jsonl
+    - examples/expected/smc-reject-analysis.json
+    - examples/expected/smc-reject-stages.jsonl
+    - examples/expected/conflicting-ids-analysis.json
+    - examples/expected/conflicting-ids-stages.jsonl
+    - examples/expected/protected-inner-analysis.json
+    - examples/expected/protected-inner-stages.jsonl
+    - examples/expected/unbound-nas-analysis.json

@@ -68,14 +68,16 @@ ordering with no severity ranking, and no root-cause or blame output). The unifi
 a single command-line entry point and reports EPC and IMS as explicitly unsupported
 capabilities. The bounded `s1ap` S1-MME Protocol Skill and the bounded
 `nas-eps` EPS NAS Protocol Skill extract EPC access-signaling and NAS message
-evidence from LTE captures; EPC procedure diagnosis is not implemented. The
-extensions provide investigation context only.
+evidence from LTE captures, and the bounded `epc-procedures` Domain Skill analyzes
+observed EPS Attach procedure stages with procedure-local deviations and no bearer,
+PDN or service verdict. The extensions provide investigation context only.
 **Not yet implemented:** deep NGAP transfer-container decoding, the remaining
 NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
 relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
 semantics), remaining
-5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (GTPv2, SIP, SDP/RTP, Diameter), EPC/IMS Domain procedures,
+5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (GTPv2, SIP, SDP/RTP, Diameter), IMS Domain procedures,
+broader EPC procedures (bearer and session lifecycle, GTPv2-C, Diameter EPC),
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper
 diagnosis orchestration.
 

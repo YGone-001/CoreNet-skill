@@ -49,6 +49,9 @@ REPORT_SCHEMA_VERSION = "1.1"
 ROOT = Path(__file__).resolve().parents[1]
 INVENTORY_SCRIPT = ROOT / "skills" / "protocol" / "core-network-pcap" / "scripts" / "capture-inventory.py"
 PIPELINE_SCRIPT = ROOT / "benchmarks" / "golden-captures" / "scripts" / "run_capture_pipeline.py"
+S1AP_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "s1ap" / "scripts" / "extract-s1ap.py"
+NAS_EPS_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "nas-eps" / "scripts" / "extract-nas-eps.py"
+EPC_ANALYZE_SCRIPT = ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_attach.py"
 FROZEN_BENCHMARK_DIR = ROOT / "benchmarks" / "golden-captures"
 
 STATUS_COMPLETED = "COMPLETED"
@@ -161,18 +164,29 @@ DOMAIN_CAPABILITIES: dict[str, dict[str, Any]] = {
     DOMAIN_EPC: {
         "domain": DOMAIN_EPC,
         "display_name": "Evolved Packet Core",
-        "implementation_status": "UNSUPPORTED",
-        "supported_protocol_families": [],
-        "analysis_capabilities": [],
-        "entry_point": None,
-        "entry_point_available": False,
-        "required_dependencies": [],
+        "implementation_status": "IMPLEMENTED",
+        "supported_protocol_families": ["S1AP", "NAS-EPS", "SCTP"],
+        "analysis_capabilities": [
+            "protocol-extraction",
+            "eps-attach-procedure-evidence",
+            "authentication-observation",
+            "security-mode-observation",
+            "explicit-attach-rejection",
+            "bounded-s1-context-and-release-observations",
+        ],
+        "entry_point": "skills/domain/epc-procedures/scripts/analyze_epc_attach.py",
+        "entry_point_available": True,
+        "required_dependencies": ["python3", "tshark"],
         "planned_protocol_families": ["GTPv2-C", "Diameter EPC"],
-        "unsupported_reason": (
-            "The bounded `s1ap` and `nas-eps` Protocol Skills extract EPC signaling evidence, "
-            "but no EPC Domain procedure Skill and no unified EPC execution adapter is "
-            "implemented in this repository."
-        ),
+        "not_implemented_capabilities": [
+            "GTPv2-C session signalling",
+            "Diameter EPC",
+            "full EPS bearer lifecycle",
+            "complete ESM semantics",
+            "end-to-end EPC failure-boundary orchestration",
+            "user-plane success verification",
+        ],
+        "unsupported_reason": None,
     },
     DOMAIN_IMS: {
         "domain": DOMAIN_IMS,
@@ -809,14 +823,14 @@ def project_primary_boundary(summary: dict[str, Any]) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 
-def create_run_directory(work_dir: Path) -> Path:
-    """Create a fresh, uniquely named scratch directory for one 5GC run.
+def create_run_directory(work_dir: Path, domain: str = DOMAIN_5GC) -> Path:
+    """Create a fresh, uniquely named scratch directory for one domain run.
 
     A run-scoped directory guarantees that an interrupted or failed run can never
     be read as fresh evidence from an earlier run, and nothing is ever deleted to
     achieve that.
     """
-    run_dir = work_dir / DOMAIN_5GC / "runs" / uuid.uuid4().hex[:16]
+    run_dir = work_dir / domain / "runs" / uuid.uuid4().hex[:16]
     run_dir.mkdir(parents=True, exist_ok=False)
     return run_dir
 
@@ -1027,7 +1041,16 @@ def collect_limitations(
                 f"{result['domain']} analysis is partial: usable evidence exists, but at least one "
                 "component failed or one requested capability is unavailable."
             )
-        if result["first_abnormal_boundary"] is None and result["execution_status"] in (
+        if (
+            result["first_abnormal_boundary"] is None
+            and result.get("boundary_selection_status") == "NOT_EVALUATED"
+            and result["execution_status"] in (STATUS_COMPLETED, STATUS_PARTIAL)
+        ):
+            limitations.append(
+                f"{result['domain']} boundary selection is not evaluated: no {result['domain']} "
+                "Analysis Orchestration exists, so deviations stay procedure-local."
+            )
+        elif result["first_abnormal_boundary"] is None and result["execution_status"] in (
             STATUS_COMPLETED, STATUS_PARTIAL
         ):
             limitations.append(
@@ -1126,6 +1149,7 @@ def build_report(
                 "entry_point_available": capability["entry_point_available"],
                 "required_dependencies": capability["required_dependencies"],
                 "planned_protocol_families": capability["planned_protocol_families"],
+                "not_implemented_capabilities": capability.get("not_implemented_capabilities") or [],
                 "execution_status": execution_by_domain.get(capability["domain"], "NOT_REQUESTED"),
                 "status_explanation": capability["unsupported_reason"],
             }
@@ -1317,6 +1341,19 @@ def render_text_report(report: dict[str, Any]) -> str:
                     f"      subject link: {_value(link.get('basis'))} "
                     f"({_value(link.get('context_count'))} context(s), "
                     f"reference {_value(link.get('subject_reference'))})"
+                )
+            for stage in subject.get("procedure_stages") or []:
+                marker = "conditional" if stage.get("conditional") else "required"
+                first, last = stage.get("first_frame"), stage.get("last_frame")
+                span = f"frames {first}-{last}" if first is not None else "no frame observed"
+                lines.append(
+                    f"      stage {stage.get('stage_id')}: {stage.get('status')} "
+                    f"({marker}, {span})"
+                )
+            for deviation in subject.get("procedure_deviations") or []:
+                lines.append(
+                    f"      deviation {deviation.get('deviation_type')} at frame "
+                    f"{_value(deviation.get('frame_number'))}: {_value(deviation.get('explanation'))}"
                 )
     if not subject_any:
         _empty(lines, "no diagnostic group was established")
@@ -1584,8 +1621,200 @@ def build_failure_report(capture: Path | None, error: AnalysisError) -> dict[str
 DomainAdapter = Callable[[Path, Path, str, dict[str, Any], set[str]], dict[str, Any]]
 
 
+def _run_component(command: list[str], label: str, allow_empty: bool = False) -> bool:
+    """Run one accepted component; return False only for a legitimate empty result."""
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    except OSError as exc:
+        raise AnalysisError("COMPONENT_UNAVAILABLE", f"{label} could not start: {exc}") from exc
+    if completed.returncode == 0:
+        return True
+    if allow_empty and completed.returncode == 6:
+        return False
+    detail = (completed.stderr or completed.stdout or "").strip().splitlines()
+    first = detail[0] if detail else "no diagnostic output"
+    raise AnalysisError(
+        "EXTRACTION_FAILED", f"{label} exited with {completed.returncode}: {scrub_free_text(first)}"
+    )
+
+
+def _count_lines(path: Path) -> int:
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as handle:
+            return sum(1 for line in handle if line.strip())
+    except OSError:
+        return 0
+
+
+def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[str, Any]:
+    """Execute the accepted EPC chain: S1AP extraction, NAS-EPS extraction, Attach analysis."""
+    run_dir = create_run_directory(work_dir, DOMAIN_EPC)
+    s1ap_events = run_dir / "s1ap-events.jsonl"
+    nas_events = run_dir / "nas-eps-events.jsonl"
+    analysis_path = run_dir / "epc-attach-analysis.json"
+
+    s1ap_present = _run_component(
+        [sys.executable, str(S1AP_EXTRACT_SCRIPT), str(capture), "--output", str(s1ap_events), "--force"],
+        "S1AP extraction",
+        allow_empty=True,
+    )
+    nas_present = _run_component(
+        [sys.executable, str(NAS_EPS_EXTRACT_SCRIPT), str(capture), "--output", str(nas_events), "--force"],
+        "NAS-EPS extraction",
+        allow_empty=True,
+    )
+    if not s1ap_present:
+        s1ap_events.write_text("", encoding="utf-8")
+    if not nas_present:
+        nas_events.write_text("", encoding="utf-8")
+
+    _run_component(
+        [
+            sys.executable,
+            str(EPC_ANALYZE_SCRIPT),
+            "--s1ap",
+            str(s1ap_events),
+            "--nas",
+            str(nas_events),
+            "--output",
+            str(analysis_path),
+            "--force",
+        ],
+        "EPC Attach analysis",
+        allow_empty=True,
+    )
+    if not analysis_path.is_file():
+        raise AnalysisError("PIPELINE_OUTPUT_MISSING", "EPC Attach analysis produced no result")
+    try:
+        analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise AnalysisError("PIPELINE_OUTPUT_UNREADABLE", f"EPC Attach analysis is unreadable: {exc}") from exc
+    if not isinstance(analysis, dict):
+        raise AnalysisError("PIPELINE_OUTPUT_UNREADABLE", "EPC Attach analysis is not an object")
+    return {
+        "analysis": analysis,
+        "s1ap_event_count": _count_lines(s1ap_events),
+        "nas_eps_event_count": _count_lines(nas_events),
+    }
+
+
+def _project_epc_subject(instance: dict[str, Any]) -> dict[str, Any]:
+    """Publish one Attach procedure instance as a diagnostic subject."""
+    reference = instance.get("procedure_reference")
+    association = instance.get("association") or {}
+    return {
+        "diagnostic_group_reference": reference,
+        "boundary_selection_status": "NOT_EVALUATED",
+        "boundary_confidence": None,
+        "first_abnormal_boundary": None,
+        "candidate_boundary_count": 0,
+        "source_domain_instances": [
+            {
+                "source_domain": "epc-procedures",
+                "capture_file": association.get("capture_file"),
+                "instance_reference": reference,
+            }
+        ],
+        "subject_link": {
+            "basis": association.get("basis"),
+            "context_count": 1,
+            "subject_reference": reference,
+        },
+        "attempt_index": instance.get("attempt_index"),
+        "association_strength": association.get("strength"),
+        "procedure_stages": [
+            {
+                "stage_id": stage.get("stage_id"),
+                "status": stage.get("status"),
+                "conditional": stage.get("conditional"),
+                "first_frame": stage.get("first_frame"),
+                "last_frame": stage.get("last_frame"),
+                "messages": stage.get("messages"),
+            }
+            for stage in instance.get("stages") or []
+        ],
+        "procedure_deviations": [
+            {
+                "deviation_type": deviation.get("deviation_type"),
+                "procedure_stage": deviation.get("procedure_stage"),
+                "protocol": deviation.get("protocol"),
+                "message_type": deviation.get("message_type"),
+                "frame_number": deviation.get("frame_number"),
+                "evidence_level": deviation.get("evidence_level"),
+                "explanation": scrub_free_text(deviation.get("explanation")),
+            }
+            for deviation in instance.get("deviations") or []
+        ],
+        "observations": [
+            observation.get("observation_type") for observation in instance.get("observations") or []
+        ],
+        "evidence_limitations": scrub_list(instance.get("evidence_limitations")),
+        "additional_evidence_needed": scrub_list(instance.get("additional_evidence_needed")),
+    }
+
+
+def execute_epc_domain(
+    capture: Path,
+    work_dir: Path,
+    case_id: str,
+    detection: dict[str, Any],
+    pipeline: Callable[[Path, Path, str], dict[str, Any]],
+) -> dict[str, Any]:
+    """Run the bounded EPC Attach analysis and normalize its output."""
+    payload = pipeline(capture, work_dir, case_id)
+    analysis = payload["analysis"]
+    instances = analysis.get("procedure_instances") or []
+    deviations = sum(len(instance.get("deviations") or []) for instance in instances)
+    status = STATUS_COMPLETED if instances else STATUS_INSUFFICIENT_EVIDENCE
+    result: dict[str, Any] = {
+        "domain": DOMAIN_EPC,
+        "display_name": DOMAIN_CAPABILITIES[DOMAIN_EPC]["display_name"],
+        "implementation_status": DOMAIN_CAPABILITIES[DOMAIN_EPC]["implementation_status"],
+        "execution_status": status,
+        "detection": detection,
+        "unsupported_reason": None,
+        "protocol_evidence": [
+            {
+                "protocol": "S1AP",
+                "extraction_status": EXTRACTION_SUCCESS,
+                "observed_in_capture": payload.get("s1ap_event_count", 0) > 0,
+                "event_count": payload.get("s1ap_event_count", 0),
+            },
+            {
+                "protocol": "NAS-EPS",
+                "extraction_status": EXTRACTION_SUCCESS,
+                "observed_in_capture": payload.get("nas_eps_event_count", 0) > 0,
+                "event_count": payload.get("nas_eps_event_count", 0),
+            },
+        ],
+        "procedure_summaries": [
+            {
+                "procedure_domain": "epc-procedures",
+                "procedure": "eps-attach",
+                "execution_status": "EXECUTED",
+                "instance_count": len(instances),
+                "deviation_count": deviations,
+            }
+        ],
+        "diagnostic_groups": None,
+        "diagnostic_subject_count": len(instances),
+        "diagnostic_subjects": [_project_epc_subject(instance) for instance in instances],
+        "first_abnormal_boundary": None,
+        "boundary_selection_status": "NOT_EVALUATED",
+        "evidence_limitations": scrub_list(analysis.get("limitations")),
+        "additional_evidence_needed": scrub_list(analysis.get("additional_evidence_needed")),
+        "degradation": [],
+    }
+    if not instances:
+        result["degradation"] = [
+            "no EPS Attach procedure instance was reconstructed from the observed evidence"
+        ]
+    return result
+
+
 def build_domain_adapters(
     pipeline: Callable[[Path, Path, str], tuple[dict[str, Any], Any, Path]],
+    epc_pipeline: Callable[[Path, Path, str], dict[str, Any]],
 ) -> dict[str, DomainAdapter]:
     """Execution adapters, one per implemented domain.
 
@@ -1595,6 +1824,9 @@ def build_domain_adapters(
     return {
         DOMAIN_5GC: lambda capture, work_dir, case_id, detection, observed: execute_5gc_domain(
             capture, work_dir, case_id, detection, observed, pipeline
+        ),
+        DOMAIN_EPC: lambda capture, work_dir, case_id, detection, observed: execute_epc_domain(
+            capture, work_dir, case_id, detection, epc_pipeline
         ),
     }
 
@@ -1607,10 +1839,12 @@ def analyze(
     force: bool = False,
     inventory: Callable[[Path], dict[str, Any]] | None = None,
     pipeline: Callable[[Path, Path, str], tuple[dict[str, Any], Any, Path]] | None = None,
+    epc_pipeline: Callable[[Path, Path, str], dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], int]:
     """Execute the workflow and return the report and the CLI exit code."""
     inventory_fn = inventory or inventory_capture
     pipeline_fn = pipeline or execute_5gc_pipeline
+    epc_pipeline_fn = epc_pipeline or execute_epc_pipeline
 
     validate_paths(capture, work_dir, output_dir)
     if not capture.is_file():
@@ -1625,7 +1859,7 @@ def analyze(
     detection = detect_domains(observed)
     selection_mode, selected = resolve_selection(domains, detection)
 
-    adapters = build_domain_adapters(pipeline_fn)
+    adapters = build_domain_adapters(pipeline_fn, epc_pipeline_fn)
     case_id = f"capture-{digest[:12]}"
     observed_set = set(observed["protocols"])
     results: list[dict[str, Any]] = []
