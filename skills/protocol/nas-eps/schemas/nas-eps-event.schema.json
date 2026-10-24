@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/nas-eps-event.schema.json",
+  "title": "Bounded NAS-EPS Detailed Event",
+  "description": "One normalized EPS NAS observation from a capture or structured fields JSONL. Subscriber identities, authentication parameters and payload bytes are never included; only presence, length and reviewed message identities are retained.",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "frame_number",
+    "capture_file",
+    "protocol_discriminator",
+    "protocol_discriminator_basis",
+    "security_header_type",
+    "protection",
+    "protection_description",
+    "message_type_code",
+    "message_type",
+    "support_status",
+    "procedure",
+    "result",
+    "direction",
+    "direction_basis",
+    "emm_cause",
+    "attach_type",
+    "identity_type_value",
+    "esm_container_present",
+    "esm_container_length",
+    "ciphered_payload_present",
+    "message_authentication_code_present",
+    "protected_inner_message_unavailable",
+    "evidence",
+    "derivations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "description": "UTC ISO-8601 observation time with microsecond precision."
+    },
+    "frame_number": {"type": "integer", "minimum": 1},
+    "capture_file": {"type": "string"},
+    "protocol_discriminator": {"type": "string"},
+    "protocol_discriminator_basis": {"type": "string"},
+    "security_header_type": {"type": ["integer", "null"]},
+    "protection": {"type": ["string", "null"]},
+    "protection_description": {"type": ["string", "null"]},
+    "message_type_code": {"type": ["integer", "null"]},
+    "message_type": {"type": ["string", "null"]},
+    "support_status": {
+      "type": "string",
+      "enum": ["SUPPORTED", "UNSUPPORTED", "UNKNOWN", "PROTECTED_INNER_MESSAGE_UNAVAILABLE"]
+    },
+    "procedure": {"type": ["string", "null"]},
+    "result": {"type": ["string", "null"]},
+    "direction": {
+      "type": ["string", "null"],
+      "enum": ["uplink", "downlink", null]
+    },
+    "direction_basis": {"type": "string"},
+    "emm_cause": {
+      "type": ["object", "null"],
+      "required": ["value", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "value": {"type": "integer"},
+        "name": {"type": ["string", "null"]}
+      }
+    },
+    "attach_type": {
+      "type": ["object", "null"],
+      "required": ["value", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "value": {"type": "integer"},
+        "name": {"type": ["string", "null"]}
+      }
+    },
+    "identity_type_value": {"type": ["integer", "null"]},
+    "esm_container_present": {"type": "boolean"},
+    "esm_container_length": {"type": ["integer", "null"], "minimum": 0},
+    "ciphered_payload_present": {"type": "boolean"},
+    "message_authentication_code_present": {"type": "boolean"},
+    "protected_inner_message_unavailable": {"type": "boolean"},
+    "source": {"type": ["object", "null"]},
+    "destination": {"type": ["object", "null"]},
+    "sctp": {"type": ["object", "null"]},
+    "evidence": {
+      "type": "object",
+      "required": ["level", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
+        "source": {"type": "string"}
+      }
+    },
+    "derivations": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

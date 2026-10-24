@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/s1ap-event.schema.json",
+  "title": "Bounded S1AP Detailed Event",
+  "description": "One normalized S1AP observation from a capture or structured fields JSONL. NAS-PDU payload bytes are never included; only presence and length are retained.",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "frame_number",
+    "capture_file",
+    "pdu_type",
+    "pdu_type_basis",
+    "procedure_code",
+    "procedure_name",
+    "message_type",
+    "support_status",
+    "result",
+    "sender_role",
+    "enb_ue_s1ap_id",
+    "mme_ue_s1ap_id",
+    "cause",
+    "nas_pdu_present",
+    "nas_pdu_length",
+    "tac",
+    "plmn_identity_present",
+    "eutran_cgi_present",
+    "context_key",
+    "evidence",
+    "derivations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "description": "UTC ISO-8601 observation time with microsecond precision."
+    },
+    "frame_number": {"type": "integer", "minimum": 1},
+    "capture_file": {"type": "string"},
+    "pdu_type": {
+      "type": ["string", "null"],
+      "enum": ["initiatingMessage", "successfulOutcome", "unsuccessfulOutcome", null]
+    },
+    "pdu_type_basis": {
+      "type": "string",
+      "enum": ["presence_field", "info_column", "explicit", "unavailable"]
+    },
+    "procedure_code": {"type": "integer", "minimum": 0, "maximum": 255},
+    "procedure_name": {"type": ["string", "null"]},
+    "message_type": {"type": ["string", "null"]},
+    "support_status": {
+      "type": "string",
+      "enum": ["SUPPORTED", "UNSUPPORTED", "UNKNOWN"]
+    },
+    "result": {"type": ["string", "null"]},
+    "sender_role": {"type": ["string", "null"]},
+    "enb_ue_s1ap_id": {"type": ["integer", "null"]},
+    "mme_ue_s1ap_id": {"type": ["integer", "null"]},
+    "cause": {
+      "type": ["object", "null"],
+      "required": ["category", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": ["string", "null"],
+          "enum": ["radioNetwork", "transport", "nas", "protocol", "misc", null]
+        },
+        "value": {"type": ["integer", "null"]}
+      }
+    },
+    "nas_pdu_present": {"type": "boolean"},
+    "nas_pdu_length": {"type": ["integer", "null"], "minimum": 0},
+    "tac": {"type": ["integer", "null"]},
+    "plmn_identity_present": {"type": "boolean"},
+    "eutran_cgi_present": {"type": "boolean"},
+    "erab_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["operation", "list_role", "erab_id"],
+        "additionalProperties": false,
+        "properties": {
+          "operation": {"type": "string"},
+          "list_role": {"type": "string"},
+          "erab_id": {"type": ["integer", "null"]}
+        }
+      }
+    },
+    "extraction_limitations": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "source": {"type": ["object", "null"]},
+    "destination": {"type": ["object", "null"]},
+    "sctp": {"type": ["object", "null"]},
+    "context_key": {"type": "string"},
+    "evidence": {
+      "type": "object",
+      "required": ["level", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
+        "source": {"type": "string"}
+      }
+    },
+    "derivations": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

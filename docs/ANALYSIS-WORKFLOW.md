@@ -299,7 +299,34 @@ File-system rules:
   `analysis.json` exists it is preserved and the failure is recorded in
   `analysis.failure.json`.
 
-## 10. Roadmap for EPC and IMS
+## 10. EPC protocol extraction versus EPC procedure diagnosis
+
+Three capabilities must not be conflated:
+
+| Capability | Status |
+| --- | --- |
+| EPC protocol extraction (S1AP, EPS NAS) | Implemented as standalone Protocol Skills |
+| EPC procedure diagnosis (Attach, bearer, mobility) | Not implemented |
+| Unified EPC execution through this workflow | Not implemented |
+
+The two EPC Protocol Skills are independently executable and are not wired into this
+workflow yet:
+
+```bash
+python3 skills/protocol/s1ap/scripts/extract-s1ap.py capture.pcap --output s1ap-events.jsonl
+python3 skills/protocol/s1ap/scripts/s1ap_timeline.py s1ap-events.jsonl --format text
+
+python3 skills/protocol/nas-eps/scripts/extract-nas-eps.py capture.pcap --output nas-eps-events.jsonl
+python3 skills/protocol/nas-eps/scripts/nas_eps_timeline.py nas-eps-events.jsonl --format text
+```
+
+Because no EPC Domain analyzer exists, `--domains epc` and `--domains auto` on an
+EPC-only capture continue to report `UNSUPPORTED`. Automatic detection does identify
+EPC signaling from observed protocols; it does not claim that EPC procedure analysis
+is available. A future EPC Domain adapter will consume the S1AP and NAS-EPS event
+contracts without changing the 5GC path or the report envelope.
+
+## 11. Roadmap for EPC and IMS
 
 EPC and IMS appear in the capability contract with `implementation_status:
 UNSUPPORTED`, no entry point and an explicit reason. They are not placeholders: no

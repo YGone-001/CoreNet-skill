@@ -1,0 +1,40 @@
+# NAS-EPS display filters. Field and filter names were verified locally against the
+# NAS-EPS dissector of Wireshark/TShark 4.7.1 via `tshark -G fields` and
+# `tshark -G values`. Re-verify before using other releases.
+
+# All EPS NAS traffic
+nas-eps
+
+# Bounded message identities
+nas-eps.nas_msg_emm_type == 0x41
+nas-eps.nas_msg_emm_type == 0x42
+nas-eps.nas_msg_emm_type == 0x43
+nas-eps.nas_msg_emm_type == 0x44
+nas-eps.nas_msg_emm_type == 0x52
+nas-eps.nas_msg_emm_type == 0x53
+nas-eps.nas_msg_emm_type == 0x54
+nas-eps.nas_msg_emm_type == 0x55
+nas-eps.nas_msg_emm_type == 0x56
+nas-eps.nas_msg_emm_type == 0x5c
+nas-eps.nas_msg_emm_type == 0x5d
+nas-eps.nas_msg_emm_type == 0x5e
+nas-eps.nas_msg_emm_type == 0x5f
+
+# Protection state
+nas-eps.security_header_type == 0
+nas-eps.security_header_type != 0
+nas-eps.ciphered_msg
+nas-eps.msg_auth_code
+
+# EMM cause and attach metadata
+nas-eps.emm.cause
+nas-eps.emm.eps_att_type
+nas-eps.emm.type_of_id
+
+# ESM container presence (never decoded here)
+nas-eps.emm.esm_msg_cont
+
+# Enclosing S1AP NAS transport messages
+s1ap.procedureCode == 11
+s1ap.procedureCode == 12
+s1ap.procedureCode == 13

@@ -4,7 +4,7 @@
 | --- | --- | --- | --- | --- |
 | Repository Foundation | Freeze architecture, contracts, schemas, template, and validation. | None | Repository baseline inspected. | All acceptance gates pass. |
 | Foundation Skills | Accepted reusable investigation-method Skills. | Foundation contracts and source review. | Repository foundation complete. | Six standalone Foundation Skills are accepted and tested. |
-| Packet and Protocol Core | `core-network-pcap` capture normalization, a bounded `ngap` UE-context, PDU Session resource, and N2 handover/path-switch mobility semantic Skill, a bounded `nas-5gs` 5GMM and 5GSM semantic Skill, a bounded `pfcp` N4 session-control semantic Skill, a bounded `gtpu` N3 user-plane observation Skill, and a bounded `sbi-http2` N11 Nsmf_PDUSession and Namf_Communication N1/N2 delivery observation Skill are implemented; remaining protocol semantics (NAS-EPS, S1AP, GTP, SIP, RTP, remaining 5GC SBI services, the remaining NGAP mobility-adjacent procedures such as RAN Status Transfer, GTP-U on N9/S1-U/S5-S8-U) remain planned. | Foundation methods. | Approved protocol scope and fixtures. | Protocol-local contracts and evidence tests pass. |
+| Packet and Protocol Core | `core-network-pcap` capture normalization, a bounded `ngap` UE-context, PDU Session resource, and N2 handover/path-switch mobility semantic Skill, a bounded `nas-5gs` 5GMM and 5GSM semantic Skill, a bounded `pfcp` N4 session-control semantic Skill, a bounded `gtpu` N3 user-plane observation Skill, a bounded `sbi-http2` N11 Nsmf_PDUSession and Namf_Communication N1/N2 delivery observation Skill, a bounded `s1ap` S1-MME semantic Skill, and a bounded `nas-eps` EPS NAS semantic Skill are implemented; remaining protocol semantics (GTP, SIP, RTP, remaining 5GC SBI services, the remaining NGAP mobility-adjacent procedures such as RAN Status Transfer, GTP-U on N9/S1-U/S5-S8-U) remain planned. | Foundation methods. | Approved protocol scope and fixtures. | Protocol-local contracts and evidence tests pass. |
 | Correlation Infrastructure | `cross-protocol-evidence` provenance-key correlation is implemented as supporting infrastructure between Protocol evidence and future Domain procedures; Domain Skills may consume it but are never required to route Protocol Skills through it. | Protocol Skills. | Correlation scope and provenance model reviewed. | Correlation-only contract tests pass with no protocol or Domain ownership. |
 | Diameter | `diameter-core`, `diameter-epc`, `diameter-ims`, `diameter-charging`. | Protocol conventions. | Cross-domain ownership reviewed. | No IMS ownership leakage; tests pass. |
 | IMS | IMS registration, session, and media/QoS domains. | SIP/SDP/RTP and Diameter IMS/charging. | Diameter work complete. | Procedure Skills satisfy evidence contract. |
@@ -34,7 +34,9 @@ and Handover/Path Switch Mobility Domain outputs;
 the remaining NGAP mobility-adjacent procedures, UPF relocation, inter-system
 mobility, GTP-U on further interfaces, and every later capability remain future work.
 GTP-U v0.1.0 proves packet observations at the capture point only, never
-end-to-end user-plane validation. Implementation-specific Skills are not
+end-to-end user-plane validation. The bounded `s1ap` and `nas-eps` Protocol Skills
+extract S1-MME and EPS NAS message evidence from LTE captures; no EPC Domain
+procedure analysis or unified EPC execution adapter is implemented. Implementation-specific Skills are not
 planned: external implementation analysis is performed only when users provide
 implementation evidence. The empirical Golden Capture Differential Benchmark
 (`benchmarks/golden-captures/`) is implemented outside the Skill architecture,

@@ -1,0 +1,82 @@
+name: s1ap
+version: 0.1.0
+category: protocol
+description: >
+  Bounded S1AP semantic extraction for the S1-MME interface: PDU category,
+  procedure and message identification for the S1 setup, UE-associated NAS
+  transport, Initial Context Setup and UE context release subset, eNB/MME UE
+  S1AP identifiers, Cause preservation, NAS-PDU presence and length only,
+  bounded E-RAB item evidence, protocol-local UE-context correlation, detailed
+  S1AP events, and normalized trace-event projection.
+scope:
+  includes:
+    - S1AP PDU category and procedure/message identification for the bounded subset
+    - eNB-UE-S1AP-ID and MME-UE-S1AP-ID extraction and protocol-local handling
+    - S1AP Cause group and value preservation
+    - NAS-PDU presence and length only (no NAS decoding)
+    - bounded E-RAB item evidence for Initial Context Setup request and response
+    - bounded location metadata presence (TAC, PLMN identity, E-UTRAN CGI)
+    - deterministic UE-context correlation scoped by capture and SCTP association, with explicit strength and ambiguity
+    - detailed S1AP event JSONL and shared trace-event projection
+    - tshark-assisted capture extraction and deterministic structured offline input
+  excludes:
+    - NAS decoding or any EPS NAS semantic field (handoff to nas-eps)
+    - LTE Attach procedure state, bearer state, or end-to-end attach verdicts
+    - first-abnormal-boundary selection, severity ranking, or root-cause output
+    - MME or eNodeB implementation, vendor configuration, or source-code mapping
+    - X2AP, S11, GTPv2-C, Diameter, RRC, or user-plane semantics
+    - E-RAB identifier use as a UE identity, and UE merging on weak evidence
+dependencies:
+  required: []
+  optional:
+    - core-network-pcap >=0.1.0
+    - wireshark-analysis >=0.2.0
+    - tshark
+inputs:
+  - PCAP or PCAPNG capture containing S1AP over SCTP (requires user-installed tshark)
+  - structured S1AP fields JSONL (deterministic offline input, documented in references/field-reference.md)
+outputs:
+  - detailed S1AP event JSON Lines (schemas/s1ap-event.schema.json)
+  - normalized trace-event JSON Lines projection (schemas/trace-event.schema.json)
+  - UE-context correlation summary JSON
+  - protocol-local S1AP timeline (text or JSON)
+protocols: [S1AP]
+interfaces: [S1-MME]
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Protocol-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/extracted/s1-setup.jsonl
+    - examples/extracted/initial-context-setup.jsonl
+    - examples/extracted/conflicting-ids.jsonl
+    - examples/extracted/partial-ids.jsonl
+    - examples/extracted/unsupported.jsonl
+    - examples/extracted/multi-ue.jsonl
+    - examples/extracted/ue-context-flow.jsonl
+    - examples/extracted/nas-transport.jsonl
+    - examples/extracted/ue-release.jsonl
+    - examples/extracted/malformed.jsonl
+    - examples/extracted/missing-required.jsonl
+  expected_results:
+    - examples/expected/s1-setup-events.jsonl
+    - examples/expected/initial-context-setup-events.jsonl
+    - examples/expected/conflicting-ids-events.jsonl
+    - examples/expected/conflicting-ids-correlation.json
+    - examples/expected/partial-ids-events.jsonl
+    - examples/expected/unsupported-events.jsonl
+    - examples/expected/multi-ue-events.jsonl
+    - examples/expected/multi-ue-correlation.json
+    - examples/expected/ue-context-flow-events.jsonl
+    - examples/expected/nas-transport-events.jsonl
+    - examples/expected/ue-release-events.jsonl

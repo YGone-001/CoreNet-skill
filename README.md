@@ -66,14 +66,16 @@ and their machine-readable evidence_refs (Domain contracts 5gc-registration-mobi
 ordering with no severity ranking, and no root-cause or blame output). The unified
 `scripts/corenet-analyze.py` analysis workflow executes that accepted 5GC chain from
 a single command-line entry point and reports EPC and IMS as explicitly unsupported
-capabilities. The extensions provide investigation context only.
+capabilities. The bounded `s1ap` S1-MME Protocol Skill and the bounded
+`nas-eps` EPS NAS Protocol Skill extract EPC access-signaling and NAS message
+evidence from LTE captures; EPC procedure diagnosis is not implemented. The
+extensions provide investigation context only.
 **Not yet implemented:** deep NGAP transfer-container decoding, the remaining
 NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
 relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
 semantics), remaining
-5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (NAS-EPS,
-S1AP, GTPv2, SIP, SDP/RTP, Diameter), EPC/IMS Domain procedures,
+5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (GTPv2, SIP, SDP/RTP, Diameter), EPC/IMS Domain procedures,
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper
 diagnosis orchestration.
 

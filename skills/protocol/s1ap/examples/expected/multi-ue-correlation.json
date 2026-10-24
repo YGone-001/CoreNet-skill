@@ -1,0 +1,77 @@
+{
+  "capture_file": "multi-ue.jsonl",
+  "context_count": 4,
+  "contexts": [
+    {
+      "ambiguity_reasons": [],
+      "association": "sctp-assoc-65535",
+      "capture_file": "multi-ue.jsonl",
+      "context_key": "s1ap-context:multi-ue.jsonl:sctp-assoc-65535:e24:m24",
+      "enb_ue_s1ap_id": 24,
+      "first_frame": 35,
+      "last_frame": 53,
+      "message_count": 4,
+      "messages": [
+        "DownlinkNASTransport",
+        "UEContextReleaseCommand",
+        "UEContextReleaseComplete"
+      ],
+      "mme_ue_s1ap_id": 24,
+      "strength": "STRONG"
+    },
+    {
+      "ambiguity_reasons": [],
+      "association": "sctp-assoc-65535",
+      "capture_file": "multi-ue.jsonl",
+      "context_key": "s1ap-context:multi-ue.jsonl:sctp-assoc-65535:e24:m?",
+      "enb_ue_s1ap_id": 24,
+      "first_frame": 33,
+      "last_frame": 33,
+      "message_count": 1,
+      "messages": [
+        "InitialUEMessage"
+      ],
+      "mme_ue_s1ap_id": null,
+      "strength": "SUPPORTED"
+    },
+    {
+      "ambiguity_reasons": [],
+      "association": "sctp-assoc-65535",
+      "capture_file": "multi-ue.jsonl",
+      "context_key": "s1ap-context:multi-ue.jsonl:sctp-assoc-65535:e25:m25",
+      "enb_ue_s1ap_id": 25,
+      "first_frame": 63,
+      "last_frame": 81,
+      "message_count": 4,
+      "messages": [
+        "DownlinkNASTransport",
+        "UEContextReleaseCommand",
+        "UEContextReleaseComplete"
+      ],
+      "mme_ue_s1ap_id": 25,
+      "strength": "STRONG"
+    },
+    {
+      "ambiguity_reasons": [],
+      "association": "sctp-assoc-65535",
+      "capture_file": "multi-ue.jsonl",
+      "context_key": "s1ap-context:multi-ue.jsonl:sctp-assoc-65535:e25:m?",
+      "enb_ue_s1ap_id": 25,
+      "first_frame": 61,
+      "last_frame": 61,
+      "message_count": 1,
+      "messages": [
+        "InitialUEMessage"
+      ],
+      "mme_ue_s1ap_id": null,
+      "strength": "SUPPORTED"
+    }
+  ],
+  "event_count": 10,
+  "rules": [
+    "contexts are scoped by capture file and SCTP association",
+    "an E-RAB identifier is never used as a UE identity",
+    "timestamp proximity is never used to merge contexts",
+    "an event observed before the MME-UE-S1AP-ID is assigned keeps its own context; identifiers are never inferred"
+  ]
+}

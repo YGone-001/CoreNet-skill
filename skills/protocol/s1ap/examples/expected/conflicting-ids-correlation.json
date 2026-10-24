@@ -1,0 +1,62 @@
+{
+  "capture_file": "conflicting-ids.jsonl",
+  "context_count": 3,
+  "contexts": [
+    {
+      "ambiguity_reasons": [
+        "one eNB-UE-S1AP-ID observed with multiple MME-UE-S1AP-ID values in this association"
+      ],
+      "association": "sctp-assoc-0",
+      "capture_file": "conflicting-ids.jsonl",
+      "context_key": "s1ap-context:conflicting-ids.jsonl:sctp-assoc-0:e7:m100",
+      "enb_ue_s1ap_id": 7,
+      "first_frame": 21,
+      "last_frame": 21,
+      "message_count": 1,
+      "messages": [
+        "DownlinkNASTransport"
+      ],
+      "mme_ue_s1ap_id": 100,
+      "strength": "AMBIGUOUS"
+    },
+    {
+      "ambiguity_reasons": [
+        "one eNB-UE-S1AP-ID observed with multiple MME-UE-S1AP-ID values in this association"
+      ],
+      "association": "sctp-assoc-0",
+      "capture_file": "conflicting-ids.jsonl",
+      "context_key": "s1ap-context:conflicting-ids.jsonl:sctp-assoc-0:e7:m200",
+      "enb_ue_s1ap_id": 7,
+      "first_frame": 22,
+      "last_frame": 22,
+      "message_count": 1,
+      "messages": [
+        "DownlinkNASTransport"
+      ],
+      "mme_ue_s1ap_id": 200,
+      "strength": "AMBIGUOUS"
+    },
+    {
+      "ambiguity_reasons": [],
+      "association": "sctp-assoc-0",
+      "capture_file": "conflicting-ids.jsonl",
+      "context_key": "s1ap-context:conflicting-ids.jsonl:sctp-assoc-0:e7:m?",
+      "enb_ue_s1ap_id": 7,
+      "first_frame": 20,
+      "last_frame": 20,
+      "message_count": 1,
+      "messages": [
+        "InitialUEMessage"
+      ],
+      "mme_ue_s1ap_id": null,
+      "strength": "SUPPORTED"
+    }
+  ],
+  "event_count": 3,
+  "rules": [
+    "contexts are scoped by capture file and SCTP association",
+    "an E-RAB identifier is never used as a UE identity",
+    "timestamp proximity is never used to merge contexts",
+    "an event observed before the MME-UE-S1AP-ID is assigned keeps its own context; identifiers are never inferred"
+  ]
+}

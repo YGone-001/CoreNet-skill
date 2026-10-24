@@ -108,5 +108,31 @@ own PFCP or GTP-U semantics, does not perform TLS decryption, does not join
 cross-interface session state, and does not determine PDU session or SMF/AMF
 verdicts.
 
-Planned: `nas-eps`, `s1ap`, `gtpv2`, `sip`, `sdp-rtp`,
+Implemented: `s1ap`, the S1-MME signaling Protocol Skill. Version 0.1.0
+implements a bounded subset of TS 36.413 (S1AP), verified against the S1AP
+dissector of Wireshark/TShark 4.7.1: S1 setup (request/response/failure),
+InitialUEMessage, UplinkNASTransport, DownlinkNASTransport, Initial Context
+Setup (request/response/failure), UEContextReleaseRequest, and UE context
+release (command/complete). It resolves the S1AP PDU category with its
+resolution basis, keeps eNB-UE-S1AP-ID and MME-UE-S1AP-ID strictly separate,
+preserves Cause group and value, reports NAS-PDU presence and length only,
+extracts bounded E-RAB item evidence for Initial Context Setup, and correlates
+frames into UE contexts scoped by capture file and SCTP association with
+explicit STRONG/SUPPORTED/AMBIGUOUS/UNBOUND strength. It does not decode NAS,
+does not model LTE Attach state, does not select abnormal boundaries, and does
+not attribute root cause.
+
+Implemented: `nas-eps`, the EPS NAS Protocol Skill. Version 0.1.0 implements a
+bounded subset of TS 24.301, verified against the NAS-EPS dissector of
+Wireshark/TShark 4.7.1: EPS attach (request/accept/complete/reject), Identity
+request/response, Authentication request/response/failure/reject, and NAS
+Security Mode Command/Complete/Reject, with security-header-type and protection
+classification, EMM cause preservation, bounded attach-type and identity-type
+values, ESM container presence and length only, and explicit
+PROTECTED_INNER_MESSAGE_UNAVAILABLE classification. Authentication and NAS
+security mode control stay distinct procedures. It never publishes subscriber
+identities, authentication parameters or payload bytes, and it does not decode
+ESM, model bearer state, or determine Attach outcomes.
+
+Planned: `gtpv2`, `sip`, `sdp-rtp`,
 `diameter-core` and its domain layers, and remaining 5GC SBI services.

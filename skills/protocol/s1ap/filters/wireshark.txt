@@ -1,0 +1,51 @@
+# S1AP display filters. Field and filter names were verified locally against the
+# S1AP dissector of Wireshark/TShark 4.7.1 via `tshark -G fields` and
+# `tshark -G values`. Filter names are version-dependent; re-verify before using
+# other releases.
+
+# All S1AP traffic
+s1ap
+
+# S1 setup (17)
+s1ap.procedureCode == 17
+
+# Initial Context Setup (9)
+s1ap.procedureCode == 9
+
+# Initial UE Message (12) and NAS transport (11 downlink, 13 uplink)
+s1ap.procedureCode == 12
+s1ap.procedureCode == 11
+s1ap.procedureCode == 13
+
+# UE context release request (18) and release (23)
+s1ap.procedureCode == 18
+s1ap.procedureCode == 23
+
+# PDU category presence fields
+s1ap.initiatingMessage_element
+s1ap.successfulOutcome_element
+s1ap.unsuccessfulOutcome_element
+
+# UE context identifiers
+s1ap.ENB_UE_S1AP_ID
+s1ap.MME_UE_S1AP_ID
+
+# Cause groups
+s1ap.radioNetwork
+s1ap.transport
+s1ap.nas
+s1ap.protocol
+s1ap.misc
+
+# NAS transport presence (payload is never decoded here)
+s1ap.NAS_PDU
+
+# Bounded location metadata
+s1ap.TAC
+s1ap.PLMNidentity
+s1ap.EUTRAN_CGI_element
+
+# Initial Context Setup E-RAB evidence
+s1ap.E_RABToBeSetupListCtxtSUReq
+s1ap.E_RABSetupListCtxtSURes
+s1ap.e_RAB_ID
