@@ -346,9 +346,14 @@ def epc_payload(instances: int = 1) -> dict:
             "deviations": [
                 {"deviation_type": "ATTACH_REJECT_OBSERVED", "procedure_stage": "attach-decision",
                  "protocol": "NAS-EPS", "message_type": "Attach reject", "frame_number": 47,
-                 "evidence_level": "OBSERVED", "evidence_refs": [], "observation_window": None,
+                 "evidence_level": "OBSERVED",
+                 "evidence_refs": [
+                     {"protocol": "NAS-EPS", "frame_number": 47, "message_type": "Attach reject",
+                      "evidence_level": "OBSERVED"},
+                 ],
+                 "observation_window": {"start_frame": 33, "end_frame": 47},
                  "explanation": "explicit Attach rejection observed with EMM cause 19 (ESM failure)",
-                 "limitations": []},
+                 "limitations": ["underlying ESM evidence unavailable"]},
             ],
             "evidence_limitations": ["underlying ESM evidence unavailable"],
             "additional_evidence_needed": ["capture the NAS Attach complete for this UE context"],
@@ -1116,6 +1121,149 @@ class EpcDomainTests(WorkflowTestCase):
         self.assertEqual(self.run_cli(domains="epc"), 0)
         for name in ("analysis.json", "report.txt"):
             self.assertEqual((first / name).read_bytes(), (second / name).read_bytes(), name)
+
+
+class EpcCapabilityTruthfulnessTests(WorkflowTestCase):
+    def test_epc_report_never_claims_epc_is_unimplemented(self) -> None:
+        self.run_cli(domains="epc")
+        report = self.read_report()
+        scope = report["interpretation"]["domain_scope"]
+        self.assertIn("EPC coverage is bounded", scope)
+        self.assertNotIn("EPC and IMS analysis are not implemented", scope)
+        published = (self.output / "analysis.json").read_text(encoding="utf-8") + self.read_text()
+        self.assertNotIn("EPC and IMS analysis are not implemented", published)
+        self.assertNotIn("EPC and IMS report", published)
+
+    def test_epc_text_report_states_bounded_scope(self) -> None:
+        self.run_cli(domains="epc")
+        text = self.read_text()
+        self.assertIn("EPC coverage is bounded to EPS Attach procedure evidence", text)
+        self.assertIn("IMS analysis is not implemented", text)
+
+    def test_failure_report_does_not_confuse_failure_with_missing_epc(self) -> None:
+        self.capture.write_bytes(b"not a capture at all")
+        self.assertEqual(self.run_cli(domains="epc"), MODULE.EXIT_FAILED)
+        report = self.read_report()
+        scope = report["interpretation"]["domain_scope"]
+        self.assertIn("does not change which domains are implemented", scope)
+        self.assertNotIn("EPC and IMS analysis are not implemented", scope)
+
+    def test_mixed_interpretation_distinguishes_three_capabilities(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "ngap", "nas-5gs", "s1ap"])
+        self.assertEqual(self.run_cli(domains="5gc,epc,ims"), 0)
+        report = self.read_report()
+        scope = report["interpretation"]["domain_scope"]
+        for fragment in ("5GC coverage is bounded", "EPC coverage is bounded", "IMS analysis is not implemented"):
+            self.assertIn(fragment, scope)
+        statuses = {result["domain"]: result["execution_status"] for result in report["domain_results"]}
+        self.assertEqual(statuses, {"5gc": "COMPLETED", "epc": "COMPLETED", "ims": "UNSUPPORTED"})
+
+    def test_interpretation_never_claims_full_epc_support(self) -> None:
+        self.run_cli(domains="epc")
+        scope = self.read_report()["interpretation"]["domain_scope"].lower()
+        self.assertIn("epc bearer lifecycle", scope)
+        self.assertIn("not implemented", scope)
+        for claim in ("complete epc analysis", "full epc support", "root cause engine"):
+            self.assertNotIn(claim, scope)
+
+
+class EpcEvidenceProjectionTests(WorkflowTestCase):
+    def deviation(self) -> dict:
+        self.run_cli(domains="epc")
+        return self.domain_result()["diagnostic_subjects"][0]["procedure_deviations"][0]
+
+    def test_attach_reject_preserves_frame_and_evidence(self) -> None:
+        deviation = self.deviation()
+        self.assertEqual(deviation["deviation_type"], "ATTACH_REJECT_OBSERVED")
+        self.assertEqual(deviation["frame_number"], 47)
+        self.assertEqual(len(deviation["evidence_refs"]), 1)
+        reference = deviation["evidence_refs"][0]
+        self.assertEqual(reference["frame_number"], 47)
+        self.assertEqual(reference["protocol"], "NAS-EPS")
+        self.assertEqual(reference["message_type"], "Attach reject")
+        self.assertEqual(reference["evidence_level"], "OBSERVED")
+
+    def test_observation_window_is_preserved(self) -> None:
+        deviation = self.deviation()
+        self.assertEqual(deviation["observation_window"], {"start_frame": 33, "end_frame": 47})
+
+    def test_deviation_limitations_are_bounded_and_scrubbed(self) -> None:
+        payload = epc_payload()
+        payload["analysis"]["procedure_instances"][0]["deviations"][0]["limitations"] = [
+            "underlying ESM evidence unavailable at /home/analyst/capture.pcap"
+        ]
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+        self.run_cli(domains="epc")
+        limitations = self.deviation()["limitations"]
+        self.assertEqual(len(limitations), 1)
+        self.assertNotIn("/home/analyst", limitations[0])
+        self.assertIn("redacted-path", limitations[0])
+
+    def test_missing_source_evidence_is_never_invented(self) -> None:
+        payload = epc_payload()
+        payload["analysis"]["procedure_instances"][0]["deviations"][0]["evidence_refs"] = []
+        payload["analysis"]["procedure_instances"][0]["deviations"][0]["observation_window"] = None
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+        self.run_cli(domains="epc")
+        deviation = self.deviation()
+        self.assertEqual(deviation["evidence_refs"], [])
+        self.assertIsNone(deviation["observation_window"])
+
+    def test_unexpected_nested_evidence_cannot_leak(self) -> None:
+        payload = epc_payload()
+        deviation = payload["analysis"]["procedure_instances"][0]["deviations"][0]
+        deviation["evidence_refs"] = [{
+            "frame_number": 47,
+            "protocol": "NAS-EPS",
+            "message_type": "Attach reject",
+            "evidence_level": "OBSERVED",
+            "raw_payload": "00" * 40,
+            "subscriber": "001010000000001",
+            "nested": {"secret": "value"},
+        }]
+        deviation["observation_window"] = {"start_frame": 33, "end_frame": 47, "note": "extra"}
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+        self.run_cli(domains="epc")
+        published = json.dumps(self.domain_result()["diagnostic_subjects"][0])
+        self.assertNotIn("raw_payload", published)
+        self.assertNotIn("001010000000001", published)
+        self.assertNotIn("secret", published)
+        self.assertEqual(
+            set(self.deviation()["evidence_refs"][0]),
+            {"frame_number", "protocol", "message_type", "evidence_level"},
+        )
+        self.assertEqual(set(self.deviation()["observation_window"]), {"start_frame", "end_frame"})
+
+    def test_evidence_truncation_is_visible(self) -> None:
+        payload = epc_payload()
+        payload["analysis"]["procedure_instances"][0]["deviations"][0]["evidence_refs"] = [
+            {"frame_number": 40 + index, "protocol": "NAS-EPS", "message_type": "Attach reject",
+             "evidence_level": "OBSERVED"}
+            for index in range(MODULE.MAX_EVIDENCE_REFERENCES + 3)
+        ]
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+        self.run_cli(domains="epc")
+        deviation = self.deviation()
+        self.assertEqual(len(deviation["evidence_refs"]), MODULE.MAX_EVIDENCE_REFERENCES)
+        self.assertEqual(deviation["evidence_refs_omitted"], 3)
+
+    def test_subject_order_is_stable_across_runs(self) -> None:
+        first, second = self.base / "ord-a", self.base / "ord-b"
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: epc_payload(instances=3)
+        self.output = first
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        self.output = second
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        first_order = [s["diagnostic_group_reference"] for s in self.read_report()["domain_results"][0]["diagnostic_subjects"]]
+        self.output = first
+        again = [s["diagnostic_group_reference"] for s in self.read_report()["domain_results"][0]["diagnostic_subjects"]]
+        self.assertEqual(first_order, again)
+
+    def test_epc_boundary_stays_not_evaluated(self) -> None:
+        self.run_cli(domains="epc")
+        result = self.domain_result()
+        self.assertIsNone(result["first_abnormal_boundary"])
+        self.assertEqual(result["boundary_selection_status"], "NOT_EVALUATED")
 
 
 class DetectionTests(WorkflowTestCase):

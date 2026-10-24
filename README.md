@@ -65,8 +65,7 @@ and their machine-readable evidence_refs (Domain contracts 5gc-registration-mobi
 >=0.2.0, 5gc-pdu-session >=0.4.0, and 5gc-handover-mobility >=0.1.0), provenance-based
 ordering with no severity ranking, and no root-cause or blame output). The unified
 `scripts/corenet-analyze.py` analysis workflow executes that accepted 5GC chain from
-a single command-line entry point and reports EPC and IMS as explicitly unsupported
-capabilities. The bounded `s1ap` S1-MME Protocol Skill and the bounded
+a single command-line entry point. The bounded `s1ap` S1-MME Protocol Skill and the bounded
 `nas-eps` EPS NAS Protocol Skill extract EPC access-signaling and NAS message
 evidence from LTE captures, and the bounded `epc-procedures` Domain Skill analyzes
 observed EPS Attach procedure stages with procedure-local deviations and no bearer,
@@ -125,8 +124,9 @@ python3 scripts/corenet-analyze.py \
   --output-dir /tmp/corenet-output
 ```
 
-`--domains` accepts `auto`, `5gc`, `epc`, `ims`, or a comma-separated list. Only 5GC
-executes today; EPC and IMS report `UNSUPPORTED` rather than inventing results. Every
+`--domains` accepts `auto`, `5gc`, `epc`, `ims`, or a comma-separated list. 5GC and
+EPC execute bounded analysis paths; EPC covers EPS Attach procedure evidence only,
+and IMS reports `UNSUPPORTED` rather than inventing results. Every
 diagnostic subject in a capture is reported with its own boundary status, a failed
 component makes the run `PARTIAL` instead of `COMPLETED`, and the workflow never asserts
 network health.

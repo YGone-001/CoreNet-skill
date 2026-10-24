@@ -2,10 +2,11 @@
 """Unified core-network PCAP analysis workflow.
 
 One executable entry point for mobile core-network signaling analysis across
-technology domains. The 5GC path is implemented today and executes the accepted
-Protocol, Correlation, Domain and Orchestration Skills through the accepted
-capture pipeline. EPC and IMS are declared capabilities only: they are reported
-as UNSUPPORTED until their real Protocol and Domain Skills exist.
+technology domains. The 5GC path executes the accepted Protocol, Correlation,
+Domain and Orchestration Skills through the accepted capture pipeline. The EPC path
+executes bounded EPS Attach procedure evidence over the accepted S1AP and NAS-EPS
+Protocol Skills. IMS remains a declared capability and is reported as UNSUPPORTED
+until its real Protocol and Domain Skills exist.
 
 The workflow is an application-level execution entry point. It owns no telecom
 protocol or procedure semantics and never restates a benchmark verdict as a
@@ -1172,8 +1173,13 @@ def build_report(
                 "evidence that the network, the procedure or the service succeeded."
             ),
             "domain_scope": (
-                "EPC and IMS analysis are not implemented; requesting them reports an "
-                "unsupported capability rather than an analysis result."
+                "Implemented domains run their bounded analysis paths and unimplemented "
+                "domains report an unsupported capability rather than an analysis result. "
+                "5GC coverage is bounded to the accepted registration, PDU session and "
+                "mobility chain with its failure-boundary orchestration. EPC coverage is "
+                "bounded to EPS Attach procedure evidence; EPC bearer lifecycle, session "
+                "signalling, complete ESM semantics and global EPC boundary selection are "
+                "not implemented. IMS analysis is not implemented."
             ),
         },
     }
@@ -1351,9 +1357,16 @@ def render_text_report(report: dict[str, Any]) -> str:
                     f"({marker}, {span})"
                 )
             for deviation in subject.get("procedure_deviations") or []:
+                window = deviation.get("observation_window") or {}
+                span = (
+                    f" (window {window.get('start_frame')}-{window.get('end_frame')})"
+                    if window
+                    else ""
+                )
                 lines.append(
                     f"      deviation {deviation.get('deviation_type')} at frame "
-                    f"{_value(deviation.get('frame_number'))}: {_value(deviation.get('explanation'))}"
+                    f"{_value(deviation.get('frame_number'))}{span}: "
+                    f"{_value(deviation.get('explanation'))}"
                 )
     if not subject_any:
         _empty(lines, "no diagnostic group was established")
@@ -1613,7 +1626,10 @@ def build_failure_report(capture: Path | None, error: AnalysisError) -> dict[str
                 "A failed run is not evidence about the captured network procedure in any "
                 "direction."
             ),
-            "domain_scope": "EPC and IMS analysis are not implemented in this repository.",
+            "domain_scope": (
+                "A failed run does not change which domains are implemented; it means this "
+                "invocation produced no result. IMS analysis is not implemented."
+            ),
         },
     }
 
@@ -1698,6 +1714,78 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
     }
 
 
+def _bounded_evidence_refs(references: Any) -> tuple[list[dict[str, Any]], int]:
+    """Project accepted evidence references through an allowlist with a hard cap."""
+    if not isinstance(references, list):
+        return [], 0
+    projected: list[dict[str, Any]] = []
+    for reference in references:
+        if not isinstance(reference, dict):
+            continue
+        projected.append({
+            "frame_number": reference.get("frame_number"),
+            "protocol": reference.get("protocol"),
+            "message_type": reference.get("message_type"),
+            "evidence_level": reference.get("evidence_level"),
+        })
+    omitted = max(0, len(projected) - MAX_EVIDENCE_REFERENCES)
+    return projected[:MAX_EVIDENCE_REFERENCES], omitted
+
+
+def _bounded_observation_window(window: Any) -> dict[str, Any] | None:
+    """Project an accepted observation window; never infer a missing one."""
+    if not isinstance(window, dict):
+        return None
+    start = window.get("start_frame")
+    end = window.get("end_frame")
+    if isinstance(start, bool) or not isinstance(start, int):
+        return None
+    if isinstance(end, bool) or not isinstance(end, int):
+        return None
+    return {"start_frame": start, "end_frame": end}
+
+
+def _bounded_limitations(items: Any) -> tuple[list[str], int]:
+    """Scrub and cap a limitation list, reporting any omission."""
+    if not isinstance(items, list):
+        return [], 0
+    projected = [
+        text for text in (scrub_free_text(item) for item in items if isinstance(item, str)) if text
+    ]
+    omitted = max(0, len(projected) - MAX_LIST_ITEMS)
+    return projected[:MAX_LIST_ITEMS], omitted
+
+
+def _project_epc_deviations(deviations: Any) -> list[dict[str, Any]]:
+    """Project procedure-local deviations with their accepted structured evidence."""
+    projected: list[dict[str, Any]] = []
+    if not isinstance(deviations, list):
+        return projected
+    for deviation in deviations:
+        if not isinstance(deviation, dict):
+            continue
+        references, references_omitted = _bounded_evidence_refs(deviation.get("evidence_refs"))
+        limitations, limitations_omitted = _bounded_limitations(deviation.get("limitations"))
+        entry: dict[str, Any] = {
+            "deviation_type": deviation.get("deviation_type"),
+            "procedure_stage": deviation.get("procedure_stage"),
+            "protocol": deviation.get("protocol"),
+            "message_type": deviation.get("message_type"),
+            "frame_number": deviation.get("frame_number"),
+            "evidence_level": deviation.get("evidence_level"),
+            "evidence_refs": references,
+            "observation_window": _bounded_observation_window(deviation.get("observation_window")),
+            "explanation": scrub_free_text(deviation.get("explanation")),
+            "limitations": limitations,
+        }
+        if references_omitted:
+            entry["evidence_refs_omitted"] = references_omitted
+        if limitations_omitted:
+            entry["limitations_omitted"] = limitations_omitted
+        projected.append(entry)
+    return projected
+
+
 def _project_epc_subject(instance: dict[str, Any]) -> dict[str, Any]:
     """Publish one Attach procedure instance as a diagnostic subject."""
     reference = instance.get("procedure_reference")
@@ -1733,18 +1821,7 @@ def _project_epc_subject(instance: dict[str, Any]) -> dict[str, Any]:
             }
             for stage in instance.get("stages") or []
         ],
-        "procedure_deviations": [
-            {
-                "deviation_type": deviation.get("deviation_type"),
-                "procedure_stage": deviation.get("procedure_stage"),
-                "protocol": deviation.get("protocol"),
-                "message_type": deviation.get("message_type"),
-                "frame_number": deviation.get("frame_number"),
-                "evidence_level": deviation.get("evidence_level"),
-                "explanation": scrub_free_text(deviation.get("explanation")),
-            }
-            for deviation in instance.get("deviations") or []
-        ],
+        "procedure_deviations": _project_epc_deviations(instance.get("deviations")),
         "observations": [
             observation.get("observation_type") for observation in instance.get("observations") or []
         ],

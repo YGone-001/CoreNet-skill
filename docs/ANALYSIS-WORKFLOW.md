@@ -7,8 +7,9 @@ readable text report.
 
 The workflow is an application-level execution entry point. It is not a Skill layer,
 it owns no telecom protocol or procedure semantics, and it does not score the Golden
-Capture benchmark. Today it executes real 5GC analysis. EPC and IMS are declared
-capabilities that report `UNSUPPORTED` until their Protocol and Domain Skills exist.
+Capture benchmark. It executes real 5GC analysis and bounded EPC EPS Attach
+procedure evidence analysis. IMS is a declared capability that reports `UNSUPPORTED`
+until its Protocol and Domain Skills exist.
 
 ## 1. Prerequisites
 
@@ -330,12 +331,14 @@ remain outside the implemented scope.
 
 ## 11. Roadmap for EPC and IMS
 
-EPC and IMS appear in the capability contract with `implementation_status:
-UNSUPPORTED`, no entry point and an explicit reason. They are not placeholders: no
-empty Skill package, no stub parser and no simulated output exists for them.
+IMS appears in the capability contract with `implementation_status: UNSUPPORTED`, no
+entry point and an explicit reason. It is not a placeholder: no empty Skill package,
+no stub parser and no simulated output exists for it. EPC is implemented for the
+bounded EPS Attach path described in section 10, and its unimplemented scope is
+declared through `not_implemented_capabilities`.
 
 Adding a domain means adding its real Protocol and Domain Skills, then registering a
 domain adapter that produces the same `domain_results` shape. The report envelope,
 execution statuses, exit codes, privacy rules, subject reporting and output layout
-already support multiple independent domains, so EPC and IMS can be added without
-changing the 5GC procedure path or the report contract.
+already support multiple independent domains: EPC was added this way without changing
+the 5GC procedure path, and IMS can follow the same route.

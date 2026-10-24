@@ -52,5 +52,6 @@ implemented Domain owns. One capture exercises the complete Protocol,
 Correlation, Domain and Orchestration chain. The unified
 `scripts/corenet-analyze.py` analysis workflow is implemented as an
 application-level entry point outside the Skill layers: it executes that accepted
-5GC chain for a capture and reports EPC and IMS as unsupported capabilities until
-their Protocol and Domain Skills exist.
+5GC chain for a capture, executes the bounded EPC EPS Attach path over the accepted
+S1AP and NAS-EPS Protocol Skills, and reports IMS as an unsupported capability until
+its Protocol and Domain Skills exist.
