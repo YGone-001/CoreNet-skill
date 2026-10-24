@@ -1,0 +1,71 @@
+{
+  "model_version": "1.0.0",
+  "analysis_scope": "epc-session-control",
+  "source_protocol_skill": {
+    "name": "gtpv2",
+    "version": "0.1.0",
+    "event_contract": "skills/protocol/gtpv2/schemas/gtpv2-event.schema.json",
+    "transaction_contract": "skills/protocol/gtpv2/schemas/gtpv2-transaction.schema.json"
+  },
+  "procedure_families": {
+    "create-session": {"label": "Create Session", "request_code": 32, "response_code": 33},
+    "modify-bearer": {"label": "Modify Bearer", "request_code": 34, "response_code": 35},
+    "delete-session": {"label": "Delete Session", "request_code": 36, "response_code": 37},
+    "release-access-bearers": {"label": "Release Access Bearers", "request_code": 170, "response_code": 171},
+    "echo": {"label": "Echo", "request_code": 1, "response_code": 2}
+  },
+  "interface_detection": {
+    "s11_control_interface_types": [10, 11],
+    "s5s8_control_interface_types": [6, 7],
+    "allowed_basis": [
+      "control_plane_f_teid_in_message",
+      "control_plane_teid_continuity"
+    ],
+    "forbidden_basis": [
+      "transport_address_only",
+      "udp_port_only",
+      "timestamp_proximity",
+      "equal_ebi",
+      "equal_sequence_number",
+      "equal_cause_value"
+    ]
+  },
+  "outcome_vocabulary": [
+    "RESPONSE_ACCEPTED_OBSERVED",
+    "RESPONSE_REJECTED_OBSERVED",
+    "RESPONSE_OUTCOME_UNKNOWN",
+    "OPEN_REQUEST",
+    "RESPONSE_ONLY",
+    "AMBIGUOUS_TRANSACTION"
+  ],
+  "accepting_causes": [16, 17],
+  "cause_scope_rule": "message-scope and bearer-scope Cause values are published separately and never merged",
+  "grouping_rule": {
+    "requires": [
+      "same resolved interface",
+      "same directed request endpoint pair",
+      "at least one shared control-plane TEID"
+    ],
+    "unresolved_interface_never_groups": true,
+    "deletion_closes_generation": true,
+    "reuse_after_deletion": "new subject with explicit CONTEXT_REUSE_AFTER_DELETION deviation"
+  },
+  "association_strength": {
+    "STRONG": "several transactions linked by control-plane TEID continuity",
+    "SUPPORTED": "reserved for a link that does not rest on TEID continuity",
+    "AMBIGUOUS": "conflicting evidence prevents a single link",
+    "UNBOUND": "a single transaction asserts no grouping"
+  },
+  "cross_interface_association": "NOT_ESTABLISHED",
+  "attach_association": "NOT_ESTABLISHED",
+  "not_confirmed": [
+    "PDN connection establishment",
+    "default EPS bearer service availability",
+    "user-plane packet forwarding",
+    "S11 to S5/S8 session association",
+    "EPS Attach UE to GTPv2-C session association",
+    "session or bearer deletion completeness",
+    "end-to-end EPC service success"
+  ],
+  "boundary_selection_status": "NOT_EVALUATED"
+}

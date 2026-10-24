@@ -374,6 +374,20 @@ def epc_payload(instances: int = 1) -> dict:
     }
 
 
+def epc_session_analysis() -> dict:
+    """The accepted EPC session-control analysis artifact used as a shaped input."""
+    path = ROOT / "skills" / "domain" / "epc-procedures" / "examples" / "gtpv2" / "expected-session-analysis.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def epc_payload_with_session(instances: int = 1, gtpv2_events: int = 12) -> dict:
+    payload = epc_payload(instances=instances)
+    payload["session_analysis"] = epc_session_analysis() if gtpv2_events else None
+    payload["gtpv2_event_count"] = gtpv2_events
+    payload["gtpv2_transaction_count"] = 6 if gtpv2_events else 0
+    return payload
+
+
 class WorkflowTestCase(unittest.TestCase):
     """Base class wiring deterministic fakes into the two external boundaries."""
 
@@ -470,9 +484,21 @@ class CapabilityContractTests(unittest.TestCase):
     def test_epc_capability_stays_bounded(self) -> None:
         capability = MODULE.DOMAIN_CAPABILITIES["epc"]
         self.assertIn("eps-attach-procedure-evidence", capability["analysis_capabilities"])
-        for absent in ("GTPv2-C session signalling", "end-to-end EPC failure-boundary orchestration"):
+        self.assertIn(
+            "gtpv2-session-control-transaction-evidence", capability["analysis_capabilities"]
+        )
+        for absent in (
+            "end-to-end EPC failure-boundary orchestration",
+            "full EPS bearer lifecycle",
+            "cross-interface S11 to S5/S8 session association",
+        ):
             self.assertIn(absent, capability["not_implemented_capabilities"])
-        self.assertNotIn("gtpv2", " ".join(capability["supported_protocol_families"]).lower())
+        self.assertIn("GTPv2-C", capability["supported_protocol_families"])
+        self.assertNotIn("GTPv2-C", capability["planned_protocol_families"])
+        self.assertEqual(
+            capability["session_entry_point"],
+            "skills/domain/epc-procedures/scripts/analyze_epc_session.py",
+        )
 
     def test_5gc_entry_point_is_the_accepted_pipeline(self) -> None:
         capability = MODULE.DOMAIN_CAPABILITIES["5gc"]
@@ -1063,7 +1089,9 @@ class EpcDomainTests(WorkflowTestCase):
         self.assertEqual(deviations[0]["deviation_type"], "ATTACH_REJECT_OBSERVED")
         self.assertEqual(deviations[0]["frame_number"], 47)
         self.assertIn("EMM cause 19", deviations[0]["explanation"])
-        self.assertEqual([p["protocol"] for p in result["protocol_evidence"]], ["S1AP", "NAS-EPS"])
+        self.assertEqual(
+            [p["protocol"] for p in result["protocol_evidence"]], ["S1AP", "NAS-EPS", "GTPv2-C"]
+        )
 
     def test_epc_report_states_no_global_boundary(self) -> None:
         self.run_cli(domains="epc")
@@ -1424,6 +1452,160 @@ class ExternalCaptureSmokeTests(unittest.TestCase):
             self.assertGreaterEqual(result["diagnostic_subject_count"], 1)
             for section in TEXT_SECTIONS:
                 self.assertIn(section, (output / "report.txt").read_text(encoding="utf-8"))
+
+
+class EpcSessionAdapterTests(WorkflowTestCase):
+    """Unified EPC adapter behaviour for GTPv2-C session-control evidence."""
+
+    def use_payload(self, payload: dict) -> None:
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+
+    def epc_result(self) -> dict:
+        return self.domain_result()
+
+    def test_gtpv2_only_capture_produces_usable_analysis(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "gtp", "gtpv2"])
+        self.use_payload(epc_payload_with_session(instances=0))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "COMPLETED")
+        self.assertEqual(result["diagnostic_subject_count"], 4)
+        self.assertTrue(all(s["subject_type"] == "EPC_SESSION_CONTROL" for s in result["diagnostic_subjects"]))
+        self.assertIn("no EPS Attach procedure instance", " ".join(result["degradation"]))
+
+    def test_attach_only_capture_keeps_accepted_result(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "s1ap", "nas-eps"])
+        self.use_payload(epc_payload_with_session(instances=1, gtpv2_events=0))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        statuses = {item["protocol"]: item["extraction_status"] for item in result["protocol_evidence"]}
+        self.assertEqual(statuses["GTPv2-C"], "NOT_OBSERVED_IN_CAPTURE")
+        self.assertEqual(result["execution_status"], "COMPLETED")
+        self.assertTrue(all(s["subject_type"] == "EPS_ATTACH" for s in result["diagnostic_subjects"]))
+
+    def test_mixed_capture_produces_both_subject_classes(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "s1ap", "nas-eps", "gtpv2"])
+        self.use_payload(epc_payload_with_session(instances=1))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        types = {s["subject_type"] for s in self.epc_result()["diagnostic_subjects"]}
+        self.assertEqual(types, {"EPS_ATTACH", "EPC_SESSION_CONTROL"})
+
+    def test_auto_selection_identifies_epc_from_gtpv2_evidence(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "gtp", "gtpv2"])
+        self.use_payload(epc_payload_with_session(instances=0))
+        self.assertEqual(self.run_cli(domains="auto"), 0)
+        self.assertEqual(self.read_report()["requested_domains"], ["epc"])
+
+    def test_missing_optional_protocol_is_not_a_failure(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "s1ap", "nas-eps"])
+        self.use_payload(epc_payload_with_session(instances=1, gtpv2_events=0))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        self.assertEqual(self.epc_result()["execution_status"], "COMPLETED")
+
+    def test_gtpv2_extraction_failure_is_never_completed(self) -> None:
+        def failing(capture, work_dir, case_id):
+            raise MODULE.AnalysisError("EXTRACTION_FAILED", "GTPv2-C extraction exited with 4")
+
+        MODULE.execute_epc_pipeline = failing
+        self.assertEqual(self.run_cli(domains="epc"), MODULE.EXIT_FAILED)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "FAILED")
+        self.assertEqual(result["failure_code"], "EXTRACTION_FAILED")
+        self.assertIn("GTPv2-C extraction", result.get("failure_message") or "")
+
+    def test_correlator_failure_is_surfaced(self) -> None:
+        def failing(capture, work_dir, case_id):
+            raise MODULE.AnalysisError(
+                "EXTRACTION_FAILED", "GTPv2-C transaction correlation exited with 4"
+            )
+
+        MODULE.execute_epc_pipeline = failing
+        self.assertEqual(self.run_cli(domains="epc"), MODULE.EXIT_FAILED)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "FAILED")
+        self.assertIn("transaction correlation", result.get("failure_message") or "")
+
+    def test_session_domain_failure_is_surfaced(self) -> None:
+        def failing(capture, work_dir, case_id):
+            raise MODULE.AnalysisError(
+                "EXTRACTION_FAILED", "EPC session-control analysis exited with 5"
+            )
+
+        MODULE.execute_epc_pipeline = failing
+        self.assertEqual(self.run_cli(domains="epc"), MODULE.EXIT_FAILED)
+        self.assertEqual(self.epc_result()["failure_code"], "EXTRACTION_FAILED")
+
+    def test_failed_epc_beside_successful_5gc_is_partial(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "ngap", "nas-5gs", "s1ap"])
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: (_ for _ in ()).throw(
+            MODULE.AnalysisError("EXTRACTION_FAILED", "GTPv2-C extraction exited with 4")
+        )
+        self.assertEqual(self.run_cli(domains="5gc,epc"), 0)
+        report = self.read_report()
+        self.assertEqual(report["overall_execution_status"], "PARTIAL")
+        statuses = {result["domain"]: result["execution_status"] for result in report["domain_results"]}
+        self.assertEqual(statuses["5gc"], "COMPLETED")
+        self.assertEqual(statuses["epc"], "FAILED")
+
+    def test_no_attach_to_session_association_is_invented(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "s1ap", "nas-eps", "gtpv2"])
+        self.use_payload(epc_payload_with_session(instances=1))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        subjects = self.epc_result()["diagnostic_subjects"]
+        attach = [s for s in subjects if s["subject_type"] == "EPS_ATTACH"]
+        session = [s for s in subjects if s["subject_type"] == "EPC_SESSION_CONTROL"]
+        self.assertTrue(attach and session)
+        attach_references = {s["diagnostic_group_reference"] for s in attach}
+        for subject in session:
+            self.assertEqual(subject["attach_association"], "NOT_ESTABLISHED")
+            self.assertNotIn(subject["diagnostic_group_reference"], attach_references)
+            self.assertFalse(
+                attach_references & set(subject.get("transaction_references") or [])
+            )
+
+    def test_no_s11_to_s5s8_link_is_invented(self) -> None:
+        self.use_payload(epc_payload_with_session(instances=0))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        subjects = self.epc_result()["diagnostic_subjects"]
+        interfaces = {s["interface"] for s in subjects}
+        self.assertIn("S11", interfaces)
+        self.assertIn("S5/S8", interfaces)
+        for subject in subjects:
+            self.assertEqual(subject["cross_interface_association"], "NOT_ESTABLISHED")
+
+    def test_epc_boundary_stays_not_evaluated(self) -> None:
+        self.use_payload(epc_payload_with_session(instances=0))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["boundary_selection_status"], "NOT_EVALUATED")
+        self.assertIsNone(result["first_abnormal_boundary"])
+        for subject in result["diagnostic_subjects"]:
+            self.assertEqual(subject["boundary_selection_status"], "NOT_EVALUATED")
+            self.assertIsNone(subject["first_abnormal_boundary"])
+
+    def test_session_report_is_deterministic(self) -> None:
+        self.use_payload(epc_payload_with_session(instances=1))
+        first, second = self.base / "session-a", self.base / "session-b"
+        self.output = first
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        self.output = second
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        for name in ("analysis.json", "report.txt"):
+            self.assertEqual((first / name).read_bytes(), (second / name).read_bytes(), name)
+
+    def test_session_subjects_publish_no_subscriber_identity(self) -> None:
+        self.use_payload(epc_payload_with_session(instances=1))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        published = (self.output / "analysis.json").read_text(encoding="utf-8") + self.read_text()
+        for forbidden in ("460020000000001", "1122334455667788", "919000001", "10.45.0.7"):
+            self.assertNotIn(forbidden, published)
+
+    def test_text_report_states_session_control_scope(self) -> None:
+        self.use_payload(epc_payload_with_session(instances=0))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        text = self.read_text()
+        self.assertIn("EPC_SESSION_CONTROL", text)
+        self.assertIn("cross-interface association: NOT_ESTABLISHED", text)
 
 
 if __name__ == "__main__":

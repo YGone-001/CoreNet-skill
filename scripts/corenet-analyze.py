@@ -53,6 +53,11 @@ PIPELINE_SCRIPT = ROOT / "benchmarks" / "golden-captures" / "scripts" / "run_cap
 S1AP_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "s1ap" / "scripts" / "extract-s1ap.py"
 NAS_EPS_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "nas-eps" / "scripts" / "extract-nas-eps.py"
 EPC_ANALYZE_SCRIPT = ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_attach.py"
+EPC_SESSION_ANALYZE_SCRIPT = (
+    ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_session.py"
+)
+GTPV2_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "gtpv2" / "scripts" / "extract-gtpv2.py"
+GTPV2_CORRELATE_SCRIPT = ROOT / "skills" / "protocol" / "gtpv2" / "scripts" / "correlate-gtpv2.py"
 FROZEN_BENCHMARK_DIR = ROOT / "benchmarks" / "golden-captures"
 
 STATUS_COMPLETED = "COMPLETED"
@@ -166,7 +171,7 @@ DOMAIN_CAPABILITIES: dict[str, dict[str, Any]] = {
         "domain": DOMAIN_EPC,
         "display_name": "Evolved Packet Core",
         "implementation_status": "IMPLEMENTED",
-        "supported_protocol_families": ["S1AP", "NAS-EPS", "SCTP"],
+        "supported_protocol_families": ["S1AP", "NAS-EPS", "GTPv2-C", "SCTP"],
         "analysis_capabilities": [
             "protocol-extraction",
             "eps-attach-procedure-evidence",
@@ -174,16 +179,20 @@ DOMAIN_CAPABILITIES: dict[str, dict[str, Any]] = {
             "security-mode-observation",
             "explicit-attach-rejection",
             "bounded-s1-context-and-release-observations",
+            "gtpv2-session-control-transaction-evidence",
+            "item-scoped-bearer-context-evidence",
+            "bounded-session-control-subject-analysis",
         ],
         "entry_point": "skills/domain/epc-procedures/scripts/analyze_epc_attach.py",
+        "session_entry_point": "skills/domain/epc-procedures/scripts/analyze_epc_session.py",
         "entry_point_available": True,
         "required_dependencies": ["python3", "tshark"],
-        "planned_protocol_families": ["GTPv2-C", "Diameter EPC"],
+        "planned_protocol_families": ["Diameter EPC"],
         "not_implemented_capabilities": [
-            "GTPv2-C session signalling",
             "Diameter EPC",
             "full EPS bearer lifecycle",
             "complete ESM semantics",
+            "cross-interface S11 to S5/S8 session association",
             "end-to-end EPC failure-boundary orchestration",
             "user-plane success verification",
         ],
@@ -1080,16 +1089,15 @@ def build_components(results: list[dict[str, Any]]) -> dict[str, Any]:
     analyzers: list[dict[str, Any]] = []
     orchestration: str | None = None
     for result in results:
-        if result["domain"] != DOMAIN_5GC:
-            continue
         for item in result.get("protocol_evidence") or []:
             extractors.append({"protocol": item["protocol"], "status": item["extraction_status"]})
         for item in result.get("procedure_summaries") or []:
             analyzers.append(
                 {"analyzer": item["procedure_domain"], "status": item["execution_status"]}
             )
-        groups = result.get("diagnostic_groups") or {}
-        orchestration = groups.get("execution_status")
+        if result["domain"] == DOMAIN_5GC:
+            groups = result.get("diagnostic_groups") or {}
+            orchestration = groups.get("execution_status")
     return {
         "protocol_extractors": extractors,
         "domain_analyzers": analyzers,
@@ -1177,8 +1185,9 @@ def build_report(
                 "domains report an unsupported capability rather than an analysis result. "
                 "5GC coverage is bounded to the accepted registration, PDU session and "
                 "mobility chain with its failure-boundary orchestration. EPC coverage is "
-                "bounded to EPS Attach procedure evidence; EPC bearer lifecycle, session "
-                "signalling, complete ESM semantics and global EPC boundary selection are "
+                "bounded to EPS Attach procedure evidence and bounded GTPv2-C session-control "
+                "transaction evidence; EPC bearer lifecycle, complete ESM semantics, "
+                "cross-interface session association and global EPC boundary selection are "
                 "not implemented. IMS analysis is not implemented."
             ),
         },
@@ -1335,7 +1344,8 @@ def render_text_report(report: dict[str, Any]) -> str:
             instances = subject.get("source_domain_instances") or []
             domains = sorted({str(item.get("source_domain")) for item in instances if item.get("source_domain")})
             lines.append(
-                f"    - {subject['diagnostic_group_reference']}: "
+                f"    - {subject['diagnostic_group_reference']} "
+                f"[{_value(subject.get('subject_type'))}]: "
                 f"{_value(subject.get('boundary_selection_status'))} "
                 f"(confidence {_value(subject.get('boundary_confidence'))}, "
                 f"candidates {_value(subject.get('candidate_boundary_count'))}, "
@@ -1348,6 +1358,25 @@ def render_text_report(report: dict[str, Any]) -> str:
                     f"({_value(link.get('context_count'))} context(s), "
                     f"reference {_value(link.get('subject_reference'))})"
                 )
+            if subject.get("subject_type") == "EPC_SESSION_CONTROL":
+                evidence = subject.get("interface_evidence") or {}
+                lines.append(
+                    f"      session control: interface {_value(subject.get('interface'))} "
+                    f"(basis {_value(evidence.get('basis'))}), "
+                    f"association {_value(subject.get('association_strength'))}, "
+                    f"transactions {len(subject.get('transaction_references') or [])}"
+                )
+                primary = subject.get("primary_transaction") or {}
+                if primary:
+                    lines.append(
+                        f"      primary: {_value(primary.get('procedure_family'))} "
+                        f"request frame {_value(primary.get('request_frame'))} -> "
+                        f"response frame {_value(primary.get('response_frame'))}, "
+                        f"outcome {_value(primary.get('outcome'))}"
+                    )
+                for family in subject.get("procedure_families") or []:
+                    lines.append(f"      procedure: {family}")
+                lines.append("      cross-interface association: NOT_ESTABLISHED")
             for stage in subject.get("procedure_stages") or []:
                 marker = "conditional" if stage.get("conditional") else "required"
                 first, last = stage.get("first_frame"), stage.get("last_frame")
@@ -1662,12 +1691,31 @@ def _count_lines(path: Path) -> int:
         return 0
 
 
+def _transaction_count(path: Path) -> int:
+    """Count accepted transactions without trusting an unreadable artifact."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise AnalysisError("PIPELINE_OUTPUT_UNREADABLE", f"GTPv2-C correlation is unreadable: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise AnalysisError("PIPELINE_OUTPUT_UNREADABLE", "GTPv2-C correlation is not an object")
+    transactions = payload.get("transactions")
+    return len(transactions) if isinstance(transactions, list) else 0
+
+
 def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[str, Any]:
-    """Execute the accepted EPC chain: S1AP extraction, NAS-EPS extraction, Attach analysis."""
+    """Execute the EPC chain: S1AP, NAS-EPS, GTPv2-C, Attach and session control.
+
+    A protocol that is genuinely absent from the capture is not a failure. An
+    extraction or correlation failure of an observed protocol is never hidden.
+    """
     run_dir = create_run_directory(work_dir, DOMAIN_EPC)
     s1ap_events = run_dir / "s1ap-events.jsonl"
     nas_events = run_dir / "nas-eps-events.jsonl"
+    gtpv2_events = run_dir / "gtpv2-events.jsonl"
+    gtpv2_transactions = run_dir / "gtpv2-transactions.json"
     analysis_path = run_dir / "epc-attach-analysis.json"
+    session_path = run_dir / "epc-session-analysis.json"
 
     s1ap_present = _run_component(
         [sys.executable, str(S1AP_EXTRACT_SCRIPT), str(capture), "--output", str(s1ap_events), "--force"],
@@ -1683,6 +1731,27 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
         s1ap_events.write_text("", encoding="utf-8")
     if not nas_present:
         nas_events.write_text("", encoding="utf-8")
+
+    gtpv2_present = _run_component(
+        [sys.executable, str(GTPV2_EXTRACT_SCRIPT), str(capture), "--output", str(gtpv2_events), "--force"],
+        "GTPv2-C extraction",
+        allow_empty=True,
+    )
+    gtpv2_event_count = _count_lines(gtpv2_events) if gtpv2_present else 0
+    transaction_count = 0
+    if gtpv2_event_count:
+        _run_component(
+            [
+                sys.executable,
+                str(GTPV2_CORRELATE_SCRIPT),
+                str(gtpv2_events),
+                "--output",
+                str(gtpv2_transactions),
+                "--force",
+            ],
+            "GTPv2-C transaction correlation",
+        )
+        transaction_count = _transaction_count(gtpv2_transactions)
 
     _run_component(
         [
@@ -1707,10 +1776,43 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
         raise AnalysisError("PIPELINE_OUTPUT_UNREADABLE", f"EPC Attach analysis is unreadable: {exc}") from exc
     if not isinstance(analysis, dict):
         raise AnalysisError("PIPELINE_OUTPUT_UNREADABLE", "EPC Attach analysis is not an object")
+
+    session_analysis: dict[str, Any] | None = None
+    if gtpv2_event_count:
+        _run_component(
+            [
+                sys.executable,
+                str(EPC_SESSION_ANALYZE_SCRIPT),
+                "--gtpv2",
+                str(gtpv2_events),
+                "--transactions",
+                str(gtpv2_transactions),
+                "--output",
+                str(session_path),
+                "--force",
+            ],
+            "EPC session-control analysis",
+            allow_empty=True,
+        )
+        if session_path.is_file():
+            try:
+                session_analysis = json.loads(session_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise AnalysisError(
+                    "PIPELINE_OUTPUT_UNREADABLE", f"EPC session-control analysis is unreadable: {exc}"
+                ) from exc
+            if not isinstance(session_analysis, dict):
+                raise AnalysisError(
+                    "PIPELINE_OUTPUT_UNREADABLE", "EPC session-control analysis is not an object"
+                )
+
     return {
         "analysis": analysis,
+        "session_analysis": session_analysis,
         "s1ap_event_count": _count_lines(s1ap_events),
         "nas_eps_event_count": _count_lines(nas_events),
+        "gtpv2_event_count": gtpv2_event_count,
+        "gtpv2_transaction_count": transaction_count,
     }
 
 
@@ -1792,6 +1894,7 @@ def _project_epc_subject(instance: dict[str, Any]) -> dict[str, Any]:
     association = instance.get("association") or {}
     return {
         "diagnostic_group_reference": reference,
+        "subject_type": "EPS_ATTACH",
         "boundary_selection_status": "NOT_EVALUATED",
         "boundary_confidence": None,
         "first_abnormal_boundary": None,
@@ -1830,6 +1933,164 @@ def _project_epc_subject(instance: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _project_primary_transaction(transaction: Any) -> dict[str, Any] | None:
+    """Allowlisted projection of one subject's earliest transaction."""
+    if not isinstance(transaction, dict):
+        return None
+    cause = transaction.get("message_cause")
+    return {
+        "transaction_reference": transaction.get("transaction_reference"),
+        "procedure_family": transaction.get("procedure_family"),
+        "outcome": transaction.get("outcome"),
+        "request_frame": transaction.get("request_frame"),
+        "response_frame": transaction.get("response_frame"),
+        "message_cause": (
+            {
+                "cause_code": cause.get("cause_code"),
+                "cause_name": scrub_free_text(cause.get("cause_name")),
+                "scope": cause.get("scope"),
+            }
+            if isinstance(cause, dict)
+            else None
+        ),
+    }
+
+
+def _project_session_bearer_contexts(contexts: Any) -> list[dict[str, Any]]:
+    """Allowlisted item-scoped bearer evidence with a hard cap."""
+    projected: list[dict[str, Any]] = []
+    if not isinstance(contexts, list):
+        return projected
+    for context in contexts:
+        if not isinstance(context, dict):
+            continue
+        cause = context.get("cause")
+        projected.append(
+            {
+                "transaction_reference": context.get("transaction_reference"),
+                "item_index": context.get("item_index"),
+                "ebi": context.get("ebi"),
+                "scope": "bearer",
+                "cause": (
+                    {
+                        "cause_code": cause.get("cause_code"),
+                        "cause_name": scrub_free_text(cause.get("cause_name")),
+                        "scope": "bearer",
+                    }
+                    if isinstance(cause, dict)
+                    else None
+                ),
+                "f_teids": [
+                    {
+                        "interface_type": item.get("interface_type"),
+                        "interface_type_name": scrub_free_text(item.get("interface_type_name")),
+                        "teid": item.get("teid"),
+                    }
+                    for item in context.get("f_teids") or []
+                    if isinstance(item, dict)
+                ][:MAX_LIST_ITEMS],
+                "binding_basis": context.get("binding_basis"),
+            }
+        )
+    return projected[:MAX_LIST_ITEMS]
+
+
+def _project_session_f_teids(items: Any) -> list[dict[str, Any]]:
+    """Allowlisted message-scope F-TEID evidence with a hard cap."""
+    projected: list[dict[str, Any]] = []
+    if not isinstance(items, list):
+        return projected
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        projected.append(
+            {
+                "transaction_reference": item.get("transaction_reference"),
+                "scope": item.get("scope"),
+                "interface_type": item.get("interface_type"),
+                "interface_type_name": scrub_free_text(item.get("interface_type_name")),
+                "teid": item.get("teid"),
+            }
+        )
+    return projected[:MAX_LIST_ITEMS]
+
+
+def _project_epc_session_subject(subject: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
+    """Publish one GTPv2-C session-control subject as a diagnostic subject."""
+    reference = subject.get("subject_reference")
+    interface_evidence = subject.get("interface_evidence") or {}
+    transaction_references = [
+        item for item in (subject.get("transaction_references") or []) if isinstance(item, str)
+    ]
+    reference_set = set(transaction_references)
+    deviations = [
+        deviation
+        for deviation in (analysis.get("procedure_local_deviations") or [])
+        if isinstance(deviation, dict) and deviation.get("transaction_reference") in reference_set
+    ]
+    evidence_refs, references_omitted = _bounded_evidence_refs(subject.get("evidence_refs"))
+    limitations, limitations_omitted = _bounded_limitations(subject.get("limitations"))
+    observations: list[str] = []
+    for payload in (subject.get("procedure_observations") or {}).values():
+        if not isinstance(payload, dict):
+            continue
+        for outcome in payload.get("outcomes") or []:
+            if isinstance(outcome, str) and outcome not in observations:
+                observations.append(outcome)
+    entry: dict[str, Any] = {
+        "diagnostic_group_reference": reference,
+        "subject_type": "EPC_SESSION_CONTROL",
+        "boundary_selection_status": "NOT_EVALUATED",
+        "boundary_confidence": None,
+        "first_abnormal_boundary": None,
+        "candidate_boundary_count": 0,
+        "source_domain_instances": [
+            {
+                "source_domain": "epc-procedures",
+                "capture_file": subject.get("capture_file"),
+                "instance_reference": reference,
+            }
+        ],
+        "subject_link": {
+            "basis": interface_evidence.get("basis"),
+            "context_count": len(transaction_references),
+            "subject_reference": reference,
+        },
+        "attempt_index": None,
+        "association_strength": subject.get("association_strength"),
+        "interface": subject.get("interface"),
+        "interface_label": subject.get("interface_label"),
+        "interface_evidence": {
+            "interface": interface_evidence.get("interface"),
+            "basis": interface_evidence.get("basis"),
+            "evidence_message": interface_evidence.get("evidence_message"),
+            "supporting_interface_types": interface_evidence.get("supporting_interface_types") or [],
+            "supporting_frames": interface_evidence.get("supporting_frames") or [],
+        },
+        "procedure_families": [
+            item for item in (subject.get("procedure_families") or []) if isinstance(item, str)
+        ],
+        "transaction_references": transaction_references,
+        "primary_transaction": _project_primary_transaction(subject.get("primary_transaction")),
+        "procedure_stages": [],
+        "procedure_deviations": _project_epc_deviations(deviations),
+        "bearer_contexts": _project_session_bearer_contexts(subject.get("bearer_contexts")),
+        "f_teid_evidence": _project_session_f_teids(subject.get("f_teid_evidence")),
+        "cross_interface_association": "NOT_ESTABLISHED",
+        "attach_association": "NOT_ESTABLISHED",
+        "observations": observations,
+        "evidence_refs": evidence_refs,
+        "observation_window": _bounded_observation_window(subject.get("observation_window")),
+        "evidence_limitations": limitations,
+        "additional_evidence_needed": [],
+    }
+    if references_omitted:
+        entry["evidence_refs_omitted"] = references_omitted
+    if limitations_omitted:
+        entry["limitations_omitted"] = limitations_omitted
+    return entry
+
+
 def execute_epc_domain(
     capture: Path,
     work_dir: Path,
@@ -1837,12 +2098,36 @@ def execute_epc_domain(
     detection: dict[str, Any],
     pipeline: Callable[[Path, Path, str], dict[str, Any]],
 ) -> dict[str, Any]:
-    """Run the bounded EPC Attach analysis and normalize its output."""
+    """Run the bounded EPC Attach and session-control analyses and normalize them."""
     payload = pipeline(capture, work_dir, case_id)
-    analysis = payload["analysis"]
+    analysis = payload.get("analysis") or {}
+    session = payload.get("session_analysis")
     instances = analysis.get("procedure_instances") or []
-    deviations = sum(len(instance.get("deviations") or []) for instance in instances)
-    status = STATUS_COMPLETED if instances else STATUS_INSUFFICIENT_EVIDENCE
+    session_subjects = (session or {}).get("control_plane_subjects") or []
+    attach_deviations = sum(len(instance.get("deviations") or []) for instance in instances)
+    session_deviations = (session or {}).get("procedure_local_deviation_count", 0) or 0
+    gtpv2_event_count = payload.get("gtpv2_event_count", 0) or 0
+    gtpv2_transaction_count = payload.get("gtpv2_transaction_count", 0) or 0
+
+    subjects: list[dict[str, Any]] = [_project_epc_subject(instance) for instance in instances]
+    subjects.extend(
+        _project_epc_session_subject(subject, session or {}) for subject in session_subjects
+    )
+    omitted_subjects = max(0, len(subjects) - MAX_DIAGNOSTIC_SUBJECTS)
+    subjects = subjects[:MAX_DIAGNOSTIC_SUBJECTS]
+
+    status = (
+        STATUS_COMPLETED if (instances or session_subjects) else STATUS_INSUFFICIENT_EVIDENCE
+    )
+
+    limitations: list[str] = list(analysis.get("limitations") or [])
+    additional: list[str] = list(analysis.get("additional_evidence_needed") or [])
+    if isinstance(session, dict):
+        limitations.extend(session.get("evidence_limitations") or [])
+        additional.extend(session.get("additional_evidence_needed") or [])
+    bounded_limitations, _ = _bounded_limitations(list(dict.fromkeys(limitations)))
+    bounded_additional, _ = _bounded_limitations(list(dict.fromkeys(additional)))
+
     result: dict[str, Any] = {
         "domain": DOMAIN_EPC,
         "display_name": DOMAIN_CAPABILITIES[DOMAIN_EPC]["display_name"],
@@ -1863,6 +2148,13 @@ def execute_epc_domain(
                 "observed_in_capture": payload.get("nas_eps_event_count", 0) > 0,
                 "event_count": payload.get("nas_eps_event_count", 0),
             },
+            {
+                "protocol": "GTPv2-C",
+                "extraction_status": EXTRACTION_SUCCESS if gtpv2_event_count else EXTRACTION_NOT_OBSERVED,
+                "observed_in_capture": gtpv2_event_count > 0,
+                "event_count": gtpv2_event_count,
+                "transaction_count": gtpv2_transaction_count,
+            },
         ],
         "procedure_summaries": [
             {
@@ -1870,22 +2162,41 @@ def execute_epc_domain(
                 "procedure": "eps-attach",
                 "execution_status": "EXECUTED",
                 "instance_count": len(instances),
-                "deviation_count": deviations,
-            }
+                "deviation_count": attach_deviations,
+            },
+            {
+                "procedure_domain": "epc-procedures",
+                "procedure": "epc-session-control",
+                "execution_status": "EXECUTED" if session_subjects else "NO_SUBJECT",
+                "instance_count": len(session_subjects),
+                "transaction_count": gtpv2_transaction_count,
+                "deviation_count": session_deviations,
+            },
         ],
         "diagnostic_groups": None,
-        "diagnostic_subject_count": len(instances),
-        "diagnostic_subjects": [_project_epc_subject(instance) for instance in instances],
+        "diagnostic_subject_count": len(subjects),
+        "diagnostic_subjects": subjects,
         "first_abnormal_boundary": None,
         "boundary_selection_status": "NOT_EVALUATED",
-        "evidence_limitations": scrub_list(analysis.get("limitations")),
-        "additional_evidence_needed": scrub_list(analysis.get("additional_evidence_needed")),
+        "evidence_limitations": bounded_limitations,
+        "additional_evidence_needed": bounded_additional,
         "degradation": [],
     }
+
+    degradation: list[str] = []
     if not instances:
-        result["degradation"] = [
+        degradation.append(
             "no EPS Attach procedure instance was reconstructed from the observed evidence"
-        ]
+        )
+    if not session_subjects:
+        degradation.append(
+            "no GTPv2-C session-control subject was reconstructed from the observed evidence"
+        )
+    if omitted_subjects:
+        degradation.append(
+            f"{omitted_subjects} diagnostic subject(s) were omitted by the publication cap"
+        )
+    result["degradation"] = degradation
     return result
 
 

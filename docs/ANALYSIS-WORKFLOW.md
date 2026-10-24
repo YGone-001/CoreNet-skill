@@ -306,9 +306,9 @@ Three capabilities must not be conflated:
 
 | Capability | Status |
 | --- | --- |
-| EPC protocol extraction (S1AP, EPS NAS) | Implemented as standalone Protocol Skills |
-| EPC procedure diagnosis | Implemented for bounded EPS Attach evidence only |
-| Unified EPC execution through this workflow | Implemented for the bounded Attach path |
+| EPC protocol extraction (S1AP, EPS NAS, GTPv2-C) | Implemented as standalone Protocol Skills |
+| EPC procedure diagnosis | Implemented for bounded EPS Attach and bounded GTPv2-C session-control evidence |
+| Unified EPC execution through this workflow | Implemented for both bounded paths, separately or together |
 
 The two EPC Protocol Skills remain independently executable:
 
@@ -320,14 +320,22 @@ python3 skills/protocol/nas-eps/scripts/extract-nas-eps.py capture.pcap --output
 python3 skills/protocol/nas-eps/scripts/nas_eps_timeline.py nas-eps-events.jsonl --format text
 ```
 
-`--domains epc` runs the bounded chain — S1AP extraction, NAS-EPS extraction, EPS
-Attach analysis — and `--domains auto` selects it when EPC access signaling is
-confirmed. The EPC result reports procedure instances, per-stage observations and
-procedure-local deviations with exact frames. It never reports a bearer, PDN or
+`--domains epc` runs the bounded chain — S1AP extraction, NAS-EPS extraction,
+GTPv2-C extraction, GTPv2-C transaction correlation, EPS Attach analysis and EPC
+session-control analysis — and `--domains auto` selects it when EPC access signaling
+is confirmed. A capture that carries only GTPv2-C still produces a usable EPC result;
+a capture that carries only S1AP/NAS-EPS keeps the accepted Attach result.
+
+The EPC result reports procedure instances, per-stage observations, procedure-local
+deviations with exact frames, and session-control subjects whose `subject_type` is
+`EPS_ATTACH` or `EPC_SESSION_CONTROL`. Session-control subjects report the protocol
+outcome separately from the correlation status, keep message and bearer Cause apart,
+carry item-scoped bearer evidence, and state `cross_interface_association` and
+`attach_association` as `NOT_ESTABLISHED`. The result never reports a bearer, PDN or
 service verdict, and it never selects a global first-abnormal boundary: EPC boundary
 selection is reported as `NOT_EVALUATED` until an EPC Analysis Orchestration Skill
-exists. GTPv2-C, Diameter EPC, complete ESM semantics and user-plane verification
-remain outside the implemented scope.
+exists. Diameter EPC, complete ESM semantics, cross-interface session association and
+user-plane verification remain outside the implemented scope.
 
 ## 11. Roadmap for EPC and IMS
 

@@ -82,6 +82,40 @@ unavailable, not absent. An attempt without a terminal decision is reported as
 `global_boundary_evaluation` is always `NOT_EVALUATED` and
 `global_first_abnormal_boundary` is always `null`.
 
+## Session-Control Analysis
+
+Version 0.2.0 adds a second, independently executable capability inside the same
+Domain package: `scripts/analyze_epc_session.py`. It consumes the accepted
+`gtpv2` Protocol Skill output (detailed events plus transaction correlation) and
+reconstructs bounded EPC session-control subjects.
+
+```bash
+python3 scripts/analyze_epc_session.py \
+  --gtpv2 gtpv2-events.jsonl \
+  --transactions gtpv2-transactions.json \
+  --output epc-session-analysis.json \
+  --timeline-output epc-session-timeline.jsonl
+```
+
+It reports Create Session, Modify Bearer, Delete Session, Release Access Bearers
+and Echo transactions with a correlation status and a protocol outcome kept
+separate, message-scope and bearer-scope Cause kept separate, message-scope and
+item-scoped F-TEID evidence, and EBI values bound to their bearer item when the
+Protocol Skill proves the grouping.
+
+An interface is published only from a non-zero control-plane F-TEID (types 10/11
+for S11, 6/7 for S5/S8) or from control-plane TEID continuity with an earlier
+transaction. A transport address never establishes one. Transactions are grouped
+into a subject only when the resolved interface, the directed request endpoint
+pair and at least one control-plane TEID agree; an accepted Delete Session closes
+the generation, and later reuse of a closed TEID starts a new subject with an
+explicit reuse deviation.
+
+S11 and S5/S8 subjects stay separate, and every subject reports
+`cross_interface_association` and `attach_association` as `NOT_ESTABLISHED`. The
+capability publishes `not_confirmed` explicitly and keeps
+`boundary_selection_status` at `NOT_EVALUATED`.
+
 ## Failure Behavior
 
 | Condition | Behavior |

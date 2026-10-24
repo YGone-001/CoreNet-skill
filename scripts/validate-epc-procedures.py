@@ -27,7 +27,33 @@ REQUIRED = (
     "scripts/analyze_epc_attach.py",
     "scripts/epc_attach_timeline.py",
     "tests/test_epc_procedures.py",
+    "references/session-control.md",
+    "rules/epc-session-model.json",
+    "schemas/epc-session-analysis.schema.json",
+    "scripts/epc_session_model.py",
+    "scripts/analyze_epc_session.py",
+    "scripts/epc_session_timeline.py",
+    "tests/test_epc_session.py",
+    "examples/gtpv2/events.jsonl",
+    "examples/gtpv2/transactions.json",
+    "examples/gtpv2/expected-session-analysis.json",
 )
+
+SESSION_OUTCOMES = (
+    "RESPONSE_ACCEPTED_OBSERVED",
+    "RESPONSE_REJECTED_OBSERVED",
+    "RESPONSE_OUTCOME_UNKNOWN",
+    "OPEN_REQUEST",
+    "RESPONSE_ONLY",
+    "AMBIGUOUS_TRANSACTION",
+)
+
+SESSION_INTERFACES = ("S11", "S5/S8", "UNKNOWN_INTERFACE")
+
+SESSION_FORBIDDEN_KEYS = {
+    "imsi", "msisdn", "imei", "tmsi", "guti", "apn", "apn_name",
+    "paa_address", "pdn_address", "raw_bytes", "payload",
+}
 
 CASES = (
     "attach-reject",
@@ -65,6 +91,16 @@ FORBIDDEN_CLAIMS = (
 
 LIFECYCLE_MARKER = re.compile(r"(?i)\bphase\s*[0-9]+\b|\bmilestone\s*[a-z]?[0-9]+\b")
 LONG_DIGITS = re.compile(r"\d{14,}")
+
+
+def load_session_model(root: Path):
+    path = root / "skills" / "domain" / "epc-procedures" / "scripts" / "epc_session_model.py"
+    spec = importlib.util.spec_from_file_location("epc_session_model_under_test", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def load_model(root: Path):
@@ -179,6 +215,8 @@ def validate(root: Path = ROOT) -> list[str]:
         if produced != expected:
             fail(f"{case}: produced analysis does not match the committed expected result")
 
+    errors.extend(_validate_session_control(skill, root))
+
     malformed = skill / "examples" / "extracted" / "malformed-nas.jsonl"
     if not malformed.is_file():
         fail("missing malformed NAS fixture")
@@ -188,6 +226,112 @@ def validate(root: Path = ROOT) -> list[str]:
             fail("malformed NAS fixture must be rejected")
         except model.InputError:
             pass
+
+    return errors
+
+
+def _validate_session_control(skill: Path, root: Path) -> list[str]:
+    """Validate the bounded EPC session-control capability."""
+    errors: list[str] = []
+
+    def fail(message: str) -> None:
+        errors.append(message)
+
+    try:
+        schema = json.loads(
+            (skill / "schemas" / "epc-session-analysis.schema.json").read_text(encoding="utf-8")
+        )
+    except json.JSONDecodeError as exc:
+        return [f"invalid session analysis schema: {exc}"]
+    for field in (
+        "domain",
+        "analysis_scope",
+        "input_provenance",
+        "control_plane_subjects",
+        "transaction_observations",
+        "bearer_context_observations",
+        "procedure_local_deviations",
+        "unbound_evidence",
+        "ambiguous_evidence",
+        "evidence_limitations",
+        "additional_evidence_needed",
+        "not_confirmed",
+    ):
+        if field not in schema.get("required", []):
+            fail(f"session schema does not require '{field}'")
+
+    try:
+        rules = json.loads((skill / "rules" / "epc-session-model.json").read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f"invalid session rules model: {exc}"]
+
+    model = load_session_model(root)
+    if set(rules.get("procedure_families", {})) != set(model.FAMILY_ORDER):
+        fail("session rules families do not match the implemented families")
+    if set(rules.get("outcome_vocabulary", ())) != set(model.OUTCOMES):
+        fail("session rules outcome vocabulary does not match the implemented outcomes")
+    if set(rules.get("accepting_causes", ())) != set(model.ACCEPTING_CAUSES):
+        fail("session rules accepting causes do not match the implemented set")
+    if tuple(rules.get("not_confirmed", ())) != tuple(model.NOT_CONFIRMED):
+        fail("session rules not_confirmed list does not match the implemented list")
+    if set(rules.get("interface_detection", {}).get("s11_control_interface_types", ())) != set(
+        model.S11_CONTROL_TYPES
+    ):
+        fail("session rules S11 interface types do not match the implemented set")
+    if set(rules.get("interface_detection", {}).get("s5s8_control_interface_types", ())) != set(
+        model.S5S8_CONTROL_TYPES
+    ):
+        fail("session rules S5/S8 interface types do not match the implemented set")
+
+    events_path = skill / "examples" / "gtpv2" / "events.jsonl"
+    transactions_path = skill / "examples" / "gtpv2" / "transactions.json"
+    expected_path = skill / "examples" / "gtpv2" / "expected-session-analysis.json"
+    try:
+        events = read_jsonl(events_path)
+        document = json.loads(transactions_path.read_text(encoding="utf-8"))
+        produced = model.analyze(events, document, events_path.name, transactions_path.name)
+        expected = json.loads(expected_path.read_text(encoding="utf-8"))
+    except (ValueError, OSError, json.JSONDecodeError, model.InputError) as exc:
+        return errors + [f"session-control fixture: {exc}"]
+
+    if produced != expected:
+        fail("session-control analysis does not reproduce the committed expected result")
+
+    if expected.get("boundary_selection_status") != "NOT_EVALUATED":
+        fail("session-control analysis must keep boundary selection NOT_EVALUATED")
+    if expected.get("first_abnormal_boundary") is not None:
+        fail("session-control analysis must never select a first abnormal boundary")
+    if not expected.get("not_confirmed"):
+        fail("session-control analysis must publish what it does not confirm")
+
+    subjects = expected.get("control_plane_subjects") or []
+    if not subjects:
+        fail("session-control fixture must produce at least one subject")
+    interfaces = set()
+    for subject in subjects:
+        interfaces.add(subject.get("interface"))
+        if subject.get("cross_interface_association") != "NOT_ESTABLISHED":
+            fail("a session-control subject must not claim a cross-interface association")
+        if subject.get("attach_association") != "NOT_ESTABLISHED":
+            fail("a session-control subject must not claim an Attach association")
+        if subject.get("interface") not in SESSION_INTERFACES:
+            fail(f"unexpected session-control interface: {subject.get('interface')}")
+        forbidden = SESSION_FORBIDDEN_KEYS & set(subject)
+        if forbidden:
+            fail(f"session-control subject publishes forbidden field(s) {sorted(forbidden)}")
+    if "S11" not in interfaces or "S5/S8" not in interfaces:
+        fail("the accepted fixture must exercise both S11 and S5/S8 subjects")
+
+    for observation in expected.get("transaction_observations") or []:
+        if observation.get("outcome") not in SESSION_OUTCOMES:
+            fail(f"unexpected transaction outcome: {observation.get('outcome')}")
+
+    serialized = json.dumps(expected)
+    for claim in FORBIDDEN_CLAIMS:
+        if claim in serialized:
+            fail(f"session-control analysis publishes forbidden claim '{claim}'")
+    if LONG_DIGITS.search(serialized):
+        fail("session-control analysis publishes a long digit run that may be an identifier")
 
     return errors
 

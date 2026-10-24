@@ -40,6 +40,27 @@ python3 scripts/corenet-analyze.py --capture capture.pcap --domains epc \
   --work-dir /tmp/corenet-work --output-dir /tmp/corenet-report
 ```
 
+## Session control
+
+```bash
+python3 scripts/analyze_epc_session.py \
+  --gtpv2 gtpv2-events.jsonl \
+  --transactions gtpv2-transactions.json \
+  --output epc-session-analysis.json
+python3 scripts/epc_session_timeline.py epc-session-analysis.json --format text
+```
+
+The session-control path consumes the accepted `gtpv2` Protocol Skill output. It
+reports protocol outcomes (`RESPONSE_ACCEPTED_OBSERVED`, `RESPONSE_REJECTED_OBSERVED`,
+`RESPONSE_OUTCOME_UNKNOWN`, `OPEN_REQUEST`, `RESPONSE_ONLY`,
+`AMBIGUOUS_TRANSACTION`) separately from the correlation status, keeps message and
+bearer Cause apart, and groups transactions only on a resolved interface plus a
+directed endpoint pair plus a shared control-plane TEID.
+
+It never links S11 to S5/S8, never links an Attach UE to a GTPv2-C session, and
+never claims PDN, bearer or user-plane success. See
+`references/session-control.md`.
+
 ## What it reports
 
 | Evidence | Detail |

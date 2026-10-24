@@ -1,5 +1,5 @@
 name: epc-procedures
-version: 0.1.0
+version: 0.2.0
 category: domain
 description: >
   Bounded EPS Attach procedure analysis over already-extracted S1AP and NAS-EPS
@@ -7,8 +7,13 @@ description: >
   cross-protocol evidence, conditional attach/identity/authentication/security-mode/
   decision/completion stages, bounded S1 context setup and UE context release
   observations, procedure-local deviations with exact evidence references, and
-  explicit evidence limitations. No protocol decoding, no bearer or PDN success
-  claim, no global failure-boundary selection, no root cause.
+  explicit evidence limitations, plus bounded EPC session-control analysis over
+  already-extracted GTPv2-C events and transactions: message-scope and
+  bearer-scope Cause separation, item-scoped bearer context evidence,
+  evidence-based interface resolution, control-plane TEID continuity grouping
+  and explicit cross-interface and Attach-association limitations. No protocol
+  decoding, no bearer or PDN success claim, no global failure-boundary
+  selection, no root cause.
 scope:
   includes:
     - EPS Attach procedure instance formation scoped by capture, SCTP association and S1AP UE identifiers
@@ -16,8 +21,16 @@ scope:
     - conditional stage evaluation for attach initiation, identity, authentication, security mode control, attach decision, attach completion, S1 context setup and context release
     - procedure-local deviation classification with machine-readable evidence references
     - protected-envelope and partial-capture limitations
+    - bounded GTPv2-C session-control transaction evidence for Create Session, Modify Bearer, Delete Session, Release Access Bearers and Echo
+    - message-scope and bearer-scope Cause preservation with explicit scope
+    - message-scope and item-scoped F-TEID and EBI evidence
+    - evidence-based S11 and S5/S8 hop resolution without transport-address inference
+    - control-plane TEID continuity grouping with generation handling and explicit reuse
   excludes:
-    - GTPv2-C, Diameter, S6a, S5/S8 or S11 session signalling
+    - Diameter, S6a or Gx/Gy signalling
+    - cross-interface S11 to S5/S8 session association without a reviewed identity bridge
+    - Attach UE to GTPv2-C session association without a reviewed identity bridge
+    - full EPS bearer lifecycle and user-plane delivery verdicts
     - complete ESM decoding, PDN connection lifecycle and EPS bearer state
     - S1-U user-plane validation
     - success, failure or root-cause verdicts and network-function blame
@@ -29,15 +42,20 @@ dependencies:
     - procedure-evidence >=0.1.0
     - s1ap >=0.1.0
     - nas-eps >=0.1.0
+    - gtpv2 >=0.1.0
 inputs:
   - detailed S1AP event JSONL produced by the s1ap Protocol Skill
   - detailed NAS-EPS event JSONL produced by the nas-eps Protocol Skill
+  - detailed GTPv2-C event JSONL produced by the gtpv2 Protocol Skill
+  - GTPv2-C transaction correlation JSON produced by the gtpv2 Protocol Skill
 outputs:
   - EPS Attach analysis JSON (schemas/epc-attach-analysis.schema.json)
   - stage timeline JSON Lines
   - protocol-local text timeline
-protocols: [S1AP, NAS-EPS]
-interfaces: [S1-MME, N1]
+  - EPC session-control analysis JSON (schemas/epc-session-analysis.schema.json)
+  - session-control procedure timeline JSON Lines
+protocols: [S1AP, NAS-EPS, GTPv2-C]
+interfaces: [S1-MME, N1, S11, S5/S8]
 network_functions: []
 evidence_levels:
   - OBSERVED
@@ -53,6 +71,9 @@ upstream:
   local_modifications: Original CoreNet Domain-layer package; no upstream material imported.
 testing:
   fixtures:
+    - examples/gtpv2/events.jsonl
+    - examples/gtpv2/transactions.json
+    - examples/gtpv2/expected-session-analysis.json
     - examples/extracted/attach-reject-s1ap.jsonl
     - examples/extracted/attach-reject-nas.jsonl
     - examples/extracted/auth-failure-s1ap.jsonl

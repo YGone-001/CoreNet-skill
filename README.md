@@ -69,15 +69,16 @@ a single command-line entry point. The bounded `s1ap` S1-MME Protocol Skill, the
 `nas-eps` EPS NAS Protocol Skill and the bounded `gtpv2` GTPv2-C session-control
 Protocol Skill extract EPC access-signaling, NAS message and session-control
 evidence from LTE captures, and the bounded `epc-procedures` Domain Skill analyzes
-observed EPS Attach procedure stages with procedure-local deviations and no bearer,
-PDN or service verdict. The extensions provide investigation context only.
+observed EPS Attach procedure stages and bounded GTPv2-C session-control
+transactions with procedure-local deviations, item-scoped bearer evidence and no
+bearer, PDN or service verdict. The extensions provide investigation context only.
 **Not yet implemented:** deep NGAP transfer-container decoding, the remaining
 NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
 relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
 semantics), remaining
 5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (SIP, SDP/RTP, Diameter), IMS Domain procedures,
-broader EPC procedures (bearer and session lifecycle, GTPv2-C Domain integration, Diameter EPC),
+broader EPC procedures (bearer and session lifecycle, Diameter EPC, cross-interface session association, EPC failure-boundary orchestration),
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper
 diagnosis orchestration.
 
