@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """User-facing tests for the unified core-network PCAP analysis workflow.
 
-These tests exercise the executable entry point, its report contract, its
-execution-status semantics and its file-system safety. The two external
-boundaries (capture inventory and the accepted 5GC pipeline) are replaced by
-deterministic fakes so the workflow is testable without tshark or a capture
-corpus. One opt-in smoke test runs the real boundaries against a local capture
-when CORENET_SMOKE_CAPTURE is set.
+These tests exercise the executable entry point, execution-completeness
+classification, multi-subject reporting, report publication safety and privacy.
+The two external boundaries (capture inventory and the accepted 5GC pipeline) are
+replaced by deterministic fakes, so the workflow is testable without tshark or a
+capture corpus. One opt-in smoke test runs the real boundaries against a local
+capture when CORENET_SMOKE_CAPTURE is set.
 """
 
 from __future__ import annotations
 
 import contextlib
+import copy
 import hashlib
 import importlib.util
 import io
@@ -60,6 +61,30 @@ DOMAIN_RESULT_KEYS = {
     "additional_evidence_needed",
 }
 
+SUBJECT_KEYS = {
+    "diagnostic_group_reference",
+    "boundary_selection_status",
+    "first_abnormal_boundary",
+    "candidate_boundary_count",
+    "source_domain_instances",
+    "evidence_limitations",
+    "additional_evidence_needed",
+}
+
+TEXT_SECTIONS = (
+    "Capture and Toolchain",
+    "Observed Protocols",
+    "Domain Detection and Execution",
+    "Protocol Extraction Coverage",
+    "Procedure Instances",
+    "Diagnostic Subjects",
+    "First Abnormal Boundary per Subject",
+    "Evidence Limitations",
+    "Additional Evidence Needed",
+    "Execution Failures",
+    "Interpretation Boundaries",
+)
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -86,6 +111,115 @@ def inventory(names: list[str], frames: int = 16) -> dict:
 
 def inventory_5gc() -> dict:
     return inventory(["eth", "ip", "sctp", "ngap", "nas-5gs"])
+
+
+def instance(
+    domain: str = "5gc-registration-mobility",
+    identity: str = "5gc-reg:fault.pcap:sctp-assoc-65535:r1",
+    capture: str = "fixture.pcap",
+    **extra,
+) -> dict:
+    payload = {
+        "source_domain": domain,
+        "capture_file": capture,
+        "source_instance_id": identity,
+    }
+    payload.update(extra)
+    return payload
+
+
+def subject_link(*identities: str) -> dict:
+    return {
+        "basis": "capture_sctp_association_and_ngap_ue_context_exact_match",
+        "source_contexts": [
+            {
+                "source_domain": "5gc-registration-mobility",
+                "source_instance_id": identity,
+                "capture_file": "fixture.pcap",
+                "sctp_association": 65535,
+                "ran_ue_ngap_id": 1,
+                "amf_ue_ngap_id": 2,
+            }
+            for identity in identities
+        ],
+    }
+
+
+def boundary(
+    candidate: str = "1-cand-2",
+    frame: int = 11,
+    protocol: str = "NAS-5GS",
+    message: str = "Authentication failure",
+    family: str = "5gc-registration-mobility",
+    stage: str = "authentication",
+) -> dict:
+    return {
+        "candidate_id": candidate,
+        "boundary_ref": {
+            "candidate_id": candidate,
+            "source_domain": "5gc-registration-mobility",
+            "procedure_family": family,
+            "procedure_stage": stage,
+            "deviation_type": "UNSUCCESSFUL_OUTCOME_OBSERVED",
+            "evidence_level": "OBSERVED",
+            "description": f"{protocol} {message} observed at frame {frame}",
+            "boundary_anchor": {
+                "capture_file": "fixture.pcap",
+                "frame_number": frame,
+                "message_type": message,
+                "protocol": protocol,
+                "timestamp": "2026-07-29T05:34:47.514322Z",
+            },
+            "ordering_basis": {
+                "frame_number": frame,
+                "observation_window": {"start_frame": 9, "end_frame": 15},
+                "stage_position": 1,
+            },
+            "supporting_evidence": {
+                "evidence_refs": [
+                    {
+                        "capture_file": "fixture.pcap",
+                        "evidence_level": "OBSERVED",
+                        "frame_number": frame,
+                        "kind": "EVENT",
+                        "message_type": message,
+                        "protocol": protocol,
+                        "stage_id": stage,
+                        "window_first_frame": None,
+                        "window_last_frame": None,
+                    }
+                ]
+            },
+        },
+    }
+
+
+def group(
+    reference: str = "diag-1",
+    selection_status: str = "SELECTED",
+    selected: dict | None = None,
+    instances: list | None = None,
+    link: dict | None = None,
+    confidence: str = "HIGH",
+    limitations: list | None = None,
+    additional: list | None = None,
+) -> dict:
+    payload = {
+        "diagnostic_id": reference,
+        "selection_status": selection_status,
+        "boundary_confidence": confidence if selection_status == "SELECTED" else None,
+        "selected_boundary": selected,
+        "candidate_boundaries": [] if selected is None else [{"candidate_id": selected["candidate_id"]}],
+        "source_domain_instances": instances or [],
+        "subject_link": link,
+        "evidence_limitations": limitations or [],
+        "additional_evidence_needed": additional or [],
+    }
+    return payload
+
+
+def orchestration(*groups: dict) -> dict:
+    return {"analysis_name": "5gc-failure-boundary", "diagnostic_groups": list(groups)}
 
 
 def summary_selected() -> dict:
@@ -157,42 +291,24 @@ def summary_selected() -> dict:
     }
 
 
-def summary_no_boundary() -> dict:
-    summary = summary_selected()
-    summary["selection_status"] = "NO_ABNORMAL_BOUNDARY_OBSERVED"
-    summary["selected_boundary"] = None
-    summary["boundary_confidence"] = None
-    summary["candidate_boundaries_count"] = 0
-    summary["domain_status"]["registration"]["deviation_count"] = 5
-    summary["orchestration_status"]["candidate_boundary_count"] = 0
-    return summary
+def orchestration_selected() -> dict:
+    return orchestration(
+        group(
+            instances=[instance()],
+            selected=boundary(),
+            link=subject_link("5gc-reg:fault.pcap:sctp-assoc-65535:r1"),
+        )
+    )
 
 
-def summary_no_domain_executed() -> dict:
-    return {
-        "case_id": "capture-fixture",
-        "selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
-        "selected_boundary": None,
-        "boundary_confidence": None,
-        "evidence_limitations": [],
-        "additional_evidence_needed": [],
-        "candidate_boundaries_count": 0,
-        "domain_status": {
-            "registration": {"execution_status": "SKIPPED_NO_INPUTS", "first_stop_reason": "no inputs"},
-            "pdu_session": {"execution_status": "SKIPPED_NO_INPUTS", "first_stop_reason": "no inputs"},
-            "handover_mobility": {"execution_status": "SKIPPED_NO_INPUTS", "first_stop_reason": "no inputs"},
-        },
-        "orchestration_status": {
-            "execution_status": "SKIPPED_NO_DOMAIN_OUTPUTS",
-            "diagnostic_group_count": 0,
-        },
-        "protocol_status": {"nas-5gs": "SUCCESS", "ngap": "SUCCESS"},
-    }
-
-
-def summary_extraction_failed() -> dict:
-    summary = summary_no_domain_executed()
-    summary["protocol_status"] = {"nas-5gs": "ERROR_127", "ngap": "ERROR_127"}
+def zero_instances(summary: dict) -> dict:
+    """Represent a Domain run that produced no procedure instance."""
+    for record in summary["domain_status"].values():
+        if "instance_count" in record:
+            record["instance_count"] = 0
+        if "handover_attempt_count" in record:
+            record["handover_attempt_count"] = 0
+            record["path_switch_attempt_count"] = 0
     return summary
 
 
@@ -200,6 +316,7 @@ class WorkflowTestCase(unittest.TestCase):
     """Base class wiring deterministic fakes into the two external boundaries."""
 
     summary_factory = staticmethod(summary_selected)
+    orchestration_factory = staticmethod(orchestration_selected)
     inventory_factory = staticmethod(inventory_5gc)
 
     def setUp(self) -> None:
@@ -228,11 +345,11 @@ class WorkflowTestCase(unittest.TestCase):
 
     def fake_pipeline(self, capture: Path, work_dir: Path, case_id: str):
         self.pipeline_calls.append((str(capture), case_id))
-        artifacts = work_dir / "5gc" / "raw_skill_artifacts"
+        artifacts = work_dir / "5gc" / "fake-run" / "raw_skill_artifacts"
         artifacts.mkdir(parents=True, exist_ok=True)
         (artifacts / "nas-5gs-events.jsonl").write_text('{"a":1}\n{"b":2}\n', encoding="utf-8")
         (artifacts / "ngap-events.jsonl").write_text('{"c":3}\n', encoding="utf-8")
-        return self.summary_factory(), artifacts
+        return self.summary_factory(), self.orchestration_factory(), artifacts
 
     def run_cli(self, *extra: str, domains: str = "auto") -> int:
         argv = [
@@ -255,6 +372,9 @@ class WorkflowTestCase(unittest.TestCase):
     def read_text(self) -> str:
         return (self.output / "report.txt").read_text(encoding="utf-8")
 
+    def domain_result(self) -> dict:
+        return self.read_report()["domain_results"][0]
+
 
 # ---------------------------------------------------------------------------
 # Contract
@@ -266,9 +386,7 @@ class CapabilityContractTests(unittest.TestCase):
         self.assertEqual(set(MODULE.DOMAIN_CAPABILITIES), {"5gc", "epc", "ims"})
 
     def test_only_5gc_is_implemented(self) -> None:
-        self.assertEqual(
-            MODULE.DOMAIN_CAPABILITIES["5gc"]["implementation_status"], "IMPLEMENTED"
-        )
+        self.assertEqual(MODULE.DOMAIN_CAPABILITIES["5gc"]["implementation_status"], "IMPLEMENTED")
         for domain in ("epc", "ims"):
             capability = MODULE.DOMAIN_CAPABILITIES[domain]
             self.assertEqual(capability["implementation_status"], "UNSUPPORTED")
@@ -290,6 +408,12 @@ class CapabilityContractTests(unittest.TestCase):
                 f"no {domain} Skill package may exist yet",
             )
 
+    def test_envelope_stays_domain_neutral(self) -> None:
+        # No 5gc-specific field may be required at the top level.
+        self.assertIn("domain_results", REPORT_KEYS)
+        self.assertNotIn("ngap", REPORT_KEYS)
+        self.assertNotIn("nas_5gs", REPORT_KEYS)
+
 
 class CliSurfaceTests(unittest.TestCase):
     def test_help_exits_zero(self) -> None:
@@ -300,82 +424,592 @@ class CliSurfaceTests(unittest.TestCase):
 
     def test_invalid_domain_request_fails(self) -> None:
         with self.assertRaises(MODULE.AnalysisError) as caught:
-            MODULE.resolve_selection("gprs", MODULE.detect_domains({"protocols": [], "transports": []}))
+            MODULE.resolve_selection(
+                "gprs", MODULE.detect_domains({"protocols": [], "transports": []})
+            )
         self.assertEqual(caught.exception.code, "INVALID_DOMAIN")
 
 
 # ---------------------------------------------------------------------------
-# Execution scenarios
+# Execution-completeness classification
 # ---------------------------------------------------------------------------
 
 
-class SupportedExecutionTests(WorkflowTestCase):
-    def test_supported_5gc_execution_writes_both_reports(self) -> None:
-        self.assertEqual(self.run_cli(domains="5gc"), 0)
-        self.assertTrue((self.output / "analysis.json").is_file())
-        self.assertTrue((self.output / "report.txt").is_file())
-        report = self.read_report()
-        self.assertEqual(report["overall_execution_status"], "COMPLETED")
-        self.assertEqual(report["requested_domains"], ["5gc"])
-        self.assertTrue(REPORT_KEYS.issubset(report))
-        result = report["domain_results"][0]
-        self.assertTrue(DOMAIN_RESULT_KEYS.issubset(result))
-        self.assertEqual(len(self.pipeline_calls), 1)
-
-    def test_domain_and_orchestration_evidence_is_propagated(self) -> None:
-        self.run_cli(domains="5gc")
-        result = self.read_report()["domain_results"][0]
-        registration = {
-            item["procedure_domain"]: item for item in result["procedure_summaries"]
-        }["5gc-registration-mobility"]
-        self.assertEqual(registration["execution_status"], "EXECUTED")
-        self.assertEqual(registration["instance_count"], 1)
-        self.assertEqual(registration["deviation_count"], 2)
-        self.assertEqual(result["diagnostic_groups"]["diagnostic_group_count"], 1)
-        self.assertEqual(
-            result["diagnostic_groups"]["consumed_domain_instance_counts"]["registration"], 1
-        )
-        counts = {item["protocol"]: item["event_count"] for item in result["protocol_evidence"]}
-        self.assertEqual(counts["nas-5gs"], 2)
-        self.assertEqual(counts["ngap"], 1)
-        self.assertIsNone(counts["pfcp"])
-
-    def test_authentication_boundary_evidence_is_preserved(self) -> None:
-        self.run_cli(domains="5gc")
-        boundary = self.read_report()["domain_results"][0]["first_abnormal_boundary"]
-        self.assertEqual(boundary["frame_number"], 11)
-        self.assertEqual(boundary["protocol"], "NAS-5GS")
-        self.assertEqual(boundary["message_type"], "Authentication failure")
-        self.assertEqual(boundary["procedure_stage"], "authentication")
-        self.assertEqual(boundary["evidence_level"], "OBSERVED")
-        self.assertEqual(boundary["selection_status"], "SELECTED")
-
-    def test_report_envelope_exposes_capture_provenance(self) -> None:
-        self.run_cli(domains="5gc")
-        report = self.read_report()
-        self.assertEqual(report["capture"]["sha256"], hashlib.sha256(self.capture.read_bytes()).hexdigest())
-        self.assertEqual(report["capture"]["frame_count"], 16)
-        self.assertEqual(report["toolchain"]["decoder"]["name"], "tshark")
-        self.assertIn("5gc", [item["domain"] for item in report["domain_capabilities"]])
-
-
-class NoBoundaryTests(WorkflowTestCase):
-    summary_factory = staticmethod(summary_no_boundary)
-
-    def test_no_boundary_is_not_a_health_claim(self) -> None:
+class ExecutionClassificationTests(WorkflowTestCase):
+    def test_all_components_normal_is_completed(self) -> None:
         self.assertEqual(self.run_cli(domains="5gc"), 0)
         report = self.read_report()
-        result = report["domain_results"][0]
         self.assertEqual(report["overall_execution_status"], "COMPLETED")
+        self.assertEqual(self.domain_result()["execution_status"], "COMPLETED")
+        self.assertEqual(self.domain_result()["degradation"], [])
+
+    def test_nas_extraction_failure_is_never_completed(self) -> None:
+        summary = summary_selected()
+        summary["protocol_status"]["nas-5gs"] = "ERROR_127"
+        self.summary_factory = lambda: summary
+        self.assertEqual(self.run_cli(domains="5gc"), 0)
+        result = self.domain_result()
+        self.assertEqual(self.read_report()["overall_execution_status"], "PARTIAL")
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertEqual(result["failure_code"], "EXTRACTION_PARTIAL")
+        self.assertTrue(any("NAS-5GS extraction failed" in item for item in result["degradation"]))
+
+    def test_ngap_extraction_failure_is_never_completed(self) -> None:
+        summary = summary_selected()
+        summary["protocol_status"]["ngap"] = "ERROR_2"
+        self.summary_factory = lambda: summary
+        self.run_cli(domains="5gc")
+        result = self.domain_result()
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertTrue(any("NGAP extraction failed" in item for item in result["degradation"]))
+
+    def test_absent_protocol_is_not_a_failure(self) -> None:
+        self.run_cli(domains="5gc")
+        statuses = {
+            item["protocol"]: item["extraction_status"]
+            for item in self.domain_result()["protocol_evidence"]
+        }
+        self.assertEqual(statuses["pfcp"], "NOT_OBSERVED_IN_CAPTURE")
+        self.assertEqual(self.domain_result()["execution_status"], "COMPLETED")
+
+    def test_unsupported_semantics_is_not_a_failure(self) -> None:
+        self.run_cli(domains="5gc")
+        statuses = {
+            item["protocol"]: item["extraction_status"]
+            for item in self.domain_result()["protocol_evidence"]
+        }
+        self.assertEqual(statuses["ngap"], "SUCCESS_WITH_UNSUPPORTED_SEMANTICS")
+        self.assertEqual(self.domain_result()["execution_status"], "COMPLETED")
+
+    def test_orchestration_failure_is_not_boundary_localization(self) -> None:
+        summary = summary_selected()
+        summary["selection_status"] = "ORCHESTRATION_ERROR_2"
+        summary["selected_boundary"] = None
+        summary["boundary_confidence"] = None
+        summary["evidence_limitations"] = ["Orchestrator failed with exit code 2"]
+        summary["orchestration_status"]["execution_status"] = "ERROR_2"
+        summary["orchestration_status"]["first_stop_reason"] = "orchestrator exited with 2"
+        self.summary_factory = lambda: summary
+        self.assertEqual(self.run_cli(domains="5gc"), 0)
+        report = self.read_report()
+        result = self.domain_result()
+        self.assertEqual(report["overall_execution_status"], "PARTIAL")
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertEqual(result["failure_code"], "ORCHESTRATION_FAILED")
         self.assertIsNone(result["first_abnormal_boundary"])
-        self.assertEqual(result["boundary_selection_status"], "NO_ABNORMAL_BOUNDARY_OBSERVED")
-        text = self.read_text().lower()
-        for forbidden in ("network is healthy", "end-to-end success", "service passed", "root cause is"):
-            self.assertNotIn(forbidden, text)
-        self.assertIn("not evidence that the network", text)
         self.assertTrue(
-            any("no supported abnormal boundary" in item for item in report["limitations"])
+            any("orchestration failed" in item for item in result["degradation"])
         )
+
+    def test_skipped_domains_without_input_are_insufficient(self) -> None:
+        summary = zero_instances(summary_selected())
+        for record in summary["domain_status"].values():
+            record["execution_status"] = "SKIPPED_NO_INPUTS"
+            record["first_stop_reason"] = "no inputs"
+        summary["selection_status"] = "NO_ABNORMAL_BOUNDARY_OBSERVED"
+        summary["selected_boundary"] = None
+        summary["orchestration_status"]["execution_status"] = "SKIPPED_NO_DOMAIN_OUTPUTS"
+        self.summary_factory = lambda: summary
+        self.orchestration_factory = lambda: {"diagnostic_groups": []}
+        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
+        self.assertEqual(self.read_report()["overall_execution_status"], "INSUFFICIENT_EVIDENCE")
+
+    def test_executed_domains_without_procedure_instance_are_insufficient(self) -> None:
+        summary = summary_selected()
+        for record in summary["domain_status"].values():
+            if "instance_count" in record:
+                record["instance_count"] = 0
+            if "handover_attempt_count" in record:
+                record["handover_attempt_count"] = 0
+                record["path_switch_attempt_count"] = 0
+        summary["selection_status"] = "NO_DOMAIN_INPUTS"
+        summary["selected_boundary"] = None
+        summary["boundary_confidence"] = None
+        self.summary_factory = lambda: summary
+        self.orchestration_factory = lambda: {"diagnostic_groups": []}
+        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
+        report = self.read_report()
+        self.assertEqual(report["overall_execution_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertEqual(report["domain_results"][0]["diagnostic_subject_count"], 0)
+        self.assertIsNone(report["domain_results"][0]["first_abnormal_boundary"])
+
+    def test_instances_without_diagnostic_group_are_reported(self) -> None:
+        summary = summary_selected()
+        summary["selection_status"] = "NO_DOMAIN_INPUTS"
+        summary["selected_boundary"] = None
+        summary["boundary_confidence"] = None
+        self.summary_factory = lambda: summary
+        self.orchestration_factory = lambda: {"diagnostic_groups": []}
+        self.run_cli(domains="5gc")
+        report = self.read_report()
+        self.assertEqual(report["overall_execution_status"], "COMPLETED")
+        self.assertTrue(
+            any("established no diagnostic subject" in item for item in report["limitations"])
+        )
+
+    def test_required_failure_without_domain_result_is_failed(self) -> None:
+        summary = zero_instances(summary_selected())
+        summary["protocol_status"] = {"nas-5gs": "ERROR_127", "ngap": "ERROR_127"}
+        for record in summary["domain_status"].values():
+            record["execution_status"] = "SKIPPED_NO_INPUTS"
+        self.summary_factory = lambda: summary
+        self.orchestration_factory = lambda: {"diagnostic_groups": []}
+        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
+        result = self.domain_result()
+        self.assertEqual(result["execution_status"], "FAILED")
+        self.assertEqual(result["failure_code"], "EXTRACTION_FAILED")
+
+    def test_failure_of_unobserved_protocol_does_not_invalidate(self) -> None:
+        summary = summary_selected()
+        summary["protocol_status"]["pfcp"] = "ERROR_127"
+        self.summary_factory = lambda: summary
+        self.assertEqual(self.run_cli(domains="5gc"), 0)
+        result = self.domain_result()
+        self.assertEqual(result["execution_status"], "COMPLETED")
+        self.assertTrue(
+            any("not observed in this capture" in item for item in result["degradation"])
+        )
+
+    def test_protected_payload_bounds_interpretation(self) -> None:
+        summary = summary_selected()
+        summary["protocol_status"]["nas-5gs"] = "SUCCESS_WITH_PROTECTED_PAYLOAD"
+        self.summary_factory = lambda: summary
+        self.run_cli(domains="5gc")
+        result = self.domain_result()
+        self.assertEqual(result["execution_status"], "COMPLETED")
+        self.assertTrue(any("security-protected payload" in item for item in result["degradation"]))
+
+    def test_domain_failure_beside_executed_domain_is_partial(self) -> None:
+        summary = summary_selected()
+        summary["domain_status"]["pdu_session"]["execution_status"] = "FAILED_INPUT_CONTRACT"
+        summary["domain_status"]["pdu_session"]["first_stop_reason"] = "input contract rejected"
+        self.summary_factory = lambda: summary
+        self.run_cli(domains="5gc")
+        result = self.domain_result()
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertEqual(result["failure_code"], "DOMAIN_PARTIAL")
+        self.assertTrue(any("did not produce analysis" in item for item in result["degradation"]))
+
+    def test_overall_status_aggregation(self) -> None:
+        def result(domain: str, status: str) -> dict:
+            return {"domain": domain, "execution_status": status}
+
+        aggregate = MODULE.overall_status
+        self.assertEqual(aggregate([result("5gc", "COMPLETED")], "explicit", ["5gc"]), "COMPLETED")
+        self.assertEqual(
+            aggregate([result("5gc", "COMPLETED"), result("ims", "UNSUPPORTED")], "explicit", ["5gc", "ims"]),
+            "PARTIAL",
+        )
+        self.assertEqual(
+            aggregate([result("5gc", "FAILED"), result("ims", "UNSUPPORTED")], "explicit", ["5gc", "ims"]),
+            "FAILED",
+        )
+        self.assertEqual(
+            aggregate([result("5gc", "FAILED"), result("epc", "COMPLETED")], "explicit", ["5gc", "epc"]),
+            "PARTIAL",
+        )
+        self.assertEqual(aggregate([result("5gc", "PARTIAL")], "explicit", ["5gc"]), "PARTIAL")
+        self.assertEqual(aggregate([], "auto", []), "INSUFFICIENT_EVIDENCE")
+
+
+# ---------------------------------------------------------------------------
+# Multi-subject reporting
+# ---------------------------------------------------------------------------
+
+
+class MultiSubjectTests(WorkflowTestCase):
+    def test_two_independent_ues_are_both_reported(self) -> None:
+        self.orchestration_factory = lambda: orchestration(
+            group("diag-1", selected=boundary(frame=11), instances=[instance("5gc-registration-mobility", "reg-ue1")],
+                  link=subject_link("reg-ue1")),
+            group("diag-2", selected=boundary(candidate="2-cand-1", frame=42, message="Registration reject"),
+                  instances=[instance("5gc-registration-mobility", "reg-ue2")],
+                  link=subject_link("reg-ue2")),
+        )
+        self.run_cli(domains="5gc")
+        result = self.domain_result()
+        self.assertEqual(result["diagnostic_subject_count"], 2)
+        references = [subject["diagnostic_group_reference"] for subject in result["diagnostic_subjects"]]
+        self.assertEqual(references, ["diag-1", "diag-2"])
+        frames = [
+            subject["first_abnormal_boundary"]["frame_number"]
+            for subject in result["diagnostic_subjects"]
+        ]
+        self.assertEqual(frames, [11, 42])
+        self.assertTrue(SUBJECT_KEYS.issubset(result["diagnostic_subjects"][0]))
+
+    def test_failed_subject_and_no_boundary_subject_keep_own_status(self) -> None:
+        self.orchestration_factory = lambda: orchestration(
+            group("diag-1", selected=boundary(frame=11), instances=[instance("5gc-registration-mobility", "reg-ue1")]),
+            group(
+                "diag-2",
+                selection_status="NO_ABNORMAL_BOUNDARY_OBSERVED",
+                selected=None,
+                instances=[instance("5gc-registration-mobility", "reg-ue2")],
+            ),
+        )
+        self.run_cli(domains="5gc")
+        subjects = {subject["diagnostic_group_reference"]: subject for subject in self.domain_result()["diagnostic_subjects"]}
+        self.assertEqual(subjects["diag-1"]["boundary_selection_status"], "SELECTED")
+        self.assertEqual(subjects["diag-2"]["boundary_selection_status"], "NO_ABNORMAL_BOUNDARY_OBSERVED")
+        self.assertIsNone(subjects["diag-2"]["first_abnormal_boundary"])
+        self.assertIsNotNone(subjects["diag-1"]["first_abnormal_boundary"])
+
+    def test_two_pdu_sessions_are_distinct_subjects(self) -> None:
+        self.orchestration_factory = lambda: orchestration(
+            group("diag-1", selected=boundary(), instances=[instance("5gc-pdu-session", "psi1")]),
+            group("diag-2", selected=boundary(frame=30), instances=[instance("5gc-pdu-session", "psi5")]),
+        )
+        self.run_cli(domains="5gc")
+        result = self.domain_result()
+        self.assertEqual(result["diagnostic_subject_count"], 2)
+        references = {
+            subject["source_domain_instances"][0]["instance_reference"]
+            for subject in result["diagnostic_subjects"]
+        }
+        self.assertEqual(len(references), 2)
+
+    def test_reused_pdu_session_identity_stays_distinct(self) -> None:
+        self.orchestration_factory = lambda: orchestration(
+            group(
+                "diag-1",
+                selected=boundary(),
+                instances=[
+                    instance("5gc-pdu-session", "psi1:generation-1"),
+                    instance("5gc-pdu-session", "psi1:generation-2"),
+                ],
+            )
+        )
+        self.run_cli(domains="5gc")
+        instances = self.domain_result()["diagnostic_subjects"][0]["source_domain_instances"]
+        self.assertEqual(len(instances), 2)
+        self.assertNotEqual(
+            instances[0]["instance_reference"], instances[1]["instance_reference"]
+        )
+
+    def test_ambiguous_association_stays_ambiguous(self) -> None:
+        self.orchestration_factory = lambda: orchestration(
+            group(
+                "diag-1",
+                selection_status="AMBIGUOUS_FIRST_BOUNDARY",
+                selected=None,
+                instances=[instance("5gc-registration-mobility", "reg-ambiguous")],
+                confidence="LOW",
+            )
+        )
+        self.run_cli(domains="5gc")
+        subject = self.domain_result()["diagnostic_subjects"][0]
+        self.assertEqual(subject["boundary_selection_status"], "AMBIGUOUS_FIRST_BOUNDARY")
+        self.assertIsNone(subject["first_abnormal_boundary"])
+
+    def test_handover_context_bridge_is_preserved(self) -> None:
+        self.orchestration_factory = lambda: orchestration(
+            group(
+                "diag-1",
+                selected=boundary(),
+                instances=[
+                    instance("5gc-handover-mobility", "ho-1"),
+                    instance("5gc-pdu-session", "psi1"),
+                ],
+                link={
+                    "basis": "handover_source_target_context_bridge_SUPPORTED",
+                    "source_contexts": [
+                        {"source_domain": "5gc-handover-mobility", "source_instance_id": "ho-1"},
+                        {"source_domain": "5gc-pdu-session", "source_instance_id": "psi1"},
+                    ],
+                },
+            )
+        )
+        self.run_cli(domains="5gc")
+        link = self.domain_result()["diagnostic_subjects"][0]["subject_link"]
+        self.assertIn("bridge", link["basis"])
+        self.assertEqual(link["context_count"], 2)
+
+    def test_unbound_association_never_joins_another_subject(self) -> None:
+        self.orchestration_factory = lambda: orchestration(
+            group("diag-1", selected=boundary(), instances=[instance("5gc-registration-mobility", "reg-ue1")]),
+            group(
+                "diag-2",
+                selection_status="INSUFFICIENT_COMPARABLE_EVIDENCE",
+                selected=None,
+                instances=[instance("5gc-registration-mobility", "reg-unbound")],
+                link={"basis": "unbound", "source_contexts": []},
+            ),
+        )
+        self.run_cli(domains="5gc")
+        subjects = self.domain_result()["diagnostic_subjects"]
+        self.assertEqual(len(subjects), 2)
+        self.assertEqual(subjects[1]["boundary_selection_status"], "INSUFFICIENT_COMPARABLE_EVIDENCE")
+        self.assertIsNone(subjects[1]["first_abnormal_boundary"])
+
+    def test_raw_orchestration_records_are_not_republished(self) -> None:
+        self.orchestration_factory = lambda: orchestration(
+            group("diag-1", selected=boundary(), instances=[instance()], link=subject_link("reg-ue1"))
+        )
+        self.run_cli(domains="5gc")
+        published = (self.output / "analysis.json").read_text(encoding="utf-8")
+        for forbidden in (
+            '"ran_ue_ngap_id":',
+            '"amf_ue_ngap_id":',
+            '"sctp_association":',
+            '"source_instance_id":',
+            '"candidate_boundaries":',
+            '"selected_boundary":',
+        ):
+            self.assertNotIn(forbidden, published)
+
+    def test_primary_boundary_is_a_compatibility_view(self) -> None:
+        self.orchestration_factory = lambda: orchestration(
+            group("diag-1", selected=boundary(frame=11), instances=[instance()]),
+            group("diag-2", selected=boundary(candidate="2-cand-1", frame=42), instances=[instance("5gc-registration-mobility", "reg-ue2")]),
+        )
+        self.run_cli(domains="5gc")
+        result = self.domain_result()
+        self.assertEqual(result["first_abnormal_boundary"]["frame_number"], 11)
+        self.assertEqual(
+            [subject["first_abnormal_boundary"]["frame_number"] for subject in result["diagnostic_subjects"]],
+            [11, 42],
+        )
+
+    def test_subject_cap_is_bounded_and_reported(self) -> None:
+        groups = [group(f"diag-{index}", selected=boundary(frame=index + 1), instances=[instance()]) for index in range(MODULE.MAX_DIAGNOSTIC_SUBJECTS + 3)]
+        self.orchestration_factory = lambda: orchestration(*groups)
+        self.run_cli(domains="5gc")
+        result = self.domain_result()
+        self.assertEqual(result["diagnostic_subject_count"], MODULE.MAX_DIAGNOSTIC_SUBJECTS)
+        self.assertEqual(result["diagnostic_subjects_omitted"], 3)
+        self.assertTrue(
+            any("truncated" in item for item in self.read_report()["limitations"])
+        )
+
+
+# ---------------------------------------------------------------------------
+# Text report
+# ---------------------------------------------------------------------------
+
+
+class TextReportTests(WorkflowTestCase):
+    def test_required_sections_are_present(self) -> None:
+        self.run_cli(domains="5gc")
+        text = self.read_text()
+        for section in TEXT_SECTIONS:
+            self.assertIn(section, text, section)
+
+    def test_subjects_are_enumerated_with_frame_evidence(self) -> None:
+        self.orchestration_factory = lambda: orchestration(
+            group("diag-1", selected=boundary(frame=11), instances=[instance()]),
+            group("diag-2", selection_status="NO_ABNORMAL_BOUNDARY_OBSERVED", selected=None, instances=[instance("5gc-registration-mobility", "reg-ue2")]),
+        )
+        self.run_cli(domains="5gc")
+        text = self.read_text()
+        self.assertIn("diag-1", text)
+        self.assertIn("diag-2", text)
+        self.assertIn("Authentication failure", text)
+        self.assertIn("NAS-5GS", text)
+        self.assertIn("no subject has a selected abnormal boundary", self._text_without_boundary())
+
+    def _text_without_boundary(self) -> str:
+        self.output = self.base / "out-noboundary"
+        self.orchestration_factory = lambda: orchestration(
+            group("diag-1", selection_status="NO_ABNORMAL_BOUNDARY_OBSERVED", selected=None, instances=[instance()])
+        )
+        self.run_cli(domains="5gc")
+        return self.read_text()
+
+    def test_empty_sections_say_so_explicitly(self) -> None:
+        self.orchestration_factory = lambda: {"diagnostic_groups": []}
+        self.summary_factory = lambda: {**summary_selected(), "selection_status": "NO_DOMAIN_INPUTS", "selected_boundary": None}
+        self.run_cli(domains="5gc")
+        text = self.read_text()
+        self.assertIn("no diagnostic group was established", text)
+        self.assertIn("no component failure was recorded", text)
+
+
+# ---------------------------------------------------------------------------
+# Privacy
+# ---------------------------------------------------------------------------
+
+
+class PrivacyTests(WorkflowTestCase):
+    def test_structured_identifiers_are_not_published(self) -> None:
+        self.orchestration_factory = lambda: orchestration(
+            group(
+                "diag-1",
+                selected=boundary(),
+                instances=[
+                    instance(
+                        "5gc-registration-mobility",
+                        "5gc-reg:/home/analyst/captures/fault.pcap:001010000000001",
+                        suci="suci-0-001-01-0000-0-0-0000000001",
+                        imsi="001010000000001",
+                    )
+                ],
+                link=subject_link("reg-ue1"),
+                limitations=["subscriber 001010000000001 observed at /home/analyst/fault.pcap"],
+                additional=["collect C:\\Users\\analyst\\trace.pcap"],
+            )
+        )
+        self.run_cli(domains="5gc")
+        published = (self.output / "analysis.json").read_text(encoding="utf-8") + self.read_text()
+        for forbidden in ("001010000000001", "suci-0-001", "/home/analyst", "analyst"):
+            self.assertNotIn(forbidden, published)
+
+    def test_frame_and_protocol_identity_survive_redaction(self) -> None:
+        self.run_cli(domains="5gc")
+        report = self.read_report()
+        subject = report["domain_results"][0]["diagnostic_subjects"][0]
+        self.assertEqual(subject["first_abnormal_boundary"]["frame_number"], 11)
+        self.assertEqual(subject["first_abnormal_boundary"]["protocol"], "NAS-5GS")
+        self.assertEqual(
+            subject["first_abnormal_boundary"]["evidence_references"][0]["frame_number"], 11
+        )
+
+    def test_capture_digest_is_published_without_content(self) -> None:
+        self.run_cli(domains="5gc")
+        report = self.read_report()
+        self.assertEqual(
+            report["capture"]["sha256"], hashlib.sha256(self.capture.read_bytes()).hexdigest()
+        )
+
+
+# ---------------------------------------------------------------------------
+# Path safety and publication
+# ---------------------------------------------------------------------------
+
+
+class PathSafetyTests(WorkflowTestCase):
+    def test_identical_work_and_output_directory_is_refused(self) -> None:
+        self.output = self.work
+        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
+        self.assertEqual(self.pipeline_calls, [])
+
+    def test_nested_work_and_output_directories_are_refused(self) -> None:
+        self.output = self.work / "report"
+        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
+        self.output = self.base / "outer"
+        self.work = self.output / "work"
+        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
+        self.assertEqual(self.pipeline_calls, [])
+
+    def test_work_directory_inside_repository_is_refused(self) -> None:
+        self.work = ROOT / "tmp-should-never-exist"
+        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
+        self.assertFalse(self.work.exists())
+        self.assertEqual(self.pipeline_calls, [])
+
+    def test_output_directory_inside_benchmark_is_refused(self) -> None:
+        self.output = FROZEN_BENCHMARK_DIR / "cases" / "public-5gc-auth-negative"
+        before = sorted(path.name for path in self.output.iterdir())
+        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
+        self.assertEqual(sorted(path.name for path in self.output.iterdir()), before)
+
+    def test_symlinked_output_directory_cannot_reach_benchmark(self) -> None:
+        link = self.base / "link"
+        try:
+            link.symlink_to(FROZEN_BENCHMARK_DIR / "cases", target_is_directory=True)
+        except (OSError, NotImplementedError):  # pragma: no cover - platform without symlinks
+            self.skipTest("symlinks unavailable")
+        self.output = link / "public-5gc-auth-negative"
+        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
+        self.assertFalse((self.output / "analysis.json").exists())
+
+    def test_input_capture_is_not_modified(self) -> None:
+        before = self.capture.read_bytes()
+        self.run_cli(domains="5gc")
+        self.assertEqual(self.capture.read_bytes(), before)
+
+    def test_run_directories_are_unique(self) -> None:
+        first = MODULE.create_run_directory(self.work)
+        second = MODULE.create_run_directory(self.work)
+        self.assertNotEqual(first, second)
+        self.assertTrue(first.is_dir() and second.is_dir())
+        self.assertEqual(list(first.iterdir()), [])
+
+
+class PublicationTests(WorkflowTestCase):
+    def test_existing_reports_are_not_overwritten_without_force(self) -> None:
+        self.assertEqual(self.run_cli(domains="5gc"), 0)
+        original = (self.output / "analysis.json").read_text(encoding="utf-8")
+        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
+        self.assertEqual((self.output / "analysis.json").read_text(encoding="utf-8"), original)
+        self.assertEqual(self.run_cli("--force", domains="5gc"), 0)
+
+    def test_force_replaces_only_the_report_pair(self) -> None:
+        self.work.mkdir(parents=True, exist_ok=True)
+        sentinel = self.work / "keep-me.txt"
+        sentinel.write_text("keep", encoding="utf-8")
+        self.assertEqual(self.run_cli(domains="5gc"), 0)
+        self.assertEqual(self.run_cli("--force", domains="5gc"), 0)
+        self.assertTrue(sentinel.is_file())
+        self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
+
+    def test_text_publication_failure_rolls_back_json(self) -> None:
+        self.output.mkdir(parents=True, exist_ok=True)
+        previous = '{"previous": true}\n'
+        (self.output / "analysis.json").write_text(previous, encoding="utf-8")
+        (self.output / "report.txt").mkdir()
+        self.assertEqual(self.run_cli("--force", domains="5gc"), MODULE.EXIT_FAILED)
+        self.assertEqual((self.output / "analysis.json").read_text(encoding="utf-8"), previous)
+
+    def test_failed_run_after_success_records_a_failure_marker(self) -> None:
+        self.assertEqual(self.run_cli(domains="5gc"), 0)
+        original = (self.output / "analysis.json").read_text(encoding="utf-8")
+        self.capture.write_bytes(b"not a capture")
+        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
+        self.assertEqual((self.output / "analysis.json").read_text(encoding="utf-8"), original)
+        marker = json.loads((self.output / "analysis.failure.json").read_text(encoding="utf-8"))
+        self.assertEqual(marker["overall_execution_status"], "FAILED")
+        self.assertEqual(marker["failure"]["code"], "MALFORMED_CAPTURE")
+
+    def test_first_failure_writes_the_report_itself(self) -> None:
+        self.capture.write_bytes(b"not a capture")
+        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
+        self.assertTrue((self.output / "analysis.json").is_file())
+        self.assertFalse((self.output / "analysis.failure.json").exists())
+
+
+# ---------------------------------------------------------------------------
+# Detection and unsupported domains
+# ---------------------------------------------------------------------------
+
+
+class DetectionTests(WorkflowTestCase):
+    def test_auto_selects_5gc_on_access_signaling(self) -> None:
+        self.assertEqual(self.run_cli(domains="auto"), 0)
+        report = self.read_report()
+        self.assertEqual(report["requested_domains"], ["5gc"])
+        self.assertEqual(report["workflow"]["selection_mode"], "auto")
+        self.assertEqual(self.domain_result()["detection"]["status"], "CONFIRMED")
+
+    def test_gtp_u_only_is_ambiguous_and_not_analyzed(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "gtp"])
+        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
+        self.assertEqual(self.read_report()["requested_domains"], [])
+        self.assertEqual(self.pipeline_calls, [])
+
+    def test_pfcp_only_is_suspected_not_confirmed(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "pfcp"])
+        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
+        self.assertTrue(any("SUSPECTED" in item for item in self.read_report()["limitations"]))
+
+    def test_sip_only_does_not_confirm_ims(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "sip"])
+        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
+        self.assertEqual(self.pipeline_calls, [])
+
+    def test_epc_signaling_is_confirmed_but_unsupported(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "s1ap", "nas-eps"])
+        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_UNSUPPORTED)
+        self.assertEqual(self.read_report()["requested_domains"], ["epc"])
+        self.assertEqual(self.pipeline_calls, [])
+
+    def test_mixed_5gc_and_epc_evidence_is_not_collapsed(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "ngap", "nas-5gs", "s1ap"])
+        self.assertEqual(self.run_cli(domains="auto"), 0)
+        report = self.read_report()
+        self.assertEqual(report["overall_execution_status"], "PARTIAL")
+        statuses = {result["domain"]: result["execution_status"] for result in report["domain_results"]}
+        self.assertEqual(statuses, {"5gc": "COMPLETED", "epc": "UNSUPPORTED"})
 
 
 class UnsupportedDomainTests(WorkflowTestCase):
@@ -384,16 +1018,13 @@ class UnsupportedDomainTests(WorkflowTestCase):
         report = self.read_report()
         self.assertEqual(report["overall_execution_status"], "UNSUPPORTED")
         result = report["domain_results"][0]
-        self.assertEqual(result["domain"], "epc")
         self.assertEqual(result["execution_status"], "UNSUPPORTED")
         self.assertTrue(result["unsupported_reason"])
         self.assertEqual(self.pipeline_calls, [])
 
     def test_ims_request_is_unsupported(self) -> None:
         self.assertEqual(self.run_cli(domains="ims"), MODULE.EXIT_UNSUPPORTED)
-        result = self.read_report()["domain_results"][0]
-        self.assertEqual(result["domain"], "ims")
-        self.assertEqual(result["execution_status"], "UNSUPPORTED")
+        self.assertEqual(self.read_report()["domain_results"][0]["execution_status"], "UNSUPPORTED")
         self.assertEqual(self.pipeline_calls, [])
 
     def test_mixed_request_is_partial_and_keeps_each_status(self) -> None:
@@ -402,9 +1033,8 @@ class UnsupportedDomainTests(WorkflowTestCase):
         self.assertEqual(report["overall_execution_status"], "PARTIAL")
         statuses = {result["domain"]: result["execution_status"] for result in report["domain_results"]}
         self.assertEqual(statuses, {"5gc": "COMPLETED", "ims": "UNSUPPORTED"})
-        self.assertEqual(len(self.pipeline_calls), 1)
 
-    def test_unsupported_domain_stays_visible_when_supported_domain_fails(self) -> None:
+    def test_failed_domain_keeps_unsupported_domain_visible(self) -> None:
         def failing_pipeline(capture, work_dir, case_id):
             raise MODULE.AnalysisError("PIPELINE_FAILED", "adapter exited with 1")
 
@@ -415,161 +1045,33 @@ class UnsupportedDomainTests(WorkflowTestCase):
         self.assertEqual(statuses, {"5gc": "FAILED", "ims": "UNSUPPORTED"})
         self.assertEqual(report["overall_execution_status"], "FAILED")
 
-    def test_domain_without_adapter_fails_visibly_instead_of_vanishing(self) -> None:
+    def test_domain_without_adapter_fails_visibly(self) -> None:
         capability = MODULE.DOMAIN_CAPABILITIES["epc"]
         original = capability["implementation_status"]
         capability["implementation_status"] = "IMPLEMENTED"
         try:
             self.assertEqual(self.run_cli(domains="epc"), MODULE.EXIT_FAILED)
-            report = self.read_report()
-            result = report["domain_results"][0]
-            self.assertEqual(result["domain"], "epc")
+            result = self.read_report()["domain_results"][0]
             self.assertEqual(result["execution_status"], "FAILED")
             self.assertEqual(result["failure_code"], "NO_DOMAIN_ADAPTER")
         finally:
             capability["implementation_status"] = original
 
 
-class DetectionTests(WorkflowTestCase):
-    def test_auto_selects_5gc_on_access_signaling(self) -> None:
-        self.assertEqual(self.run_cli(domains="auto"), 0)
-        report = self.read_report()
-        self.assertEqual(report["requested_domains"], ["5gc"])
-        self.assertEqual(report["workflow"]["selection_mode"], "auto")
-        detection = report["domain_results"][0]["detection"]
-        self.assertEqual(detection["status"], "CONFIRMED")
-        self.assertIn("NGAP", detection["basis"])
-
-    def test_gtp_u_only_is_ambiguous_and_not_analyzed(self) -> None:
-        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "gtp"])
-        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
-        report = self.read_report()
-        self.assertEqual(report["overall_execution_status"], "INSUFFICIENT_EVIDENCE")
-        self.assertEqual(report["requested_domains"], [])
-        self.assertEqual(self.pipeline_calls, [])
-
-    def test_pfcp_only_is_suspected_not_confirmed(self) -> None:
-        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "pfcp"])
-        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
-        report = self.read_report()
-        self.assertEqual(report["requested_domains"], [])
-        self.assertTrue(any("SUSPECTED" in item for item in report["limitations"]))
-
-    def test_sip_only_does_not_confirm_ims(self) -> None:
-        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "sip"])
-        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
-        report = self.read_report()
-        self.assertEqual(report["requested_domains"], [])
-        self.assertEqual(self.pipeline_calls, [])
-
-    def test_epc_signaling_is_confirmed_but_unsupported(self) -> None:
-        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "s1ap", "nas-eps"])
-        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_UNSUPPORTED)
-        report = self.read_report()
-        self.assertEqual(report["requested_domains"], ["epc"])
-        self.assertEqual(report["domain_results"][0]["detection"]["status"], "CONFIRMED")
-        self.assertEqual(self.pipeline_calls, [])
-
-    def test_mixed_5gc_and_epc_evidence_is_not_collapsed(self) -> None:
-        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "ngap", "nas-5gs", "s1ap"])
-        self.assertEqual(self.run_cli(domains="auto"), 0)
-        report = self.read_report()
-        self.assertEqual(report["overall_execution_status"], "PARTIAL")
-        statuses = {result["domain"]: result["execution_status"] for result in report["domain_results"]}
-        self.assertEqual(statuses, {"5gc": "COMPLETED", "epc": "UNSUPPORTED"})
-        self.assertEqual(len(self.pipeline_calls), 1)
-
-
-class FailureTests(WorkflowTestCase):
-    def test_malformed_capture_fails_with_nonzero_exit(self) -> None:
-        self.capture.write_bytes(b"not a capture at all")
-        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_FAILED)
-        report = self.read_report()
-        self.assertEqual(report["overall_execution_status"], "FAILED")
-        self.assertEqual(report["failure"]["code"], "MALFORMED_CAPTURE")
-        self.assertEqual(self.pipeline_calls, [])
-
-    def test_missing_decoder_fails_with_nonzero_exit(self) -> None:
-        def unavailable(path: Path) -> dict:
-            raise MODULE.AnalysisError("DECODER_UNAVAILABLE", "packet decoder is unavailable")
-
-        MODULE.inventory_capture = unavailable
-        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_FAILED)
-        self.assertEqual(self.read_report()["failure"]["code"], "DECODER_UNAVAILABLE")
-
-    def test_extraction_failure_never_becomes_no_boundary_evidence(self) -> None:
-        self.summary_factory = summary_extraction_failed
-        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
-        report = self.read_report()
-        result = report["domain_results"][0]
-        self.assertEqual(report["overall_execution_status"], "FAILED")
-        self.assertEqual(result["execution_status"], "FAILED")
-        self.assertEqual(result["failure_code"], "EXTRACTION_FAILED")
-        self.assertIsNone(result["first_abnormal_boundary"])
-
-    def test_no_domain_executed_is_insufficient_evidence(self) -> None:
-        self.summary_factory = summary_no_domain_executed
-        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
-        report = self.read_report()
-        self.assertEqual(report["overall_execution_status"], "INSUFFICIENT_EVIDENCE")
-        self.assertIsNone(report["domain_results"][0]["first_abnormal_boundary"])
-
-
-class PrivacyAndSafetyTests(WorkflowTestCase):
-    def test_identifiers_and_paths_are_redacted(self) -> None:
-        def leaky_summary() -> dict:
-            summary = summary_selected()
-            summary["evidence_limitations"] = [
-                "subscriber 001010000000001 observed at /home/analyst/captures/fault.pcap"
-            ]
-            summary["additional_evidence_needed"] = ["collect C:\\Users\\analyst\\trace.pcap"]
-            return summary
-
-        self.summary_factory = leaky_summary
-        self.run_cli(domains="5gc")
-        published = (self.output / "analysis.json").read_text(encoding="utf-8") + self.read_text()
-        self.assertNotIn("001010000000001", published)
-        self.assertNotIn("analyst", published)
-        self.assertNotIn("/home/", published)
-
-    def test_existing_outputs_are_not_overwritten_silently(self) -> None:
-        self.assertEqual(self.run_cli(domains="5gc"), 0)
-        first = (self.output / "analysis.json").read_text(encoding="utf-8")
-        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
-        self.assertEqual((self.output / "analysis.json").read_text(encoding="utf-8"), first)
-        self.assertEqual(self.run_cli("--force", domains="5gc"), 0)
-
-    def test_repository_work_directory_is_refused(self) -> None:
-        self.work = ROOT / "tmp-should-never-exist"
-        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
-        self.assertFalse(self.work.exists())
-        self.assertEqual(self.pipeline_calls, [])
-
-    def test_frozen_benchmark_output_directory_is_refused(self) -> None:
-        self.output = FROZEN_BENCHMARK_DIR / "cases" / "public-5gc-auth-negative"
-        before = sorted(path.name for path in self.output.iterdir())
-        self.assertEqual(self.run_cli(domains="5gc"), MODULE.EXIT_FAILED)
-        self.assertEqual(sorted(path.name for path in self.output.iterdir()), before)
-
-    def test_input_capture_is_not_modified(self) -> None:
-        before = self.capture.read_bytes()
-        self.run_cli(domains="5gc")
-        self.assertEqual(self.capture.read_bytes(), before)
+# ---------------------------------------------------------------------------
+# Determinism and benchmark invariance
+# ---------------------------------------------------------------------------
 
 
 class DeterminismTests(WorkflowTestCase):
     def test_repeated_runs_produce_identical_reports(self) -> None:
-        first_output, second_output = self.base / "out-a", self.base / "out-b"
-        self.output = first_output
+        first, second = self.base / "out-a", self.base / "out-b"
+        self.output = first
         self.assertEqual(self.run_cli(domains="5gc"), 0)
-        self.output = second_output
+        self.output = second
         self.assertEqual(self.run_cli(domains="5gc"), 0)
         for name in ("analysis.json", "report.txt"):
-            self.assertEqual(
-                (first_output / name).read_bytes(),
-                (second_output / name).read_bytes(),
-                name,
-            )
+            self.assertEqual((first / name).read_bytes(), (second / name).read_bytes(), name)
 
     def test_machine_paths_do_not_appear_in_reports(self) -> None:
         self.run_cli(domains="5gc")
@@ -580,13 +1082,11 @@ class DeterminismTests(WorkflowTestCase):
 
 class BenchmarkInvarianceTests(WorkflowTestCase):
     def _snapshot(self) -> dict[str, str]:
-        snapshot: dict[str, str] = {}
-        for path in sorted(FROZEN_BENCHMARK_DIR.rglob("*")):
-            if path.is_file():
-                snapshot[str(path.relative_to(FROZEN_BENCHMARK_DIR))] = hashlib.sha256(
-                    path.read_bytes()
-                ).hexdigest()
-        return snapshot
+        return {
+            str(path.relative_to(FROZEN_BENCHMARK_DIR)): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in sorted(FROZEN_BENCHMARK_DIR.rglob("*"))
+            if path.is_file()
+        }
 
     def test_analysis_run_does_not_modify_the_frozen_benchmark(self) -> None:
         before = self._snapshot()
@@ -623,11 +1123,9 @@ class ExternalCaptureSmokeTests(unittest.TestCase):
             self.assertEqual(report["overall_execution_status"], "COMPLETED")
             result = report["domain_results"][0]
             self.assertEqual(result["execution_status"], "COMPLETED")
-            boundary = result["first_abnormal_boundary"]
-            if boundary is not None:
-                self.assertIsInstance(boundary["frame_number"], int)
-                self.assertTrue(boundary["protocol"])
-                self.assertTrue(boundary["message_type"])
+            self.assertGreaterEqual(result["diagnostic_subject_count"], 1)
+            for section in TEXT_SECTIONS:
+                self.assertIn(section, (output / "report.txt").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

@@ -122,8 +122,10 @@ python3 scripts/corenet-analyze.py \
 ```
 
 `--domains` accepts `auto`, `5gc`, `epc`, `ims`, or a comma-separated list. Only 5GC
-executes today; EPC and IMS report `UNSUPPORTED` rather than inventing results. The
-workflow localizes an evidence-supported boundary and never asserts network health.
+executes today; EPC and IMS report `UNSUPPORTED` rather than inventing results. Every
+diagnostic subject in a capture is reported with its own boundary status, a failed
+component makes the run `PARTIAL` instead of `COMPLETED`, and the workflow never asserts
+network health.
 See [docs/ANALYSIS-WORKFLOW.md](docs/ANALYSIS-WORKFLOW.md) for prerequisites, exit
 codes, the report contract, privacy rules and the EPC/IMS roadmap.
 

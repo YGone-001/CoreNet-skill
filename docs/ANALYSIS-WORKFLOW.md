@@ -15,7 +15,7 @@ capabilities that report `UNSUPPORTED` until their Protocol and Domain Skills ex
 | Requirement | Detail |
 | --- | --- |
 | Python | 3.12 or newer, standard library only. The workflow has no third-party dependency. |
-| TShark | Required for capture reading. Any TShark release that decodes NGAP, NAS-5GS, PFCP, GTP-U and HTTP/2 works; the Golden Capture benchmark separately pins TShark 4.7.1 for its frozen corpus. |
+| TShark | Required for capture reading. Any TShark release that decodes NGAP, NAS-5GS, PFCP, GTP-U and HTTP/2 works. The Golden Capture benchmark separately pins TShark 4.7.1 for its frozen corpus. |
 | Repository checkout | The workflow executes the Skills in this checkout, so run it from the repository or pass absolute paths to the script. |
 
 Install TShark on Ubuntu 24.04:
@@ -35,8 +35,8 @@ tshark --version
 - PCAPNG (`*.pcapng`).
 - Any link type TShark can decode.
 
-The file must start with a recognised capture container signature. A file that is
-not a PCAP or PCAPNG container is rejected before any decoding is attempted.
+The file must start with a recognised capture container signature. A file that is not
+a PCAP or PCAPNG container is rejected before any decoding is attempted.
 
 ## 3. Commands
 
@@ -74,9 +74,9 @@ python3 scripts/corenet-analyze.py \
 | --- | --- |
 | `--capture PATH` | Input capture. Required. |
 | `--domains SPEC` | `auto`, `5gc`, `epc`, `ims`, or a comma-separated list. Default `auto`. |
-| `--work-dir PATH` | Scratch directory for intermediate extraction artifacts. Must be outside the repository. |
-| `--output-dir PATH` | Destination for `analysis.json` and `report.txt`. Must not be inside `benchmarks/golden-captures/`. |
-| `--force` | Replace existing `analysis.json` and `report.txt`. Without it, existing outputs are never overwritten. |
+| `--work-dir PATH` | Scratch directory for intermediate extraction artifacts. Must be outside the repository and must not overlap the output directory. |
+| `--output-dir PATH` | Destination for `analysis.json` and `report.txt`. Must not be inside `benchmarks/golden-captures/` and must not contain, or be contained by, the work directory. |
+| `--force` | Replace an existing `analysis.json` and `report.txt` pair. It never deletes work directories. |
 | `--help` | Full usage text, including exit codes. |
 
 ## 4. Automatic domain detection
@@ -116,32 +116,37 @@ status alongside the execution result.
 
 | File | Content |
 | --- | --- |
-| `analysis.json` | Machine-readable report envelope: capture identity, toolchain, requested domains, observed protocols, per-domain results, overall status, limitations. |
+| `analysis.json` | Machine-readable report envelope: capture identity, toolchain, requested domains, observed protocols, per-domain results, diagnostic subjects, overall status, limitations. |
 | `report.txt` | Human-readable companion report with the same evidence, in stable evidence-safe language. |
+| `analysis.failure.json` | Written only when a run fails while an earlier `analysis.json` already exists. It records the failed attempt so a stale successful report is never mistaken for the current result. |
 
-Intermediate artifacts (raw per-protocol events, logs, sanitized pipeline summary)
-stay in `--work-dir`. They are scratch data: the directory may be overwritten by a
-later run, and it must live outside the repository.
+Intermediate artifacts stay in `--work-dir`. Every 5GC run creates its own scratch
+directory under `<work-dir>/5gc/runs/<run-id>/`, so an interrupted or failed run can
+never be read as fresh evidence from an earlier one, and nothing is deleted to
+achieve that. The work directory is scratch data and may be removed by the operator
+between runs.
 
 The JSON envelope contains:
 
 ```text
 report_schema_version
 capture                 name, sha256, size, frame count, observed time range
-toolchain               analyzer version, repository revision, python and decoder versions
+toolchain               analyzer version, repository revision, python and decoder versions,
+                        executed protocol extractors, executed Domain analyzers, orchestration status
 requested_domains
 observed_protocols
-domain_capabilities     the three declared domains and their availability
+domain_capabilities     the three declared domains, their availability and execution status
 domain_results          one record per requested domain
 overall_execution_status
 limitations
+interpretation          explicit statements bounding what the report does and does not establish
 ```
 
 Each `domain_results` record carries `domain`, `implementation_status`,
 `execution_status`, `detection`, `protocol_evidence`, `procedure_summaries`,
-`diagnostic_groups`, `first_abnormal_boundary`, `evidence_limitations` and
-`additional_evidence_needed`. A domain that could not be analyzed still appears in
-the list; it is never silently dropped.
+`diagnostic_groups`, `diagnostic_subjects`, `first_abnormal_boundary`,
+`evidence_limitations`, `additional_evidence_needed` and `degradation`. A domain that
+could not be analyzed still appears in the list; it is never silently dropped.
 
 ## 6. Execution statuses and exit codes
 
@@ -149,11 +154,11 @@ Execution statuses describe the workflow, not the network:
 
 | Status | Meaning |
 | --- | --- |
-| `COMPLETED` | Every requested implemented domain completed its supported processing. |
-| `PARTIAL` | At least one requested domain completed and at least one was unsupported or could not complete. |
+| `COMPLETED` | Every requested implemented domain completed cleanly: all observed-protocol extractors succeeded, every Domain ran or was legitimately skipped, and Orchestration ran. |
+| `PARTIAL` | Usable evidence exists, but at least one required component failed or one requested domain is unsupported. The report names every failed component. |
 | `UNSUPPORTED` | No requested domain is executable in this repository. |
 | `INSUFFICIENT_EVIDENCE` | Processing ran but no procedure instance was reconstructed from the evidence. |
-| `FAILED` | Malformed input, missing decoder, extraction or pipeline failure, unsafe path, refused overwrite, or invalid arguments. |
+| `FAILED` | No trustworthy usable result: malformed input, missing decoder, required extraction failure without any Domain result, Domain failure without any result, adapter failure, unsafe path, refused overwrite, or invalid arguments. |
 
 | Exit code | Condition |
 | --- | --- |
@@ -162,30 +167,93 @@ Execution statuses describe the workflow, not the network:
 | `3` | `INSUFFICIENT_EVIDENCE`. |
 | `4` | `FAILED`. |
 
-A failed extractor is never reported as a successful empty extraction: when no
-Domain produced an instance and an extractor reported an error, the run is `FAILED`
-with the failure code `EXTRACTION_FAILED`.
+### Required versus optional components
 
-## 7. Reading the report
+An extractor failure is judged against what the capture actually contained:
 
-- `first_abnormal_boundary` is the earliest evidence-supported abnormal boundary the
-  Orchestration Skill could order. `null` means none was established; it never means
-  the network is healthy.
-- `evidence_limitations` and `additional_evidence_needed` are the Skill's own bounded
-  statements about missing evidence. Empty lists mean no limitation was recorded,
-  not that the analysis is exhaustive.
-- `diagnostic_groups` reports Orchestration-level evidence: how many diagnostic
-  groups were formed, how many candidate boundaries were emitted, and which Domain
-  contributed the consumed instances.
-- `protocol_evidence` reports each protocol's extraction status and the number of
-  extracted events. Event content is not published.
+- If the protocol the extractor owns was observed in the capture, its failure is a
+  **required** failure: procedure evidence for that protocol is lost.
+- If the protocol was never observed, its failure is **optional** and loses nothing.
+
+A required failure can never be hidden behind another Domain's success. When a Domain
+still produced usable evidence the run is `PARTIAL` and the lost protocol is named in
+`degradation`. When no Domain produced a result, the run is `FAILED` with
+`EXTRACTION_FAILED`.
+
+An orchestration failure is never reported as completed boundary localization: the
+run becomes `PARTIAL` with `ORCHESTRATION_FAILED`, `first_abnormal_boundary` is null,
+and the limitation is stated in the report.
+
+A security-protected payload is not an extractor failure. It bounds interpretation,
+and the report says so.
+
+## 7. Diagnostic subjects
+
+One capture may contain several independent diagnostic subjects: several UEs, several
+PDU Sessions, or several lifecycle generations of the same numeric PDU Session ID.
+
+The accepted `5gc-failure-boundary` Skill already establishes diagnostic groups and
+their subject associations. The workflow does not re-derive them and does not create a
+second correlation engine. It publishes every group the Skill established:
+
+```text
+diagnostic_group_reference     stable reference from the producing Skill
+boundary_selection_status      that subject's own selection status
+boundary_confidence            selection confidence, never causal confidence
+first_abnormal_boundary        that subject's selected boundary, or null
+candidate_boundary_count
+source_domain_instances        source Domain plus a pseudonymous instance reference
+subject_link                   the association basis the Skill used, and its context count
+evidence_limitations
+additional_evidence_needed
+```
+
+Rules the workflow preserves:
+
+- Every subject keeps its own boundary status. A boundary selected for one subject is
+  never presented as the result of another.
+- A subject with no supported boundary stays explicitly `NO_ABNORMAL_BOUNDARY_OBSERVED`
+  or `INSUFFICIENT_COMPARABLE_EVIDENCE`.
+- Ambiguous associations stay ambiguous and never join another subject.
+- The top-level `first_abnormal_boundary` field remains for compatibility. It is a
+  limited summary view of the primary subject; `diagnostic_subjects` is the
+  authoritative collection.
+
+The workflow reads the accepted Orchestration output and projects it through an
+explicit allowlist. Raw Orchestration JSON is never republished, and internal instance
+identities become pseudonymous `inst-…` / `subj-…` references. At most 64 subjects are
+published per domain; any omitted group is counted and reported as a limitation.
+
+## 8. Reading the report
+
+The text report has these sections, each of which states explicitly when it has no
+supported data:
+
+```text
+Capture and Toolchain
+Observed Protocols
+Domain Detection and Execution
+Protocol Extraction Coverage
+Procedure Instances
+Diagnostic Subjects
+First Abnormal Boundary per Subject
+Evidence Limitations
+Additional Evidence Needed
+Execution Failures
+Interpretation Boundaries
+```
+
+For each selected boundary the report shows the exact frame number, protocol, message
+identity, procedure family, procedure stage, deviation type, evidence level, selection
+confidence, capture file, candidate reference, observation window and the accepted
+evidence references, so every claim stays traceable to a frame.
 
 ### Boundary localization is not root-cause diagnosis
 
-The workflow localizes the first abnormal evidence boundary inside a capture. It does
-not establish a root cause, does not assign blame to a network function, and does not
-state that a procedure or a service succeeded. A successful command exit means the
-workflow completed its supported processing.
+The workflow localizes the first abnormal evidence boundary per subject. It does not
+establish a root cause, does not assign blame to a network function, does not rank
+events by severity, and does not state that a procedure or a service succeeded. A
+successful command exit means the workflow completed its supported processing.
 
 `NO_ABNORMAL_BOUNDARY_OBSERVED` is a bounded statement about the analyzed scope. It is
 not `NETWORK_HEALTHY`, `END_TO_END_SUCCESS` or `SERVICE_PASSED`.
@@ -199,21 +267,39 @@ records, does not compute match rates, and does not move benchmark classificatio
 policy into the product path. Running an analysis leaves the frozen benchmark tree
 untouched.
 
-## 8. Privacy and file-system safety
+## 9. Privacy and file-system safety
 
-- Capture content is never copied into a report; only the base name, SHA-256, size,
-  frame count and time range are recorded.
-- Absolute workstation and temporary paths are redacted from every published string,
-  and long digit runs that resemble subscriber identifiers are masked.
-- Subscriber identities, authentication key material and raw protocol dumps are never
-  published by the workflow.
+Public reports are built from explicit allowlists, not by dumping internal records:
+
+- Capture identity is limited to base name, SHA-256, size, frame count and time range.
+- Diagnostic subjects publish a stable reference, the source Domain, a pseudonymous
+  instance reference and the association basis — never raw UE, session or subscriber
+  identifiers.
+- Subscriber identities, authentication material, raw NAS or GTP-U payloads and
+  credential values are never published.
+- Free-text statements coming from the accepted components are scrubbed of absolute
+  paths and long identifier-like digit runs. Structured evidence fields such as frame
+  numbers and protocol identities are preserved exactly.
+
+File-system rules:
+
 - The input capture is opened read-only and never modified.
-- The work directory must be outside the repository; the output directory must not be
-  inside the frozen benchmark tree.
-- Existing outputs are never replaced without `--force`.
-- The workflow performs no network access and no Git operation.
+- The work directory must be outside the repository.
+- The output directory must not be inside `benchmarks/golden-captures/`.
+- Work and output directories must not be equal or contain one another, so final
+  reports never sit among raw intermediate artifacts.
+- Paths are resolved before comparison, so a symlink cannot reach a protected tree.
+- Existing reports are never replaced without `--force`, and `--force` replaces only
+  the report pair.
+- Both reports are staged before publication. Publication is sequential with rollback:
+  if the text report cannot be published, the previous JSON report is restored. This
+  is a deterministic recovery contract, not transactional atomicity against process
+  death — after an interrupted publication, re-run the command.
+- A failed run never leaves a stale successful report unmarked: when an earlier
+  `analysis.json` exists it is preserved and the failure is recorded in
+  `analysis.failure.json`.
 
-## 9. Roadmap for EPC and IMS
+## 10. Roadmap for EPC and IMS
 
 EPC and IMS appear in the capability contract with `implementation_status:
 UNSUPPORTED`, no entry point and an explicit reason. They are not placeholders: no
@@ -221,6 +307,6 @@ empty Skill package, no stub parser and no simulated output exists for them.
 
 Adding a domain means adding its real Protocol and Domain Skills, then registering a
 domain adapter that produces the same `domain_results` shape. The report envelope,
-execution statuses, exit codes, privacy rules and output layout already support
-multiple independent domains, so EPC and IMS can be added without changing the 5GC
-procedure path or the report contract.
+execution statuses, exit codes, privacy rules, subject reporting and output layout
+already support multiple independent domains, so EPC and IMS can be added without
+changing the 5GC procedure path or the report contract.
