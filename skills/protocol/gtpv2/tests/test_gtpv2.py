@@ -247,6 +247,46 @@ class InformationElementTests(ExtractionTestCase):
     def test_hierarchy_basis_recorded(self) -> None:
         self.assertEqual(self.by_frame[8]["hierarchy_basis"], "pdml_grouped_ie")
 
+    def test_multiple_bearer_contexts_stay_item_scoped(self) -> None:
+        target = self.directory / "multi-bearer-events.jsonl"
+        result = run(
+            "extract-gtpv2.py",
+            str(EXAMPLES / "pdml" / "multi-bearer-context.pdml"),
+            "--output",
+            str(target),
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        response = load_jsonl(target)[0]
+        contexts = response["bearer_contexts"]
+        self.assertEqual(len(contexts), 2)
+        self.assertEqual([item["item_index"] for item in contexts], [0, 1])
+        self.assertEqual([item["ebi"] for item in contexts], [5, 6])
+        self.assertEqual([item["f_teids"][0]["teid"] for item in contexts], [4369, 8738])
+        self.assertEqual([item["cause"]["cause_code"] for item in contexts], [16, 16])
+        self.assertEqual([item["cause"]["scope"] for item in contexts], ["bearer", "bearer"])
+        self.assertEqual([item["teid"] for item in response["f_teids"]], [969])
+        self.assertEqual([item["scope"] for item in response["f_teids"]], ["message"])
+
+    def test_incomplete_bearer_context_is_published_without_invention(self) -> None:
+        target = self.directory / "incomplete-bearer-events.jsonl"
+        result = run(
+            "extract-gtpv2.py",
+            str(EXAMPLES / "pdml" / "multi-bearer-context.pdml"),
+            "--output",
+            str(target),
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        event = load_jsonl(target)[1]
+        self.assertEqual(len(event["bearer_contexts"]), 1)
+        context = event["bearer_contexts"][0]
+        self.assertIsNone(context["ebi"])
+        self.assertIsNone(context["cause"])
+        self.assertEqual(context["f_teids"][0]["teid"], 13107)
+        self.assertEqual(context["f_teids"][0]["scope"], "bearer")
+        self.assertEqual(event["f_teids"], [])
+        self.assertEqual(event["message_cause"]["cause_code"], 16)
+        self.assertEqual(event["message_cause"]["scope"], "message")
+
     def test_ie_summary_names_the_bearer_context(self) -> None:
         summary = self.by_frame[8]["ie_summary"]
         bearer = [item for item in summary if item["ie_type"] == 93]

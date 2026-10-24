@@ -37,6 +37,7 @@ REQUIRED = (
 
 EXTRACTION_FIXTURES = {
     "examples/pdml/session-control.pdml": "examples/expected/session-control-events.jsonl",
+    "examples/pdml/multi-bearer-context.pdml": "examples/expected/multi-bearer-context-events.jsonl",
     "examples/extracted/session-control-fields.jsonl": "examples/expected/session-control-fields-events.jsonl",
     "examples/extracted/teid-states.jsonl": "examples/expected/teid-states-events.jsonl",
     "examples/extracted/unsupported-messages.jsonl": "examples/expected/unsupported-messages-events.jsonl",

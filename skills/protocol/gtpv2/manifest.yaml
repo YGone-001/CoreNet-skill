@@ -61,6 +61,7 @@ upstream:
 testing:
   fixtures:
     - examples/pdml/session-control.pdml
+    - examples/pdml/multi-bearer-context.pdml
     - examples/extracted/session-control-fields.jsonl
     - examples/extracted/teid-states.jsonl
     - examples/extracted/unsupported-messages.jsonl
@@ -72,6 +73,7 @@ testing:
     - examples/extracted/missing-required.jsonl
   expected_results:
     - examples/expected/session-control-events.jsonl
+    - examples/expected/multi-bearer-context-events.jsonl
     - examples/expected/session-control-trace.jsonl
     - examples/expected/session-control-transactions.json
     - examples/expected/session-control-fields-events.jsonl

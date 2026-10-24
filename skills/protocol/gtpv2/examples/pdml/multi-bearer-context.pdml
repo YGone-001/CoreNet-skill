@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pdml version="0.0.0">
+ <packet>
+  <proto name="frame">
+   <field name="frame.number" show="1"/>
+   <field name="frame.time_epoch" show="1792850900.100000000"/>
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" show="10.0.0.2"/>
+   <field name="ip.dst" show="10.0.0.1"/>
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" show="2123"/>
+   <field name="udp.dstport" show="2123"/>
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="Version: 2" show="2"/>
+    <field name="gtpv2.p" showname="Piggybacking flag (P): 0" show="0"/>
+    <field name="gtpv2.t" showname="TEID flag (T): 1" show="1"/>
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Create Session Response (33)" show="33"/>
+   <field name="gtpv2.msg_length" showname="Message Length: 120" show="120"/>
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x00000006 (6)" show="0x00000006"/>
+   <field name="gtpv2.seq" showname="Sequence Number: 0x000020 (32)" show="0x000020"/>
+   <field name="" show="Cause : Request accepted (16)">
+    <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2"/>
+    <field name="gtpv2.ie_len" showname="IE Length: 2" show="2"/>
+    <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+    <field name="gtpv2.instance" showname="Instance: 0" show="0"/>
+    <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16"/>
+   </field>
+   <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID) : S11/S4 SGW GTP-C interface">
+    <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87"/>
+    <field name="gtpv2.ie_len" showname="IE Length: 9" show="9"/>
+    <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+    <field name="gtpv2.instance" showname="Instance: 0" show="0"/>
+    <field name="gtpv2.f_teid_v4" showname="V4: IPv4 address present" show="True"/>
+    <field name="gtpv2.f_teid_v6" showname="V6: IPv6 address not present" show="False"/>
+    <field name="gtpv2.f_teid_interface_type" showname="Interface Type: S11/S4 SGW GTP-C interface (11)" show="11"/>
+    <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x000003c9 (969)" show="0x000003c9"/>
+    <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 10.0.0.2" show="10.0.0.2"/>
+   </field>
+   <field name="" show="Bearer Context : [Grouped IE]">
+    <field name="gtpv2.ie_type" showname="IE Type: Bearer Context (93)" show="93"/>
+    <field name="gtpv2.ie_len" showname="IE Length: 32" show="32"/>
+    <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+    <field name="gtpv2.instance" showname="Instance: 0" show="0"/>
+    <field name="" show="EPS Bearer ID (EBI) : 5">
+     <field name="gtpv2.ie_type" showname="IE Type: EPS Bearer ID (EBI) (73)" show="73"/>
+     <field name="gtpv2.ie_len" showname="IE Length: 1" show="1"/>
+     <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+     <field name="gtpv2.instance" showname="Instance: 0" show="0"/>
+     <field name="gtpv2.ebi" showname="EPS Bearer ID (EBI): 5" show="5"/>
+    </field>
+    <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID) : S1-U SGW GTP-U interface">
+     <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87"/>
+     <field name="gtpv2.ie_len" showname="IE Length: 9" show="9"/>
+     <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+     <field name="gtpv2.instance" showname="Instance: 2" show="2"/>
+     <field name="gtpv2.f_teid_v4" showname="V4: IPv4 address present" show="True"/>
+     <field name="gtpv2.f_teid_v6" showname="V6: IPv6 address not present" show="False"/>
+     <field name="gtpv2.f_teid_interface_type" showname="Interface Type: S1-U SGW GTP-U interface (1)" show="1"/>
+     <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x00001111 (4369)" show="0x00001111"/>
+     <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 10.0.0.2" show="10.0.0.2"/>
+    </field>
+    <field name="" show="Cause : Request accepted (16)">
+     <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2"/>
+     <field name="gtpv2.ie_len" showname="IE Length: 2" show="2"/>
+     <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+     <field name="gtpv2.instance" showname="Instance: 0" show="0"/>
+     <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16"/>
+    </field>
+   </field>
+   <field name="" show="Bearer Context : [Grouped IE]">
+    <field name="gtpv2.ie_type" showname="IE Type: Bearer Context (93)" show="93"/>
+    <field name="gtpv2.ie_len" showname="IE Length: 32" show="32"/>
+    <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+    <field name="gtpv2.instance" showname="Instance: 1" show="1"/>
+    <field name="" show="EPS Bearer ID (EBI) : 6">
+     <field name="gtpv2.ie_type" showname="IE Type: EPS Bearer ID (EBI) (73)" show="73"/>
+     <field name="gtpv2.ie_len" showname="IE Length: 1" show="1"/>
+     <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+     <field name="gtpv2.instance" showname="Instance: 0" show="0"/>
+     <field name="gtpv2.ebi" showname="EPS Bearer ID (EBI): 6" show="6"/>
+    </field>
+    <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID) : S1-U SGW GTP-U interface">
+     <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87"/>
+     <field name="gtpv2.ie_len" showname="IE Length: 9" show="9"/>
+     <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+     <field name="gtpv2.instance" showname="Instance: 2" show="2"/>
+     <field name="gtpv2.f_teid_v4" showname="V4: IPv4 address present" show="True"/>
+     <field name="gtpv2.f_teid_v6" showname="V6: IPv6 address not present" show="False"/>
+     <field name="gtpv2.f_teid_interface_type" showname="Interface Type: S1-U SGW GTP-U interface (1)" show="1"/>
+     <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x00002222 (8738)" show="0x00002222"/>
+     <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 10.0.0.2" show="10.0.0.2"/>
+    </field>
+    <field name="" show="Cause : Request accepted (16)">
+     <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2"/>
+     <field name="gtpv2.ie_len" showname="IE Length: 2" show="2"/>
+     <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+     <field name="gtpv2.instance" showname="Instance: 0" show="0"/>
+     <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16"/>
+    </field>
+   </field>
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.number" show="2"/>
+   <field name="frame.time_epoch" show="1792850900.200000000"/>
+  </proto>
+  <proto name="ip">
+   <field name="ip.src" show="10.0.0.2"/>
+   <field name="ip.dst" show="10.0.0.1"/>
+  </proto>
+  <proto name="udp">
+   <field name="udp.srcport" show="2123"/>
+   <field name="udp.dstport" show="2123"/>
+  </proto>
+  <proto name="gtpv2" showname="GPRS Tunneling Protocol V2">
+   <field name="gtpv2.flags" showname="Flags: 0x48" show="0x48">
+    <field name="gtpv2.version" showname="Version: 2" show="2"/>
+    <field name="gtpv2.p" showname="Piggybacking flag (P): 0" show="0"/>
+    <field name="gtpv2.t" showname="TEID flag (T): 1" show="1"/>
+   </field>
+   <field name="gtpv2.message_type" showname="Message Type: Modify Bearer Response (35)" show="35"/>
+   <field name="gtpv2.msg_length" showname="Message Length: 40" show="40"/>
+   <field name="gtpv2.teid" showname="Tunnel Endpoint Identifier: 0x00000006 (6)" show="0x00000006"/>
+   <field name="gtpv2.seq" showname="Sequence Number: 0x000021 (33)" show="0x000021"/>
+   <field name="" show="Cause : Request accepted (16)">
+    <field name="gtpv2.ie_type" showname="IE Type: Cause (2)" show="2"/>
+    <field name="gtpv2.ie_len" showname="IE Length: 2" show="2"/>
+    <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+    <field name="gtpv2.instance" showname="Instance: 0" show="0"/>
+    <field name="gtpv2.cause" showname="Cause: Request accepted (16)" show="16"/>
+   </field>
+   <field name="" show="Bearer Context : [Grouped IE]">
+    <field name="gtpv2.ie_type" showname="IE Type: Bearer Context (93)" show="93"/>
+    <field name="gtpv2.ie_len" showname="IE Length: 20" show="20"/>
+    <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+    <field name="gtpv2.instance" showname="Instance: 0" show="0"/>
+    <field name="" show="Fully Qualified Tunnel Endpoint Identifier (F-TEID) : S1-U eNodeB GTP-U interface">
+     <field name="gtpv2.ie_type" showname="IE Type: Fully Qualified Tunnel Endpoint Identifier (F-TEID) (87)" show="87"/>
+     <field name="gtpv2.ie_len" showname="IE Length: 9" show="9"/>
+     <field name="gtpv2.cr" showname="CR flag: 0" show="0"/>
+     <field name="gtpv2.instance" showname="Instance: 0" show="0"/>
+     <field name="gtpv2.f_teid_v4" showname="V4: IPv4 address present" show="True"/>
+     <field name="gtpv2.f_teid_v6" showname="V6: IPv6 address not present" show="False"/>
+     <field name="gtpv2.f_teid_interface_type" showname="Interface Type: S1-U eNodeB GTP-U interface (0)" show="0"/>
+     <field name="gtpv2.f_teid_gre_key" showname="TEID/GRE Key: 0x00003333 (13107)" show="0x00003333"/>
+     <field name="gtpv2.f_teid_ipv4" showname="F-TEID IPv4: 10.0.0.9" show="10.0.0.9"/>
+    </field>
+   </field>
+  </proto>
+ </packet>
+</pdml>

@@ -122,7 +122,9 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 `examples/pdml/session-control.pdml` is a reduced PDML excerpt derived from an
 authorized laboratory capture; unrelated protocol layers, raw IE byte values
-and subscriber identities were removed. `examples/extracted/` holds flat fields
+and subscriber identities were removed. `examples/pdml/multi-bearer-context.pdml`
+is a hand-authored dissection fixture for the multi-bearer and incomplete-hierarchy
+cases that the laboratory capture did not contain; it is not a capture. `examples/extracted/` holds flat fields
 inputs and small hand-authored correlation inputs. Expected results are under
 `examples/expected/` and are regenerated only from the accepted implementation.
 

@@ -111,3 +111,5 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Fixtures under `examples/` are deterministic; the capture input path is
 exercised separately against an authorized real capture.
+`examples/pdml/multi-bearer-context.pdml` is a hand-authored dissection fixture
+covering two bearer contexts in one message and an incomplete bearer context.
