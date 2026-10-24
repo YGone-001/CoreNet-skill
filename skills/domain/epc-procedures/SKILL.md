@@ -7,14 +7,16 @@ UE contexts ran an Attach attempt, which conditional stages were observed, which
 explicit protocol rejection or failure the network or the UE emitted, and which
 evidence is missing or protected.
 
-This is a Domain-layer Skill. It consumes already-extracted S1AP and NAS-EPS events
-and produces procedure-stage evidence, procedure-local deviations and explicit
-limitations. It never decodes protocols, never reads subscriber identity, and never
-produces a verdict about bearer, PDN or service success.
+This is a Domain-layer Skill with two independently executable capabilities. The
+EPS Attach capability consumes already-extracted S1AP and NAS-EPS events. The EPC
+session-control capability consumes already-extracted GTPv2-C events and
+transactions. Both produce procedure-local evidence and explicit limitations. The
+Skill never decodes protocols, never reads subscriber identity, and never produces a
+verdict about bearer, PDN or service success.
 
 ## Scope
 
-Bounded EPS Attach signaling evidence model (version 0.1.0):
+Bounded EPS Attach signaling evidence model:
 
 - Attach initiation (`Attach request`).
 - Conditional identity procedure (`Identity request`/`Identity response`).
@@ -28,11 +30,14 @@ Bounded EPS Attach signaling evidence model (version 0.1.0):
 
 ## Non-Goals
 
-- No GTPv2-C, Diameter, S6a, S5/S8 or S11 session signalling.
-- No complete ESM decoding, PDN connection lifecycle or EPS bearer state.
+- No Diameter, S6a, Gx or Gy signalling. Bounded GTPv2-C session-control
+  evidence is provided by `scripts/analyze_epc_session.py`; full ESM decoding and
+  the complete EPS bearer lifecycle remain out of scope.
 - No S1-U user-plane validation.
 - No success, failure or root-cause verdict, and no network-function blame.
-- No global EPC first-abnormal-boundary selection: no EPC Analysis Orchestration exists.
+- No global EPC first-abnormal-boundary selection. Per-subject selection belongs
+  to the `epc-failure-boundary` Orchestration Skill; this Domain keeps its own
+  `boundary_selection_status` at `NOT_EVALUATED`.
 - No subscriber identity handling of any kind.
 - No vendor or implementation-specific mapping.
 

@@ -1,0 +1,146 @@
+{
+  "additional_evidence_needed": [
+    {
+      "reason": "the accepted Domains publish attach_association as NOT_ESTABLISHED",
+      "requirement": "a reviewed identity bridge between Attach and GTPv2-C evidence"
+    },
+    {
+      "reason": "the accepted Session-Control Domain publishes cross_interface_association as NOT_ESTABLISHED",
+      "requirement": "a reviewed SGW-C identity observation for S11 to S5/S8 association"
+    }
+  ],
+  "ambiguities": [],
+  "analysis_name": "epc-failure-boundary",
+  "analysis_version": "0.1.0",
+  "diagnostic_groups": [
+    {
+      "additional_evidence_needed": [
+        {
+          "reason": "omitted deviations could precede every visible candidate",
+          "requirement": "a complete Domain deviation list for this subject"
+        }
+      ],
+      "boundary_candidate_count": 1,
+      "boundary_candidates": [
+        {
+          "candidate_reference": "epc-boundary-1316235796",
+          "cause_code": 72,
+          "cause_scope": "message",
+          "deviation_type": "CREATE_SESSION_REJECTED_OBSERVED",
+          "eligibility_reasons": [],
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 100,
+              "message_type": "type-32",
+              "protocol": "GTPv2-C"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 106,
+              "message_type": "type-33",
+              "protocol": "GTPv2-C"
+            }
+          ],
+          "frame_number": 106,
+          "limitations": [],
+          "message_type": "type-33",
+          "observation_window": {
+            "end_frame": 106,
+            "start_frame": 100
+          },
+          "procedure_family_or_stage": "create-session",
+          "protocol": "GTPv2-C",
+          "selection_eligibility": "ELIGIBLE",
+          "source_domain": "epc-procedures",
+          "source_subject_reference": "epc-session-s11-e24ed89d",
+          "transaction_reference": "gtpv2-create-session-100-7"
+        }
+      ],
+      "boundary_candidates_omitted": 4,
+      "boundary_confidence": null,
+      "boundary_selection_status": "INSUFFICIENT_COMPARABLE_EVIDENCE",
+      "diagnostic_group_reference": "epc-session-s11-e24ed89d",
+      "downstream_observations": [],
+      "evidence_limitations": [
+        {
+          "description": "4 source deviation(s) were not published by the Domain; the visible candidate list cannot establish the earliest abnormal observation",
+          "type": "TRUNCATED_SOURCE_DEVIATIONS"
+        },
+        {
+          "description": "the candidate universe is incomplete, so no earliest boundary is selected",
+          "type": "INCOMPLETE_CANDIDATE_UNIVERSE"
+        }
+      ],
+      "first_abnormal_boundary": null,
+      "group_index": 1,
+      "not_confirmed": [
+        "the selected boundary is a first observed abnormality, not a root cause",
+        "no network function is identified as responsible",
+        "downstream observations are ordered after the boundary and are not attributed to it",
+        "procedure or service success is not established by the absence of a boundary",
+        "user-plane forwarding is not established by any control-plane boundary",
+        "subscriber, subscription or implementation behaviour is not assessed"
+      ],
+      "observation_window": {
+        "end_frame": 106,
+        "start_frame": 100
+      },
+      "source_domain_instances": [
+        {
+          "attempt_index": null,
+          "capture_file": "fixture.pcap",
+          "interface": "S11",
+          "source_domain": "epc-procedures",
+          "source_file": "session-analysis.json",
+          "source_instance_id": "epc-session-s11-e24ed89d",
+          "subject_type": "EPC_SESSION_CONTROL",
+          "transaction_references": [
+            "gtpv2-create-session-100-7"
+          ]
+        }
+      ],
+      "subject_link": {
+        "basis": "control_plane_f_teid_in_message",
+        "cross_subject_link": "NOT_ESTABLISHED",
+        "strength": "UNBOUND"
+      },
+      "subject_type": "EPC_SESSION_CONTROL"
+    }
+  ],
+  "input_provenance": [
+    {
+      "analysis_kind": "epc-session-control",
+      "domain_version": "0.2.0",
+      "source_domain": "epc-procedures",
+      "source_file": "session-analysis.json",
+      "subject_count": 1
+    }
+  ],
+  "limitations": [
+    "Boundary selection is per diagnostic subject; the analysis never merges independent EPS Attach, S11 and S5/S8 subjects into one EPC failure point.",
+    "Selection ordering uses exact frame provenance only; severity, cause magnitude, message labels and list order never order candidates.",
+    "A selected boundary is the earliest supported abnormal observation, not a causal claim.",
+    "At least one diagnostic group reports omitted Domain deviations; those groups cannot establish an earliest boundary."
+  ],
+  "not_confirmed": [
+    "the selected boundary is a first observed abnormality, not a root cause",
+    "no network function is identified as responsible",
+    "downstream observations are ordered after the boundary and are not attributed to it",
+    "procedure or service success is not established by the absence of a boundary",
+    "user-plane forwarding is not established by any control-plane boundary",
+    "subscriber, subscription or implementation behaviour is not assessed"
+  ],
+  "source_domain_versions": [
+    "0.2.0"
+  ],
+  "unbound_domain_analyses": [
+    {
+      "reason": "no evidence-safe cross-subject link is authorized; the subject is analyzed independently",
+      "source_domain": "epc-procedures",
+      "source_instance_id": "epc-session-s11-e24ed89d",
+      "subject_type": "EPC_SESSION_CONTROL"
+    }
+  ]
+}

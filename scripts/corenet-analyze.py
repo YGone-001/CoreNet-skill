@@ -58,6 +58,9 @@ EPC_SESSION_ANALYZE_SCRIPT = (
 )
 GTPV2_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "gtpv2" / "scripts" / "extract-gtpv2.py"
 GTPV2_CORRELATE_SCRIPT = ROOT / "skills" / "protocol" / "gtpv2" / "scripts" / "correlate-gtpv2.py"
+EPC_BOUNDARY_SCRIPT = (
+    ROOT / "skills" / "orchestration" / "epc-failure-boundary" / "scripts" / "analyze_epc_failure_boundary.py"
+)
 FROZEN_BENCHMARK_DIR = ROOT / "benchmarks" / "golden-captures"
 
 STATUS_COMPLETED = "COMPLETED"
@@ -220,6 +223,11 @@ DOMAIN_CAPABILITIES: dict[str, dict[str, Any]] = {
 _WORKSTATION_PATH = re.compile(r"(?<![\w.-])[A-Za-z]:[\\/][^\s\"']*")
 _POSIX_PATH = re.compile(r"(?<![\w.-])(?:/[\w.-]+){2,}/?")
 _LONG_DIGIT_RUN = re.compile(r"\d{14,}")
+
+# The EPC Attach Domain still publishes its pre-orchestration scope note. Once the
+# accepted Orchestration Skill has run, that note is superseded and must not be
+# republished as if no orchestration existed.
+STALE_EPC_BOUNDARY_NOTE = "No EPC Analysis Orchestration exists"
 
 MAX_DIAGNOSTIC_SUBJECTS = 64
 MAX_EVIDENCE_REFERENCES = 10
@@ -1051,14 +1059,26 @@ def collect_limitations(
                 f"{result['domain']} analysis is partial: usable evidence exists, but at least one "
                 "component failed or one requested capability is unavailable."
             )
+        boundary_status = result.get("boundary_selection_status")
         if (
             result["first_abnormal_boundary"] is None
-            and result.get("boundary_selection_status") == "NOT_EVALUATED"
+            and boundary_status == "NOT_EVALUATED"
             and result["execution_status"] in (STATUS_COMPLETED, STATUS_PARTIAL)
         ):
             limitations.append(
-                f"{result['domain']} boundary selection is not evaluated: no {result['domain']} "
-                "Analysis Orchestration exists, so deviations stay procedure-local."
+                f"{result['domain']} boundary selection is not evaluated: the "
+                f"{result['domain']} Analysis Orchestration did not run or did not succeed, so "
+                "deviations stay procedure-local."
+            )
+        elif boundary_status == "EVALUATED_PER_SUBJECT" and result["execution_status"] in (
+            STATUS_COMPLETED,
+            STATUS_PARTIAL,
+        ):
+            summary = result.get("boundary_summary") or {}
+            limitations.append(
+                f"{result['domain']} boundary selection is evaluated per diagnostic subject "
+                f"({summary.get('group_count', 0)} subject(s)); no single global "
+                f"{result['domain']} boundary is asserted."
             )
         elif result["first_abnormal_boundary"] is None and result["execution_status"] in (
             STATUS_COMPLETED, STATUS_PARTIAL
@@ -1377,6 +1397,16 @@ def render_text_report(report: dict[str, Any]) -> str:
                 for family in subject.get("procedure_families") or []:
                     lines.append(f"      procedure: {family}")
                 lines.append("      cross-interface association: NOT_ESTABLISHED")
+            boundary = subject.get("first_abnormal_boundary")
+            if isinstance(boundary, dict):
+                lines.append(
+                    f"      boundary: {boundary.get('deviation_type')} at frame "
+                    f"{_value(boundary.get('frame_number'))} "
+                    f"({_value(boundary.get('protocol'))} {_value(boundary.get('message_type'))}), "
+                    f"confidence {_value(subject.get('boundary_confidence'))}"
+                )
+            elif subject.get("boundary_selection_status") not in (None, "NOT_EVALUATED"):
+                lines.append(f"      boundary: {subject.get('boundary_selection_status')}")
             for stage in subject.get("procedure_stages") or []:
                 marker = "conditional" if stage.get("conditional") else "required"
                 first, last = stage.get("first_frame"), stage.get("last_frame")
@@ -1806,9 +1836,45 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                     "PIPELINE_OUTPUT_UNREADABLE", "EPC session-control analysis is not an object"
                 )
 
+    boundary_analysis: dict[str, Any] | None = None
+    boundary_error: dict[str, Any] | None = None
+    has_subjects = bool(analysis.get("procedure_instances")) or bool(
+        (session_analysis or {}).get("control_plane_subjects")
+    )
+    if has_subjects:
+        boundary_path = run_dir / "epc-boundary-analysis.json"
+        boundary_command = [
+            sys.executable,
+            str(EPC_BOUNDARY_SCRIPT),
+            "--output",
+            str(boundary_path),
+            "--force",
+        ]
+        if analysis.get("procedure_instances"):
+            boundary_command.extend(["--attach", str(analysis_path)])
+        if (session_analysis or {}).get("control_plane_subjects"):
+            boundary_command.extend(["--session", str(session_path)])
+        try:
+            _run_component(boundary_command, "EPC failure-boundary orchestration")
+            boundary_analysis = json.loads(boundary_path.read_text(encoding="utf-8"))
+            if not isinstance(boundary_analysis, dict):
+                raise AnalysisError(
+                    "PIPELINE_OUTPUT_UNREADABLE", "EPC failure-boundary analysis is not an object"
+                )
+        except (AnalysisError, OSError, json.JSONDecodeError) as exc:
+            # Usable Domain evidence is preserved; the degraded status is reported
+            # by the domain adapter instead of discarding the analysis.
+            boundary_analysis = None
+            boundary_error = {
+                "code": "ORCHESTRATION_FAILED",
+                "message": scrub_free_text(str(exc)),
+            }
+
     return {
         "analysis": analysis,
         "session_analysis": session_analysis,
+        "boundary_analysis": boundary_analysis,
+        "boundary_error": boundary_error,
         "s1ap_event_count": _count_lines(s1ap_events),
         "nas_eps_event_count": _count_lines(nas_events),
         "gtpv2_event_count": gtpv2_event_count,
@@ -1888,17 +1954,77 @@ def _project_epc_deviations(deviations: Any) -> list[dict[str, Any]]:
     return projected
 
 
-def _project_epc_subject(instance: dict[str, Any]) -> dict[str, Any]:
+def _project_boundary(boundary: Any) -> dict[str, Any] | None:
+    """Publish a selected boundary with exact frame and protocol evidence."""
+    if not isinstance(boundary, dict):
+        return None
+    references, references_omitted = _bounded_evidence_refs(boundary.get("evidence_refs"))
+    payload: dict[str, Any] = {
+        "boundary_reference": boundary.get("boundary_reference"),
+        "deviation_type": boundary.get("deviation_type"),
+        "protocol": boundary.get("protocol"),
+        "message_type": boundary.get("message_type"),
+        "frame_number": boundary.get("frame_number"),
+        "evidence_level": boundary.get("evidence_level"),
+        "ordering_basis": boundary.get("ordering_basis"),
+        "evidence_refs": references,
+        "observation_window": _bounded_observation_window(boundary.get("observation_window")),
+    }
+    for key in (
+        "transaction_reference",
+        "cause_code",
+        "cause_scope",
+        "bearer_item_index",
+        "procedure_family_or_stage",
+    ):
+        if boundary.get(key) is not None:
+            payload[key] = boundary[key]
+    if references_omitted:
+        payload["evidence_refs_omitted"] = references_omitted
+    return payload
+
+
+def _boundary_fields(group: Any) -> dict[str, Any]:
+    """Per-subject boundary fields; unevaluated when orchestration did not run."""
+    if not isinstance(group, dict):
+        return {
+            "boundary_selection_status": "NOT_EVALUATED",
+            "boundary_confidence": None,
+            "first_abnormal_boundary": None,
+            "candidate_boundary_count": 0,
+        }
+    return {
+        "boundary_selection_status": group.get("boundary_selection_status"),
+        "boundary_confidence": group.get("boundary_confidence"),
+        "first_abnormal_boundary": _project_boundary(group.get("first_abnormal_boundary")),
+        "candidate_boundary_count": group.get("boundary_candidate_count", 0),
+    }
+
+
+def _boundary_summary(boundary: Any) -> dict[str, Any] | None:
+    """Count per-subject boundary statuses; never a global EPC boundary."""
+    if not isinstance(boundary, dict):
+        return None
+    counts: dict[str, int] = {}
+    for group in boundary.get("diagnostic_groups") or []:
+        if not isinstance(group, dict):
+            continue
+        status = group.get("boundary_selection_status")
+        if isinstance(status, str):
+            counts[status] = counts.get(status, 0) + 1
+    return {"group_count": sum(counts.values()), "status_counts": counts}
+
+
+def _project_epc_subject(
+    instance: dict[str, Any], group: Any = None
+) -> dict[str, Any]:
     """Publish one Attach procedure instance as a diagnostic subject."""
     reference = instance.get("procedure_reference")
     association = instance.get("association") or {}
     return {
         "diagnostic_group_reference": reference,
         "subject_type": "EPS_ATTACH",
-        "boundary_selection_status": "NOT_EVALUATED",
-        "boundary_confidence": None,
-        "first_abnormal_boundary": None,
-        "candidate_boundary_count": 0,
+        **_boundary_fields(group),
         "source_domain_instances": [
             {
                 "source_domain": "epc-procedures",
@@ -2015,7 +2141,9 @@ def _project_session_f_teids(items: Any) -> list[dict[str, Any]]:
     return projected[:MAX_LIST_ITEMS]
 
 
-def _project_epc_session_subject(subject: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
+def _project_epc_session_subject(
+    subject: dict[str, Any], analysis: dict[str, Any], group: Any = None
+) -> dict[str, Any]:
     """Publish one GTPv2-C session-control subject as a diagnostic subject."""
     reference = subject.get("subject_reference")
     interface_evidence = subject.get("interface_evidence") or {}
@@ -2040,10 +2168,7 @@ def _project_epc_session_subject(subject: dict[str, Any], analysis: dict[str, An
     entry: dict[str, Any] = {
         "diagnostic_group_reference": reference,
         "subject_type": "EPC_SESSION_CONTROL",
-        "boundary_selection_status": "NOT_EVALUATED",
-        "boundary_confidence": None,
-        "first_abnormal_boundary": None,
-        "candidate_boundary_count": 0,
+        **_boundary_fields(group),
         "source_domain_instances": [
             {
                 "source_domain": "epc-procedures",
@@ -2104,23 +2229,49 @@ def execute_epc_domain(
     session = payload.get("session_analysis")
     instances = analysis.get("procedure_instances") or []
     session_subjects = (session or {}).get("control_plane_subjects") or []
+    boundary = payload.get("boundary_analysis")
+    boundary_error = payload.get("boundary_error")
+    groups_by_reference: dict[str, Any] = {}
+    if isinstance(boundary, dict):
+        for group in boundary.get("diagnostic_groups") or []:
+            if isinstance(group, dict) and isinstance(group.get("diagnostic_group_reference"), str):
+                groups_by_reference[group["diagnostic_group_reference"]] = group
     attach_deviations = sum(len(instance.get("deviations") or []) for instance in instances)
     session_deviations = (session or {}).get("procedure_local_deviation_count", 0) or 0
     gtpv2_event_count = payload.get("gtpv2_event_count", 0) or 0
     gtpv2_transaction_count = payload.get("gtpv2_transaction_count", 0) or 0
 
-    subjects: list[dict[str, Any]] = [_project_epc_subject(instance) for instance in instances]
+    subjects: list[dict[str, Any]] = [
+        _project_epc_subject(instance, groups_by_reference.get(instance.get("procedure_reference")))
+        for instance in instances
+    ]
     subjects.extend(
-        _project_epc_session_subject(subject, session or {}) for subject in session_subjects
+        _project_epc_session_subject(
+            subject, session or {}, groups_by_reference.get(subject.get("subject_reference"))
+        )
+        for subject in session_subjects
     )
     omitted_subjects = max(0, len(subjects) - MAX_DIAGNOSTIC_SUBJECTS)
     subjects = subjects[:MAX_DIAGNOSTIC_SUBJECTS]
 
-    status = (
-        STATUS_COMPLETED if (instances or session_subjects) else STATUS_INSUFFICIENT_EVIDENCE
-    )
+    if boundary_error and (instances or session_subjects):
+        status = STATUS_PARTIAL
+    elif instances or session_subjects:
+        status = STATUS_COMPLETED
+    else:
+        status = STATUS_INSUFFICIENT_EVIDENCE
 
-    limitations: list[str] = list(analysis.get("limitations") or [])
+    boundary_evaluated = isinstance(boundary, dict) and not boundary_error
+    limitations: list[str] = [
+        item
+        for item in (analysis.get("limitations") or [])
+        if not (boundary_evaluated and isinstance(item, str) and item.startswith(STALE_EPC_BOUNDARY_NOTE))
+    ]
+    if boundary_evaluated:
+        limitations.append(
+            "EPC boundary selection is evaluated per diagnostic subject; independent Attach, S11 "
+            "and S5/S8 subjects keep separate boundaries and no single global EPC boundary is asserted."
+        )
     additional: list[str] = list(analysis.get("additional_evidence_needed") or [])
     if isinstance(session, dict):
         limitations.extend(session.get("evidence_limitations") or [])
@@ -2177,7 +2328,17 @@ def execute_epc_domain(
         "diagnostic_subject_count": len(subjects),
         "diagnostic_subjects": subjects,
         "first_abnormal_boundary": None,
-        "boundary_selection_status": "NOT_EVALUATED",
+        "boundary_selection_status": (
+            "EVALUATED_PER_SUBJECT"
+            if isinstance(boundary, dict) and not boundary_error
+            else "NOT_EVALUATED"
+        ),
+        "boundary_summary": _boundary_summary(boundary) if not boundary_error else None,
+        "first_abnormal_boundary_reason": (
+            "each diagnostic subject keeps its own boundary; no single global EPC boundary is asserted"
+            if isinstance(boundary, dict) and not boundary_error
+            else None
+        ),
         "evidence_limitations": bounded_limitations,
         "additional_evidence_needed": bounded_additional,
         "degradation": [],
@@ -2195,6 +2356,12 @@ def execute_epc_domain(
     if omitted_subjects:
         degradation.append(
             f"{omitted_subjects} diagnostic subject(s) were omitted by the publication cap"
+        )
+    if boundary_error:
+        result["failure_code"] = "ORCHESTRATION_FAILED"
+        degradation.append(
+            "EPC failure-boundary orchestration failed: "
+            f"{boundary_error.get('code')} {boundary_error.get('message')}".strip()
         )
     result["degradation"] = degradation
     return result

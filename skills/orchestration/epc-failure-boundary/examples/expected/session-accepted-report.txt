@@ -1,0 +1,86 @@
+EPC Failure Boundary Orchestration (v0.1.0)
+
+Diagnostic subjects: 4
+
+Diagnostic subject:
+  EPC_SESSION_CONTROL epc-session-unknown-6c46a339
+  source: epc-procedures epc-session-unknown-6c46a339 (session-analysis.json) interface=UNKNOWN_INTERFACE
+  subject link: UNBOUND (unavailable); cross-subject link NOT_ESTABLISHED
+  observation window: frames 1-4
+
+Selection status: NO_ABNORMAL_BOUNDARY_OBSERVED
+
+No selectable abnormal Domain deviation was observed in this subject.
+This is not a statement of procedure, session or service success.
+
+Evidence limitations:
+  [DOMAIN_LIMITATION] no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface
+
+Additional evidence needed:
+  a complete capture of the procedure under analysis (absence of a supported boundary is not evidence of success)
+
+------------------------------------------------------------
+
+Diagnostic subject:
+  EPC_SESSION_CONTROL epc-session-unknown-ab0557db
+  source: epc-procedures epc-session-unknown-ab0557db (session-analysis.json) interface=UNKNOWN_INTERFACE
+  subject link: UNBOUND (unavailable); cross-subject link NOT_ESTABLISHED
+  observation window: frames 2-3
+
+Selection status: NO_ABNORMAL_BOUNDARY_OBSERVED
+
+No selectable abnormal Domain deviation was observed in this subject.
+This is not a statement of procedure, session or service success.
+
+Evidence limitations:
+  [DOMAIN_LIMITATION] no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface
+
+Additional evidence needed:
+  a complete capture of the procedure under analysis (absence of a supported boundary is not evidence of success)
+
+------------------------------------------------------------
+
+Diagnostic subject:
+  EPC_SESSION_CONTROL epc-session-s11-51808210
+  source: epc-procedures epc-session-s11-51808210 (session-analysis.json) interface=S11
+  subject link: STRONG (control_plane_f_teid_in_message); cross-subject link NOT_ESTABLISHED
+  observation window: frames 5-12
+
+Selection status: NO_ABNORMAL_BOUNDARY_OBSERVED
+
+No selectable abnormal Domain deviation was observed in this subject.
+This is not a statement of procedure, session or service success.
+
+Additional evidence needed:
+  a complete capture of the procedure under analysis (absence of a supported boundary is not evidence of success)
+
+------------------------------------------------------------
+
+Diagnostic subject:
+  EPC_SESSION_CONTROL epc-session-s5s8-0aa699f1
+  source: epc-procedures epc-session-s5s8-0aa699f1 (session-analysis.json) interface=S5/S8
+  subject link: UNBOUND (control_plane_f_teid_in_message); cross-subject link NOT_ESTABLISHED
+  observation window: frames 6-7
+
+Selection status: NO_ABNORMAL_BOUNDARY_OBSERVED
+
+No selectable abnormal Domain deviation was observed in this subject.
+This is not a statement of procedure, session or service success.
+
+Additional evidence needed:
+  a complete capture of the procedure under analysis (absence of a supported boundary is not evidence of success)
+
+------------------------------------------------------------
+
+Analysis limitations:
+  Boundary selection is per diagnostic subject; the analysis never merges independent EPS Attach, S11 and S5/S8 subjects into one EPC failure point.
+  Selection ordering uses exact frame provenance only; severity, cause magnitude, message labels and list order never order candidates.
+  A selected boundary is the earliest supported abnormal observation, not a causal claim.
+
+Not confirmed:
+  the selected boundary is a first observed abnormality, not a root cause
+  no network function is identified as responsible
+  downstream observations are ordered after the boundary and are not attributed to it
+  procedure or service success is not established by the absence of a boundary
+  user-plane forwarding is not established by any control-plane boundary
+  subscriber, subscription or implementation behaviour is not assessed

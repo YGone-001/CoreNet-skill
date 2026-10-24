@@ -366,6 +366,128 @@ class SubjectGroupingTests(SessionControlTestCase):
         self.assertIsNone(self.analysis["first_abnormal_boundary"])
 
 
+class DeviationAnchoringTests(unittest.TestCase):
+    """A negative outcome is anchored where it became visible."""
+
+    def test_rejection_anchors_at_response_frame(self) -> None:
+        events = [
+            event(100, 32, "create-session", teid_state="ZERO", teid=0, f_teids=[control_fteid(10, 6)]),
+            event(106, 33, "create-session", cause=72),
+        ]
+        analysis = analyze(events, [transaction("tx-1", "create-session", 100, 106)])
+        deviation = [
+            item
+            for item in analysis["procedure_local_deviations"]
+            if item["deviation_type"] == model.DEVIATION_CREATE_REJECTED
+        ][0]
+        self.assertEqual(deviation["frame_number"], 106)
+        self.assertNotEqual(deviation["frame_number"], 100)
+        self.assertEqual(deviation["message_type"], "type-33")
+        self.assertEqual(deviation["cause_code"], 72)
+        self.assertEqual(deviation["cause_scope"], "message")
+        self.assertEqual(deviation["evidence_level"], "OBSERVED")
+        frames = [ref["frame_number"] for ref in deviation["evidence_refs"]]
+        self.assertIn(deviation["frame_number"], frames)
+        window = deviation["observation_window"]
+        self.assertLessEqual(window["start_frame"], deviation["frame_number"])
+        self.assertGreaterEqual(window["end_frame"], deviation["frame_number"])
+
+    def test_bearer_rejection_anchors_at_response_and_names_the_item(self) -> None:
+        accepted = {
+            "item_index": 0,
+            "ebi": 5,
+            "cause": {"cause_code": 16, "cause_name": "Request accepted", "scope": "bearer"},
+            "f_teids": [{"scope": "bearer", "interface_type": 1, "teid": 4369}],
+            "charging_id_present": False,
+            "binding_basis": "pdml_grouped_ie",
+        }
+        rejected = {
+            "item_index": 1,
+            "ebi": 6,
+            "cause": {"cause_code": 72, "cause_name": "System failure", "scope": "bearer"},
+            "f_teids": [{"scope": "bearer", "interface_type": 1, "teid": 8738}],
+            "charging_id_present": False,
+            "binding_basis": "pdml_grouped_ie",
+        }
+        events = [
+            event(200, 32, "create-session", teid_state="ZERO", teid=0, f_teids=[control_fteid(10, 6)]),
+            event(205, 33, "create-session", cause=16, bearers=[accepted, rejected]),
+        ]
+        analysis = analyze(events, [transaction("tx-1", "create-session", 200, 205)])
+        deviations = analysis["procedure_local_deviations"]
+        self.assertFalse(
+            [item for item in deviations if item["deviation_type"] == model.DEVIATION_CREATE_REJECTED]
+        )
+        bearer_deviations = [
+            item for item in deviations if item["deviation_type"] == model.DEVIATION_BEARER_REJECTED
+        ]
+        self.assertEqual(len(bearer_deviations), 1)
+        deviation = bearer_deviations[0]
+        self.assertEqual(deviation["frame_number"], 205)
+        self.assertEqual(deviation["cause_code"], 72)
+        self.assertEqual(deviation["cause_scope"], "bearer")
+        self.assertEqual(deviation["bearer_item_index"], 1)
+        self.assertEqual(analysis["transaction_observations"][0]["outcome"], model.OUTCOME_ACCEPTED)
+
+    def test_open_request_anchors_at_the_request_without_a_cause(self) -> None:
+        events = [event(100, 32, "create-session", teid_state="ZERO", teid=0, f_teids=[control_fteid(10, 6)])]
+        analysis = analyze(events, [transaction("tx-1", "create-session", 100, None, status="OPEN_REQUEST")])
+        deviation = [
+            item
+            for item in analysis["procedure_local_deviations"]
+            if item["deviation_type"] == model.DEVIATION_OPEN_REQUEST
+        ][0]
+        self.assertEqual(deviation["frame_number"], 100)
+        self.assertNotIn("cause_code", deviation)
+        self.assertNotIn("cause_scope", deviation)
+
+    def test_response_only_anchors_at_the_response(self) -> None:
+        events = [event(106, 33, "create-session", cause=72)]
+        analysis = analyze(events, [transaction("tx-1", "create-session", None, 106, status="RESPONSE_ONLY")])
+        deviation = [
+            item
+            for item in analysis["procedure_local_deviations"]
+            if item["deviation_type"] == model.DEVIATION_RESPONSE_ONLY
+        ][0]
+        self.assertEqual(deviation["frame_number"], 106)
+        self.assertEqual(analysis["transaction_observations"][0]["response"]["frame_number"], 106)
+
+    def test_ambiguous_transaction_does_not_select_a_response_frame(self) -> None:
+        events = [
+            event(100, 32, "create-session", teid_state="ZERO", teid=0, f_teids=[control_fteid(10, 6)]),
+            event(106, 33, "create-session", cause=72),
+        ]
+        analysis = analyze(events, [transaction("tx-1", "create-session", 100, None, status="AMBIGUOUS")])
+        deviation = [
+            item
+            for item in analysis["procedure_local_deviations"]
+            if item["deviation_type"] == model.DEVIATION_AMBIGUOUS
+        ][0]
+        self.assertEqual(deviation["frame_number"], 100)
+        self.assertIsNone(analysis["transaction_observations"][0]["response"])
+
+    def test_subject_deviation_completeness_is_published(self) -> None:
+        analysis = model.analyze(
+            load_jsonl(EXAMPLES / "events.jsonl"),
+            load_json(EXAMPLES / "transactions.json"),
+            "events.jsonl",
+            "transactions.json",
+        )
+        self.assertEqual(
+            analysis["procedure_local_deviations_omitted"],
+            max(0, analysis["procedure_local_deviation_count"] - len(analysis["procedure_local_deviations"])),
+        )
+        for subject in analysis["control_plane_subjects"]:
+            self.assertEqual(
+                subject["procedure_local_deviation_count"], len(subject["procedure_local_deviations"])
+            )
+            self.assertEqual(subject["procedure_local_deviations_omitted"], 0)
+            for deviation in subject["procedure_local_deviations"]:
+                self.assertIn(
+                    deviation["transaction_reference"], subject["transaction_references"]
+                )
+
+
 class ArtifactTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

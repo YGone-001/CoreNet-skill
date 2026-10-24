@@ -1,0 +1,75 @@
+name: epc-failure-boundary
+version: 0.1.0
+category: orchestration
+description: >
+  Bounded EPC failure-boundary orchestration over already-produced Domain
+  evidence: one diagnostic subject per accepted EPS Attach procedure instance or
+  EPC session-control subject, machine-readable boundary candidates built only
+  from explicit negative Domain deviations, exact-frame ordering, per-subject
+  selection of the earliest supported abnormal observation, explicit ambiguity
+  and insufficiency, downstream observations that are never attributed as
+  effects, and no root-cause, network-function or service verdict.
+scope:
+  includes:
+    - per-subject diagnostic group formation from accepted EPC Domain analyses
+    - selectable candidate classification for explicit negative Attach and GTPv2-C outcomes
+    - non-selectable evidence-quality deviations that constrain but never select
+    - exact-frame candidate ordering with same-frame ambiguity
+    - per-subject boundary selection, confidence and downstream observation listing
+    - explicit handling of truncated Domain candidate lists
+  excludes:
+    - PCAP reading, TShark execution and protocol decoding
+    - cross-subject identity bridges between Attach, S11 and S5/S8 evidence
+    - root-cause reasoning, network-function blame and severity ranking
+    - user-plane delivery, bearer lifecycle or service verdicts
+    - Diameter, IMS or 5GC semantics
+dependencies:
+  required: []
+  optional:
+    - epc-procedures >=0.2.0
+inputs:
+  - epc-procedures EPS Attach analysis JSON (schemas/epc-attach-analysis.schema.json)
+  - epc-procedures EPC session-control analysis JSON (schemas/epc-session-analysis.schema.json)
+outputs:
+  - EPC failure-boundary analysis JSON (schemas/epc-failure-boundary-analysis.schema.json)
+  - text investigation report
+protocols: [S1AP, NAS-EPS, GTPv2-C]
+interfaces: [S1-MME, N1, S11, S5/S8]
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Orchestration-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/inputs/attach-reject/attach-analysis.json
+    - examples/inputs/session-accepted/session-analysis.json
+    - examples/inputs/session-rejection/session-analysis.json
+    - examples/inputs/bearer-rejection/session-analysis.json
+    - examples/inputs/ambiguous/session-analysis.json
+    - examples/inputs/omitted/session-analysis.json
+    - examples/inputs/mixed/attach-analysis.json
+    - examples/inputs/mixed/session-analysis.json
+  expected_results:
+    - examples/expected/attach-reject-analysis.json
+    - examples/expected/attach-reject-report.txt
+    - examples/expected/session-accepted-analysis.json
+    - examples/expected/session-accepted-report.txt
+    - examples/expected/session-rejection-analysis.json
+    - examples/expected/session-rejection-report.txt
+    - examples/expected/bearer-rejection-analysis.json
+    - examples/expected/bearer-rejection-report.txt
+    - examples/expected/ambiguous-analysis.json
+    - examples/expected/ambiguous-report.txt
+    - examples/expected/omitted-analysis.json
+    - examples/expected/omitted-report.txt
+    - examples/expected/mixed-analysis.json
+    - examples/expected/mixed-report.txt

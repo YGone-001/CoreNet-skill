@@ -1,0 +1,1688 @@
+{
+  "additional_evidence_needed": [
+    "a control-plane F-TEID or TEID continuity observation for the unresolved hop",
+    "a reviewed S1AP/GTPv2 identity bridge before any Attach-to-session association is attempted",
+    "an independently justified SGW-C identity observation before any S11-to-S5/S8 association"
+  ],
+  "ambiguous_evidence": [],
+  "analysis_scope": "epc-session-control",
+  "bearer_context_observations": [
+    {
+      "bearer_contexts": [
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 16,
+            "cause_name": "Request accepted",
+            "scope": "bearer"
+          },
+          "charging_id_present": true,
+          "ebi": 5,
+          "f_teids": [
+            {
+              "interface_type": 1,
+              "interface_type_name": "S1-U SGW GTP-U interface",
+              "scope": "bearer",
+              "teid": 34351
+            },
+            {
+              "interface_type": 5,
+              "interface_type_name": "S5/S8 PGW GTP-U interface",
+              "scope": "bearer",
+              "teid": 25193
+            }
+          ],
+          "item_index": 0,
+          "scope": "bearer"
+        }
+      ],
+      "frame_number": 8,
+      "transaction_reference": "gtpv2-create-session-5-23"
+    },
+    {
+      "bearer_contexts": [
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 16,
+            "cause_name": "Request accepted",
+            "scope": "bearer"
+          },
+          "charging_id_present": true,
+          "ebi": 5,
+          "f_teids": [
+            {
+              "interface_type": 5,
+              "interface_type_name": "S5/S8 PGW GTP-U interface",
+              "scope": "bearer",
+              "teid": 25193
+            }
+          ],
+          "item_index": 0,
+          "scope": "bearer"
+        }
+      ],
+      "frame_number": 7,
+      "transaction_reference": "gtpv2-create-session-6-11"
+    },
+    {
+      "bearer_contexts": [
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 16,
+            "cause_name": "Request accepted",
+            "scope": "bearer"
+          },
+          "charging_id_present": false,
+          "ebi": 5,
+          "f_teids": [
+            {
+              "interface_type": 0,
+              "interface_type_name": "S1-U eNodeB GTP-U interface",
+              "scope": "bearer",
+              "teid": 676791477
+            }
+          ],
+          "item_index": 0,
+          "scope": "bearer"
+        }
+      ],
+      "frame_number": 10,
+      "transaction_reference": "gtpv2-modify-bearer-9-24"
+    }
+  ],
+  "boundary_selection_status": "NOT_EVALUATED",
+  "control_plane_subject_count": 4,
+  "control_plane_subjects": [
+    {
+      "association_strength": "UNBOUND",
+      "attach_association": "NOT_ESTABLISHED",
+      "bearer_contexts": [],
+      "capture_file": "epc-gtpv2-real.pcap",
+      "control_plane_teids": [],
+      "cross_interface_association": "NOT_ESTABLISHED",
+      "endpoint_pair": "127.0.0.2:2123->127.0.0.3:2123",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 1,
+          "message_type": "Delete Session Request",
+          "message_type_code": 36,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 4,
+          "message_type": "Delete Session Response",
+          "message_type_code": 37,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "evidence_refs_omitted": 0,
+      "f_teid_evidence": [],
+      "interface": "UNKNOWN_INTERFACE",
+      "interface_evidence": {
+        "basis": "unavailable",
+        "evidence_message": null,
+        "interface": "UNKNOWN_INTERFACE",
+        "supporting_frames": [],
+        "supporting_interface_types": []
+      },
+      "interface_label": "unresolved control-plane hop",
+      "limitations": [
+        "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface"
+      ],
+      "observation_window": {
+        "end_frame": 4,
+        "start_frame": 1
+      },
+      "primary_transaction": {
+        "message_cause": {
+          "cause_code": 16,
+          "cause_name": "Request accepted",
+          "scope": "message"
+        },
+        "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+        "procedure_family": "delete-session",
+        "request_frame": 1,
+        "response_frame": 4,
+        "transaction_reference": "gtpv2-delete-session-1-22"
+      },
+      "procedure_families": [
+        "delete-session"
+      ],
+      "procedure_observations": {
+        "delete-session": {
+          "outcomes": [
+            "RESPONSE_ACCEPTED_OBSERVED"
+          ],
+          "procedure_label": "Delete Session",
+          "transaction_count": 1,
+          "transactions": [
+            {
+              "_endpoints": {
+                "request_destination": {
+                  "address": "127.0.0.3",
+                  "port": 2123
+                },
+                "request_source": {
+                  "address": "127.0.0.2",
+                  "port": 2123
+                }
+              },
+              "_tokens": [],
+              "bearer_contexts": [],
+              "correlation_status": "MATCHED",
+              "correlation_strength": "STRONG",
+              "evidence_refs": [
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 1,
+                  "message_type": "Delete Session Request",
+                  "message_type_code": 36,
+                  "protocol": "GTPv2-C"
+                },
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 4,
+                  "message_type": "Delete Session Response",
+                  "message_type_code": 37,
+                  "protocol": "GTPv2-C"
+                }
+              ],
+              "f_teids": [],
+              "interface_evidence": {
+                "basis": "unavailable",
+                "evidence_message": null,
+                "interface": "UNKNOWN_INTERFACE",
+                "supporting_frames": [],
+                "supporting_interface_types": []
+              },
+              "limitations": [
+                "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface"
+              ],
+              "message_cause": {
+                "cause_code": 16,
+                "cause_name": "Request accepted",
+                "scope": "message"
+              },
+              "observation_window": {
+                "end_frame": 4,
+                "start_frame": 1
+              },
+              "observations": [
+                "REQUEST_OBSERVED",
+                "RESPONSE_ACCEPTED_OBSERVED"
+              ],
+              "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+              "procedure_family": "delete-session",
+              "procedure_label": "Delete Session",
+              "request": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 1,
+                "message_type": "Delete Session Request",
+                "message_type_code": 36,
+                "protocol": "GTPv2-C"
+              },
+              "response": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 4,
+                "message_type": "Delete Session Response",
+                "message_type_code": 37,
+                "protocol": "GTPv2-C"
+              },
+              "transaction_reference": "gtpv2-delete-session-1-22"
+            }
+          ],
+          "transactions_omitted": 0
+        }
+      },
+      "subject_reference": "epc-session-unknown-6c46a339",
+      "subject_type": "EPC_SESSION_CONTROL",
+      "transaction_references": [
+        "gtpv2-delete-session-1-22"
+      ]
+    },
+    {
+      "association_strength": "UNBOUND",
+      "attach_association": "NOT_ESTABLISHED",
+      "bearer_contexts": [],
+      "capture_file": "epc-gtpv2-real.pcap",
+      "control_plane_teids": [],
+      "cross_interface_association": "NOT_ESTABLISHED",
+      "endpoint_pair": "127.0.0.3:2123->127.0.0.34:2123",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 2,
+          "message_type": "Delete Session Request",
+          "message_type_code": 36,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 3,
+          "message_type": "Delete Session Response",
+          "message_type_code": 37,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "evidence_refs_omitted": 0,
+      "f_teid_evidence": [],
+      "interface": "UNKNOWN_INTERFACE",
+      "interface_evidence": {
+        "basis": "unavailable",
+        "evidence_message": null,
+        "interface": "UNKNOWN_INTERFACE",
+        "supporting_frames": [],
+        "supporting_interface_types": []
+      },
+      "interface_label": "unresolved control-plane hop",
+      "limitations": [
+        "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface"
+      ],
+      "observation_window": {
+        "end_frame": 3,
+        "start_frame": 2
+      },
+      "primary_transaction": {
+        "message_cause": {
+          "cause_code": 16,
+          "cause_name": "Request accepted",
+          "scope": "message"
+        },
+        "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+        "procedure_family": "delete-session",
+        "request_frame": 2,
+        "response_frame": 3,
+        "transaction_reference": "gtpv2-delete-session-2-10"
+      },
+      "procedure_families": [
+        "delete-session"
+      ],
+      "procedure_observations": {
+        "delete-session": {
+          "outcomes": [
+            "RESPONSE_ACCEPTED_OBSERVED"
+          ],
+          "procedure_label": "Delete Session",
+          "transaction_count": 1,
+          "transactions": [
+            {
+              "_endpoints": {
+                "request_destination": {
+                  "address": "127.0.0.34",
+                  "port": 2123
+                },
+                "request_source": {
+                  "address": "127.0.0.3",
+                  "port": 2123
+                }
+              },
+              "_tokens": [],
+              "bearer_contexts": [],
+              "correlation_status": "MATCHED",
+              "correlation_strength": "STRONG",
+              "evidence_refs": [
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 2,
+                  "message_type": "Delete Session Request",
+                  "message_type_code": 36,
+                  "protocol": "GTPv2-C"
+                },
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 3,
+                  "message_type": "Delete Session Response",
+                  "message_type_code": 37,
+                  "protocol": "GTPv2-C"
+                }
+              ],
+              "f_teids": [],
+              "interface_evidence": {
+                "basis": "unavailable",
+                "evidence_message": null,
+                "interface": "UNKNOWN_INTERFACE",
+                "supporting_frames": [],
+                "supporting_interface_types": []
+              },
+              "limitations": [
+                "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface"
+              ],
+              "message_cause": {
+                "cause_code": 16,
+                "cause_name": "Request accepted",
+                "scope": "message"
+              },
+              "observation_window": {
+                "end_frame": 3,
+                "start_frame": 2
+              },
+              "observations": [
+                "REQUEST_OBSERVED",
+                "RESPONSE_ACCEPTED_OBSERVED"
+              ],
+              "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+              "procedure_family": "delete-session",
+              "procedure_label": "Delete Session",
+              "request": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 2,
+                "message_type": "Delete Session Request",
+                "message_type_code": 36,
+                "protocol": "GTPv2-C"
+              },
+              "response": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 3,
+                "message_type": "Delete Session Response",
+                "message_type_code": 37,
+                "protocol": "GTPv2-C"
+              },
+              "transaction_reference": "gtpv2-delete-session-2-10"
+            }
+          ],
+          "transactions_omitted": 0
+        }
+      },
+      "subject_reference": "epc-session-unknown-ab0557db",
+      "subject_type": "EPC_SESSION_CONTROL",
+      "transaction_references": [
+        "gtpv2-delete-session-2-10"
+      ]
+    },
+    {
+      "association_strength": "STRONG",
+      "attach_association": "NOT_ESTABLISHED",
+      "bearer_contexts": [
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 16,
+            "cause_name": "Request accepted",
+            "scope": "bearer"
+          },
+          "charging_id_present": true,
+          "ebi": 5,
+          "f_teids": [
+            {
+              "interface_type": 1,
+              "interface_type_name": "S1-U SGW GTP-U interface",
+              "scope": "bearer",
+              "teid": 34351
+            },
+            {
+              "interface_type": 5,
+              "interface_type_name": "S5/S8 PGW GTP-U interface",
+              "scope": "bearer",
+              "teid": 25193
+            }
+          ],
+          "item_index": 0,
+          "scope": "bearer",
+          "transaction_reference": "gtpv2-create-session-5-23"
+        },
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 16,
+            "cause_name": "Request accepted",
+            "scope": "bearer"
+          },
+          "charging_id_present": false,
+          "ebi": 5,
+          "f_teids": [
+            {
+              "interface_type": 0,
+              "interface_type_name": "S1-U eNodeB GTP-U interface",
+              "scope": "bearer",
+              "teid": 676791477
+            }
+          ],
+          "item_index": 0,
+          "scope": "bearer",
+          "transaction_reference": "gtpv2-modify-bearer-9-24"
+        }
+      ],
+      "capture_file": "epc-gtpv2-real.pcap",
+      "control_plane_teids": [
+        "0x00000006",
+        "0x000003c9"
+      ],
+      "cross_interface_association": "NOT_ESTABLISHED",
+      "endpoint_pair": "127.0.0.2:2123->127.0.0.3:2123",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 5,
+          "message_type": "Create Session Request",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 8,
+          "message_type": "Create Session Response",
+          "message_type_code": 33,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 9,
+          "message_type": "Modify Bearer Request",
+          "message_type_code": 34,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 10,
+          "message_type": "Modify Bearer Response",
+          "message_type_code": 35,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 11,
+          "message_type": "Release Access Bearers Request",
+          "message_type_code": 170,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 12,
+          "message_type": "Release Access Bearers Response",
+          "message_type_code": 171,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "evidence_refs_omitted": 0,
+      "f_teid_evidence": [
+        {
+          "interface_type": 11,
+          "interface_type_name": "S11/S4 SGW GTP-C interface",
+          "scope": "message",
+          "teid": 969,
+          "transaction_reference": "gtpv2-create-session-5-23"
+        },
+        {
+          "interface_type": 7,
+          "interface_type_name": "S5/S8 PGW GTP-C interface",
+          "scope": "message",
+          "teid": 1691,
+          "transaction_reference": "gtpv2-create-session-5-23"
+        }
+      ],
+      "interface": "S11",
+      "interface_evidence": {
+        "basis": "control_plane_f_teid_in_message",
+        "evidence_message": "request",
+        "interface": "S11",
+        "supporting_frames": [
+          5
+        ],
+        "supporting_interface_types": [
+          10
+        ]
+      },
+      "interface_label": "S11 (MME to SGW-C)",
+      "limitations": [],
+      "observation_window": {
+        "end_frame": 12,
+        "start_frame": 5
+      },
+      "primary_transaction": {
+        "message_cause": {
+          "cause_code": 16,
+          "cause_name": "Request accepted",
+          "scope": "message"
+        },
+        "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+        "procedure_family": "create-session",
+        "request_frame": 5,
+        "response_frame": 8,
+        "transaction_reference": "gtpv2-create-session-5-23"
+      },
+      "procedure_families": [
+        "create-session",
+        "modify-bearer",
+        "release-access-bearers"
+      ],
+      "procedure_observations": {
+        "create-session": {
+          "outcomes": [
+            "RESPONSE_ACCEPTED_OBSERVED"
+          ],
+          "procedure_label": "Create Session",
+          "transaction_count": 1,
+          "transactions": [
+            {
+              "_endpoints": {
+                "request_destination": {
+                  "address": "127.0.0.3",
+                  "port": 2123
+                },
+                "request_source": {
+                  "address": "127.0.0.2",
+                  "port": 2123
+                }
+              },
+              "_tokens": [
+                6,
+                969
+              ],
+              "bearer_contexts": [
+                {
+                  "binding_basis": "pdml_grouped_ie",
+                  "cause": {
+                    "cause_code": 16,
+                    "cause_name": "Request accepted",
+                    "scope": "bearer"
+                  },
+                  "charging_id_present": true,
+                  "ebi": 5,
+                  "f_teids": [
+                    {
+                      "interface_type": 1,
+                      "interface_type_name": "S1-U SGW GTP-U interface",
+                      "scope": "bearer",
+                      "teid": 34351
+                    },
+                    {
+                      "interface_type": 5,
+                      "interface_type_name": "S5/S8 PGW GTP-U interface",
+                      "scope": "bearer",
+                      "teid": 25193
+                    }
+                  ],
+                  "item_index": 0,
+                  "scope": "bearer"
+                }
+              ],
+              "correlation_status": "MATCHED",
+              "correlation_strength": "STRONG",
+              "evidence_refs": [
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 5,
+                  "message_type": "Create Session Request",
+                  "message_type_code": 32,
+                  "protocol": "GTPv2-C"
+                },
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 8,
+                  "message_type": "Create Session Response",
+                  "message_type_code": 33,
+                  "protocol": "GTPv2-C"
+                }
+              ],
+              "f_teids": [
+                {
+                  "interface_type": 11,
+                  "interface_type_name": "S11/S4 SGW GTP-C interface",
+                  "scope": "message",
+                  "teid": 969
+                },
+                {
+                  "interface_type": 7,
+                  "interface_type_name": "S5/S8 PGW GTP-C interface",
+                  "scope": "message",
+                  "teid": 1691
+                }
+              ],
+              "interface_evidence": {
+                "basis": "control_plane_f_teid_in_message",
+                "evidence_message": "request",
+                "interface": "S11",
+                "supporting_frames": [
+                  5
+                ],
+                "supporting_interface_types": [
+                  10
+                ]
+              },
+              "limitations": [],
+              "message_cause": {
+                "cause_code": 16,
+                "cause_name": "Request accepted",
+                "scope": "message"
+              },
+              "observation_window": {
+                "end_frame": 8,
+                "start_frame": 5
+              },
+              "observations": [
+                "REQUEST_OBSERVED",
+                "RESPONSE_ACCEPTED_OBSERVED"
+              ],
+              "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+              "procedure_family": "create-session",
+              "procedure_label": "Create Session",
+              "request": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 5,
+                "message_type": "Create Session Request",
+                "message_type_code": 32,
+                "protocol": "GTPv2-C"
+              },
+              "response": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 8,
+                "message_type": "Create Session Response",
+                "message_type_code": 33,
+                "protocol": "GTPv2-C"
+              },
+              "transaction_reference": "gtpv2-create-session-5-23"
+            }
+          ],
+          "transactions_omitted": 0
+        },
+        "modify-bearer": {
+          "outcomes": [
+            "RESPONSE_ACCEPTED_OBSERVED"
+          ],
+          "procedure_label": "Modify Bearer",
+          "transaction_count": 1,
+          "transactions": [
+            {
+              "_endpoints": {
+                "request_destination": {
+                  "address": "127.0.0.3",
+                  "port": 2123
+                },
+                "request_source": {
+                  "address": "127.0.0.2",
+                  "port": 2123
+                }
+              },
+              "_tokens": [
+                969
+              ],
+              "bearer_contexts": [
+                {
+                  "binding_basis": "pdml_grouped_ie",
+                  "cause": {
+                    "cause_code": 16,
+                    "cause_name": "Request accepted",
+                    "scope": "bearer"
+                  },
+                  "charging_id_present": false,
+                  "ebi": 5,
+                  "f_teids": [
+                    {
+                      "interface_type": 0,
+                      "interface_type_name": "S1-U eNodeB GTP-U interface",
+                      "scope": "bearer",
+                      "teid": 676791477
+                    }
+                  ],
+                  "item_index": 0,
+                  "scope": "bearer"
+                }
+              ],
+              "correlation_status": "MATCHED",
+              "correlation_strength": "STRONG",
+              "evidence_refs": [
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 9,
+                  "message_type": "Modify Bearer Request",
+                  "message_type_code": 34,
+                  "protocol": "GTPv2-C"
+                },
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 10,
+                  "message_type": "Modify Bearer Response",
+                  "message_type_code": 35,
+                  "protocol": "GTPv2-C"
+                }
+              ],
+              "f_teids": [],
+              "interface_evidence": {
+                "basis": "control_plane_teid_continuity",
+                "continuity_teid": "0x000003c9",
+                "evidence_message": "request",
+                "interface": "S11",
+                "supporting_frames": [
+                  9
+                ],
+                "supporting_interface_types": []
+              },
+              "limitations": [],
+              "message_cause": {
+                "cause_code": 16,
+                "cause_name": "Request accepted",
+                "scope": "message"
+              },
+              "observation_window": {
+                "end_frame": 10,
+                "start_frame": 9
+              },
+              "observations": [
+                "REQUEST_OBSERVED",
+                "RESPONSE_ACCEPTED_OBSERVED"
+              ],
+              "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+              "procedure_family": "modify-bearer",
+              "procedure_label": "Modify Bearer",
+              "request": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 9,
+                "message_type": "Modify Bearer Request",
+                "message_type_code": 34,
+                "protocol": "GTPv2-C"
+              },
+              "response": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 10,
+                "message_type": "Modify Bearer Response",
+                "message_type_code": 35,
+                "protocol": "GTPv2-C"
+              },
+              "transaction_reference": "gtpv2-modify-bearer-9-24"
+            }
+          ],
+          "transactions_omitted": 0
+        },
+        "release-access-bearers": {
+          "outcomes": [
+            "RESPONSE_ACCEPTED_OBSERVED"
+          ],
+          "procedure_label": "Release Access Bearers",
+          "transaction_count": 1,
+          "transactions": [
+            {
+              "_endpoints": {
+                "request_destination": {
+                  "address": "127.0.0.3",
+                  "port": 2123
+                },
+                "request_source": {
+                  "address": "127.0.0.2",
+                  "port": 2123
+                }
+              },
+              "_tokens": [
+                969
+              ],
+              "bearer_contexts": [],
+              "correlation_status": "MATCHED",
+              "correlation_strength": "STRONG",
+              "evidence_refs": [
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 11,
+                  "message_type": "Release Access Bearers Request",
+                  "message_type_code": 170,
+                  "protocol": "GTPv2-C"
+                },
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 12,
+                  "message_type": "Release Access Bearers Response",
+                  "message_type_code": 171,
+                  "protocol": "GTPv2-C"
+                }
+              ],
+              "f_teids": [],
+              "interface_evidence": {
+                "basis": "control_plane_teid_continuity",
+                "continuity_teid": "0x000003c9",
+                "evidence_message": "request",
+                "interface": "S11",
+                "supporting_frames": [
+                  11
+                ],
+                "supporting_interface_types": []
+              },
+              "limitations": [],
+              "message_cause": {
+                "cause_code": 16,
+                "cause_name": "Request accepted",
+                "scope": "message"
+              },
+              "observation_window": {
+                "end_frame": 12,
+                "start_frame": 11
+              },
+              "observations": [
+                "REQUEST_OBSERVED",
+                "RESPONSE_ACCEPTED_OBSERVED"
+              ],
+              "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+              "procedure_family": "release-access-bearers",
+              "procedure_label": "Release Access Bearers",
+              "request": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 11,
+                "message_type": "Release Access Bearers Request",
+                "message_type_code": 170,
+                "protocol": "GTPv2-C"
+              },
+              "response": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 12,
+                "message_type": "Release Access Bearers Response",
+                "message_type_code": 171,
+                "protocol": "GTPv2-C"
+              },
+              "transaction_reference": "gtpv2-release-access-bearers-11-25"
+            }
+          ],
+          "transactions_omitted": 0
+        }
+      },
+      "subject_reference": "epc-session-s11-51808210",
+      "subject_type": "EPC_SESSION_CONTROL",
+      "transaction_references": [
+        "gtpv2-create-session-5-23",
+        "gtpv2-modify-bearer-9-24",
+        "gtpv2-release-access-bearers-11-25"
+      ]
+    },
+    {
+      "association_strength": "UNBOUND",
+      "attach_association": "NOT_ESTABLISHED",
+      "bearer_contexts": [
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 16,
+            "cause_name": "Request accepted",
+            "scope": "bearer"
+          },
+          "charging_id_present": true,
+          "ebi": 5,
+          "f_teids": [
+            {
+              "interface_type": 5,
+              "interface_type_name": "S5/S8 PGW GTP-U interface",
+              "scope": "bearer",
+              "teid": 25193
+            }
+          ],
+          "item_index": 0,
+          "scope": "bearer",
+          "transaction_reference": "gtpv2-create-session-6-11"
+        }
+      ],
+      "capture_file": "epc-gtpv2-real.pcap",
+      "control_plane_teids": [
+        "0x0000069b",
+        "0x00000beb"
+      ],
+      "cross_interface_association": "NOT_ESTABLISHED",
+      "endpoint_pair": "127.0.0.3:2123->127.0.0.34:2123",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 6,
+          "message_type": "Create Session Request",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 7,
+          "message_type": "Create Session Response",
+          "message_type_code": 33,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "evidence_refs_omitted": 0,
+      "f_teid_evidence": [
+        {
+          "interface_type": 7,
+          "interface_type_name": "S5/S8 PGW GTP-C interface",
+          "scope": "message",
+          "teid": 1691,
+          "transaction_reference": "gtpv2-create-session-6-11"
+        }
+      ],
+      "interface": "S5/S8",
+      "interface_evidence": {
+        "basis": "control_plane_f_teid_in_message",
+        "evidence_message": "request",
+        "interface": "S5/S8",
+        "supporting_frames": [
+          6
+        ],
+        "supporting_interface_types": [
+          6
+        ]
+      },
+      "interface_label": "S5/S8 (SGW-C to PGW-C)",
+      "limitations": [],
+      "observation_window": {
+        "end_frame": 7,
+        "start_frame": 6
+      },
+      "primary_transaction": {
+        "message_cause": {
+          "cause_code": 16,
+          "cause_name": "Request accepted",
+          "scope": "message"
+        },
+        "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+        "procedure_family": "create-session",
+        "request_frame": 6,
+        "response_frame": 7,
+        "transaction_reference": "gtpv2-create-session-6-11"
+      },
+      "procedure_families": [
+        "create-session"
+      ],
+      "procedure_observations": {
+        "create-session": {
+          "outcomes": [
+            "RESPONSE_ACCEPTED_OBSERVED"
+          ],
+          "procedure_label": "Create Session",
+          "transaction_count": 1,
+          "transactions": [
+            {
+              "_endpoints": {
+                "request_destination": {
+                  "address": "127.0.0.34",
+                  "port": 2123
+                },
+                "request_source": {
+                  "address": "127.0.0.3",
+                  "port": 2123
+                }
+              },
+              "_tokens": [
+                1691,
+                3051
+              ],
+              "bearer_contexts": [
+                {
+                  "binding_basis": "pdml_grouped_ie",
+                  "cause": {
+                    "cause_code": 16,
+                    "cause_name": "Request accepted",
+                    "scope": "bearer"
+                  },
+                  "charging_id_present": true,
+                  "ebi": 5,
+                  "f_teids": [
+                    {
+                      "interface_type": 5,
+                      "interface_type_name": "S5/S8 PGW GTP-U interface",
+                      "scope": "bearer",
+                      "teid": 25193
+                    }
+                  ],
+                  "item_index": 0,
+                  "scope": "bearer"
+                }
+              ],
+              "correlation_status": "MATCHED",
+              "correlation_strength": "STRONG",
+              "evidence_refs": [
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 6,
+                  "message_type": "Create Session Request",
+                  "message_type_code": 32,
+                  "protocol": "GTPv2-C"
+                },
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 7,
+                  "message_type": "Create Session Response",
+                  "message_type_code": 33,
+                  "protocol": "GTPv2-C"
+                }
+              ],
+              "f_teids": [
+                {
+                  "interface_type": 7,
+                  "interface_type_name": "S5/S8 PGW GTP-C interface",
+                  "scope": "message",
+                  "teid": 1691
+                }
+              ],
+              "interface_evidence": {
+                "basis": "control_plane_f_teid_in_message",
+                "evidence_message": "request",
+                "interface": "S5/S8",
+                "supporting_frames": [
+                  6
+                ],
+                "supporting_interface_types": [
+                  6
+                ]
+              },
+              "limitations": [],
+              "message_cause": {
+                "cause_code": 16,
+                "cause_name": "Request accepted",
+                "scope": "message"
+              },
+              "observation_window": {
+                "end_frame": 7,
+                "start_frame": 6
+              },
+              "observations": [
+                "REQUEST_OBSERVED",
+                "RESPONSE_ACCEPTED_OBSERVED"
+              ],
+              "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+              "procedure_family": "create-session",
+              "procedure_label": "Create Session",
+              "request": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 6,
+                "message_type": "Create Session Request",
+                "message_type_code": 32,
+                "protocol": "GTPv2-C"
+              },
+              "response": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 7,
+                "message_type": "Create Session Response",
+                "message_type_code": 33,
+                "protocol": "GTPv2-C"
+              },
+              "transaction_reference": "gtpv2-create-session-6-11"
+            }
+          ],
+          "transactions_omitted": 0
+        }
+      },
+      "subject_reference": "epc-session-s5s8-0aa699f1",
+      "subject_type": "EPC_SESSION_CONTROL",
+      "transaction_references": [
+        "gtpv2-create-session-6-11"
+      ]
+    }
+  ],
+  "domain": "epc-procedures",
+  "domain_version": "0.2.0",
+  "evidence_limitations": [
+    "at least one session-control subject has an unresolved control-plane hop; its interface is reported as UNKNOWN_INTERFACE rather than inferred from a transport address",
+    "S11 and S5/S8 transactions are reported as independent subjects; no reviewed identity bridge links a specific S11 transaction to a specific S5/S8 transaction",
+    "This Domain analysis produces procedure-local session-control evidence only. EPC global first-abnormal-boundary selection remains NOT_EVALUATED."
+  ],
+  "first_abnormal_boundary": null,
+  "input_provenance": {
+    "capture_files": [
+      "epc-gtpv2-real.pcap"
+    ],
+    "gtpv2_event_count": 12,
+    "gtpv2_events_file": "gtpv2-events.jsonl",
+    "hierarchy_basis": [
+      "pdml_grouped_ie"
+    ],
+    "protocol_skill": "gtpv2",
+    "protocol_skill_version": "0.1.0",
+    "transaction_count": 6,
+    "transactions_file": "gtpv2-transactions.json"
+  },
+  "model_version": "1.0.0",
+  "not_confirmed": [
+    "PDN connection establishment",
+    "default EPS bearer service availability",
+    "user-plane packet forwarding",
+    "S11 to S5/S8 session association",
+    "EPS Attach UE to GTPv2-C session association",
+    "session or bearer deletion completeness",
+    "end-to-end EPC service success"
+  ],
+  "procedure": "epc-session-control",
+  "procedure_families": [
+    "create-session",
+    "delete-session",
+    "modify-bearer",
+    "release-access-bearers"
+  ],
+  "procedure_label": "EPC Session Control",
+  "procedure_local_deviation_count": 2,
+  "procedure_local_deviations": [
+    {
+      "deviation_type": "INTERFACE_EVIDENCE_UNAVAILABLE",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 1,
+          "message_type": "Delete Session Request",
+          "message_type_code": 36,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 4,
+          "message_type": "Delete Session Response",
+          "message_type_code": 37,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "explanation": "the control-plane hop of this transaction is not established by reviewed evidence",
+      "frame_number": 1,
+      "limitations": [
+        "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface"
+      ],
+      "message_type": "Delete Session Response",
+      "observation_window": {
+        "end_frame": 4,
+        "start_frame": 1
+      },
+      "procedure_family": "delete-session",
+      "protocol": "GTPv2-C",
+      "transaction_reference": "gtpv2-delete-session-1-22"
+    },
+    {
+      "deviation_type": "INTERFACE_EVIDENCE_UNAVAILABLE",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 2,
+          "message_type": "Delete Session Request",
+          "message_type_code": 36,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 3,
+          "message_type": "Delete Session Response",
+          "message_type_code": 37,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "explanation": "the control-plane hop of this transaction is not established by reviewed evidence",
+      "frame_number": 2,
+      "limitations": [
+        "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface"
+      ],
+      "message_type": "Delete Session Response",
+      "observation_window": {
+        "end_frame": 3,
+        "start_frame": 2
+      },
+      "procedure_family": "delete-session",
+      "protocol": "GTPv2-C",
+      "transaction_reference": "gtpv2-delete-session-2-10"
+    }
+  ],
+  "transaction_observations": [
+    {
+      "bearer_contexts": [],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 1,
+          "message_type": "Delete Session Request",
+          "message_type_code": 36,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 4,
+          "message_type": "Delete Session Response",
+          "message_type_code": 37,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "f_teids": [],
+      "interface_evidence": {
+        "basis": "unavailable",
+        "evidence_message": null,
+        "interface": "UNKNOWN_INTERFACE",
+        "supporting_frames": [],
+        "supporting_interface_types": []
+      },
+      "limitations": [
+        "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface"
+      ],
+      "message_cause": {
+        "cause_code": 16,
+        "cause_name": "Request accepted",
+        "scope": "message"
+      },
+      "observation_window": {
+        "end_frame": 4,
+        "start_frame": 1
+      },
+      "observations": [
+        "REQUEST_OBSERVED",
+        "RESPONSE_ACCEPTED_OBSERVED"
+      ],
+      "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+      "procedure_family": "delete-session",
+      "procedure_label": "Delete Session",
+      "request": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 1,
+        "message_type": "Delete Session Request",
+        "message_type_code": 36,
+        "protocol": "GTPv2-C"
+      },
+      "response": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 4,
+        "message_type": "Delete Session Response",
+        "message_type_code": 37,
+        "protocol": "GTPv2-C"
+      },
+      "transaction_reference": "gtpv2-delete-session-1-22"
+    },
+    {
+      "bearer_contexts": [],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 2,
+          "message_type": "Delete Session Request",
+          "message_type_code": 36,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 3,
+          "message_type": "Delete Session Response",
+          "message_type_code": 37,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "f_teids": [],
+      "interface_evidence": {
+        "basis": "unavailable",
+        "evidence_message": null,
+        "interface": "UNKNOWN_INTERFACE",
+        "supporting_frames": [],
+        "supporting_interface_types": []
+      },
+      "limitations": [
+        "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface"
+      ],
+      "message_cause": {
+        "cause_code": 16,
+        "cause_name": "Request accepted",
+        "scope": "message"
+      },
+      "observation_window": {
+        "end_frame": 3,
+        "start_frame": 2
+      },
+      "observations": [
+        "REQUEST_OBSERVED",
+        "RESPONSE_ACCEPTED_OBSERVED"
+      ],
+      "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+      "procedure_family": "delete-session",
+      "procedure_label": "Delete Session",
+      "request": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 2,
+        "message_type": "Delete Session Request",
+        "message_type_code": 36,
+        "protocol": "GTPv2-C"
+      },
+      "response": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 3,
+        "message_type": "Delete Session Response",
+        "message_type_code": 37,
+        "protocol": "GTPv2-C"
+      },
+      "transaction_reference": "gtpv2-delete-session-2-10"
+    },
+    {
+      "bearer_contexts": [
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 16,
+            "cause_name": "Request accepted",
+            "scope": "bearer"
+          },
+          "charging_id_present": true,
+          "ebi": 5,
+          "f_teids": [
+            {
+              "interface_type": 1,
+              "interface_type_name": "S1-U SGW GTP-U interface",
+              "scope": "bearer",
+              "teid": 34351
+            },
+            {
+              "interface_type": 5,
+              "interface_type_name": "S5/S8 PGW GTP-U interface",
+              "scope": "bearer",
+              "teid": 25193
+            }
+          ],
+          "item_index": 0,
+          "scope": "bearer"
+        }
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 5,
+          "message_type": "Create Session Request",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 8,
+          "message_type": "Create Session Response",
+          "message_type_code": 33,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "f_teids": [
+        {
+          "interface_type": 11,
+          "interface_type_name": "S11/S4 SGW GTP-C interface",
+          "scope": "message",
+          "teid": 969
+        },
+        {
+          "interface_type": 7,
+          "interface_type_name": "S5/S8 PGW GTP-C interface",
+          "scope": "message",
+          "teid": 1691
+        }
+      ],
+      "interface_evidence": {
+        "basis": "control_plane_f_teid_in_message",
+        "evidence_message": "request",
+        "interface": "S11",
+        "supporting_frames": [
+          5
+        ],
+        "supporting_interface_types": [
+          10
+        ]
+      },
+      "limitations": [],
+      "message_cause": {
+        "cause_code": 16,
+        "cause_name": "Request accepted",
+        "scope": "message"
+      },
+      "observation_window": {
+        "end_frame": 8,
+        "start_frame": 5
+      },
+      "observations": [
+        "REQUEST_OBSERVED",
+        "RESPONSE_ACCEPTED_OBSERVED"
+      ],
+      "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+      "procedure_family": "create-session",
+      "procedure_label": "Create Session",
+      "request": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 5,
+        "message_type": "Create Session Request",
+        "message_type_code": 32,
+        "protocol": "GTPv2-C"
+      },
+      "response": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 8,
+        "message_type": "Create Session Response",
+        "message_type_code": 33,
+        "protocol": "GTPv2-C"
+      },
+      "transaction_reference": "gtpv2-create-session-5-23"
+    },
+    {
+      "bearer_contexts": [
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 16,
+            "cause_name": "Request accepted",
+            "scope": "bearer"
+          },
+          "charging_id_present": true,
+          "ebi": 5,
+          "f_teids": [
+            {
+              "interface_type": 5,
+              "interface_type_name": "S5/S8 PGW GTP-U interface",
+              "scope": "bearer",
+              "teid": 25193
+            }
+          ],
+          "item_index": 0,
+          "scope": "bearer"
+        }
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 6,
+          "message_type": "Create Session Request",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 7,
+          "message_type": "Create Session Response",
+          "message_type_code": 33,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "f_teids": [
+        {
+          "interface_type": 7,
+          "interface_type_name": "S5/S8 PGW GTP-C interface",
+          "scope": "message",
+          "teid": 1691
+        }
+      ],
+      "interface_evidence": {
+        "basis": "control_plane_f_teid_in_message",
+        "evidence_message": "request",
+        "interface": "S5/S8",
+        "supporting_frames": [
+          6
+        ],
+        "supporting_interface_types": [
+          6
+        ]
+      },
+      "limitations": [],
+      "message_cause": {
+        "cause_code": 16,
+        "cause_name": "Request accepted",
+        "scope": "message"
+      },
+      "observation_window": {
+        "end_frame": 7,
+        "start_frame": 6
+      },
+      "observations": [
+        "REQUEST_OBSERVED",
+        "RESPONSE_ACCEPTED_OBSERVED"
+      ],
+      "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+      "procedure_family": "create-session",
+      "procedure_label": "Create Session",
+      "request": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 6,
+        "message_type": "Create Session Request",
+        "message_type_code": 32,
+        "protocol": "GTPv2-C"
+      },
+      "response": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 7,
+        "message_type": "Create Session Response",
+        "message_type_code": 33,
+        "protocol": "GTPv2-C"
+      },
+      "transaction_reference": "gtpv2-create-session-6-11"
+    },
+    {
+      "bearer_contexts": [
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 16,
+            "cause_name": "Request accepted",
+            "scope": "bearer"
+          },
+          "charging_id_present": false,
+          "ebi": 5,
+          "f_teids": [
+            {
+              "interface_type": 0,
+              "interface_type_name": "S1-U eNodeB GTP-U interface",
+              "scope": "bearer",
+              "teid": 676791477
+            }
+          ],
+          "item_index": 0,
+          "scope": "bearer"
+        }
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 9,
+          "message_type": "Modify Bearer Request",
+          "message_type_code": 34,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 10,
+          "message_type": "Modify Bearer Response",
+          "message_type_code": 35,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "f_teids": [],
+      "interface_evidence": {
+        "basis": "control_plane_teid_continuity",
+        "continuity_teid": "0x000003c9",
+        "evidence_message": "request",
+        "interface": "S11",
+        "supporting_frames": [
+          9
+        ],
+        "supporting_interface_types": []
+      },
+      "limitations": [],
+      "message_cause": {
+        "cause_code": 16,
+        "cause_name": "Request accepted",
+        "scope": "message"
+      },
+      "observation_window": {
+        "end_frame": 10,
+        "start_frame": 9
+      },
+      "observations": [
+        "REQUEST_OBSERVED",
+        "RESPONSE_ACCEPTED_OBSERVED"
+      ],
+      "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+      "procedure_family": "modify-bearer",
+      "procedure_label": "Modify Bearer",
+      "request": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 9,
+        "message_type": "Modify Bearer Request",
+        "message_type_code": 34,
+        "protocol": "GTPv2-C"
+      },
+      "response": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 10,
+        "message_type": "Modify Bearer Response",
+        "message_type_code": 35,
+        "protocol": "GTPv2-C"
+      },
+      "transaction_reference": "gtpv2-modify-bearer-9-24"
+    },
+    {
+      "bearer_contexts": [],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 11,
+          "message_type": "Release Access Bearers Request",
+          "message_type_code": 170,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 12,
+          "message_type": "Release Access Bearers Response",
+          "message_type_code": 171,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "f_teids": [],
+      "interface_evidence": {
+        "basis": "control_plane_teid_continuity",
+        "continuity_teid": "0x000003c9",
+        "evidence_message": "request",
+        "interface": "S11",
+        "supporting_frames": [
+          11
+        ],
+        "supporting_interface_types": []
+      },
+      "limitations": [],
+      "message_cause": {
+        "cause_code": 16,
+        "cause_name": "Request accepted",
+        "scope": "message"
+      },
+      "observation_window": {
+        "end_frame": 12,
+        "start_frame": 11
+      },
+      "observations": [
+        "REQUEST_OBSERVED",
+        "RESPONSE_ACCEPTED_OBSERVED"
+      ],
+      "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+      "procedure_family": "release-access-bearers",
+      "procedure_label": "Release Access Bearers",
+      "request": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 11,
+        "message_type": "Release Access Bearers Request",
+        "message_type_code": 170,
+        "protocol": "GTPv2-C"
+      },
+      "response": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 12,
+        "message_type": "Release Access Bearers Response",
+        "message_type_code": 171,
+        "protocol": "GTPv2-C"
+      },
+      "transaction_reference": "gtpv2-release-access-bearers-11-25"
+    }
+  ],
+  "transaction_observations_omitted": 0,
+  "unbound_evidence": []
+}

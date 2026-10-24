@@ -1,0 +1,538 @@
+{
+  "additional_evidence_needed": [
+    "a reviewed S1AP/GTPv2 identity bridge before any Attach-to-session association is attempted",
+    "an independently justified SGW-C identity observation before any S11-to-S5/S8 association"
+  ],
+  "ambiguous_evidence": [],
+  "analysis_scope": "epc-session-control",
+  "bearer_context_observations": [
+    {
+      "bearer_contexts": [
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 16,
+            "cause_name": "Request accepted",
+            "scope": "bearer"
+          },
+          "charging_id_present": false,
+          "ebi": 5,
+          "f_teids": [
+            {
+              "interface_type": 1,
+              "interface_type_name": null,
+              "scope": "bearer",
+              "teid": 4369
+            }
+          ],
+          "item_index": 0,
+          "scope": "bearer"
+        },
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 72,
+            "cause_name": "System failure",
+            "scope": "bearer"
+          },
+          "charging_id_present": false,
+          "ebi": 6,
+          "f_teids": [
+            {
+              "interface_type": 1,
+              "interface_type_name": null,
+              "scope": "bearer",
+              "teid": 8738
+            }
+          ],
+          "item_index": 1,
+          "scope": "bearer"
+        }
+      ],
+      "frame_number": 205,
+      "transaction_reference": "gtpv2-create-session-200-8"
+    }
+  ],
+  "boundary_selection_status": "NOT_EVALUATED",
+  "control_plane_subject_count": 1,
+  "control_plane_subjects": [
+    {
+      "association_strength": "UNBOUND",
+      "attach_association": "NOT_ESTABLISHED",
+      "bearer_contexts": [
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 16,
+            "cause_name": "Request accepted",
+            "scope": "bearer"
+          },
+          "charging_id_present": false,
+          "ebi": 5,
+          "f_teids": [
+            {
+              "interface_type": 1,
+              "interface_type_name": null,
+              "scope": "bearer",
+              "teid": 4369
+            }
+          ],
+          "item_index": 0,
+          "scope": "bearer",
+          "transaction_reference": "gtpv2-create-session-200-8"
+        },
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 72,
+            "cause_name": "System failure",
+            "scope": "bearer"
+          },
+          "charging_id_present": false,
+          "ebi": 6,
+          "f_teids": [
+            {
+              "interface_type": 1,
+              "interface_type_name": null,
+              "scope": "bearer",
+              "teid": 8738
+            }
+          ],
+          "item_index": 1,
+          "scope": "bearer",
+          "transaction_reference": "gtpv2-create-session-200-8"
+        }
+      ],
+      "capture_file": "fixture.pcap",
+      "control_plane_teids": [
+        "0x00000006"
+      ],
+      "cross_interface_association": "NOT_ESTABLISHED",
+      "endpoint_pair": "unknown->unknown",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 200,
+          "message_type": "type-32",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 205,
+          "message_type": "type-33",
+          "message_type_code": 33,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "evidence_refs_omitted": 0,
+      "f_teid_evidence": [
+        {
+          "interface_type": 10,
+          "interface_type_name": null,
+          "scope": "message",
+          "teid": 6,
+          "transaction_reference": "gtpv2-create-session-200-8"
+        }
+      ],
+      "interface": "S11",
+      "interface_evidence": {
+        "basis": "control_plane_f_teid_in_message",
+        "evidence_message": "request",
+        "interface": "S11",
+        "supporting_frames": [
+          200
+        ],
+        "supporting_interface_types": [
+          10
+        ]
+      },
+      "interface_label": "S11 (MME to SGW-C)",
+      "limitations": [],
+      "observation_window": {
+        "end_frame": 205,
+        "start_frame": 200
+      },
+      "primary_transaction": {
+        "message_cause": {
+          "cause_code": 16,
+          "cause_name": "Request accepted",
+          "scope": "message"
+        },
+        "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+        "procedure_family": "create-session",
+        "request_frame": 200,
+        "response_frame": 205,
+        "transaction_reference": "gtpv2-create-session-200-8"
+      },
+      "procedure_families": [
+        "create-session"
+      ],
+      "procedure_local_deviation_count": 1,
+      "procedure_local_deviations": [
+        {
+          "bearer_item_index": 1,
+          "cause_code": 72,
+          "cause_scope": "bearer",
+          "deviation_type": "BEARER_CONTEXT_REJECTED_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 200,
+              "message_type": "type-32",
+              "message_type_code": 32,
+              "protocol": "GTPv2-C"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 205,
+              "message_type": "type-33",
+              "message_type_code": 33,
+              "protocol": "GTPv2-C"
+            }
+          ],
+          "explanation": "bearer item 1 (EBI 6) carries a non-accepting Cause 72",
+          "frame_number": 205,
+          "limitations": [],
+          "message_type": "type-33",
+          "observation_window": {
+            "end_frame": 205,
+            "start_frame": 200
+          },
+          "procedure_family": "create-session",
+          "protocol": "GTPv2-C",
+          "transaction_reference": "gtpv2-create-session-200-8"
+        }
+      ],
+      "procedure_local_deviations_omitted": 0,
+      "procedure_observations": {
+        "create-session": {
+          "outcomes": [
+            "RESPONSE_ACCEPTED_OBSERVED"
+          ],
+          "procedure_label": "Create Session",
+          "transaction_count": 1,
+          "transactions": [
+            {
+              "_endpoints": {
+                "request_destination": null,
+                "request_source": null
+              },
+              "_tokens": [
+                6
+              ],
+              "bearer_contexts": [
+                {
+                  "binding_basis": "pdml_grouped_ie",
+                  "cause": {
+                    "cause_code": 16,
+                    "cause_name": "Request accepted",
+                    "scope": "bearer"
+                  },
+                  "charging_id_present": false,
+                  "ebi": 5,
+                  "f_teids": [
+                    {
+                      "interface_type": 1,
+                      "interface_type_name": null,
+                      "scope": "bearer",
+                      "teid": 4369
+                    }
+                  ],
+                  "item_index": 0,
+                  "scope": "bearer"
+                },
+                {
+                  "binding_basis": "pdml_grouped_ie",
+                  "cause": {
+                    "cause_code": 72,
+                    "cause_name": "System failure",
+                    "scope": "bearer"
+                  },
+                  "charging_id_present": false,
+                  "ebi": 6,
+                  "f_teids": [
+                    {
+                      "interface_type": 1,
+                      "interface_type_name": null,
+                      "scope": "bearer",
+                      "teid": 8738
+                    }
+                  ],
+                  "item_index": 1,
+                  "scope": "bearer"
+                }
+              ],
+              "correlation_status": "MATCHED",
+              "correlation_strength": "STRONG",
+              "evidence_refs": [
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 200,
+                  "message_type": "type-32",
+                  "message_type_code": 32,
+                  "protocol": "GTPv2-C"
+                },
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 205,
+                  "message_type": "type-33",
+                  "message_type_code": 33,
+                  "protocol": "GTPv2-C"
+                }
+              ],
+              "f_teids": [
+                {
+                  "interface_type": 10,
+                  "interface_type_name": null,
+                  "scope": "message",
+                  "teid": 6
+                }
+              ],
+              "interface_evidence": {
+                "basis": "control_plane_f_teid_in_message",
+                "evidence_message": "request",
+                "interface": "S11",
+                "supporting_frames": [
+                  200
+                ],
+                "supporting_interface_types": [
+                  10
+                ]
+              },
+              "limitations": [],
+              "message_cause": {
+                "cause_code": 16,
+                "cause_name": "Request accepted",
+                "scope": "message"
+              },
+              "observation_window": {
+                "end_frame": 205,
+                "start_frame": 200
+              },
+              "observations": [
+                "REQUEST_OBSERVED",
+                "RESPONSE_ACCEPTED_OBSERVED"
+              ],
+              "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+              "procedure_family": "create-session",
+              "procedure_label": "Create Session",
+              "request": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 200,
+                "message_type": "type-32",
+                "message_type_code": 32,
+                "protocol": "GTPv2-C"
+              },
+              "response": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 205,
+                "message_type": "type-33",
+                "message_type_code": 33,
+                "protocol": "GTPv2-C"
+              },
+              "transaction_reference": "gtpv2-create-session-200-8"
+            }
+          ],
+          "transactions_omitted": 0
+        }
+      },
+      "subject_reference": "epc-session-s11-288a265c",
+      "subject_type": "EPC_SESSION_CONTROL",
+      "transaction_references": [
+        "gtpv2-create-session-200-8"
+      ]
+    }
+  ],
+  "domain": "epc-procedures",
+  "domain_version": "0.2.0",
+  "evidence_limitations": [
+    "This Domain analysis produces procedure-local session-control evidence only. EPC global first-abnormal-boundary selection remains NOT_EVALUATED."
+  ],
+  "first_abnormal_boundary": null,
+  "input_provenance": {
+    "capture_files": [
+      "fixture.pcap"
+    ],
+    "gtpv2_event_count": 2,
+    "gtpv2_events_file": "events.jsonl",
+    "hierarchy_basis": [
+      "pdml_grouped_ie"
+    ],
+    "protocol_skill": "gtpv2",
+    "protocol_skill_version": "0.1.0",
+    "transaction_count": 1,
+    "transactions_file": "transactions.json"
+  },
+  "model_version": "1.0.0",
+  "not_confirmed": [
+    "PDN connection establishment",
+    "default EPS bearer service availability",
+    "user-plane packet forwarding",
+    "S11 to S5/S8 session association",
+    "EPS Attach UE to GTPv2-C session association",
+    "session or bearer deletion completeness",
+    "end-to-end EPC service success"
+  ],
+  "procedure": "epc-session-control",
+  "procedure_families": [
+    "create-session"
+  ],
+  "procedure_label": "EPC Session Control",
+  "procedure_local_deviation_count": 1,
+  "procedure_local_deviations": [
+    {
+      "bearer_item_index": 1,
+      "cause_code": 72,
+      "cause_scope": "bearer",
+      "deviation_type": "BEARER_CONTEXT_REJECTED_OBSERVED",
+      "evidence_level": "OBSERVED",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 200,
+          "message_type": "type-32",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 205,
+          "message_type": "type-33",
+          "message_type_code": 33,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "explanation": "bearer item 1 (EBI 6) carries a non-accepting Cause 72",
+      "frame_number": 205,
+      "limitations": [],
+      "message_type": "type-33",
+      "observation_window": {
+        "end_frame": 205,
+        "start_frame": 200
+      },
+      "procedure_family": "create-session",
+      "protocol": "GTPv2-C",
+      "transaction_reference": "gtpv2-create-session-200-8"
+    }
+  ],
+  "procedure_local_deviations_omitted": 0,
+  "transaction_observations": [
+    {
+      "bearer_contexts": [
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 16,
+            "cause_name": "Request accepted",
+            "scope": "bearer"
+          },
+          "charging_id_present": false,
+          "ebi": 5,
+          "f_teids": [
+            {
+              "interface_type": 1,
+              "interface_type_name": null,
+              "scope": "bearer",
+              "teid": 4369
+            }
+          ],
+          "item_index": 0,
+          "scope": "bearer"
+        },
+        {
+          "binding_basis": "pdml_grouped_ie",
+          "cause": {
+            "cause_code": 72,
+            "cause_name": "System failure",
+            "scope": "bearer"
+          },
+          "charging_id_present": false,
+          "ebi": 6,
+          "f_teids": [
+            {
+              "interface_type": 1,
+              "interface_type_name": null,
+              "scope": "bearer",
+              "teid": 8738
+            }
+          ],
+          "item_index": 1,
+          "scope": "bearer"
+        }
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 200,
+          "message_type": "type-32",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 205,
+          "message_type": "type-33",
+          "message_type_code": 33,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "f_teids": [
+        {
+          "interface_type": 10,
+          "interface_type_name": null,
+          "scope": "message",
+          "teid": 6
+        }
+      ],
+      "interface_evidence": {
+        "basis": "control_plane_f_teid_in_message",
+        "evidence_message": "request",
+        "interface": "S11",
+        "supporting_frames": [
+          200
+        ],
+        "supporting_interface_types": [
+          10
+        ]
+      },
+      "limitations": [],
+      "message_cause": {
+        "cause_code": 16,
+        "cause_name": "Request accepted",
+        "scope": "message"
+      },
+      "observation_window": {
+        "end_frame": 205,
+        "start_frame": 200
+      },
+      "observations": [
+        "REQUEST_OBSERVED",
+        "RESPONSE_ACCEPTED_OBSERVED"
+      ],
+      "outcome": "RESPONSE_ACCEPTED_OBSERVED",
+      "procedure_family": "create-session",
+      "procedure_label": "Create Session",
+      "request": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 200,
+        "message_type": "type-32",
+        "message_type_code": 32,
+        "protocol": "GTPv2-C"
+      },
+      "response": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 205,
+        "message_type": "type-33",
+        "message_type_code": 33,
+        "protocol": "GTPv2-C"
+      },
+      "transaction_reference": "gtpv2-create-session-200-8"
+    }
+  ],
+  "transaction_observations_omitted": 0,
+  "unbound_evidence": []
+}

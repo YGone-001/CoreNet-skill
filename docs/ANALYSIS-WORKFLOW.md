@@ -328,7 +328,11 @@ a capture that carries only S1AP/NAS-EPS keeps the accepted Attach result.
 
 The EPC result reports procedure instances, per-stage observations, procedure-local
 deviations with exact frames, and session-control subjects whose `subject_type` is
-`EPS_ATTACH` or `EPC_SESSION_CONTROL`. Session-control subjects report the protocol
+`EPS_ATTACH` or `EPC_SESSION_CONTROL`. The `epc-failure-boundary` Orchestration Skill
+then selects, per subject, the earliest supported abnormal observation with its
+exact frame and protocol evidence; the domain-level `boundary_selection_status`
+becomes `EVALUATED_PER_SUBJECT`, the domain-level `first_abnormal_boundary` stays
+null and no single global EPC boundary is asserted. Session-control subjects report the protocol
 outcome separately from the correlation status, keep message and bearer Cause apart,
 carry item-scoped bearer evidence, and state `cross_interface_association` and
 `attach_association` as `NOT_ESTABLISHED`. The result never reports a bearer, PDN or

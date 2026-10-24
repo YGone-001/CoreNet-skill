@@ -703,35 +703,60 @@ def _procedure_observations(subject: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _anchor_of(observation: dict[str, Any]) -> tuple[int | None, str | None]:
+    """Anchor a deviation at the frame that defines the observed outcome.
+
+    A response-defined outcome is anchored at the response frame, because that
+    frame is where the negative result became visible. An open or ambiguous
+    transaction has no single observed response, so the request frame is used as
+    the observation anchor only; it never stands for a negative network outcome.
+    """
+    request = observation.get("request") or {}
+    response = observation.get("response") or {}
+    outcome = observation.get("outcome")
+    if response and outcome not in (OUTCOME_OPEN, OUTCOME_AMBIGUOUS):
+        return response.get("frame_number"), response.get("message_type")
+    if request:
+        return request.get("frame_number"), request.get("message_type")
+    return response.get("frame_number"), response.get("message_type")
+
+
 def _deviations_for_observation(observation: dict[str, Any]) -> list[dict[str, Any]]:
     family = observation.get("procedure_family")
     outcome = observation.get("outcome")
-    frame = (observation.get("request") or {}).get("frame_number") or (
-        observation.get("response") or {}
-    ).get("frame_number")
-    message_type = (observation.get("response") or {}).get("message_type") or (
-        observation.get("request") or {}
-    ).get("message_type")
+    frame, message_type = _anchor_of(observation)
     evidence_refs = observation.get("evidence_refs") or []
     window = observation.get("observation_window")
     limitations = list(observation.get("limitations") or [])
     deviations: list[dict[str, Any]] = []
 
-    def add(deviation_type: str, explanation: str) -> None:
-        deviations.append(
-            {
-                "deviation_type": deviation_type,
-                "transaction_reference": observation.get("transaction_reference"),
-                "procedure_family": family,
-                "frame_number": frame,
-                "protocol": "GTPv2-C",
-                "message_type": message_type,
-                "explanation": explanation,
-                "evidence_refs": evidence_refs,
-                "observation_window": window,
-                "limitations": limitations,
-            }
-        )
+    def add(
+        deviation_type: str,
+        explanation: str,
+        *,
+        cause_code: int | None = None,
+        cause_scope: str | None = None,
+        bearer_item_index: int | None = None,
+    ) -> None:
+        entry: dict[str, Any] = {
+            "deviation_type": deviation_type,
+            "transaction_reference": observation.get("transaction_reference"),
+            "procedure_family": family,
+            "frame_number": frame,
+            "protocol": "GTPv2-C",
+            "message_type": message_type,
+            "evidence_level": "OBSERVED",
+            "explanation": explanation,
+            "evidence_refs": evidence_refs,
+            "observation_window": window,
+            "limitations": limitations,
+        }
+        if cause_code is not None:
+            entry["cause_code"] = cause_code
+            entry["cause_scope"] = cause_scope
+        if bearer_item_index is not None:
+            entry["bearer_item_index"] = bearer_item_index
+        deviations.append(entry)
 
     if outcome == OUTCOME_REJECTED:
         mapping = {
@@ -744,6 +769,8 @@ def _deviations_for_observation(observation: dict[str, Any]) -> list[dict[str, A
             mapping.get(family, DEVIATION_CREATE_REJECTED),
             f"the observed {FAMILY_LABELS.get(family, family)} response carries an explicit "
             f"non-accepting Cause {cause}",
+            cause_code=cause if isinstance(cause, int) else None,
+            cause_scope="message",
         )
     elif outcome == OUTCOME_OPEN:
         add(DEVIATION_OPEN_REQUEST, "the request has no observed response inside this capture")
@@ -756,10 +783,14 @@ def _deviations_for_observation(observation: dict[str, Any]) -> list[dict[str, A
         cause = context.get("cause") or {}
         code = cause.get("cause_code")
         if isinstance(code, int) and not isinstance(code, bool) and code not in ACCEPTING_CAUSES:
+            item_index = context.get("item_index")
             add(
                 DEVIATION_BEARER_REJECTED,
-                f"bearer item {context.get('item_index')} (EBI {context.get('ebi')}) carries a "
+                f"bearer item {item_index} (EBI {context.get('ebi')}) carries a "
                 f"non-accepting Cause {code}",
+                cause_code=code,
+                cause_scope="bearer",
+                bearer_item_index=item_index if isinstance(item_index, int) else None,
             )
 
     if observation["interface_evidence"]["interface"] == INTERFACE_UNKNOWN:
@@ -826,11 +857,14 @@ def analyze(
 
     subjects, reuse_deviations = build_subjects(observations, capture)
 
+    deviations_by_transaction: dict[str, list[dict[str, Any]]] = {}
     deviations: list[dict[str, Any]] = []
     unbound: list[dict[str, Any]] = []
     ambiguous: list[dict[str, Any]] = []
     for observation in observations:
-        deviations.extend(_deviations_for_observation(observation))
+        transaction_deviations = _deviations_for_observation(observation)
+        deviations_by_transaction[str(observation.get("transaction_reference"))] = transaction_deviations
+        deviations.extend(transaction_deviations)
         unbound.extend(_unbound_evidence(observation))
         if observation.get("outcome") == OUTCOME_AMBIGUOUS:
             ambiguous.append(
@@ -861,6 +895,11 @@ def analyze(
                 if reference not in evidence_refs:
                     evidence_refs.append(reference)
         limitations = sorted({text for item in transaction_public for text in item.get("limitations") or []})
+        subject_deviations: list[dict[str, Any]] = []
+        for item in transaction_public:
+            subject_deviations.extend(
+                deviations_by_transaction.get(str(item.get("transaction_reference"))) or []
+            )
         subject_payloads.append(
             {
                 "subject_reference": subject["subject_reference"],
@@ -875,6 +914,11 @@ def analyze(
                 "cross_interface_association": CROSS_INTERFACE_NOT_ESTABLISHED,
                 "attach_association": ATTACH_ASSOCIATION_NOT_ESTABLISHED,
                 "transaction_references": references,
+                "procedure_local_deviations": subject_deviations[:MAX_LIST_ITEMS],
+                "procedure_local_deviation_count": len(subject_deviations),
+                "procedure_local_deviations_omitted": max(
+                    0, len(subject_deviations) - MAX_LIST_ITEMS
+                ),
                 "procedure_families": _subject_families(transaction_public),
                 "primary_transaction": _primary_transaction(transaction_public),
                 "procedure_observations": _procedure_observations(subject),
@@ -968,6 +1012,7 @@ def analyze(
         ][:MAX_TRANSACTIONS],
         "procedure_local_deviations": deviations[:MAX_LIST_ITEMS],
         "procedure_local_deviation_count": len(deviations),
+        "procedure_local_deviations_omitted": max(0, len(deviations) - MAX_LIST_ITEMS),
         "unbound_evidence": unbound[:MAX_LIST_ITEMS],
         "ambiguous_evidence": ambiguous[:MAX_LIST_ITEMS],
         "procedure_families": families,

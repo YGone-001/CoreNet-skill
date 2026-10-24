@@ -1,0 +1,166 @@
+EPC Failure Boundary Orchestration (v0.1.0)
+
+Diagnostic subjects: 5
+
+Diagnostic subject:
+  EPS_ATTACH epc-attach-44f18aebfc
+  source: epc-procedures epc-attach-44f18aebfc (attach-analysis.json)
+  subject link: STRONG (pre_assignment_extension_unique_mme_identifier); cross-subject link NOT_ESTABLISHED
+  observation window: frames 33-53
+
+Selection status: SELECTED
+
+First abnormal evidence boundary observed at [ATTACH_REJECT_OBSERVED] NAS-EPS Attach reject (frame 47):
+  evidence level: OBSERVED
+  boundary confidence: HIGH (selection confidence, not causal confidence)
+  evidence: frame 47 NAS-EPS Attach reject
+
+Candidates (2 shown, 0 omitted):
+  [PROTECTED_INNER_MESSAGE_UNAVAILABLE] NAS-EPS None (frame 43) INELIGIBLE
+  [ATTACH_REJECT_OBSERVED] NAS-EPS Attach reject (frame 47) ELIGIBLE
+
+Downstream observations:
+  [OBSERVED_AFTER_BOUNDARY] frame 49 PROCEDURE_STAGE_OBSERVED
+  (ordering is not causation; these observations are not attributed to the boundary)
+
+Evidence limitations:
+  [DOMAIN_LIMITATION] protected NAS envelopes prevent reading inner message identity in this attempt
+  [PROTECTED_INNER_MESSAGE_UNAVAILABLE] a protected NAS payload limits what the underlying procedure evidence can show
+
+Additional evidence needed:
+  capture the NAS Attach complete to observe procedure completion (reported by the accepted EPS Attach Domain)
+  capture the S1 Initial Context Setup exchange for this UE context (reported by the accepted EPS Attach Domain)
+  obtain decrypted NAS or a capture where the inner message identity is visible (reported by the accepted EPS Attach Domain)
+
+------------------------------------------------------------
+
+Diagnostic subject:
+  EPS_ATTACH epc-attach-bae7c7576f
+  source: epc-procedures epc-attach-bae7c7576f (attach-analysis.json)
+  subject link: STRONG (pre_assignment_extension_unique_mme_identifier); cross-subject link NOT_ESTABLISHED
+  observation window: frames 61-81
+
+Selection status: SELECTED
+
+First abnormal evidence boundary observed at [ATTACH_REJECT_OBSERVED] NAS-EPS Attach reject (frame 75):
+  evidence level: OBSERVED
+  boundary confidence: HIGH (selection confidence, not causal confidence)
+  evidence: frame 75 NAS-EPS Attach reject
+
+Candidates (2 shown, 0 omitted):
+  [PROTECTED_INNER_MESSAGE_UNAVAILABLE] NAS-EPS None (frame 71) INELIGIBLE
+  [ATTACH_REJECT_OBSERVED] NAS-EPS Attach reject (frame 75) ELIGIBLE
+
+Downstream observations:
+  [OBSERVED_AFTER_BOUNDARY] frame 77 PROCEDURE_STAGE_OBSERVED
+  (ordering is not causation; these observations are not attributed to the boundary)
+
+Evidence limitations:
+  [DOMAIN_LIMITATION] protected NAS envelopes prevent reading inner message identity in this attempt
+  [PROTECTED_INNER_MESSAGE_UNAVAILABLE] a protected NAS payload limits what the underlying procedure evidence can show
+
+Additional evidence needed:
+  capture the NAS Attach complete to observe procedure completion (reported by the accepted EPS Attach Domain)
+  capture the S1 Initial Context Setup exchange for this UE context (reported by the accepted EPS Attach Domain)
+  obtain decrypted NAS or a capture where the inner message identity is visible (reported by the accepted EPS Attach Domain)
+
+------------------------------------------------------------
+
+Diagnostic subject:
+  EPS_ATTACH epc-attach-21db6602e4
+  source: epc-procedures epc-attach-21db6602e4 (attach-analysis.json)
+  subject link: STRONG (pre_assignment_extension_unique_mme_identifier); cross-subject link NOT_ESTABLISHED
+  observation window: frames 97-117
+
+Selection status: SELECTED
+
+First abnormal evidence boundary observed at [ATTACH_REJECT_OBSERVED] NAS-EPS Attach reject (frame 111):
+  evidence level: OBSERVED
+  boundary confidence: HIGH (selection confidence, not causal confidence)
+  evidence: frame 111 NAS-EPS Attach reject
+
+Candidates (2 shown, 0 omitted):
+  [PROTECTED_INNER_MESSAGE_UNAVAILABLE] NAS-EPS None (frame 107) INELIGIBLE
+  [ATTACH_REJECT_OBSERVED] NAS-EPS Attach reject (frame 111) ELIGIBLE
+
+Downstream observations:
+  [OBSERVED_AFTER_BOUNDARY] frame 113 PROCEDURE_STAGE_OBSERVED
+  (ordering is not causation; these observations are not attributed to the boundary)
+
+Evidence limitations:
+  [DOMAIN_LIMITATION] protected NAS envelopes prevent reading inner message identity in this attempt
+  [PROTECTED_INNER_MESSAGE_UNAVAILABLE] a protected NAS payload limits what the underlying procedure evidence can show
+
+Additional evidence needed:
+  capture the NAS Attach complete to observe procedure completion (reported by the accepted EPS Attach Domain)
+  capture the S1 Initial Context Setup exchange for this UE context (reported by the accepted EPS Attach Domain)
+  obtain decrypted NAS or a capture where the inner message identity is visible (reported by the accepted EPS Attach Domain)
+
+------------------------------------------------------------
+
+Diagnostic subject:
+  EPS_ATTACH epc-attach-8cdcaa8b18
+  source: epc-procedures epc-attach-8cdcaa8b18 (attach-analysis.json)
+  subject link: STRONG (pre_assignment_extension_unique_mme_identifier); cross-subject link NOT_ESTABLISHED
+  observation window: frames 125-145
+
+Selection status: SELECTED
+
+First abnormal evidence boundary observed at [ATTACH_REJECT_OBSERVED] NAS-EPS Attach reject (frame 139):
+  evidence level: OBSERVED
+  boundary confidence: HIGH (selection confidence, not causal confidence)
+  evidence: frame 139 NAS-EPS Attach reject
+
+Candidates (2 shown, 0 omitted):
+  [PROTECTED_INNER_MESSAGE_UNAVAILABLE] NAS-EPS None (frame 135) INELIGIBLE
+  [ATTACH_REJECT_OBSERVED] NAS-EPS Attach reject (frame 139) ELIGIBLE
+
+Downstream observations:
+  [OBSERVED_AFTER_BOUNDARY] frame 141 PROCEDURE_STAGE_OBSERVED
+  (ordering is not causation; these observations are not attributed to the boundary)
+
+Evidence limitations:
+  [DOMAIN_LIMITATION] protected NAS envelopes prevent reading inner message identity in this attempt
+  [PROTECTED_INNER_MESSAGE_UNAVAILABLE] a protected NAS payload limits what the underlying procedure evidence can show
+
+Additional evidence needed:
+  capture the NAS Attach complete to observe procedure completion (reported by the accepted EPS Attach Domain)
+  capture the S1 Initial Context Setup exchange for this UE context (reported by the accepted EPS Attach Domain)
+  obtain decrypted NAS or a capture where the inner message identity is visible (reported by the accepted EPS Attach Domain)
+
+------------------------------------------------------------
+
+Diagnostic subject:
+  EPC_SESSION_CONTROL epc-session-s11-e24ed89d
+  source: epc-procedures epc-session-s11-e24ed89d (session-analysis.json) interface=S11
+  subject link: UNBOUND (control_plane_f_teid_in_message); cross-subject link NOT_ESTABLISHED
+  observation window: frames 100-106
+
+Selection status: SELECTED
+
+First abnormal evidence boundary observed at [CREATE_SESSION_REJECTED_OBSERVED] GTPv2-C type-33 (frame 106):
+  evidence level: OBSERVED
+  boundary confidence: MEDIUM (selection confidence, not causal confidence)
+  cause: 72 (scope message)
+  transaction: gtpv2-create-session-100-7
+  evidence: frame 100 GTPv2-C type-32
+  evidence: frame 106 GTPv2-C type-33
+
+Candidates (1 shown, 0 omitted):
+  [CREATE_SESSION_REJECTED_OBSERVED] GTPv2-C type-33 (frame 106) ELIGIBLE
+
+------------------------------------------------------------
+
+Analysis limitations:
+  Boundary selection is per diagnostic subject; the analysis never merges independent EPS Attach, S11 and S5/S8 subjects into one EPC failure point.
+  Selection ordering uses exact frame provenance only; severity, cause magnitude, message labels and list order never order candidates.
+  A selected boundary is the earliest supported abnormal observation, not a causal claim.
+  EPS Attach and EPC session-control subjects are reported as independent diagnostic groups; no Attach-to-session association is asserted.
+
+Not confirmed:
+  the selected boundary is a first observed abnormality, not a root cause
+  no network function is identified as responsible
+  downstream observations are ordered after the boundary and are not attributed to it
+  procedure or service success is not established by the absence of a boundary
+  user-plane forwarding is not established by any control-plane boundary
+  subscriber, subscription or implementation behaviour is not assessed

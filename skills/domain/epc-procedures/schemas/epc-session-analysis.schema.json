@@ -21,79 +21,259 @@
     "additional_evidence_needed",
     "not_confirmed",
     "boundary_selection_status",
-    "first_abnormal_boundary"
+    "first_abnormal_boundary",
+    "procedure_local_deviations_omitted"
   ],
   "additionalProperties": false,
   "properties": {
-    "domain": {"const": "epc-procedures"},
-    "domain_version": {"type": "string"},
-    "analysis_scope": {"const": "epc-session-control"},
-    "procedure": {"const": "epc-session-control"},
-    "procedure_label": {"type": "string"},
-    "model_version": {"type": "string"},
+    "domain": {
+      "const": "epc-procedures"
+    },
+    "domain_version": {
+      "type": "string"
+    },
+    "analysis_scope": {
+      "const": "epc-session-control"
+    },
+    "procedure": {
+      "const": "epc-session-control"
+    },
+    "procedure_label": {
+      "type": "string"
+    },
+    "model_version": {
+      "type": "string"
+    },
     "input_provenance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["gtpv2_events_file", "gtpv2_event_count", "transactions_file", "transaction_count", "capture_files"],
+      "required": [
+        "gtpv2_events_file",
+        "gtpv2_event_count",
+        "transactions_file",
+        "transaction_count",
+        "capture_files"
+      ],
       "properties": {
-        "gtpv2_events_file": {"type": "string"},
-        "gtpv2_event_count": {"type": "integer", "minimum": 0},
-        "transactions_file": {"type": "string"},
-        "transaction_count": {"type": "integer", "minimum": 0},
-        "capture_files": {"type": "array", "items": {"type": "string"}},
-        "hierarchy_basis": {"type": "array", "items": {"type": "string"}},
-        "protocol_skill": {"type": "string"},
-        "protocol_skill_version": {"type": "string"}
+        "gtpv2_events_file": {
+          "type": "string"
+        },
+        "gtpv2_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "transactions_file": {
+          "type": "string"
+        },
+        "transaction_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "capture_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hierarchy_basis": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "protocol_skill": {
+          "type": "string"
+        },
+        "protocol_skill_version": {
+          "type": "string"
+        }
       }
     },
-    "control_plane_subject_count": {"type": "integer", "minimum": 0},
-    "control_plane_subjects": {"type": "array", "items": {"$ref": "#/$defs/subject"}},
-    "transaction_observations": {"type": "array", "items": {"$ref": "#/$defs/observation"}},
-    "transaction_observations_omitted": {"type": "integer", "minimum": 0},
-    "bearer_context_observations": {"type": "array", "items": {"type": "object"}},
-    "procedure_local_deviations": {"type": "array", "items": {"$ref": "#/$defs/deviation"}},
-    "procedure_local_deviation_count": {"type": "integer", "minimum": 0},
-    "unbound_evidence": {"type": "array", "items": {"type": "object"}},
-    "ambiguous_evidence": {"type": "array", "items": {"type": "object"}},
-    "procedure_families": {"type": "array", "items": {"type": "string"}},
-    "evidence_limitations": {"type": "array", "items": {"type": "string"}},
-    "additional_evidence_needed": {"type": "array", "items": {"type": "string"}},
-    "not_confirmed": {"type": "array", "items": {"type": "string"}},
-    "boundary_selection_status": {"const": "NOT_EVALUATED"},
-    "first_abnormal_boundary": {"type": "null"}
+    "control_plane_subject_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "control_plane_subjects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/subject"
+      }
+    },
+    "transaction_observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/observation"
+      }
+    },
+    "transaction_observations_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "bearer_context_observations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "procedure_local_deviations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/deviation"
+      }
+    },
+    "procedure_local_deviation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unbound_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "ambiguous_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "procedure_families": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "additional_evidence_needed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "not_confirmed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "boundary_selection_status": {
+      "const": "NOT_EVALUATED"
+    },
+    "first_abnormal_boundary": {
+      "type": "null"
+    },
+    "procedure_local_deviations_omitted": {
+      "type": "integer",
+      "minimum": 0
+    }
   },
   "$defs": {
     "reference": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "frame_number": {"type": ["integer", "null"]},
-        "protocol": {"type": ["string", "null"]},
-        "message_type": {"type": ["string", "null"]},
-        "message_type_code": {"type": ["integer", "null"]},
-        "evidence_level": {"type": ["string", "null"]}
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "protocol": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message_type_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "evidence_level": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "cause": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "cause_code": {"type": ["integer", "null"]},
-        "cause_name": {"type": ["string", "null"]},
-        "scope": {"type": "string", "enum": ["message", "bearer"]}
+        "cause_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "cause_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "message",
+            "bearer"
+          ]
+        }
       }
     },
     "interfaceEvidence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["interface", "basis"],
+      "required": [
+        "interface",
+        "basis"
+      ],
       "properties": {
-        "interface": {"type": "string", "enum": ["S11", "S5/S8", "UNKNOWN_INTERFACE"]},
-        "basis": {"type": "string"},
-        "evidence_message": {"type": ["string", "null"]},
-        "supporting_interface_types": {"type": "array", "items": {"type": "integer"}},
-        "supporting_frames": {"type": "array", "items": {"type": "integer"}},
-        "continuity_teid": {"type": "string"}
+        "interface": {
+          "type": "string",
+          "enum": [
+            "S11",
+            "S5/S8",
+            "UNKNOWN_INTERFACE"
+          ]
+        },
+        "basis": {
+          "type": "string"
+        },
+        "evidence_message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "supporting_interface_types": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "supporting_frames": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "continuity_teid": {
+          "type": "string"
+        }
       }
     },
     "observation": {
@@ -112,11 +292,36 @@
         "limitations"
       ],
       "properties": {
-        "transaction_reference": {"type": "string"},
-        "procedure_family": {"type": ["string", "null"]},
-        "procedure_label": {"type": ["string", "null"]},
-        "correlation_status": {"type": "string", "enum": ["MATCHED", "OPEN_REQUEST", "RESPONSE_ONLY", "AMBIGUOUS"]},
-        "correlation_strength": {"type": ["string", "null"]},
+        "transaction_reference": {
+          "type": "string"
+        },
+        "procedure_family": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "procedure_label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "correlation_status": {
+          "type": "string",
+          "enum": [
+            "MATCHED",
+            "OPEN_REQUEST",
+            "RESPONSE_ONLY",
+            "AMBIGUOUS"
+          ]
+        },
+        "correlation_strength": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "outcome": {
           "type": "string",
           "enum": [
@@ -128,29 +333,92 @@
             "AMBIGUOUS_TRANSACTION"
           ]
         },
-        "observations": {"type": "array", "items": {"type": "string"}},
-        "request": {"anyOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]},
-        "response": {"anyOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]},
-        "interface_evidence": {"$ref": "#/$defs/interfaceEvidence"},
-        "message_cause": {"anyOf": [{"$ref": "#/$defs/cause"}, {"type": "null"}]},
-        "bearer_contexts": {"type": "array", "items": {"type": "object"}},
-        "f_teids": {"type": "array", "items": {"type": "object"}},
-        "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
+        "observations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "request": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "response": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "interface_evidence": {
+          "$ref": "#/$defs/interfaceEvidence"
+        },
+        "message_cause": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/cause"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bearer_contexts": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "f_teids": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
+        },
         "observation_window": {
           "anyOf": [
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["start_frame", "end_frame"],
+              "required": [
+                "start_frame",
+                "end_frame"
+              ],
               "properties": {
-                "start_frame": {"type": "integer"},
-                "end_frame": {"type": "integer"}
+                "start_frame": {
+                  "type": "integer"
+                },
+                "end_frame": {
+                  "type": "integer"
+                }
               }
             },
-            {"type": "null"}
+            {
+              "type": "null"
+            }
           ]
         },
-        "limitations": {"type": "array", "items": {"type": "string"}}
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "subject": {
@@ -170,54 +438,223 @@
         "f_teid_evidence",
         "evidence_refs",
         "observation_window",
-        "limitations"
+        "limitations",
+        "procedure_local_deviations",
+        "procedure_local_deviation_count",
+        "procedure_local_deviations_omitted"
       ],
       "properties": {
-        "subject_reference": {"type": "string", "pattern": "^epc-session-[a-z0-9]+-[0-9a-f]{8}$"},
-        "subject_type": {"const": "EPC_SESSION_CONTROL"},
-        "interface": {"type": "string", "enum": ["S11", "S5/S8", "UNKNOWN_INTERFACE"]},
-        "interface_label": {"type": "string"},
-        "interface_evidence": {"$ref": "#/$defs/interfaceEvidence"},
-        "capture_file": {"type": "string"},
-        "endpoint_pair": {"type": "string"},
-        "control_plane_teids": {"type": "array", "items": {"type": "string"}},
-        "association_strength": {"type": "string", "enum": ["STRONG", "SUPPORTED", "AMBIGUOUS", "UNBOUND"]},
-        "cross_interface_association": {"const": "NOT_ESTABLISHED"},
-        "attach_association": {"const": "NOT_ESTABLISHED"},
-        "transaction_references": {"type": "array", "items": {"type": "string"}},
-        "procedure_families": {"type": "array", "items": {"type": "string"}},
-        "primary_transaction": {"type": ["object", "null"]},
-        "procedure_observations": {"type": "object"},
-        "bearer_contexts": {"type": "array", "items": {"type": "object"}},
-        "f_teid_evidence": {"type": "array", "items": {"type": "object"}},
-        "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
-        "evidence_refs_omitted": {"type": "integer", "minimum": 0},
+        "subject_reference": {
+          "type": "string",
+          "pattern": "^epc-session-[a-z0-9]+-[0-9a-f]{8}$"
+        },
+        "subject_type": {
+          "const": "EPC_SESSION_CONTROL"
+        },
+        "interface": {
+          "type": "string",
+          "enum": [
+            "S11",
+            "S5/S8",
+            "UNKNOWN_INTERFACE"
+          ]
+        },
+        "interface_label": {
+          "type": "string"
+        },
+        "interface_evidence": {
+          "$ref": "#/$defs/interfaceEvidence"
+        },
+        "capture_file": {
+          "type": "string"
+        },
+        "endpoint_pair": {
+          "type": "string"
+        },
+        "control_plane_teids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "association_strength": {
+          "type": "string",
+          "enum": [
+            "STRONG",
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "UNBOUND"
+          ]
+        },
+        "cross_interface_association": {
+          "const": "NOT_ESTABLISHED"
+        },
+        "attach_association": {
+          "const": "NOT_ESTABLISHED"
+        },
+        "transaction_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "procedure_families": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "primary_transaction": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "procedure_observations": {
+          "type": "object"
+        },
+        "bearer_contexts": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "f_teid_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
+        },
+        "evidence_refs_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
         "observation_window": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["start_frame", "end_frame"],
+          "required": [
+            "start_frame",
+            "end_frame"
+          ],
           "properties": {
-            "start_frame": {"type": "integer"},
-            "end_frame": {"type": "integer"}
+            "start_frame": {
+              "type": "integer"
+            },
+            "end_frame": {
+              "type": "integer"
+            }
           }
         },
-        "limitations": {"type": "array", "items": {"type": "string"}}
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "procedure_local_deviations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deviation"
+          }
+        },
+        "procedure_local_deviation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "procedure_local_deviations_omitted": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "deviation": {
       "type": "object",
-      "required": ["deviation_type", "frame_number", "protocol", "explanation", "evidence_refs", "limitations"],
+      "required": [
+        "deviation_type",
+        "frame_number",
+        "protocol",
+        "explanation",
+        "evidence_refs",
+        "limitations"
+      ],
       "properties": {
-        "deviation_type": {"type": "string"},
-        "procedure_family": {"type": ["string", "null"]},
-        "frame_number": {"type": ["integer", "null"]},
-        "protocol": {"const": "GTPv2-C"},
-        "message_type": {"type": ["string", "null"]},
-        "explanation": {"type": "string"},
-        "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
-        "observation_window": {"type": ["object", "null"]},
-        "limitations": {"type": "array", "items": {"type": "string"}},
-        "prior_subject_reference": {"type": "string"}
+        "deviation_type": {
+          "type": "string"
+        },
+        "procedure_family": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "protocol": {
+          "const": "GTPv2-C"
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "explanation": {
+          "type": "string"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
+        },
+        "observation_window": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prior_subject_reference": {
+          "type": "string"
+        },
+        "cause_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "cause_scope": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "message",
+            "bearer",
+            null
+          ]
+        },
+        "bearer_item_index": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
       }
     }
   }

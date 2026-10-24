@@ -37,6 +37,8 @@ jobs:
         run: python scripts/validate-gtpv2.py
       - name: Validate epc-procedures
         run: python scripts/validate-epc-procedures.py
+      - name: Validate epc-failure-boundary
+        run: python scripts/validate-epc-failure-boundary.py
       - name: Validate ngap
         run: python scripts/validate-ngap.py
       - name: Validate nas-5gs
@@ -69,11 +71,13 @@ jobs:
         run: python -m unittest discover -s skills/protocol/gtpv2/tests -p 'test_*.py' -v
       - name: Run epc-procedures unit tests
         run: python -m unittest discover -s skills/domain/epc-procedures/tests -p 'test_*.py' -v
+      - name: Run epc-failure-boundary unit tests
+        run: python -m unittest discover -s skills/orchestration/epc-failure-boundary/tests -p 'test_*.py' -v
       - name: Run Golden Capture unit tests
         run: python -m unittest discover -s benchmarks/golden-captures/tests -p 'test_*.py' -v
       - name: Run unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Compile validation scripts
-        run: python -m compileall scripts benchmarks/golden-captures/scripts skills/protocol/core-network-pcap/scripts skills/protocol/s1ap/scripts skills/protocol/nas-eps/scripts skills/protocol/gtpv2/scripts skills/domain/epc-procedures/scripts skills/protocol/ngap/scripts skills/protocol/nas-5gs/scripts skills/protocol/pfcp/scripts skills/protocol/gtpu/scripts skills/protocol/sbi-http2/scripts skills/correlation/cross-protocol-evidence/scripts skills/domain/procedure-evidence/scripts skills/domain/5gc-registration-mobility/scripts skills/domain/5gc-pdu-session/scripts skills/domain/5gc-handover-mobility/scripts skills/orchestration/5gc-failure-boundary/scripts
+        run: python -m compileall scripts benchmarks/golden-captures/scripts skills/protocol/core-network-pcap/scripts skills/protocol/s1ap/scripts skills/protocol/nas-eps/scripts skills/protocol/gtpv2/scripts skills/domain/epc-procedures/scripts skills/protocol/ngap/scripts skills/protocol/nas-5gs/scripts skills/protocol/pfcp/scripts skills/protocol/gtpu/scripts skills/protocol/sbi-http2/scripts skills/correlation/cross-protocol-evidence/scripts skills/domain/procedure-evidence/scripts skills/domain/5gc-registration-mobility/scripts skills/domain/5gc-pdu-session/scripts skills/domain/5gc-handover-mobility/scripts skills/orchestration/5gc-failure-boundary/scripts skills/orchestration/epc-failure-boundary/scripts
       - name: Check committed whitespace
         run: git diff --check HEAD^ HEAD

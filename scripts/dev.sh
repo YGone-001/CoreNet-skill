@@ -55,6 +55,7 @@ VALIDATOR_SCRIPTS=(
   scripts/validate-nas-eps.py
   scripts/validate-gtpv2.py
   scripts/validate-epc-procedures.py
+  scripts/validate-epc-failure-boundary.py
   scripts/validate-ngap.py
   scripts/validate-nas-5gs.py
   scripts/validate-pfcp.py
@@ -89,6 +90,7 @@ COMPILEALL_DIRS=(
   skills/domain/5gc-pdu-session/scripts
   skills/domain/5gc-handover-mobility/scripts
   skills/orchestration/5gc-failure-boundary/scripts
+  skills/orchestration/epc-failure-boundary/scripts
 )
 
 # Ubuntu packages offered by bootstrap --install-os-deps. TShark is
@@ -766,6 +768,7 @@ cmd_validate() {
   run_unittests "unit tests: nas-eps" "skills/protocol/nas-eps/tests" "test_*.py"
   run_unittests "unit tests: gtpv2" "skills/protocol/gtpv2/tests" "test_*.py"
   run_unittests "unit tests: epc-procedures" "skills/domain/epc-procedures/tests" "test_*.py"
+  run_unittests "unit tests: epc-failure-boundary" "skills/orchestration/epc-failure-boundary/tests" "test_*.py"
   run_unittests "unit tests: golden captures" "benchmarks/golden-captures/tests" "test_*.py"
   run_unittests "unit tests: repository root" "tests" "test_*.py"
 

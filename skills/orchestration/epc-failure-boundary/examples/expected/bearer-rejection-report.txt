@@ -1,0 +1,38 @@
+EPC Failure Boundary Orchestration (v0.1.0)
+
+Diagnostic subjects: 1
+
+Diagnostic subject:
+  EPC_SESSION_CONTROL epc-session-s11-288a265c
+  source: epc-procedures epc-session-s11-288a265c (session-analysis.json) interface=S11
+  subject link: UNBOUND (control_plane_f_teid_in_message); cross-subject link NOT_ESTABLISHED
+  observation window: frames 200-205
+
+Selection status: SELECTED
+
+First abnormal evidence boundary observed at [BEARER_CONTEXT_REJECTED_OBSERVED] GTPv2-C type-33 (frame 205):
+  evidence level: OBSERVED
+  boundary confidence: MEDIUM (selection confidence, not causal confidence)
+  cause: 72 (scope bearer)
+  bearer item: 1
+  transaction: gtpv2-create-session-200-8
+  evidence: frame 200 GTPv2-C type-32
+  evidence: frame 205 GTPv2-C type-33
+
+Candidates (1 shown, 0 omitted):
+  [BEARER_CONTEXT_REJECTED_OBSERVED] GTPv2-C type-33 (frame 205) ELIGIBLE
+
+------------------------------------------------------------
+
+Analysis limitations:
+  Boundary selection is per diagnostic subject; the analysis never merges independent EPS Attach, S11 and S5/S8 subjects into one EPC failure point.
+  Selection ordering uses exact frame provenance only; severity, cause magnitude, message labels and list order never order candidates.
+  A selected boundary is the earliest supported abnormal observation, not a causal claim.
+
+Not confirmed:
+  the selected boundary is a first observed abnormality, not a root cause
+  no network function is identified as responsible
+  downstream observations are ordered after the boundary and are not attributed to it
+  procedure or service success is not established by the absence of a boundary
+  user-plane forwarding is not established by any control-plane boundary
+  subscriber, subscription or implementation behaviour is not assessed

@@ -1,0 +1,319 @@
+{
+  "additional_evidence_needed": [
+    "a reviewed S1AP/GTPv2 identity bridge before any Attach-to-session association is attempted",
+    "an independently justified SGW-C identity observation before any S11-to-S5/S8 association"
+  ],
+  "ambiguous_evidence": [
+    {
+      "frame_number": 300,
+      "kind": "AMBIGUOUS_TRANSACTION_OBSERVED",
+      "limitations": [
+        "no response is selected for this transaction"
+      ],
+      "transaction_reference": "gtpv2-create-session-300-9"
+    }
+  ],
+  "analysis_scope": "epc-session-control",
+  "bearer_context_observations": [],
+  "boundary_selection_status": "NOT_EVALUATED",
+  "control_plane_subject_count": 1,
+  "control_plane_subjects": [
+    {
+      "association_strength": "UNBOUND",
+      "attach_association": "NOT_ESTABLISHED",
+      "bearer_contexts": [],
+      "capture_file": "fixture.pcap",
+      "control_plane_teids": [
+        "0x00000006"
+      ],
+      "cross_interface_association": "NOT_ESTABLISHED",
+      "endpoint_pair": "unknown->unknown",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 300,
+          "message_type": "type-32",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "evidence_refs_omitted": 0,
+      "f_teid_evidence": [
+        {
+          "interface_type": 10,
+          "interface_type_name": null,
+          "scope": "message",
+          "teid": 6,
+          "transaction_reference": "gtpv2-create-session-300-9"
+        }
+      ],
+      "interface": "S11",
+      "interface_evidence": {
+        "basis": "control_plane_f_teid_in_message",
+        "evidence_message": "request",
+        "interface": "S11",
+        "supporting_frames": [
+          300
+        ],
+        "supporting_interface_types": [
+          10
+        ]
+      },
+      "interface_label": "S11 (MME to SGW-C)",
+      "limitations": [
+        "several responses satisfy the correlation keys; no response is selected for this transaction"
+      ],
+      "observation_window": {
+        "end_frame": 300,
+        "start_frame": 300
+      },
+      "primary_transaction": {
+        "message_cause": null,
+        "outcome": "AMBIGUOUS_TRANSACTION",
+        "procedure_family": "create-session",
+        "request_frame": 300,
+        "response_frame": null,
+        "transaction_reference": "gtpv2-create-session-300-9"
+      },
+      "procedure_families": [
+        "create-session"
+      ],
+      "procedure_local_deviation_count": 1,
+      "procedure_local_deviations": [
+        {
+          "deviation_type": "AMBIGUOUS_TRANSACTION_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 300,
+              "message_type": "type-32",
+              "message_type_code": 32,
+              "protocol": "GTPv2-C"
+            }
+          ],
+          "explanation": "several responses satisfy the correlation keys and none is selected",
+          "frame_number": 300,
+          "limitations": [
+            "several responses satisfy the correlation keys; no response is selected for this transaction"
+          ],
+          "message_type": "type-32",
+          "observation_window": {
+            "end_frame": 300,
+            "start_frame": 300
+          },
+          "procedure_family": "create-session",
+          "protocol": "GTPv2-C",
+          "transaction_reference": "gtpv2-create-session-300-9"
+        }
+      ],
+      "procedure_local_deviations_omitted": 0,
+      "procedure_observations": {
+        "create-session": {
+          "outcomes": [
+            "AMBIGUOUS_TRANSACTION"
+          ],
+          "procedure_label": "Create Session",
+          "transaction_count": 1,
+          "transactions": [
+            {
+              "_endpoints": {
+                "request_destination": null,
+                "request_source": null
+              },
+              "_tokens": [
+                6
+              ],
+              "bearer_contexts": [],
+              "correlation_status": "AMBIGUOUS",
+              "correlation_strength": "NONE",
+              "evidence_refs": [
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 300,
+                  "message_type": "type-32",
+                  "message_type_code": 32,
+                  "protocol": "GTPv2-C"
+                }
+              ],
+              "f_teids": [
+                {
+                  "interface_type": 10,
+                  "interface_type_name": null,
+                  "scope": "message",
+                  "teid": 6
+                }
+              ],
+              "interface_evidence": {
+                "basis": "control_plane_f_teid_in_message",
+                "evidence_message": "request",
+                "interface": "S11",
+                "supporting_frames": [
+                  300
+                ],
+                "supporting_interface_types": [
+                  10
+                ]
+              },
+              "limitations": [
+                "several responses satisfy the correlation keys; no response is selected for this transaction"
+              ],
+              "message_cause": null,
+              "observation_window": {
+                "end_frame": 300,
+                "start_frame": 300
+              },
+              "observations": [
+                "REQUEST_OBSERVED"
+              ],
+              "outcome": "AMBIGUOUS_TRANSACTION",
+              "procedure_family": "create-session",
+              "procedure_label": "Create Session",
+              "request": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 300,
+                "message_type": "type-32",
+                "message_type_code": 32,
+                "protocol": "GTPv2-C"
+              },
+              "response": null,
+              "transaction_reference": "gtpv2-create-session-300-9"
+            }
+          ],
+          "transactions_omitted": 0
+        }
+      },
+      "subject_reference": "epc-session-s11-474e5252",
+      "subject_type": "EPC_SESSION_CONTROL",
+      "transaction_references": [
+        "gtpv2-create-session-300-9"
+      ]
+    }
+  ],
+  "domain": "epc-procedures",
+  "domain_version": "0.2.0",
+  "evidence_limitations": [
+    "no grouped Bearer Context IE was observed in the accepted events",
+    "This Domain analysis produces procedure-local session-control evidence only. EPC global first-abnormal-boundary selection remains NOT_EVALUATED."
+  ],
+  "first_abnormal_boundary": null,
+  "input_provenance": {
+    "capture_files": [
+      "fixture.pcap"
+    ],
+    "gtpv2_event_count": 2,
+    "gtpv2_events_file": "events.jsonl",
+    "hierarchy_basis": [
+      "pdml_grouped_ie"
+    ],
+    "protocol_skill": "gtpv2",
+    "protocol_skill_version": "0.1.0",
+    "transaction_count": 1,
+    "transactions_file": "transactions.json"
+  },
+  "model_version": "1.0.0",
+  "not_confirmed": [
+    "PDN connection establishment",
+    "default EPS bearer service availability",
+    "user-plane packet forwarding",
+    "S11 to S5/S8 session association",
+    "EPS Attach UE to GTPv2-C session association",
+    "session or bearer deletion completeness",
+    "end-to-end EPC service success"
+  ],
+  "procedure": "epc-session-control",
+  "procedure_families": [
+    "create-session"
+  ],
+  "procedure_label": "EPC Session Control",
+  "procedure_local_deviation_count": 1,
+  "procedure_local_deviations": [
+    {
+      "deviation_type": "AMBIGUOUS_TRANSACTION_OBSERVED",
+      "evidence_level": "OBSERVED",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 300,
+          "message_type": "type-32",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "explanation": "several responses satisfy the correlation keys and none is selected",
+      "frame_number": 300,
+      "limitations": [
+        "several responses satisfy the correlation keys; no response is selected for this transaction"
+      ],
+      "message_type": "type-32",
+      "observation_window": {
+        "end_frame": 300,
+        "start_frame": 300
+      },
+      "procedure_family": "create-session",
+      "protocol": "GTPv2-C",
+      "transaction_reference": "gtpv2-create-session-300-9"
+    }
+  ],
+  "procedure_local_deviations_omitted": 0,
+  "transaction_observations": [
+    {
+      "bearer_contexts": [],
+      "correlation_status": "AMBIGUOUS",
+      "correlation_strength": "NONE",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 300,
+          "message_type": "type-32",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "f_teids": [
+        {
+          "interface_type": 10,
+          "interface_type_name": null,
+          "scope": "message",
+          "teid": 6
+        }
+      ],
+      "interface_evidence": {
+        "basis": "control_plane_f_teid_in_message",
+        "evidence_message": "request",
+        "interface": "S11",
+        "supporting_frames": [
+          300
+        ],
+        "supporting_interface_types": [
+          10
+        ]
+      },
+      "limitations": [
+        "several responses satisfy the correlation keys; no response is selected for this transaction"
+      ],
+      "message_cause": null,
+      "observation_window": {
+        "end_frame": 300,
+        "start_frame": 300
+      },
+      "observations": [
+        "REQUEST_OBSERVED"
+      ],
+      "outcome": "AMBIGUOUS_TRANSACTION",
+      "procedure_family": "create-session",
+      "procedure_label": "Create Session",
+      "request": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 300,
+        "message_type": "type-32",
+        "message_type_code": 32,
+        "protocol": "GTPv2-C"
+      },
+      "response": null,
+      "transaction_reference": "gtpv2-create-session-300-9"
+    }
+  ],
+  "transaction_observations_omitted": 0,
+  "unbound_evidence": []
+}

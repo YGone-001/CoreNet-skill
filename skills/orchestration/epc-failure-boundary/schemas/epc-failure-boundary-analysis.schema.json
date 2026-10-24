@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/epc-failure-boundary-analysis.schema.json",
+  "title": "Bounded EPC Failure-Boundary Analysis",
+  "description": "Per-subject abnormal-boundary selection over accepted EPC Domain evidence. A selected boundary is the earliest supported abnormal observation in one diagnostic subject; it is never a root cause, a network-function verdict or a service verdict.",
+  "type": "object",
+  "required": [
+    "analysis_name",
+    "analysis_version",
+    "input_provenance",
+    "source_domain_versions",
+    "diagnostic_groups",
+    "unbound_domain_analyses",
+    "ambiguities",
+    "limitations",
+    "additional_evidence_needed",
+    "not_confirmed"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "analysis_name": {"const": "epc-failure-boundary"},
+    "analysis_version": {"type": "string"},
+    "input_provenance": {"type": "array", "items": {"type": "object"}},
+    "source_domain_versions": {"type": "array", "items": {"type": "string"}},
+    "diagnostic_groups": {"type": "array", "items": {"$ref": "#/$defs/group"}},
+    "unbound_domain_analyses": {"type": "array", "items": {"type": "object"}},
+    "ambiguities": {"type": "array", "items": {"type": "object"}},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "additional_evidence_needed": {"type": "array", "items": {"type": "object"}},
+    "not_confirmed": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "group": {
+      "type": "object",
+      "required": [
+        "diagnostic_group_reference",
+        "subject_type",
+        "source_domain_instances",
+        "subject_link",
+        "boundary_candidates",
+        "boundary_candidates_omitted",
+        "boundary_selection_status",
+        "first_abnormal_boundary",
+        "boundary_confidence",
+        "downstream_observations",
+        "evidence_limitations",
+        "additional_evidence_needed"
+      ],
+      "properties": {
+        "diagnostic_group_reference": {"type": "string", "minLength": 1},
+        "subject_type": {"type": "string", "enum": ["EPS_ATTACH", "EPC_SESSION_CONTROL"]},
+        "source_domain_instances": {"type": "array", "items": {"type": "object"}},
+        "subject_link": {
+          "type": "object",
+          "required": ["strength", "basis", "cross_subject_link"],
+          "properties": {
+            "strength": {"type": "string"},
+            "basis": {"type": "string"},
+            "cross_subject_link": {"const": "NOT_ESTABLISHED"}
+          }
+        },
+        "observation_window": {"type": ["object", "null"]},
+        "boundary_candidates": {"type": "array", "items": {"$ref": "#/$defs/candidate"}},
+        "boundary_candidate_count": {"type": "integer", "minimum": 0},
+        "boundary_candidates_omitted": {"type": "integer", "minimum": 0},
+        "boundary_selection_status": {
+          "type": "string",
+          "enum": [
+            "SELECTED",
+            "NO_ABNORMAL_BOUNDARY_OBSERVED",
+            "AMBIGUOUS_FIRST_BOUNDARY",
+            "INSUFFICIENT_COMPARABLE_EVIDENCE"
+          ]
+        },
+        "first_abnormal_boundary": {"anyOf": [{"$ref": "#/$defs/boundary"}, {"type": "null"}]},
+        "boundary_confidence": {"type": ["string", "null"], "enum": ["HIGH", "MEDIUM", "LOW", null]},
+        "downstream_observations": {"type": "array", "items": {"type": "object"}},
+        "evidence_limitations": {"type": "array", "items": {"type": "object"}},
+        "additional_evidence_needed": {"type": "array", "items": {"type": "object"}},
+        "not_confirmed": {"type": "array", "items": {"type": "string"}},
+        "group_index": {"type": "integer", "minimum": 1}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "required": [
+        "candidate_reference",
+        "source_domain",
+        "source_subject_reference",
+        "deviation_type",
+        "protocol",
+        "message_type",
+        "frame_number",
+        "evidence_level",
+        "evidence_refs",
+        "observation_window",
+        "selection_eligibility",
+        "limitations"
+      ],
+      "properties": {
+        "candidate_reference": {"type": "string", "pattern": "^epc-boundary-[0-9a-f]{10}$"},
+        "source_domain": {"const": "epc-procedures"},
+        "source_subject_reference": {"type": "string"},
+        "deviation_type": {"type": ["string", "null"]},
+        "procedure_family_or_stage": {"type": ["string", "null"]},
+        "protocol": {"type": ["string", "null"]},
+        "message_type": {"type": ["string", "null"]},
+        "frame_number": {"type": ["integer", "null"]},
+        "evidence_level": {"type": ["string", "null"]},
+        "evidence_refs": {"type": "array", "items": {"type": "object"}},
+        "evidence_refs_omitted": {"type": "integer", "minimum": 0},
+        "observation_window": {"type": ["object", "null"]},
+        "selection_eligibility": {"type": "string", "enum": ["ELIGIBLE", "INELIGIBLE"]},
+        "eligibility_reasons": {"type": "array", "items": {"type": "string"}},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "transaction_reference": {"type": "string"},
+        "cause_code": {"type": ["integer", "null"]},
+        "cause_scope": {"type": ["string", "null"], "enum": ["message", "bearer", null]},
+        "bearer_item_index": {"type": ["integer", "null"]},
+        "limitation_type": {"type": "string"}
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "required": [
+        "boundary_reference",
+        "deviation_type",
+        "protocol",
+        "message_type",
+        "frame_number",
+        "evidence_level",
+        "evidence_refs",
+        "observation_window",
+        "ordering_basis"
+      ],
+      "properties": {
+        "boundary_reference": {"type": "string"},
+        "deviation_type": {"type": "string"},
+        "protocol": {"type": "string"},
+        "message_type": {"type": "string"},
+        "frame_number": {"type": "integer", "minimum": 1},
+        "evidence_level": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "object"}},
+        "evidence_refs_omitted": {"type": "integer", "minimum": 0},
+        "observation_window": {"type": ["object", "null"]},
+        "ordering_basis": {"const": "exact_frame_number"},
+        "transaction_reference": {"type": "string"},
+        "cause_code": {"type": "integer"},
+        "cause_scope": {"type": "string", "enum": ["message", "bearer"]},
+        "bearer_item_index": {"type": "integer"},
+        "procedure_family_or_stage": {"type": "string"}
+      }
+    }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "model_version": "0.1.0",
+  "analysis_name": "epc-failure-boundary",
+  "source_domains": [
+    {
+      "domain": "epc-procedures",
+      "analysis_kind": "eps-attach",
+      "version_floor": "0.1.0",
+      "subject_type": "EPS_ATTACH"
+    },
+    {
+      "domain": "epc-procedures",
+      "analysis_kind": "epc-session-control",
+      "version_floor": "0.2.0",
+      "subject_type": "EPC_SESSION_CONTROL"
+    }
+  ],
+  "selectable_attach_deviations": [
+    "ATTACH_REJECT_OBSERVED",
+    "AUTHENTICATION_FAILURE_OBSERVED",
+    "AUTHENTICATION_REJECT_OBSERVED",
+    "SECURITY_MODE_REJECT_OBSERVED",
+    "S1_CONTEXT_SETUP_FAILURE_OBSERVED"
+  ],
+  "selectable_session_deviations": [
+    "CREATE_SESSION_REJECTED_OBSERVED",
+    "MODIFY_BEARER_REJECTED_OBSERVED",
+    "DELETE_SESSION_REJECTED_OBSERVED",
+    "BEARER_CONTEXT_REJECTED_OBSERVED"
+  ],
+  "nonselectable_deviations": [
+    "OPEN_REQUEST_OBSERVED",
+    "RESPONSE_ONLY_OBSERVED",
+    "AMBIGUOUS_TRANSACTION_OBSERVED",
+    "INTERFACE_EVIDENCE_UNAVAILABLE",
+    "INTERFACE_EVIDENCE_CONFLICT",
+    "CONTEXT_REUSE_AFTER_DELETION",
+    "BEARER_CONTEXT_BINDING_UNAVAILABLE",
+    "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+    "INSUFFICIENT_TERMINAL_EVIDENCE"
+  ],
+  "selection_statuses": [
+    "SELECTED",
+    "NO_ABNORMAL_BOUNDARY_OBSERVED",
+    "AMBIGUOUS_FIRST_BOUNDARY",
+    "INSUFFICIENT_COMPARABLE_EVIDENCE"
+  ],
+  "confidence_levels": ["HIGH", "MEDIUM", "LOW"],
+  "confidence_rule": {
+    "HIGH": "complete candidate list, OBSERVED evidence level, exact frame, STRONG or SUPPORTED subject link",
+    "MEDIUM": "complete candidate list, OBSERVED evidence level, exact frame, weaker subject link",
+    "LOW": "complete candidate list but derived evidence or a weak anchor"
+  },
+  "ordering_rule": "exact frame number only; ties with different provenance stay ambiguous",
+  "forbidden_ordering_bases": [
+    "severity",
+    "cause_code_magnitude",
+    "message_label",
+    "stage_array_index",
+    "explanation_order",
+    "transaction_list_order",
+    "timestamp_proximity"
+  ],
+  "cross_subject_link": "NOT_ESTABLISHED",
+  "candidate_universe_rule": "a truncated candidate list blocks any earliest-boundary claim",
+  "not_confirmed": [
+    "the selected boundary is a first observed abnormality, not a root cause",
+    "no network function is identified as responsible",
+    "downstream observations are ordered after the boundary and are not attributed to it",
+    "procedure or service success is not established by the absence of a boundary",
+    "user-plane forwarding is not established by any control-plane boundary",
+    "subscriber, subscription or implementation behaviour is not assessed"
+  ]
+}

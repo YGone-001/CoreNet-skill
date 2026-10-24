@@ -1,0 +1,365 @@
+{
+  "additional_evidence_needed": [
+    "a reviewed S1AP/GTPv2 identity bridge before any Attach-to-session association is attempted",
+    "an independently justified SGW-C identity observation before any S11-to-S5/S8 association"
+  ],
+  "ambiguous_evidence": [],
+  "analysis_scope": "epc-session-control",
+  "bearer_context_observations": [],
+  "boundary_selection_status": "NOT_EVALUATED",
+  "control_plane_subject_count": 1,
+  "control_plane_subjects": [
+    {
+      "association_strength": "UNBOUND",
+      "attach_association": "NOT_ESTABLISHED",
+      "bearer_contexts": [],
+      "capture_file": "fixture.pcap",
+      "control_plane_teids": [
+        "0x00000006"
+      ],
+      "cross_interface_association": "NOT_ESTABLISHED",
+      "endpoint_pair": "unknown->unknown",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 100,
+          "message_type": "type-32",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 106,
+          "message_type": "type-33",
+          "message_type_code": 33,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "evidence_refs_omitted": 0,
+      "f_teid_evidence": [
+        {
+          "interface_type": 10,
+          "interface_type_name": null,
+          "scope": "message",
+          "teid": 6,
+          "transaction_reference": "gtpv2-create-session-100-7"
+        }
+      ],
+      "interface": "S11",
+      "interface_evidence": {
+        "basis": "control_plane_f_teid_in_message",
+        "evidence_message": "request",
+        "interface": "S11",
+        "supporting_frames": [
+          100
+        ],
+        "supporting_interface_types": [
+          10
+        ]
+      },
+      "interface_label": "S11 (MME to SGW-C)",
+      "limitations": [],
+      "observation_window": {
+        "end_frame": 106,
+        "start_frame": 100
+      },
+      "primary_transaction": {
+        "message_cause": {
+          "cause_code": 72,
+          "cause_name": "System failure",
+          "scope": "message"
+        },
+        "outcome": "RESPONSE_REJECTED_OBSERVED",
+        "procedure_family": "create-session",
+        "request_frame": 100,
+        "response_frame": 106,
+        "transaction_reference": "gtpv2-create-session-100-7"
+      },
+      "procedure_families": [
+        "create-session"
+      ],
+      "procedure_local_deviation_count": 5,
+      "procedure_local_deviations": [
+        {
+          "cause_code": 72,
+          "cause_scope": "message",
+          "deviation_type": "CREATE_SESSION_REJECTED_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 100,
+              "message_type": "type-32",
+              "message_type_code": 32,
+              "protocol": "GTPv2-C"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 106,
+              "message_type": "type-33",
+              "message_type_code": 33,
+              "protocol": "GTPv2-C"
+            }
+          ],
+          "explanation": "the observed Create Session response carries an explicit non-accepting Cause 72",
+          "frame_number": 106,
+          "limitations": [],
+          "message_type": "type-33",
+          "observation_window": {
+            "end_frame": 106,
+            "start_frame": 100
+          },
+          "procedure_family": "create-session",
+          "protocol": "GTPv2-C",
+          "transaction_reference": "gtpv2-create-session-100-7"
+        }
+      ],
+      "procedure_local_deviations_omitted": 4,
+      "procedure_observations": {
+        "create-session": {
+          "outcomes": [
+            "RESPONSE_REJECTED_OBSERVED"
+          ],
+          "procedure_label": "Create Session",
+          "transaction_count": 1,
+          "transactions": [
+            {
+              "_endpoints": {
+                "request_destination": null,
+                "request_source": null
+              },
+              "_tokens": [
+                6
+              ],
+              "bearer_contexts": [],
+              "correlation_status": "MATCHED",
+              "correlation_strength": "STRONG",
+              "evidence_refs": [
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 100,
+                  "message_type": "type-32",
+                  "message_type_code": 32,
+                  "protocol": "GTPv2-C"
+                },
+                {
+                  "evidence_level": "OBSERVED",
+                  "frame_number": 106,
+                  "message_type": "type-33",
+                  "message_type_code": 33,
+                  "protocol": "GTPv2-C"
+                }
+              ],
+              "f_teids": [
+                {
+                  "interface_type": 10,
+                  "interface_type_name": null,
+                  "scope": "message",
+                  "teid": 6
+                }
+              ],
+              "interface_evidence": {
+                "basis": "control_plane_f_teid_in_message",
+                "evidence_message": "request",
+                "interface": "S11",
+                "supporting_frames": [
+                  100
+                ],
+                "supporting_interface_types": [
+                  10
+                ]
+              },
+              "limitations": [],
+              "message_cause": {
+                "cause_code": 72,
+                "cause_name": "System failure",
+                "scope": "message"
+              },
+              "observation_window": {
+                "end_frame": 106,
+                "start_frame": 100
+              },
+              "observations": [
+                "REQUEST_OBSERVED",
+                "RESPONSE_REJECTED_OBSERVED"
+              ],
+              "outcome": "RESPONSE_REJECTED_OBSERVED",
+              "procedure_family": "create-session",
+              "procedure_label": "Create Session",
+              "request": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 100,
+                "message_type": "type-32",
+                "message_type_code": 32,
+                "protocol": "GTPv2-C"
+              },
+              "response": {
+                "evidence_level": "OBSERVED",
+                "frame_number": 106,
+                "message_type": "type-33",
+                "message_type_code": 33,
+                "protocol": "GTPv2-C"
+              },
+              "transaction_reference": "gtpv2-create-session-100-7"
+            }
+          ],
+          "transactions_omitted": 0
+        }
+      },
+      "subject_reference": "epc-session-s11-e24ed89d",
+      "subject_type": "EPC_SESSION_CONTROL",
+      "transaction_references": [
+        "gtpv2-create-session-100-7"
+      ]
+    }
+  ],
+  "domain": "epc-procedures",
+  "domain_version": "0.2.0",
+  "evidence_limitations": [
+    "no grouped Bearer Context IE was observed in the accepted events",
+    "This Domain analysis produces procedure-local session-control evidence only. EPC global first-abnormal-boundary selection remains NOT_EVALUATED."
+  ],
+  "first_abnormal_boundary": null,
+  "input_provenance": {
+    "capture_files": [
+      "fixture.pcap"
+    ],
+    "gtpv2_event_count": 2,
+    "gtpv2_events_file": "events.jsonl",
+    "hierarchy_basis": [
+      "pdml_grouped_ie"
+    ],
+    "protocol_skill": "gtpv2",
+    "protocol_skill_version": "0.1.0",
+    "transaction_count": 1,
+    "transactions_file": "transactions.json"
+  },
+  "model_version": "1.0.0",
+  "not_confirmed": [
+    "PDN connection establishment",
+    "default EPS bearer service availability",
+    "user-plane packet forwarding",
+    "S11 to S5/S8 session association",
+    "EPS Attach UE to GTPv2-C session association",
+    "session or bearer deletion completeness",
+    "end-to-end EPC service success"
+  ],
+  "procedure": "epc-session-control",
+  "procedure_families": [
+    "create-session"
+  ],
+  "procedure_label": "EPC Session Control",
+  "procedure_local_deviation_count": 5,
+  "procedure_local_deviations": [
+    {
+      "cause_code": 72,
+      "cause_scope": "message",
+      "deviation_type": "CREATE_SESSION_REJECTED_OBSERVED",
+      "evidence_level": "OBSERVED",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 100,
+          "message_type": "type-32",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 106,
+          "message_type": "type-33",
+          "message_type_code": 33,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "explanation": "the observed Create Session response carries an explicit non-accepting Cause 72",
+      "frame_number": 106,
+      "limitations": [],
+      "message_type": "type-33",
+      "observation_window": {
+        "end_frame": 106,
+        "start_frame": 100
+      },
+      "procedure_family": "create-session",
+      "protocol": "GTPv2-C",
+      "transaction_reference": "gtpv2-create-session-100-7"
+    }
+  ],
+  "procedure_local_deviations_omitted": 4,
+  "transaction_observations": [
+    {
+      "bearer_contexts": [],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 100,
+          "message_type": "type-32",
+          "message_type_code": 32,
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 106,
+          "message_type": "type-33",
+          "message_type_code": 33,
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "f_teids": [
+        {
+          "interface_type": 10,
+          "interface_type_name": null,
+          "scope": "message",
+          "teid": 6
+        }
+      ],
+      "interface_evidence": {
+        "basis": "control_plane_f_teid_in_message",
+        "evidence_message": "request",
+        "interface": "S11",
+        "supporting_frames": [
+          100
+        ],
+        "supporting_interface_types": [
+          10
+        ]
+      },
+      "limitations": [],
+      "message_cause": {
+        "cause_code": 72,
+        "cause_name": "System failure",
+        "scope": "message"
+      },
+      "observation_window": {
+        "end_frame": 106,
+        "start_frame": 100
+      },
+      "observations": [
+        "REQUEST_OBSERVED",
+        "RESPONSE_REJECTED_OBSERVED"
+      ],
+      "outcome": "RESPONSE_REJECTED_OBSERVED",
+      "procedure_family": "create-session",
+      "procedure_label": "Create Session",
+      "request": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 100,
+        "message_type": "type-32",
+        "message_type_code": 32,
+        "protocol": "GTPv2-C"
+      },
+      "response": {
+        "evidence_level": "OBSERVED",
+        "frame_number": 106,
+        "message_type": "type-33",
+        "message_type_code": 33,
+        "protocol": "GTPv2-C"
+      },
+      "transaction_reference": "gtpv2-create-session-100-7"
+    }
+  ],
+  "transaction_observations_omitted": 0,
+  "unbound_evidence": []
+}

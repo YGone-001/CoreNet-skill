@@ -1,0 +1,679 @@
+{
+  "additional_evidence_needed": [
+    {
+      "reason": "the accepted Domains publish attach_association as NOT_ESTABLISHED",
+      "requirement": "a reviewed identity bridge between Attach and GTPv2-C evidence"
+    },
+    {
+      "reason": "the accepted Session-Control Domain publishes cross_interface_association as NOT_ESTABLISHED",
+      "requirement": "a reviewed SGW-C identity observation for S11 to S5/S8 association"
+    }
+  ],
+  "ambiguities": [],
+  "analysis_name": "epc-failure-boundary",
+  "analysis_version": "0.1.0",
+  "diagnostic_groups": [
+    {
+      "additional_evidence_needed": [
+        {
+          "reason": "reported by the accepted EPS Attach Domain",
+          "requirement": "capture the NAS Attach complete to observe procedure completion"
+        },
+        {
+          "reason": "reported by the accepted EPS Attach Domain",
+          "requirement": "capture the S1 Initial Context Setup exchange for this UE context"
+        },
+        {
+          "reason": "reported by the accepted EPS Attach Domain",
+          "requirement": "obtain decrypted NAS or a capture where the inner message identity is visible"
+        }
+      ],
+      "boundary_candidate_count": 2,
+      "boundary_candidates": [
+        {
+          "candidate_reference": "epc-boundary-453244ecf9",
+          "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+          "eligibility_reasons": [
+            "deviation_type is an evidence-quality observation, not a negative network outcome"
+          ],
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 43,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 45,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "frame_number": 43,
+          "limitations": [
+            "ciphered inner NAS content is not decoded"
+          ],
+          "message_type": null,
+          "observation_window": {
+            "end_frame": 45,
+            "start_frame": 43
+          },
+          "procedure_family_or_stage": "attach-decision",
+          "protocol": "NAS-EPS",
+          "selection_eligibility": "INELIGIBLE",
+          "source_domain": "epc-procedures",
+          "source_subject_reference": "epc-attach-44f18aebfc"
+        },
+        {
+          "candidate_reference": "epc-boundary-5f8e8c5e98",
+          "deviation_type": "ATTACH_REJECT_OBSERVED",
+          "eligibility_reasons": [],
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 47,
+              "message_type": "Attach reject",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "frame_number": 47,
+          "limitations": [],
+          "message_type": "Attach reject",
+          "observation_window": {
+            "end_frame": 47,
+            "start_frame": 33
+          },
+          "procedure_family_or_stage": "attach-decision",
+          "protocol": "NAS-EPS",
+          "selection_eligibility": "ELIGIBLE",
+          "source_domain": "epc-procedures",
+          "source_subject_reference": "epc-attach-44f18aebfc"
+        }
+      ],
+      "boundary_candidates_omitted": 0,
+      "boundary_confidence": "HIGH",
+      "boundary_selection_status": "SELECTED",
+      "diagnostic_group_reference": "epc-attach-44f18aebfc",
+      "downstream_observations": [
+        {
+          "candidate_reference": null,
+          "description": "procedure stage context-release was observed at frame 49 after the selected boundary; ordering is not causation",
+          "deviation_type": "PROCEDURE_STAGE_OBSERVED",
+          "frame_number": 49,
+          "message_type": "context-release",
+          "protocol": null,
+          "relation": "OBSERVED_AFTER_BOUNDARY"
+        }
+      ],
+      "evidence_limitations": [
+        {
+          "description": "protected NAS envelopes prevent reading inner message identity in this attempt",
+          "type": "DOMAIN_LIMITATION"
+        },
+        {
+          "description": "a protected NAS payload limits what the underlying procedure evidence can show",
+          "type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE"
+        }
+      ],
+      "first_abnormal_boundary": {
+        "boundary_reference": "epc-boundary-5f8e8c5e98",
+        "deviation_type": "ATTACH_REJECT_OBSERVED",
+        "evidence_level": "OBSERVED",
+        "evidence_refs": [
+          {
+            "evidence_level": "OBSERVED",
+            "frame_number": 47,
+            "message_type": "Attach reject",
+            "protocol": "NAS-EPS"
+          }
+        ],
+        "frame_number": 47,
+        "message_type": "Attach reject",
+        "observation_window": {
+          "end_frame": 47,
+          "start_frame": 33
+        },
+        "ordering_basis": "exact_frame_number",
+        "procedure_family_or_stage": "attach-decision",
+        "protocol": "NAS-EPS"
+      },
+      "group_index": 1,
+      "not_confirmed": [
+        "the selected boundary is a first observed abnormality, not a root cause",
+        "no network function is identified as responsible",
+        "downstream observations are ordered after the boundary and are not attributed to it",
+        "procedure or service success is not established by the absence of a boundary",
+        "user-plane forwarding is not established by any control-plane boundary",
+        "subscriber, subscription or implementation behaviour is not assessed"
+      ],
+      "observation_window": {
+        "end_frame": 53,
+        "start_frame": 33
+      },
+      "source_domain_instances": [
+        {
+          "attempt_index": 1,
+          "capture_file": "s1ap_nas.pcap",
+          "interface": null,
+          "source_domain": "epc-procedures",
+          "source_file": "attach-analysis.json",
+          "source_instance_id": "epc-attach-44f18aebfc",
+          "subject_type": "EPS_ATTACH",
+          "transaction_references": []
+        }
+      ],
+      "subject_link": {
+        "basis": "pre_assignment_extension_unique_mme_identifier",
+        "cross_subject_link": "NOT_ESTABLISHED",
+        "strength": "STRONG"
+      },
+      "subject_type": "EPS_ATTACH"
+    },
+    {
+      "additional_evidence_needed": [
+        {
+          "reason": "reported by the accepted EPS Attach Domain",
+          "requirement": "capture the NAS Attach complete to observe procedure completion"
+        },
+        {
+          "reason": "reported by the accepted EPS Attach Domain",
+          "requirement": "capture the S1 Initial Context Setup exchange for this UE context"
+        },
+        {
+          "reason": "reported by the accepted EPS Attach Domain",
+          "requirement": "obtain decrypted NAS or a capture where the inner message identity is visible"
+        }
+      ],
+      "boundary_candidate_count": 2,
+      "boundary_candidates": [
+        {
+          "candidate_reference": "epc-boundary-05f20425c0",
+          "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+          "eligibility_reasons": [
+            "deviation_type is an evidence-quality observation, not a negative network outcome"
+          ],
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 71,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 73,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "frame_number": 71,
+          "limitations": [
+            "ciphered inner NAS content is not decoded"
+          ],
+          "message_type": null,
+          "observation_window": {
+            "end_frame": 73,
+            "start_frame": 71
+          },
+          "procedure_family_or_stage": "attach-decision",
+          "protocol": "NAS-EPS",
+          "selection_eligibility": "INELIGIBLE",
+          "source_domain": "epc-procedures",
+          "source_subject_reference": "epc-attach-bae7c7576f"
+        },
+        {
+          "candidate_reference": "epc-boundary-2b865d5aaa",
+          "deviation_type": "ATTACH_REJECT_OBSERVED",
+          "eligibility_reasons": [],
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 75,
+              "message_type": "Attach reject",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "frame_number": 75,
+          "limitations": [],
+          "message_type": "Attach reject",
+          "observation_window": {
+            "end_frame": 75,
+            "start_frame": 61
+          },
+          "procedure_family_or_stage": "attach-decision",
+          "protocol": "NAS-EPS",
+          "selection_eligibility": "ELIGIBLE",
+          "source_domain": "epc-procedures",
+          "source_subject_reference": "epc-attach-bae7c7576f"
+        }
+      ],
+      "boundary_candidates_omitted": 0,
+      "boundary_confidence": "HIGH",
+      "boundary_selection_status": "SELECTED",
+      "diagnostic_group_reference": "epc-attach-bae7c7576f",
+      "downstream_observations": [
+        {
+          "candidate_reference": null,
+          "description": "procedure stage context-release was observed at frame 77 after the selected boundary; ordering is not causation",
+          "deviation_type": "PROCEDURE_STAGE_OBSERVED",
+          "frame_number": 77,
+          "message_type": "context-release",
+          "protocol": null,
+          "relation": "OBSERVED_AFTER_BOUNDARY"
+        }
+      ],
+      "evidence_limitations": [
+        {
+          "description": "protected NAS envelopes prevent reading inner message identity in this attempt",
+          "type": "DOMAIN_LIMITATION"
+        },
+        {
+          "description": "a protected NAS payload limits what the underlying procedure evidence can show",
+          "type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE"
+        }
+      ],
+      "first_abnormal_boundary": {
+        "boundary_reference": "epc-boundary-2b865d5aaa",
+        "deviation_type": "ATTACH_REJECT_OBSERVED",
+        "evidence_level": "OBSERVED",
+        "evidence_refs": [
+          {
+            "evidence_level": "OBSERVED",
+            "frame_number": 75,
+            "message_type": "Attach reject",
+            "protocol": "NAS-EPS"
+          }
+        ],
+        "frame_number": 75,
+        "message_type": "Attach reject",
+        "observation_window": {
+          "end_frame": 75,
+          "start_frame": 61
+        },
+        "ordering_basis": "exact_frame_number",
+        "procedure_family_or_stage": "attach-decision",
+        "protocol": "NAS-EPS"
+      },
+      "group_index": 2,
+      "not_confirmed": [
+        "the selected boundary is a first observed abnormality, not a root cause",
+        "no network function is identified as responsible",
+        "downstream observations are ordered after the boundary and are not attributed to it",
+        "procedure or service success is not established by the absence of a boundary",
+        "user-plane forwarding is not established by any control-plane boundary",
+        "subscriber, subscription or implementation behaviour is not assessed"
+      ],
+      "observation_window": {
+        "end_frame": 81,
+        "start_frame": 61
+      },
+      "source_domain_instances": [
+        {
+          "attempt_index": 1,
+          "capture_file": "s1ap_nas.pcap",
+          "interface": null,
+          "source_domain": "epc-procedures",
+          "source_file": "attach-analysis.json",
+          "source_instance_id": "epc-attach-bae7c7576f",
+          "subject_type": "EPS_ATTACH",
+          "transaction_references": []
+        }
+      ],
+      "subject_link": {
+        "basis": "pre_assignment_extension_unique_mme_identifier",
+        "cross_subject_link": "NOT_ESTABLISHED",
+        "strength": "STRONG"
+      },
+      "subject_type": "EPS_ATTACH"
+    },
+    {
+      "additional_evidence_needed": [
+        {
+          "reason": "reported by the accepted EPS Attach Domain",
+          "requirement": "capture the NAS Attach complete to observe procedure completion"
+        },
+        {
+          "reason": "reported by the accepted EPS Attach Domain",
+          "requirement": "capture the S1 Initial Context Setup exchange for this UE context"
+        },
+        {
+          "reason": "reported by the accepted EPS Attach Domain",
+          "requirement": "obtain decrypted NAS or a capture where the inner message identity is visible"
+        }
+      ],
+      "boundary_candidate_count": 2,
+      "boundary_candidates": [
+        {
+          "candidate_reference": "epc-boundary-a8c1412182",
+          "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+          "eligibility_reasons": [
+            "deviation_type is an evidence-quality observation, not a negative network outcome"
+          ],
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 107,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 109,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "frame_number": 107,
+          "limitations": [
+            "ciphered inner NAS content is not decoded"
+          ],
+          "message_type": null,
+          "observation_window": {
+            "end_frame": 109,
+            "start_frame": 107
+          },
+          "procedure_family_or_stage": "attach-decision",
+          "protocol": "NAS-EPS",
+          "selection_eligibility": "INELIGIBLE",
+          "source_domain": "epc-procedures",
+          "source_subject_reference": "epc-attach-21db6602e4"
+        },
+        {
+          "candidate_reference": "epc-boundary-d5f9d59da4",
+          "deviation_type": "ATTACH_REJECT_OBSERVED",
+          "eligibility_reasons": [],
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 111,
+              "message_type": "Attach reject",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "frame_number": 111,
+          "limitations": [],
+          "message_type": "Attach reject",
+          "observation_window": {
+            "end_frame": 111,
+            "start_frame": 97
+          },
+          "procedure_family_or_stage": "attach-decision",
+          "protocol": "NAS-EPS",
+          "selection_eligibility": "ELIGIBLE",
+          "source_domain": "epc-procedures",
+          "source_subject_reference": "epc-attach-21db6602e4"
+        }
+      ],
+      "boundary_candidates_omitted": 0,
+      "boundary_confidence": "HIGH",
+      "boundary_selection_status": "SELECTED",
+      "diagnostic_group_reference": "epc-attach-21db6602e4",
+      "downstream_observations": [
+        {
+          "candidate_reference": null,
+          "description": "procedure stage context-release was observed at frame 113 after the selected boundary; ordering is not causation",
+          "deviation_type": "PROCEDURE_STAGE_OBSERVED",
+          "frame_number": 113,
+          "message_type": "context-release",
+          "protocol": null,
+          "relation": "OBSERVED_AFTER_BOUNDARY"
+        }
+      ],
+      "evidence_limitations": [
+        {
+          "description": "protected NAS envelopes prevent reading inner message identity in this attempt",
+          "type": "DOMAIN_LIMITATION"
+        },
+        {
+          "description": "a protected NAS payload limits what the underlying procedure evidence can show",
+          "type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE"
+        }
+      ],
+      "first_abnormal_boundary": {
+        "boundary_reference": "epc-boundary-d5f9d59da4",
+        "deviation_type": "ATTACH_REJECT_OBSERVED",
+        "evidence_level": "OBSERVED",
+        "evidence_refs": [
+          {
+            "evidence_level": "OBSERVED",
+            "frame_number": 111,
+            "message_type": "Attach reject",
+            "protocol": "NAS-EPS"
+          }
+        ],
+        "frame_number": 111,
+        "message_type": "Attach reject",
+        "observation_window": {
+          "end_frame": 111,
+          "start_frame": 97
+        },
+        "ordering_basis": "exact_frame_number",
+        "procedure_family_or_stage": "attach-decision",
+        "protocol": "NAS-EPS"
+      },
+      "group_index": 3,
+      "not_confirmed": [
+        "the selected boundary is a first observed abnormality, not a root cause",
+        "no network function is identified as responsible",
+        "downstream observations are ordered after the boundary and are not attributed to it",
+        "procedure or service success is not established by the absence of a boundary",
+        "user-plane forwarding is not established by any control-plane boundary",
+        "subscriber, subscription or implementation behaviour is not assessed"
+      ],
+      "observation_window": {
+        "end_frame": 117,
+        "start_frame": 97
+      },
+      "source_domain_instances": [
+        {
+          "attempt_index": 1,
+          "capture_file": "s1ap_nas.pcap",
+          "interface": null,
+          "source_domain": "epc-procedures",
+          "source_file": "attach-analysis.json",
+          "source_instance_id": "epc-attach-21db6602e4",
+          "subject_type": "EPS_ATTACH",
+          "transaction_references": []
+        }
+      ],
+      "subject_link": {
+        "basis": "pre_assignment_extension_unique_mme_identifier",
+        "cross_subject_link": "NOT_ESTABLISHED",
+        "strength": "STRONG"
+      },
+      "subject_type": "EPS_ATTACH"
+    },
+    {
+      "additional_evidence_needed": [
+        {
+          "reason": "reported by the accepted EPS Attach Domain",
+          "requirement": "capture the NAS Attach complete to observe procedure completion"
+        },
+        {
+          "reason": "reported by the accepted EPS Attach Domain",
+          "requirement": "capture the S1 Initial Context Setup exchange for this UE context"
+        },
+        {
+          "reason": "reported by the accepted EPS Attach Domain",
+          "requirement": "obtain decrypted NAS or a capture where the inner message identity is visible"
+        }
+      ],
+      "boundary_candidate_count": 2,
+      "boundary_candidates": [
+        {
+          "candidate_reference": "epc-boundary-98d9e39126",
+          "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+          "eligibility_reasons": [
+            "deviation_type is an evidence-quality observation, not a negative network outcome"
+          ],
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 135,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 137,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "frame_number": 135,
+          "limitations": [
+            "ciphered inner NAS content is not decoded"
+          ],
+          "message_type": null,
+          "observation_window": {
+            "end_frame": 137,
+            "start_frame": 135
+          },
+          "procedure_family_or_stage": "attach-decision",
+          "protocol": "NAS-EPS",
+          "selection_eligibility": "INELIGIBLE",
+          "source_domain": "epc-procedures",
+          "source_subject_reference": "epc-attach-8cdcaa8b18"
+        },
+        {
+          "candidate_reference": "epc-boundary-7fe5efd2ac",
+          "deviation_type": "ATTACH_REJECT_OBSERVED",
+          "eligibility_reasons": [],
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 139,
+              "message_type": "Attach reject",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "frame_number": 139,
+          "limitations": [],
+          "message_type": "Attach reject",
+          "observation_window": {
+            "end_frame": 139,
+            "start_frame": 125
+          },
+          "procedure_family_or_stage": "attach-decision",
+          "protocol": "NAS-EPS",
+          "selection_eligibility": "ELIGIBLE",
+          "source_domain": "epc-procedures",
+          "source_subject_reference": "epc-attach-8cdcaa8b18"
+        }
+      ],
+      "boundary_candidates_omitted": 0,
+      "boundary_confidence": "HIGH",
+      "boundary_selection_status": "SELECTED",
+      "diagnostic_group_reference": "epc-attach-8cdcaa8b18",
+      "downstream_observations": [
+        {
+          "candidate_reference": null,
+          "description": "procedure stage context-release was observed at frame 141 after the selected boundary; ordering is not causation",
+          "deviation_type": "PROCEDURE_STAGE_OBSERVED",
+          "frame_number": 141,
+          "message_type": "context-release",
+          "protocol": null,
+          "relation": "OBSERVED_AFTER_BOUNDARY"
+        }
+      ],
+      "evidence_limitations": [
+        {
+          "description": "protected NAS envelopes prevent reading inner message identity in this attempt",
+          "type": "DOMAIN_LIMITATION"
+        },
+        {
+          "description": "a protected NAS payload limits what the underlying procedure evidence can show",
+          "type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE"
+        }
+      ],
+      "first_abnormal_boundary": {
+        "boundary_reference": "epc-boundary-7fe5efd2ac",
+        "deviation_type": "ATTACH_REJECT_OBSERVED",
+        "evidence_level": "OBSERVED",
+        "evidence_refs": [
+          {
+            "evidence_level": "OBSERVED",
+            "frame_number": 139,
+            "message_type": "Attach reject",
+            "protocol": "NAS-EPS"
+          }
+        ],
+        "frame_number": 139,
+        "message_type": "Attach reject",
+        "observation_window": {
+          "end_frame": 139,
+          "start_frame": 125
+        },
+        "ordering_basis": "exact_frame_number",
+        "procedure_family_or_stage": "attach-decision",
+        "protocol": "NAS-EPS"
+      },
+      "group_index": 4,
+      "not_confirmed": [
+        "the selected boundary is a first observed abnormality, not a root cause",
+        "no network function is identified as responsible",
+        "downstream observations are ordered after the boundary and are not attributed to it",
+        "procedure or service success is not established by the absence of a boundary",
+        "user-plane forwarding is not established by any control-plane boundary",
+        "subscriber, subscription or implementation behaviour is not assessed"
+      ],
+      "observation_window": {
+        "end_frame": 145,
+        "start_frame": 125
+      },
+      "source_domain_instances": [
+        {
+          "attempt_index": 1,
+          "capture_file": "s1ap_nas.pcap",
+          "interface": null,
+          "source_domain": "epc-procedures",
+          "source_file": "attach-analysis.json",
+          "source_instance_id": "epc-attach-8cdcaa8b18",
+          "subject_type": "EPS_ATTACH",
+          "transaction_references": []
+        }
+      ],
+      "subject_link": {
+        "basis": "pre_assignment_extension_unique_mme_identifier",
+        "cross_subject_link": "NOT_ESTABLISHED",
+        "strength": "STRONG"
+      },
+      "subject_type": "EPS_ATTACH"
+    }
+  ],
+  "input_provenance": [
+    {
+      "analysis_kind": "eps-attach",
+      "domain_version": "0.1.0",
+      "source_domain": "epc-procedures",
+      "source_file": "attach-analysis.json",
+      "subject_count": 4
+    }
+  ],
+  "limitations": [
+    "Boundary selection is per diagnostic subject; the analysis never merges independent EPS Attach, S11 and S5/S8 subjects into one EPC failure point.",
+    "Selection ordering uses exact frame provenance only; severity, cause magnitude, message labels and list order never order candidates.",
+    "A selected boundary is the earliest supported abnormal observation, not a causal claim."
+  ],
+  "not_confirmed": [
+    "the selected boundary is a first observed abnormality, not a root cause",
+    "no network function is identified as responsible",
+    "downstream observations are ordered after the boundary and are not attributed to it",
+    "procedure or service success is not established by the absence of a boundary",
+    "user-plane forwarding is not established by any control-plane boundary",
+    "subscriber, subscription or implementation behaviour is not assessed"
+  ],
+  "source_domain_versions": [
+    "0.1.0"
+  ],
+  "unbound_domain_analyses": []
+}

@@ -1,0 +1,274 @@
+{
+  "additional_evidence_needed": [
+    {
+      "reason": "the accepted Domains publish attach_association as NOT_ESTABLISHED",
+      "requirement": "a reviewed identity bridge between Attach and GTPv2-C evidence"
+    },
+    {
+      "reason": "the accepted Session-Control Domain publishes cross_interface_association as NOT_ESTABLISHED",
+      "requirement": "a reviewed SGW-C identity observation for S11 to S5/S8 association"
+    }
+  ],
+  "ambiguities": [],
+  "analysis_name": "epc-failure-boundary",
+  "analysis_version": "0.1.0",
+  "diagnostic_groups": [
+    {
+      "additional_evidence_needed": [
+        {
+          "reason": "absence of a supported boundary is not evidence of success",
+          "requirement": "a complete capture of the procedure under analysis"
+        }
+      ],
+      "boundary_candidate_count": 0,
+      "boundary_candidates": [],
+      "boundary_candidates_omitted": 0,
+      "boundary_confidence": null,
+      "boundary_selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+      "diagnostic_group_reference": "epc-session-unknown-6c46a339",
+      "downstream_observations": [],
+      "evidence_limitations": [
+        {
+          "description": "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface",
+          "type": "DOMAIN_LIMITATION"
+        }
+      ],
+      "first_abnormal_boundary": null,
+      "group_index": 1,
+      "not_confirmed": [
+        "the selected boundary is a first observed abnormality, not a root cause",
+        "no network function is identified as responsible",
+        "downstream observations are ordered after the boundary and are not attributed to it",
+        "procedure or service success is not established by the absence of a boundary",
+        "user-plane forwarding is not established by any control-plane boundary",
+        "subscriber, subscription or implementation behaviour is not assessed"
+      ],
+      "observation_window": {
+        "end_frame": 4,
+        "start_frame": 1
+      },
+      "source_domain_instances": [
+        {
+          "attempt_index": null,
+          "capture_file": "epc-gtpv2-real.pcap",
+          "interface": "UNKNOWN_INTERFACE",
+          "source_domain": "epc-procedures",
+          "source_file": "session-analysis.json",
+          "source_instance_id": "epc-session-unknown-6c46a339",
+          "subject_type": "EPC_SESSION_CONTROL",
+          "transaction_references": [
+            "gtpv2-delete-session-1-22"
+          ]
+        }
+      ],
+      "subject_link": {
+        "basis": "unavailable",
+        "cross_subject_link": "NOT_ESTABLISHED",
+        "strength": "UNBOUND"
+      },
+      "subject_type": "EPC_SESSION_CONTROL"
+    },
+    {
+      "additional_evidence_needed": [
+        {
+          "reason": "absence of a supported boundary is not evidence of success",
+          "requirement": "a complete capture of the procedure under analysis"
+        }
+      ],
+      "boundary_candidate_count": 0,
+      "boundary_candidates": [],
+      "boundary_candidates_omitted": 0,
+      "boundary_confidence": null,
+      "boundary_selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+      "diagnostic_group_reference": "epc-session-unknown-ab0557db",
+      "downstream_observations": [],
+      "evidence_limitations": [
+        {
+          "description": "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface",
+          "type": "DOMAIN_LIMITATION"
+        }
+      ],
+      "first_abnormal_boundary": null,
+      "group_index": 2,
+      "not_confirmed": [
+        "the selected boundary is a first observed abnormality, not a root cause",
+        "no network function is identified as responsible",
+        "downstream observations are ordered after the boundary and are not attributed to it",
+        "procedure or service success is not established by the absence of a boundary",
+        "user-plane forwarding is not established by any control-plane boundary",
+        "subscriber, subscription or implementation behaviour is not assessed"
+      ],
+      "observation_window": {
+        "end_frame": 3,
+        "start_frame": 2
+      },
+      "source_domain_instances": [
+        {
+          "attempt_index": null,
+          "capture_file": "epc-gtpv2-real.pcap",
+          "interface": "UNKNOWN_INTERFACE",
+          "source_domain": "epc-procedures",
+          "source_file": "session-analysis.json",
+          "source_instance_id": "epc-session-unknown-ab0557db",
+          "subject_type": "EPC_SESSION_CONTROL",
+          "transaction_references": [
+            "gtpv2-delete-session-2-10"
+          ]
+        }
+      ],
+      "subject_link": {
+        "basis": "unavailable",
+        "cross_subject_link": "NOT_ESTABLISHED",
+        "strength": "UNBOUND"
+      },
+      "subject_type": "EPC_SESSION_CONTROL"
+    },
+    {
+      "additional_evidence_needed": [
+        {
+          "reason": "absence of a supported boundary is not evidence of success",
+          "requirement": "a complete capture of the procedure under analysis"
+        }
+      ],
+      "boundary_candidate_count": 0,
+      "boundary_candidates": [],
+      "boundary_candidates_omitted": 0,
+      "boundary_confidence": null,
+      "boundary_selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+      "diagnostic_group_reference": "epc-session-s11-51808210",
+      "downstream_observations": [],
+      "evidence_limitations": [],
+      "first_abnormal_boundary": null,
+      "group_index": 3,
+      "not_confirmed": [
+        "the selected boundary is a first observed abnormality, not a root cause",
+        "no network function is identified as responsible",
+        "downstream observations are ordered after the boundary and are not attributed to it",
+        "procedure or service success is not established by the absence of a boundary",
+        "user-plane forwarding is not established by any control-plane boundary",
+        "subscriber, subscription or implementation behaviour is not assessed"
+      ],
+      "observation_window": {
+        "end_frame": 12,
+        "start_frame": 5
+      },
+      "source_domain_instances": [
+        {
+          "attempt_index": null,
+          "capture_file": "epc-gtpv2-real.pcap",
+          "interface": "S11",
+          "source_domain": "epc-procedures",
+          "source_file": "session-analysis.json",
+          "source_instance_id": "epc-session-s11-51808210",
+          "subject_type": "EPC_SESSION_CONTROL",
+          "transaction_references": [
+            "gtpv2-create-session-5-23",
+            "gtpv2-modify-bearer-9-24",
+            "gtpv2-release-access-bearers-11-25"
+          ]
+        }
+      ],
+      "subject_link": {
+        "basis": "control_plane_f_teid_in_message",
+        "cross_subject_link": "NOT_ESTABLISHED",
+        "strength": "STRONG"
+      },
+      "subject_type": "EPC_SESSION_CONTROL"
+    },
+    {
+      "additional_evidence_needed": [
+        {
+          "reason": "absence of a supported boundary is not evidence of success",
+          "requirement": "a complete capture of the procedure under analysis"
+        }
+      ],
+      "boundary_candidate_count": 0,
+      "boundary_candidates": [],
+      "boundary_candidates_omitted": 0,
+      "boundary_confidence": null,
+      "boundary_selection_status": "NO_ABNORMAL_BOUNDARY_OBSERVED",
+      "diagnostic_group_reference": "epc-session-s5s8-0aa699f1",
+      "downstream_observations": [],
+      "evidence_limitations": [],
+      "first_abnormal_boundary": null,
+      "group_index": 4,
+      "not_confirmed": [
+        "the selected boundary is a first observed abnormality, not a root cause",
+        "no network function is identified as responsible",
+        "downstream observations are ordered after the boundary and are not attributed to it",
+        "procedure or service success is not established by the absence of a boundary",
+        "user-plane forwarding is not established by any control-plane boundary",
+        "subscriber, subscription or implementation behaviour is not assessed"
+      ],
+      "observation_window": {
+        "end_frame": 7,
+        "start_frame": 6
+      },
+      "source_domain_instances": [
+        {
+          "attempt_index": null,
+          "capture_file": "epc-gtpv2-real.pcap",
+          "interface": "S5/S8",
+          "source_domain": "epc-procedures",
+          "source_file": "session-analysis.json",
+          "source_instance_id": "epc-session-s5s8-0aa699f1",
+          "subject_type": "EPC_SESSION_CONTROL",
+          "transaction_references": [
+            "gtpv2-create-session-6-11"
+          ]
+        }
+      ],
+      "subject_link": {
+        "basis": "control_plane_f_teid_in_message",
+        "cross_subject_link": "NOT_ESTABLISHED",
+        "strength": "UNBOUND"
+      },
+      "subject_type": "EPC_SESSION_CONTROL"
+    }
+  ],
+  "input_provenance": [
+    {
+      "analysis_kind": "epc-session-control",
+      "domain_version": "0.2.0",
+      "source_domain": "epc-procedures",
+      "source_file": "session-analysis.json",
+      "subject_count": 4
+    }
+  ],
+  "limitations": [
+    "Boundary selection is per diagnostic subject; the analysis never merges independent EPS Attach, S11 and S5/S8 subjects into one EPC failure point.",
+    "Selection ordering uses exact frame provenance only; severity, cause magnitude, message labels and list order never order candidates.",
+    "A selected boundary is the earliest supported abnormal observation, not a causal claim."
+  ],
+  "not_confirmed": [
+    "the selected boundary is a first observed abnormality, not a root cause",
+    "no network function is identified as responsible",
+    "downstream observations are ordered after the boundary and are not attributed to it",
+    "procedure or service success is not established by the absence of a boundary",
+    "user-plane forwarding is not established by any control-plane boundary",
+    "subscriber, subscription or implementation behaviour is not assessed"
+  ],
+  "source_domain_versions": [
+    "0.2.0"
+  ],
+  "unbound_domain_analyses": [
+    {
+      "reason": "no evidence-safe cross-subject link is authorized; the subject is analyzed independently",
+      "source_domain": "epc-procedures",
+      "source_instance_id": "epc-session-unknown-6c46a339",
+      "subject_type": "EPC_SESSION_CONTROL"
+    },
+    {
+      "reason": "no evidence-safe cross-subject link is authorized; the subject is analyzed independently",
+      "source_domain": "epc-procedures",
+      "source_instance_id": "epc-session-unknown-ab0557db",
+      "subject_type": "EPC_SESSION_CONTROL"
+    },
+    {
+      "reason": "no evidence-safe cross-subject link is authorized; the subject is analyzed independently",
+      "source_domain": "epc-procedures",
+      "source_instance_id": "epc-session-s5s8-0aa699f1",
+      "subject_type": "EPC_SESSION_CONTROL"
+    }
+  ]
+}

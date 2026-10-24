@@ -388,6 +388,86 @@ def epc_payload_with_session(instances: int = 1, gtpv2_events: int = 12) -> dict
     return payload
 
 
+def boundary_group(reference: str, subject_type: str, frame: int, deviation_type: str,
+                   protocol: str, message_type: str, *, interface=None) -> dict:
+    return {
+        "diagnostic_group_reference": reference,
+        "subject_type": subject_type,
+        "source_domain_instances": [
+            {
+                "source_domain": "epc-procedures",
+                "source_file": "analysis.json",
+                "source_instance_id": reference,
+                "capture_file": "fixture.pcap",
+                "subject_type": subject_type,
+                "interface": interface,
+                "transaction_references": [],
+                "attempt_index": 1,
+            }
+        ],
+        "subject_link": {"strength": "STRONG", "basis": "test", "cross_subject_link": "NOT_ESTABLISHED"},
+        "observation_window": {"start_frame": 1, "end_frame": 200},
+        "boundary_candidates": [],
+        "boundary_candidate_count": 1,
+        "boundary_candidates_omitted": 0,
+        "boundary_selection_status": "SELECTED",
+        "first_abnormal_boundary": {
+            "boundary_reference": f"epc-boundary-{abs(hash(reference)) % (10 ** 10):010d}",
+            "deviation_type": deviation_type,
+            "protocol": protocol,
+            "message_type": message_type,
+            "frame_number": frame,
+            "evidence_level": "OBSERVED",
+            "ordering_basis": "exact_frame_number",
+            "evidence_refs": [
+                {"frame_number": frame, "protocol": protocol, "message_type": message_type,
+                 "evidence_level": "OBSERVED"}
+            ],
+            "observation_window": {"start_frame": 1, "end_frame": 200},
+        },
+        "boundary_confidence": "HIGH",
+        "downstream_observations": [],
+        "evidence_limitations": [],
+        "additional_evidence_needed": [],
+        "not_confirmed": ["the selected boundary is a first observed abnormality, not a root cause"],
+        "group_index": 1,
+    }
+
+
+def epc_boundary_payload(attach_count: int = 1, session: bool = True) -> dict:
+    payload = epc_payload_with_session(
+        instances=attach_count, gtpv2_events=12 if session else 0
+    )
+    groups = [
+        boundary_group(
+            f"epc-attach-{index:010x}", "EPS_ATTACH", 47 + index * 28,
+            "ATTACH_REJECT_OBSERVED", "NAS-EPS", "Attach reject",
+        )
+        for index in range(attach_count)
+    ]
+    if session:
+        for subject in epc_session_analysis()["control_plane_subjects"]:
+            groups.append(
+                boundary_group(
+                    subject["subject_reference"], "EPC_SESSION_CONTROL", 106,
+                    "CREATE_SESSION_REJECTED_OBSERVED", "GTPv2-C", "Create Session Response",
+                    interface=subject["interface"],
+                )
+            )
+    payload["boundary_analysis"] = {
+        "analysis_name": "epc-failure-boundary",
+        "analysis_version": "0.1.0",
+        "diagnostic_groups": groups,
+        "unbound_domain_analyses": [],
+        "ambiguities": [],
+        "limitations": [],
+        "additional_evidence_needed": [],
+        "not_confirmed": ["the selected boundary is a first observed abnormality, not a root cause"],
+    }
+    payload["boundary_error"] = None
+    return payload
+
+
 class WorkflowTestCase(unittest.TestCase):
     """Base class wiring deterministic fakes into the two external boundaries."""
 
@@ -1606,6 +1686,122 @@ class EpcSessionAdapterTests(WorkflowTestCase):
         text = self.read_text()
         self.assertIn("EPC_SESSION_CONTROL", text)
         self.assertIn("cross-interface association: NOT_ESTABLISHED", text)
+
+
+class EpcBoundaryAdapterTests(WorkflowTestCase):
+    """Unified EPC adapter behaviour for failure-boundary orchestration."""
+
+    def use_payload(self, payload: dict) -> None:
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+
+    def epc_result(self) -> dict:
+        return self.domain_result()
+
+    def test_attach_only_runs_orchestration(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "s1ap", "nas-eps"])
+        self.use_payload(epc_boundary_payload(attach_count=2, session=False))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["boundary_selection_status"], "EVALUATED_PER_SUBJECT")
+        self.assertEqual(result["boundary_summary"]["status_counts"], {"SELECTED": 2})
+        for subject in result["diagnostic_subjects"]:
+            self.assertEqual(subject["boundary_selection_status"], "SELECTED")
+            self.assertEqual(subject["boundary_confidence"], "HIGH")
+
+    def test_gtpv2_only_runs_orchestration(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "gtp", "gtpv2"])
+        self.use_payload(epc_boundary_payload(attach_count=0))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["boundary_selection_status"], "EVALUATED_PER_SUBJECT")
+        session_subjects = [
+            subject for subject in result["diagnostic_subjects"]
+            if subject["subject_type"] == "EPC_SESSION_CONTROL"
+        ]
+        self.assertEqual(len(session_subjects), 4)
+        for subject in session_subjects:
+            self.assertEqual(subject["first_abnormal_boundary"]["frame_number"], 106)
+
+    def test_mixed_capture_keeps_independent_boundaries(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "s1ap", "nas-eps", "gtpv2"])
+        self.use_payload(epc_boundary_payload(attach_count=1))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        subjects = self.epc_result()["diagnostic_subjects"]
+        attach = [s for s in subjects if s["subject_type"] == "EPS_ATTACH"]
+        session = [s for s in subjects if s["subject_type"] == "EPC_SESSION_CONTROL"]
+        self.assertEqual(attach[0]["first_abnormal_boundary"]["frame_number"], 47)
+        for subject in session:
+            self.assertEqual(subject["first_abnormal_boundary"]["frame_number"], 106)
+        references = {s["diagnostic_group_reference"] for s in subjects}
+        self.assertEqual(len(references), len(subjects))
+
+    def test_selected_boundary_preserves_exact_frame_evidence(self) -> None:
+        self.use_payload(epc_boundary_payload(attach_count=1))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        subject = self.epc_result()["diagnostic_subjects"][0]
+        boundary = subject["first_abnormal_boundary"]
+        self.assertEqual(boundary["frame_number"], 47)
+        self.assertEqual(boundary["protocol"], "NAS-EPS")
+        self.assertEqual(boundary["message_type"], "Attach reject")
+        self.assertEqual(boundary["evidence_level"], "OBSERVED")
+        self.assertEqual(boundary["evidence_refs"][0]["frame_number"], 47)
+        self.assertEqual(boundary["ordering_basis"], "exact_frame_number")
+
+    def test_no_global_epc_boundary_is_asserted(self) -> None:
+        self.use_payload(epc_boundary_payload(attach_count=1))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertIsNone(result["first_abnormal_boundary"])
+        self.assertEqual(result["boundary_selection_status"], "EVALUATED_PER_SUBJECT")
+        self.assertIn("no single global EPC boundary", result["first_abnormal_boundary_reason"])
+
+    def test_orchestration_failure_degrades_without_losing_domain_evidence(self) -> None:
+        payload = epc_boundary_payload(attach_count=1)
+        payload["boundary_analysis"] = None
+        payload["boundary_error"] = {"code": "ORCHESTRATION_FAILED", "message": "orchestration exited with 5"}
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertEqual(result["failure_code"], "ORCHESTRATION_FAILED")
+        self.assertEqual(result["diagnostic_subject_count"], 5)
+        for subject in result["diagnostic_subjects"]:
+            self.assertEqual(subject["boundary_selection_status"], "NOT_EVALUATED")
+            self.assertIsNone(subject["first_abnormal_boundary"])
+        self.assertTrue(any("ORCHESTRATION_FAILED" in item for item in result["degradation"]))
+
+    def test_report_text_shows_the_selected_boundary(self) -> None:
+        self.use_payload(epc_boundary_payload(attach_count=1))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        text = self.read_text()
+        self.assertIn("boundary: ATTACH_REJECT_OBSERVED at frame 47", text)
+        self.assertIn("NAS-EPS Attach reject", text)
+
+    def test_boundary_report_is_deterministic(self) -> None:
+        self.use_payload(epc_boundary_payload(attach_count=1))
+        first, second = self.base / "boundary-a", self.base / "boundary-b"
+        self.output = first
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        self.output = second
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        for name in ("analysis.json", "report.txt"):
+            self.assertEqual((first / name).read_bytes(), (second / name).read_bytes(), name)
+
+    def test_boundary_publication_is_privacy_safe(self) -> None:
+        self.use_payload(epc_boundary_payload(attach_count=1))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        published = (self.output / "analysis.json").read_text(encoding="utf-8") + self.read_text()
+        for forbidden in ("460020000000001", "1122334455667788", "919000001", "10.45.0.7"):
+            self.assertNotIn(forbidden, published)
+
+    def test_5gc_boundary_is_untouched_by_epc_orchestration(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "ngap", "nas-5gs", "s1ap"])
+        self.use_payload(epc_boundary_payload(attach_count=1))
+        self.assertEqual(self.run_cli(domains="5gc,epc"), 0)
+        report = self.read_report()
+        five = [r for r in report["domain_results"] if r["domain"] == "5gc"][0]
+        self.assertEqual(five["execution_status"], "COMPLETED")
+        self.assertIn("boundary_selection_status", five)
 
 
 if __name__ == "__main__":

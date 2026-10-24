@@ -152,6 +152,43 @@
       "procedure_families": [
         "delete-session"
       ],
+      "procedure_local_deviation_count": 1,
+      "procedure_local_deviations": [
+        {
+          "deviation_type": "INTERFACE_EVIDENCE_UNAVAILABLE",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 1,
+              "message_type": "Delete Session Request",
+              "message_type_code": 36,
+              "protocol": "GTPv2-C"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 4,
+              "message_type": "Delete Session Response",
+              "message_type_code": 37,
+              "protocol": "GTPv2-C"
+            }
+          ],
+          "explanation": "the control-plane hop of this transaction is not established by reviewed evidence",
+          "frame_number": 4,
+          "limitations": [
+            "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface"
+          ],
+          "message_type": "Delete Session Response",
+          "observation_window": {
+            "end_frame": 4,
+            "start_frame": 1
+          },
+          "procedure_family": "delete-session",
+          "protocol": "GTPv2-C",
+          "transaction_reference": "gtpv2-delete-session-1-22"
+        }
+      ],
+      "procedure_local_deviations_omitted": 0,
       "procedure_observations": {
         "delete-session": {
           "outcomes": [
@@ -301,6 +338,43 @@
       "procedure_families": [
         "delete-session"
       ],
+      "procedure_local_deviation_count": 1,
+      "procedure_local_deviations": [
+        {
+          "deviation_type": "INTERFACE_EVIDENCE_UNAVAILABLE",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 2,
+              "message_type": "Delete Session Request",
+              "message_type_code": 36,
+              "protocol": "GTPv2-C"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 3,
+              "message_type": "Delete Session Response",
+              "message_type_code": 37,
+              "protocol": "GTPv2-C"
+            }
+          ],
+          "explanation": "the control-plane hop of this transaction is not established by reviewed evidence",
+          "frame_number": 3,
+          "limitations": [
+            "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface"
+          ],
+          "message_type": "Delete Session Response",
+          "observation_window": {
+            "end_frame": 3,
+            "start_frame": 2
+          },
+          "procedure_family": "delete-session",
+          "protocol": "GTPv2-C",
+          "transaction_reference": "gtpv2-delete-session-2-10"
+        }
+      ],
+      "procedure_local_deviations_omitted": 0,
       "procedure_observations": {
         "delete-session": {
           "outcomes": [
@@ -549,6 +623,9 @@
         "modify-bearer",
         "release-access-bearers"
       ],
+      "procedure_local_deviation_count": 0,
+      "procedure_local_deviations": [],
+      "procedure_local_deviations_omitted": 0,
       "procedure_observations": {
         "create-session": {
           "outcomes": [
@@ -975,6 +1052,9 @@
       "procedure_families": [
         "create-session"
       ],
+      "procedure_local_deviation_count": 0,
+      "procedure_local_deviations": [],
+      "procedure_local_deviations_omitted": 0,
       "procedure_observations": {
         "create-session": {
           "outcomes": [
@@ -1145,6 +1225,7 @@
   "procedure_local_deviations": [
     {
       "deviation_type": "INTERFACE_EVIDENCE_UNAVAILABLE",
+      "evidence_level": "OBSERVED",
       "evidence_refs": [
         {
           "evidence_level": "OBSERVED",
@@ -1162,7 +1243,7 @@
         }
       ],
       "explanation": "the control-plane hop of this transaction is not established by reviewed evidence",
-      "frame_number": 1,
+      "frame_number": 4,
       "limitations": [
         "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface"
       ],
@@ -1177,6 +1258,7 @@
     },
     {
       "deviation_type": "INTERFACE_EVIDENCE_UNAVAILABLE",
+      "evidence_level": "OBSERVED",
       "evidence_refs": [
         {
           "evidence_level": "OBSERVED",
@@ -1194,7 +1276,7 @@
         }
       ],
       "explanation": "the control-plane hop of this transaction is not established by reviewed evidence",
-      "frame_number": 2,
+      "frame_number": 3,
       "limitations": [
         "no reviewed control-plane F-TEID or TEID continuity establishes the hop; a transport address alone does not identify an interface"
       ],
@@ -1208,6 +1290,7 @@
       "transaction_reference": "gtpv2-delete-session-2-10"
     }
   ],
+  "procedure_local_deviations_omitted": 0,
   "transaction_observations": [
     {
       "bearer_contexts": [],

@@ -71,14 +71,17 @@ Protocol Skill extract EPC access-signaling, NAS message and session-control
 evidence from LTE captures, and the bounded `epc-procedures` Domain Skill analyzes
 observed EPS Attach procedure stages and bounded GTPv2-C session-control
 transactions with procedure-local deviations, item-scoped bearer evidence and no
-bearer, PDN or service verdict. The extensions provide investigation context only.
+bearer, PDN or service verdict. The bounded `epc-failure-boundary` Orchestration
+Skill selects, per diagnostic subject, the earliest supported abnormal observation
+with exact frame evidence and explicit ambiguity, and never merges independent
+Attach, S11 and S5/S8 subjects into one EPC failure point. The extensions provide investigation context only.
 **Not yet implemented:** deep NGAP transfer-container decoding, the remaining
 NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
 relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
 semantics), remaining
 5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (SIP, SDP/RTP, Diameter), IMS Domain procedures,
-broader EPC procedures (bearer and session lifecycle, Diameter EPC, cross-interface session association, EPC failure-boundary orchestration),
+broader EPC procedures (bearer and session lifecycle, Diameter EPC, cross-interface session association, end-to-end EPC diagnosis),
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper
 diagnosis orchestration.
 

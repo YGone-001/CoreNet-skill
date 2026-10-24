@@ -1,0 +1,1123 @@
+{
+  "additional_evidence_needed": [
+    "capture the NAS Attach complete to observe procedure completion",
+    "capture the S1 Initial Context Setup exchange for this UE context",
+    "obtain decrypted NAS or a capture where the inner message identity is visible"
+  ],
+  "ambiguous_evidence": [],
+  "analysis_scope": "bounded EPS Attach procedure evidence",
+  "domain": "epc-procedures",
+  "domain_version": "0.1.0",
+  "global_boundary_evaluation": "NOT_EVALUATED",
+  "global_first_abnormal_boundary": null,
+  "input_provenance": {
+    "nas_eps_events": {
+      "event_count": 32,
+      "file": "nas-eps-events.jsonl"
+    },
+    "s1ap_events": {
+      "event_count": 40,
+      "file": "s1ap-events.jsonl"
+    }
+  },
+  "instance_count": 4,
+  "limitations": [
+    "No EPC Analysis Orchestration exists, so no global first-abnormal boundary is selected. Deviations below are procedure-local and frame-anchored."
+  ],
+  "model_version": "1.0.0",
+  "not_confirmed": [
+    "default bearer activation is not established by this analysis",
+    "PDN connectivity success is not established by this analysis",
+    "S1-U user-plane readiness is not established by this analysis",
+    "end-to-end service success is not established by this analysis",
+    "root cause and network-function blame are not established by this analysis",
+    "HSS, MME, SIM or implementation behaviour is not assessed"
+  ],
+  "procedure": "eps-attach",
+  "procedure_instances": [
+    {
+      "additional_evidence_needed": [
+        "capture the NAS Attach complete to observe procedure completion",
+        "capture the S1 Initial Context Setup exchange for this UE context",
+        "obtain decrypted NAS or a capture where the inner message identity is visible"
+      ],
+      "association": {
+        "basis": "pre_assignment_extension_unique_mme_identifier",
+        "capture_file": "s1ap_nas.pcap",
+        "enb_ue_s1ap_id": 24,
+        "mme_ue_s1ap_id": 24,
+        "sctp_association": "sctp-assoc-65535",
+        "strength": "STRONG"
+      },
+      "attempt_index": 1,
+      "deviations": [
+        {
+          "deviation_type": "ATTACH_REJECT_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 47,
+              "message_type": "Attach reject",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "explanation": "explicit Attach rejection observed with EMM cause 19 (ESM failure)",
+          "frame_number": 47,
+          "limitations": [],
+          "message_type": "Attach reject",
+          "observation_window": {
+            "end_frame": 47,
+            "start_frame": 33
+          },
+          "procedure_stage": "attach-decision",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 43,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 45,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "explanation": "protected NAS envelopes carry no observable inner message identity; the inner messages are unavailable, not absent",
+          "frame_number": 43,
+          "limitations": [
+            "ciphered inner NAS content is not decoded"
+          ],
+          "message_type": null,
+          "observation_window": {
+            "end_frame": 45,
+            "start_frame": 43
+          },
+          "procedure_stage": "attach-decision",
+          "protocol": "NAS-EPS"
+        }
+      ],
+      "evidence_limitations": [
+        "protected NAS envelopes prevent reading inner message identity in this attempt"
+      ],
+      "first_frame": 33,
+      "last_frame": 53,
+      "observations": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 33,
+          "message_type": "Attach request",
+          "observation_type": "ATTACH_REQUEST_OBSERVED",
+          "procedure_stage": "attach-initiation",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 37,
+          "message_type": "Authentication response",
+          "observation_type": "AUTHENTICATION_RESPONSE_OBSERVED",
+          "procedure_stage": "authentication",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 41,
+          "message_type": "Security mode complete",
+          "observation_type": "SECURITY_MODE_COMPLETE_OBSERVED",
+          "procedure_stage": "security-mode",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 49,
+          "message_type": "UEContextReleaseCommand",
+          "observation_type": "CONTEXT_RELEASE_OBSERVED",
+          "procedure_stage": "context-release",
+          "protocol": "S1AP"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 53,
+          "message_type": "UEContextReleaseComplete",
+          "observation_type": "CONTEXT_RELEASE_OBSERVED",
+          "procedure_stage": "context-release",
+          "protocol": "S1AP"
+        }
+      ],
+      "procedure": "eps-attach",
+      "procedure_label": "EPS Attach",
+      "procedure_reference": "epc-attach-44f18aebfc",
+      "stages": [
+        {
+          "conditional": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 33,
+              "message_type": "Attach request",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 33,
+          "last_frame": 33,
+          "messages": [
+            "Attach request"
+          ],
+          "stage_id": "attach-initiation",
+          "stage_name": "Attach initiation",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [],
+          "first_frame": null,
+          "last_frame": null,
+          "messages": [],
+          "stage_id": "identity",
+          "stage_name": "Identity procedure",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 35,
+              "message_type": "Authentication request",
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 37,
+              "message_type": "Authentication response",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 35,
+          "last_frame": 37,
+          "messages": [
+            "Authentication request",
+            "Authentication response"
+          ],
+          "stage_id": "authentication",
+          "stage_name": "Authentication procedure",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 39,
+              "message_type": "Security mode command",
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 41,
+              "message_type": "Security mode complete",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 39,
+          "last_frame": 41,
+          "messages": [
+            "Security mode command",
+            "Security mode complete"
+          ],
+          "stage_id": "security-mode",
+          "stage_name": "NAS security mode control",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 47,
+              "message_type": "Attach reject",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 47,
+          "last_frame": 47,
+          "messages": [
+            "Attach reject"
+          ],
+          "stage_id": "attach-decision",
+          "stage_name": "Attach decision",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": false,
+          "evidence_refs": [],
+          "first_frame": null,
+          "last_frame": null,
+          "messages": [],
+          "stage_id": "attach-completion",
+          "stage_name": "Attach completion",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [],
+          "first_frame": null,
+          "last_frame": null,
+          "messages": [],
+          "stage_id": "s1-context-setup",
+          "stage_name": "S1 context setup",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 49,
+              "message_type": "UEContextReleaseCommand",
+              "protocol": "S1AP"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 53,
+              "message_type": "UEContextReleaseComplete",
+              "protocol": "S1AP"
+            }
+          ],
+          "first_frame": 49,
+          "last_frame": 53,
+          "messages": [
+            "UEContextReleaseCommand",
+            "UEContextReleaseComplete"
+          ],
+          "stage_id": "context-release",
+          "stage_name": "UE context release",
+          "status": "OBSERVED"
+        }
+      ]
+    },
+    {
+      "additional_evidence_needed": [
+        "capture the NAS Attach complete to observe procedure completion",
+        "capture the S1 Initial Context Setup exchange for this UE context",
+        "obtain decrypted NAS or a capture where the inner message identity is visible"
+      ],
+      "association": {
+        "basis": "pre_assignment_extension_unique_mme_identifier",
+        "capture_file": "s1ap_nas.pcap",
+        "enb_ue_s1ap_id": 25,
+        "mme_ue_s1ap_id": 25,
+        "sctp_association": "sctp-assoc-65535",
+        "strength": "STRONG"
+      },
+      "attempt_index": 1,
+      "deviations": [
+        {
+          "deviation_type": "ATTACH_REJECT_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 75,
+              "message_type": "Attach reject",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "explanation": "explicit Attach rejection observed with EMM cause 19 (ESM failure)",
+          "frame_number": 75,
+          "limitations": [],
+          "message_type": "Attach reject",
+          "observation_window": {
+            "end_frame": 75,
+            "start_frame": 61
+          },
+          "procedure_stage": "attach-decision",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 71,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 73,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "explanation": "protected NAS envelopes carry no observable inner message identity; the inner messages are unavailable, not absent",
+          "frame_number": 71,
+          "limitations": [
+            "ciphered inner NAS content is not decoded"
+          ],
+          "message_type": null,
+          "observation_window": {
+            "end_frame": 73,
+            "start_frame": 71
+          },
+          "procedure_stage": "attach-decision",
+          "protocol": "NAS-EPS"
+        }
+      ],
+      "evidence_limitations": [
+        "protected NAS envelopes prevent reading inner message identity in this attempt"
+      ],
+      "first_frame": 61,
+      "last_frame": 81,
+      "observations": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 61,
+          "message_type": "Attach request",
+          "observation_type": "ATTACH_REQUEST_OBSERVED",
+          "procedure_stage": "attach-initiation",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 65,
+          "message_type": "Authentication response",
+          "observation_type": "AUTHENTICATION_RESPONSE_OBSERVED",
+          "procedure_stage": "authentication",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 69,
+          "message_type": "Security mode complete",
+          "observation_type": "SECURITY_MODE_COMPLETE_OBSERVED",
+          "procedure_stage": "security-mode",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 77,
+          "message_type": "UEContextReleaseCommand",
+          "observation_type": "CONTEXT_RELEASE_OBSERVED",
+          "procedure_stage": "context-release",
+          "protocol": "S1AP"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 81,
+          "message_type": "UEContextReleaseComplete",
+          "observation_type": "CONTEXT_RELEASE_OBSERVED",
+          "procedure_stage": "context-release",
+          "protocol": "S1AP"
+        }
+      ],
+      "procedure": "eps-attach",
+      "procedure_label": "EPS Attach",
+      "procedure_reference": "epc-attach-bae7c7576f",
+      "stages": [
+        {
+          "conditional": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 61,
+              "message_type": "Attach request",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 61,
+          "last_frame": 61,
+          "messages": [
+            "Attach request"
+          ],
+          "stage_id": "attach-initiation",
+          "stage_name": "Attach initiation",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [],
+          "first_frame": null,
+          "last_frame": null,
+          "messages": [],
+          "stage_id": "identity",
+          "stage_name": "Identity procedure",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 63,
+              "message_type": "Authentication request",
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 65,
+              "message_type": "Authentication response",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 63,
+          "last_frame": 65,
+          "messages": [
+            "Authentication request",
+            "Authentication response"
+          ],
+          "stage_id": "authentication",
+          "stage_name": "Authentication procedure",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 67,
+              "message_type": "Security mode command",
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 69,
+              "message_type": "Security mode complete",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 67,
+          "last_frame": 69,
+          "messages": [
+            "Security mode command",
+            "Security mode complete"
+          ],
+          "stage_id": "security-mode",
+          "stage_name": "NAS security mode control",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 75,
+              "message_type": "Attach reject",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 75,
+          "last_frame": 75,
+          "messages": [
+            "Attach reject"
+          ],
+          "stage_id": "attach-decision",
+          "stage_name": "Attach decision",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": false,
+          "evidence_refs": [],
+          "first_frame": null,
+          "last_frame": null,
+          "messages": [],
+          "stage_id": "attach-completion",
+          "stage_name": "Attach completion",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [],
+          "first_frame": null,
+          "last_frame": null,
+          "messages": [],
+          "stage_id": "s1-context-setup",
+          "stage_name": "S1 context setup",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 77,
+              "message_type": "UEContextReleaseCommand",
+              "protocol": "S1AP"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 81,
+              "message_type": "UEContextReleaseComplete",
+              "protocol": "S1AP"
+            }
+          ],
+          "first_frame": 77,
+          "last_frame": 81,
+          "messages": [
+            "UEContextReleaseCommand",
+            "UEContextReleaseComplete"
+          ],
+          "stage_id": "context-release",
+          "stage_name": "UE context release",
+          "status": "OBSERVED"
+        }
+      ]
+    },
+    {
+      "additional_evidence_needed": [
+        "capture the NAS Attach complete to observe procedure completion",
+        "capture the S1 Initial Context Setup exchange for this UE context",
+        "obtain decrypted NAS or a capture where the inner message identity is visible"
+      ],
+      "association": {
+        "basis": "pre_assignment_extension_unique_mme_identifier",
+        "capture_file": "s1ap_nas.pcap",
+        "enb_ue_s1ap_id": 26,
+        "mme_ue_s1ap_id": 26,
+        "sctp_association": "sctp-assoc-65535",
+        "strength": "STRONG"
+      },
+      "attempt_index": 1,
+      "deviations": [
+        {
+          "deviation_type": "ATTACH_REJECT_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 111,
+              "message_type": "Attach reject",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "explanation": "explicit Attach rejection observed with EMM cause 19 (ESM failure)",
+          "frame_number": 111,
+          "limitations": [],
+          "message_type": "Attach reject",
+          "observation_window": {
+            "end_frame": 111,
+            "start_frame": 97
+          },
+          "procedure_stage": "attach-decision",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 107,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 109,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "explanation": "protected NAS envelopes carry no observable inner message identity; the inner messages are unavailable, not absent",
+          "frame_number": 107,
+          "limitations": [
+            "ciphered inner NAS content is not decoded"
+          ],
+          "message_type": null,
+          "observation_window": {
+            "end_frame": 109,
+            "start_frame": 107
+          },
+          "procedure_stage": "attach-decision",
+          "protocol": "NAS-EPS"
+        }
+      ],
+      "evidence_limitations": [
+        "protected NAS envelopes prevent reading inner message identity in this attempt"
+      ],
+      "first_frame": 97,
+      "last_frame": 117,
+      "observations": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 97,
+          "message_type": "Attach request",
+          "observation_type": "ATTACH_REQUEST_OBSERVED",
+          "procedure_stage": "attach-initiation",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 101,
+          "message_type": "Authentication response",
+          "observation_type": "AUTHENTICATION_RESPONSE_OBSERVED",
+          "procedure_stage": "authentication",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 105,
+          "message_type": "Security mode complete",
+          "observation_type": "SECURITY_MODE_COMPLETE_OBSERVED",
+          "procedure_stage": "security-mode",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 113,
+          "message_type": "UEContextReleaseCommand",
+          "observation_type": "CONTEXT_RELEASE_OBSERVED",
+          "procedure_stage": "context-release",
+          "protocol": "S1AP"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 117,
+          "message_type": "UEContextReleaseComplete",
+          "observation_type": "CONTEXT_RELEASE_OBSERVED",
+          "procedure_stage": "context-release",
+          "protocol": "S1AP"
+        }
+      ],
+      "procedure": "eps-attach",
+      "procedure_label": "EPS Attach",
+      "procedure_reference": "epc-attach-21db6602e4",
+      "stages": [
+        {
+          "conditional": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 97,
+              "message_type": "Attach request",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 97,
+          "last_frame": 97,
+          "messages": [
+            "Attach request"
+          ],
+          "stage_id": "attach-initiation",
+          "stage_name": "Attach initiation",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [],
+          "first_frame": null,
+          "last_frame": null,
+          "messages": [],
+          "stage_id": "identity",
+          "stage_name": "Identity procedure",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 99,
+              "message_type": "Authentication request",
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 101,
+              "message_type": "Authentication response",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 99,
+          "last_frame": 101,
+          "messages": [
+            "Authentication request",
+            "Authentication response"
+          ],
+          "stage_id": "authentication",
+          "stage_name": "Authentication procedure",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 103,
+              "message_type": "Security mode command",
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 105,
+              "message_type": "Security mode complete",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 103,
+          "last_frame": 105,
+          "messages": [
+            "Security mode command",
+            "Security mode complete"
+          ],
+          "stage_id": "security-mode",
+          "stage_name": "NAS security mode control",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 111,
+              "message_type": "Attach reject",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 111,
+          "last_frame": 111,
+          "messages": [
+            "Attach reject"
+          ],
+          "stage_id": "attach-decision",
+          "stage_name": "Attach decision",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": false,
+          "evidence_refs": [],
+          "first_frame": null,
+          "last_frame": null,
+          "messages": [],
+          "stage_id": "attach-completion",
+          "stage_name": "Attach completion",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [],
+          "first_frame": null,
+          "last_frame": null,
+          "messages": [],
+          "stage_id": "s1-context-setup",
+          "stage_name": "S1 context setup",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 113,
+              "message_type": "UEContextReleaseCommand",
+              "protocol": "S1AP"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 117,
+              "message_type": "UEContextReleaseComplete",
+              "protocol": "S1AP"
+            }
+          ],
+          "first_frame": 113,
+          "last_frame": 117,
+          "messages": [
+            "UEContextReleaseCommand",
+            "UEContextReleaseComplete"
+          ],
+          "stage_id": "context-release",
+          "stage_name": "UE context release",
+          "status": "OBSERVED"
+        }
+      ]
+    },
+    {
+      "additional_evidence_needed": [
+        "capture the NAS Attach complete to observe procedure completion",
+        "capture the S1 Initial Context Setup exchange for this UE context",
+        "obtain decrypted NAS or a capture where the inner message identity is visible"
+      ],
+      "association": {
+        "basis": "pre_assignment_extension_unique_mme_identifier",
+        "capture_file": "s1ap_nas.pcap",
+        "enb_ue_s1ap_id": 27,
+        "mme_ue_s1ap_id": 27,
+        "sctp_association": "sctp-assoc-65535",
+        "strength": "STRONG"
+      },
+      "attempt_index": 1,
+      "deviations": [
+        {
+          "deviation_type": "ATTACH_REJECT_OBSERVED",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 139,
+              "message_type": "Attach reject",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "explanation": "explicit Attach rejection observed with EMM cause 19 (ESM failure)",
+          "frame_number": 139,
+          "limitations": [],
+          "message_type": "Attach reject",
+          "observation_window": {
+            "end_frame": 139,
+            "start_frame": 125
+          },
+          "procedure_stage": "attach-decision",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "deviation_type": "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+          "evidence_level": "OBSERVED",
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 135,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 137,
+              "message_type": null,
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "explanation": "protected NAS envelopes carry no observable inner message identity; the inner messages are unavailable, not absent",
+          "frame_number": 135,
+          "limitations": [
+            "ciphered inner NAS content is not decoded"
+          ],
+          "message_type": null,
+          "observation_window": {
+            "end_frame": 137,
+            "start_frame": 135
+          },
+          "procedure_stage": "attach-decision",
+          "protocol": "NAS-EPS"
+        }
+      ],
+      "evidence_limitations": [
+        "protected NAS envelopes prevent reading inner message identity in this attempt"
+      ],
+      "first_frame": 125,
+      "last_frame": 145,
+      "observations": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 125,
+          "message_type": "Attach request",
+          "observation_type": "ATTACH_REQUEST_OBSERVED",
+          "procedure_stage": "attach-initiation",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 129,
+          "message_type": "Authentication response",
+          "observation_type": "AUTHENTICATION_RESPONSE_OBSERVED",
+          "procedure_stage": "authentication",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 133,
+          "message_type": "Security mode complete",
+          "observation_type": "SECURITY_MODE_COMPLETE_OBSERVED",
+          "procedure_stage": "security-mode",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 141,
+          "message_type": "UEContextReleaseCommand",
+          "observation_type": "CONTEXT_RELEASE_OBSERVED",
+          "procedure_stage": "context-release",
+          "protocol": "S1AP"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 145,
+          "message_type": "UEContextReleaseComplete",
+          "observation_type": "CONTEXT_RELEASE_OBSERVED",
+          "procedure_stage": "context-release",
+          "protocol": "S1AP"
+        }
+      ],
+      "procedure": "eps-attach",
+      "procedure_label": "EPS Attach",
+      "procedure_reference": "epc-attach-8cdcaa8b18",
+      "stages": [
+        {
+          "conditional": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 125,
+              "message_type": "Attach request",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 125,
+          "last_frame": 125,
+          "messages": [
+            "Attach request"
+          ],
+          "stage_id": "attach-initiation",
+          "stage_name": "Attach initiation",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [],
+          "first_frame": null,
+          "last_frame": null,
+          "messages": [],
+          "stage_id": "identity",
+          "stage_name": "Identity procedure",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 127,
+              "message_type": "Authentication request",
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 129,
+              "message_type": "Authentication response",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 127,
+          "last_frame": 129,
+          "messages": [
+            "Authentication request",
+            "Authentication response"
+          ],
+          "stage_id": "authentication",
+          "stage_name": "Authentication procedure",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 131,
+              "message_type": "Security mode command",
+              "protocol": "NAS-EPS"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 133,
+              "message_type": "Security mode complete",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 131,
+          "last_frame": 133,
+          "messages": [
+            "Security mode command",
+            "Security mode complete"
+          ],
+          "stage_id": "security-mode",
+          "stage_name": "NAS security mode control",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 139,
+              "message_type": "Attach reject",
+              "protocol": "NAS-EPS"
+            }
+          ],
+          "first_frame": 139,
+          "last_frame": 139,
+          "messages": [
+            "Attach reject"
+          ],
+          "stage_id": "attach-decision",
+          "stage_name": "Attach decision",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": false,
+          "evidence_refs": [],
+          "first_frame": null,
+          "last_frame": null,
+          "messages": [],
+          "stage_id": "attach-completion",
+          "stage_name": "Attach completion",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": true,
+          "evidence_refs": [],
+          "first_frame": null,
+          "last_frame": null,
+          "messages": [],
+          "stage_id": "s1-context-setup",
+          "stage_name": "S1 context setup",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 141,
+              "message_type": "UEContextReleaseCommand",
+              "protocol": "S1AP"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 145,
+              "message_type": "UEContextReleaseComplete",
+              "protocol": "S1AP"
+            }
+          ],
+          "first_frame": 141,
+          "last_frame": 145,
+          "messages": [
+            "UEContextReleaseCommand",
+            "UEContextReleaseComplete"
+          ],
+          "stage_id": "context-release",
+          "stage_name": "UE context release",
+          "status": "OBSERVED"
+        }
+      ]
+    }
+  ],
+  "procedure_label": "EPS Attach",
+  "stage_vocabulary": [
+    "attach-initiation",
+    "identity",
+    "authentication",
+    "security-mode",
+    "attach-decision",
+    "attach-completion",
+    "s1-context-setup",
+    "context-release"
+  ],
+  "unbound_evidence": []
+}
