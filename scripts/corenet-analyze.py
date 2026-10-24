@@ -167,10 +167,11 @@ DOMAIN_CAPABILITIES: dict[str, dict[str, Any]] = {
         "entry_point": None,
         "entry_point_available": False,
         "required_dependencies": [],
-        "planned_protocol_families": ["NAS-EPS", "S1AP", "GTPv2-C", "GTP-U", "Diameter"],
+        "planned_protocol_families": ["GTPv2-C", "Diameter EPC"],
         "unsupported_reason": (
-            "No EPC Protocol Skill (NAS-EPS, S1AP, GTPv2-C, Diameter EPC) and no EPC "
-            "Domain procedure Skill is implemented in this repository."
+            "The bounded `s1ap` and `nas-eps` Protocol Skills extract EPC signaling evidence, "
+            "but no EPC Domain procedure Skill and no unified EPC execution adapter is "
+            "implemented in this repository."
         ),
     },
     DOMAIN_IMS: {
