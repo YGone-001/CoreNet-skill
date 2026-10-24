@@ -63,8 +63,10 @@ separately addressable handover and Path Switch attempts with Domain-authorized
 source/target context bridges, candidates drawn only from Domain-emitted deviations
 and their machine-readable evidence_refs (Domain contracts 5gc-registration-mobility
 >=0.2.0, 5gc-pdu-session >=0.4.0, and 5gc-handover-mobility >=0.1.0), provenance-based
-ordering with no severity ranking, and no root-cause or blame output). The extensions
-provide investigation context only.
+ordering with no severity ranking, and no root-cause or blame output). The unified
+`scripts/corenet-analyze.py` analysis workflow executes that accepted 5GC chain from
+a single command-line entry point and reports EPC and IMS as explicitly unsupported
+capabilities. The extensions provide investigation context only.
 **Not yet implemented:** deep NGAP transfer-container decoding, the remaining
 NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
@@ -104,6 +106,26 @@ Diameter is explicitly cross-domain—not an IMS-owned protocol. `diameter-core`
 ## Evidence first
 
 All future troubleshooting output must separate observations, deterministic derivations, inferences, hypotheses, and confirmed results. A visible network action is not proof of a cause. The formal evidence levels and safe-language rule are in [docs/EVIDENCE-SCHEMA.md](docs/EVIDENCE-SCHEMA.md); normalized events and diagnostic results are schema-defined in `shared/schemas/`.
+
+## Analyze a capture
+
+`scripts/corenet-analyze.py` is the unified analysis entry point. It executes the
+accepted Protocol, Correlation, Domain and Orchestration Skills for 5GC captures and
+writes `analysis.json` plus `report.txt`.
+
+```bash
+python3 scripts/corenet-analyze.py \
+  --capture /data/captures/registration.pcap \
+  --domains auto \
+  --work-dir /tmp/corenet-work \
+  --output-dir /tmp/corenet-output
+```
+
+`--domains` accepts `auto`, `5gc`, `epc`, `ims`, or a comma-separated list. Only 5GC
+executes today; EPC and IMS report `UNSUPPORTED` rather than inventing results. The
+workflow localizes an evidence-supported boundary and never asserts network health.
+See [docs/ANALYSIS-WORKFLOW.md](docs/ANALYSIS-WORKFLOW.md) for prerequisites, exit
+codes, the report contract, privacy rules and the EPC/IMS roadmap.
 
 ## Repository structure
 

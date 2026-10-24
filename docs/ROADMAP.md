@@ -45,4 +45,8 @@ healthy relevant Protocol extraction on all thirteen captures and localizes the
 remaining gaps to the Domain layer, whose input contract rejects NGAP records
 for procedures outside bounded NGAP ownership, and to procedure families no
 implemented Domain owns. One capture exercises the complete Protocol,
-Correlation, Domain and Orchestration chain.
+Correlation, Domain and Orchestration chain. The unified
+`scripts/corenet-analyze.py` analysis workflow is implemented as an
+application-level entry point outside the Skill layers: it executes that accepted
+5GC chain for a capture and reports EPC and IMS as unsupported capabilities until
+their Protocol and Domain Skills exist.
