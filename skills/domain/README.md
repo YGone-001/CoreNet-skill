@@ -10,7 +10,7 @@ handover and Path Switch procedure analysis from already-extracted NGAP/PFCP/
 GTP-U/SBI evidence with separate handover and path-switch attempt families,
 evidence-bounded source/target association, branch-aware stages, item-scoped
 PDU Session resource outcomes, bounded N11/N4/N3 supporting evidence, and
-structured deviation provenance, and `epc-procedures` (v0.5.0), performing bounded
+structured deviation provenance, and `epc-procedures` (v0.6.0), performing bounded
 EPS Attach procedure evidence analysis, bounded EPC session-control transaction analysis
 and bounded EPS default-bearer signalling analysis from already-extracted S1AP, NAS-EPS
 and GTPv2-C events, with frame-anchored UE association, conditional stage evaluation,

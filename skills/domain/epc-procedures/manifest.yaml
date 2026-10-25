@@ -1,5 +1,5 @@
 name: epc-procedures
-version: 0.5.0
+version: 0.6.0
 category: domain
 description: >
   Bounded EPS Attach procedure analysis over already-extracted S1AP and NAS-EPS
@@ -24,9 +24,17 @@ description: >
   transaction correlation: advertisement-family classification of repeated S1-U
   F-TEID advertisements, generation identity scoped by capture, role, endpoint and
   interface type, explicit release boundaries and endpoint-reuse observations, and
-  frame-level GTP-U attribution with conserved packet and octet accounting. No
-  protocol decoding, no bearer or PDN success claim, no delivery verdict, no
-  global failure-boundary selection, no root cause.
+  frame-level GTP-U attribution with conserved packet and octet accounting, plus
+  bounded EPC S11<->S5/S8 session-identity bridge and release-binding evidence over
+  the accepted GTPv2-C events and transactions: hop-local session contexts joined
+  only by receiver-scoped control-plane F-TEID addressing with its GTP-C path peer,
+  cross-interface endpoint correspondence kept strictly separate from session
+  identity, session identity established only by a unique relayed PGW S5/S8
+  control-plane F-TEID, release-to-session bindings with separately classified
+  release outcomes, and reviewed session-context generation closure consumed by the
+  lifecycle capability through a documented input contract. No protocol decoding, no
+  bearer or PDN success claim, no delivery verdict, no global failure-boundary
+  selection, no root cause.
 scope:
   includes:
     - EPS Attach procedure instance formation scoped by capture, SCTP association and S1AP UE identifiers
@@ -50,6 +58,11 @@ scope:
     - release boundaries proved only by an accepted release that names the released S1-U endpoint
     - endpoint reuse across a proved boundary published as separate generations; reuse without proof stays ambiguous
     - generation-aware GTP-U attribution from frame-level events with conserved packet and octet accounting
+    - hop-local S11 and S5/S8 session contexts joined only by receiver-scoped control-plane F-TEID addressing with its GTP-C path peer
+    - cross-interface endpoint correspondence published separately from cross-interface session identity
+    - session identity established only by a relayed PGW S5/S8 control-plane F-TEID that is equal and unique on both hops
+    - release-to-session bindings whose outcomes stay separately classified
+    - reviewed session-context generation closure consumed by the lifecycle capability through a documented input contract
   excludes:
     - Diameter, S6a or Gx/Gy signalling
     - cross-interface S11 to S5/S8 session association without a reviewed identity bridge
@@ -90,6 +103,8 @@ outputs:
   - S1-U stream timeline JSON Lines and text
   - EPC bearer lifecycle analysis JSON (schemas/epc-bearer-lifecycle-analysis.schema.json)
   - bearer generation timeline JSON Lines
+  - EPC session-identity analysis JSON (schemas/epc-session-identity-analysis.schema.json)
+  - session-identity text report
 protocols: [S1AP, NAS-EPS, GTPv2-C, GTP-U]
 interfaces: [S1-MME, N1, S11, S5/S8, S1-U]
 network_functions: []

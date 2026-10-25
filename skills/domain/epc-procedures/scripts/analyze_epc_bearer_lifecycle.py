@@ -45,6 +45,12 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--session", type=Path, help="accepted EPC session-control analysis JSON")
     result.add_argument("--default-bearer", type=Path, help="accepted EPS default-bearer analysis JSON")
     result.add_argument("--s1u", type=Path, help="accepted EPC S1-U observation JSON")
+    result.add_argument(
+        "--session-identity",
+        type=Path,
+        help="accepted EPC session-identity analysis JSON for the reviewed session-context "
+        "release path",
+    )
     result.add_argument("--gtpu", type=Path, help="detailed GTP-U event JSONL for frame-level attribution")
     result.add_argument("--output", type=Path, required=True, help="lifecycle analysis JSON destination")
     result.add_argument(
@@ -113,7 +119,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     sources = [
         path
-        for path in (args.gtpv2, args.transactions, args.session, args.default_bearer, args.s1u, args.gtpu)
+        for path in (
+            args.gtpv2,
+            args.transactions,
+            args.session,
+            args.default_bearer,
+            args.s1u,
+            args.gtpu,
+            args.session_identity,
+        )
         if path is not None
     ]
     try:
@@ -123,6 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         default_bearer = read_json(args.default_bearer) if args.default_bearer is not None else None
         s1u = read_json(args.s1u) if args.s1u is not None else None
         gtpu = read_jsonl(args.gtpu) if args.gtpu is not None else []
+        session_identity = read_json(args.session_identity) if args.session_identity is not None else None
         analysis = analyze(
             events,
             transactions=transactions,
@@ -130,6 +145,7 @@ def main(argv: list[str] | None = None) -> int:
             default_bearer=default_bearer,
             s1u_analysis=s1u,
             gtpu_events=gtpu,
+            session_identity=session_identity,
             provenance={
                 "gtpv2_events": safe_name(args.gtpv2),
                 "gtpv2_event_count": len(events),
@@ -140,6 +156,9 @@ def main(argv: list[str] | None = None) -> int:
                 "s1u_observation": safe_name(args.s1u) if args.s1u else None,
                 "gtpu_events": safe_name(args.gtpu) if args.gtpu else None,
                 "gtpu_event_count": len(gtpu),
+                "session_identity_analysis": (
+                    safe_name(args.session_identity) if args.session_identity else None
+                ),
             },
         )
         _check(sources, args.output, args.force)

@@ -179,3 +179,36 @@ never assigned to the earliest generation of a reused endpoint. Frames outside a
 proved window, or inside an interval covered by more than one generation, stay
 `GENERATION_UNRESOLVED` and keep their counts. An unresolved attribution is not
 packet loss and not a tunnel failure.
+
+## Session-context release path (input contract)
+
+`analyze_epc_bearer_lifecycle.py` accepts one optional additional input:
+
+```bash
+--session-identity epc-session-identity-analysis.json
+```
+
+The file must be an accepted EPC session-identity analysis
+(`schemas/epc-session-identity-analysis.schema.json`). Through this documented
+input contract the lifecycle capability may close a generation through the
+**reviewed session-context release path** when all of the following hold:
+
+1. the analysis publishes an `ESTABLISHED` `RELEASE_TO_SESSION_CONTEXT` binding
+   for the release transaction, in the same capture;
+2. it publishes an `ESTABLISHED` `SESSION_CONTEXT_TO_BEARER_GENERATION` link
+   whose bearer endpoint matches the generation's receiving role, address, TEID
+   and interface type;
+3. it publishes an `ESTABLISHED` generation-closure candidate for that
+   context/release/endpoint triple;
+4. the lifecycle's own capture-scoped transaction binding independently resolves
+   the same release transaction to one accepted request/response pair with exact
+   frames;
+5. exactly one candidate release remains; an ambiguous direct path never falls
+   back to the session-context path, and an ambiguous identity chain closes
+   nothing.
+
+Such a boundary publishes the basis
+`accepted_release_response_bound_by_reviewed_session_context` and keeps
+`release_effective_frame_proven = false`. The direct endpoint-bound path is
+unchanged and remains authoritative; without the optional input the lifecycle
+output is identical to its previous contract.

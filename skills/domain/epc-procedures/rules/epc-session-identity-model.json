@@ -1,0 +1,130 @@
+{
+  "model": "epc-session-identity",
+  "model_version": "1.0.0",
+  "reviewed_against": [
+    "3GPP TS 23.401 sec 5.3.2 initial attach and default bearer establishment",
+    "3GPP TS 23.401 sec 5.3.5 detach and bearer release",
+    "3GPP TS 23.401 sec 5.4 bearer modification",
+    "3GPP TS 29.274 sec 7.1 GTP-C tunnel identity: TEID, address and path peer",
+    "3GPP TS 29.274 sec 7.2 GTPv2-C tunnel management messages including Delete Session",
+    "3GPP TS 29.274 sec 8.21 F-TEID",
+    "3GPP TS 29.274 sec 8.22 F-TEID interface types",
+    "3GPP TS 29.274 sec 8.4 Cause values",
+    "3GPP TS 36.413 sec 9.1.4 E-RABToBeSetupItemCtxtSUReq",
+    "3GPP TS 36.413 sec 9.1.5 E-RABSetupItemCtxtSURes",
+    "3GPP TS 29.281 sec 4.4 GTP-U TEID and receiving endpoint"
+  ],
+  "relationship_types": [
+    "HOP_LOCAL_SESSION_CONTEXT",
+    "CROSS_INTERFACE_ENDPOINT_CORRESPONDENCE",
+    "CROSS_INTERFACE_SESSION_IDENTITY",
+    "RELEASE_TO_SESSION_CONTEXT",
+    "SESSION_CONTEXT_TO_BEARER_GENERATION"
+  ],
+  "association_statuses": [
+    "ESTABLISHED",
+    "SUPPORTED",
+    "AMBIGUOUS",
+    "NOT_ESTABLISHED"
+  ],
+  "identity_rules": {
+    "hop_local_context_scope": [
+      "capture_identity",
+      "one_hop_interface_class",
+      "one_allocation_transaction",
+      "hop_local_control_plane_fteids_with_interface_type_and_address"
+    ],
+    "hop_local_control_plane_fteid_interface_types": {
+      "S11": [10, 11],
+      "S5/S8": [6, 7]
+    },
+    "context_join_requires": [
+      "request_header_teid_not_zero",
+      "request_destination_equals_one_hop_local_control_plane_fteid_address_and_teid",
+      "request_source_equals_a_hop_local_control_plane_fteid_address_of_the_same_context",
+      "exactly_one_candidate_context",
+      "capture_scoped_evaluation"
+    ],
+    "receiver_side_teid_interpretation": "a GTPv2-C header TEID is interpreted in the scope of its receiving control-plane endpoint and its GTP-C path peer; it is never a globally unique context identifier",
+    "relayed_fteid_policy": "a control-plane F-TEID whose interface type is foreign to the hop (an S5/S8 PGW GTP-C F-TEID published by an S11 response) is bridge evidence only and never a join key; an F-TEID with TEID 0 is an address hint and never a join key",
+    "cross_interface_session_identity_requires": [
+      "both_hop_contexts_independently_established",
+      "same_authorized_capture_context",
+      "reviewed_interface_roles",
+      "one_independent_identity_bridge",
+      "bridge_bound_to_exact_message_or_bearer_item",
+      "compatible_lifecycle_windows",
+      "bridge_cannot_belong_to_competing_sessions",
+      "no_observed_identifier_conflict",
+      "no_materially_incomplete_or_truncated_source_collection",
+      "exact_source_frames_published"
+    ],
+    "endpoint_correspondence_requires": [
+      "endpoint_explicitly_advertised_on_both_hops",
+      "address_teid_and_interface_type_agree",
+      "compatible_source_ie_scopes",
+      "item_scoped_bearer_identities_agree_where_present",
+      "no_competing_endpoint_owner",
+      "no_conflicting_lifecycle_generation"
+    ],
+    "release_binding_requires": [
+      "exact_request_and_accepted_response_provenance",
+      "matched_transaction",
+      "reviewed_correlation_strength",
+      "compatible_resolved_interface",
+      "correct_receiving_side_control_plane_endpoint",
+      "receiver_scoped_control_plane_fteid_addressing",
+      "compatible_lifecycle_and_context_generation",
+      "no_competing_session_candidate",
+      "exact_source_frames"
+    ],
+    "generation_closure_candidate_requires": [
+      "accepted_release_outcome",
+      "one_accepted_transaction",
+      "release_uniquely_names_the_control_plane_context",
+      "context_linked_to_one_bearer_endpoint_per_receiving_role_by_accepted_source_evidence",
+      "no_competing_endpoint_of_the_same_role",
+      "no_invented_cross_interface_join",
+      "exact_capture_and_transaction_provenance",
+      "distinct_release_request_and_confirmation_frames",
+      "release_bearer_identities_compatible_with_endpoint_item_scoped_identities"
+    ],
+    "forbidden_as_identity_evidence": [
+      "equal_header_teid_alone",
+      "equal_ebi_alone",
+      "equal_erab_id_alone",
+      "equal_gtpv2_c_sequence_number",
+      "equal_cause",
+      "equal_s1_u_teid_alone",
+      "equal_ip_address_alone",
+      "common_sgw_ip_address",
+      "event_proximity",
+      "same_pcap",
+      "one_apparent_ue",
+      "same_procedure_name"
+    ],
+    "tie_breaking_is_prohibited": [
+      "first_seen_order",
+      "lowest_frame",
+      "lowest_teid",
+      "earliest_create_session_transaction",
+      "highest_correlation_strength_alone"
+    ],
+    "correlation_strength_policy": {
+      "STRONG": "eligible when every other gate passes",
+      "SUPPORTED": "eligible when every other gate passes; published so the weaker corroboration stays visible",
+      "NONE": "never sufficient for any relationship",
+      "missing_or_unreviewed": "never sufficient"
+    }
+  },
+  "not_confirmed": [
+    "a hop-local session context is a control-plane grouping, not proof of a complete EPC session",
+    "an endpoint correspondence never establishes cross-interface session identity by itself",
+    "a numerically equal TEID, EBI or sequence number is never an identity bridge",
+    "a release bound to a control-plane context does not by itself close a bearer generation",
+    "an accepted release outcome stays unchanged whatever the session binding resolves to",
+    "the exact instant user-plane forwarding stopped is never proven by a release response",
+    "no subscriber identity, APN name or assigned PDN address is read or published",
+    "no complete EPC session or bearer state machine is implemented"
+  ]
+}

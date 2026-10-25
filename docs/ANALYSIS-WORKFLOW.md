@@ -336,10 +336,17 @@ A fifth EPC step publishes bounded bearer lifecycle-generation evidence beneath 
 EPC domain result: repeated S1-U F-TEID advertisements are consolidated into an
 advertisement family only when one accepted transaction proves the request/response
 relationship, a generation closes only when an accepted release names the endpoint it
-releases, and observed G-PDUs are attributed to a proved generation from frame-level
+releases or is bound to its session context through the reviewed session-context
+path, and observed G-PDUs are attributed to a proved generation from frame-level
 events with conserved packet and octet accounting. Unresolved packets stay visible,
 no generation subject is invented, and a lifecycle failure degrades the EPC status
 instead of being reported as completed.
+A sixth EPC step, the session-identity bridge, runs before the lifecycle step and
+evaluates hop-local session contexts, cross-interface endpoint correspondence and
+session identity, release-to-session bindings and reviewed generation-closure
+candidates; the lifecycle step consumes it through a documented input contract, and
+the failure-boundary orchestration runs afterwards with unchanged inputs so boundary
+selection stays independent of identity evidence.
 An S1-U observation subject reports one directed GTP-U stream with its observed G-PDU
 and payload-octet counts and its `SUPPORTED`/`AMBIGUOUS`/`NOT_ESTABLISHED`
 association; it never claims UE delivery or application reachability. A default-bearer subject

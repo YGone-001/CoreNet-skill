@@ -2,15 +2,15 @@
   "model": "epc-bearer-lifecycle",
   "model_version": "1.0.0",
   "reviewed_against": [
-    "3GPP TS 23.401 \u00a75.3.2 initial attach and default bearer establishment",
-    "3GPP TS 23.401 \u00a75.4 bearer modification",
-    "3GPP TS 23.401 \u00a75.3.5 detach and bearer release",
-    "3GPP TS 29.274 \u00a77.2 GTPv2-C message composition",
-    "3GPP TS 29.274 \u00a78.22 F-TEID interface types",
-    "3GPP TS 29.274 \u00a78.4 Cause values",
-    "3GPP TS 36.413 \u00a79.1.4 E-RABToBeSetupItemCtxtSUReq",
-    "3GPP TS 36.413 \u00a79.1.5 E-RABSetupItemCtxtSURes",
-    "3GPP TS 29.281 \u00a74.4 GTP-U TEID and receiving endpoint"
+    "3GPP TS 23.401 §5.3.2 initial attach and default bearer establishment",
+    "3GPP TS 23.401 §5.4 bearer modification",
+    "3GPP TS 23.401 §5.3.5 detach and bearer release",
+    "3GPP TS 29.274 §7.2 GTPv2-C message composition",
+    "3GPP TS 29.274 §8.22 F-TEID interface types",
+    "3GPP TS 29.274 §8.4 Cause values",
+    "3GPP TS 36.413 §9.1.4 E-RABToBeSetupItemCtxtSUReq",
+    "3GPP TS 36.413 §9.1.5 E-RABSetupItemCtxtSURes",
+    "3GPP TS 29.281 §4.4 GTP-U TEID and receiving endpoint"
   ],
   "advertisement_family_classifications": [
     "SINGLE_ADVERTISEMENT",
@@ -82,6 +82,23 @@
       "bound_control_plane_context",
       "compatible_bearer_identity",
       "single_candidate_boundary"
+    ],
+    "generation_closure_paths": [
+      {
+        "path": "direct_endpoint_binding",
+        "boundary_basis": "accepted_release_response_bound_to_the_same_control_plane_context",
+        "requires": "the accepted release names the released S1-U receiving endpoint"
+      },
+      {
+        "path": "reviewed_session_context_binding",
+        "boundary_basis": "accepted_release_response_bound_by_reviewed_session_context",
+        "requires": [
+          "an accepted EPC session-identity analysis whose release binding, session-to-generation link and closure candidate are all ESTABLISHED for this capture",
+          "the lifecycle's own boundary record independently classifies the same release transaction as accepted in the same capture",
+          "exactly one candidate release; an ambiguous direct path never falls back",
+          "request and confirmation frames stay distinct and release_effective_frame_proven stays false"
+        ]
+      }
     ],
     "packet_attribution_requires": [
       "frame_level_gtpu_event",

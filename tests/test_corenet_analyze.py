@@ -2500,6 +2500,47 @@ class EpcUserPlaneDeclarationTests(WorkflowTestCase):
         self.assertEqual(subject["bearer_association_status"], "NOT_ESTABLISHED")
 
 
+def session_identity_analysis(
+    *,
+    contexts: int = 2,
+    established: int = 2,
+    correspondences: int = 1,
+    identities: int = 1,
+    bindings: int = 2,
+    candidates: int = 2,
+) -> dict:
+    return {
+        "domain": "epc-procedures",
+        "analysis_name": "epc-session-identity",
+        "analysis_version": "1.0.0",
+        "hop_local_context_count": contexts,
+        "established_hop_local_context_count": established,
+        "endpoint_correspondence_count": correspondences,
+        "session_identity_count": identities,
+        "release_session_binding_count": bindings,
+        "session_to_generation_count": candidates,
+        "generation_closure_candidate_count": candidates,
+        "established_closure_candidate_count": candidates,
+        "ambiguous_association_count": 0,
+        "unbound_evidence_count": 0,
+        "hop_local_contexts": [],
+        "cross_interface_candidates": [],
+        "endpoint_correspondence_links": [],
+        "session_identity_links": [],
+        "release_session_bindings": [],
+        "session_to_generation_links": [],
+        "generation_closure_candidates": [],
+        "ambiguous_associations": [],
+        "unbound_evidence": [],
+        "evidence_limitations": [],
+        "additional_evidence_needed": [],
+        "not_confirmed": [],
+        "boundary_selection_status": "NOT_APPLICABLE",
+        "first_abnormal_boundary": None,
+        "boundary_note": "never selects an abnormal boundary",
+    }
+
+
 def lifecycle_analysis(
     *,
     families: int = 2,
@@ -2593,6 +2634,44 @@ class EpcLifecycleIntegrationTests(WorkflowTestCase):
         ]
         self.assertEqual(len(summary), 1)
         self.assertEqual(summary[0]["execution_status"], "EXECUTED")
+
+    def test_session_identity_summary_is_published(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["identity_analysis"] = session_identity_analysis()
+        payload["identity_error"] = None
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        summaries = {item["procedure"]: item for item in self.epc_result()["procedure_summaries"]}
+        self.assertEqual(summaries["epc-session-identity"]["execution_status"], "EXECUTED")
+        self.assertEqual(summaries["epc-session-identity"]["instance_count"], 2)
+        self.assertEqual(summaries["epc-session-identity"]["session_identity_count"], 1)
+        self.assertEqual(summaries["epc-session-identity"]["release_session_binding_count"], 2)
+
+    def test_session_identity_failure_degrades_but_preserves_evidence(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["identity_analysis"] = None
+        payload["identity_error"] = {
+            "code": "SESSION_IDENTITY_FAILED",
+            "message": "session-identity analysis is unreadable",
+        }
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertEqual(result["failure_code"], "SESSION_IDENTITY_FAILED")
+        self.assertTrue(
+            any("session-identity analysis failed" in item for item in result["degradation"])
+        )
+        summaries = {item["procedure"]: item for item in result["procedure_summaries"]}
+        self.assertEqual(summaries["epc-session-identity"]["execution_status"], "NO_SUBJECT")
+        self.assertTrue(
+            [
+                subject
+                for subject in result["diagnostic_subjects"]
+                if subject["subject_type"] == "EPC_S1U_OBSERVATION"
+            ]
+        )
+
 
     def test_report_shows_lifecycle_accounting(self) -> None:
         payload = epc_payload_with_s1u()

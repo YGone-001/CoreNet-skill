@@ -58,6 +58,14 @@ REQUIRED = (
     "scripts/analyze_epc_s1u.py",
     "scripts/epc_s1u_timeline.py",
     "tests/test_epc_s1u.py",
+    "references/session-identity-bridge.md",
+    "references/release-binding.md",
+    "rules/epc-session-identity-model.json",
+    "schemas/epc-session-identity-analysis.schema.json",
+    "scripts/epc_session_identity_model.py",
+    "scripts/analyze_epc_session_identity.py",
+    "scripts/epc_session_identity_report.py",
+    "tests/test_epc_session_identity.py",
     "examples/s1u/gtpu-fields.jsonl",
     "examples/s1u/gtpu-events.jsonl",
     "examples/s1u/gtpu-streams.json",
@@ -271,6 +279,7 @@ def validate(root: Path = ROOT) -> list[str]:
     errors.extend(_validate_default_bearer(skill, root))
     errors.extend(_validate_s1u(skill, root))
     errors.extend(_validate_lifecycle(skill, root))
+    errors.extend(_validate_session_identity(skill, root))
 
     malformed = skill / "examples" / "extracted" / "malformed-nas.jsonl"
     if not malformed.is_file():
@@ -1423,6 +1432,360 @@ def main() -> int:
     print("epc-procedures validation passed.")
     return 0
 
+
+
+def load_session_identity_model(root: Path):
+    path = (
+        root
+        / "skills"
+        / "domain"
+        / "epc-procedures"
+        / "scripts"
+        / "epc_session_identity_model.py"
+    )
+    sys.path.insert(0, str(path.parent))
+    spec = importlib.util.spec_from_file_location("epc_session_identity_model_under_test", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _session_identity_scenario(second_same_control_teid: bool = False):
+    """One reviewed two-hop session; optionally a second one reusing TEID 14."""
+    mme, sgw, pgw = "10.0.0.1", "10.0.0.2", "10.0.0.3"
+    capture = "validator.pcap"
+
+    def event(frame, message, family, *, src, dst, teid=0, seq=1, cause=None, fteids=None, contexts=None, unbound=None):
+        return {
+            "timestamp": "2026-01-01T00:00:00.000000Z",
+            "frame_number": frame,
+            "message_occurrence": 0,
+            "capture_file": capture,
+            "protocol": "GTPv2-C",
+            "transport": "UDP",
+            "message_type": message,
+            "message_type_code": 0,
+            "procedure_family": family,
+            "message_family": family,
+            "support_status": "SUPPORTED",
+            "hierarchy_basis": "validator",
+            "header": {"teid": teid, "sequence_number": seq, "teid_state": "PRESENT" if teid else "ZERO"},
+            "message_cause": (
+                {"cause_code": cause, "cause_name": "Request accepted", "scope": "message"}
+                if cause is not None
+                else None
+            ),
+            "information_elements": [],
+            "identity_ies": [],
+            "f_teids": fteids or [],
+            "bearer_contexts": contexts or [],
+            "unbound_ie_metadata": unbound or [],
+            "ie_summary": [],
+            "extraction_limitations": [],
+            "evidence": {},
+            "derivations": {},
+            "source": {"address": src, "port": 2123},
+            "destination": {"address": dst, "port": 2123},
+        }
+
+    def fteid(interface_type, teid, address):
+        return {"scope": "message", "interface_type": interface_type, "teid": teid, "ipv4": address}
+
+    def bearer_fteid(interface_type, teid, address):
+        return {"scope": "bearer", "interface_type": interface_type, "teid": teid, "ipv4": address}
+
+    def context(ebi, teids):
+        return {"ebi": ebi, "cause": None, "f_teids": teids}
+
+    def tx_message(frame, message, teid, seq):
+        return {
+            "frame_number": frame,
+            "header_teid": teid,
+            "header_teid_state": "PRESENT" if teid else "ZERO",
+            "message_type": message,
+            "message_type_code": 0,
+            "sequence_number": seq,
+        }
+
+    def transaction(reference, family, request, response):
+        return {
+            "transaction_reference": reference,
+            "procedure_family": family,
+            "message_family": family,
+            "request": tx_message(*request),
+            "response": tx_message(*response) if response else None,
+            "response_candidates": [tx_message(*response)] if response else [],
+            "correlation_status": "MATCHED",
+            "correlation_strength": "STRONG",
+            "correlation_basis": ["request/response message identity"],
+            "corroboration": {"teid_echo": True},
+            "retransmissions": [],
+            "observation_window": {"start_frame": request[0], "end_frame": response[0] if response else request[0]},
+            "evidence_refs": [tx_message(*request)] + ([tx_message(*response)] if response else []),
+            "limitations": [],
+        }
+
+    events = [
+        event(100, "Create Session Request", "create-session", src=mme, dst=sgw, teid=0, seq=1,
+              fteids=[fteid(10, 1, mme), fteid(7, 0, pgw)]),
+        event(101, "Create Session Request", "create-session", src=sgw, dst=pgw, teid=0, seq=2,
+              fteids=[fteid(6, 14, sgw)], contexts=[context(5, [bearer_fteid(4, 55, sgw)])]),
+        event(102, "Create Session Response", "create-session", src=pgw, dst=sgw, teid=14, seq=2, cause=16,
+              fteids=[fteid(7, 5, pgw)], contexts=[context(5, [bearer_fteid(5, 54, "10.0.0.30")])]),
+        event(103, "Create Session Response", "create-session", src=sgw, dst=mme, teid=1, seq=1, cause=16,
+              fteids=[fteid(11, 14, sgw), fteid(7, 5, pgw)],
+              contexts=[context(5, [bearer_fteid(1, 56, "10.0.0.20"), bearer_fteid(5, 54, "10.0.0.30")])]),
+        event(110, "Modify Bearer Request", "modify-bearer", src=mme, dst=sgw, teid=14, seq=3,
+              contexts=[context(5, [bearer_fteid(0, 16777736, "10.0.0.40")])]),
+        event(111, "Modify Bearer Response", "modify-bearer", src=sgw, dst=mme, teid=1, seq=3, cause=16,
+              contexts=[context(5, [bearer_fteid(0, 16777736, "10.0.0.40")])]),
+        event(120, "Delete Session Request", "delete-session", src=mme, dst=sgw, teid=14, seq=4,
+              unbound={"binding_basis": "validator", "ebi_values": [5], "limitations": []}),
+        event(121, "Delete Session Response", "delete-session", src=sgw, dst=mme, teid=1, seq=4, cause=16),
+        event(122, "Delete Session Request", "delete-session", src=sgw, dst=pgw, teid=5, seq=5,
+              unbound={"binding_basis": "validator", "ebi_values": [5], "limitations": []}),
+        event(123, "Delete Session Response", "delete-session", src=pgw, dst=sgw, teid=14, seq=5, cause=16),
+    ]
+    transactions = [
+        transaction("s11-create-a", "create-session", (100, "Create Session Request", 0, 1), (103, "Create Session Response", 1, 1)),
+        transaction("s5-create-a", "create-session", (101, "Create Session Request", 0, 2), (102, "Create Session Response", 14, 2)),
+        transaction("modify-a", "modify-bearer", (110, "Modify Bearer Request", 14, 3), (111, "Modify Bearer Response", 1, 3)),
+        transaction("s11-delete-a", "delete-session", (120, "Delete Session Request", 14, 4), (121, "Delete Session Response", 1, 4)),
+        transaction("s5-delete-a", "delete-session", (122, "Delete Session Request", 5, 5), (123, "Delete Session Response", 14, 5)),
+    ]
+    if second_same_control_teid:
+        events.extend([
+            event(500, "Create Session Request", "create-session", src=mme, dst=sgw, teid=0, seq=11,
+                  fteids=[fteid(10, 1, mme), fteid(7, 0, pgw)]),
+            event(501, "Create Session Request", "create-session", src=sgw, dst=pgw, teid=0, seq=12,
+                  fteids=[fteid(6, 15, sgw)], contexts=[context(5, [bearer_fteid(4, 65, sgw)])]),
+            event(502, "Create Session Response", "create-session", src=pgw, dst=sgw, teid=15, seq=12, cause=16,
+                  fteids=[fteid(7, 9, pgw)], contexts=[context(5, [bearer_fteid(5, 64, "10.0.0.30")])]),
+            event(503, "Create Session Response", "create-session", src=sgw, dst=mme, teid=1, seq=11, cause=16,
+                  fteids=[fteid(11, 14, sgw), fteid(7, 9, pgw)],
+                  contexts=[context(5, [bearer_fteid(1, 58, "10.0.0.20"), bearer_fteid(5, 64, "10.0.0.30")])]),
+        ])
+        transactions.extend([
+            transaction("s11-create-b", "create-session", (500, "Create Session Request", 0, 11), (503, "Create Session Response", 1, 11)),
+            transaction("s5-create-b", "create-session", (501, "Create Session Request", 0, 12), (502, "Create Session Response", 15, 12)),
+        ])
+    document = {
+        "protocol": "gtpv2",
+        "capture_files": [capture],
+        "transaction_count": len(transactions),
+        "transactions": transactions,
+    }
+    return events, document
+
+
+def _validate_session_identity(skill: Path, root: Path) -> list[str]:
+    """Validate the bounded EPC session-identity bridge capability."""
+    errors: list[str] = []
+
+    def fail(message: str) -> None:
+        errors.append(message)
+
+    schema_path = skill / "schemas" / "epc-session-identity-analysis.schema.json"
+    rules_path = skill / "rules" / "epc-session-identity-model.json"
+    for relative in (
+        "scripts/epc_session_identity_model.py",
+        "scripts/analyze_epc_session_identity.py",
+        "scripts/epc_session_identity_report.py",
+        "references/session-identity-bridge.md",
+        "references/release-binding.md",
+    ):
+        if not (skill / relative).is_file():
+            fail(f"missing session-identity file: {relative}")
+    if errors:
+        return errors
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        rules = json.loads(rules_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        fail(f"invalid session-identity contract file: {exc}")
+        return errors
+
+    model = load_session_identity_model(root)
+    if tuple(rules.get("relationship_types", ())) != tuple(model.RELATIONSHIP_TYPES):
+        fail("session-identity rules relationship types do not match the implementation")
+    if tuple(rules.get("association_statuses", ())) != tuple(model.ASSOCIATION_STATUSES):
+        fail("session-identity rules association statuses do not match the implementation")
+
+    events, document = _session_identity_scenario()
+    try:
+        analysis = model.analyze(events, transactions=document)
+    except model.InputError as exc:
+        fail(f"the reviewed session-identity scenario failed: {exc}")
+        return errors
+
+    for field in schema.get("required", []):
+        if field not in analysis:
+            fail(f"session-identity analysis does not publish required field '{field}'")
+
+    contexts = analysis["hop_local_contexts"]
+    if len(contexts) != 2 or any(
+        context["association_status"] != "ESTABLISHED" for context in contexts
+    ):
+        fail("the reviewed two-hop scenario must establish both hop-local contexts")
+    identities = analysis["session_identity_links"]
+    if len(identities) != 1 or identities[0]["association_status"] != "ESTABLISHED":
+        fail("the relayed control-plane F-TEID must establish the session identity")
+    if identities and identities[0]["relationship_type"] != "CROSS_INTERFACE_SESSION_IDENTITY":
+        fail("the relayed F-TEID bridge must be published as cross-interface session identity")
+    correspondences = analysis["endpoint_correspondence_links"]
+    if len(correspondences) != 1 or correspondences[0]["association_status"] != "SUPPORTED":
+        fail("the equal bearer user-plane F-TEID must stay an endpoint correspondence")
+    bindings = analysis["release_session_bindings"]
+    established = [item for item in bindings if item["association_status"] == "ESTABLISHED"]
+    if len(established) != 2:
+        fail("both reviewed releases must bind to their session contexts")
+    candidates = [
+        item
+        for item in analysis["generation_closure_candidates"]
+        if item["association_status"] == "ESTABLISHED"
+    ]
+    if len(candidates) != 2:
+        fail("the reviewed scenario must publish two established closure candidates")
+    for binding in bindings:
+        if binding["release_outcome_status"] != "ACCEPTED":
+            fail("a reviewed accepted release must keep its accepted outcome beside the binding")
+
+    # A shared control-plane TEID value never joins: the release must stay
+    # ambiguous when two contexts claim the same receiver-side F-TEID.
+    ambiguous_events, ambiguous_document = _session_identity_scenario(
+        second_same_control_teid=True
+    )
+    ambiguous = model.analyze(ambiguous_events, transactions=ambiguous_document)
+    binding = next(
+        (
+            item
+            for item in ambiguous["release_session_bindings"]
+            if item["source_subject_reference"] == "s11-delete-a"
+        ),
+        None,
+    )
+    if binding is None or binding["association_status"] != "AMBIGUOUS":
+        fail("a release addressing a TEID value claimed by two contexts must stay ambiguous")
+
+    # The relayed F-TEID of a foreign interface type is never a join key: the
+    # S5/S8 release binds the S5/S8 context only.
+    s5_binding = next(
+        (
+            item
+            for item in analysis["release_session_bindings"]
+            if item["source_subject_reference"] == "s5-delete-a"
+        ),
+        None,
+    )
+    if s5_binding is None or s5_binding["association_status"] != "ESTABLISHED":
+        fail("the S5/S8 release must bind through receiver-scoped addressing")
+    else:
+        target = next(
+            (
+                context
+                for context in contexts
+                if context["session_context_reference"] == s5_binding["target_subject_reference"]
+            ),
+            None,
+        )
+        if target is None or target["interface_class"] != "S5/S8":
+            fail("a release must never bind through a relayed foreign-interface F-TEID")
+
+    # The lifecycle closes through the reviewed session-context path only with
+    # an accepted identity analysis, and a weakened analysis closes nothing.
+    lifecycle = load_lifecycle_model(root)
+    index = lifecycle.transaction_index(document, events)
+    boundaries = lifecycle.release_boundaries(events, index)
+    records = lifecycle.endpoint_records(events)
+    conflicts = lifecycle.transaction_endpoint_values(document, events, index)
+    families = lifecycle.build_advertisement_families(records, index, conflicts, boundaries)
+    without_identity, _ = lifecycle.build_generations(families, boundaries)
+    if any(
+        generation["generation_state"] == "CLOSED_BY_ACCEPTED_RELEASE"
+        for generation in without_identity
+    ):
+        fail("without a session-identity analysis the reviewed releases must not close generations")
+    with_identity, _ = lifecycle.build_generations(
+        families,
+        boundaries,
+        lifecycle._session_identity_closure_index(analysis),
+    )
+    closed = [
+        generation
+        for generation in with_identity
+        if generation["generation_state"] == "CLOSED_BY_ACCEPTED_RELEASE"
+    ]
+    if len(closed) != 2:
+        fail("the reviewed session-context path must close both fixture generations")
+    for generation in closed:
+        if generation["generation_boundary"]["basis"] != (
+            "accepted_release_response_bound_by_reviewed_session_context"
+        ):
+            fail("a session-context closure must publish the reviewed basis")
+        if generation["generation_boundary"]["release_effective_frame_proven"]:
+            fail("no closure may claim a proven release-effective instant")
+    links_weakened = json.loads(json.dumps(analysis))
+    for link in links_weakened["session_to_generation_links"]:
+        link["association_status"] = "SUPPORTED"
+    weakened_generations, _ = lifecycle.build_generations(
+        families,
+        boundaries,
+        lifecycle._session_identity_closure_index(links_weakened),
+    )
+    if any(
+        generation["generation_state"] == "CLOSED_BY_ACCEPTED_RELEASE"
+        for generation in weakened_generations
+    ):
+        fail("a session-identity analysis with only supported links must not close generations")
+    candidates_weakened = json.loads(json.dumps(analysis))
+    for candidate in candidates_weakened["generation_closure_candidates"]:
+        candidate["association_status"] = "SUPPORTED"
+    weakened_generations, _ = lifecycle.build_generations(
+        families,
+        boundaries,
+        lifecycle._session_identity_closure_index(candidates_weakened),
+    )
+    if any(
+        generation["generation_state"] == "CLOSED_BY_ACCEPTED_RELEASE"
+        for generation in weakened_generations
+    ):
+        fail("a session-identity analysis with unsupported closure candidates must not close")
+
+    # The release outcome stays separate from the binding: a rejected release
+    # keeps an established binding and closes nothing.
+    rejected_events, rejected_document = _session_identity_scenario()
+    for item in rejected_events:
+        if item["frame_number"] == 121:
+            item["message_cause"] = {
+                "cause_code": 72,
+                "cause_name": "No resources available",
+                "scope": "message",
+            }
+    rejected = model.analyze(rejected_events, transactions=rejected_document)
+    rejected_binding = next(
+        (
+            item
+            for item in rejected["release_session_bindings"]
+            if item["source_subject_reference"] == "s11-delete-a"
+        ),
+        None,
+    )
+    if rejected_binding is None or rejected_binding["association_status"] != "ESTABLISHED":
+        fail("a rejected release keeps its session binding; identity is independent of outcome")
+    if rejected_binding is not None and rejected_binding["release_outcome_status"] != (
+        "REJECTED_OBSERVED"
+    ):
+        fail("a Cause 72 response must classify the release as rejected")
+    if any(
+        item["association_status"] == "ESTABLISHED"
+        and item["release_transaction_reference"] == "s11-delete-a"
+        for item in rejected["generation_closure_candidates"]
+    ):
+        fail("a rejected release must not produce an established closure candidate")
+
+    return errors
 
 if __name__ == "__main__":
     raise SystemExit(main())

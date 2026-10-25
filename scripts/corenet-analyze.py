@@ -64,6 +64,9 @@ EPC_S1U_ANALYZE_SCRIPT = ROOT / "skills" / "domain" / "epc-procedures" / "script
 EPC_LIFECYCLE_ANALYZE_SCRIPT = (
     ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_bearer_lifecycle.py"
 )
+EPC_SESSION_IDENTITY_ANALYZE_SCRIPT = (
+    ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_session_identity.py"
+)
 EPC_DEFAULT_BEARER_ANALYZE_SCRIPT = (
     ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_default_bearer.py"
 )
@@ -2042,6 +2045,86 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
             s1u_analysis = None
             s1u_error = {"code": "S1U_OBSERVATION_FAILED", "message": scrub_free_text(str(exc))}
 
+    identity_analysis: dict[str, Any] | None = None
+    identity_error: dict[str, Any] | None = None
+    identity_path = run_dir / "epc-session-identity-analysis.json"
+    if gtpv2_event_count and gtpv2_transactions.is_file():
+        identity_command = [
+            sys.executable,
+            str(EPC_SESSION_IDENTITY_ANALYZE_SCRIPT),
+            "--gtpv2",
+            str(gtpv2_events),
+            "--transactions",
+            str(gtpv2_transactions),
+            "--output",
+            str(identity_path),
+            "--force",
+        ]
+        if session_path.is_file():
+            identity_command.extend(["--session", str(session_path)])
+        if default_bearer_path.is_file():
+            identity_command.extend(["--default-bearer", str(default_bearer_path)])
+        try:
+            _run_component(identity_command, "EPC session-identity analysis", allow_empty=True)
+            if identity_path.is_file():
+                identity_analysis = json.loads(identity_path.read_text(encoding="utf-8"))
+                if not isinstance(identity_analysis, dict):
+                    raise AnalysisError(
+                        "PIPELINE_OUTPUT_UNREADABLE",
+                        "EPC session-identity analysis is not an object",
+                    )
+        except (AnalysisError, OSError, json.JSONDecodeError) as exc:
+            # Attach, session-control, default-bearer and S1-U evidence is
+            # preserved; the failure is reported, never silently completed.
+            identity_analysis = None
+            identity_error = {
+                "code": "SESSION_IDENTITY_FAILED",
+                "message": scrub_free_text(str(exc)),
+            }
+
+    lifecycle_analysis: dict[str, Any] | None = None
+    lifecycle_error: dict[str, Any] | None = None
+    if gtpv2_event_count and gtpv2_transactions.is_file():
+        lifecycle_path = run_dir / "epc-bearer-lifecycle-analysis.json"
+        lifecycle_command = [
+            sys.executable,
+            str(EPC_LIFECYCLE_ANALYZE_SCRIPT),
+            "--gtpv2",
+            str(gtpv2_events),
+            "--transactions",
+            str(gtpv2_transactions),
+            "--output",
+            str(lifecycle_path),
+            "--force",
+        ]
+        if session_path.is_file():
+            lifecycle_command.extend(["--session", str(session_path)])
+        if default_bearer_path.is_file():
+            lifecycle_command.extend(["--default-bearer", str(default_bearer_path)])
+        if s1u_path.is_file():
+            lifecycle_command.extend(["--s1u", str(s1u_path)])
+        if gtpu_event_count:
+            lifecycle_command.extend(["--gtpu", str(gtpu_events)])
+        if identity_path.is_file():
+            lifecycle_command.extend(["--session-identity", str(identity_path)])
+        try:
+            _run_component(lifecycle_command, "EPC bearer lifecycle analysis", allow_empty=True)
+            if lifecycle_path.is_file():
+                lifecycle_analysis = json.loads(lifecycle_path.read_text(encoding="utf-8"))
+                if not isinstance(lifecycle_analysis, dict):
+                    raise AnalysisError(
+                        "PIPELINE_OUTPUT_UNREADABLE",
+                        "EPC bearer lifecycle analysis is not an object",
+                    )
+        except (AnalysisError, OSError, json.JSONDecodeError) as exc:
+            # Usable Attach, session-control, default-bearer and S1-U evidence is
+            # preserved; the failure is reported, never silently completed.
+            lifecycle_analysis = None
+            lifecycle_error = {
+                "code": "BEARER_LIFECYCLE_FAILED",
+                "message": scrub_free_text(str(exc)),
+            }
+
     boundary_analysis: dict[str, Any] | None = None
     boundary_error: dict[str, Any] | None = None
     has_subjects = (
@@ -2080,46 +2163,6 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                 "message": scrub_free_text(str(exc)),
             }
 
-    lifecycle_analysis: dict[str, Any] | None = None
-    lifecycle_error: dict[str, Any] | None = None
-    if gtpv2_event_count and gtpv2_transactions.is_file():
-        lifecycle_path = run_dir / "epc-bearer-lifecycle-analysis.json"
-        lifecycle_command = [
-            sys.executable,
-            str(EPC_LIFECYCLE_ANALYZE_SCRIPT),
-            "--gtpv2",
-            str(gtpv2_events),
-            "--transactions",
-            str(gtpv2_transactions),
-            "--output",
-            str(lifecycle_path),
-            "--force",
-        ]
-        if session_path.is_file():
-            lifecycle_command.extend(["--session", str(session_path)])
-        if default_bearer_path.is_file():
-            lifecycle_command.extend(["--default-bearer", str(default_bearer_path)])
-        if s1u_path.is_file():
-            lifecycle_command.extend(["--s1u", str(s1u_path)])
-        if gtpu_event_count:
-            lifecycle_command.extend(["--gtpu", str(gtpu_events)])
-        try:
-            _run_component(lifecycle_command, "EPC bearer lifecycle analysis", allow_empty=True)
-            if lifecycle_path.is_file():
-                lifecycle_analysis = json.loads(lifecycle_path.read_text(encoding="utf-8"))
-                if not isinstance(lifecycle_analysis, dict):
-                    raise AnalysisError(
-                        "PIPELINE_OUTPUT_UNREADABLE",
-                        "EPC bearer lifecycle analysis is not an object",
-                    )
-        except (AnalysisError, OSError, json.JSONDecodeError) as exc:
-            # Usable Attach, session-control, default-bearer and S1-U evidence is
-            # preserved; the failure is reported, never silently completed.
-            lifecycle_analysis = None
-            lifecycle_error = {
-                "code": "BEARER_LIFECYCLE_FAILED",
-                "message": scrub_free_text(str(exc)),
-            }
 
     return {
         "analysis": analysis,
@@ -2134,6 +2177,8 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
         "boundary_error": boundary_error,
         "lifecycle_analysis": lifecycle_analysis,
         "lifecycle_error": lifecycle_error,
+        "identity_analysis": identity_analysis,
+        "identity_error": identity_error,
         "s1ap_event_count": _count_lines(s1ap_events),
         "nas_eps_event_count": _count_lines(nas_events),
         "gtpv2_event_count": gtpv2_event_count,
@@ -2812,6 +2857,8 @@ def execute_epc_domain(
     boundary_error = payload.get("boundary_error")
     lifecycle = payload.get("lifecycle_analysis")
     lifecycle_error = payload.get("lifecycle_error")
+    identity = payload.get("identity_analysis")
+    identity_error = payload.get("identity_error")
     groups_by_reference: dict[str, Any] = {}
     if isinstance(boundary, dict):
         for group in boundary.get("diagnostic_groups") or []:
@@ -2861,7 +2908,13 @@ def execute_epc_domain(
     omitted_subjects = max(0, len(subjects) - MAX_DIAGNOSTIC_SUBJECTS)
     subjects = subjects[:MAX_DIAGNOSTIC_SUBJECTS]
 
-    if (boundary_error or default_bearer_error or s1u_error or lifecycle_error) and (
+    if (
+        boundary_error
+        or default_bearer_error
+        or s1u_error
+        or lifecycle_error
+        or identity_error
+    ) and (
         instances or session_subjects or default_bearer_instances or s1u_subjects
     ):
         status = STATUS_PARTIAL
@@ -2976,6 +3029,29 @@ def execute_epc_domain(
             },
             {
                 "procedure_domain": "epc-procedures",
+                "procedure": "epc-session-identity",
+                "execution_status": (
+                    "EXECUTED"
+                    if isinstance(identity, dict) and identity.get("hop_local_context_count")
+                    else "NO_SUBJECT"
+                ),
+                "instance_count": (identity or {}).get("hop_local_context_count", 0),
+                "established_context_count": (identity or {}).get(
+                    "established_hop_local_context_count", 0
+                ),
+                "endpoint_correspondence_count": (identity or {}).get(
+                    "endpoint_correspondence_count", 0
+                ),
+                "session_identity_count": (identity or {}).get("session_identity_count", 0),
+                "release_session_binding_count": (identity or {}).get(
+                    "release_session_binding_count", 0
+                ),
+                "generation_closure_candidate_count": (identity or {}).get(
+                    "generation_closure_candidate_count", 0
+                ),
+            },
+            {
+                "procedure_domain": "epc-procedures",
                 "procedure": "eps-bearer-lifecycle",
                 "execution_status": (
                     "EXECUTED"
@@ -3050,6 +3126,12 @@ def execute_epc_domain(
         degradation.append(
             "EPC default-bearer analysis failed: "
             f"{default_bearer_error.get('code')} {default_bearer_error.get('message')}".strip()
+        )
+    if identity_error:
+        result["failure_code"] = "SESSION_IDENTITY_FAILED"
+        degradation.append(
+            "EPC session-identity analysis failed: "
+            f"{identity_error.get('code')} {identity_error.get('message')}".strip()
         )
     if boundary_error:
         result["failure_code"] = "ORCHESTRATION_FAILED"

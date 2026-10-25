@@ -1,0 +1,461 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "epc-session-identity-analysis.schema.json",
+  "title": "EPC session-identity bridge analysis",
+  "description": "Bounded EPC S11<->S5/S8 session-identity bridge and release-binding evidence over accepted GTPv2-C events and transactions. Publishes hop-local session contexts, cross-interface endpoint correspondence and session identity, release-to-session bindings with separately classified release outcomes, session-context to bearer-endpoint relationships and generation-closure candidates. Never publishes subscriber identity and never selects an abnormal boundary.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "domain",
+    "domain_version",
+    "analysis_name",
+    "analysis_version",
+    "input_provenance",
+    "analysis_scope",
+    "hop_local_contexts",
+    "hop_local_context_count",
+    "established_hop_local_context_count",
+    "cross_interface_candidates",
+    "cross_interface_candidate_count",
+    "endpoint_correspondence_links",
+    "endpoint_correspondence_count",
+    "session_identity_links",
+    "session_identity_count",
+    "release_session_bindings",
+    "release_session_binding_count",
+    "session_to_generation_links",
+    "session_to_generation_count",
+    "generation_closure_candidates",
+    "generation_closure_candidate_count",
+    "established_closure_candidate_count",
+    "ambiguous_associations",
+    "ambiguous_association_count",
+    "unbound_evidence",
+    "unbound_evidence_count",
+    "evidence_limitations",
+    "additional_evidence_needed",
+    "not_confirmed",
+    "boundary_selection_status",
+    "first_abnormal_boundary",
+    "boundary_note"
+  ],
+  "properties": {
+    "domain": {"type": "string", "const": "epc-procedures"},
+    "domain_version": {"type": "string"},
+    "analysis_name": {"type": "string", "const": "epc-session-identity"},
+    "analysis_version": {"type": "string"},
+    "input_provenance": {"type": "object"},
+    "analysis_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability", "relationship_types", "association_statuses", "identity_rule", "bridge_rule", "release_rule"],
+      "properties": {
+        "capability": {"type": "string"},
+        "relationship_types": {"type": "array", "items": {"$ref": "#/$defs/relationship_type"}},
+        "association_statuses": {"type": "array", "items": {"$ref": "#/$defs/association_status"}},
+        "identity_rule": {"type": "string"},
+        "bridge_rule": {"type": "string"},
+        "release_rule": {"type": "string"}
+      }
+    },
+    "hop_local_contexts": {"type": "array", "items": {"$ref": "#/$defs/session_context"}},
+    "hop_local_context_count": {"type": "integer"},
+    "established_hop_local_context_count": {"type": "integer"},
+    "cross_interface_candidates": {"type": "array", "items": {"$ref": "#/$defs/identity_relationship"}},
+    "cross_interface_candidate_count": {"type": "integer"},
+    "endpoint_correspondence_links": {"type": "array", "items": {"$ref": "#/$defs/identity_relationship"}},
+    "endpoint_correspondence_count": {"type": "integer"},
+    "session_identity_links": {"type": "array", "items": {"$ref": "#/$defs/identity_relationship"}},
+    "session_identity_count": {"type": "integer"},
+    "release_session_bindings": {"type": "array", "items": {"$ref": "#/$defs/release_binding"}},
+    "release_session_binding_count": {"type": "integer"},
+    "session_to_generation_links": {"type": "array", "items": {"$ref": "#/$defs/generation_link"}},
+    "session_to_generation_count": {"type": "integer"},
+    "generation_closure_candidates": {"type": "array", "items": {"$ref": "#/$defs/closure_candidate"}},
+    "generation_closure_candidate_count": {"type": "integer"},
+    "established_closure_candidate_count": {"type": "integer"},
+    "ambiguous_associations": {"type": "array", "items": {"$ref": "#/$defs/ambiguous_record"}},
+    "ambiguous_association_count": {"type": "integer"},
+    "unbound_evidence": {"type": "array", "items": {"$ref": "#/$defs/unbound_record"}},
+    "unbound_evidence_count": {"type": "integer"},
+    "evidence_limitations": {"type": "array", "items": {"type": "string"}},
+    "additional_evidence_needed": {"type": "array", "items": {"type": "string"}},
+    "not_confirmed": {"type": "array", "items": {"type": "string"}},
+    "boundary_selection_status": {"type": "string"},
+    "first_abnormal_boundary": {"type": "null"},
+    "boundary_note": {"type": "string"}
+  },
+  "$defs": {
+    "association_status": {
+      "type": "string",
+      "enum": ["ESTABLISHED", "SUPPORTED", "AMBIGUOUS", "NOT_ESTABLISHED"]
+    },
+    "relationship_type": {
+      "type": "string",
+      "enum": [
+        "HOP_LOCAL_SESSION_CONTEXT",
+        "CROSS_INTERFACE_ENDPOINT_CORRESPONDENCE",
+        "CROSS_INTERFACE_SESSION_IDENTITY",
+        "RELEASE_TO_SESSION_CONTEXT",
+        "SESSION_CONTEXT_TO_BEARER_GENERATION"
+      ]
+    },
+    "window": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["start_frame", "end_frame"],
+      "properties": {
+        "start_frame": {"type": ["integer", "null"]},
+        "end_frame": {"type": ["integer", "null"]}
+      }
+    },
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "frame_number", "message_type", "evidence_level"],
+      "properties": {
+        "protocol": {"type": "string"},
+        "frame_number": {"type": ["integer", "null"]},
+        "message_type": {"type": ["string", "null"]},
+        "evidence_level": {"type": "string", "enum": ["OBSERVED", "DERIVED", "INFERRED", "HYPOTHESIS", "CONFIRMED"]}
+      }
+    },
+    "reviewed_identifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "request_addressing",
+            "matched_control_plane_fteid",
+            "relayed_control_plane_fteid",
+            "user_plane_fteid",
+            "bearer_endpoint_fteid"
+          ]
+        },
+        "interface_type": {"type": ["integer", "null"]},
+        "teid": {"type": ["integer", "null"]},
+        "address": {"type": ["string", "null"]},
+        "scope": {"type": ["string", "null"]},
+        "role": {"type": ["string", "null"]},
+        "eps_bearer_identity": {"type": ["integer", "null"]},
+        "header_teid": {"type": ["integer", "null"]},
+        "receiver_address": {"type": ["string", "null"]},
+        "sender_address": {"type": ["string", "null"]},
+        "session_context_reference": {"type": ["string", "null"]},
+        "interface_class": {"type": ["string", "null"]}
+      }
+    },
+    "session_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_file",
+        "session_context_reference",
+        "interface_class",
+        "relationship_type",
+        "association_status",
+        "association_basis",
+        "allocation_transaction_reference",
+        "member_transactions",
+        "member_transaction_references",
+        "control_plane_fteids",
+        "bearer_user_plane_fteids",
+        "observation_window",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "capture_file": {"type": "string"},
+        "session_context_reference": {"type": "string"},
+        "interface_class": {"type": "string", "enum": ["S11", "S5/S8"]},
+        "relationship_type": {"$ref": "#/$defs/relationship_type"},
+        "association_status": {"$ref": "#/$defs/association_status"},
+        "association_basis": {"type": "string"},
+        "allocation_transaction_reference": {"type": "string"},
+        "member_transactions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["transaction_reference", "join_basis", "request_header_teid", "frames"],
+            "properties": {
+              "transaction_reference": {"type": "string"},
+              "join_basis": {"type": "string"},
+              "request_header_teid": {"type": ["integer", "null"]},
+              "frames": {"type": "array", "items": {"type": "integer"}}
+            }
+          }
+        },
+        "member_transaction_references": {"type": "array", "items": {"type": "string"}},
+        "control_plane_fteids": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "interface_type",
+              "teid",
+              "address",
+              "scope",
+              "hop_local",
+              "join_capable",
+              "interface_class"
+            ],
+            "properties": {
+              "interface_type": {"type": "integer"},
+              "interface_type_name": {"type": ["string", "null"]},
+              "teid": {"type": "integer"},
+              "address": {"type": "string"},
+              "scope": {"type": "string"},
+              "hop_local": {"type": "boolean"},
+              "join_capable": {"type": "boolean"},
+              "interface_class": {"type": ["string", "null"]},
+              "published_by_transaction": {"type": ["string", "null"]},
+              "published_by_frame": {"type": ["integer", "null"]},
+              "published_by_role": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "bearer_user_plane_fteids": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["interface_type", "teid", "address", "frames", "advertising_transactions"],
+            "properties": {
+              "interface_type": {"type": "integer"},
+              "teid": {"type": "integer"},
+              "address": {"type": "string"},
+              "eps_bearer_identity": {"type": ["integer", "null"]},
+              "frames": {"type": "array", "items": {"type": "integer"}},
+              "advertising_transactions": {"type": "array", "items": {"type": "string"}}
+            }
+          }
+        },
+        "observation_window": {"$ref": "#/$defs/window"},
+        "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/evidence_ref"}},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "identity_relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_file",
+        "relationship_type",
+        "source_subject_reference",
+        "target_subject_reference",
+        "association_status",
+        "association_basis",
+        "reviewed_identifiers",
+        "source_transaction_references",
+        "source_frames",
+        "evidence_refs",
+        "observation_window",
+        "competing_candidates",
+        "limitations"
+      ],
+      "properties": {
+        "reference": {"type": ["string", "null"]},
+        "evaluated_as": {"type": ["string", "null"]},
+        "capture_file": {"type": "string"},
+        "relationship_type": {"$ref": "#/$defs/relationship_type"},
+        "source_subject_reference": {"type": ["string", "null"]},
+        "target_subject_reference": {"type": ["string", "null"]},
+        "association_status": {"$ref": "#/$defs/association_status"},
+        "association_basis": {"type": "string"},
+        "reviewed_identifiers": {"type": "array", "items": {"$ref": "#/$defs/reviewed_identifier"}},
+        "source_transaction_references": {"type": "array", "items": {"type": "string"}},
+        "source_frames": {"type": "array", "items": {"type": "integer"}},
+        "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/evidence_ref"}},
+        "observation_window": {"$ref": "#/$defs/window"},
+        "competing_candidates": {"type": "array", "items": {"type": "string"}},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "release_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_file",
+        "relationship_type",
+        "source_subject_reference",
+        "target_subject_reference",
+        "association_status",
+        "association_basis",
+        "reviewed_identifiers",
+        "source_transaction_references",
+        "source_frames",
+        "evidence_refs",
+        "observation_window",
+        "competing_candidates",
+        "release_outcome_status",
+        "release_outcome_basis",
+        "lifecycle_control_plane_context",
+        "limitations"
+      ],
+      "properties": {
+        "capture_file": {"type": "string"},
+        "relationship_type": {"$ref": "#/$defs/relationship_type"},
+        "source_subject_reference": {"type": ["string", "null"]},
+        "target_subject_reference": {"type": ["string", "null"]},
+        "association_status": {"$ref": "#/$defs/association_status"},
+        "association_basis": {"type": "string"},
+        "reviewed_identifiers": {"type": "array", "items": {"$ref": "#/$defs/reviewed_identifier"}},
+        "source_transaction_references": {"type": "array", "items": {"type": "string"}},
+        "source_frames": {"type": "array", "items": {"type": "integer"}},
+        "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/evidence_ref"}},
+        "observation_window": {"$ref": "#/$defs/window"},
+        "competing_candidates": {"type": "array", "items": {"type": "string"}},
+        "release_outcome_status": {"type": ["string", "null"]},
+        "release_outcome_basis": {"type": ["string", "null"]},
+        "lifecycle_control_plane_context": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["session_teid", "basis"],
+          "properties": {
+            "session_teid": {"type": ["integer", "null"]},
+            "basis": {"type": ["string", "null"]}
+          }
+        },
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "bearer_endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "address", "teid", "interface_type", "eps_bearer_identities", "generation_references"],
+      "properties": {
+        "role": {"type": "string"},
+        "address": {"type": "string"},
+        "teid": {"type": "integer"},
+        "interface_type": {"type": "integer"},
+        "eps_bearer_identities": {"type": "array", "items": {"type": "integer"}},
+        "generation_references": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "generation_link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_file",
+        "relationship_type",
+        "source_subject_reference",
+        "target_subject_reference",
+        "association_status",
+        "association_basis",
+        "reviewed_identifiers",
+        "source_transaction_references",
+        "source_frames",
+        "evidence_refs",
+        "observation_window",
+        "competing_candidates",
+        "bearer_endpoint",
+        "bridge_mediated",
+        "limitations"
+      ],
+      "properties": {
+        "capture_file": {"type": "string"},
+        "relationship_type": {"$ref": "#/$defs/relationship_type"},
+        "source_subject_reference": {"type": ["string", "null"]},
+        "target_subject_reference": {"type": ["string", "null"]},
+        "association_status": {"$ref": "#/$defs/association_status"},
+        "association_basis": {"type": "string"},
+        "reviewed_identifiers": {"type": "array", "items": {"$ref": "#/$defs/reviewed_identifier"}},
+        "source_transaction_references": {"type": "array", "items": {"type": "string"}},
+        "source_frames": {"type": "array", "items": {"type": "integer"}},
+        "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/evidence_ref"}},
+        "observation_window": {"$ref": "#/$defs/window"},
+        "competing_candidates": {"type": "array", "items": {"type": "string"}},
+        "bearer_endpoint": {"$ref": "#/$defs/bearer_endpoint"},
+        "bridge_mediated": {"type": "boolean"},
+        "session_identity_reference": {"type": ["string", "null"]},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "closure_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_file",
+        "session_context_reference",
+        "release_transaction_reference",
+        "bearer_endpoint_reference",
+        "association_status",
+        "association_basis",
+        "limitations"
+      ],
+      "properties": {
+        "generation_closure_candidate_reference": {"type": ["string", "null"]},
+        "capture_file": {"type": "string"},
+        "session_context_reference": {"type": ["string", "null"]},
+        "release_transaction_reference": {"type": ["string", "null"]},
+        "bearer_endpoint_reference": {"type": ["string", "null"]},
+        "bearer_endpoint": {"$ref": "#/$defs/bearer_endpoint"},
+        "association_status": {"$ref": "#/$defs/association_status"},
+        "association_basis": {"type": "string"},
+        "chain": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["relationship_type", "subject_reference", "association_status"],
+            "properties": {
+              "relationship_type": {"$ref": "#/$defs/relationship_type"},
+              "subject_reference": {"type": ["string", "null"]},
+              "association_status": {"$ref": "#/$defs/association_status"}
+            }
+          }
+        },
+        "item_identities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["release_bearer_identities", "endpoint_bearer_identities"],
+          "properties": {
+            "release_bearer_identities": {"type": "array", "items": {"type": "integer"}},
+            "endpoint_bearer_identities": {"type": "array", "items": {"type": "integer"}}
+          }
+        },
+        "release_request_frame": {"type": ["integer", "null"]},
+        "release_confirmation_frame": {"type": ["integer", "null"]},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "ambiguous_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relationship_type", "association_status", "association_basis", "limitations"],
+      "properties": {
+        "reference": {"type": ["string", "null"]},
+        "capture_file": {"type": ["string", "null"]},
+        "relationship_type": {"$ref": "#/$defs/relationship_type"},
+        "source_subject_reference": {"type": ["string", "null"]},
+        "target_subject_reference": {"type": ["string", "null"]},
+        "association_status": {"$ref": "#/$defs/association_status"},
+        "association_basis": {"type": "string"},
+        "competing_candidates": {"type": "array", "items": {"type": "string"}},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "unbound_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "limitations"],
+      "properties": {
+        "kind": {"type": "string"},
+        "capture_file": {"type": ["string", "null"]},
+        "transaction_reference": {"type": ["string", "null"]},
+        "frame_number": {"type": ["integer", "null"]},
+        "role": {"type": ["string", "null"]},
+        "address": {"type": ["string", "null"]},
+        "teid": {"type": ["integer", "null"]},
+        "interface_type": {"type": ["integer", "null"]},
+        "release_outcome_status": {"type": ["string", "null"]},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

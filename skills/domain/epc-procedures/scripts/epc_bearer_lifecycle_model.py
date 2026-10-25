@@ -1274,6 +1274,7 @@ def _release_outcome(
 def build_generations(
     families: list[dict[str, Any]],
     boundaries: list[dict[str, Any]],
+    identity_index: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Turn eligible advertisement families into bounded generation observations."""
     eligible = [
@@ -1290,7 +1291,7 @@ def build_generations(
 
     for family in eligible:
         if family["family_classification"] == FAMILY_SEPARATE:
-            for generation in _generations_from_partitions(family, boundaries):
+            for generation in _generations_from_partitions(family, boundaries, identity_index):
                 generations.append(generation)
                 open_by_endpoint[
                     (
@@ -1352,7 +1353,7 @@ def build_generations(
             continue
 
         generation = _new_generation(family, key)
-        closing = _closing_boundary(boundaries, family, first_frame)
+        closing, closure_path = _closing_boundary(boundaries, family, first_frame, identity_index)
         if closing is None:
             generation["observations"].append(OBS_RELEASE_UNRESOLVED)
             rejected = _rejected_release(boundaries, family, first_frame)
@@ -1367,12 +1368,17 @@ def build_generations(
                 )[:MAX_EVIDENCE_REFERENCES]
         else:
             generation["generation_state"] = GENERATION_CLOSED
-            generation["generation_boundary"] = _boundary_payload(closing)
+            generation["generation_boundary"] = _boundary_payload(closing, closure_path)
             generation["observations"].extend([OBS_RELEASE_REQUEST, OBS_RELEASE_ACCEPTED])
             generation["observations"].append(OBS_BOUNDARY_ESTABLISHED)
             generation["evidence_refs"] = (
                 generation["evidence_refs"] + closing["evidence_refs"]
             )[:MAX_EVIDENCE_REFERENCES]
+            if closure_path == "session_context":
+                generation["limitations"].append(
+                    "closed through the reviewed session-context release path; the release "
+                    "names no S1-U receiving endpoint"
+                )
         generations.append(generation)
         open_by_endpoint[key] = generation
 
@@ -1384,6 +1390,7 @@ def build_generations(
 def _generations_from_partitions(
     family: dict[str, Any],
     boundaries: list[dict[str, Any]],
+    identity_index: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """One generation per advertisement partition separated by a proved release."""
     generations: list[dict[str, Any]] = []
@@ -1412,13 +1419,13 @@ def _generations_from_partitions(
         }
         synthetic["bearer_identity_scope"] = list(partition.get("bearer_identity_scope") or [])
         generation = _new_generation(synthetic, key)
-        closing = _closing_boundary(boundaries, synthetic, min(frames))
+        closing, closure_path = _closing_boundary(boundaries, synthetic, min(frames), identity_index)
         last_frame = max(
             item["frames"][-1] for item in family.get("partitions") or [] if item.get("frames")
         )
         if closing is not None and closing["request_frame"] < last_frame:
             generation["generation_state"] = GENERATION_CLOSED
-            generation["generation_boundary"] = _boundary_payload(closing)
+            generation["generation_boundary"] = _boundary_payload(closing, closure_path)
             generation["observations"].extend(
                 [OBS_RELEASE_REQUEST, OBS_RELEASE_ACCEPTED, OBS_BOUNDARY_ESTABLISHED]
             )
@@ -1503,16 +1510,28 @@ def _closing_boundary(
     boundaries: list[dict[str, Any]],
     family: dict[str, Any],
     after_frame: int,
-) -> dict[str, Any] | None:
-    """The single accepted release that may close this generation, if any."""
+    identity_index: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any] | None, str]:
+    """The single accepted release that may close this generation, if any.
+
+    The direct endpoint-bound path is authoritative. Only when it yields zero
+    candidates and a reviewed session-identity analysis is supplied may the
+    session-context path close the generation; an ambiguous direct path never
+    falls back to anything.
+    """
     candidates = [
         boundary
         for boundary in _bound_boundaries(boundaries, family, after_frame)
         if boundary["release_outcome"] == RELEASE_ACCEPTED
     ]
-    if len(candidates) != 1:
-        return None
-    return candidates[0]
+    if len(candidates) == 1:
+        return candidates[0], "direct_endpoint"
+    if not candidates and identity_index:
+        closing = _session_context_closing(boundaries, family, after_frame, identity_index)
+        if closing is not None:
+            return closing, "session_context"
+    return None, "unresolved"
+
 
 
 def _rejected_release(
@@ -1529,16 +1548,140 @@ def _rejected_release(
     return candidates[0] if len(candidates) == 1 else None
 
 
-def _boundary_payload(closing: dict[str, Any]) -> dict[str, Any]:
+def _boundary_payload(
+    closing: dict[str, Any], closure_path: str = "direct_endpoint"
+) -> dict[str, Any]:
     """A boundary that separates initiation from confirmation."""
+    basis = "accepted_release_response_bound_to_the_same_control_plane_context"
+    if closure_path == "session_context":
+        basis = "accepted_release_response_bound_by_reviewed_session_context"
     return {
         "release_request_frame": closing["request_frame"],
         "release_confirmation_frame": closing["response_frame"],
         "frame_number": closing["response_frame"],
         "transaction_reference": closing["transaction_reference"],
-        "basis": "accepted_release_response_bound_to_the_same_control_plane_context",
+        "basis": basis,
         "release_effective_frame_proven": False,
     }
+
+
+def _session_identity_closure_index(session_identity: Any) -> dict[str, Any]:
+    """Accepted relationships of one session-identity analysis, fail-closed.
+
+    Only ESTABLISHED relationships of the published types are indexed; anything
+    else can never contribute to a closure.
+    """
+    index: dict[str, Any] = {
+        "by_endpoint": {},
+        "bindings_by_context": {},
+        "candidates": set(),
+    }
+    if not isinstance(session_identity, dict):
+        return index
+    for link in session_identity.get("session_to_generation_links") or []:
+        if not isinstance(link, dict):
+            continue
+        if (
+            link.get("relationship_type") != "SESSION_CONTEXT_TO_BEARER_GENERATION"
+            or link.get("association_status") != "ESTABLISHED"
+        ):
+            continue
+        endpoint = link.get("bearer_endpoint")
+        context = link.get("source_subject_reference")
+        target = link.get("target_subject_reference")
+        if not isinstance(endpoint, dict) or not isinstance(context, str):
+            continue
+        key = (
+            str(link.get("capture_file")),
+            str(endpoint.get("role")),
+            str(endpoint.get("address")),
+            _int(endpoint.get("teid")),
+            _int(endpoint.get("interface_type")),
+        )
+        index["by_endpoint"].setdefault(key, []).append(
+            {"session_context_reference": context, "target": target}
+        )
+    for binding in session_identity.get("release_session_bindings") or []:
+        if not isinstance(binding, dict):
+            continue
+        if (
+            binding.get("relationship_type") != "RELEASE_TO_SESSION_CONTEXT"
+            or binding.get("association_status") != "ESTABLISHED"
+        ):
+            continue
+        context = binding.get("target_subject_reference")
+        if isinstance(context, str):
+            index["bindings_by_context"].setdefault(context, []).append(
+                {
+                    "transaction_reference": binding.get("source_subject_reference"),
+                    "capture_file": binding.get("capture_file"),
+                }
+            )
+    for candidate in session_identity.get("generation_closure_candidates") or []:
+        if not isinstance(candidate, dict):
+            continue
+        if candidate.get("association_status") != "ESTABLISHED":
+            continue
+        index["candidates"].add(
+            (
+                candidate.get("session_context_reference"),
+                candidate.get("release_transaction_reference"),
+                candidate.get("bearer_endpoint_reference"),
+            )
+        )
+    return index
+
+
+def _session_context_closing(
+    boundaries: list[dict[str, Any]],
+    family: dict[str, Any],
+    after_frame: int,
+    identity_index: dict[str, Any],
+) -> dict[str, Any] | None:
+    """The one accepted release a reviewed session-identity chain closes.
+
+    Every chain element must be established in the supplied analysis, the
+    lifecycle's own boundary record must independently classify the same release
+    transaction as accepted in the same capture, and exactly one release may
+    result. Anything else leaves the generation open.
+    """
+    capture = family["capture_file"]
+    key = (
+        capture,
+        family["receiving_endpoint_role"],
+        family["receiving_endpoint_address"],
+        family["receiving_endpoint_teid"],
+        family["reviewed_interface_type"],
+    )
+    closings: list[dict[str, Any]] = []
+    seen_transactions: set[str] = set()
+    for link in identity_index["by_endpoint"].get(key) or []:
+        context_reference = link["session_context_reference"]
+        for binding in identity_index["bindings_by_context"].get(context_reference, []):
+            transaction_reference = binding["transaction_reference"]
+            if not isinstance(transaction_reference, str):
+                continue
+            if (context_reference, transaction_reference, link["target"]) not in identity_index[
+                "candidates"
+            ]:
+                continue
+            if transaction_reference in seen_transactions:
+                continue
+            for boundary in boundaries:
+                if boundary.get("capture_file") != capture:
+                    continue
+                if boundary.get("transaction_reference") != transaction_reference:
+                    continue
+                if boundary.get("release_outcome") != RELEASE_ACCEPTED:
+                    continue
+                request_frame = _int(boundary.get("request_frame"))
+                if request_frame is None or request_frame < after_frame:
+                    continue
+                seen_transactions.add(transaction_reference)
+                closings.append(boundary)
+    if len(closings) == 1:
+        return closings[0]
+    return None
 
 
 def _reuse_observation(
@@ -1846,17 +1989,21 @@ def analyze(
     s1u_analysis: dict[str, Any] | None = None,
     gtpu_events: list[dict[str, Any]] | None = None,
     provenance: dict[str, Any] | None = None,
+    session_identity: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build bounded EPC bearer lifecycle-generation evidence."""
     if not isinstance(gtpv2_events, list):
         raise InputError("GTPv2-C events must be a list")
+    if session_identity is not None and not isinstance(session_identity, dict):
+        raise InputError("the session-identity analysis must be an object")
     gtpu_events = gtpu_events or []
     index = transaction_index(transactions, gtpv2_events)
     records = endpoint_records(gtpv2_events)
     conflicts = transaction_endpoint_values(transactions, gtpv2_events, index)
     boundaries = release_boundaries(gtpv2_events, index)
+    identity_index = _session_identity_closure_index(session_identity)
     families = build_advertisement_families(records, index, conflicts, boundaries)
-    generations, reuse = build_generations(families, boundaries)
+    generations, reuse = build_generations(families, boundaries, identity_index)
     scoped, unresolved, ambiguous, deviations = attribute_streams(s1u_analysis, generations, gtpu_events)
 
     limitations: list[str] = []

@@ -278,6 +278,46 @@ capability keeps `boundary_selection_status` at `NOT_APPLICABLE` and never selec
 a first abnormal boundary. See `references/bearer-lifecycle.md` and
 `references/advertisement-family.md`.
 
+The lifecycle accepts one optional additional input, an accepted session-identity
+analysis (`--session-identity`): when its release binding, session-to-generation
+link and closure candidate are all `ESTABLISHED` for the same capture, a release
+that names no S1-U endpoint may close a generation through the reviewed
+session-context path with basis
+`accepted_release_response_bound_by_reviewed_session_context`. Without that input,
+in the accepted real capture every Delete Session request carries no S1-U F-TEID,
+so every generation stays `OPEN_AT_CAPTURE_END` with `RELEASE_STATUS_UNRESOLVED`.
+
+## Session Identity Bridge
+
+Version 0.6.0 adds a sixth, independently executable capability:
+`scripts/analyze_epc_session_identity.py`. It consumes the GTPv2-C detailed events
+and their accepted transaction correlation plus, optionally, the accepted
+session-control, default-bearer and bearer-lifecycle documents, and publishes
+three strictly separated kinds of relationship:
+
+* **Hop-local session context** — transactions of one hop (S11 or S5/S8) join a
+  context only through receiver-side addressing: the request header TEID and
+  destination address must equal one hop-local control-plane F-TEID published
+  inside the context, and the request source address must equal a hop-local
+  F-TEID address of the same context (the GTP-C path peer). Equal TEID, EBI or
+  sequence values never join by themselves; a relayed F-TEID of a foreign
+  interface type and a TEID-0 address hint are never join keys; competing
+  candidates stay `AMBIGUOUS` and are never tie-broken.
+* **Cross-interface evidence** — a relayed PGW S5/S8 GTP-C F-TEID that is equal
+  and unique across the two Create Session responses of one capture establishes
+  `CROSS_INTERFACE_SESSION_IDENTITY` (`ESTABLISHED`); an equal bearer-scope
+  user-plane F-TEID establishes only `CROSS_INTERFACE_ENDPOINT_CORRESPONDENCE`
+  (at most `SUPPORTED`) and is never displayed as session identity.
+* **Release binding** — a Delete Session transaction binds to the one context its
+  request addresses; the release outcome is classified from the correlated
+  response only and is published beside the binding, never merged into it. A
+  generation-closure candidate additionally requires an established
+  session-to-bearer-endpoint relationship per receiving role; the candidate is a
+  reviewed input for the lifecycle capability and never closes a generation by
+  itself.
+
+See `references/session-identity-bridge.md` and `references/release-binding.md`.
+
 ## Failure Behavior
 
 | Condition | Behavior |
@@ -310,4 +350,4 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Original CoreNet Domain-layer package. No upstream material imported. Normative
 references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the accepted
-`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.5.0.
+`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.6.0.
