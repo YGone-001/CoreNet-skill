@@ -1022,6 +1022,7 @@ def _validate_lifecycle(skill: Path, root: Path) -> list[str]:
     # A proved closure never appears in the committed example, so the positive
     # boundary contract is exercised on a constructed scenario as well.
     errors.extend(_validate_lifecycle_boundary(model, fail))
+    errors.extend(_validate_message_cause_contract(skill, root, model, fail))
 
     serialized = json.dumps(expected)
     for forbidden in (
@@ -1042,6 +1043,195 @@ def _validate_lifecycle(skill: Path, root: Path) -> list[str]:
     return errors
 
 
+def _validate_message_cause_contract(skill: Path, root: Path, model, fail) -> list[str]:
+    """The release outcome must come from the accepted message_cause field."""
+    problems: list[str] = []
+
+    for name in ("epc_bearer_lifecycle_model.py", "epc_default_bearer_model.py"):
+        path = skill / "scripts" / name
+        text = path.read_text(encoding="utf-8")
+        for forbidden in ('event.get("cause")', "event['cause']", 'context.get("cause") is None'):
+            if forbidden in text:
+                problems.append(f"{name} still reads a non-contract Cause field: {forbidden}")
+
+    schema_path = root / "skills" / "protocol" / "gtpv2" / "schemas" / "gtpv2-event.schema.json"
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return problems + [f"gtpv2 event schema unreadable: {exc}"]
+    if "message_cause" not in (schema.get("properties") or {}):
+        problems.append("the accepted gtpv2 event contract no longer publishes message_cause")
+    if "cause" in (schema.get("properties") or {}):
+        problems.append("the accepted gtpv2 event contract must not publish a 'cause' field")
+
+    def cause(code: int, scope: str = "message") -> dict:
+        return {
+            "cause_code": code,
+            "cause_name": "Request accepted" if code == 16 else "Context not found",
+            "scope": scope,
+        }
+
+    def event(frame: int, message: str, family: str, *, capture: str = "contract.pcap",
+              message_cause=None, contexts=None) -> dict:
+        return {
+            "timestamp": "2026-01-01T00:00:00.000000Z",
+            "frame_number": frame,
+            "message_occurrence": 0,
+            "capture_file": capture,
+            "protocol": "GTPv2-C",
+            "transport": "UDP",
+            "message_type": message,
+            "message_type_code": 0,
+            "procedure_family": family,
+            "message_family": family,
+            "support_status": "SUPPORTED",
+            "hierarchy_basis": "validation",
+            "header": {"teid": 1, "sequence_number": 1, "teid_state": "PRESENT"},
+            "message_cause": message_cause,
+            "information_elements": [],
+            "identity_ies": [],
+            "f_teids": [],
+            "bearer_contexts": contexts or [],
+            "unbound_ie_metadata": [],
+            "ie_summary": [],
+            "extraction_limitations": [],
+            "evidence": {},
+            "derivations": {},
+        }
+
+    def reference(frame: int, message: str) -> dict:
+        return {
+            "frame_number": frame,
+            "header_teid": 1,
+            "header_teid_state": "PRESENT",
+            "message_type": message,
+            "message_type_code": 0,
+            "sequence_number": 1,
+        }
+
+    def transaction(reference_id: str, family: str, request, response) -> dict:
+        return {
+            "transaction_reference": reference_id,
+            "procedure_family": family,
+            "message_family": family,
+            "request": reference(*request),
+            "response": reference(*response),
+            "response_candidates": [reference(*response)],
+            "correlation_status": "MATCHED",
+            "correlation_strength": "STRONG",
+            "correlation_basis": ["request/response message identity"],
+            "corroboration": {"teid_echo": True},
+            "retransmissions": [],
+            "observation_window": {"start_frame": request[0], "end_frame": response[0]},
+            "evidence_refs": [reference(*request), reference(*response)],
+            "limitations": [],
+        }
+
+    def document(*transactions, captures=("contract.pcap",)) -> dict:
+        return {
+            "protocol": "gtpv2",
+            "capture_files": list(captures),
+            "transaction_count": len(transactions),
+            "matched_count": len(transactions),
+            "open_request_count": 0,
+            "response_only_count": 0,
+            "ambiguous_count": 0,
+            "retransmission_count": 0,
+            "transactions": list(transactions),
+            "limitations": [],
+        }
+
+    endpoint = {"scope": "bearer", "interface_type": 1, "teid": 100, "ipv4": "198.51.100.2"}
+    contexts = [
+        {
+            "item_index": 0,
+            "ebi": 5,
+            "cause": None,
+            "f_teids": [endpoint],
+            "charging_id_present": False,
+            "binding_basis": "validation",
+        }
+    ]
+    allocation_events = [
+        event(100, "Create Session Request", "create-session", contexts=contexts),
+        event(106, "Create Session Response", "create-session", contexts=contexts, message_cause=cause(16)),
+    ]
+    release_events = [
+        event(300, "Delete Session Request", "delete-session", contexts=contexts),
+        event(306, "Delete Session Response", "delete-session", message_cause=cause(16)),
+    ]
+    transactions = document(
+        transaction("cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response")),
+        transaction("ds", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response")),
+    )
+
+    # Every constructed event must conform to the accepted field set.
+    properties = set(schema.get("properties") or {})
+    required = set(schema.get("required") or [])
+    for item in allocation_events + release_events:
+        if set(item) - properties:
+            problems.append(f"constructed event carries unknown field(s) {sorted(set(item) - properties)}")
+        missing = required - set(item)
+        if missing:
+            problems.append(f"constructed event is missing required field(s) {sorted(missing)}")
+
+    analysis = model.analyze(allocation_events + release_events, transactions=transactions)
+    boundary = (analysis.get("generation_boundary_evidence") or [{}])[0]
+    if boundary.get("release_outcome") != "ACCEPTED":
+        problems.append("an accepted message_cause must establish an accepted release outcome")
+
+    # A legacy test-only Cause alias must never be honoured.
+    legacy = [dict(item) for item in allocation_events + release_events]
+    legacy[-1] = dict(legacy[-1])
+    legacy[-1]["message_cause"] = None
+    legacy[-1]["cause"] = cause(16)
+    legacy_analysis = model.analyze(legacy, transactions=transactions)
+    legacy_boundary = (legacy_analysis.get("generation_boundary_evidence") or [{}])[0]
+    if legacy_boundary.get("release_outcome") == "ACCEPTED":
+        problems.append("a test-only Cause alias must never establish an accepted release")
+
+    # A document that names one capture must never bind another capture's event.
+    foreign_events = [
+        event(100, "Create Session Request", "create-session", capture="elsewhere.pcap", contexts=contexts),
+        event(106, "Create Session Response", "create-session", capture="elsewhere.pcap",
+              contexts=contexts, message_cause=cause(16)),
+    ]
+    foreign_analysis = model.analyze(
+        foreign_events,
+        transactions=document(
+            transaction("cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response"))
+        ),
+    )
+    if (foreign_analysis.get("advertisement_families") or [{}])[0].get("family_classification") != model.FAMILY_INSUFFICIENT:
+        problems.append("a transaction document naming one capture must not bind another capture's event")
+
+    # Two captures with colliding frame numbers must not transfer evidence.
+    collision_events = [
+        event(100, "Create Session Request", "create-session", capture="A.pcap", contexts=contexts),
+        event(106, "Create Session Response", "create-session", capture="A.pcap", contexts=contexts, message_cause=cause(16)),
+        event(300, "Delete Session Request", "delete-session", capture="A.pcap", contexts=contexts),
+        event(306, "Delete Session Response", "delete-session", capture="A.pcap", message_cause=cause(72)),
+        event(300, "Delete Session Request", "delete-session", capture="B.pcap", contexts=contexts),
+        event(306, "Delete Session Response", "delete-session", capture="B.pcap", message_cause=cause(16)),
+    ]
+    collision_transactions = document(
+        transaction("cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response")),
+        transaction("ds", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response")),
+        captures=("A.pcap", "B.pcap"),
+    )
+    collision_analysis = model.analyze(collision_events, transactions=collision_transactions)
+    for item in collision_analysis.get("generation_boundary_evidence") or []:
+        if item.get("release_outcome") == "ACCEPTED":
+            problems.append("a colliding frame number in another capture must never supply acceptance")
+    for generation in collision_analysis.get("lifecycle_subjects") or []:
+        if generation.get("generation_state") == model.GENERATION_CLOSED:
+            problems.append("a colliding frame number must never close a generation")
+
+    for problem in problems:
+        fail(problem)
+    return []
+
+
 def _validate_lifecycle_boundary(model, fail) -> list[str]:
     """Exercise the proved-closure and cross-capture contracts directly."""
 
@@ -1059,17 +1249,38 @@ def _validate_lifecycle_boundary(model, fail) -> list[str]:
 
     def event(frame, message, family, contexts, cause=None, capture="boundary.pcap"):
         return {
-            "capture_file": capture,
+            "timestamp": "2026-01-01T00:00:00.000000Z",
             "frame_number": frame,
+            "message_occurrence": 0,
+            "capture_file": capture,
+            "protocol": "GTPv2-C",
+            "transport": "UDP",
             "message_type": message,
+            "message_type_code": 0,
             "procedure_family": family,
-            "cause": {"cause_code": cause, "cause_name": "accepted"} if cause is not None else None,
+            "message_family": family,
+            "support_status": "SUPPORTED",
+            "hierarchy_basis": "validation",
+            "header": {"teid": 1, "sequence_number": 1, "teid_state": "PRESENT"},
+            "message_cause": (
+                {"cause_code": cause, "cause_name": "accepted", "scope": "message"}
+                if cause is not None
+                else None
+            ),
+            "information_elements": [],
+            "identity_ies": [],
             "f_teids": [],
             "bearer_contexts": contexts,
+            "unbound_ie_metadata": [],
+            "ie_summary": [],
+            "extraction_limitations": [],
+            "evidence": {},
+            "derivations": {},
         }
 
     def message(frame, name, teid=1, cause=None):
-        payload = {
+        # The transaction reference carries no Cause in the accepted contract.
+        return {
             "frame_number": frame,
             "header_teid": teid,
             "header_teid_state": "PRESENT" if teid else "ZERO",
@@ -1077,9 +1288,6 @@ def _validate_lifecycle_boundary(model, fail) -> list[str]:
             "message_type_code": 0,
             "sequence_number": 1,
         }
-        if cause is not None:
-            payload["cause_code"] = cause
-        return payload
 
     def transaction(reference, family, request, response, *, session_teid=1, cause=16):
         return {
@@ -1087,8 +1295,8 @@ def _validate_lifecycle_boundary(model, fail) -> list[str]:
             "procedure_family": family,
             "message_family": family,
             "request": message(request[0], request[1], session_teid),
-            "response": message(response[0], response[1], session_teid, cause),
-            "response_candidates": [message(response[0], response[1], session_teid, cause)],
+            "response": message(response[0], response[1], session_teid),
+            "response_candidates": [message(response[0], response[1], session_teid)],
             "correlation_status": "MATCHED",
             "correlation_strength": "STRONG",
             "correlation_basis": ["request/response message identity"],

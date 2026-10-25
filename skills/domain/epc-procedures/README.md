@@ -116,7 +116,10 @@ advertisement families, publishes bounded generation observations with scoped
 pseudonymous references, and attributes observed G-PDUs to a generation from
 frame-level events with conserved packet and octet accounting. A generation closes
 only when one matched, corroborated release transaction in the same capture names
-both the released endpoint and the same control-plane context; initiation and
+both the released endpoint and the same control-plane context, with the outcome
+read from the contract field `message_cause` of its correlated response; evidence
+is keyed by capture, frame and message occurrence, so a same-numbered frame in
+another capture never supplies a Cause or a context; initiation and
 confirmation frames are published separately and the exact release-effective frame
 is never claimed. Packets inside a pending release interval stay unresolved, and an
 unresolved attribution is neither packet loss nor a tunnel failure. See

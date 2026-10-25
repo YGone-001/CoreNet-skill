@@ -228,13 +228,16 @@ def proof_strength(strength: Any) -> tuple[bool, str]:
 def _message_cause(event: Any) -> int | None:
     """The message-scope Cause of one observed GTPv2-C message.
 
-    A bearer-scope Cause belongs to one item-scoped bearer context and is never
-    substituted for the message outcome.
+    The accepted event contract publishes this value as ``message_cause`` with an
+    explicit ``scope``. A bearer-scope Cause belongs to one item-scoped bearer
+    context and is never substituted for the message outcome.
     """
     if not isinstance(event, dict):
         return None
-    cause = event.get("cause")
+    cause = event.get("message_cause")
     if not isinstance(cause, dict):
+        return None
+    if cause.get("scope") != "message":
         return None
     return _int(cause.get("cause_code"))
 
@@ -291,58 +294,207 @@ def family_reference(material: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 # Advertisement records and transaction binding
 # ---------------------------------------------------------------------------
-def transaction_index(transactions: Any) -> dict[int, dict[str, Any]]:
-    """Map an observed message frame to its accepted transaction and role."""
-    index: dict[int, dict[str, Any]] = {}
+def event_key(event: Any) -> tuple[str, int, int] | None:
+    """Identity of one observed message: capture, frame and message occurrence.
+
+    A frame number alone is not unique: two captures can carry the same frame
+    number, and one frame can carry more than one message.
+    """
+    if not isinstance(event, dict):
+        return None
+    capture = event.get("capture_file")
+    frame = _int(event.get("frame_number"))
+    if not isinstance(capture, str) or not capture or frame is None:
+        return None
+    occurrence = _int(event.get("message_occurrence"))
+    return capture, frame, occurrence if occurrence is not None else 0
+
+
+def record_key(record: Any) -> tuple[str, int, int] | None:
+    """Identity of one advertisement record, derived from its source message."""
+    if not isinstance(record, dict):
+        return None
+    capture = record.get("capture_file")
+    frame = _int(record.get("frame_number"))
+    if not isinstance(capture, str) or not capture or frame is None:
+        return None
+    occurrence = _int(record.get("occurrence"))
+    return capture, frame, occurrence if occurrence is not None else 0
+
+
+def _matches_reference(event: dict[str, Any], reference: dict[str, Any]) -> bool:
+    """Whether one observed message is the message a transaction reference names.
+
+    Message identity and sequence number are the corroboration used here. The
+    header TEID is deliberately not compared: it carries no capture information,
+    and using it would reject a consistent transaction whenever a decoder reports
+    the header differently.
+    """
+    if reference.get("message_type") is not None and event.get("message_type") != reference.get(
+        "message_type"
+    ):
+        return False
+    sequence = _int(reference.get("sequence_number"))
+    if sequence is not None and _int((event.get("header") or {}).get("sequence_number")) not in (
+        None,
+        sequence,
+    ):
+        return False
+    return True
+
+
+def _resolve_message(
+    reference: Any,
+    by_frame: dict[int, list[dict[str, Any]]],
+    capture_files: list[str],
+) -> tuple[tuple[str, int, int] | None, str]:
+    """Resolve one transaction message reference to exactly one observed event.
+
+    Fails closed whenever the observed evidence cannot name a single capture. The
+    presence of several capture names in a document never identifies which capture
+    a transaction belongs to.
+    """
+    if not isinstance(reference, dict):
+        return None, "message_reference_absent"
+    frame = _int(reference.get("frame_number"))
+    if frame is None:
+        return None, "message_frame_absent"
+    candidates = [event for event in by_frame.get(frame, []) if _matches_reference(event, reference)]
+    if not candidates:
+        return None, "message_not_observed"
+
+    if len(capture_files) == 1:
+        scoped = [event for event in candidates if event.get("capture_file") == capture_files[0]]
+        if not scoped:
+            return None, "message_in_another_capture"
+        if len(scoped) > 1:
+            return None, "duplicate_message_occurrence"
+        return event_key(scoped[0]), "single_capture_binding"
+
+    if len(candidates) == 1:
+        return event_key(candidates[0]), "unique_corroborated_capture"
+    return None, "ambiguous_capture_provenance"
+
+
+def transaction_index(
+    transactions: Any,
+    gtpv2_events: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Capture-scoped binding of accepted transactions to observed messages.
+
+    Returns the event index, the per-transaction capture binding, and the reasons
+    any transaction could not be bound. Nothing is bound by frame number alone.
+    """
+    index: dict[str, Any] = {"events": {}, "transactions": {}, "notes": {}}
     if not isinstance(transactions, dict):
         return index
-    for transaction in transactions.get("transactions") or []:
-        if not isinstance(transaction, dict):
+
+    by_frame: dict[int, list[dict[str, Any]]] = {}
+    for event in gtpv2_events or []:
+        if not isinstance(event, dict):
             continue
-        for role in ("request", "response"):
-            message = transaction.get(role)
-            if not isinstance(message, dict):
-                continue
-            frame = _int(message.get("frame_number"))
-            if frame is None:
-                continue
-            index[frame] = {"transaction": transaction, "role": role}
-        # A retransmission is another observed message of the same transaction, so
-        # it joins the same advertisement family; it is never a new allocation.
-        for message in transaction.get("retransmissions") or []:
-            if not isinstance(message, dict):
-                continue
-            frame = _int(message.get("frame_number"))
-            if frame is None or frame in index:
-                continue
-            message_type = str(message.get("message_type") or "")
-            role = "request" if "Request" in message_type else "response" if "Response" in message_type else "retransmission"
-            index[frame] = {"transaction": transaction, "role": role, "retransmission": True}
-    return index
+        frame = _int(event.get("frame_number"))
+        if frame is None:
+            continue
+        by_frame.setdefault(frame, []).append(event)
 
+    capture_files = [
+        str(item) for item in transactions.get("capture_files") or [] if isinstance(item, str)
+    ]
 
-def transaction_endpoint_values(transactions: Any, gtpv2_events: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """S1-U endpoint values each side of an accepted transaction advertises."""
-    by_frame = {
-        _int(event.get("frame_number")): event
-        for event in gtpv2_events
-        if isinstance(event, dict) and _int(event.get("frame_number")) is not None
-    }
-    result: dict[str, dict[str, Any]] = {}
-    if not isinstance(transactions, dict):
-        return result
     for transaction in transactions.get("transactions") or []:
         if not isinstance(transaction, dict):
             continue
         reference = transaction.get("transaction_reference")
-        if not isinstance(reference, str):
+        request_key, request_basis = _resolve_message(transaction.get("request"), by_frame, capture_files)
+        if request_key is None:
+            if isinstance(reference, str):
+                index["notes"].setdefault(request_basis, set()).add(reference)
             continue
-        sides: dict[str, list[tuple[int, int, str, int]]] = {"request": [], "response": []}
-        for role in ("request", "response"):
-            message = transaction.get(role)
-            if not isinstance(message, dict):
+        response_key = None
+        if isinstance(transaction.get("response"), dict):
+            response_key, response_basis = _resolve_message(
+                transaction.get("response"), by_frame, capture_files
+            )
+            if response_key is None:
+                if isinstance(reference, str):
+                    index["notes"].setdefault(response_basis, set()).add(reference)
                 continue
-            event = by_frame.get(_int(message.get("frame_number")))
+            if response_key[0] != request_key[0]:
+                if isinstance(reference, str):
+                    index["notes"].setdefault("request_and_response_in_different_captures", set()).add(
+                        reference
+                    )
+                continue
+
+        binding = {
+            "transaction": transaction,
+            "capture_file": request_key[0],
+            "basis": request_basis if response_key is None else f"{request_basis}+{response_basis}",
+        }
+        index["events"][request_key] = dict(binding, role="request")
+        if response_key is not None:
+            index["events"][response_key] = dict(binding, role="response")
+        if isinstance(reference, str):
+            index["transactions"][reference] = {
+                "capture_file": request_key[0],
+                "request_key": request_key,
+                "response_key": response_key,
+                "basis": binding["basis"],
+            }
+
+        # A retransmission is another observed message of the same transaction, so
+        # it joins the same advertisement family; it is never a new allocation.
+        for message in transaction.get("retransmissions") or []:
+            retransmission_key, _basis = _resolve_message(message, by_frame, capture_files)
+            if retransmission_key is None or retransmission_key in index["events"]:
+                continue
+            message_type = str(message.get("message_type") or "")
+            role = (
+                "request"
+                if "Request" in message_type
+                else "response"
+                if "Response" in message_type
+                else "retransmission"
+            )
+            index["events"][retransmission_key] = dict(
+                binding, role=role, retransmission=True
+            )
+    return index
+
+
+def binding_for_event(index: dict[str, Any], event: Any) -> dict[str, Any] | None:
+    key = event_key(event)
+    return index.get("events", {}).get(key) if key is not None else None
+
+
+def binding_for_record(index: dict[str, Any], record: Any) -> dict[str, Any] | None:
+    key = record_key(record)
+    return index.get("events", {}).get(key) if key is not None else None
+
+
+def transaction_endpoint_values(
+    transactions: Any,
+    gtpv2_events: list[dict[str, Any]],
+    index: dict[str, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """S1-U endpoint values each side of an accepted transaction advertises.
+
+    Both sides are read through the capture-scoped binding, so a value is never
+    taken from a same-numbered frame in another capture.
+    """
+    index = index if index is not None else transaction_index(transactions, gtpv2_events)
+    by_key = {
+        event_key(event): event
+        for event in gtpv2_events
+        if isinstance(event, dict) and event_key(event) is not None
+    }
+    result: dict[str, dict[str, Any]] = {}
+    for reference, binding in index.get("transactions", {}).items():
+        sides: dict[str, list[tuple[int, int, str]]] = {"request": [], "response": []}
+        for role in ("request", "response"):
+            key = binding.get(f"{role}_key")
+            event = by_key.get(key) if key is not None else None
             if not isinstance(event, dict):
                 continue
             sides[role] = [
@@ -361,6 +513,7 @@ def _event_endpoint_records(event: dict[str, Any]) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     frame = _int(event.get("frame_number"))
     capture = str(event.get("capture_file"))
+    occurrence = _int(event.get("message_occurrence"))
     message_type = event.get("message_type")
     family = event.get("procedure_family")
 
@@ -374,6 +527,7 @@ def _event_endpoint_records(event: dict[str, Any]) -> list[dict[str, Any]]:
             {
                 "capture_file": capture,
                 "frame_number": frame,
+                "occurrence": occurrence if occurrence is not None else 0,
                 "message_type": message_type,
                 "procedure_family": family,
                 "interface_type": interface_type,
@@ -386,10 +540,7 @@ def _event_endpoint_records(event: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
 
-    message_cause = None
-    cause = event.get("cause")
-    if isinstance(cause, dict):
-        message_cause = cause.get("cause_code")
+    message_cause = _message_cause(event)
     for item in event.get("f_teids") or []:
         if isinstance(item, dict):
             add(item, "message", None, message_cause)
@@ -397,7 +548,7 @@ def _event_endpoint_records(event: dict[str, Any]) -> list[dict[str, Any]]:
         if not isinstance(context, dict):
             continue
         bearer_cause = None
-        if isinstance(context.get("cause"), dict):
+        if isinstance(context.get("cause"), dict) and context["cause"].get("scope") == "bearer":
             bearer_cause = context["cause"].get("cause_code")
         for item in context.get("f_teids") or []:
             if isinstance(item, dict):
@@ -425,10 +576,10 @@ def endpoint_records(gtpv2_events: list[dict[str, Any]]) -> list[dict[str, Any]]
 # ---------------------------------------------------------------------------
 # Advertisement families
 # ---------------------------------------------------------------------------
-def _partition_key(record: dict[str, Any], index: dict[int, dict[str, Any]]) -> str:
-    binding = index.get(record["frame_number"])
+def _partition_key(record: dict[str, Any], index: dict[str, Any]) -> str:
+    binding = binding_for_record(index, record)
     if binding is None:
-        return f"uncorrelated:{record['frame_number']}"
+        return f"uncorrelated:{record['capture_file']}:{record['frame_number']}"
     return str(binding["transaction"].get("transaction_reference"))
 
 
@@ -510,13 +661,13 @@ def _role_of(record: dict[str, Any]) -> str | None:
 
 def build_advertisement_families(
     records: list[dict[str, Any]],
-    index: dict[int, dict[str, Any]],
+    index: dict[str, Any],
     conflicts: dict[str, dict[str, Any]],
     boundaries: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Group S1-U advertisements per endpoint and classify each group."""
     for record in records:
-        binding = index.get(record["frame_number"])
+        binding = binding_for_record(index, record)
         record["_transaction_role"] = binding["role"] if binding else None
         record["_transaction_reference"] = (
             binding["transaction"].get("transaction_reference") if binding else None
@@ -543,7 +694,7 @@ def build_advertisement_families(
         classifications: list[tuple[str, str, list[str]]] = []
         for partition_key in sorted(partitions):
             partition = sorted(partitions[partition_key], key=lambda item: item["frame_number"])
-            binding = index.get(partition[0]["frame_number"])
+            binding = binding_for_record(index, partition[0])
             reference = (
                 binding["transaction"].get("transaction_reference") if binding is not None else None
             )
@@ -609,14 +760,14 @@ def build_advertisement_families(
             ),
             "allocation_outcome": _allocation_outcome(members, index),
             "correlation_status": _common_value(
-                index[record["frame_number"]]["transaction"].get("correlation_status")
+                binding_for_record(index, record)["transaction"].get("correlation_status")
                 for record in members
-                if record["frame_number"] in index
+                if binding_for_record(index, record) is not None
             ),
             "correlation_strength": _common_value(
-                index[record["frame_number"]]["transaction"].get("correlation_strength")
+                binding_for_record(index, record)["transaction"].get("correlation_strength")
                 for record in members
-                if record["frame_number"] in index
+                if binding_for_record(index, record) is not None
             ),
             "family_classification": classification,
             "classification_basis": basis,
@@ -652,7 +803,7 @@ def _partition_metadata(
     metadata: list[dict[str, Any]] = []
     for key in sorted(partitions):
         partition = sorted(partitions[key], key=lambda item: item["frame_number"])
-        binding = index.get(partition[0]["frame_number"])
+        binding = binding_for_record(index, partition[0])
         transaction = binding["transaction"] if binding else None
         metadata.append(
             {
@@ -803,9 +954,9 @@ def _multi_partition_classification(
         )
 
     families_of_procedure = [
-        str(index[partition[0]["frame_number"]]["transaction"].get("procedure_family"))
+        str(binding_for_record(index, partition[0])["transaction"].get("procedure_family"))
         for partition in partitions.values()
-        if partition[0]["frame_number"] in index
+        if binding_for_record(index, partition[0]) is not None
     ]
     allocations = [item for item in families_of_procedure if item in ALLOCATION_FAMILIES]
     updates = [item for item in families_of_procedure if item in UPDATE_FAMILIES]
@@ -866,7 +1017,7 @@ def _allocation_outcome(
     bearer-scope Cause for one bearer identity is never used for another.
     """
     for record in members:
-        binding = index.get(record["frame_number"])
+        binding = binding_for_record(index, record)
         if binding is None or binding.get("role") != "response":
             continue
         if record.get("cause_code") in ACCEPTED_CAUSE_CODES:
@@ -893,10 +1044,10 @@ def release_boundaries(
     the outcome, and which control-plane context it names. Binding a release to a
     bearer generation is a separate decision that requires every provenance fact.
     """
-    by_frame = {
-        _int(event.get("frame_number")): event
+    by_key = {
+        event_key(event): event
         for event in gtpv2_events
-        if isinstance(event, dict) and _int(event.get("frame_number")) is not None
+        if isinstance(event, dict) and event_key(event) is not None
     }
     boundaries: list[dict[str, Any]] = []
     for event in gtpv2_events:
@@ -907,7 +1058,7 @@ def release_boundaries(
         frame = _int(event.get("frame_number"))
         if frame is None:
             continue
-        binding = index.get(frame)
+        binding = binding_for_event(index, event)
         if binding is not None:
             # A release boundary is anchored on the request side of one accepted
             # transaction; the response carries its outcome.
@@ -919,10 +1070,29 @@ def release_boundaries(
         transaction = binding["transaction"] if binding else None
         response = transaction.get("response") if isinstance(transaction, dict) else None
         response_frame = _int(response.get("frame_number")) if isinstance(response, dict) else None
-        response_event = by_frame.get(response_frame) if response_frame is not None else None
+        # The response is taken from the same capture-scoped binding, never from a
+        # same-numbered frame in another capture.
+        response_key = None
+        if binding is not None:
+            response_key = index["transactions"][
+                str(transaction.get("transaction_reference"))
+            ]["response_key"] if isinstance(transaction, dict) else None
+        response_event = by_key.get(response_key) if response_key is not None else None
+        if binding is None and transaction is None:
+            note = _unresolved_transaction_note(index, frame)
+            if note is not None:
+                boundaries.append(
+                    _unresolved_release_record(event, frame, note)
+                )
+                continue
         outcome, basis, limitations = _release_outcome(transaction, event, response_event, response)
 
         records = _event_endpoint_records(event)
+        if not records:
+            limitations = limitations + [
+                "this release names no S1-U receiving endpoint, so it cannot be bound to a bearer "
+                "generation even when its outcome is accepted"
+            ]
         session_teid = _header_teid(response) or _header_teid(
             transaction.get("request") if isinstance(transaction, dict) else None
         )
@@ -982,6 +1152,54 @@ def release_boundaries(
     return boundaries
 
 
+def _unresolved_transaction_note(index: dict[str, Any], frame: int) -> str | None:
+    """Why no accepted transaction could be bound to an observed frame."""
+    notes = index.get("notes") or {}
+    for reason, references in notes.items():
+        if references:
+            return str(reason)
+    return None
+
+
+def _unresolved_release_record(event: dict[str, Any], frame: int, note: str) -> dict[str, Any]:
+    """A release that exists in the capture but cannot be bound to a transaction."""
+    records = _event_endpoint_records(event)
+    return {
+        "capture_file": str(event.get("capture_file")),
+        "transaction_reference": None,
+        "request_frame": frame,
+        "request_message_type": event.get("message_type"),
+        "response_frame": None,
+        "response_message_type": None,
+        "correlation_status": None,
+        "correlation_strength": None,
+        "release_outcome": RELEASE_UNRESOLVED,
+        "release_outcome_basis": f"release_transaction_{note}",
+        "released_endpoints": [
+            {
+                "address": record["address"],
+                "teid": record["teid"],
+                "interface_type": record["interface_type"],
+                "role": record["role"],
+            }
+            for record in records[:MAX_LIST_ITEMS]
+        ],
+        "control_plane_context": {"session_teid": None, "basis": "unavailable"},
+        "bearer_identity_scope": sorted(
+            {
+                record["eps_bearer_identity"]
+                for record in records
+                if record["eps_bearer_identity"] is not None
+            }
+        ),
+        "evidence_refs": [_evidence_ref("GTPv2-C", frame, event.get("message_type"))],
+        "limitations": [
+            "the observed release cannot be bound to an accepted transaction because its "
+            "capture provenance is not established"
+        ],
+    }
+
+
 def _release_outcome(
     transaction: Any,
     request_event: Any,
@@ -1027,9 +1245,9 @@ def _release_outcome(
             ["no correlated response was observed for this release request"],
         )
 
+    # The Cause comes only from the observed response event. A transaction
+    # reference carries no Cause, so no invented property is consulted.
     code = _message_cause(response_event)
-    if code is None:
-        code = _int(response_message.get("cause_code"))
     if code is None:
         return (
             RELEASE_UNRESOLVED,
@@ -1633,9 +1851,9 @@ def analyze(
     if not isinstance(gtpv2_events, list):
         raise InputError("GTPv2-C events must be a list")
     gtpu_events = gtpu_events or []
-    index = transaction_index(transactions)
+    index = transaction_index(transactions, gtpv2_events)
     records = endpoint_records(gtpv2_events)
-    conflicts = transaction_endpoint_values(transactions, gtpv2_events)
+    conflicts = transaction_endpoint_values(transactions, gtpv2_events, index)
     boundaries = release_boundaries(gtpv2_events, index)
     families = build_advertisement_families(records, index, conflicts, boundaries)
     generations, reuse = build_generations(families, boundaries)

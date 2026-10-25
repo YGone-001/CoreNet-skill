@@ -58,3 +58,9 @@ from equal payload values.
   proved request/response family.
 * Multiple uncorrelated advertisements are never merged merely because their
   endpoint values match.
+* A transaction whose capture cannot be resolved is never a proved family: the
+  same frame number in two captures, or the same message occurring twice in one
+  frame, leaves it unbound. The default-bearer and lifecycle models apply the same
+  policy, so a transaction unbound in one is never a family in the other.
+* The accepted event contract publishes the message outcome as `message_cause`
+  with an explicit scope; no other field is read for it.

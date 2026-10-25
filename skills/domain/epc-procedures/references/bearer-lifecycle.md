@@ -97,6 +97,46 @@ generation: they are published as `GENERATION_UNRESOLVED` with basis
 including its release request; a later generation owns frames from its own proved
 allocation. No packet is moved across that interval by proximity.
 
+## Message Cause
+
+The release outcome is read from the accepted GTPv2-C event contract:
+
+```text
+message_cause:
+  cause_code
+  cause_name
+  scope: message | bearer
+```
+
+Only a `scope: message` Cause on the **correlated response** establishes the
+outcome. A bearer-scope Cause belongs to one item-scoped bearer context and is
+never substituted for the message outcome, a request-side Cause is never an
+outcome, and a Cause carried by any other transaction is never consulted. When the
+response publishes no message-scope Cause the outcome stays `UNRESOLVED`; there is
+no fallback to a missing or invented field.
+
+## Capture-scoped evidence identity
+
+A frame number is unique only inside one capture and one message occurrence, so
+evidence is identified by:
+
+```text
+capture identity + frame number + message occurrence
+```
+
+Transaction references in the accepted contract carry no per-transaction capture,
+so a transaction is bound to observed messages as follows:
+
+| Document | Rule |
+| --- | --- |
+| exactly one capture | bind only to events of that capture; an event from another capture is rejected |
+| several captures | bind only when the observed messages resolve to exactly one candidate |
+| several captures, colliding frames | `INSUFFICIENT_CAPTURE_PROVENANCE`; no family, no boundary, no generation split |
+
+A collision never overwrites an index entry, never transfers a Cause, never
+transfers a control-plane context, and never depends on input order. A release
+that cannot be bound publishes `release_transaction_<reason>` as its basis.
+
 ## Correlation strength
 
 ```text

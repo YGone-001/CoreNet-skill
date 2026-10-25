@@ -26,7 +26,7 @@
       "classification_basis": "matched_request_and_response_advertise_the_same_endpoint",
       "control_plane_context": {
         "basis": "accepted_transaction_header_teid",
-        "session_teid": 1
+        "session_teid": 6
       },
       "correlation_status": "MATCHED",
       "correlation_strength": "STRONG",
@@ -63,8 +63,8 @@
             29
           ],
           "procedure_family": "modify-bearer",
-          "session_teid": 1,
-          "transaction_reference": "gtpv2-modify-bearer-27-5"
+          "session_teid": 6,
+          "transaction_reference": "gtpv2-modify-bearer-27-4"
         }
       ],
       "receiving_endpoint_address": "127.0.0.5",
@@ -83,7 +83,7 @@
         "GTPv2-C"
       ],
       "source_transaction_references": [
-        "gtpv2-modify-bearer-27-5"
+        "gtpv2-modify-bearer-27-4"
       ]
     },
     {
@@ -96,8 +96,8 @@
       "capture_file": "corenet-epc-integrated.pcap",
       "classification_basis": "single_observed_advertisement",
       "control_plane_context": {
-        "basis": "unavailable",
-        "session_teid": null
+        "basis": "accepted_transaction_header_teid",
+        "session_teid": 6
       },
       "correlation_status": "MATCHED",
       "correlation_strength": "STRONG",
@@ -127,8 +127,8 @@
             22
           ],
           "procedure_family": "create-session",
-          "session_teid": null,
-          "transaction_reference": "gtpv2-create-session-20-4"
+          "session_teid": 6,
+          "transaction_reference": "gtpv2-create-session-19-0"
         }
       ],
       "receiving_endpoint_address": "192.168.64.128",
@@ -145,7 +145,7 @@
         "GTPv2-C"
       ],
       "source_transaction_references": [
-        "gtpv2-create-session-20-4"
+        "gtpv2-create-session-19-0"
       ]
     }
   ],
@@ -219,9 +219,7 @@
   "domain_version": "0.5.0",
   "endpoint_reuse_observation_count": 0,
   "endpoint_reuse_observations": [],
-  "evidence_limitations": [
-    "a release transaction reached no accepted outcome or named no S1-U endpoint, so no generation is closed by it"
-  ],
+  "evidence_limitations": [],
   "first_abnormal_boundary": null,
   "generation_boundary_count": 0,
   "generation_boundary_evidence": [
@@ -230,7 +228,7 @@
       "capture_file": "corenet-epc-integrated.pcap",
       "control_plane_context": {
         "basis": "correlated_response_header_teid",
-        "session_teid": 1
+        "session_teid": 6
       },
       "correlation_status": "MATCHED",
       "correlation_strength": "STRONG",
@@ -243,29 +241,29 @@
         },
         {
           "evidence_level": "OBSERVED",
-          "frame_number": 13,
+          "frame_number": 14,
           "message_type": "Delete Session Response",
           "protocol": "GTPv2-C"
         }
       ],
       "limitations": [
-        "the correlated release response carries no message-scope Cause, so the release outcome is unproved"
+        "this release names no S1-U receiving endpoint, so it cannot be bound to a bearer generation even when its outcome is accepted"
       ],
-      "release_outcome": "UNRESOLVED",
-      "release_outcome_basis": "release_response_cause_unavailable",
+      "release_outcome": "ACCEPTED",
+      "release_outcome_basis": "accepted_cause_in_correlated_response",
       "released_endpoints": [],
       "request_frame": 10,
       "request_message_type": "Delete Session Request",
-      "response_frame": 13,
+      "response_frame": 14,
       "response_message_type": "Delete Session Response",
-      "transaction_reference": "gtpv2-delete-session-10-1"
+      "transaction_reference": "gtpv2-delete-session-10-2"
     },
     {
       "bearer_identity_scope": [],
       "capture_file": "corenet-epc-integrated.pcap",
       "control_plane_context": {
         "basis": "correlated_response_header_teid",
-        "session_teid": 1
+        "session_teid": 3051
       },
       "correlation_status": "MATCHED",
       "correlation_strength": "STRONG",
@@ -278,22 +276,22 @@
         },
         {
           "evidence_level": "OBSERVED",
-          "frame_number": 14,
+          "frame_number": 13,
           "message_type": "Delete Session Response",
           "protocol": "GTPv2-C"
         }
       ],
       "limitations": [
-        "the correlated release response carries no message-scope Cause, so the release outcome is unproved"
+        "this release names no S1-U receiving endpoint, so it cannot be bound to a bearer generation even when its outcome is accepted"
       ],
-      "release_outcome": "UNRESOLVED",
-      "release_outcome_basis": "release_response_cause_unavailable",
+      "release_outcome": "ACCEPTED",
+      "release_outcome_basis": "accepted_cause_in_correlated_response",
       "released_endpoints": [],
       "request_frame": 11,
       "request_message_type": "Delete Session Request",
-      "response_frame": 14,
+      "response_frame": 13,
       "response_message_type": "Delete Session Response",
-      "transaction_reference": "gtpv2-delete-session-11-2"
+      "transaction_reference": "gtpv2-delete-session-11-3"
     }
   ],
   "generation_observations": [
@@ -553,7 +551,7 @@
     "gtpv2_transactions": "gtpv2-transactions.json",
     "s1u_observation": "s1u-observation.json",
     "session_analysis": null,
-    "transaction_count": 5
+    "transaction_count": 6
   },
   "lifecycle_subject_count": 2,
   "lifecycle_subjects": [

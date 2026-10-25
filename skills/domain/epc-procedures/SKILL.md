@@ -256,6 +256,15 @@ three separate questions and never collapses them:
 * **Correlation strength** — only `STRONG` and `SUPPORTED` may carry a proof;
   `NONE`, a missing value and an unreviewed value are never sufficient. The
   advertisement-family and release rules use the same reviewed set.
+* **Message Cause** — the outcome is read only from the accepted contract field
+  `message_cause` with `scope: message` on the correlated response. A bearer-scope
+  Cause, a request-side Cause, a Cause from another transaction and a missing field
+  never establish an accepted release.
+* **Capture-scoped identity** — evidence is identified by capture, frame and
+  message occurrence, never by frame number alone. A transaction is bound only when
+  the observed messages resolve to exactly one capture; a colliding frame number in
+  another capture leaves the transaction unbound (`INSUFFICIENT_CAPTURE_PROVENANCE`)
+  and never transfers a Cause, a control-plane context or a generation split.
 * **Packet attribution** — G-PDUs are attributed from frame-level events inside a
   proved generation window. The accounting invariant is published and checked:
   aggregate G-PDU and payload octets equal the attributed plus the unresolved

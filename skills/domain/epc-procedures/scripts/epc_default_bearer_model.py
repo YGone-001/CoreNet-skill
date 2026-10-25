@@ -1015,48 +1015,129 @@ def _candidate_identity(entry: dict[str, Any]) -> tuple[Any, Any, Any]:
     )
 
 
+def _event_key(event: Any) -> tuple[str, int, int] | None:
+    """Identity of one observed message: capture, frame and message occurrence.
+
+    A frame number is unique only inside one capture and one message occurrence,
+    so it is never used as an identity by itself.
+    """
+    if not isinstance(event, dict):
+        return None
+    capture = event.get("capture_file")
+    frame = event.get("frame_number")
+    if not isinstance(capture, str) or not capture:
+        return None
+    if not isinstance(frame, int) or isinstance(frame, bool):
+        return None
+    occurrence = event.get("message_occurrence")
+    if not isinstance(occurrence, int) or isinstance(occurrence, bool):
+        occurrence = 0
+    return capture, frame, occurrence
+
+
+def _matches_reference(event: dict[str, Any], reference: dict[str, Any]) -> bool:
+    if reference.get("message_type") is not None and event.get("message_type") != reference.get(
+        "message_type"
+    ):
+        return False
+    sequence = reference.get("sequence_number")
+    header = event.get("header") if isinstance(event.get("header"), dict) else {}
+    if isinstance(sequence, int) and not isinstance(sequence, bool):
+        observed = header.get("sequence_number")
+        if isinstance(observed, int) and not isinstance(observed, bool) and observed != sequence:
+            return False
+    # The header TEID is not compared: it carries no capture information and would
+    # reject a consistent transaction over a decoder formatting difference.
+    return True
+
+
+def _resolve_reference(
+    reference: Any,
+    by_frame: dict[int, list[dict[str, Any]]],
+    capture_files: list[str],
+) -> tuple[str, int, int] | None:
+    """Resolve one transaction message to exactly one observed event, or fail."""
+    if not isinstance(reference, dict):
+        return None
+    frame = reference.get("frame_number")
+    if not isinstance(frame, int) or isinstance(frame, bool):
+        return None
+    candidates = [event for event in by_frame.get(frame, []) if _matches_reference(event, reference)]
+    if len(capture_files) == 1:
+        candidates = [event for event in candidates if event.get("capture_file") == capture_files[0]]
+    if len(candidates) != 1:
+        return None
+    return _event_key(candidates[0])
+
+
 def _transaction_binding(
     transactions: dict[str, Any] | None,
-) -> dict[int, dict[str, Any]]:
-    """Map an observed GTPv2-C frame to its accepted transaction and role."""
-    index: dict[int, dict[str, Any]] = {}
+    gtpv2_events: list[dict[str, Any]] | None = None,
+) -> dict[tuple[str, int, int], dict[str, Any]]:
+    """Map an observed message to its accepted transaction, scoped by capture.
+
+    The accepted transaction document names its captures at document level and
+    carries no per-transaction capture, so a transaction is bound only when the
+    observed evidence resolves to exactly one message. A frame number that exists
+    in more than one capture, or a message that occurs more than once, leaves the
+    transaction unbound rather than silently binding the last match.
+    """
+    index: dict[tuple[str, int, int], dict[str, Any]] = {}
     if not isinstance(transactions, dict):
         return index
+
+    by_frame: dict[int, list[dict[str, Any]]] = {}
+    for event in gtpv2_events or []:
+        if not isinstance(event, dict):
+            continue
+        frame = event.get("frame_number")
+        if not isinstance(frame, int) or isinstance(frame, bool):
+            continue
+        by_frame.setdefault(frame, []).append(event)
+
+    capture_files = [
+        str(item) for item in transactions.get("capture_files") or [] if isinstance(item, str)
+    ]
     for transaction in transactions.get("transactions") or []:
         if not isinstance(transaction, dict):
             continue
-        for role in ("request", "response"):
-            message = transaction.get(role)
-            if not isinstance(message, dict):
+        request_key = _resolve_reference(transaction.get("request"), by_frame, capture_files)
+        if request_key is None:
+            continue
+        index[request_key] = {"transaction": transaction, "role": "request"}
+        response = transaction.get("response")
+        if isinstance(response, dict):
+            response_key = _resolve_reference(response, by_frame, capture_files)
+            if response_key is None or response_key[0] != request_key[0]:
+                del index[request_key]
                 continue
-            frame = message.get("frame_number")
-            if isinstance(frame, int) and not isinstance(frame, bool):
-                index[frame] = {"transaction": transaction, "role": role}
+            index[response_key] = {"transaction": transaction, "role": "response"}
     return index
 
 
 def advertisement_family(
-    candidates: list[dict[str, Any]], index: dict[int, dict[str, Any]]
+    candidates: list[dict[str, Any]], index: dict[tuple[str, int, int], dict[str, Any]]
 ) -> dict[str, Any] | None:
     """Consolidate repeated advertisements of one endpoint into one proved family.
 
     Duplicate-message ambiguity is removed only when every candidate belongs to
     one accepted, unambiguous transaction whose request and response advertise
     the same endpoint under one item-scoped bearer identity with no negative
-    Cause. A family is not a bearer and not a generation.
+    Cause. A family is not a bearer and not a generation, and a transaction whose
+    capture provenance is unresolved never forms one.
     """
     if len(candidates) < 2 or not index:
         return None
-    frames = [entry["event"].get("frame_number") for entry in candidates]
-    if any(frame not in index for frame in frames):
+    keys = [_event_key(entry["event"]) for entry in candidates]
+    if any(key is None or key not in index for key in keys):
         return None
-    references = {
-        index[frame]["transaction"].get("transaction_reference") for frame in frames
-    }
+    references = {index[key]["transaction"].get("transaction_reference") for key in keys}
     if len(references) != 1:
         return None
+    if len({key[0] for key in keys}) != 1:
+        return None
 
-    transaction = index[frames[0]]["transaction"]
+    transaction = index[keys[0]]["transaction"]
     if transaction.get("correlation_status") != "MATCHED":
         return None
     # The reviewed vocabulary is STRONG, SUPPORTED and NONE; NONE is a matched
@@ -1065,7 +1146,7 @@ def advertisement_family(
     if transaction.get("correlation_strength") not in PROOF_STRENGTHS:
         return None
 
-    roles = {index[frame]["role"] for frame in frames}
+    roles = {index[key]["role"] for key in keys}
     if roles != {"request", "response"}:
         return None
 
@@ -1083,7 +1164,7 @@ def advertisement_family(
             if not isinstance(context, dict) or context.get("ebi") != entry.get("ebi"):
                 continue
             cause = context.get("cause")
-            if isinstance(cause, dict):
+            if isinstance(cause, dict) and cause.get("scope") == "bearer":
                 code = cause.get("cause_code")
             break
         if isinstance(code, int) and code not in (16, 17, 18):
@@ -1123,7 +1204,7 @@ def tunnel_links(
     """
     entries = _gtpv2_endpoint_index(gtpv2_events)
     requests = _endpoint_requests(instances, entries)
-    binding = _transaction_binding(transactions)
+    binding = _transaction_binding(transactions, gtpv2_events)
 
     # Competing source subjects per endpoint, computed before any link is built so
     # that iteration order can never decide ownership.
