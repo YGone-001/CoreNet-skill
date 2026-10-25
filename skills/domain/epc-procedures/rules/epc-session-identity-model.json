@@ -34,9 +34,42 @@
       "one_allocation_transaction",
       "hop_local_control_plane_fteids_with_interface_type_and_address"
     ],
+    "evidence_classification_layers": [
+      "TRANSACTION_CORRELATION_PROVED: the accepted MATCHED transaction binding with a reviewed correlation strength",
+      "CONTROL_PLANE_CONTEXT_IDENTIFIED: the hop-local context seeded and addressable through receiver-scoped F-TEID joining",
+      "ENDPOINT_ADVERTISEMENT_OBSERVED: the S1-U bearer endpoint advertised inside an accepted transaction",
+      "ALLOCATION_ACCEPTED_OBSERVED: the correlated allocation response carries an accepted message-scope Cause",
+      "BEARER_ASSOCIATION_ESTABLISHED: the endpoint's grouped bearer items are accepted and one item-scoped bearer identity is isolated",
+      "RELEASE_OUTCOME_ACCEPTED: the correlated release response carries an accepted message-scope Cause",
+      "GENERATION_CLOSURE_ESTABLISHED: the full chain plus candidate-set completeness supports one closure"
+    ],
+    "context_establishment_requires": [
+      "proved MATCHED allocation transaction with reviewed correlation strength",
+      "joinable hop-local control-plane F-TEID corroborated by the publishing message's own path",
+      "allocation outcome ACCEPTED from the correlated response's message-scope Cause only",
+      "a rejected or unresolved allocation outcome keeps the context as a diagnostic candidate that establishes nothing"
+    ],
+    "bearer_association_requires": [
+      "every grouped bearer item of the endpoint inside the owning context accepted",
+      "an item without a grouped bearer Cause falls back only to its own transaction's correlated response message Cause",
+      "flat unbound IE values are never assigned to any item by position",
+      "at most one distinct item-scoped bearer identity per endpoint in the context",
+      "exactly one endpoint of the receiving role in the context"
+    ],
+    "hop_classification_requires": [
+      "each classifying F-TEID corroborated by the publishing message's own source and destination addresses",
+      "a relayed foreign-interface F-TEID alone yields INSUFFICIENT_HOP_EVIDENCE and never seeds a context",
+      "response-side hop evidence remains usable when the response's own direction corroborates it"
+    ],
     "hop_local_control_plane_fteid_interface_types": {
-      "S11": [10, 11],
-      "S5/S8": [6, 7]
+      "S11": [
+        10,
+        11
+      ],
+      "S5/S8": [
+        6,
+        7
+      ]
     },
     "context_join_requires": [
       "request_header_teid_not_zero",
@@ -87,7 +120,10 @@
       "no_invented_cross_interface_join",
       "exact_capture_and_transaction_provenance",
       "distinct_release_request_and_confirmation_frames",
-      "release_bearer_identities_compatible_with_endpoint_item_scoped_identities"
+      "release_bearer_identities_compatible_with_endpoint_item_scoped_identities",
+      "owning_context_allocation_outcome_accepted",
+      "endpoint_bearer_items_accepted_with_one_isolated_item_scoped_identity",
+      "source_candidate_sets_complete_published_counts_equal_published_records"
     ],
     "forbidden_as_identity_evidence": [
       "equal_header_teid_alone",

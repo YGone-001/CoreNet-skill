@@ -1452,7 +1452,7 @@ def load_session_identity_model(root: Path):
     return module
 
 
-def _session_identity_scenario(second_same_control_teid: bool = False):
+def _session_identity_scenario(second_same_control_teid: bool = False, create_cause: int | None = 16):
     """One reviewed two-hop session; optionally a second one reusing TEID 14."""
     mme, sgw, pgw = "10.0.0.1", "10.0.0.2", "10.0.0.3"
     capture = "validator.pcap"
@@ -1532,9 +1532,9 @@ def _session_identity_scenario(second_same_control_teid: bool = False):
               fteids=[fteid(10, 1, mme), fteid(7, 0, pgw)]),
         event(101, "Create Session Request", "create-session", src=sgw, dst=pgw, teid=0, seq=2,
               fteids=[fteid(6, 14, sgw)], contexts=[context(5, [bearer_fteid(4, 55, sgw)])]),
-        event(102, "Create Session Response", "create-session", src=pgw, dst=sgw, teid=14, seq=2, cause=16,
+        event(102, "Create Session Response", "create-session", src=pgw, dst=sgw, teid=14, seq=2, cause=create_cause,
               fteids=[fteid(7, 5, pgw)], contexts=[context(5, [bearer_fteid(5, 54, "10.0.0.30")])]),
-        event(103, "Create Session Response", "create-session", src=sgw, dst=mme, teid=1, seq=1, cause=16,
+        event(103, "Create Session Response", "create-session", src=sgw, dst=mme, teid=1, seq=1, cause=create_cause,
               fteids=[fteid(11, 14, sgw), fteid(7, 5, pgw)],
               contexts=[context(5, [bearer_fteid(1, 56, "10.0.0.20"), bearer_fteid(5, 54, "10.0.0.30")])]),
         event(110, "Modify Bearer Request", "modify-bearer", src=mme, dst=sgw, teid=14, seq=3,
@@ -1784,6 +1784,100 @@ def _validate_session_identity(skill: Path, root: Path) -> list[str]:
         for item in rejected["generation_closure_candidates"]
     ):
         fail("a rejected release must not produce an established closure candidate")
+
+
+    # A rejected allocation (Cause 72) keeps its observations but establishes
+    # nothing downstream, and the lifecycle closes nothing through it.
+    rejected_events, rejected_document = _session_identity_scenario(create_cause=72)
+    rejected_analysis = model.analyze(rejected_events, transactions=rejected_document)
+    for context in rejected_analysis["hop_local_contexts"]:
+        if context["association_status"] != "NOT_ESTABLISHED":
+            fail("a rejected allocation must not establish its hop-local context")
+        if context["allocation_outcome_status"] != "REJECTED_OBSERVED":
+            fail("a rejected allocation must publish its rejected outcome beside the correlation")
+    if any(
+        item["association_status"] == "ESTABLISHED"
+        for item in rejected_analysis["session_to_generation_links"]
+    ):
+        fail("a rejected allocation must not establish any session-to-generation link")
+    if rejected_analysis["established_closure_candidate_count"]:
+        fail("a rejected allocation must not produce established closure candidates")
+
+    # A bearer-scope rejection blocks exactly its own endpoint's association.
+    bearer_events, bearer_document = _session_identity_scenario()
+    for item in bearer_events:
+        if item["frame_number"] == 103:
+            for bearer in item["bearer_contexts"]:
+                if any(ft["interface_type"] == 1 for ft in bearer["f_teids"]):
+                    bearer["cause"] = {
+                        "cause_code": 72,
+                        "cause_name": "No resources available",
+                        "scope": "bearer",
+                    }
+    bearer_analysis = model.analyze(bearer_events, transactions=bearer_document)
+    bearer_links = {
+        item["bearer_endpoint"]["role"]: item
+        for item in bearer_analysis["session_to_generation_links"]
+    }
+    if bearer_links.get("sgw_s1u", {}).get("association_status") != "NOT_ESTABLISHED":
+        fail("a rejected bearer item must block its own endpoint's bearer association")
+    if bearer_links.get("sgw_s1u", {}).get("association_basis") != "bearer_item_rejected_observed":
+        fail("a rejected bearer item must publish the bearer-scope rejection basis")
+    if bearer_links.get("enodeb_s1u", {}).get("association_status") != "ESTABLISHED":
+        fail("a bearer-scope rejection must not leak to other receiving roles")
+
+    # One endpoint carrying two distinct item-scoped bearer identities stays
+    # ambiguous and cannot isolate a bearer generation.
+    multi_events, multi_document = _session_identity_scenario()
+    for item in multi_events:
+        if item["frame_number"] == 103:
+            item["bearer_contexts"] = [
+                {
+                    "ebi": 5,
+                    "cause": None,
+                    "f_teids": [
+                        {"scope": "bearer", "interface_type": 1, "teid": 56, "ipv4": "10.0.0.20"}
+                    ],
+                },
+                {
+                    "ebi": 6,
+                    "cause": None,
+                    "f_teids": [
+                        {"scope": "bearer", "interface_type": 1, "teid": 56, "ipv4": "10.0.0.20"}
+                    ],
+                },
+            ]
+    multi_analysis = model.analyze(multi_events, transactions=multi_document)
+    multi_links = {
+        item["bearer_endpoint"]["role"]: item
+        for item in multi_analysis["session_to_generation_links"]
+    }
+    if multi_links.get("sgw_s1u", {}).get("association_status") != "AMBIGUOUS":
+        fail("an endpoint advertising two bearer identities must stay ambiguous")
+
+    # A truncated identity analysis (counts exceeding published records) proves
+    # no candidate-set uniqueness: the lifecycle refuses session-context closure
+    # and publishes SOURCE_CANDIDATES_TRUNCATED.
+    truncated = json.loads(json.dumps(analysis))
+    truncated["generation_closure_candidate_count"] = 257
+    filler = json.loads(json.dumps(truncated["generation_closure_candidates"][0]))
+    filler.pop("generation_closure_candidate_reference", None)
+    truncated["generation_closure_candidates"] = truncated[
+        "generation_closure_candidates"
+    ] + [filler] * (256 - len(truncated["generation_closure_candidates"]))
+    truncated_index = lifecycle._session_identity_closure_index(truncated)
+    if truncated_index.get("complete"):
+        fail("a truncated identity analysis must fail the completeness gate")
+    truncated_generations, _ = lifecycle.build_generations(
+        families,
+        boundaries,
+        truncated_index,
+    )
+    if any(
+        generation["generation_state"] == "CLOSED_BY_ACCEPTED_RELEASE"
+        for generation in truncated_generations
+    ):
+        fail("a truncated identity analysis must not close any generation")
 
     return errors
 

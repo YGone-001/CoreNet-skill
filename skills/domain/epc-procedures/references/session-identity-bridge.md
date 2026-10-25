@@ -73,6 +73,34 @@ the two hop subjects stay separate and the missing proof is named. A truthful
 unresolved relationship is acceptable; a bridge is never invented because one is
 desired.
 
+## Allocation acceptance and bearer scope
+
+Transaction correlation, control-plane context identification, endpoint
+advertisement, allocation acceptance and bearer association are separate
+classification layers; none substitutes for another. A hop-local context is
+`ESTABLISHED` only when the allocation transaction is a proved `MATCHED` pair,
+publishes a joinable path-corroborated hop-local control-plane F-TEID **and** its
+correlated response carries an accepted message-scope Cause. A rejected or
+unresolved allocation keeps the context as a diagnostic candidate that establishes
+nothing downstream; the observations are retained, never discarded.
+
+Every S1-U endpoint keeps one item record per grouped bearer-context
+advertisement. A bearer-scope Cause decides its own item's outcome and is never
+overridden by the message-level Cause; an item without a grouped Cause falls back
+only to its own transaction's correlated response message Cause; flat unbound IE
+values are never assigned to any item by position. A rejected or unresolved item
+blocks that endpoint's bearer association, and one endpoint advertising more than
+one distinct item-scoped bearer identity stays `AMBIGUOUS` — both source records
+are preserved and no single bearer generation is isolated.
+
+## Hop classification
+
+Every classifying F-TEID must be corroborated by the publishing message's own
+path: its address must be one of that message's two endpoints. A relayed
+foreign-interface F-TEID alone therefore yields `INSUFFICIENT_HOP_EVIDENCE` and
+seeds no context, while a response may still supply missing hop evidence when its
+own direction corroborates the F-TEID it publishes.
+
 ## Forbidden assumptions
 
 Never establish a link solely from equal header TEID, equal EBI, equal E-RAB ID,

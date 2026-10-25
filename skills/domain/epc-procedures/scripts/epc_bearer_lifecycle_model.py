@@ -1629,6 +1629,29 @@ def _session_identity_closure_index(session_identity: Any) -> dict[str, Any]:
                 candidate.get("bearer_endpoint_reference"),
             )
         )
+    # Completeness gate: the identity document publishes full collection counts
+    # but bounded arrays. When a published count exceeds the number of published
+    # records the candidate set is known to be truncated, so no uniqueness claim
+    # and no session-context closure may rest on it.
+    index["complete"] = True
+    index["limitation"] = None
+    for count_key, records in (
+        ("session_to_generation_count", session_identity.get("session_to_generation_links") or []),
+        ("release_session_binding_count", session_identity.get("release_session_bindings") or []),
+        (
+            "generation_closure_candidate_count",
+            session_identity.get("generation_closure_candidates") or [],
+        ),
+    ):
+        count = _int(session_identity.get(count_key))
+        if count is not None and count > len(records):
+            index["complete"] = False
+            index["limitation"] = (
+                f"SOURCE_CANDIDATES_TRUNCATED: {count_key}={count} exceeds the "
+                f"{len(records)} published records, so session-context closure is refused for "
+                "this analysis"
+            )
+            break
     return index
 
 
@@ -1643,8 +1666,11 @@ def _session_context_closing(
     Every chain element must be established in the supplied analysis, the
     lifecycle's own boundary record must independently classify the same release
     transaction as accepted in the same capture, and exactly one release may
-    result. Anything else leaves the generation open.
+    result. An incomplete identity analysis (published counts exceeding the
+    published records) proves no candidate-set uniqueness, so it closes nothing.
     """
+    if not identity_index.get("complete"):
+        return None
     capture = family["capture_file"]
     key = (
         capture,
@@ -2031,6 +2057,8 @@ def analyze(
         limitations.append(
             "no release transaction was observed, so every generation stays open at the capture end"
         )
+    if identity_index.get("limitation"):
+        limitations.append(str(identity_index["limitation"]))
 
     additional: list[str] = []
     if not reuse:

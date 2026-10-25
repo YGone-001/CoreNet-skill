@@ -205,7 +205,15 @@ input contract the lifecycle capability may close a generation through the
    frames;
 5. exactly one candidate release remains; an ambiguous direct path never falls
    back to the session-context path, and an ambiguous identity chain closes
-   nothing.
+   nothing;
+6. the identity analysis is complete: each published count equals its published
+   record array, otherwise the lifecycle publishes `SOURCE_CANDIDATES_TRUNCATED`
+   and refuses session-context closure for the whole analysis.
+
+The lifecycle also never closes a generation whose owning session context lacks an
+accepted allocation outcome, or whose endpoint carries a rejected or unresolved
+grouped bearer item, or which shares its endpoint value with a second item-scoped
+bearer identity.
 
 Such a boundary publishes the basis
 `accepted_release_response_bound_by_reviewed_session_context` and keeps

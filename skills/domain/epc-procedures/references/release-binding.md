@@ -100,6 +100,18 @@ If any required link is missing the result is
   automatically; item-scoped bearer identity or the receiving-role uniqueness
   gate must isolate each intended target.
 
+## Candidate completeness
+
+The identity document publishes full collection counts next to bounded arrays.
+Before the lifecycle closes anything through the session-context path it compares
+`session_to_generation_count`, `release_session_binding_count` and
+`generation_closure_candidate_count` with the corresponding published record
+arrays. When a count exceeds its published records the candidate set is known to
+be truncated: uniqueness is unprovable, the analysis publishes
+`SOURCE_CANDIDATES_TRUNCATED`, and session-context closure is refused outright.
+Input ordering never changes this outcome and there is no fallback to earliest
+frame or lowest reference.
+
 ## Temporal contract
 
 The lifecycle capability continues to publish `release_request_frame`,

@@ -1,5 +1,5 @@
 name: epc-procedures
-version: 0.6.0
+version: 0.6.1
 category: domain
 description: >
   Bounded EPS Attach procedure analysis over already-extracted S1AP and NAS-EPS

@@ -314,7 +314,15 @@ three strictly separated kinds of relationship:
   generation-closure candidate additionally requires an established
   session-to-bearer-endpoint relationship per receiving role; the candidate is a
   reviewed input for the lifecycle capability and never closes a generation by
-  itself.
+  itself. Correlation, context identification, endpoint advertisement, allocation
+  acceptance, bearer association, release outcome and generation closure are
+  separate classification layers: a hop-local context is established only when its
+  correlated allocation response carries an accepted message-scope Cause, a
+  rejected or unresolved grouped bearer item blocks its endpoint's bearer
+  association, one endpoint carrying two distinct item-scoped bearer identities
+  stays ambiguous, and the lifecycle refuses session-context closure entirely when
+  the identity analysis publishes fewer records than its own counts
+  (`SOURCE_CANDIDATES_TRUNCATED`).
 
 See `references/session-identity-bridge.md` and `references/release-binding.md`.
 
@@ -350,4 +358,4 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Original CoreNet Domain-layer package. No upstream material imported. Normative
 references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the accepted
-`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.6.0.
+`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.6.1.

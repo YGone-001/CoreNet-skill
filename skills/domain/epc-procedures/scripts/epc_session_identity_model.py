@@ -40,6 +40,7 @@ import hashlib
 from typing import Any
 
 from epc_bearer_lifecycle_model import (
+    ACCEPTED_CAUSE_CODES,
     ALLOCATION_FAMILIES,
     DELETE_FAMILIES,
     InputError,
@@ -50,7 +51,7 @@ from epc_bearer_lifecycle_model import (
     PROOF_STRENGTHS,
     RELEASE_ACCEPTED,
     _event_endpoint_records,
-    _header_teid,
+    _message_cause,
     _int,
     binding_for_event,
     event_key,
@@ -288,26 +289,47 @@ def _transaction_members(index: dict[str, Any], events: list[dict[str, Any]]) ->
 def _transaction_class(member: dict[str, Any]) -> str | None:
     """The hop class of one allocation transaction.
 
-    The class comes from the request's own joinable control-plane F-TEIDs: the
-    request seeds the context and its sender F-TEID names the hop. The
-    response's relayed F-TEIDs of a foreign interface type never change the
-    class of the seeding transaction.
+    Every candidate record must be corroborated by the message path: an F-TEID
+    is the sender's or receiver's own hop identity only when its address is one
+    of the two endpoints of the message that published it. A relayed F-TEID of
+    a foreign interface type (an S5/S8 PGW address inside an S11 response)
+    fails this test and can never classify the hop, while a response may still
+    supply missing hop evidence when its own direction corroborates it.
     """
+    request_event = member.get("request_event")
+    request_addresses = {_source_address(request_event), _destination_address(request_event)}
     request_classes = {
         record["interface_class"]
-        for record in _control_fteid_records(member.get("request_event"))
-        if record["join_capable"]
+        for record in _control_fteid_records(request_event)
+        if record["join_capable"] and record["address"] in request_addresses
     }
     if len(request_classes) == 1:
         return next(iter(request_classes))
+    response_event = member.get("response_event")
+    response_addresses = {_source_address(response_event), _destination_address(response_event)}
     response_classes = {
         record["interface_class"]
-        for record in _control_fteid_records(member.get("response_event"))
-        if record["join_capable"]
+        for record in _control_fteid_records(response_event)
+        if record["join_capable"] and record["address"] in response_addresses
     }
     if not request_classes and len(response_classes) == 1:
         return next(iter(response_classes))
     return None
+
+
+def _allocation_outcome_status(member: dict[str, Any]) -> tuple[str, int | None]:
+    """The allocation outcome of one accepted transaction.
+
+    Only the correlated response's message-scope Cause classifies it: a
+    request-side Cause never overrides the response, and a response without a
+    readable Cause is unresolved, never silently accepted.
+    """
+    code = _message_cause(member.get("response_event"))
+    if code is None:
+        return ("UNRESOLVED", None)
+    if code in ACCEPTED_CAUSE_CODES:
+        return ("ACCEPTED", code)
+    return ("REJECTED_OBSERVED", code)
 
 
 def _context_join_candidates(
@@ -376,12 +398,13 @@ def build_hop_local_contexts(
         if interface_class is None:
             unbound.append(
                 {
-                    "kind": "transaction_without_resolvable_hop_class",
+                    "kind": "transaction_insufficient_hop_evidence",
                     "capture_file": capture,
                     "transaction_reference": member["transaction_reference"],
                     "limitations": [
-                        "the transaction carries no single-hop control-plane F-TEID set, so no "
-                        "hop-local context can be seeded from it"
+                        "hop classification: INSUFFICIENT_HOP_EVIDENCE; no path-corroborated "
+                        "single-hop control-plane F-TEID set, so no hop-local context can be "
+                        "seeded from it"
                     ],
                 }
             )
@@ -402,6 +425,11 @@ def build_hop_local_contexts(
             for record in published
             if record["interface_class"] == interface_class and record["join_capable"]
         ]
+        correlation_proved = (
+            member["transaction"].get("correlation_status") == MATCHED
+            and proof_strength(member["transaction"].get("correlation_strength"))[0]
+        )
+        outcome_status, _outcome_code = _allocation_outcome_status(member)
         status = STATUS_NOT_ESTABLISHED
         basis = "context_evidence_insufficient"
         limitations: list[str] = []
@@ -423,6 +451,14 @@ def build_hop_local_contexts(
                 "the allocation published no joinable hop-local control-plane F-TEID, so later "
                 "transactions cannot address this context"
             )
+        elif outcome_status != "ACCEPTED":
+            basis = f"allocation_outcome_{str(outcome_status).lower()}"
+            limitations.append(
+                "the allocation transaction is correlated and its control-plane evidence is "
+                "observed, but its correlated response does not carry an accepted message-level "
+                "Cause, so the accepted allocation is not established and the context is a "
+                "diagnostic candidate only"
+            )
         else:
             status = STATUS_ESTABLISHED
             basis = "proved_allocation_transaction_with_unique_hop_local_control_plane_fteids"
@@ -440,6 +476,8 @@ def build_hop_local_contexts(
                 "relationship_type": REL_HOP_LOCAL,
                 "association_status": status,
                 "association_basis": basis,
+                "transaction_correlation_proved": correlation_proved,
+                "allocation_outcome_status": outcome_status,
                 "allocation_transaction_reference": member["transaction_reference"],
                 "member_transactions": [
                     {
@@ -584,6 +622,12 @@ def collect_bearer_fteids(
         for member in context["member_transactions"]:
             context_by_member[(context["capture_file"], member["transaction_reference"])] = context
 
+    by_key = {
+        event_key(event): event
+        for event in events
+        if isinstance(event, dict) and event_key(event) is not None
+    }
+
     user_plane: dict[str, list[dict[str, Any]]] = {}
     endpoints: dict[tuple[str, str, str, int, int], dict[str, Any]] = {}
     unbound: list[dict[str, Any]] = []
@@ -598,6 +642,14 @@ def collect_bearer_fteids(
             if binding is not None and isinstance(binding.get("transaction"), dict)
             else None
         )
+        # The outcome fallback for every item of one transaction is the
+        # correlated response's message-scope Cause: a request-side
+        # advertisement has no outcome of its own.
+        transaction_message_cause = None
+        if transaction_reference is not None:
+            bound = (index.get("transactions") or {}).get(str(transaction_reference)) or {}
+            response_event = by_key.get(bound.get("response_key"))
+            transaction_message_cause = _message_cause(response_event)
         context = (
             context_by_member.get((str(event.get("capture_file")), str(transaction_reference)))
             if transaction_reference is not None
@@ -624,12 +676,35 @@ def collect_bearer_fteids(
                     "ebis": set(),
                     "frames": set(),
                     "scopes": set(),
+                    "items": [],
                 },
             )
             if record["eps_bearer_identity"] is not None:
                 endpoint["ebis"].add(int(record["eps_bearer_identity"]))
             endpoint["frames"].add(int(record["frame_number"]))
             endpoint["scopes"].add(str(record["scope"]))
+            # One item record per grouped advertisement. The Cause scope is the
+            # record's own F-TEID scope: a bearer-scope record carries its
+            # grouped item's bearer Cause, a message-scope record carries the
+            # message Cause. Flat unbound IE values are never consulted here.
+            endpoint["items"].append(
+                {
+                    "transaction_reference": (
+                        str(transaction_reference) if transaction_reference is not None else None
+                    ),
+                    "frame_number": int(record["frame_number"]),
+                    "scope": str(record["scope"]),
+                    "eps_bearer_identity": (
+                        int(record["eps_bearer_identity"])
+                        if record["eps_bearer_identity"] is not None
+                        else None
+                    ),
+                    "cause_code": (
+                        int(record["cause_code"]) if record["cause_code"] is not None else None
+                    ),
+                    "message_cause_code": transaction_message_cause,
+                }
+            )
             if transaction_reference is None:
                 unbound.append(
                     {
@@ -705,6 +780,22 @@ def collect_bearer_fteids(
             merged[key] for key in sorted(merged, key=lambda item: (item[1], item[2]))
         ]
     return endpoints, unbound
+
+
+def _item_outcome(item: dict[str, Any]) -> str:
+    """Outcome of one grouped bearer item advertisement.
+
+    A bearer-scope Cause on the grouped item decides its own outcome; only an
+    item without any bearer Cause falls back to the correlated response's
+    message-scope Cause, and a flat unbound IE value is never consulted.
+    """
+    cause = item.get("cause_code")
+    if cause is not None:
+        return "ACCEPTED" if cause in ACCEPTED_CAUSE_CODES else "REJECTED_OBSERVED"
+    message_cause = item.get("message_cause_code")
+    if message_cause is None:
+        return "UNRESOLVED"
+    return "ACCEPTED" if message_cause in ACCEPTED_CAUSE_CODES else "REJECTED_OBSERVED"
 
 
 def _response_published_fteids(context: dict[str, Any], interface_type: int) -> list[dict[str, Any]]:
@@ -1049,12 +1140,49 @@ def build_session_generation_links(
             and set(other["advertising_transactions"])
             & set(context["member_transaction_references"])
         ]
+        # Bearer-item evidence of this endpoint inside the owning context: the
+        # item records come from the grouped bearer-context hierarchy only, so
+        # a bearer-scope Cause blocks exactly its own item and flat unbound IE
+        # values can never be assigned to any item by position.
+        context_items = [
+            item
+            for item in endpoint.get("items") or []
+            if item.get("transaction_reference")
+            in set(context["member_transaction_references"])
+        ]
+        distinct_identities = {
+            item["eps_bearer_identity"]
+            for item in context_items
+            if item["eps_bearer_identity"] is not None
+        }
+        item_outcomes = {_item_outcome(item) for item in context_items}
         limitations: list[str] = []
         if context["association_status"] != STATUS_ESTABLISHED:
             status = STATUS_NOT_ESTABLISHED
             basis = "owning_session_context_not_established"
             limitations.append(
                 "the owning session context is not established, so the link cannot be established"
+            )
+        elif len(distinct_identities) > 1:
+            status = STATUS_AMBIGUOUS
+            basis = "distinct_bearer_identities_share_one_endpoint"
+            limitations.append(
+                "the endpoint advertises more than one item-scoped bearer identity "
+                f"({sorted(distinct_identities)}), so no single EPS bearer generation is isolated"
+            )
+        elif "REJECTED_OBSERVED" in item_outcomes:
+            status = STATUS_NOT_ESTABLISHED
+            basis = "bearer_item_rejected_observed"
+            limitations.append(
+                "a grouped bearer item of this endpoint carries a non-accepted Cause; the "
+                "message-level outcome never overrides a bearer-level rejection"
+            )
+        elif "UNRESOLVED" in item_outcomes:
+            status = STATUS_NOT_ESTABLISHED
+            basis = "bearer_item_outcome_unresolved"
+            limitations.append(
+                "no readable grouped bearer Cause and no accepted message-level Cause back this "
+                "endpoint item, so its bearer association is unresolved"
             )
         elif len(same_role) != 1:
             status = STATUS_AMBIGUOUS
@@ -1687,10 +1815,13 @@ def analyze(
         "session_identity_count": len(identities),
         "release_session_bindings": bindings[:MAX_SUBJECTS],
         "release_session_binding_count": len(bindings),
+        "release_session_bindings_omitted": max(0, len(bindings) - MAX_SUBJECTS),
         "session_to_generation_links": links[:MAX_SUBJECTS],
         "session_to_generation_count": len(links),
+        "session_to_generation_omitted": max(0, len(links) - MAX_SUBJECTS),
         "generation_closure_candidates": closure_candidates[:MAX_SUBJECTS],
         "generation_closure_candidate_count": len(closure_candidates),
+        "generation_closure_candidates_omitted": max(0, len(closure_candidates) - MAX_SUBJECTS),
         "established_closure_candidate_count": sum(
             1 for item in closure_candidates if item["association_status"] == STATUS_ESTABLISHED
         ),
