@@ -42,8 +42,11 @@ UEContextReleaseRequest, UEContextReleaseCommand, UEContextReleaseComplete.
 - Publish item-scoped E-RAB evidence for the Initial Context Setup request and
   response: E-RAB identity, QCI, ARP presence, transport layer address and
   GTP-TEID, each bound to its own item from a PDML dissection.
-- Publish the S1-U endpoint role from the message identity only; the role is never
-  inferred from a transport address.
+- Publish the S1-U receiving-endpoint role from the message identity only, never
+  from a transport address: an Initial Context Setup Request item carries the
+  SGW-U endpoint the eNodeB sends uplink traffic to (`sgw_s1u`), and an Initial
+  Context Setup Response item carries the eNodeB's own endpoint
+  (`enodeb_s1u`). The two roles are never interchangeable.
 - Flat field input cannot prove an item boundary, so it is published as
   `unbound_erab_evidence`: the observed E-RAB identities are listed and no QoS
   value or tunnel endpoint is attributed to any of them.

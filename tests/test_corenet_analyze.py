@@ -18,6 +18,7 @@ import importlib.util
 import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -1922,8 +1923,10 @@ def default_bearer_analysis(instances: int = 1, *, links: bool = True, deviation
                         "transport_layer_address_family": "IPv4",
                         "gtp_teid": 49676,
                         "gtp_teid_hex": "0000c20c",
-                        "endpoint_role": "enodeb_s1u",
-                        "endpoint_role_basis": "message_identity",
+                        # An InitialContextSetupRequest advertises the SGW's S1-U
+                        # receiving endpoint, so the item role is sgw_s1u.
+                        "endpoint_role": "sgw_s1u",
+                        "endpoint_role_basis": "initial_context_setup_request_erab_semantics",
                         "binding_basis": "pdml_grouped_ie",
                         "frame_number": 23,
                         "capture_file": "fixture.pcap",
@@ -2043,7 +2046,18 @@ class EpcDefaultBearerAdapterTests(WorkflowTestCase):
         subject = self.default_bearer_subjects()[0]
         self.assertEqual(subject["f_teid_evidence"][0]["teid"], 49676)
         self.assertEqual(subject["f_teid_evidence"][0]["frame_number"], 23)
-        self.assertEqual(subject["f_teid_evidence"][0]["interface_type"], 1)
+        # An S1AP E-RAB item fixes the receiving role, never a GTPv2-C interface type.
+        self.assertEqual(subject["f_teid_evidence"][0]["endpoint_role"], "sgw_s1u")
+        self.assertEqual(
+            subject["f_teid_evidence"][0]["endpoint_role_basis"],
+            "initial_context_setup_request_erab_semantics",
+        )
+        self.assertEqual(subject["f_teid_evidence"][0]["source_protocols"], ["S1AP"])
+        self.assertIsNone(subject["f_teid_evidence"][0]["interface_type"])
+        self.assertEqual(
+            subject["f_teid_evidence"][0]["interface_type_basis"],
+            "s1ap_erab_item_advertises_no_gtpv2_interface_type",
+        )
         self.assertEqual(subject["observation_window"], {"start_frame": 9, "end_frame": 26})
         stages = {stage["stage_id"]: stage for stage in subject["procedure_stages"]}
         self.assertEqual(stages["default-bearer-activation-request"]["status"], "OBSERVED")
@@ -2198,6 +2212,12 @@ def s1u_analysis(streams: int = 1, *, supported: bool = True) -> dict:
                 ),
                 "matched_subject_reference": "epc-default-bearer-0000000000" if supported else None,
                 "matched_endpoint_role": "enodeb_s1u" if supported else None,
+                "matched_endpoint_role_basis": (
+                    "initial_context_setup_response_erab_semantics" if supported else None
+                ),
+                "matched_endpoint_source_protocols": ["S1AP"] if supported else [],
+                "matched_endpoint_interface_types": [],
+                "matched_endpoint_interface_type_names": [],
                 "matched_endpoint_frames": [23] if supported else [],
                 "competing_subject_references": [],
                 "outcomes": ["G_PDU_OBSERVED", "DIRECTED_TUNNEL_TRAFFIC_OBSERVED"],
@@ -2380,6 +2400,104 @@ class EpcS1uAdapterTests(WorkflowTestCase):
             self.assertNotIn(forbidden, published)
         for claim in ("USER_RECEIVED_PACKET", "BEARER_DELIVERY_CONFIRMED", "APPLICATION_REACHABLE"):
             self.assertNotIn(claim, published)
+
+
+
+
+class EpcUserPlaneDeclarationTests(WorkflowTestCase):
+    """I01-I04: EPC user-plane declaration and truthful S1-U subject fields."""
+
+    def use_payload(self, payload: dict) -> None:
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+
+    def epc_result(self) -> dict:
+        return self.domain_result()
+
+    def test_epc_pipeline_declares_an_unclassified_user_plane(self) -> None:
+        source = (ROOT / "scripts" / "corenet-analyze.py").read_text(encoding="utf-8")
+        self.assertIn('"--user-plane-interface",', source)
+        self.assertIn('"unknown",', source)
+        # The EPC path must never claim an N3 label for the traffic it observes.
+        self.assertNotIn('"--user-plane-interface",\n            "n3",', source)
+
+    def test_standalone_gtpu_default_stays_n3(self) -> None:
+        path = ROOT / "skills" / "protocol" / "gtpu" / "scripts" / "gtpu_model.py"
+        spec = importlib.util.spec_from_file_location("gtpu_model_under_test", path)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        self.assertEqual(module.resolve_interface_label(None), "N3")
+        self.assertEqual(module.resolve_interface_label("s1u"), "S1-U")
+        self.assertEqual(module.resolve_interface_label("unknown"), "UNKNOWN_USER_PLANE_INTERFACE")
+
+    def test_s1u_subject_publishes_match_and_association_separately(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "gtpu", "gtpv2", "s1ap"])
+        payload = epc_payload_with_s1u()
+        stream = payload["s1u_analysis"]["stream_observations"][0]
+        stream["receiving_endpoint_match_status"] = "MATCHED"
+        stream["receiving_endpoint_match_basis"] = "receiving_endpoint_equality_with_advertised_s1u_f_teid"
+        stream["bearer_association_status"] = "SUPPORTED"
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        subject = [
+            item
+            for item in self.epc_result()["diagnostic_subjects"]
+            if item["subject_type"] == "EPC_S1U_OBSERVATION"
+        ][0]
+        self.assertEqual(subject["receiving_endpoint_match_status"], "MATCHED")
+        self.assertEqual(subject["bearer_association_status"], "SUPPORTED")
+        self.assertIn("endpoint match MATCHED", self.read_text())
+
+    def test_s1ap_matched_endpoint_publishes_no_interface_type(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "gtpu", "gtpv2", "s1ap"])
+        self.use_payload(epc_payload_with_s1u())
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        evidence = self.epc_result()["diagnostic_subjects"]
+        stream = [item for item in evidence if item["subject_type"] == "EPC_S1U_OBSERVATION"][0]
+        record = stream["f_teid_evidence"][0]
+        self.assertEqual(record["endpoint_role"], "enodeb_s1u")
+        self.assertEqual(record["endpoint_role_basis"], "initial_context_setup_response_erab_semantics")
+        self.assertEqual(record["source_protocols"], ["S1AP"])
+        # An S1AP E-RAB item advertises no GTPv2-C interface type.
+        self.assertIsNone(record["interface_type"])
+        self.assertIsNone(record["interface_type_name"])
+
+    def test_gtpv2_matched_endpoint_publishes_the_advertised_interface_type(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "gtpu", "gtpv2", "s1ap"])
+        payload = epc_payload_with_s1u()
+        stream = payload["s1u_analysis"]["stream_observations"][0]
+        stream["matched_endpoint_source_protocols"] = ["GTPv2-C", "S1AP"]
+        stream["matched_endpoint_interface_types"] = [1]
+        stream["matched_endpoint_interface_type_names"] = ["S1-U SGW GTP-U interface"]
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        subject = [
+            item
+            for item in self.epc_result()["diagnostic_subjects"]
+            if item["subject_type"] == "EPC_S1U_OBSERVATION"
+        ][0]
+        record = subject["f_teid_evidence"][0]
+        self.assertEqual(record["interface_type"], 1)
+        self.assertEqual(record["interface_type_name"], "S1-U SGW GTP-U interface")
+        self.assertEqual(record["source_protocols"], ["GTPv2-C", "S1AP"])
+
+    def test_matched_endpoint_without_owner_stays_unassociated(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "gtpu", "gtpv2"])
+        payload = epc_payload_with_s1u(supported=False)
+        stream = payload["s1u_analysis"]["stream_observations"][0]
+        stream["receiving_endpoint_match_status"] = "MATCHED"
+        stream["receiving_endpoint_match_basis"] = "receiving_endpoint_matched_without_bearer_owner"
+        stream["bearer_association_status"] = "NOT_ESTABLISHED"
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        subject = [
+            item
+            for item in self.epc_result()["diagnostic_subjects"]
+            if item["subject_type"] == "EPC_S1U_OBSERVATION"
+        ][0]
+        self.assertEqual(subject["receiving_endpoint_match_status"], "MATCHED")
+        self.assertEqual(subject["bearer_association_status"], "NOT_ESTABLISHED")
 
 
 if __name__ == "__main__":

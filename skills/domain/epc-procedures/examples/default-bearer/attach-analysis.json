@@ -11,11 +11,11 @@
   "input_provenance": {
     "nas_eps_events": {
       "event_count": 8,
-      "file": "nas2.jsonl"
+      "file": "nas-eps-events.jsonl"
     },
     "s1ap_events": {
       "event_count": 11,
-      "file": "s1ap2.jsonl"
+      "file": "s1ap-events.jsonl"
     }
   },
   "instance_count": 1,

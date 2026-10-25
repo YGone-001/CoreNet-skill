@@ -196,8 +196,15 @@ def validate(root: Path = ROOT) -> list[str]:
         for item in (first, second):
             if item["binding_basis"] != "pdml_grouped_ie":
                 fail("erab-items.pdml: an E-RAB item lost its dissector binding")
-            if item["endpoint_role"] != "enodeb_s1u":
-                fail("erab-items.pdml: the S1-U endpoint role is not message-derived")
+            if item["endpoint_role"] != "sgw_s1u":
+                fail("erab-items.pdml: an Initial Context Setup Request item must be an SGW-U receiver")
+        response = items[24][0]
+        if response["endpoint_role"] != "enodeb_s1u":
+            fail("erab-items.pdml: an Initial Context Setup Response item must be an eNodeB receiver")
+        if response["endpoint_role"] == first["endpoint_role"]:
+            fail("erab-items.pdml: Request and Response E-RAB endpoints must not share a role")
+        if response["endpoint_role_basis"] == first["endpoint_role_basis"]:
+            fail("erab-items.pdml: Request and Response endpoint roles need distinct reviewed bases")
             serialised = json.dumps(item)
             if "nAS_PDU" in serialised or "27b93f" in serialised:
                 fail("erab-items.pdml: an E-RAB item republishes the NAS payload")

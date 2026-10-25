@@ -46,19 +46,9 @@
   "domain_version": "0.4.0",
   "evidence_limitations": [
     "3 stream(s) carry no matching S1-U receiving endpoint and stay unbound",
-    "only one S1-U direction was observed; this is not evidence about the reverse direction",
     "packet counts are observations at the capture point; no loss, delivery or application reachability is inferred"
   ],
   "first_abnormal_boundary": null,
-  "input_provenance": {
-    "default_bearer_analysis": "default-bearer.json",
-    "gtpu_event_count": 16,
-    "gtpu_events": "s1u-events.jsonl",
-    "gtpv2_event_count": 1,
-    "gtpv2_events": "gtpv2-endpoints.jsonl",
-    "stream_count": 5,
-    "stream_summary": "s1u-streams.json"
-  },
   "not_confirmed": [
     "an observed G-PDU establishes packet visibility at the capture point only; it does not prove that the UE received the packet",
     "a stream association means the receiving endpoint evidence supports the tunnel relationship; it does not establish bearer service delivery",
@@ -92,7 +82,7 @@
         {
           "evidence_level": "OBSERVED",
           "frame_number": 23,
-          "message_type": "InitialContextSetup",
+          "message_type": "InitialContextSetupRequest",
           "protocol": "S1AP"
         }
       ],
@@ -145,13 +135,14 @@
     {
       "association_basis": "receiving_endpoint_equality_with_advertised_s1u_f_teid",
       "association_status": "SUPPORTED",
+      "bearer_association_status": "SUPPORTED",
       "byte_count_definition": "sum of the GTP-U Length field (payload octets following the mandatory header part)",
       "capture_file": "gtpu-fields.jsonl",
       "competing_subject_references": [],
       "deviation_types": [
         "ERROR_INDICATION_OBSERVED"
       ],
-      "direction": "DOWNLINK",
+      "direction": "UPLINK",
       "echo_observed": false,
       "end_marker_frames": [
         43
@@ -175,7 +166,7 @@
         {
           "evidence_level": "OBSERVED",
           "frame_number": 23,
-          "message_type": "InitialContextSetup",
+          "message_type": "InitialContextSetupRequest",
           "protocol": "S1AP"
         }
       ],
@@ -189,7 +180,13 @@
       "matched_endpoint_frames": [
         23
       ],
-      "matched_endpoint_role": "enodeb_s1u",
+      "matched_endpoint_interface_type_names": [],
+      "matched_endpoint_interface_types": [],
+      "matched_endpoint_role": "sgw_s1u",
+      "matched_endpoint_role_basis": "initial_context_setup_request_erab_semantics",
+      "matched_endpoint_source_protocols": [
+        "S1AP"
+      ],
       "matched_subject_reference": "epc-default-bearer-04eb0b032d",
       "message_types": [
         "End Marker",
@@ -210,6 +207,8 @@
       ],
       "outer_destination": "192.168.64.128",
       "outer_source": "127.0.0.37",
+      "receiving_endpoint_match_basis": "receiving_endpoint_equality_with_advertised_s1u_f_teid",
+      "receiving_endpoint_match_status": "MATCHED",
       "stream_key": "gtpu-path:gtpu-fields.jsonl:127.0.0.37:2152:192.168.64.128:2152:teid49676",
       "stream_reference": "epc-s1u-stream-7c445d2305",
       "teid": 49676,
@@ -220,6 +219,7 @@
     {
       "association_basis": "receiving_endpoint_equality_with_advertised_s1u_f_teid",
       "association_status": "SUPPORTED",
+      "bearer_association_status": "SUPPORTED",
       "byte_count_definition": "sum of the GTP-U Length field (payload octets following the mandatory header part)",
       "capture_file": "gtpu-fields.jsonl",
       "competing_subject_references": [],
@@ -244,7 +244,7 @@
         {
           "evidence_level": "OBSERVED",
           "frame_number": 24,
-          "message_type": "InitialContextSetup",
+          "message_type": "InitialContextSetupResponse",
           "protocol": "S1AP"
         }
       ],
@@ -258,7 +258,13 @@
       "matched_endpoint_frames": [
         24
       ],
+      "matched_endpoint_interface_type_names": [],
+      "matched_endpoint_interface_types": [],
       "matched_endpoint_role": "enodeb_s1u",
+      "matched_endpoint_role_basis": "initial_context_setup_response_erab_semantics",
+      "matched_endpoint_source_protocols": [
+        "S1AP"
+      ],
       "matched_subject_reference": "epc-default-bearer-04eb0b032d",
       "message_types": [
         "G-PDU"
@@ -277,6 +283,8 @@
       ],
       "outer_destination": "127.0.0.5",
       "outer_source": "192.168.64.128",
+      "receiving_endpoint_match_basis": "receiving_endpoint_equality_with_advertised_s1u_f_teid",
+      "receiving_endpoint_match_status": "MATCHED",
       "stream_key": "gtpu-path:gtpu-fields.jsonl:192.168.64.128:2152:127.0.0.5:2152:teid3355633680",
       "stream_reference": "epc-s1u-stream-f16d851828",
       "teid": 3355633680,
@@ -287,6 +295,7 @@
     {
       "association_basis": "echo_context_has_no_bearer_receiving_endpoint",
       "association_status": "NOT_ESTABLISHED",
+      "bearer_association_status": "NOT_ESTABLISHED",
       "byte_count_definition": "sum of the GTP-U Length field (payload octets following the mandatory header part)",
       "capture_file": "gtpu-fields.jsonl",
       "competing_subject_references": [],
@@ -311,7 +320,11 @@
         "no G-PDU observed in this directed context inside the capture window"
       ],
       "matched_endpoint_frames": [],
+      "matched_endpoint_interface_type_names": [],
+      "matched_endpoint_interface_types": [],
       "matched_endpoint_role": null,
+      "matched_endpoint_role_basis": null,
+      "matched_endpoint_source_protocols": [],
       "matched_subject_reference": null,
       "message_types": [
         "Echo Request"
@@ -325,6 +338,8 @@
       "outcomes": [],
       "outer_destination": "192.168.64.128",
       "outer_source": "127.0.0.37",
+      "receiving_endpoint_match_basis": "echo_context_has_no_bearer_receiving_endpoint",
+      "receiving_endpoint_match_status": "NOT_MATCHED",
       "stream_key": "gtpu-path:gtpu-fields.jsonl:127.0.0.37:2152:192.168.64.128:2152:teid0",
       "stream_reference": "epc-s1u-stream-53b178e15b",
       "teid": 0,
@@ -335,6 +350,7 @@
     {
       "association_basis": "echo_context_has_no_bearer_receiving_endpoint",
       "association_status": "NOT_ESTABLISHED",
+      "bearer_association_status": "NOT_ESTABLISHED",
       "byte_count_definition": "sum of the GTP-U Length field (payload octets following the mandatory header part)",
       "capture_file": "gtpu-fields.jsonl",
       "competing_subject_references": [],
@@ -359,7 +375,11 @@
         "no G-PDU observed in this directed context inside the capture window"
       ],
       "matched_endpoint_frames": [],
+      "matched_endpoint_interface_type_names": [],
+      "matched_endpoint_interface_types": [],
       "matched_endpoint_role": null,
+      "matched_endpoint_role_basis": null,
+      "matched_endpoint_source_protocols": [],
       "matched_subject_reference": null,
       "message_types": [
         "Echo Response"
@@ -373,6 +393,8 @@
       "outcomes": [],
       "outer_destination": "127.0.0.37",
       "outer_source": "192.168.64.128",
+      "receiving_endpoint_match_basis": "echo_context_has_no_bearer_receiving_endpoint",
+      "receiving_endpoint_match_status": "NOT_MATCHED",
       "stream_key": "gtpu-path:gtpu-fields.jsonl:192.168.64.128:2152:127.0.0.37:2152:teid0",
       "stream_reference": "epc-s1u-stream-3737f3b536",
       "teid": 0,
@@ -383,6 +405,7 @@
     {
       "association_basis": "no_advertised_s1u_receiving_endpoint_matches_this_stream",
       "association_status": "NOT_ESTABLISHED",
+      "bearer_association_status": "NOT_ESTABLISHED",
       "byte_count_definition": "sum of the GTP-U Length field (payload octets following the mandatory header part)",
       "capture_file": "gtpu-fields.jsonl",
       "competing_subject_references": [],
@@ -414,7 +437,11 @@
         "sequence numbers are optional in GTP-U; gaps are not a packet-loss conclusion"
       ],
       "matched_endpoint_frames": [],
+      "matched_endpoint_interface_type_names": [],
+      "matched_endpoint_interface_types": [],
       "matched_endpoint_role": null,
+      "matched_endpoint_role_basis": null,
+      "matched_endpoint_source_protocols": [],
       "matched_subject_reference": null,
       "message_types": [
         "G-PDU"
@@ -433,6 +460,8 @@
       ],
       "outer_destination": "203.0.113.9",
       "outer_source": "127.0.0.37",
+      "receiving_endpoint_match_basis": "no_advertised_s1u_receiving_endpoint_matches_this_stream",
+      "receiving_endpoint_match_status": "NOT_MATCHED",
       "stream_key": "gtpu-path:gtpu-fields.jsonl:127.0.0.37:2152:203.0.113.9:2152:teid9999",
       "stream_reference": "epc-s1u-stream-2d28f130ea",
       "teid": 9999,

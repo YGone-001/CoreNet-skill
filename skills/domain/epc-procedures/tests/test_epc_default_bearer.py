@@ -133,10 +133,20 @@ def s1ap_event(
     return event
 
 
-def erab_item(identifier: int, address: str, teid: int, *, frame: int, qci: int = 9) -> dict:
+def erab_item(
+    identifier: int,
+    address: str,
+    teid: int,
+    *,
+    frame: int,
+    qci: int = 9,
+    role: str = "sgw_s1u",
+) -> dict:
+    """One item-scoped E-RAB endpoint with its reviewed receiving role."""
+    request = role == "sgw_s1u"
     return {
         "operation": "INITIAL_CONTEXT_SETUP",
-        "list_role": "REQUEST",
+        "list_role": "REQUEST" if request else "SUCCESS",
         "item_index": 0,
         "erab_id": identifier,
         "qci": qci,
@@ -145,8 +155,12 @@ def erab_item(identifier: int, address: str, teid: int, *, frame: int, qci: int 
         "transport_layer_address_family": "IPv4",
         "gtp_teid": teid,
         "gtp_teid_hex": f"{teid:08x}",
-        "endpoint_role": "enodeb_s1u",
-        "endpoint_role_basis": "message_identity",
+        "endpoint_role": role,
+        "endpoint_role_basis": (
+            "initial_context_setup_request_erab_semantics"
+            if request
+            else "initial_context_setup_response_erab_semantics"
+        ),
         "binding_basis": "pdml_grouped_ie",
         "frame_number": frame,
         "capture_file": "fixture.pcap",
@@ -154,7 +168,9 @@ def erab_item(identifier: int, address: str, teid: int, *, frame: int, qci: int 
     }
 
 
-def gtpv2_event(frame: int, *, address: str, teid: int, ebi: int = 5) -> dict:
+def gtpv2_event(
+    frame: int, *, address: str, teid: int, ebi: int = 5, interface_type: int = 1
+) -> dict:
     return {
         "capture_file": "fixture.pcap",
         "frame_number": frame,
@@ -166,7 +182,9 @@ def gtpv2_event(frame: int, *, address: str, teid: int, ebi: int = 5) -> dict:
                 "item_index": 0,
                 "ebi": ebi,
                 "cause": {"cause_code": 16, "cause_name": "Request accepted", "scope": "bearer"},
-                "f_teids": [{"scope": "bearer", "interface_type": 1, "teid": teid, "ipv4": address}],
+                "f_teids": [
+                    {"scope": "bearer", "interface_type": interface_type, "teid": teid, "ipv4": address}
+                ],
             }
         ],
     }
@@ -268,13 +286,57 @@ class ExampleTests(unittest.TestCase):
             link_types, {"esm_to_s1ap_ue_context", "esm_to_eps_attach", "s1ap_erab_to_gtpv2_bearer"}
         )
 
-    def test_unmatched_tunnel_endpoint_stays_unestablished(self) -> None:
+    def test_role_specific_endpoint_matching_keeps_the_two_sides_apart(self) -> None:
         analysis = load_json(self.analyze_example())
-        unbound = [item for item in analysis["unbound_evidence"] if item.get("link_type")]
-        self.assertEqual(len(unbound), 1)
-        self.assertEqual(unbound[0]["status"], "NOT_ESTABLISHED")
-        self.assertEqual(unbound[0]["source_frame"], 24)
-        self.assertEqual(unbound[0]["s1u_transport_layer_address"], "127.0.0.5")
+        # The SGW-U endpoint from the Initial Context Setup Request is compared
+        # with the S1-U F-TEID (interface type 1) only.
+        supported = [
+            item
+            for item in analysis["established_links"]
+            if item.get("link_type") == "s1ap_erab_to_gtpv2_bearer"
+        ]
+        self.assertEqual(len(supported), 1)
+        self.assertEqual(supported[0]["source_frame"], 23)
+        self.assertEqual(supported[0]["source_endpoint_role"], "sgw_s1u")
+        self.assertEqual(supported[0]["target_interface_type"], 1)
+        # The eNodeB endpoint from the Initial Context Setup Response is compared
+        # with interface type 0 records only, and two of them publish the same
+        # endpoint, so no single target is selected.
+        ambiguous = [
+            item
+            for item in analysis["ambiguous_links"]
+            if item.get("link_type") == "s1ap_erab_to_gtpv2_bearer"
+        ]
+        self.assertEqual(len(ambiguous), 1)
+        self.assertEqual(ambiguous[0]["source_frame"], 24)
+        self.assertEqual(ambiguous[0]["source_endpoint_role"], "enodeb_s1u")
+        self.assertEqual(ambiguous[0]["candidate_target_frames"], [27, 29])
+        self.assertEqual(ambiguous[0]["link_basis"], "several_gtpv2_s1u_f_teids_match_this_endpoint")
+        self.assertFalse(
+            [item for item in analysis["unbound_evidence"] if item.get("link_type")],
+            "both E-RAB endpoints have a compatible GTPv2-C record of their own role",
+        )
+
+    def test_endpoint_without_a_compatible_interface_type_stays_unestablished(self) -> None:
+        # A Type 1 record can never satisfy an eNodeB-role endpoint, and no Type 0
+        # record exists here, so the relationship stays unestablished.
+        nas = [nas_event(10, [esm_message(193, "Activate default EPS bearer context request", frame=10, ebi=5)])]
+        s1ap = [
+            s1ap_event(
+                10,
+                message="InitialContextSetupResponse",
+                nas_pdu=False,
+                nas_embedded=True,
+                erab_items=[erab_item(5, "198.51.100.2", 100, frame=10, role="enodeb_s1u")],
+            )
+        ]
+        analysis = model.analyze(
+            nas, s1ap, gtpv2_events=[gtpv2_event(8, address="198.51.100.2", teid=100, interface_type=1)]
+        )
+        link = [item for item in analysis["unbound_evidence"] if item.get("link_type")][0]
+        self.assertEqual(link["status"], "NOT_ESTABLISHED")
+        self.assertEqual(link["source_endpoint_role"], "enodeb_s1u")
+        self.assertEqual(link["link_basis"], "no_gtpv2_s1u_f_teid_matches_this_endpoint")
 
     def test_no_s11_to_s5s8_association_is_asserted(self) -> None:
         analysis = load_json(self.analyze_example())
@@ -624,10 +686,12 @@ def _erab_item(
     frame: int,
     binding: str = "pdml_grouped_ie",
     capture: str = "fixture.pcap",
+    role: str = "sgw_s1u",
 ) -> dict:
+    request = role == "sgw_s1u"
     return {
         "operation": "INITIAL_CONTEXT_SETUP",
-        "list_role": "REQUEST",
+        "list_role": "REQUEST" if request else "SUCCESS",
         "item_index": 0,
         "erab_id": identifier,
         "qci": 9,
@@ -636,8 +700,16 @@ def _erab_item(
         "transport_layer_address_family": "IPv4" if address else None,
         "gtp_teid": teid,
         "gtp_teid_hex": f"{teid:08x}" if teid is not None else None,
-        "endpoint_role": "enodeb_s1u" if teid is not None else None,
-        "endpoint_role_basis": "message_identity" if teid is not None else "unavailable",
+        "endpoint_role": role if teid is not None else None,
+        "endpoint_role_basis": (
+            (
+                "initial_context_setup_request_erab_semantics"
+                if request
+                else "initial_context_setup_response_erab_semantics"
+            )
+            if teid is not None
+            else "unavailable"
+        ),
         "binding_basis": binding,
         "frame_number": frame,
         "capture_file": capture,
@@ -888,16 +960,38 @@ class TunnelAssociationSafetyTests(unittest.TestCase):
         self.assertEqual(link["source_frame"], 23)
         self.assertEqual(link["target_frame"], 22)
         self.assertFalse(link["endpoint_reuse_across_subjects"])
-        unbound = [
+        ambiguous = [
             item
-            for item in analysis["unbound_evidence"]
+            for item in analysis["ambiguous_links"]
             if isinstance(item, dict) and item.get("link_type") == "s1ap_erab_to_gtpv2_bearer"
         ]
-        self.assertEqual(len(unbound), 1)
-        self.assertEqual(unbound[0]["source_frame"], 24)
-        self.assertEqual(unbound[0]["status"], "NOT_ESTABLISHED")
+        self.assertEqual(len(ambiguous), 1)
+        self.assertEqual(ambiguous[0]["source_frame"], 24)
+        self.assertEqual(ambiguous[0]["source_endpoint_role"], "enodeb_s1u")
+        self.assertEqual(ambiguous[0]["status"], "AMBIGUOUS")
 
     # T12 -----------------------------------------------------------------
+    def test_interface_type_zero_cannot_satisfy_an_sgw_role(self) -> None:
+        nas = [nas_event(10, [esm_message(193, "Activate default EPS bearer context request", frame=10, ebi=5)])]
+        s1ap = [
+            s1ap_event(
+                10,
+                message="InitialContextSetupRequest",
+                nas_pdu=False,
+                nas_embedded=True,
+                erab_items=[erab_item(5, "198.51.100.2", 100, frame=10, role="sgw_s1u")],
+            )
+        ]
+        analysis = model.analyze(
+            nas, s1ap, gtpv2_events=[gtpv2_event(8, address="198.51.100.2", teid=100, interface_type=0)]
+        )
+        link = [item for item in analysis["unbound_evidence"] if item.get("link_type")][0]
+        self.assertEqual(link["status"], "NOT_ESTABLISHED")
+        self.assertEqual(link["source_endpoint_role"], "sgw_s1u")
+        self.assertFalse(
+            [item for item in analysis["established_links"] if item.get("link_type") == "s1ap_erab_to_gtpv2_bearer"]
+        )
+
     def test_evidence_references_keep_exact_frames(self) -> None:
         supported = self.analyze(
             [_activation(10)],

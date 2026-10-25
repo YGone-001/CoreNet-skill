@@ -32,17 +32,63 @@ These are never sufficient alone:
 - a TEID value,
 - an inner UE address.
 
-A stream whose receiving endpoint matches an eNB endpoint is the **downlink**
-direction of the tunnel; a match on an SGW-U endpoint is the **uplink** direction.
-Direction is derived from the advertised endpoint role only.
+A stream whose receiving endpoint is the eNodeB endpoint is the **downlink**
+direction of the tunnel; a match on the SGW-U endpoint is the **uplink** direction.
+Direction is derived from the advertised receiving-endpoint role only, never from
+the packet's source address and never from the direction the advertising signaling
+message travelled:
 
-## Association statuses
+| Advertised by | Receiving role | Direction |
+| --- | --- | --- |
+| S1AP Initial Context Setup Request E-RAB item | `sgw_s1u` | UPLINK |
+| S1AP Initial Context Setup Response E-RAB item | `enodeb_s1u` | DOWNLINK |
+| GTPv2-C F-TEID interface type 1 | `sgw_s1u` | UPLINK |
+| GTPv2-C F-TEID interface type 0 | `enodeb_s1u` | DOWNLINK |
+
+If endpoints of different roles match the same directed stream, the direction is
+`UNKNOWN` and the association is `AMBIGUOUS`; the first candidate is never chosen.
+
+## Endpoint match versus bearer ownership
+
+Two independent fields are published:
 
 ```text
-SUPPORTED        one evidence-safe compatible candidate on both sides
-AMBIGUOUS        several endpoint candidates, or one endpoint claimed by several bearers
-NOT_ESTABLISHED  no advertised receiving endpoint matches this stream
+receiving_endpoint_match_status  MATCHED | NOT_MATCHED
+bearer_association_status        SUPPORTED | AMBIGUOUS | NOT_ESTABLISHED
 ```
+
+A matched receiving endpoint whose advertisement no default-bearer subject owns is
+published as `receiving_endpoint_match_status: MATCHED` together with
+`bearer_association_status: NOT_ESTABLISHED` (basis
+`receiving_endpoint_matched_without_bearer_owner`). Endpoint evidence is preserved;
+bearer identity is not asserted. `SUPPORTED` requires one unique endpoint candidate
+and one owning subject.
+
+## Evidence provenance
+
+Every matched endpoint keeps the protocol and message that actually advertised it,
+and the evidence references use those identities: an S1AP E-RAB item references
+`S1AP` with `InitialContextSetupRequest` or `InitialContextSetupResponse`, and a
+GTPv2-C F-TEID references `GTPv2-C` with its own message type. A frame is never
+relabelled to the other protocol merely because it was used for the association.
+
+A stream publishes what the matching advertisements actually contained:
+
+| Field | Meaning |
+| --- | --- |
+| `matched_endpoint_role_basis` | the rule that fixed the role, `null` when the matching advertisements disagree |
+| `matched_endpoint_source_protocols` | every protocol that advertised a matching endpoint |
+| `matched_endpoint_interface_types` | the advertised GTPv2-C interface types, empty for an S1AP-only match |
+| `matched_endpoint_interface_type_names` | the reviewed names of those interface types |
+
+An S1AP E-RAB item carries a transport address and a TEID but **no** GTPv2-C
+interface type, so an S1AP-only match publishes an empty interface-type list and
+the workflow publishes `interface_type: null` with the basis
+`s1ap_erab_item_advertises_no_gtpv2_interface_type`. An interface type is never
+synthesised from the role, and a role is never synthesised from an interface
+type: TS 29.274 clause 8.22 names interface type 1 "S1-U SGW GTP-U interface" and
+interface type 0 "S1-U eNodeB GTP-U interface", so only a record that carries one
+may be published with one.
 
 A `SUPPORTED` association means the receiving-endpoint evidence supports the
 tunnel relationship. It does **not** elevate the bearer to service delivery, and a

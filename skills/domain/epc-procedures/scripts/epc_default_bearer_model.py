@@ -110,7 +110,22 @@ NEGATIVE_DEVIATIONS = frozenset(
     {DEVIATION_PDN_REJECT, DEVIATION_ACTIVATION_REJECT, DEVIATION_ESM_REJECT}
 )
 
-# Reviewed GTPv2-C F-TEID interface types that carry an S1-U endpoint.
+# Reviewed S1-U receiving-endpoint roles (TS 36.413 Initial Context Setup).
+ROLE_SGW = "sgw_s1u"
+ROLE_ENODEB = "enodeb_s1u"
+
+# A GTPv2-C F-TEID may only be compared with an S1AP endpoint of the same
+# receiving role. TS 29.274 §8.22 names interface type 1 "S1-U SGW GTP-U
+# interface" and interface type 0 "S1-U eNodeB GTP-U interface", so the S1-U
+# F-TEID that identifies the SGW's uplink receiving endpoint carries type 1 and
+# the one that identifies the eNodeB's downlink receiving endpoint carries
+# type 0. The receiver role is always fixed by the S1AP message; the interface
+# type only constrains which GTPv2-C record may be compared with it. An S1AP
+# E-RAB item advertises no GTPv2-C interface type at all, so no S1AP-sourced
+# evidence may be published with one.
+ROLE_INTERFACE_TYPES = {ROLE_SGW: frozenset({1}), ROLE_ENODEB: frozenset({0})}
+
+# Interface types that carry an S1-U F-TEID in the accepted GTPv2-C contract.
 S1U_INTERFACE_TYPES = frozenset({1})
 
 REVIEWED_GTPV2_FAMILIES = frozenset(
@@ -948,20 +963,27 @@ def _endpoint_requests(
             key = _endpoint_key(capture, item.get("transport_layer_address"), item.get("gtp_teid"))
             if key is None:
                 continue
-            candidates = [
-                entry
-                for entry in entries
-                if entry["capture_file"] == key[0]
-                and entry["interface_type"] in S1U_INTERFACE_TYPES
-                and entry["ipv4"] == key[1]
-                and entry["teid"] == key[2]
-                and entry["procedure_family"] in REVIEWED_GTPV2_FAMILIES
-            ]
+            role = item.get("endpoint_role")
+            allowed_types = ROLE_INTERFACE_TYPES.get(role) if isinstance(role, str) else None
+            candidates = (
+                [
+                    entry
+                    for entry in entries
+                    if entry["capture_file"] == key[0]
+                    and entry["interface_type"] in allowed_types
+                    and entry["ipv4"] == key[1]
+                    and entry["teid"] == key[2]
+                    and entry["procedure_family"] in REVIEWED_GTPV2_FAMILIES
+                ]
+                if allowed_types
+                else []
+            )
             requests.append(
                 {
                     "instance": instance,
                     "item": item,
                     "key": key,
+                    "role": role,
                     "candidates": candidates,
                 }
             )
@@ -1029,6 +1051,10 @@ def tunnel_links(
                 {"identifier": "s1u_gtp_teid", "value": teid},
                 {"identifier": "f_teid_interface_type", "value": sorted(S1U_INTERFACE_TYPES)},
             ],
+            "source_endpoint_role": request.get("role"),
+            "source_endpoint_role_basis": item.get("endpoint_role_basis"),
+            "source_list_role": item.get("list_role"),
+            "source_erab_item_frame": item.get("frame_number"),
             "s1ap_owner_item_count": len(owners),
             "endpoint_equality_observed": bool(candidates),
             "endpoint_reuse_across_subjects": len(owners) > 1,
@@ -1043,12 +1069,19 @@ def tunnel_links(
                     "bearer_association_status": "NOT_ESTABLISHED",
                     "target_subject_reference": None,
                     "candidate_target_frames": [],
-                    "link_basis": "no_gtpv2_s1u_f_teid_matches_this_endpoint",
+                    "link_basis": (
+                        "endpoint_role_unavailable"
+                        if not ROLE_INTERFACE_TYPES.get(request.get("role") or "")
+                        else "no_gtpv2_s1u_f_teid_matches_this_endpoint"
+                    ),
                     "evidence_refs": [_evidence_ref("S1AP", item.get("frame_number"), None)],
                     "association_strength": "NOT_ESTABLISHED",
                     "limitations": [
-                        "no observed GTPv2-C S1-U F-TEID carries this transport layer address "
-                        "and GTP-TEID in this capture"
+                        "the S1AP E-RAB item does not publish a reviewed S1-U receiving-endpoint "
+                        "role, so no GTPv2-C record may be compared with it"
+                        if not ROLE_INTERFACE_TYPES.get(request.get("role") or "")
+                        else "no observed GTPv2-C F-TEID of the compatible interface type carries "
+                        "this transport layer address and GTP-TEID in this capture"
                     ],
                 }
             )
@@ -1127,6 +1160,7 @@ def tunnel_links(
                 "target_message_type": event.get("message_type"),
                 "target_eps_bearer_identity": entry.get("ebi"),
                 "target_scope": entry.get("scope"),
+                "target_interface_type": entry.get("interface_type"),
                 "candidate_target_frames": target_frames,
                 "link_basis": "unique_exact_s1u_endpoint_equality_with_reviewed_interface_type",
                 "evidence_refs": [

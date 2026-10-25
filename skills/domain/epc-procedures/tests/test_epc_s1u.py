@@ -93,6 +93,7 @@ def default_bearer(
     capture: str = "fixture.pcap",
     reference: str = "epc-default-bearer-0000000001",
     endpoints: tuple[tuple[str, int, int], ...] = (("198.51.100.2", 100, 23),),
+    role: str = "sgw_s1u",
 ) -> dict:
     return {
         "domain": "epc-procedures",
@@ -105,8 +106,15 @@ def default_bearer(
                 "erab_items": [
                     {
                         "erab_id": 5,
+                        "list_role": "REQUEST" if role == "sgw_s1u" else "SUCCESS",
                         "transport_layer_address": address,
                         "gtp_teid": teid,
+                        "endpoint_role": role,
+                        "endpoint_role_basis": (
+                            "initial_context_setup_request_erab_semantics"
+                            if role == "sgw_s1u"
+                            else "initial_context_setup_response_erab_semantics"
+                        ),
                         "binding_basis": "pdml_grouped_ie",
                         "frame_number": frame,
                     }
@@ -131,6 +139,35 @@ def analyze(streams: list[dict], **kwargs) -> dict:
             for item in streams
         ]
     return model.analyze(events, {"streams": streams}, **kwargs)
+
+
+
+def gtpv2_endpoint(
+    frame: int,
+    *,
+    address: str = "198.51.100.2",
+    teid: int = 100,
+    interface_type: int = 1,
+    message: str = "Create Session Response",
+    family: str = "create-session",
+) -> dict:
+    """A GTPv2-C bearer F-TEID advertisement of an S1-U receiving endpoint."""
+    return {
+        "capture_file": "fixture.pcap",
+        "frame_number": frame,
+        "message_type": message,
+        "procedure_family": family,
+        "f_teids": [],
+        "bearer_contexts": [
+            {
+                "ebi": 5,
+                "cause": {"cause_code": 16, "cause_name": "Request accepted", "scope": "bearer"},
+                "f_teids": [
+                    {"scope": "bearer", "interface_type": interface_type, "teid": teid, "ipv4": address}
+                ],
+            }
+        ],
+    }
 
 
 class ExampleTests(unittest.TestCase):
@@ -172,12 +209,16 @@ class ExampleTests(unittest.TestCase):
         supported = [item for item in analysis["stream_observations"] if item["association_status"] == "SUPPORTED"]
         self.assertEqual(len(supported), 2)
         downlink = supported[0]
-        self.assertEqual(downlink["direction"], "DOWNLINK")
+        # The example's first endpoint comes from the Initial Context Setup
+        # Request, so it is the SGW-U receiver and the traffic into it is uplink.
+        self.assertEqual(downlink["direction"], "UPLINK")
+        self.assertEqual(downlink["receiving_endpoint_match_status"], "MATCHED")
+        self.assertEqual(downlink["bearer_association_status"], "SUPPORTED")
         self.assertEqual(downlink["observed_g_pdu_packet_count"], 6)
         self.assertEqual(downlink["observed_payload_byte_count"], 615)
         self.assertEqual(downlink["user_plane_interface"], "S1_U_CANDIDATE")
         self.assertEqual(downlink["matched_subject_reference"], "epc-default-bearer-04eb0b032d")
-        self.assertEqual(downlink["matched_endpoint_role"], "enodeb_s1u")
+        self.assertEqual(downlink["matched_endpoint_role"], "sgw_s1u")
         self.assertIn("G_PDU_OBSERVED", downlink["outcomes"])
         self.assertIn("OBSERVED_PACKET_COUNT", downlink["outcomes"])
         self.assertIn("OBSERVED_BYTE_COUNT", downlink["outcomes"])
@@ -256,7 +297,17 @@ class MatchingRuleTests(unittest.TestCase):
         item = analysis["stream_observations"][0]
         self.assertEqual(item["association_status"], "SUPPORTED")
         self.assertEqual(item["association_basis"], "receiving_endpoint_equality_with_advertised_s1u_f_teid")
+        self.assertEqual(item["receiving_endpoint_match_status"], "MATCHED")
+        # The Initial Context Setup Request advertises the SGW-U receiver, so
+        # traffic into it is uplink.
+        self.assertEqual(item["direction"], "UPLINK")
+
+    def test_enodeb_receiver_produces_downlink(self) -> None:
+        analysis = analyze([stream()], default_bearer=default_bearer(role="enodeb_s1u"))
+        item = analysis["stream_observations"][0]
+        self.assertEqual(item["association_status"], "SUPPORTED")
         self.assertEqual(item["direction"], "DOWNLINK")
+        self.assertEqual(item["matched_endpoint_role"], "enodeb_s1u")
 
     def test_source_address_alone_cannot_establish_ownership(self) -> None:
         # The source address equals the advertised endpoint, but the destination
@@ -303,6 +354,18 @@ class MatchingRuleTests(unittest.TestCase):
         # The same address and TEID advertised once as an eNB endpoint and once as
         # an SGW-U endpoint: the value cannot select a single receiving role.
         document = default_bearer()
+        document["default_bearer_instances"][0]["erab_items"].append(
+            {
+                "erab_id": 5,
+                "list_role": "SUCCESS",
+                "transport_layer_address": "198.51.100.2",
+                "gtp_teid": 100,
+                "endpoint_role": "enodeb_s1u",
+                "endpoint_role_basis": "initial_context_setup_response_erab_semantics",
+                "binding_basis": "pdml_grouped_ie",
+                "frame_number": 24,
+            }
+        )
         gtpv2 = [
             {
                 "capture_file": "fixture.pcap",
@@ -323,7 +386,8 @@ class MatchingRuleTests(unittest.TestCase):
         analysis = analyze([stream()], default_bearer=document, gtpv2_events=gtpv2)
         item = analysis["stream_observations"][0]
         self.assertEqual(item["association_status"], "AMBIGUOUS")
-        self.assertEqual(item["association_basis"], "several_advertised_s1u_receiving_endpoints_match_this_stream")
+        self.assertEqual(item["association_basis"], "incompatible_endpoint_roles_match_this_stream")
+        self.assertEqual(item["direction"], "UNKNOWN")
         self.assertIn("COMPETING_BEARER_CANDIDATES", item["deviation_types"])
 
     def test_capture_provenance_isolates_stream_matching(self) -> None:
@@ -357,7 +421,9 @@ class MatchingRuleTests(unittest.TestCase):
         self.assertTrue(
             any("only one S1-U direction was observed" in item for item in analysis["evidence_limitations"])
         )
-        self.assertNotIn("UPLINK", [item["direction"] for item in analysis["stream_observations"]])
+        self.assertEqual(
+            {item["direction"] for item in analysis["stream_observations"]}, {"UPLINK"}
+        )
 
     def test_packet_observation_is_not_application_reachability(self) -> None:
         analysis = analyze([stream()], default_bearer=default_bearer())
@@ -430,6 +496,106 @@ class CliContractTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertIn("EPC S1-U GTP-U observation", completed.stdout)
         self.assertIn("SUPPORTED", completed.stdout)
+
+
+
+
+class EndpointRoleTests(unittest.TestCase):
+    """G01-G05, U04-U06: role-aware matching and evidence provenance."""
+
+    def test_interface_type_one_is_the_sgw_receiver(self) -> None:
+        analysis = analyze([stream()], default_bearer=default_bearer(role="sgw_s1u"))
+        item = analysis["stream_observations"][0]
+        self.assertEqual(item["matched_endpoint_role"], "sgw_s1u")
+        self.assertEqual(item["direction"], "UPLINK")
+
+    def test_interface_type_zero_is_the_enodeb_receiver(self) -> None:
+        document = default_bearer(role="enodeb_s1u")
+        analysis = analyze(
+            [stream()], default_bearer=document,
+            gtpv2_events=[
+                {
+                    "capture_file": "fixture.pcap",
+                    "frame_number": 9,
+                    "message_type": "Modify Bearer Request",
+                    "procedure_family": "modify-bearer",
+                    "f_teids": [],
+                    "bearer_contexts": [
+                        {
+                            "ebi": 5,
+                            "f_teids": [
+                                {"scope": "bearer", "interface_type": 0, "teid": 100, "ipv4": "198.51.100.2"}
+                            ],
+                        }
+                    ],
+                }
+            ],
+        )
+        item = analysis["stream_observations"][0]
+        self.assertEqual(item["matched_endpoint_role"], "enodeb_s1u")
+        self.assertEqual(item["direction"], "DOWNLINK")
+
+    def test_matched_endpoint_without_owner_is_not_a_bearer_association(self) -> None:
+        # A GTPv2-C F-TEID advertises the endpoint but no default-bearer subject
+        # owns it: the endpoint match survives, the bearer association does not.
+        analysis = analyze(
+            [stream()], default_bearer=None,
+            gtpv2_events=[gtpv2_endpoint(8, address="198.51.100.2", teid=100)],
+        )
+        item = analysis["stream_observations"][0]
+        self.assertEqual(item["receiving_endpoint_match_status"], "MATCHED")
+        self.assertEqual(item["bearer_association_status"], "NOT_ESTABLISHED")
+        self.assertEqual(item["association_status"], "NOT_ESTABLISHED")
+        self.assertIsNone(item["matched_subject_reference"])
+        self.assertEqual(item["direction"], "UPLINK")
+        self.assertEqual(item["association_basis"], "receiving_endpoint_matched_without_bearer_owner")
+
+    def test_s1ap_endpoint_evidence_is_labelled_s1ap(self) -> None:
+        analysis = analyze([stream()], default_bearer=default_bearer(role="sgw_s1u"))
+        item = analysis["stream_observations"][0]
+        refs = [(ref["protocol"], ref["message_type"]) for ref in item["evidence_refs"]]
+        self.assertIn(("S1AP", "InitialContextSetupRequest"), refs)
+        self.assertNotIn(("S1AP", "InitialContextSetup"), refs)
+
+    def test_gtpv2_endpoint_evidence_is_labelled_gtpv2(self) -> None:
+        analysis = analyze(
+            [stream()], default_bearer=None,
+            gtpv2_events=[gtpv2_endpoint(8, address="198.51.100.2", teid=100)],
+        )
+        item = analysis["stream_observations"][0]
+        refs = [(ref["protocol"], ref["message_type"], ref["frame_number"]) for ref in item["evidence_refs"]]
+        self.assertIn(("GTPv2-C", "Create Session Response", 8), refs)
+        self.assertFalse([ref for ref in refs if ref[0] == "S1AP"])
+
+    def test_s1ap_matched_endpoint_advertises_no_interface_type(self) -> None:
+        analysis = analyze([stream()], default_bearer=default_bearer(role="sgw_s1u"))
+        item = analysis["stream_observations"][0]
+        self.assertEqual(item["matched_endpoint_role"], "sgw_s1u")
+        self.assertEqual(item["matched_endpoint_role_basis"], "initial_context_setup_request_erab_semantics")
+        self.assertEqual(item["matched_endpoint_source_protocols"], ["S1AP"])
+        self.assertEqual(item["matched_endpoint_interface_types"], [])
+        self.assertEqual(item["matched_endpoint_interface_type_names"], [])
+
+    def test_gtpv2_matched_endpoint_publishes_its_interface_type(self) -> None:
+        analysis = analyze(
+            [stream()], default_bearer=None,
+            gtpv2_events=[gtpv2_endpoint(8, address="198.51.100.2", teid=100)],
+        )
+        item = analysis["stream_observations"][0]
+        self.assertEqual(item["matched_endpoint_source_protocols"], ["GTPv2-C"])
+        self.assertEqual(item["matched_endpoint_interface_types"], [1])
+        self.assertEqual(item["matched_endpoint_interface_type_names"], ["S1-U SGW GTP-U interface"])
+
+    def test_mixed_advertisements_keep_the_gtpv2_interface_type(self) -> None:
+        analysis = analyze(
+            [stream()],
+            default_bearer=default_bearer(role="sgw_s1u"),
+            gtpv2_events=[gtpv2_endpoint(8, address="198.51.100.2", teid=100)],
+        )
+        item = analysis["stream_observations"][0]
+        self.assertEqual(item["matched_endpoint_source_protocols"], ["GTPv2-C", "S1AP"])
+        self.assertEqual(item["matched_endpoint_interface_types"], [1])
+        self.assertIsNone(item["matched_endpoint_role_basis"])
 
 
 if __name__ == "__main__":

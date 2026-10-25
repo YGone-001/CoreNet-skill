@@ -340,7 +340,10 @@ reports its ESM stages (`OBSERVED`, `NOT_OBSERVED`, `UNAVAILABLE_PROTECTED`,
 `attach_association` and `cross_interface_association` status; a tunnel link is
 `SUPPORTED` only on exact S1-U transport-layer-address and GTP-TEID equality and is
 never `ESTABLISHED`, because an E-RAB identity is never equated with an EPS bearer
-identity. The `epc-failure-boundary` Orchestration Skill
+identity. Published S1-U endpoint evidence keeps its provenance: an S1AP E-RAB item
+reports the receiving role the S1AP message fixed and no GTPv2-C interface type,
+while an interface type is reported only when a GTPv2-C F-TEID actually advertised
+one. The `epc-failure-boundary` Orchestration Skill
 then selects, per subject, the earliest supported abnormal observation with its
 exact frame and protocol evidence; the domain-level `boundary_selection_status`
 becomes `EVALUATED_PER_SUBJECT`, the domain-level `first_abnormal_boundary` stays

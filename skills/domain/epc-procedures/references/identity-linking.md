@@ -34,8 +34,12 @@ never merged.
 ### S1AP E-RAB to GTPv2-C bearer — `s1ap_erab_to_gtpv2_bearer`
 
 Basis: exact equality of the S1-U transport layer address **and** the S1-U
-GTP-TEID, with a reviewed S1-U F-TEID interface type (1), inside one capture, with
-a reviewed GTPv2-C procedure family, and exactly one candidate.
+GTP-TEID, with a GTPv2-C F-TEID whose interface type matches the S1AP item's
+reviewed receiving role (type 1 for an SGW-U receiver from the Initial Context
+Setup Request, type 0 for an eNodeB receiver from the Initial Context Setup
+Response), inside one capture, with a reviewed GTPv2-C procedure family, and
+exactly one candidate. A Type 1 record can never satisfy an eNodeB-role endpoint,
+and a Type 0 record can never satisfy an SGW-U-role endpoint.
 
 This link is `SUPPORTED`, never `ESTABLISHED`, because:
 

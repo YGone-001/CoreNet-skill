@@ -251,10 +251,20 @@
             "type": [
               "string",
               "null"
+            ],
+            "enum": [
+              "sgw_s1u",
+              "enodeb_s1u",
+              null
             ]
           },
           "endpoint_role_basis": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "initial_context_setup_request_erab_semantics",
+              "initial_context_setup_response_erab_semantics",
+              "unavailable"
+            ]
           },
           "binding_basis": {
             "enum": [

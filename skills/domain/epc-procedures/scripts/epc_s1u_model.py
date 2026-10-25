@@ -31,16 +31,40 @@ EXIT_MALFORMED_INPUT = 5
 EXIT_NO_STREAMS = 6
 EXIT_OUTPUT_FAILURE = 7
 
-# Reviewed S1-U endpoint roles. The role is fixed by the message that advertised
-# the endpoint, never inferred from a transport address.
+# Reviewed S1-U receiving-endpoint roles. The role is fixed by the message that
+# advertised the endpoint, never inferred from a transport address.
 ROLE_ENODEB = "enodeb_s1u"
-ROLE_SGW = "sgw_u_s1u"
+ROLE_SGW = "sgw_s1u"
 S1U_ENDPOINT_ROLES = (ROLE_ENODEB, ROLE_SGW)
+
+# GTPv2-C F-TEID interface type -> receiving-endpoint role (TS 29.274 §8.22).
+INTERFACE_TYPE_ROLE = {1: ROLE_SGW, 0: ROLE_ENODEB}
+
+# Reviewed interface type names, published only for a GTPv2-C advertisement.
+INTERFACE_TYPE_NAMES = {
+    1: "S1-U SGW GTP-U interface",
+    0: "S1-U eNodeB GTP-U interface",
+}
+
+# An S1AP E-RAB item carries a transport address and a TEID, never a GTPv2-C
+# interface type. S1AP-sourced evidence therefore publishes no interface type.
+S1AP_INTERFACE_TYPE_BASIS = "s1ap_erab_item_advertises_no_gtpv2_interface_type"
+GTPV2_INTERFACE_TYPE_BASIS = "gtpv2_f_teid_interface_type"
+
+# Endpoint match is an observation; bearer ownership is a separate verdict.
+MATCH_MATCHED = "MATCHED"
+MATCH_NOT_MATCHED = "NOT_MATCHED"
 
 # A GTP-U stream whose receiving endpoint matches an eNB endpoint is the downlink
 # direction of the S1-U tunnel; a match on an SGW-U endpoint is the uplink
 # direction. Direction is derived from the matched endpoint role only.
 DIRECTION_BY_ROLE = {ROLE_ENODEB: "DOWNLINK", ROLE_SGW: "UPLINK"}
+
+# Reviewed S1AP messages that advertise each role.
+S1AP_MESSAGE_BY_LIST_ROLE = {
+    "REQUEST": "InitialContextSetupRequest",
+    "SUCCESS": "InitialContextSetupResponse",
+}
 
 INTERFACE_S1U = "S1_U_CANDIDATE"
 INTERFACE_UNKNOWN = "UNKNOWN_USER_PLANE_INTERFACE"
@@ -193,13 +217,21 @@ def endpoint_index(default_bearer: dict[str, Any] | None, gtpv2_events: list[dic
                         "capture_file": str(capture),
                         "address": address,
                         "teid": teid,
-                        "role": ROLE_ENODEB,
-                        "role_basis": "s1ap_erab_item_endpoint_role",
+                        "role": item.get("endpoint_role"),
+                        "role_basis": item.get("endpoint_role_basis"),
                         "subject_reference": instance.get("instance_reference"),
                         "subject_type": "EPS_DEFAULT_BEARER",
                         "frame_number": item.get("frame_number"),
                         "erab_id": item.get("erab_id"),
                         "source": "default_bearer_erab_item",
+                        # Exact evidence provenance: an S1AP E-RAB item is an S1AP
+                        # observation, never a GTPv2-C one.
+                        "source_protocol": "S1AP",
+                        "source_message_type": S1AP_MESSAGE_BY_LIST_ROLE.get(str(item.get("list_role"))),
+                        "source_scope": "erab_item",
+                        "interface_type": None,
+                        "interface_type_name": None,
+                        "interface_type_basis": S1AP_INTERFACE_TYPE_BASIS,
                     }
                 )
     for event in gtpv2_events:
@@ -214,7 +246,7 @@ def endpoint_index(default_bearer: dict[str, Any] | None, gtpv2_events: list[dic
             for item in context.get("f_teids") or []:
                 if not isinstance(item, dict):
                     continue
-                if item.get("interface_type") != S1U_INTERFACE_TYPE:
+                if item.get("interface_type") not in INTERFACE_TYPE_ROLE:
                     continue
                 address = item.get("ipv4")
                 teid = item.get("teid")
@@ -225,16 +257,28 @@ def endpoint_index(default_bearer: dict[str, Any] | None, gtpv2_events: list[dic
                         "capture_file": capture,
                         "address": address,
                         "teid": teid,
-                        "role": ROLE_SGW,
-                        "role_basis": "gtpv2_bearer_f_teid_s1u_interface_type",
+                        "role": INTERFACE_TYPE_ROLE.get(item.get("interface_type")),
+                        "role_basis": "gtpv2_f_teid_interface_type",
                         "subject_reference": None,
                         "subject_type": None,
                         "frame_number": event.get("frame_number"),
                         "erab_id": None,
                         "source": "gtpv2_bearer_f_teid",
+                        "source_protocol": "GTPv2-C",
+                        "source_message_type": event.get("message_type"),
+                        "source_scope": "bearer_f_teid",
+                        "interface_type": item.get("interface_type"),
+                        "interface_type_name": INTERFACE_TYPE_NAMES.get(item.get("interface_type")),
+                        "interface_type_basis": GTPV2_INTERFACE_TYPE_BASIS,
                     }
                 )
     return endpoints
+
+
+def _single_value(values: Any) -> Any:
+    """Return the one distinct non-null value, or None when values disagree."""
+    distinct = {value for value in values if value is not None}
+    return next(iter(distinct)) if len(distinct) == 1 else None
 
 
 def _endpoint_key(endpoint: dict[str, Any]) -> tuple[str, str, int]:
@@ -266,6 +310,7 @@ def _stream_matches(stream: dict[str, Any], endpoints: list[dict[str, Any]]) -> 
         if endpoint["capture_file"] == capture
         and endpoint["address"] == destination
         and endpoint["teid"] == teid
+        and endpoint.get("role") in S1U_ENDPOINT_ROLES
     ]
 
 
@@ -311,6 +356,8 @@ def build_stream(
     matched_subject: str | None = None
     matched_role: str | None = None
     matched_endpoint_frames: list[int] = []
+    matched_endpoint_refs: list[dict[str, Any]] = []
+    match_status = MATCH_MATCHED if matches else MATCH_NOT_MATCHED
     status = ASSOCIATION_NOT_ESTABLISHED
     basis = "no_advertised_s1u_receiving_endpoint_matches_this_stream"
     limitations: list[str] = []
@@ -326,12 +373,31 @@ def build_stream(
             frame = match.get("frame_number")
             if isinstance(frame, int):
                 matched_endpoint_frames.append(frame)
-        distinct_endpoints = {
-            (_endpoint_key(match), match.get("role")) for match in matches
-        }
-        if len(distinct_endpoints) > 1:
+            # Exact provenance: the reference names the protocol and message that
+            # actually advertised this receiving endpoint.
+            matched_endpoint_refs.append(
+                _evidence_ref(
+                    match.get("source_protocol") or "unknown",
+                    frame,
+                    match.get("source_message_type"),
+                )
+            )
+        roles = {match.get("role") for match in matches if match.get("role")}
+        distinct_endpoints = {(_endpoint_key(match), match.get("role")) for match in matches}
+        if len(roles) > 1:
+            # Two incompatible receiving roles cannot describe one directed stream.
+            status = ASSOCIATION_AMBIGUOUS
+            basis = "incompatible_endpoint_roles_match_this_stream"
+            matched_role = None
+            limitations.append(
+                "receiving endpoints of different reviewed roles match this stream, so neither the "
+                "direction nor a single bearer allocation is selected"
+            )
+            deviations.append(DEVIATION_COMPETING)
+        elif len(distinct_endpoints) > 1:
             status = ASSOCIATION_AMBIGUOUS
             basis = "several_advertised_s1u_receiving_endpoints_match_this_stream"
+            matched_role = next(iter(roles), None)
             limitations.append(
                 "more than one advertised S1-U receiving endpoint carries this destination address "
                 "and TEID, so no single bearer allocation is selected"
@@ -340,6 +406,7 @@ def build_stream(
         elif len(candidate_subjects) > 1:
             status = ASSOCIATION_AMBIGUOUS
             basis = "one_s1u_endpoint_claimed_by_several_bearer_subjects"
+            matched_role = next(iter(roles), None)
             limitations.append(
                 "the receiving endpoint value is published by more than one default-bearer subject, "
                 "so this stream is not independent proof for either of them"
@@ -348,13 +415,19 @@ def build_stream(
         elif len(candidate_subjects) == 1:
             status = ASSOCIATION_SUPPORTED
             basis = "receiving_endpoint_equality_with_advertised_s1u_f_teid"
+            matched_role = next(iter(roles), None)
             matched_subject = candidate_subjects[0]
         else:
-            # The endpoint matches an advertised S1-U F-TEID that no default-bearer
-            # subject owns (for example an SGW-U endpoint from GTPv2-C only).
-            status = ASSOCIATION_SUPPORTED
-            basis = "receiving_endpoint_equality_with_advertised_s1u_f_teid_without_subject"
-        matched_role = matches[0]["role"]
+            # The endpoint match is real and its role is reviewed, but no
+            # default-bearer subject owns that advertisement. Endpoint evidence is
+            # preserved; bearer ownership stays NOT_ESTABLISHED.
+            status = ASSOCIATION_NOT_ESTABLISHED
+            basis = "receiving_endpoint_matched_without_bearer_owner"
+            matched_role = next(iter(roles), None)
+            limitations.append(
+                "the receiving endpoint match is supported by reviewed evidence, but no "
+                "default-bearer subject owns that advertisement, so no bearer association is asserted"
+            )
         competing_subjects = [item for item in candidate_subjects if item != matched_subject]
 
     stream_events = events_by_stream.get(_stream_tuple(stream) or ("", "", "", -1), [])
@@ -405,8 +478,7 @@ def build_stream(
         _evidence_ref("GTP-U", stream.get("first_frame"), "G-PDU"),
         _evidence_ref("GTP-U", stream.get("last_frame"), "G-PDU"),
     ]
-    for frame in matched_endpoint_frames[:MAX_LIST_ITEMS]:
-        references.append(_evidence_ref("S1AP", frame, "InitialContextSetup"))
+    references.extend(matched_endpoint_refs[:MAX_LIST_ITEMS])
     references = [item for item in references if item["frame_number"] is not None]
     seen: set[tuple[Any, Any]] = set()
     bounded: list[dict[str, Any]] = []
@@ -456,10 +528,23 @@ def build_stream(
         "user_plane_interface": interface,
         "interface_basis": interface_basis,
         "direction": DIRECTION_BY_ROLE.get(matched_role) if matched_role else "UNKNOWN",
+        "receiving_endpoint_match_status": match_status,
+        "receiving_endpoint_match_basis": basis,
         "association_status": status,
+        "bearer_association_status": status,
         "association_basis": basis,
         "matched_subject_reference": matched_subject,
         "matched_endpoint_role": matched_role,
+        "matched_endpoint_role_basis": _single_value(match.get("role_basis") for match in matches),
+        "matched_endpoint_source_protocols": sorted(
+            {str(match.get("source_protocol")) for match in matches if match.get("source_protocol")}
+        ),
+        "matched_endpoint_interface_types": sorted(
+            {match["interface_type"] for match in matches if isinstance(match.get("interface_type"), int)}
+        ),
+        "matched_endpoint_interface_type_names": sorted(
+            {str(match.get("interface_type_name")) for match in matches if match.get("interface_type_name")}
+        ),
         "matched_endpoint_frames": sorted(set(matched_endpoint_frames))[:MAX_LIST_ITEMS],
         "competing_subject_references": competing_subjects[:MAX_LIST_ITEMS],
         "outcomes": outcomes,
@@ -566,9 +651,10 @@ def analyze(
         limitations.append(
             f"{len(unbound)} stream(s) carry no matching S1-U receiving endpoint and stay unbound"
         )
-    if any(item["direction"] == "DOWNLINK" for item in visible) and not any(
-        item["direction"] == "UPLINK" for item in visible
-    ):
+    observed_directions = {
+        item["direction"] for item in visible if item["direction"] in ("DOWNLINK", "UPLINK")
+    }
+    if len(observed_directions) == 1:
         limitations.append(
             "only one S1-U direction was observed; this is not evidence about the reverse direction"
         )

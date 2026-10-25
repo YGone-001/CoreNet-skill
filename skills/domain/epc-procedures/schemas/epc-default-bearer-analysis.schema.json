@@ -652,6 +652,41 @@
               ]
             }
           }
+        },
+        "source_endpoint_role": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "sgw_s1u",
+            "enodeb_s1u",
+            null
+          ]
+        },
+        "source_endpoint_role_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_list_role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_erab_item_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "target_interface_type": {
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       }
     },

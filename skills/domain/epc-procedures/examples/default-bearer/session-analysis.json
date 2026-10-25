@@ -887,7 +887,7 @@
               ],
               "bearer_contexts": [],
               "correlation_status": "MATCHED",
-              "correlation_strength": "SUPPORTED",
+              "correlation_strength": "STRONG",
               "evidence_refs": [
                 {
                   "evidence_level": "OBSERVED",
@@ -1201,7 +1201,7 @@
     "protocol_skill": "gtpv2",
     "protocol_skill_version": "0.1.0",
     "transaction_count": 6,
-    "transactions_file": "gtpv2-transactions.json"
+    "transactions_file": "tx.json"
   },
   "model_version": "1.0.0",
   "not_confirmed": [
@@ -1704,7 +1704,7 @@
     {
       "bearer_contexts": [],
       "correlation_status": "MATCHED",
-      "correlation_strength": "SUPPORTED",
+      "correlation_strength": "STRONG",
       "evidence_refs": [
         {
           "evidence_level": "OBSERVED",

@@ -36,9 +36,12 @@ python3 scripts/s1ap_timeline.py s1ap-events.jsonl --format text
 
 Initial Context Setup messages publish item-scoped `erab_items` read from a PDML
 dissection: E-RAB identity, QCI, ARP presence, transport layer address and
-GTP-TEID, bound to their own item. Flat field input publishes
-`unbound_erab_evidence` instead, because a repeated flat list cannot prove which
-tunnel endpoint belongs to which E-RAB.
+GTP-TEID, bound to their own item. Each item also carries the reviewed
+receiving-endpoint role: an Initial Context Setup Request item is the SGW-U
+receiver (`sgw_s1u`), an Initial Context Setup Response item is the eNodeB
+receiver (`enodeb_s1u`). Flat field input publishes `unbound_erab_evidence`
+instead, because a repeated flat list cannot prove which tunnel endpoint belongs
+to which E-RAB.
 
 ## What it extracts
 

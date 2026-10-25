@@ -1390,7 +1390,8 @@ def render_text_report(report: dict[str, Any]) -> str:
                     f"      S1-U stream: {_value(subject.get('direction'))} "
                     f"({_value((evidence.get('interfaces') or [None])[0])}, "
                     f"basis {_value(evidence.get('basis'))}), "
-                    f"association {_value(subject.get('association_strength'))}"
+                    f"endpoint match {_value(subject.get('receiving_endpoint_match_status'))}, "
+                    f"bearer association {_value(subject.get('bearer_association_status'))}"
                 )
                 lines.append(
                     f"      packets: {_value(subject.get('observed_g_pdu_packet_count'))} G-PDU, "
@@ -1887,6 +1888,8 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
             str(capture),
             "--output",
             str(gtpu_events),
+            "--user-plane-interface",
+            "unknown",
             "--force",
         ],
         "GTP-U extraction",
@@ -2375,6 +2378,12 @@ def _project_epc_session_subject(
     return entry
 
 
+def _single_value(values: Any) -> Any:
+    """Return the one distinct non-null value, or None when the values disagree."""
+    distinct = {value for value in values if value is not None}
+    return next(iter(distinct)) if len(distinct) == 1 else None
+
+
 def _project_default_bearer_subject(
     instance: dict[str, Any], analysis: dict[str, Any], group: Any = None
 ) -> dict[str, Any]:
@@ -2494,8 +2503,15 @@ def _project_default_bearer_subject(
         "f_teid_evidence": [
             {
                 "scope": "bearer",
-                "interface_type": 1,
-                "interface_type_name": "S1-U eNodeB GTP-U",
+                # An S1AP E-RAB item advertises a transport address and a TEID,
+                # never a GTPv2-C interface type. The receiving role, not an
+                # interface type, is what the S1AP message fixes.
+                "endpoint_role": item.get("endpoint_role"),
+                "endpoint_role_basis": item.get("endpoint_role_basis"),
+                "source_protocols": ["S1AP"],
+                "interface_type": None,
+                "interface_type_name": None,
+                "interface_type_basis": "s1ap_erab_item_advertises_no_gtpv2_interface_type",
                 "teid": item.get("gtp_teid"),
                 "transport_layer_address": item.get("transport_layer_address"),
                 "erab_id": item.get("erab_id"),
@@ -2574,11 +2590,21 @@ def _project_s1u_subject(stream: dict[str, Any], analysis: dict[str, Any]) -> di
         "f_teid_evidence": [
             {
                 "scope": "bearer",
-                "interface_type": 1,
-                "interface_type_name": "S1-U eNodeB GTP-U",
+                "endpoint_role": stream.get("matched_endpoint_role"),
+                "endpoint_role_basis": stream.get("matched_endpoint_role_basis"),
+                "source_protocols": [
+                    item
+                    for item in stream.get("matched_endpoint_source_protocols") or []
+                    if isinstance(item, str)
+                ],
+                # Only a GTPv2-C F-TEID advertisement carries an interface type.
+                "interface_type": _single_value(stream.get("matched_endpoint_interface_types") or []),
+                "interface_type_name": _single_value(
+                    stream.get("matched_endpoint_interface_type_names") or []
+                ),
+                "interface_type_basis": "matched_endpoint_advertisement",
                 "teid": stream.get("teid"),
                 "transport_layer_address": stream.get("outer_destination"),
-                "endpoint_role": stream.get("matched_endpoint_role"),
                 "frame_number": stream.get("matched_endpoint_frames")[0]
                 if stream.get("matched_endpoint_frames")
                 else None,
@@ -2594,6 +2620,9 @@ def _project_s1u_subject(stream: dict[str, Any], analysis: dict[str, Any]) -> di
         "message_types": [item for item in stream.get("message_types") or [] if isinstance(item, str)],
         "error_indication_frames": stream.get("error_indication_frames") or [],
         "end_marker_frames": stream.get("end_marker_frames") or [],
+        "receiving_endpoint_match_status": stream.get("receiving_endpoint_match_status"),
+        "receiving_endpoint_match_basis": stream.get("receiving_endpoint_match_basis"),
+        "bearer_association_status": stream.get("bearer_association_status"),
         "cross_interface_association": stream.get("association_status"),
         "attach_association": "NOT_ESTABLISHED",
         "observations": [item for item in stream.get("outcomes") or [] if isinstance(item, str)],

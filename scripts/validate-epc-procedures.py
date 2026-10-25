@@ -479,6 +479,21 @@ def _validate_s1u(skill: Path, root: Path) -> list[str]:
     if required_equal != {"outer_destination_address", "gtpu_header_teid"}:
         fail("S1-U matching rule must require destination address and header TEID equality")
 
+    # TS 29.274 clause 8.22: interface type 1 identifies the SGW's S1-U GTP-U
+    # endpoint and type 0 the eNodeB's. A role and an interface type are never
+    # derived from each other, so the name table must cover exactly the reviewed
+    # role mapping and must not invent a name.
+    if set(model.INTERFACE_TYPE_NAMES) != set(model.INTERFACE_TYPE_ROLE):
+        fail("S1-U interface type names must cover exactly the reviewed role mapping")
+    if model.INTERFACE_TYPE_NAMES.get(1) != "S1-U SGW GTP-U interface":
+        fail("interface type 1 must be named 'S1-U SGW GTP-U interface'")
+    if model.INTERFACE_TYPE_NAMES.get(0) != "S1-U eNodeB GTP-U interface":
+        fail("interface type 0 must be named 'S1-U eNodeB GTP-U interface'")
+    if model.INTERFACE_TYPE_ROLE.get(1) != model.ROLE_SGW:
+        fail("interface type 1 must map to the sgw_s1u receiving role")
+    if model.INTERFACE_TYPE_ROLE.get(0) != model.ROLE_ENODEB:
+        fail("interface type 0 must map to the enodeb_s1u receiving role")
+
     base = skill / "examples" / "s1u"
     try:
         produced = model.analyze(
@@ -514,6 +529,27 @@ def _validate_s1u(skill: Path, root: Path) -> list[str]:
         forbidden = S1U_FORBIDDEN_KEYS & set(stream)
         if forbidden:
             fail(f"S1-U stream publishes forbidden field(s) {sorted(forbidden)}")
+        protocols = stream.get("matched_endpoint_source_protocols") or []
+        interface_types = stream.get("matched_endpoint_interface_types") or []
+        if not isinstance(protocols, list) or not isinstance(interface_types, list):
+            fail("S1-U stream provenance fields must be lists")
+            continue
+        if not stream.get("association_status") == model.ASSOCIATION_SUPPORTED:
+            if protocols or interface_types:
+                fail("an unassociated S1-U stream must not publish matched-endpoint provenance")
+            continue
+        if not protocols:
+            fail("a supported S1-U stream must name the protocol that advertised its endpoint")
+        if set(protocols) == {"S1AP"} and interface_types:
+            fail("an S1AP-only match must not publish a GTPv2-C interface type")
+        for interface_type in interface_types:
+            if interface_type not in model.INTERFACE_TYPE_NAMES:
+                fail(f"unreviewed S1-U interface type published: {interface_type}")
+        if interface_types:
+            names = stream.get("matched_endpoint_interface_type_names") or []
+            for interface_type in interface_types:
+                if model.INTERFACE_TYPE_NAMES[interface_type] not in names:
+                    fail(f"interface type {interface_type} is published without its reviewed name")
 
     serialized = json.dumps(expected)
     for claim in (

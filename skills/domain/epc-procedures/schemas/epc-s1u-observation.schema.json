@@ -32,31 +32,105 @@
     "boundary_note"
   ],
   "properties": {
-    "domain": { "const": "epc-procedures" },
-    "domain_version": { "type": "string" },
-    "analysis_name": { "const": "epc-s1u-observation" },
-    "analysis_version": { "type": "string" },
-    "procedure": { "const": "eps-s1u-observation" },
-    "procedure_label": { "type": "string" },
-    "analysis_scope": { "type": "object" },
-    "input_provenance": { "type": "object" },
-    "stream_count": { "type": "integer", "minimum": 0 },
-    "stream_observations": { "type": "array", "items": { "$ref": "#/$defs/stream" } },
-    "streams_omitted": { "type": "integer", "minimum": 0 },
-    "supported_stream_count": { "type": "integer", "minimum": 0 },
-    "ambiguous_stream_count": { "type": "integer", "minimum": 0 },
-    "unbound_stream_count": { "type": "integer", "minimum": 0 },
-    "observed_g_pdu_packet_count": { "type": "integer", "minimum": 0 },
-    "observed_payload_byte_count": { "type": "integer", "minimum": 0 },
-    "procedure_local_deviations": { "type": "array", "items": { "$ref": "#/$defs/deviation" } },
-    "procedure_local_deviation_count": { "type": "integer", "minimum": 0 },
-    "procedure_local_deviations_omitted": { "type": "integer", "minimum": 0 },
-    "evidence_limitations": { "type": "array", "items": { "type": "string" } },
-    "additional_evidence_needed": { "type": "array", "items": { "type": "string" } },
-    "not_confirmed": { "type": "array", "items": { "type": "string" } },
-    "boundary_selection_status": { "const": "NOT_APPLICABLE" },
-    "first_abnormal_boundary": { "type": "null" },
-    "boundary_note": { "type": "string" }
+    "domain": {
+      "const": "epc-procedures"
+    },
+    "domain_version": {
+      "type": "string"
+    },
+    "analysis_name": {
+      "const": "epc-s1u-observation"
+    },
+    "analysis_version": {
+      "type": "string"
+    },
+    "procedure": {
+      "const": "eps-s1u-observation"
+    },
+    "procedure_label": {
+      "type": "string"
+    },
+    "analysis_scope": {
+      "type": "object"
+    },
+    "input_provenance": {
+      "type": "object"
+    },
+    "stream_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "stream_observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/stream"
+      }
+    },
+    "streams_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "supported_stream_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ambiguous_stream_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unbound_stream_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "observed_g_pdu_packet_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "observed_payload_byte_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "procedure_local_deviations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/deviation"
+      }
+    },
+    "procedure_local_deviation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "procedure_local_deviations_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence_limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "additional_evidence_needed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "not_confirmed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "boundary_selection_status": {
+      "const": "NOT_APPLICABLE"
+    },
+    "first_abnormal_boundary": {
+      "type": "null"
+    },
+    "boundary_note": {
+      "type": "string"
+    }
   },
   "$defs": {
     "stream": {
@@ -93,40 +167,235 @@
         "deviation_types",
         "evidence_refs",
         "observation_window",
-        "limitations"
+        "limitations",
+        "receiving_endpoint_match_status",
+        "receiving_endpoint_match_basis",
+        "bearer_association_status",
+        "matched_endpoint_role_basis",
+        "matched_endpoint_source_protocols",
+        "matched_endpoint_interface_types",
+        "matched_endpoint_interface_type_names"
       ],
       "properties": {
-        "stream_reference": { "type": "string", "pattern": "^epc-s1u-stream-[0-9a-f]{10}$" },
-        "stream_key": { "type": ["string", "null"] },
-        "capture_file": { "type": ["string", "null"] },
-        "outer_source": { "type": ["string", "null"] },
-        "outer_destination": { "type": ["string", "null"] },
-        "udp_source_port": { "type": ["integer", "null"] },
-        "udp_destination_port": { "type": ["integer", "null"] },
-        "teid": { "type": ["integer", "null"] },
-        "first_frame": { "type": ["integer", "null"] },
-        "last_frame": { "type": ["integer", "null"] },
-        "observed_g_pdu_packet_count": { "type": ["integer", "null"] },
-        "observed_payload_byte_count": { "type": ["integer", "null"] },
-        "byte_count_definition": { "type": ["string", "null"] },
-        "message_types": { "type": "array", "items": { "type": "string" } },
-        "echo_observed": { "type": "boolean" },
-        "end_marker_frames": { "type": "array", "items": { "type": "integer" } },
-        "error_indication_frames": { "type": "array", "items": { "type": "integer" } },
-        "user_plane_interface": { "enum": ["S1_U_CANDIDATE", "UNKNOWN_USER_PLANE_INTERFACE"] },
-        "interface_basis": { "type": "string" },
-        "direction": { "enum": ["DOWNLINK", "UPLINK", "UNKNOWN"] },
-        "association_status": { "enum": ["SUPPORTED", "AMBIGUOUS", "NOT_ESTABLISHED"] },
-        "association_basis": { "type": "string" },
-        "matched_subject_reference": { "type": ["string", "null"] },
-        "matched_endpoint_role": { "type": ["string", "null"] },
-        "matched_endpoint_frames": { "type": "array", "items": { "type": "integer" } },
-        "competing_subject_references": { "type": "array", "items": { "type": "string" } },
-        "outcomes": { "type": "array", "items": { "type": "string" } },
-        "deviation_types": { "type": "array", "items": { "type": "string" } },
-        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/evidence_ref" } },
-        "observation_window": { "$ref": "#/$defs/window" },
-        "limitations": { "type": "array", "items": { "type": "string" } }
+        "stream_reference": {
+          "type": "string",
+          "pattern": "^epc-s1u-stream-[0-9a-f]{10}$"
+        },
+        "stream_key": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "capture_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outer_source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outer_destination": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "udp_source_port": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "udp_destination_port": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "teid": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "first_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "last_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "observed_g_pdu_packet_count": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "observed_payload_byte_count": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "byte_count_definition": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "echo_observed": {
+          "type": "boolean"
+        },
+        "end_marker_frames": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "error_indication_frames": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "user_plane_interface": {
+          "enum": [
+            "S1_U_CANDIDATE",
+            "UNKNOWN_USER_PLANE_INTERFACE"
+          ]
+        },
+        "interface_basis": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "DOWNLINK",
+            "UPLINK",
+            "UNKNOWN"
+          ]
+        },
+        "association_status": {
+          "enum": [
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "NOT_ESTABLISHED"
+          ]
+        },
+        "association_basis": {
+          "type": "string"
+        },
+        "matched_subject_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "matched_endpoint_role": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "sgw_s1u",
+            "enodeb_s1u",
+            null
+          ]
+        },
+        "matched_endpoint_frames": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "competing_subject_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outcomes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deviation_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "observation_window": {
+          "$ref": "#/$defs/window"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "receiving_endpoint_match_status": {
+          "enum": [
+            "MATCHED",
+            "NOT_MATCHED"
+          ]
+        },
+        "receiving_endpoint_match_basis": {
+          "type": "string"
+        },
+        "bearer_association_status": {
+          "enum": [
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "NOT_ESTABLISHED"
+          ]
+        },
+        "matched_endpoint_role_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "matched_endpoint_source_protocols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "matched_endpoint_interface_types": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "matched_endpoint_interface_type_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "deviation": {
@@ -153,34 +422,91 @@
             "ERROR_INDICATION_OBSERVED"
           ]
         },
-        "stream_reference": { "type": "string" },
-        "protocol": { "const": "GTP-U" },
-        "message_type": { "type": ["string", "null"] },
-        "frame_number": { "type": ["integer", "null"] },
-        "evidence_level": { "const": "OBSERVED" },
-        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/evidence_ref" } },
-        "observation_window": { "$ref": "#/$defs/window" },
-        "limitations": { "type": "array", "items": { "type": "string" } }
+        "stream_reference": {
+          "type": "string"
+        },
+        "protocol": {
+          "const": "GTP-U"
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "evidence_level": {
+          "const": "OBSERVED"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "observation_window": {
+          "$ref": "#/$defs/window"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "evidence_ref": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["protocol", "frame_number", "message_type", "evidence_level"],
+      "required": [
+        "protocol",
+        "frame_number",
+        "message_type",
+        "evidence_level"
+      ],
       "properties": {
-        "protocol": { "type": "string" },
-        "frame_number": { "type": ["integer", "null"] },
-        "message_type": { "type": ["string", "null"] },
-        "evidence_level": { "type": "string" }
+        "protocol": {
+          "type": "string"
+        },
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_level": {
+          "type": "string"
+        }
       }
     },
     "window": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "additionalProperties": false,
-      "required": ["start_frame", "end_frame"],
+      "required": [
+        "start_frame",
+        "end_frame"
+      ],
       "properties": {
-        "start_frame": { "type": "integer" },
-        "end_frame": { "type": "integer" }
+        "start_frame": {
+          "type": "integer"
+        },
+        "end_frame": {
+          "type": "integer"
+        }
       }
     }
   }

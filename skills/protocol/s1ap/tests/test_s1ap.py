@@ -355,7 +355,12 @@ class ErabItemTests(unittest.TestCase):
         self.assertEqual(first["qci"], 9)
         self.assertTrue(first["arp_present"])
         self.assertEqual(first["binding_basis"], "pdml_grouped_ie")
-        self.assertEqual(first["endpoint_role"], "enodeb_s1u")
+        # S01: the Initial Context Setup Request carries the SGW-U receiving
+        # endpoint that the eNodeB must send uplink traffic to.
+        self.assertEqual(first["endpoint_role"], "sgw_s1u")
+        self.assertEqual(
+            first["endpoint_role_basis"], "initial_context_setup_request_erab_semantics"
+        )
 
     # S02 -----------------------------------------------------------------
     def test_initial_context_setup_response_preserves_erab_items(self) -> None:
@@ -363,6 +368,12 @@ class ErabItemTests(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0]["list_role"], "SUCCESS")
         self.assertEqual(items[0]["erab_id"], 5)
+        # S02: the Initial Context Setup Response carries the eNodeB receiving
+        # endpoint that the SGW-U uses for downlink traffic.
+        self.assertEqual(items[0]["endpoint_role"], "enodeb_s1u")
+        self.assertEqual(
+            items[0]["endpoint_role_basis"], "initial_context_setup_response_erab_semantics"
+        )
         self.assertEqual(items[0]["gtp_teid"], 3355633680)
         self.assertEqual(items[0]["transport_layer_address"], "127.0.0.5")
 
@@ -455,6 +466,44 @@ class ErabItemTests(unittest.TestCase):
         self.assertEqual(event["enb_ue_s1ap_id"], 1)
         self.assertEqual(event["mme_ue_s1ap_id"], 9)
         self.assertEqual(event["sender_role"], "mme")
+
+    def test_request_and_response_roles_are_never_interchangeable(self) -> None:
+        request_roles = {item["endpoint_role"] for item in self.items[23]}
+        response_roles = {item["endpoint_role"] for item in self.items[24]}
+        self.assertEqual(request_roles, {"sgw_s1u"})
+        self.assertEqual(response_roles, {"enodeb_s1u"})
+        self.assertFalse(request_roles & response_roles)
+        # Identical numeric values would still not make the roles interchangeable.
+        self.assertNotEqual(
+            self.items[23][0]["endpoint_role_basis"], self.items[24][0]["endpoint_role_basis"]
+        )
+
+    def test_each_erab_item_keeps_its_own_role_and_endpoint(self) -> None:
+        items = self.items[23]
+        self.assertEqual([item["endpoint_role"] for item in items], ["sgw_s1u", "sgw_s1u"])
+        self.assertEqual(
+            [item["transport_layer_address"] for item in items],
+            ["192.168.64.128", "192.168.64.129"],
+        )
+        self.assertEqual([item["gtp_teid"] for item in items], [49676, 49677])
+
+    def test_flat_input_never_assigns_a_receiving_role(self) -> None:
+        record = {
+            "frame.number": "23",
+            "frame.time_epoch": "1792857019.284002358",
+            "s1ap.procedureCode": "9",
+            "s1ap.initiatingMessage_element": "InitialContextSetupRequest",
+            "s1ap.ENB_UE_S1AP_ID": "1",
+            "s1ap.MME_UE_S1AP_ID": "9",
+            "s1ap.E_RABToBeSetupListCtxtSUReq": "1",
+            "s1ap.e_RAB_ID": "5",
+            "s1ap.transportLayerAddress": "c0a84080",
+            "s1ap.gTP_TEID": "0000c20c",
+        }
+        event = model.normalize_record(record, "flat.jsonl")
+        for item in event["erab_items"]:
+            self.assertIsNone(item["endpoint_role"])
+            self.assertEqual(item["endpoint_role_basis"], "unavailable")
 
     def test_item_projection_never_carries_nas_payload(self) -> None:
         payload = json.dumps(self.items)

@@ -20,12 +20,33 @@ from __future__ import annotations
 import xml.etree.ElementTree as ElementTree
 from typing import Any, Iterable
 
-# Reviewed item element names for the bounded Initial Context Setup scope. The
-# endpoint role is fixed by TS 36.413 message semantics: both lists carry the
-# eNodeB's own S1-U transport endpoint.
+# Reviewed item element names for the bounded Initial Context Setup scope.
+#
+# The receiving-endpoint role is fixed by the TS 36.413 message that carries the
+# item, and the two messages do NOT carry the same endpoint:
+#
+#   Initial Context Setup Request  -> the MME hands the eNodeB the SGW-U S1-U
+#       transport endpoint that the eNodeB must send uplink traffic to, so the
+#       receiver is the SGW-U and the user-plane direction is uplink.
+#   Initial Context Setup Response -> the eNodeB reports its own S1-U transport
+#       endpoint, which the SGW-U uses for downlink traffic, so the receiver is
+#       the eNodeB and the direction is downlink.
+#
+# A TEID is meaningful only at its receiving endpoint (TS 29.281), so the two
+# roles are never interchangeable even when the numeric values coincide.
 ERAB_ITEM_FIELDS = {
-    "s1ap.E_RABToBeSetupItemCtxtSUReq_element": ("INITIAL_CONTEXT_SETUP", "REQUEST"),
-    "s1ap.E_RABSetupItemCtxtSURes_element": ("INITIAL_CONTEXT_SETUP", "SUCCESS"),
+    "s1ap.E_RABToBeSetupItemCtxtSUReq_element": (
+        "INITIAL_CONTEXT_SETUP",
+        "REQUEST",
+        "sgw_s1u",
+        "initial_context_setup_request_erab_semantics",
+    ),
+    "s1ap.E_RABSetupItemCtxtSURes_element": (
+        "INITIAL_CONTEXT_SETUP",
+        "SUCCESS",
+        "enodeb_s1u",
+        "initial_context_setup_response_erab_semantics",
+    ),
 }
 
 ERAB_LIST_FIELDS = {
@@ -33,8 +54,9 @@ ERAB_LIST_FIELDS = {
     "s1ap.E_RABSetupListCtxtSURes": ("INITIAL_CONTEXT_SETUP", "SUCCESS"),
 }
 
-ENDPOINT_ROLE = "enodeb_s1u"
-ENDPOINT_ROLE_BASIS = "message_identity"
+# Reviewed S1-U receiving-endpoint roles.
+ENDPOINT_ROLE_SGW = "sgw_s1u"
+ENDPOINT_ROLE_ENODEB = "enodeb_s1u"
 
 # The installed decoder exposes no standalone failed-to-setup E-RAB list for the
 # Initial Context Setup Response, so a failed item cannot be extracted even when
@@ -113,7 +135,7 @@ def _items_in_packet(packet: ElementTree.Element, capture_file: str, frame: int)
             name = element.get("name") or ""
             if name not in ERAB_ITEM_FIELDS:
                 continue
-            operation, role = ERAB_ITEM_FIELDS[name]
+            operation, role, endpoint_role, endpoint_role_basis = ERAB_ITEM_FIELDS[name]
             fields = _direct_fields(element)
             address, family = transport_address(fields.get("s1ap.transportLayerAddress"))
             if address is None:
@@ -135,8 +157,8 @@ def _items_in_packet(packet: ElementTree.Element, capture_file: str, frame: int)
                 "transport_layer_address_family": family,
                 "gtp_teid": teid_value(fields.get("s1ap.gTP_TEID")),
                 "gtp_teid_hex": (fields.get("s1ap.gTP_TEID") or "").replace(":", "").lower() or None,
-                "endpoint_role": ENDPOINT_ROLE,
-                "endpoint_role_basis": ENDPOINT_ROLE_BASIS,
+                "endpoint_role": endpoint_role,
+                "endpoint_role_basis": endpoint_role_basis,
                 "binding_basis": "pdml_grouped_ie",
                 "frame_number": frame,
                 "capture_file": capture_file,
