@@ -25,7 +25,8 @@ family only when **all** of the following hold:
 
 1. both source frames are members of the same accepted GTPv2-C transaction;
 2. that transaction is `MATCHED`, with a request and a response present;
-3. the correlation strength is not `WEAK`;
+3. the correlation strength is `STRONG` or `SUPPORTED` — `NONE`, a missing value
+   and an unreviewed value are never sufficient;
 4. the procedure family is the same;
 5. the item-scoped bearer identities do not conflict;
 6. the receiving interface type is identical;
@@ -48,6 +49,10 @@ from equal payload values.
 * Request and response advertising **different** endpoint values stay visible as
   `COMPETING_ALLOCATION_EVIDENCE`; the request endpoint is never overwritten.
 * A negative Cause is not successful provisioning and cannot establish a family.
+* A Cause is only read from the bearer context with the **same EBI** as the
+  advertisement; a Cause belonging to another bearer item is never substituted.
+  When no matching item-scope Cause is observed, `ALLOCATION_ACCEPTED_OBSERVED` is
+  not published.
 * Different item-scoped bearer identities block consolidation.
 * An `OPEN_REQUEST`, `RESPONSE_ONLY` or `AMBIGUOUS` transaction never establishes a
   proved request/response family.

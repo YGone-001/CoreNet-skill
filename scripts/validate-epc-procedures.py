@@ -892,6 +892,17 @@ def _validate_lifecycle(skill: Path, root: Path) -> list[str]:
         fail("lifecycle rules not_confirmed list does not match the implemented list")
     if rules.get("identity_rules", {}).get("s11_to_s5s8_link") != "NOT_ESTABLISHED":
         fail("lifecycle rules must keep the S11 to S5/S8 link NOT_ESTABLISHED")
+    if list(rules.get("release_outcomes", ())) != list(model.RELEASE_OUTCOMES):
+        fail("lifecycle rules release outcomes do not match the implemented set")
+    if list(rules.get("reviewed_correlation_strengths", ())) != sorted(model.REVIEWED_STRENGTHS):
+        fail("lifecycle rules reviewed correlation strengths do not match the implemented set")
+    if list(rules.get("proof_correlation_strengths", ())) != sorted(model.PROOF_STRENGTHS):
+        fail("lifecycle rules proof correlation strengths do not match the implemented set")
+    if "NONE" in model.PROOF_STRENGTHS:
+        fail("the NONE correlation strength must never carry a proof")
+    for closure_rule in ("same_capture_provenance", "bound_control_plane_context"):
+        if closure_rule not in (rules.get("identity_rules", {}).get("generation_closure_requires") or []):
+            fail(f"lifecycle rules must require '{closure_rule}' before closing a generation")
 
     base = skill / "examples" / "lifecycle"
     try:
@@ -953,9 +964,31 @@ def _validate_lifecycle(skill: Path, root: Path) -> list[str]:
         if classification == model.FAMILY_SINGLE and len(family.get("source_frames") or []) != 1:
             fail("a single-advertisement family must name exactly one frame")
 
+    for boundary in expected.get("generation_boundary_evidence") or []:
+        if boundary.get("release_outcome") not in model.RELEASE_OUTCOMES:
+            fail(f"unexpected release outcome: {boundary.get('release_outcome')}")
+        if not boundary.get("capture_file"):
+            fail("a release boundary must publish its capture provenance")
+        if boundary.get("response_frame") is None and boundary.get("release_outcome") == "ACCEPTED":
+            fail("an accepted release must publish the correlated response frame")
+        if boundary.get("release_outcome") == "ACCEPTED" and boundary.get("correlation_status") != "MATCHED":
+            fail("an accepted release requires a matched correlation")
+        if boundary.get("correlation_strength") == "NONE":
+            fail("a NONE correlation strength cannot establish a release outcome")
+
     for subject in expected.get("lifecycle_subjects") or []:
         if subject.get("generation_state") not in model.GENERATION_STATES:
             fail(f"unexpected generation state: {subject.get('generation_state')}")
+        boundary = subject.get("generation_boundary")
+        if isinstance(boundary, dict):
+            if boundary.get("release_request_frame") is None:
+                fail("a generation boundary must publish its release request frame")
+            if boundary.get("release_confirmation_frame") is None:
+                fail("a generation boundary must publish its release confirmation frame")
+            if boundary.get("frame_number") != boundary.get("release_confirmation_frame"):
+                fail("a generation boundary must anchor on the confirmation frame, not the request")
+            if boundary.get("release_effective_frame_proven") is not False:
+                fail("the exact release-effective frame must never be claimed as proven")
         if not subject.get("generation_reference", "").startswith("epc-bearer-generation-"):
             fail("a generation reference must use the scoped pseudonymous prefix")
         if subject.get("generation_state") == model.GENERATION_CLOSED and not subject.get("generation_boundary"):
@@ -986,6 +1019,10 @@ def _validate_lifecycle(skill: Path, root: Path) -> list[str]:
         if per_stream.get(reference, 0) != stream.get("observed_g_pdu_packet_count"):
             fail(f"lifecycle packet accounting does not conserve stream {reference}")
 
+    # A proved closure never appears in the committed example, so the positive
+    # boundary contract is exercised on a constructed scenario as well.
+    errors.extend(_validate_lifecycle_boundary(model, fail))
+
     serialized = json.dumps(expected)
     for forbidden in (
         "PACKET_LOSS",
@@ -1003,6 +1040,132 @@ def _validate_lifecycle(skill: Path, root: Path) -> list[str]:
         fail("lifecycle analysis publishes a long digit run that may be an identifier")
 
     return errors
+
+
+def _validate_lifecycle_boundary(model, fail) -> list[str]:
+    """Exercise the proved-closure and cross-capture contracts directly."""
+
+    def fteid(interface_type, teid, address):
+        return {"scope": "bearer", "interface_type": interface_type, "teid": teid, "ipv4": address}
+
+    def context(ebi, teids, cause=None):
+        return {
+            "ebi": ebi,
+            "cause": {"cause_code": cause, "cause_name": "accepted", "scope": "bearer"}
+            if cause is not None
+            else None,
+            "f_teids": teids,
+        }
+
+    def event(frame, message, family, contexts, cause=None, capture="boundary.pcap"):
+        return {
+            "capture_file": capture,
+            "frame_number": frame,
+            "message_type": message,
+            "procedure_family": family,
+            "cause": {"cause_code": cause, "cause_name": "accepted"} if cause is not None else None,
+            "f_teids": [],
+            "bearer_contexts": contexts,
+        }
+
+    def message(frame, name, teid=1, cause=None):
+        payload = {
+            "frame_number": frame,
+            "header_teid": teid,
+            "header_teid_state": "PRESENT" if teid else "ZERO",
+            "message_type": name,
+            "message_type_code": 0,
+            "sequence_number": 1,
+        }
+        if cause is not None:
+            payload["cause_code"] = cause
+        return payload
+
+    def transaction(reference, family, request, response, *, session_teid=1, cause=16):
+        return {
+            "transaction_reference": reference,
+            "procedure_family": family,
+            "message_family": family,
+            "request": message(request[0], request[1], session_teid),
+            "response": message(response[0], response[1], session_teid, cause),
+            "response_candidates": [message(response[0], response[1], session_teid, cause)],
+            "correlation_status": "MATCHED",
+            "correlation_strength": "STRONG",
+            "correlation_basis": ["request/response message identity"],
+            "corroboration": {"teid_echo": True},
+            "retransmissions": [],
+            "observation_window": {"start_frame": request[0], "end_frame": response[0]},
+            "evidence_refs": [
+                message(request[0], request[1], session_teid),
+                message(response[0], response[1], session_teid, cause),
+            ],
+            "limitations": [],
+        }
+
+    def document(*transactions):
+        return {
+            "protocol": "gtpv2",
+            "capture_files": ["boundary.pcap"],
+            "transaction_count": len(transactions),
+            "matched_count": len(transactions),
+            "open_request_count": 0,
+            "response_only_count": 0,
+            "ambiguous_count": 0,
+            "retransmission_count": 0,
+            "transactions": list(transactions),
+            "limitations": [],
+        }
+
+    events = [
+        event(100, "Create Session Request", "create-session", [context(5, [fteid(1, 100, "198.51.100.2")])]),
+        event(106, "Create Session Response", "create-session", [context(5, [fteid(1, 100, "198.51.100.2")], 16)], 16),
+        event(300, "Delete Session Request", "delete-session", [context(5, [fteid(1, 100, "198.51.100.2")])]),
+        event(306, "Delete Session Response", "delete-session", [], 16),
+    ]
+    transactions = document(
+        transaction("cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response")),
+        transaction("ds", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response")),
+    )
+    analysis = model.analyze(events, transactions=transactions)
+    generation = (analysis.get("lifecycle_subjects") or [{}])[0]
+    boundary = generation.get("generation_boundary")
+    if generation.get("generation_state") != model.GENERATION_CLOSED:
+        return ["a bound accepted release must close its generation"]
+    if not isinstance(boundary, dict):
+        return ["a closed generation must publish its boundary"]
+    problems: list[str] = []
+    if boundary.get("release_request_frame") != 300:
+        problems.append("the release request frame must stay initiation evidence")
+    if boundary.get("release_confirmation_frame") != 306:
+        problems.append("the accepted response frame must carry the confirmation")
+    if boundary.get("frame_number") != 306:
+        problems.append("the boundary must anchor on the confirmation frame")
+    if boundary.get("release_effective_frame_proven") is not False:
+        problems.append("the exact release-effective frame must never be claimed as proven")
+
+    # The same release in another capture must not close this generation.
+    cross_events = list(events)
+    for item in cross_events[2:]:
+        item["capture_file"] = "other.pcap"
+    cross = model.analyze(cross_events, transactions=transactions)
+    cross_generation = (cross.get("lifecycle_subjects") or [{}])[0]
+    if cross_generation.get("generation_state") == model.GENERATION_CLOSED:
+        problems.append("a release from another capture must never close a generation")
+
+    # NONE correlation strength must never prove a family.
+    weak = document(
+        transaction(
+            "cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response")
+        )
+    )
+    weak["transactions"][0]["correlation_strength"] = "NONE"
+    weak_analysis = model.analyze(events[:2], transactions=weak)
+    if (weak_analysis.get("advertisement_families") or [{}])[0].get("family_classification") != model.FAMILY_INSUFFICIENT:
+        problems.append("a NONE correlation strength must not establish an advertisement family")
+
+    for problem in problems:
+        fail(problem)
+    return []
 
 
 def _check_analysis(analysis: dict, case: str, fail) -> None:

@@ -18,11 +18,16 @@
     {
       "advertisement_count": 2,
       "advertisement_family_reference": "epc-advertisement-family-1ad1dbb06b",
+      "allocation_outcome": "ACCEPTED",
       "bearer_identity_scope": [
         5
       ],
       "capture_file": "corenet-epc-integrated.pcap",
       "classification_basis": "matched_request_and_response_advertise_the_same_endpoint",
+      "control_plane_context": {
+        "basis": "accepted_transaction_header_teid",
+        "session_teid": 1
+      },
       "correlation_status": "MATCHED",
       "correlation_strength": "STRONG",
       "evidence_refs": [
@@ -50,11 +55,15 @@
       },
       "partitions": [
         {
+          "bearer_identity_scope": [
+            5
+          ],
           "frames": [
             27,
             29
           ],
           "procedure_family": "modify-bearer",
+          "session_teid": 1,
           "transaction_reference": "gtpv2-modify-bearer-27-5"
         }
       ],
@@ -80,11 +89,16 @@
     {
       "advertisement_count": 1,
       "advertisement_family_reference": "epc-advertisement-family-4f2a0befb8",
+      "allocation_outcome": "ACCEPTED",
       "bearer_identity_scope": [
         5
       ],
       "capture_file": "corenet-epc-integrated.pcap",
       "classification_basis": "single_observed_advertisement",
+      "control_plane_context": {
+        "basis": "unavailable",
+        "session_teid": null
+      },
       "correlation_status": "MATCHED",
       "correlation_strength": "STRONG",
       "evidence_refs": [
@@ -106,10 +120,14 @@
       },
       "partitions": [
         {
+          "bearer_identity_scope": [
+            5
+          ],
           "frames": [
             22
           ],
           "procedure_family": "create-session",
+          "session_teid": null,
           "transaction_reference": "gtpv2-create-session-20-4"
         }
       ],
@@ -173,10 +191,25 @@
       "ENDPOINT_UPDATE_ACCEPTED_OBSERVED",
       "RELEASE_REQUEST_OBSERVED",
       "RELEASE_ACCEPTED_OBSERVED",
+      "RELEASE_REJECTED_OBSERVED",
       "RELEASE_STATUS_UNRESOLVED",
       "ENDPOINT_REUSE_OBSERVED",
       "GENERATION_BOUNDARY_ESTABLISHED",
       "GENERATION_BOUNDARY_AMBIGUOUS"
+    ],
+    "proof_correlation_strengths": [
+      "STRONG",
+      "SUPPORTED"
+    ],
+    "release_outcomes": [
+      "ACCEPTED",
+      "REJECTED_OBSERVED",
+      "UNRESOLVED"
+    ],
+    "reviewed_correlation_strengths": [
+      "NONE",
+      "STRONG",
+      "SUPPORTED"
     ]
   },
   "analysis_version": "1.0.0",
@@ -193,35 +226,73 @@
   "generation_boundary_count": 0,
   "generation_boundary_evidence": [
     {
+      "bearer_identity_scope": [],
+      "capture_file": "corenet-epc-integrated.pcap",
+      "control_plane_context": {
+        "basis": "correlated_response_header_teid",
+        "session_teid": 1
+      },
       "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
       "evidence_refs": [
         {
           "evidence_level": "OBSERVED",
           "frame_number": 10,
           "message_type": "Delete Session Request",
           "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 13,
+          "message_type": "Delete Session Response",
+          "protocol": "GTPv2-C"
         }
       ],
-      "frame_number": 10,
-      "message_type": "Delete Session Request",
+      "limitations": [
+        "the correlated release response carries no message-scope Cause, so the release outcome is unproved"
+      ],
       "release_outcome": "UNRESOLVED",
+      "release_outcome_basis": "release_response_cause_unavailable",
       "released_endpoints": [],
+      "request_frame": 10,
+      "request_message_type": "Delete Session Request",
+      "response_frame": 13,
+      "response_message_type": "Delete Session Response",
       "transaction_reference": "gtpv2-delete-session-10-1"
     },
     {
+      "bearer_identity_scope": [],
+      "capture_file": "corenet-epc-integrated.pcap",
+      "control_plane_context": {
+        "basis": "correlated_response_header_teid",
+        "session_teid": 1
+      },
       "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
       "evidence_refs": [
         {
           "evidence_level": "OBSERVED",
           "frame_number": 11,
           "message_type": "Delete Session Request",
           "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 14,
+          "message_type": "Delete Session Response",
+          "protocol": "GTPv2-C"
         }
       ],
-      "frame_number": 11,
-      "message_type": "Delete Session Request",
+      "limitations": [
+        "the correlated release response carries no message-scope Cause, so the release outcome is unproved"
+      ],
       "release_outcome": "UNRESOLVED",
+      "release_outcome_basis": "release_response_cause_unavailable",
       "released_endpoints": [],
+      "request_frame": 11,
+      "request_message_type": "Delete Session Request",
+      "response_frame": 14,
+      "response_message_type": "Delete Session Response",
       "transaction_reference": "gtpv2-delete-session-11-2"
     }
   ],
@@ -569,7 +640,9 @@
     "a numerically reused TEID is not treated as a new generation without a proved boundary",
     "an unresolved generation attribution is not packet loss and not a tunnel failure",
     "no S11 to S5/S8 session identity is asserted",
-    "no complete EPC bearer state machine is implemented"
+    "no complete EPC bearer state machine is implemented",
+    "a release that merely repeats an endpoint value never closes a generation",
+    "the exact instant user-plane forwarding stopped is not proven by an accepted release response"
   ],
   "procedure_local_deviation_count": 0,
   "procedure_local_deviations": [],

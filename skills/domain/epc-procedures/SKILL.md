@@ -229,21 +229,33 @@ bounded, explicit limitations instead of a silent result. The capability answers
 three separate questions and never collapses them:
 
 * **Advertisement family** — repeated S1-U F-TEID advertisements are consolidated
-  only when they are members of one accepted `MATCHED` transaction whose request
-  and response advertise the same endpoint under one item-scoped bearer identity
-  with no negative Cause. A family keeps every source frame and is never a new
+  only when they are members of one accepted `MATCHED` transaction with a
+  corroborated correlation strength whose request and response advertise the same
+  endpoint under one item-scoped bearer identity, with no negative Cause and with
+  the Cause read from the bearer context of the same EBI. A family keeps every source frame and is never a new
   allocation. `OPEN_REQUEST`, `RESPONSE_ONLY` and `AMBIGUOUS` transactions, weak
   correlation, conflicting bearer identities and competing allocations never
   consolidate.
 * **Generation** — a generation is scoped by capture, receiving role, endpoint
   address, endpoint TEID, reviewed interface type and its first accepted
   advertisement frame, and is labelled `epc-bearer-generation-<hash>`. It closes
-  only when an accepted release transaction names the endpoint it releases; in the
-  accepted real capture every Delete Session request carries no S1-U F-TEID, so
-  every generation stays `OPEN_AT_CAPTURE_END` with `RELEASE_STATUS_UNRESOLVED`.
-  Repeated Modify Bearer evidence updates one generation and never fabricates a new
-  one, and a numerically reused TEID is never a new generation without a proved
-  boundary.
+  only when one release transaction is `MATCHED`, carries a corroborated
+  correlation strength, has exactly one correlated response with a message-scope
+  accepted Cause, belongs to the same capture, names the released endpoint **and**
+  names the same control-plane context as the allocation. Endpoint equality alone
+  never closes a generation. In the accepted real capture every Delete Session
+  request carries no S1-U F-TEID, so every generation stays
+  `OPEN_AT_CAPTURE_END` with `RELEASE_STATUS_UNRESOLVED`. Repeated Modify Bearer
+  evidence updates one generation and never fabricates a new one, and a numerically
+  reused TEID is never a new generation without a proved boundary.
+* **Release timing** — a boundary publishes `release_request_frame` (initiation),
+  `release_confirmation_frame` (the correlated accepted response) and
+  `release_effective_frame_proven: false`. Packets between the two belong to
+  neither generation and stay `GENERATION_UNRESOLVED` with basis
+  `release_in_progress_interval`.
+* **Correlation strength** — only `STRONG` and `SUPPORTED` may carry a proof;
+  `NONE`, a missing value and an unreviewed value are never sufficient. The
+  advertisement-family and release rules use the same reviewed set.
 * **Packet attribution** — G-PDUs are attributed from frame-level events inside a
   proved generation window. The accounting invariant is published and checked:
   aggregate G-PDU and payload octets equal the attributed plus the unresolved

@@ -113,10 +113,13 @@ python3 scripts/analyze_epc_bearer_lifecycle.py \
 The lifecycle path consumes already-extracted GTPv2-C evidence and its accepted
 transaction correlation. It classifies repeated S1-U F-TEID advertisements into
 advertisement families, publishes bounded generation observations with scoped
-pseudonymous references, closes a generation only when an accepted release names
-the endpoint it releases, and attributes observed G-PDUs to a generation from
-frame-level events with conserved packet and octet accounting. Unresolved packets
-stay visible and are neither packet loss nor a tunnel failure. See
+pseudonymous references, and attributes observed G-PDUs to a generation from
+frame-level events with conserved packet and octet accounting. A generation closes
+only when one matched, corroborated release transaction in the same capture names
+both the released endpoint and the same control-plane context; initiation and
+confirmation frames are published separately and the exact release-effective frame
+is never claimed. Packets inside a pending release interval stay unresolved, and an
+unresolved attribution is neither packet loss nor a tunnel failure. See
 `references/bearer-lifecycle.md` and `references/advertisement-family.md`.
 
 ## What it reports

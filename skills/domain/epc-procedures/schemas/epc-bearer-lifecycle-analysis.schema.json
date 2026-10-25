@@ -235,27 +235,29 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "advertisement_count",
         "advertisement_family_reference",
+        "allocation_outcome",
+        "bearer_identity_scope",
         "capture_file",
+        "classification_basis",
+        "control_plane_context",
+        "correlation_status",
+        "correlation_strength",
+        "evidence_refs",
+        "family_classification",
+        "item_scope",
+        "limitations",
+        "observation_window",
+        "partitions",
         "receiving_endpoint_address",
-        "receiving_endpoint_teid",
         "receiving_endpoint_role",
+        "receiving_endpoint_teid",
         "reviewed_interface_type",
         "source_frames",
         "source_message_types",
         "source_protocols",
-        "source_transaction_references",
-        "item_scope",
-        "bearer_identity_scope",
-        "correlation_status",
-        "correlation_strength",
-        "family_classification",
-        "classification_basis",
-        "advertisement_count",
-        "partitions",
-        "evidence_refs",
-        "observation_window",
-        "limitations"
+        "source_transaction_references"
       ],
       "properties": {
         "advertisement_family_reference": {
@@ -400,6 +402,34 @@
           "items": {
             "type": "string"
           }
+        },
+        "allocation_outcome": {
+          "enum": [
+            "ACCEPTED",
+            "UNRESOLVED"
+          ]
+        },
+        "control_plane_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "session_teid",
+            "basis"
+          ],
+          "properties": {
+            "session_teid": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "basis": {
+              "enum": [
+                "accepted_transaction_header_teid",
+                "unavailable"
+              ]
+            }
+          }
         }
       }
     },
@@ -460,13 +490,29 @@
           ],
           "additionalProperties": false,
           "required": [
+            "release_request_frame",
+            "release_confirmation_frame",
             "frame_number",
             "transaction_reference",
-            "basis"
+            "basis",
+            "release_effective_frame_proven"
           ],
           "properties": {
-            "frame_number": {
+            "release_request_frame": {
               "type": "integer"
+            },
+            "release_confirmation_frame": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "frame_number": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "description": "conservative confirmation boundary; never proof of the exact instant forwarding stopped"
             },
             "transaction_reference": {
               "type": [
@@ -476,6 +522,9 @@
             },
             "basis": {
               "type": "string"
+            },
+            "release_effective_frame_proven": {
+              "const": false
             }
           }
         },
@@ -517,6 +566,7 @@
         "ENDPOINT_UPDATE_ACCEPTED_OBSERVED",
         "RELEASE_REQUEST_OBSERVED",
         "RELEASE_ACCEPTED_OBSERVED",
+        "RELEASE_REJECTED_OBSERVED",
         "RELEASE_STATUS_UNRESOLVED",
         "ENDPOINT_REUSE_OBSERVED",
         "GENERATION_BOUNDARY_ESTABLISHED",
@@ -572,25 +622,48 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "frame_number",
-        "message_type",
+        "capture_file",
         "transaction_reference",
+        "request_frame",
+        "request_message_type",
+        "response_frame",
+        "response_message_type",
         "correlation_status",
+        "correlation_strength",
         "release_outcome",
+        "release_outcome_basis",
         "released_endpoints",
-        "evidence_refs"
+        "control_plane_context",
+        "bearer_identity_scope",
+        "evidence_refs",
+        "limitations"
       ],
       "properties": {
-        "frame_number": {
-          "type": "integer"
+        "capture_file": {
+          "type": "string"
         },
-        "message_type": {
+        "transaction_reference": {
           "type": [
             "string",
             "null"
           ]
         },
-        "transaction_reference": {
+        "request_frame": {
+          "type": "integer"
+        },
+        "request_message_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "response_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "response_message_type": {
           "type": [
             "string",
             "null"
@@ -602,11 +675,21 @@
             "null"
           ]
         },
+        "correlation_strength": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "release_outcome": {
           "enum": [
             "ACCEPTED",
+            "REJECTED_OBSERVED",
             "UNRESOLVED"
           ]
+        },
+        "release_outcome_basis": {
+          "type": "string"
         },
         "released_endpoints": {
           "type": "array",
@@ -641,10 +724,45 @@
             }
           }
         },
+        "control_plane_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "session_teid",
+            "basis"
+          ],
+          "properties": {
+            "session_teid": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "basis": {
+              "enum": [
+                "correlated_response_header_teid",
+                "request_header_teid",
+                "unavailable"
+              ]
+            }
+          }
+        },
+        "bearer_identity_scope": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
         "evidence_refs": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         }
       }

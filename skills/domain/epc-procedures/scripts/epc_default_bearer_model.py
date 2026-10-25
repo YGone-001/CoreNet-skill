@@ -110,6 +110,10 @@ NEGATIVE_DEVIATIONS = frozenset(
     {DEVIATION_PDN_REJECT, DEVIATION_ACTIVATION_REJECT, DEVIATION_ESM_REJECT}
 )
 
+# Reviewed GTPv2-C correlation strengths (accepted transaction contract). Only a
+# corroborated pair may consolidate repeated advertisements into one family.
+PROOF_STRENGTHS = frozenset({"STRONG", "SUPPORTED"})
+
 # Reviewed S1-U receiving-endpoint roles (TS 36.413 Initial Context Setup).
 ROLE_SGW = "sgw_s1u"
 ROLE_ENODEB = "enodeb_s1u"
@@ -1055,7 +1059,10 @@ def advertisement_family(
     transaction = index[frames[0]]["transaction"]
     if transaction.get("correlation_status") != "MATCHED":
         return None
-    if transaction.get("correlation_strength") == "WEAK":
+    # The reviewed vocabulary is STRONG, SUPPORTED and NONE; NONE is a matched
+    # pair without independent corroboration, and an unreviewed value is never
+    # admitted.
+    if transaction.get("correlation_strength") not in PROOF_STRENGTHS:
         return None
 
     roles = {index[frame]["role"] for frame in frames}
@@ -1069,9 +1076,16 @@ def advertisement_family(
     for entry in candidates:
         if entry.get("scope") != "bearer":
             continue
-        context = (entry["event"].get("bearer_contexts") or [{}])[0]
-        cause = context.get("cause") if isinstance(context, dict) else None
-        code = cause.get("cause_code") if isinstance(cause, dict) else None
+        # The Cause must belong to the same item-scoped bearer context as the
+        # advertisement; the first context in the message is never substituted.
+        code = None
+        for context in entry["event"].get("bearer_contexts") or []:
+            if not isinstance(context, dict) or context.get("ebi") != entry.get("ebi"):
+                continue
+            cause = context.get("cause")
+            if isinstance(cause, dict):
+                code = cause.get("cause_code")
+            break
         if isinstance(code, int) and code not in (16, 17, 18):
             return None
 

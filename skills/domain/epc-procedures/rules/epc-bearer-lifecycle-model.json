@@ -2,15 +2,15 @@
   "model": "epc-bearer-lifecycle",
   "model_version": "1.0.0",
   "reviewed_against": [
-    "3GPP TS 23.401 §5.3.2 initial attach and default bearer establishment",
-    "3GPP TS 23.401 §5.4 bearer modification",
-    "3GPP TS 23.401 §5.3.5 detach and bearer release",
-    "3GPP TS 29.274 §7.2 GTPv2-C message composition",
-    "3GPP TS 29.274 §8.22 F-TEID interface types",
-    "3GPP TS 29.274 §8.4 Cause values",
-    "3GPP TS 36.413 §9.1.4 E-RABToBeSetupItemCtxtSUReq",
-    "3GPP TS 36.413 §9.1.5 E-RABSetupItemCtxtSURes",
-    "3GPP TS 29.281 §4.4 GTP-U TEID and receiving endpoint"
+    "3GPP TS 23.401 \u00a75.3.2 initial attach and default bearer establishment",
+    "3GPP TS 23.401 \u00a75.4 bearer modification",
+    "3GPP TS 23.401 \u00a75.3.5 detach and bearer release",
+    "3GPP TS 29.274 \u00a77.2 GTPv2-C message composition",
+    "3GPP TS 29.274 \u00a78.22 F-TEID interface types",
+    "3GPP TS 29.274 \u00a78.4 Cause values",
+    "3GPP TS 36.413 \u00a79.1.4 E-RABToBeSetupItemCtxtSUReq",
+    "3GPP TS 36.413 \u00a79.1.5 E-RABSetupItemCtxtSURes",
+    "3GPP TS 29.281 \u00a74.4 GTP-U TEID and receiving endpoint"
   ],
   "advertisement_family_classifications": [
     "SINGLE_ADVERTISEMENT",
@@ -28,6 +28,7 @@
     "ENDPOINT_UPDATE_ACCEPTED_OBSERVED",
     "RELEASE_REQUEST_OBSERVED",
     "RELEASE_ACCEPTED_OBSERVED",
+    "RELEASE_REJECTED_OBSERVED",
     "RELEASE_STATUS_UNRESOLVED",
     "ENDPOINT_REUSE_OBSERVED",
     "GENERATION_BOUNDARY_ESTABLISHED",
@@ -75,15 +76,30 @@
       "no_competing_allocation_candidate"
     ],
     "generation_closure_requires": [
+      "same_capture_provenance",
       "accepted_release_outcome",
       "release_names_the_released_s1u_endpoint",
+      "bound_control_plane_context",
+      "compatible_bearer_identity",
       "single_candidate_boundary"
     ],
     "packet_attribution_requires": [
       "frame_level_gtpu_event",
       "proved_generation_window",
       "unique_generation_for_the_endpoint"
-    ]
+    ],
+    "release_acceptance_requires": [
+      "correlation_status_matched",
+      "correlation_strength_in_proof_set",
+      "one_correlated_response",
+      "message_scope_accepted_cause_in_that_response"
+    ],
+    "correlation_strength_policy": {
+      "STRONG": "eligible when every other gate passes",
+      "SUPPORTED": "eligible when every other gate passes; published so the weaker corroboration stays visible",
+      "NONE": "never sufficient for an advertisement family or a release outcome",
+      "missing_or_unreviewed": "never sufficient"
+    }
   },
   "not_confirmed": [
     "an advertisement family is a group of protocol advertisements, not an EPS bearer",
@@ -93,6 +109,22 @@
     "a numerically reused TEID is not treated as a new generation without a proved boundary",
     "an unresolved generation attribution is not packet loss and not a tunnel failure",
     "no S11 to S5/S8 session identity is asserted",
-    "no complete EPC bearer state machine is implemented"
+    "no complete EPC bearer state machine is implemented",
+    "a release that merely repeats an endpoint value never closes a generation",
+    "the exact instant user-plane forwarding stopped is not proven by an accepted release response"
+  ],
+  "release_outcomes": [
+    "ACCEPTED",
+    "REJECTED_OBSERVED",
+    "UNRESOLVED"
+  ],
+  "reviewed_correlation_strengths": [
+    "NONE",
+    "STRONG",
+    "SUPPORTED"
+  ],
+  "proof_correlation_strengths": [
+    "STRONG",
+    "SUPPORTED"
   ]
 }

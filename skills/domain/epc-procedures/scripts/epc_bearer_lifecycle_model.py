@@ -72,6 +72,7 @@ OBS_UPDATE_ADVERTISED = "ENDPOINT_UPDATE_ADVERTISED"
 OBS_UPDATE_ACCEPTED = "ENDPOINT_UPDATE_ACCEPTED_OBSERVED"
 OBS_RELEASE_REQUEST = "RELEASE_REQUEST_OBSERVED"
 OBS_RELEASE_ACCEPTED = "RELEASE_ACCEPTED_OBSERVED"
+OBS_RELEASE_REJECTED = "RELEASE_REJECTED_OBSERVED"
 OBS_RELEASE_UNRESOLVED = "RELEASE_STATUS_UNRESOLVED"
 OBS_ENDPOINT_REUSE = "ENDPOINT_REUSE_OBSERVED"
 OBS_BOUNDARY_ESTABLISHED = "GENERATION_BOUNDARY_ESTABLISHED"
@@ -84,6 +85,7 @@ OBSERVATIONS = (
     OBS_UPDATE_ACCEPTED,
     OBS_RELEASE_REQUEST,
     OBS_RELEASE_ACCEPTED,
+    OBS_RELEASE_REJECTED,
     OBS_RELEASE_UNRESOLVED,
     OBS_ENDPOINT_REUSE,
     OBS_BOUNDARY_ESTABLISHED,
@@ -121,6 +123,24 @@ DEVIATION_TYPES = (
 )
 
 MATCHED = "MATCHED"
+
+# Reviewed GTPv2-C correlation strengths (TS 29.274 based transaction contract).
+STRENGTH_STRONG = "STRONG"
+STRENGTH_SUPPORTED = "SUPPORTED"
+STRENGTH_NONE = "NONE"
+REVIEWED_STRENGTHS = frozenset({STRENGTH_STRONG, STRENGTH_SUPPORTED, STRENGTH_NONE})
+# Only a corroborated correlation may establish a same-transaction proof. NONE is
+# a matched pair without independent corroboration, so it never proves a family or
+# a release; a missing or unreviewed value is equally insufficient.
+PROOF_STRENGTHS = frozenset({STRENGTH_STRONG, STRENGTH_SUPPORTED})
+
+# Release outcome vocabulary. These are Domain classifications of an observed
+# control-plane outcome, not new protocol values.
+RELEASE_ACCEPTED = "ACCEPTED"
+RELEASE_REJECTED = "REJECTED_OBSERVED"
+RELEASE_UNRESOLVED = "UNRESOLVED"
+RELEASE_OUTCOMES = (RELEASE_ACCEPTED, RELEASE_REJECTED, RELEASE_UNRESOLVED)
+
 ACCEPTED_CAUSE_CODES = frozenset({16, 17, 18})
 
 DELETE_FAMILIES = frozenset({"delete-session", "delete-bearer"})
@@ -136,6 +156,8 @@ NOT_CONFIRMED = (
     "an unresolved generation attribution is not packet loss and not a tunnel failure",
     "no S11 to S5/S8 session identity is asserted",
     "no complete EPC bearer state machine is implemented",
+    "a release that merely repeats an endpoint value never closes a generation",
+    "the exact instant user-plane forwarding stopped is not proven by an accepted release response",
 )
 
 
@@ -190,6 +212,41 @@ def _window(frames: list[Any]) -> dict[str, int] | None:
     if not values:
         return None
     return {"start_frame": min(values), "end_frame": max(values)}
+
+
+def proof_strength(strength: Any) -> tuple[bool, str]:
+    """Decide whether an observed correlation strength may carry a proof."""
+    if not isinstance(strength, str) or not strength:
+        return False, "correlation_strength_unavailable"
+    if strength == STRENGTH_NONE:
+        return False, "correlation_strength_none"
+    if strength not in REVIEWED_STRENGTHS:
+        return False, "correlation_strength_unreviewed"
+    return True, f"correlation_strength_{strength.lower()}"
+
+
+def _message_cause(event: Any) -> int | None:
+    """The message-scope Cause of one observed GTPv2-C message.
+
+    A bearer-scope Cause belongs to one item-scoped bearer context and is never
+    substituted for the message outcome.
+    """
+    if not isinstance(event, dict):
+        return None
+    cause = event.get("cause")
+    if not isinstance(cause, dict):
+        return None
+    return _int(cause.get("cause_code"))
+
+
+def _header_teid(message: Any) -> int | None:
+    """The control-plane TEID carried by one transaction message, when present."""
+    if not isinstance(message, dict):
+        return None
+    if message.get("header_teid_state") != "PRESENT":
+        return None
+    teid = _int(message.get("header_teid"))
+    return teid if teid else None
 
 
 def _evidence_ref(protocol: str, frame: Any, message_type: Any) -> dict[str, Any]:
@@ -405,9 +462,13 @@ def _partition_classification(
             "request/response advertisement family"
         )
         return FAMILY_INSUFFICIENT, f"transaction_correlation_{str(status).lower()}", limitations
-    if strength == "WEAK":
-        limitations.append("the transaction correlation strength is WEAK")
-        return FAMILY_INSUFFICIENT, "transaction_correlation_weak", limitations
+    eligible, strength_basis = proof_strength(strength)
+    if not eligible:
+        limitations.append(
+            f"the transaction correlation strength is {strength!r}, which cannot establish a "
+            "same-transaction advertisement family"
+        )
+        return FAMILY_INSUFFICIENT, strength_basis, limitations
 
     roles = {item for item in (_role_of(record) for record in partition) if item}
     if not roles:
@@ -500,7 +561,8 @@ def build_advertisement_families(
             classification, basis, limitations = classifications[0]
         else:
             classification, basis, limitations = _multi_partition_classification(
-                members, partitions, index, classifications
+                members, partitions, index, classifications, boundaries or [], partition_meta,
+                (capture, address, teid, interface_type),
             )
             if classification == FAMILY_UPDATE and _boundary_between(
                 boundaries or [], capture, address, teid, interface_type, partition_meta
@@ -545,6 +607,7 @@ def build_advertisement_families(
             "bearer_identity_scope": sorted(
                 {record["eps_bearer_identity"] for record in members if record["eps_bearer_identity"] is not None}
             ),
+            "allocation_outcome": _allocation_outcome(members, index),
             "correlation_status": _common_value(
                 index[record["frame_number"]]["transaction"].get("correlation_status")
                 for record in members
@@ -559,6 +622,16 @@ def build_advertisement_families(
             "classification_basis": basis,
             "advertisement_count": len(members),
             "partitions": partition_meta,
+            "control_plane_context": {
+                "session_teid": (
+                    partition_meta[0]["session_teid"] if len(partition_meta) == 1 else None
+                ),
+                "basis": (
+                    "accepted_transaction_header_teid"
+                    if len(partition_meta) == 1 and partition_meta[0]["session_teid"]
+                    else "unavailable"
+                ),
+            },
             "evidence_refs": [
                 _evidence_ref("GTPv2-C", record["frame_number"], record["message_type"])
                 for record in members[:MAX_EVIDENCE_REFERENCES]
@@ -580,18 +653,90 @@ def _partition_metadata(
     for key in sorted(partitions):
         partition = sorted(partitions[key], key=lambda item: item["frame_number"])
         binding = index.get(partition[0]["frame_number"])
+        transaction = binding["transaction"] if binding else None
         metadata.append(
             {
                 "transaction_reference": (
-                    binding["transaction"].get("transaction_reference") if binding else None
+                    transaction.get("transaction_reference") if transaction else None
                 ),
-                "procedure_family": (
-                    binding["transaction"].get("procedure_family") if binding else None
-                ),
+                "procedure_family": transaction.get("procedure_family") if transaction else None,
                 "frames": [record["frame_number"] for record in partition],
+                "session_teid": _partition_session_teid(transaction),
+                "bearer_identity_scope": sorted(
+                    {
+                        record["eps_bearer_identity"]
+                        for record in partition
+                        if record["eps_bearer_identity"] is not None
+                    }
+                ),
             }
         )
     return metadata
+
+
+def _partition_session_teid(transaction: Any) -> int | None:
+    """The control-plane TEID one accepted transaction is bound to, when present."""
+    if not isinstance(transaction, dict):
+        return None
+    return _header_teid(transaction.get("response")) or _header_teid(transaction.get("request"))
+
+
+def _release_provenance_match(
+    boundary: dict[str, Any],
+    capture: str,
+    address: str,
+    teid: int,
+    interface_type: int,
+    session_teid: int | None,
+    bearer_identities: list[int],
+) -> tuple[bool, str]:
+    """Decide whether a release record describes this generation's own context.
+
+    Endpoint equality alone is never enough: the release must belong to the same
+    capture, name the same control-plane context and be compatible with the
+    generation's bearer identity. The outcome is a separate question.
+    """
+    if boundary.get("capture_file") != capture:
+        return False, "release_in_another_capture"
+    if not any(
+        endpoint["address"] == address
+        and endpoint["teid"] == teid
+        and endpoint["interface_type"] == interface_type
+        for endpoint in boundary.get("released_endpoints") or []
+    ):
+        return False, "release_names_another_endpoint"
+    boundary_session = (boundary.get("control_plane_context") or {}).get("session_teid")
+    if session_teid is None or boundary_session is None:
+        return False, "control_plane_context_unavailable"
+    if boundary_session != session_teid:
+        return False, "release_names_another_control_plane_context"
+    boundary_identities = set(boundary.get("bearer_identity_scope") or [])
+    generation_identities = set(bearer_identities)
+    if boundary_identities and generation_identities and not (
+        boundary_identities & generation_identities
+    ):
+        return False, "release_names_another_bearer_identity"
+    return True, "same_capture_control_plane_context_and_endpoint"
+
+
+def _release_binding(
+    boundary: dict[str, Any],
+    capture: str,
+    address: str,
+    teid: int,
+    interface_type: int,
+    session_teid: int | None,
+    bearer_identities: list[int],
+) -> tuple[bool, str]:
+    """A release may close a generation only when it is both bound and accepted."""
+    matched, basis = _release_provenance_match(
+        boundary, capture, address, teid, interface_type, session_teid, bearer_identities
+    )
+    if not matched:
+        return False, basis
+    if boundary.get("release_outcome") != RELEASE_ACCEPTED:
+        return False, f"release_outcome_{str(boundary.get('release_outcome')).lower()}"
+    return True, basis
 
 
 def _boundary_between(
@@ -602,21 +747,31 @@ def _boundary_between(
     interface_type: int,
     partitions: list[dict[str, Any]],
 ) -> bool:
-    """True when an accepted release of this endpoint lies between two partitions."""
+    """True when a release bound to the first allocation separates the partitions.
+
+    The release must be bound to the control-plane context of the earlier
+    allocation, not merely to an equal endpoint value.
+    """
     if len(partitions) < 2:
         return False
-    starts = sorted(item["frames"][0] for item in partitions if item["frames"])
+    ordered = sorted(partitions, key=lambda item: item["frames"][0] if item.get("frames") else 0)
+    first = ordered[0]
+    starts = [item["frames"][0] for item in ordered if item.get("frames")]
+    if not starts:
+        return False
     for boundary in boundaries:
-        if boundary["release_outcome"] != "ACCEPTED":
+        bound, _basis = _release_binding(
+            boundary,
+            capture,
+            address,
+            teid,
+            interface_type,
+            first.get("session_teid"),
+            first.get("bearer_identity_scope") or [],
+        )
+        if not bound:
             continue
-        if not any(
-            endpoint["address"] == address
-            and endpoint["teid"] == teid
-            and endpoint["interface_type"] == interface_type
-            for endpoint in boundary["released_endpoints"]
-        ):
-            continue
-        if starts[0] < boundary["frame_number"] < starts[-1]:
+        if starts[0] < boundary["request_frame"] < starts[-1]:
             return True
     return False
 
@@ -626,6 +781,9 @@ def _multi_partition_classification(
     partitions: dict[str, list[dict[str, Any]]],
     index: dict[int, dict[str, Any]],
     classifications: list[tuple[str, str, list[str]]],
+    boundaries: list[dict[str, Any]],
+    partition_meta: list[dict[str, Any]],
+    endpoint: tuple[str, str, int, int],
 ) -> tuple[str, str, list[str]]:
     """Classify an endpoint advertised by more than one transaction partition."""
     if any(item[0] == FAMILY_COMPETING for item in classifications):
@@ -652,12 +810,25 @@ def _multi_partition_classification(
     allocations = [item for item in families_of_procedure if item in ALLOCATION_FAMILIES]
     updates = [item for item in families_of_procedure if item in UPDATE_FAMILIES]
     if len(allocations) > 1:
+        capture, address, teid, interface_type = endpoint
+        if len(allocations) == 2 and _boundary_between(
+            boundaries, capture, address, teid, interface_type, partition_meta
+        ):
+            return (
+                FAMILY_SEPARATE,
+                "accepted_release_bound_to_the_earlier_allocation_separates_the_allocations",
+                [
+                    "one accepted release, bound to the control-plane context of the earlier "
+                    "allocation and naming this endpoint, lies between the two allocations, so "
+                    "they describe separate generations"
+                ],
+            )
         return (
             FAMILY_INSUFFICIENT,
             "more_than_one_allocation_transaction_advertises_this_endpoint",
             [
-                "more than one allocation transaction advertises this endpoint and no reviewed "
-                "generation bridge separates them, so they are not merged"
+                "more than one allocation transaction advertises this endpoint and no release bound "
+                "to the earlier allocation separates them, so they are not merged and not split"
             ],
         )
     if len(allocations) == 1 and len(updates) >= 1:
@@ -685,6 +856,24 @@ def _multi_partition_classification(
     )
 
 
+def _allocation_outcome(
+    members: list[dict[str, Any]],
+    index: dict[int, dict[str, Any]],
+) -> str:
+    """Accepted only when the correlated response itself carries an accepted Cause.
+
+    The Cause must belong to the same message scope as the advertisement, so a
+    bearer-scope Cause for one bearer identity is never used for another.
+    """
+    for record in members:
+        binding = index.get(record["frame_number"])
+        if binding is None or binding.get("role") != "response":
+            continue
+        if record.get("cause_code") in ACCEPTED_CAUSE_CODES:
+            return RELEASE_ACCEPTED
+    return RELEASE_UNRESOLVED
+
+
 def _common_value(values: Any) -> Any:
     distinct = {value for value in values if value is not None}
     return next(iter(distinct)) if len(distinct) == 1 else None
@@ -697,11 +886,12 @@ def release_boundaries(
     gtpv2_events: list[dict[str, Any]],
     index: dict[int, dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Accepted release transactions that name the S1-U endpoint they release.
+    """Observed release transactions with their capture and outcome provenance.
 
-    A release closes a bearer generation only when the accepted transaction both
-    reaches an accepted outcome and names the endpoint it releases. A release
-    that carries no S1-U F-TEID stays unresolved for that endpoint.
+    A release record never asserts closure by itself. It publishes which capture it
+    belongs to, which request initiated it, which correlated response established
+    the outcome, and which control-plane context it names. Binding a release to a
+    bearer generation is a separate decision that requires every provenance fact.
     """
     by_frame = {
         _int(event.get("frame_number")): event
@@ -720,28 +910,42 @@ def release_boundaries(
         binding = index.get(frame)
         if binding is not None:
             # A release boundary is anchored on the request side of one accepted
-            # transaction; the response is its outcome, not a second boundary.
+            # transaction; the response carries its outcome.
             if binding.get("role") != "request":
                 continue
         elif not str(event.get("message_type") or "").endswith("Request"):
             continue
-        records = _event_endpoint_records(event)
+
         transaction = binding["transaction"] if binding else None
-        status = transaction.get("correlation_status") if transaction else None
         response = transaction.get("response") if isinstance(transaction, dict) else None
-        response_event = (
-            by_frame.get(_int(response.get("frame_number"))) if isinstance(response, dict) else None
+        response_frame = _int(response.get("frame_number")) if isinstance(response, dict) else None
+        response_event = by_frame.get(response_frame) if response_frame is not None else None
+        outcome, basis, limitations = _release_outcome(transaction, event, response_event, response)
+
+        records = _event_endpoint_records(event)
+        session_teid = _header_teid(response) or _header_teid(
+            transaction.get("request") if isinstance(transaction, dict) else None
         )
-        accepted = _accepted_outcome(event, response, response_event)
         boundaries.append(
             {
-                "frame_number": frame,
-                "message_type": event.get("message_type"),
+                "capture_file": str(event.get("capture_file")),
                 "transaction_reference": (
                     transaction.get("transaction_reference") if isinstance(transaction, dict) else None
                 ),
-                "correlation_status": status,
-                "release_outcome": "ACCEPTED" if accepted else "UNRESOLVED",
+                "request_frame": frame,
+                "request_message_type": event.get("message_type"),
+                "response_frame": response_frame,
+                "response_message_type": (
+                    response.get("message_type") if isinstance(response, dict) else None
+                ),
+                "correlation_status": (
+                    transaction.get("correlation_status") if isinstance(transaction, dict) else None
+                ),
+                "correlation_strength": (
+                    transaction.get("correlation_strength") if isinstance(transaction, dict) else None
+                ),
+                "release_outcome": outcome,
+                "release_outcome_basis": basis,
                 "released_endpoints": [
                     {
                         "address": record["address"],
@@ -751,31 +955,99 @@ def release_boundaries(
                     }
                     for record in records[:MAX_LIST_ITEMS]
                 ],
-                "evidence_refs": [_evidence_ref("GTPv2-C", frame, event.get("message_type"))],
+                "control_plane_context": {
+                    "session_teid": session_teid,
+                    "basis": (
+                        "correlated_response_header_teid"
+                        if _header_teid(response)
+                        else "request_header_teid"
+                        if session_teid
+                        else "unavailable"
+                    ),
+                },
+                "bearer_identity_scope": sorted(
+                    {record["eps_bearer_identity"] for record in records if record["eps_bearer_identity"] is not None}
+                ),
+                "evidence_refs": [
+                    _evidence_ref("GTPv2-C", frame, event.get("message_type"))
+                ]
+                + (
+                    [_evidence_ref("GTPv2-C", response_frame, response.get("message_type"))]
+                    if isinstance(response, dict) and response_frame is not None
+                    else []
+                ),
+                "limitations": limitations,
             }
         )
     return boundaries
 
 
-def _accepted_outcome(event: dict[str, Any], response: Any, response_event: Any = None) -> bool:
-    """An accepted release needs an observed accepted outcome, never an assumption."""
-    if not isinstance(response, dict):
-        return False
-    code = _int(response.get("cause_code"))
-    if code is not None:
-        return code in ACCEPTED_CAUSE_CODES
-    sources = [response_event, event]
-    for source in sources:
-        if not isinstance(source, dict):
-            continue
-        cause = source.get("cause")
-        if isinstance(cause, dict) and _int(cause.get("cause_code")) in ACCEPTED_CAUSE_CODES:
-            return True
-        for context in source.get("bearer_contexts") or []:
-            if isinstance(context, dict) and isinstance(context.get("cause"), dict):
-                if _int(context["cause"].get("cause_code")) in ACCEPTED_CAUSE_CODES:
-                    return True
-    return False
+def _release_outcome(
+    transaction: Any,
+    request_event: Any,
+    response_event: Any,
+    response_message: Any,
+) -> tuple[str, str, list[str]]:
+    """Classify a release outcome from its own correlated response only.
+
+    The request is never a source of an accepted outcome, a negative response is
+    never overridden by a request-side Cause, and an uncorrelated or weakly
+    correlated transaction cannot establish acceptance.
+    """
+    if not isinstance(transaction, dict):
+        return (
+            RELEASE_UNRESOLVED,
+            "release_not_in_an_accepted_transaction",
+            ["the release is not a member of an accepted GTPv2-C transaction"],
+        )
+    status = transaction.get("correlation_status")
+    if status != MATCHED:
+        return (
+            RELEASE_UNRESOLVED,
+            f"release_correlation_{str(status).lower()}",
+            [
+                f"the release transaction correlation status is {status}, so its outcome is not "
+                "established by an unambiguous request/response pair"
+            ],
+        )
+    eligible, basis = proof_strength(transaction.get("correlation_strength"))
+    if not eligible:
+        return (
+            RELEASE_UNRESOLVED,
+            basis,
+            [
+                "the release transaction correlation is not corroborated strongly enough to "
+                "establish an accepted outcome"
+            ],
+        )
+    if not isinstance(response_message, dict):
+        return (
+            RELEASE_UNRESOLVED,
+            "release_response_unavailable",
+            ["no correlated response was observed for this release request"],
+        )
+
+    code = _message_cause(response_event)
+    if code is None:
+        code = _int(response_message.get("cause_code"))
+    if code is None:
+        return (
+            RELEASE_UNRESOLVED,
+            "release_response_cause_unavailable",
+            [
+                "the correlated release response carries no message-scope Cause, so the release "
+                "outcome is unproved"
+            ],
+        )
+    if code in ACCEPTED_CAUSE_CODES:
+        return RELEASE_ACCEPTED, "accepted_cause_in_correlated_response", []
+    return (
+        RELEASE_REJECTED,
+        "non_accepted_cause_in_correlated_response",
+        [
+            f"the correlated release response carries Cause {code}, so the release is not accepted"
+        ],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -862,16 +1134,22 @@ def build_generations(
             continue
 
         generation = _new_generation(family, key)
-        closing = _closing_boundary(boundaries, key, first_frame)
+        closing = _closing_boundary(boundaries, family, first_frame)
         if closing is None:
             generation["observations"].append(OBS_RELEASE_UNRESOLVED)
+            rejected = _rejected_release(boundaries, family, first_frame)
+            if rejected is not None:
+                generation["observations"].append(OBS_RELEASE_REJECTED)
+                generation["limitations"].append(
+                    "a release of this endpoint was observed but its correlated response was not "
+                    "accepted, so no generation boundary is established"
+                )
+                generation["evidence_refs"] = (
+                    generation["evidence_refs"] + rejected["evidence_refs"]
+                )[:MAX_EVIDENCE_REFERENCES]
         else:
             generation["generation_state"] = GENERATION_CLOSED
-            generation["generation_boundary"] = {
-                "frame_number": closing["frame_number"],
-                "transaction_reference": closing["transaction_reference"],
-                "basis": "accepted_release_transaction_names_this_endpoint",
-            }
+            generation["generation_boundary"] = _boundary_payload(closing)
             generation["observations"].extend([OBS_RELEASE_REQUEST, OBS_RELEASE_ACCEPTED])
             generation["observations"].append(OBS_BOUNDARY_ESTABLISHED)
             generation["evidence_refs"] = (
@@ -906,18 +1184,26 @@ def _generations_from_partitions(
             family["receiving_endpoint_teid"],
             family["reviewed_interface_type"],
         )
+        synthetic["control_plane_context"] = {
+            "session_teid": partition.get("session_teid"),
+            "basis": (
+                "accepted_transaction_header_teid"
+                if partition.get("session_teid")
+                else "unavailable"
+            ),
+        }
+        synthetic["bearer_identity_scope"] = list(partition.get("bearer_identity_scope") or [])
         generation = _new_generation(synthetic, key)
-        closing = _closing_boundary(boundaries, key, min(frames))
-        if closing is not None and closing["frame_number"] < (
-            max(item["frames"][-1] for item in family.get("partitions") or [] if item.get("frames"))
-        ):
+        closing = _closing_boundary(boundaries, synthetic, min(frames))
+        last_frame = max(
+            item["frames"][-1] for item in family.get("partitions") or [] if item.get("frames")
+        )
+        if closing is not None and closing["request_frame"] < last_frame:
             generation["generation_state"] = GENERATION_CLOSED
-            generation["generation_boundary"] = {
-                "frame_number": closing["frame_number"],
-                "transaction_reference": closing["transaction_reference"],
-                "basis": "accepted_release_transaction_names_this_endpoint",
-            }
-            generation["observations"].extend([OBS_RELEASE_REQUEST, OBS_RELEASE_ACCEPTED, OBS_BOUNDARY_ESTABLISHED])
+            generation["generation_boundary"] = _boundary_payload(closing)
+            generation["observations"].extend(
+                [OBS_RELEASE_REQUEST, OBS_RELEASE_ACCEPTED, OBS_BOUNDARY_ESTABLISHED]
+            )
             generation["evidence_refs"] = (generation["evidence_refs"] + closing["evidence_refs"])[
                 :MAX_EVIDENCE_REFERENCES
             ]
@@ -948,9 +1234,9 @@ def _new_generation(
     observations = [OBS_ALLOCATION_ADVERTISED]
     if family["family_classification"] in (FAMILY_SAME_TRANSACTION, FAMILY_UPDATE):
         observations.append(OBS_ALLOCATION_RESPONSE)
-    if family["correlation_status"] == MATCHED and any(
-        ref["message_type"] and "Response" in str(ref["message_type"])
-        for ref in family["evidence_refs"]
+    if (
+        family.get("allocation_outcome") == RELEASE_ACCEPTED
+        and family.get("correlation_status") == MATCHED
     ):
         observations.append(OBS_ALLOCATION_ACCEPTED)
     return {
@@ -970,27 +1256,71 @@ def _new_generation(
     }
 
 
+def _bound_boundaries(
+    boundaries: list[dict[str, Any]],
+    family: dict[str, Any],
+    after_frame: int,
+) -> list[dict[str, Any]]:
+    """Release records that are bound to this family's endpoint and context."""
+    context = family.get("control_plane_context") or {}
+    bound: list[dict[str, Any]] = []
+    for boundary in boundaries:
+        if boundary["request_frame"] < after_frame:
+            continue
+        ok, _basis = _release_provenance_match(
+            boundary,
+            family["capture_file"],
+            family["receiving_endpoint_address"],
+            family["receiving_endpoint_teid"],
+            family["reviewed_interface_type"],
+            context.get("session_teid"),
+            family.get("bearer_identity_scope") or [],
+        )
+        if ok:
+            bound.append(boundary)
+    return bound
+
+
 def _closing_boundary(
     boundaries: list[dict[str, Any]],
-    key: tuple[str, str, int, int],
+    family: dict[str, Any],
     after_frame: int,
 ) -> dict[str, Any] | None:
-    capture, address, teid, interface_type = key
+    """The single accepted release that may close this generation, if any."""
     candidates = [
         boundary
-        for boundary in boundaries
-        if boundary["frame_number"] >= after_frame
-        and boundary["release_outcome"] == "ACCEPTED"
-        and any(
-            endpoint["address"] == address
-            and endpoint["teid"] == teid
-            and endpoint["interface_type"] == interface_type
-            for endpoint in boundary["released_endpoints"]
-        )
+        for boundary in _bound_boundaries(boundaries, family, after_frame)
+        if boundary["release_outcome"] == RELEASE_ACCEPTED
     ]
     if len(candidates) != 1:
         return None
     return candidates[0]
+
+
+def _rejected_release(
+    boundaries: list[dict[str, Any]],
+    family: dict[str, Any],
+    after_frame: int,
+) -> dict[str, Any] | None:
+    """A release of this endpoint whose correlated response was not accepted."""
+    candidates = [
+        boundary
+        for boundary in _bound_boundaries(boundaries, family, after_frame)
+        if boundary["release_outcome"] == RELEASE_REJECTED
+    ]
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def _boundary_payload(closing: dict[str, Any]) -> dict[str, Any]:
+    """A boundary that separates initiation from confirmation."""
+    return {
+        "release_request_frame": closing["request_frame"],
+        "release_confirmation_frame": closing["response_frame"],
+        "frame_number": closing["response_frame"],
+        "transaction_reference": closing["transaction_reference"],
+        "basis": "accepted_release_response_bound_to_the_same_control_plane_context",
+        "release_effective_frame_proven": False,
+    }
 
 
 def _reuse_observation(
@@ -1140,7 +1470,9 @@ def attribute_streams(
         generation = candidates[0]
         key = (str(capture), str(stream.get("outer_source")), str(destination), teid)
         stream_events = grouped.get(key, [])
-        packets, octets = _frame_level_totals(stream_events, generation)
+        packets, octets, pending_packets, pending_octets = _frame_level_totals(
+            stream_events, generation
+        )
         if packets > aggregate_packets:
             deviations.append(
                 {
@@ -1169,7 +1501,18 @@ def attribute_streams(
                 "association_status": ASSOCIATION_SUPPORTED,
                 "allocation_evidence_refs": generation["evidence_refs"][:MAX_EVIDENCE_REFERENCES],
                 "generation_boundary_refs": (
-                    [_evidence_ref("GTPv2-C", generation["generation_boundary"]["frame_number"], "Delete Session Request")]
+                    [
+                        _evidence_ref(
+                            "GTPv2-C",
+                            generation["generation_boundary"]["release_request_frame"],
+                            "Delete Session Request",
+                        ),
+                        _evidence_ref(
+                            "GTPv2-C",
+                            generation["generation_boundary"]["release_confirmation_frame"],
+                            "Delete Session Response",
+                        ),
+                    ]
                     if generation.get("generation_boundary")
                     else []
                 ),
@@ -1185,12 +1528,27 @@ def attribute_streams(
         )
         remaining_packets = aggregate_packets - packets
         remaining_octets = aggregate_octets - attributed_octets
-        if remaining_packets or remaining_octets:
+        pending_packets = min(pending_packets, remaining_packets)
+        pending_octets = min(pending_octets, remaining_octets)
+        if pending_packets or pending_octets:
+            # The release was accepted, but nothing proves the exact instant
+            # forwarding stopped, so this interval belongs to neither generation.
             unresolved.append(
                 _unresolved_observation(
                     stream,
-                    remaining_packets,
-                    remaining_octets,
+                    pending_packets,
+                    pending_octets,
+                    "release_in_progress_interval",
+                )
+            )
+        outside_packets = remaining_packets - pending_packets
+        outside_octets = remaining_octets - pending_octets
+        if outside_packets or outside_octets:
+            unresolved.append(
+                _unresolved_observation(
+                    stream,
+                    outside_packets,
+                    outside_octets,
                     "frames_outside_the_proved_generation_window",
                 )
             )
@@ -1200,13 +1558,21 @@ def attribute_streams(
 def _frame_level_totals(
     stream_events: list[dict[str, Any]],
     generation: dict[str, Any],
-) -> tuple[int, int]:
-    """G-PDU count and payload octets whose frames fall inside the generation window."""
+) -> tuple[int, int, int, int]:
+    """Attribute packets to a generation, keeping the release interval apart.
+
+    The generation owns the frames up to and including the release *request*; the
+    frames between the request and the accepted confirmation belong to neither
+    generation, because the instant user-plane forwarding stopped is not proved.
+    """
     start = generation["observation_window"]["start_frame"]
     boundary = generation.get("generation_boundary")
-    end = boundary["frame_number"] if boundary else None
+    end = boundary["release_request_frame"] if boundary else None
+    confirmation = boundary["release_confirmation_frame"] if boundary else None
     packets = 0
     octets = 0
+    pending_packets = 0
+    pending_octets = 0
     for event in stream_events:
         header = event.get("header") or {}
         if header.get("message_type") != "G-PDU":
@@ -1216,13 +1582,17 @@ def _frame_level_totals(
             continue
         if frame < start:
             continue
+        length = _int(header.get("message_length"))
         if end is not None and frame > end:
+            if confirmation is not None and frame <= confirmation:
+                pending_packets += 1
+                if length is not None:
+                    pending_octets += length
             continue
         packets += 1
-        length = _int(header.get("message_length"))
         if length is not None:
             octets += length
-    return packets, octets
+    return packets, octets, pending_packets, pending_octets
 
 
 def _unresolved_observation(
@@ -1333,6 +1703,9 @@ def analyze(
             "lifecycle_observations": list(OBSERVATIONS),
             "generation_states": list(GENERATION_STATES),
             "association_statuses": list(ASSOCIATION_STATUSES),
+            "release_outcomes": list(RELEASE_OUTCOMES),
+            "reviewed_correlation_strengths": sorted(REVIEWED_STRENGTHS),
+            "proof_correlation_strengths": sorted(PROOF_STRENGTHS),
             "deviation_vocabulary": list(DEVIATION_TYPES),
             "identity_rule": (
                 "a generation is scoped by capture, receiving role, endpoint address, endpoint TEID "

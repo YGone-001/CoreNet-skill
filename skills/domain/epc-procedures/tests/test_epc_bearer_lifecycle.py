@@ -70,15 +70,25 @@ def gtpv2_event(
     }
 
 
-def tx_message(frame: int, message: str) -> dict:
-    return {
+def tx_message(
+    frame: int,
+    message: str,
+    *,
+    session_teid: int = 1,
+    cause: int | None = None,
+    state: str = "PRESENT",
+) -> dict:
+    message_payload = {
         "frame_number": frame,
-        "header_teid": 1,
-        "header_teid_state": "PRESENT",
+        "header_teid": session_teid,
+        "header_teid_state": state,
         "message_type": message,
         "message_type_code": 0,
         "sequence_number": 1,
     }
+    if cause is not None:
+        message_payload["cause_code"] = cause
+    return message_payload
 
 
 def transaction(
@@ -90,13 +100,20 @@ def transaction(
     status: str = "MATCHED",
     strength: str = "STRONG",
     retransmissions: list[tuple[int, str]] | None = None,
+    session_teid: int = 1,
+    request_teid: int | None = None,
+    response_cause: int | None = None,
 ) -> dict:
-    response_message = tx_message(*response) if response else None
+    response_message = (
+        tx_message(*response, session_teid=session_teid, cause=response_cause) if response else None
+    )
     return {
         "transaction_reference": reference,
         "procedure_family": family,
         "message_family": family,
-        "request": tx_message(*request),
+        "request": tx_message(
+            *request, session_teid=session_teid if request_teid is None else request_teid
+        ),
         "response": response_message,
         "response_candidates": [response_message] if response_message else [],
         "correlation_status": status,
@@ -108,7 +125,10 @@ def transaction(
             "start_frame": request[0],
             "end_frame": response[0] if response else request[0],
         },
-        "evidence_refs": [tx_message(*request)] + ([response_message] if response_message else []),
+        "evidence_refs": [
+            tx_message(*request, session_teid=session_teid if request_teid is None else request_teid)
+        ]
+        + ([response_message] if response_message else []),
         "limitations": [],
     }
 
@@ -415,7 +435,17 @@ class LifecycleGenerationTests(unittest.TestCase):
         analysis = self.analyze(events, transactions)
         generation = analysis["lifecycle_subjects"][0]
         self.assertEqual(generation["generation_state"], "CLOSED_BY_ACCEPTED_RELEASE")
-        self.assertEqual(generation["generation_boundary"]["frame_number"], 300)
+        boundary = generation["generation_boundary"]
+        # The request initiates the release; only the correlated response confirms it.
+        self.assertEqual(boundary["release_request_frame"], 300)
+        self.assertEqual(boundary["release_confirmation_frame"], 306)
+        self.assertEqual(boundary["frame_number"], 306)
+        self.assertFalse(boundary["release_effective_frame_proven"])
+        self.assertEqual(
+            boundary["basis"],
+            "accepted_release_response_bound_to_the_same_control_plane_context",
+        )
+        self.assertIn("RELEASE_REQUEST_OBSERVED", generation["observations"])
         self.assertIn("RELEASE_ACCEPTED_OBSERVED", generation["observations"])
         self.assertIn("GENERATION_BOUNDARY_ESTABLISHED", generation["observations"])
 
@@ -810,6 +840,561 @@ class CliContractTests(unittest.TestCase):
         first.pop("input_provenance", None)
         second.pop("input_provenance", None)
         self.assertEqual(first, second)
+
+
+# ---------------------------------------------------------------------------
+# C — capture and control-plane context isolation
+# ---------------------------------------------------------------------------
+def allocation(
+    frame: int,
+    *,
+    capture: str = CAPTURE,
+    teid: int = 100,
+    address: str = "198.51.100.2",
+    interface_type: int = 1,
+    ebi: int = 5,
+) -> list[dict]:
+    return [
+        gtpv2_event(
+            frame,
+            "Create Session Request",
+            "create-session",
+            contexts=[context(ebi, [fteid(interface_type, teid, address)])],
+            capture=capture,
+        ),
+        gtpv2_event(
+            frame + 6,
+            "Create Session Response",
+            "create-session",
+            contexts=[context(ebi, [fteid(interface_type, teid, address)], cause=16)],
+            cause=16,
+            capture=capture,
+        ),
+    ]
+
+
+def release(
+    frame: int,
+    *,
+    capture: str = CAPTURE,
+    teid: int = 100,
+    address: str = "198.51.100.2",
+    interface_type: int = 1,
+    ebi: int = 5,
+    cause: int = 16,
+) -> list[dict]:
+    return [
+        gtpv2_event(
+            frame,
+            "Delete Session Request",
+            "delete-session",
+            contexts=[context(ebi, [fteid(interface_type, teid, address)])],
+            capture=capture,
+        ),
+        gtpv2_event(
+            frame + 6,
+            "Delete Session Response",
+            "delete-session",
+            contexts=[],
+            cause=cause,
+            capture=capture,
+        ),
+    ]
+
+
+class ReleaseProvenanceTests(unittest.TestCase):
+    """C: a release may only close a generation of its own capture and context."""
+
+    def analyze(self, events, transactions):
+        return model.analyze(events, transactions=transactions)
+
+    def generations(self, analysis):
+        return analysis["lifecycle_subjects"]
+
+    # C01 -----------------------------------------------------------------
+    def test_cross_capture_release_never_closes_another_capture(self) -> None:
+        events = allocation(100, capture="A.pcap") + release(300, capture="B.pcap")
+        transactions = tx_document(
+            transaction("cs-A", "create-session", (100, "Create Session Request"), (106, "Create Session Response")),
+            transaction("ds-B", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response")),
+        )
+        analysis = self.analyze(events, transactions)
+        generation = self.generations(analysis)[0]
+        self.assertEqual(generation["capture_file"], "A.pcap")
+        self.assertEqual(generation["generation_state"], "OPEN_AT_CAPTURE_END")
+        self.assertIsNone(generation["generation_boundary"])
+        self.assertIn("RELEASE_STATUS_UNRESOLVED", generation["observations"])
+        boundary = analysis["generation_boundary_evidence"][0]
+        self.assertEqual(boundary["capture_file"], "B.pcap")
+        self.assertEqual(boundary["release_outcome"], "ACCEPTED")
+
+    # C02 -----------------------------------------------------------------
+    def test_equal_teids_in_distinct_captures_stay_separate(self) -> None:
+        events = (
+            allocation(100, capture="A.pcap")
+            + release(300, capture="A.pcap")
+            + allocation(500, capture="B.pcap")
+            + release(700, capture="B.pcap")
+        )
+        transactions = tx_document(
+            transaction("cs-A", "create-session", (100, "Create Session Request"), (106, "Create Session Response"), session_teid=1),
+            transaction("ds-A", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response"), session_teid=1, response_cause=16),
+            transaction("cs-B", "create-session", (500, "Create Session Request"), (506, "Create Session Response"), session_teid=2),
+            transaction("ds-B", "delete-session", (700, "Delete Session Request"), (706, "Delete Session Response"), session_teid=2, response_cause=16),
+        )
+        analysis = self.analyze(events, transactions)
+        by_capture = {item["capture_file"]: item for item in self.generations(analysis)}
+        self.assertEqual(sorted(by_capture), ["A.pcap", "B.pcap"])
+        for capture, generation in by_capture.items():
+            self.assertEqual(generation["generation_state"], "CLOSED_BY_ACCEPTED_RELEASE", capture)
+            self.assertEqual(
+                generation["generation_boundary"]["release_request_frame"],
+                300 if capture == "A.pcap" else 700,
+            )
+        self.assertEqual(analysis["endpoint_reuse_observation_count"], 0)
+
+    # C03 -----------------------------------------------------------------
+    def test_same_capture_but_another_control_plane_context_does_not_close(self) -> None:
+        events = allocation(100) + release(300)
+        transactions = tx_document(
+            transaction("cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response"), session_teid=3),
+            transaction("ds", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response"), session_teid=7),
+        )
+        analysis = self.analyze(events, transactions)
+        generation = self.generations(analysis)[0]
+        self.assertEqual(generation["generation_state"], "OPEN_AT_CAPTURE_END")
+        self.assertIsNone(generation["generation_boundary"])
+
+    def test_missing_control_plane_context_keeps_the_release_unresolved(self) -> None:
+        events = allocation(100) + release(300)
+        transactions = tx_document(
+            transaction(
+                "cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response"),
+                session_teid=0, response_cause=16,
+            ),
+            transaction("ds", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response")),
+        )
+        for item in transactions["transactions"]:
+            item["response"]["header_teid_state"] = "ZERO"
+        analysis = self.analyze(events, transactions)
+        generation = self.generations(analysis)[0]
+        self.assertEqual(generation["generation_state"], "OPEN_AT_CAPTURE_END")
+
+    # C04 -----------------------------------------------------------------
+    def test_incompatible_interface_type_does_not_close(self) -> None:
+        events = allocation(100, interface_type=1) + release(300, interface_type=0)
+        transactions = tx_document(
+            transaction("cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response")),
+            transaction("ds", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response")),
+        )
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(self.generations(analysis)[0]["generation_state"], "OPEN_AT_CAPTURE_END")
+
+    # C05 -----------------------------------------------------------------
+    def test_several_candidate_releases_keep_the_association_unresolved(self) -> None:
+        events = allocation(100) + release(300) + release(400)
+        transactions = tx_document(
+            transaction("cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response")),
+            transaction("ds1", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response")),
+            transaction("ds2", "delete-session", (400, "Delete Session Request"), (406, "Delete Session Response")),
+        )
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(self.generations(analysis)[0]["generation_state"], "OPEN_AT_CAPTURE_END")
+
+    # C06 -----------------------------------------------------------------
+    def test_boundary_retains_full_provenance(self) -> None:
+        events = allocation(100) + release(300)
+        transactions = tx_document(
+            transaction("cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response")),
+            transaction("ds", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response")),
+        )
+        analysis = self.analyze(events, transactions)
+        boundary = analysis["generation_boundary_evidence"][0]
+        self.assertEqual(boundary["capture_file"], CAPTURE)
+        self.assertEqual(boundary["request_frame"], 300)
+        self.assertEqual(boundary["request_message_type"], "Delete Session Request")
+        self.assertEqual(boundary["response_frame"], 306)
+        self.assertEqual(boundary["response_message_type"], "Delete Session Response")
+        self.assertEqual(boundary["correlation_status"], "MATCHED")
+        self.assertEqual(boundary["correlation_strength"], "STRONG")
+        self.assertEqual(boundary["release_outcome"], "ACCEPTED")
+        self.assertEqual(
+            [ref["frame_number"] for ref in boundary["evidence_refs"]], [300, 306]
+        )
+
+
+# ---------------------------------------------------------------------------
+# R — release outcome proof
+# ---------------------------------------------------------------------------
+class ReleaseOutcomeTests(unittest.TestCase):
+    """R: acceptance is established only by the correlated response."""
+
+    def analyze(self, events, transactions):
+        return model.analyze(events, transactions=transactions)
+
+    def generation(self, analysis):
+        return analysis["lifecycle_subjects"][0]
+
+    def build(self, *, status="MATCHED", strength="STRONG", response_cause=16,
+              request_cause=None, bearer_cause=None, response_event_cause="auto"):
+        events = allocation(100)
+        delete_events = release(300, cause=response_cause if response_cause is not None else 0)
+        if request_cause is not None:
+            delete_events[0]["cause"] = {"cause_code": request_cause, "cause_name": "x"}
+        if bearer_cause is not None:
+            delete_events[1]["bearer_contexts"] = [context(5, [], cause=bearer_cause)]
+        if response_event_cause == "drop":
+            delete_events[1]["cause"] = None
+        elif response_event_cause == "none":
+            delete_events[1]["cause"] = None
+        events = events + delete_events
+        transactions = tx_document(
+            transaction("cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response")),
+            transaction(
+                "ds", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response"),
+                status=status, strength=strength,
+                response_cause=None if response_cause is None else response_cause,
+            ),
+        )
+        return events, transactions
+
+    # R01 -----------------------------------------------------------------
+    def test_matched_accepted_response_supports_the_release(self) -> None:
+        events, transactions = self.build()
+        generation = self.generation(self.analyze(events, transactions))
+        self.assertEqual(generation["generation_state"], "CLOSED_BY_ACCEPTED_RELEASE")
+
+    # R02 -----------------------------------------------------------------
+    def test_ambiguous_transaction_cannot_establish_acceptance(self) -> None:
+        events, transactions = self.build(status="AMBIGUOUS")
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(self.generation(analysis)["generation_state"], "OPEN_AT_CAPTURE_END")
+        boundary = analysis["generation_boundary_evidence"][0]
+        self.assertEqual(boundary["release_outcome"], "UNRESOLVED")
+        self.assertEqual(boundary["release_outcome_basis"], "release_correlation_ambiguous")
+
+    # R03 -----------------------------------------------------------------
+    def test_open_request_cannot_close_a_generation(self) -> None:
+        events, transactions = self.build(status="OPEN_REQUEST")
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(self.generation(analysis)["generation_state"], "OPEN_AT_CAPTURE_END")
+        self.assertEqual(
+            analysis["generation_boundary_evidence"][0]["release_outcome_basis"],
+            "release_correlation_open_request",
+        )
+
+    # R04 -----------------------------------------------------------------
+    def test_response_only_cannot_fabricate_a_pair(self) -> None:
+        events = allocation(100) + release(300)
+        transactions = tx_document(
+            transaction("cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response")),
+            transaction("ds", "delete-session", (300, "Delete Session Request"), None, status="RESPONSE_ONLY"),
+        )
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(self.generation(analysis)["generation_state"], "OPEN_AT_CAPTURE_END")
+        self.assertEqual(
+            analysis["generation_boundary_evidence"][0]["release_outcome_basis"],
+            "release_correlation_response_only",
+        )
+
+    # R05 -----------------------------------------------------------------
+    def test_negative_response_cannot_be_overridden_by_request_cause(self) -> None:
+        events, transactions = self.build(response_cause=72, request_cause=16)
+        analysis = self.analyze(events, transactions)
+        generation = self.generation(analysis)
+        self.assertEqual(generation["generation_state"], "OPEN_AT_CAPTURE_END")
+        self.assertIn("RELEASE_REJECTED_OBSERVED", generation["observations"])
+        self.assertNotIn("RELEASE_ACCEPTED_OBSERVED", generation["observations"])
+        self.assertEqual(
+            analysis["generation_boundary_evidence"][0]["release_outcome"], "REJECTED_OBSERVED"
+        )
+
+    # R06 -----------------------------------------------------------------
+    def test_unrelated_bearer_scope_cause_cannot_override_a_negative_response(self) -> None:
+        events, transactions = self.build(response_cause=72, bearer_cause=16)
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(self.generation(analysis)["generation_state"], "OPEN_AT_CAPTURE_END")
+        self.assertEqual(
+            analysis["generation_boundary_evidence"][0]["release_outcome"], "REJECTED_OBSERVED"
+        )
+
+    # R07 -----------------------------------------------------------------
+    def test_missing_response_cause_leaves_acceptance_unproved(self) -> None:
+        events, transactions = self.build(response_cause=None, response_event_cause="none")
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(self.generation(analysis)["generation_state"], "OPEN_AT_CAPTURE_END")
+        self.assertEqual(
+            analysis["generation_boundary_evidence"][0]["release_outcome_basis"],
+            "release_response_cause_unavailable",
+        )
+
+    # R08 / R09 ------------------------------------------------------------
+    def test_response_carries_acceptance_and_request_carries_initiation(self) -> None:
+        events, transactions = self.build()
+        analysis = self.analyze(events, transactions)
+        generation = self.generation(analysis)
+        boundary = generation["generation_boundary"]
+        self.assertEqual(boundary["release_request_frame"], 300)
+        self.assertEqual(boundary["release_confirmation_frame"], 306)
+        self.assertEqual(boundary["frame_number"], 306)
+        frames = [ref["frame_number"] for ref in generation["evidence_refs"]]
+        self.assertIn(300, frames)
+        self.assertIn(306, frames)
+
+    # R10 -----------------------------------------------------------------
+    def test_pending_release_interval_is_not_attributed(self) -> None:
+        events, transactions = self.build()
+        streams = [stream(packets=3, octets=300, first=200, last=400)]
+        gtpu = [gtpu_event(frame, length=100) for frame in (200, 303, 400)]
+        analysis = model.analyze(
+            events,
+            transactions=transactions,
+            s1u_analysis=s1u_document(*streams),
+            gtpu_events=gtpu,
+        )
+        scoped = analysis["generation_scoped_s1u_observations"][0]
+        self.assertEqual(scoped["observed_g_pdu_count"], 1)
+        bases = {item["basis"]: item["observed_g_pdu_count"] for item in analysis["unresolved_packet_observations"]}
+        self.assertEqual(bases.get("release_in_progress_interval"), 1)
+        self.assertEqual(bases.get("frames_outside_the_proved_generation_window"), 1)
+        self.assertTrue(analysis["accounting"]["conserved_g_pdu"])
+
+
+# ---------------------------------------------------------------------------
+# S — correlation strength
+# ---------------------------------------------------------------------------
+class CorrelationStrengthTests(unittest.TestCase):
+    """S: only a reviewed, corroborated strength may carry a proof."""
+
+    def family(self, strength):
+        events = [
+            gtpv2_event(100, "Modify Bearer Request", "modify-bearer", contexts=[context(5, [fteid(1, 100, "198.51.100.2")])]),
+            gtpv2_event(106, "Modify Bearer Response", "modify-bearer", contexts=[context(5, [fteid(1, 100, "198.51.100.2")], cause=16)], cause=16),
+        ]
+        transactions = tx_document(
+            transaction("mb", "modify-bearer", (100, "Modify Bearer Request"), (106, "Modify Bearer Response"), strength=strength)
+        )
+        analysis = model.analyze(events, transactions=transactions)
+        return analysis["advertisement_families"][0], analysis
+
+    def test_strong_is_accepted(self) -> None:
+        family, analysis = self.family("STRONG")
+        self.assertEqual(family["family_classification"], "SAME_TRANSACTION_ADVERTISEMENTS")
+        self.assertEqual(analysis["lifecycle_subject_count"], 1)
+
+    def test_supported_is_accepted(self) -> None:
+        family, analysis = self.family("SUPPORTED")
+        self.assertEqual(family["family_classification"], "SAME_TRANSACTION_ADVERTISEMENTS")
+        self.assertEqual(family["correlation_strength"], "SUPPORTED")
+
+    def test_none_cannot_prove_a_family(self) -> None:
+        family, analysis = self.family("NONE")
+        self.assertEqual(family["family_classification"], "INSUFFICIENT_GENERATION_EVIDENCE")
+        self.assertEqual(family["classification_basis"], "correlation_strength_none")
+        self.assertEqual(analysis["lifecycle_subject_count"], 0)
+
+    def test_missing_strength_cannot_pass(self) -> None:
+        family, analysis = self.family(None)
+        self.assertEqual(family["classification_basis"], "correlation_strength_unavailable")
+        self.assertEqual(analysis["lifecycle_subject_count"], 0)
+
+    def test_unknown_strength_is_rejected(self) -> None:
+        family, _analysis = self.family("WEAK")
+        self.assertEqual(family["classification_basis"], "correlation_strength_unreviewed")
+
+    def test_both_models_share_the_reviewed_strength_policy(self) -> None:
+        sys.path.insert(0, str(SCRIPTS))
+        import epc_default_bearer_model as bearer_model  # noqa: E402
+
+        self.assertEqual(model.PROOF_STRENGTHS, bearer_model.PROOF_STRENGTHS)
+        self.assertEqual(model.REVIEWED_STRENGTHS, {"STRONG", "SUPPORTED", "NONE"})
+        self.assertNotIn("WEAK", model.REVIEWED_STRENGTHS)
+        self.assertNotIn("WEAK", bearer_model.PROOF_STRENGTHS)
+
+
+# ---------------------------------------------------------------------------
+# G — allocation, release and reuse
+# ---------------------------------------------------------------------------
+class AllocationReuseTests(unittest.TestCase):
+    """G: a proved release separates exactly one allocation from the next."""
+
+    def analyze(self, events, transactions):
+        return model.analyze(events, transactions=transactions)
+
+    def three_way(self, *, release_capture=CAPTURE, release_teid=1, release_cause=16, status="MATCHED"):
+        events = allocation(100) + release(300, capture=release_capture, teid=100, cause=release_cause) + allocation(400)
+        transactions = tx_document(
+            transaction("cs1", "create-session", (100, "Create Session Request"), (106, "Create Session Response"), session_teid=1),
+            transaction(
+                "ds", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response"),
+                status=status, session_teid=release_teid, response_cause=release_cause,
+            ),
+            transaction("cs2", "create-session", (400, "Create Session Request"), (406, "Create Session Response"), session_teid=9),
+        )
+        return events, transactions
+
+    # G01 -----------------------------------------------------------------
+    def test_two_allocations_separated_by_a_bound_release_split(self) -> None:
+        events, transactions = self.three_way()
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(
+            analysis["advertisement_families"][0]["family_classification"],
+            "SEPARATE_GENERATIONS_ESTABLISHED",
+        )
+        self.assertEqual(analysis["lifecycle_subject_count"], 2)
+        self.assertEqual(analysis["endpoint_reuse_observation_count"], 1)
+        states = [item["generation_state"] for item in analysis["lifecycle_subjects"]]
+        self.assertEqual(states.count("CLOSED_BY_ACCEPTED_RELEASE"), 1)
+        self.assertEqual(states.count("OPEN_AT_CAPTURE_END"), 1)
+        reuse = analysis["endpoint_reuse_observations"][0]
+        self.assertEqual(reuse["basis"], "release_boundary_separates_generations")
+
+    # G02 -----------------------------------------------------------------
+    def test_two_allocations_without_a_release_stay_unresolved(self) -> None:
+        events = allocation(100) + allocation(400)
+        transactions = tx_document(
+            transaction("cs1", "create-session", (100, "Create Session Request"), (106, "Create Session Response")),
+            transaction("cs2", "create-session", (400, "Create Session Request"), (406, "Create Session Response"), session_teid=9),
+        )
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(
+            analysis["advertisement_families"][0]["family_classification"],
+            "INSUFFICIENT_GENERATION_EVIDENCE",
+        )
+        self.assertEqual(analysis["lifecycle_subject_count"], 0)
+
+    # G03 -----------------------------------------------------------------
+    def test_release_from_another_capture_cannot_separate(self) -> None:
+        events, transactions = self.three_way(release_capture="other.pcap")
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(
+            analysis["advertisement_families"][0]["family_classification"],
+            "INSUFFICIENT_GENERATION_EVIDENCE",
+        )
+        self.assertEqual(analysis["lifecycle_subject_count"], 0)
+
+    # G04 -----------------------------------------------------------------
+    def test_release_from_another_context_cannot_separate(self) -> None:
+        events, transactions = self.three_way(release_teid=42)
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(
+            analysis["advertisement_families"][0]["family_classification"],
+            "INSUFFICIENT_GENERATION_EVIDENCE",
+        )
+
+    # G05 -----------------------------------------------------------------
+    def test_rejected_release_does_not_separate(self) -> None:
+        events, transactions = self.three_way(release_cause=72)
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(
+            analysis["advertisement_families"][0]["family_classification"],
+            "INSUFFICIENT_GENERATION_EVIDENCE",
+        )
+
+    # G06 -----------------------------------------------------------------
+    def test_one_release_cannot_close_multiple_allocations(self) -> None:
+        events = allocation(100) + release(300) + allocation(400) + allocation(700)
+        transactions = tx_document(
+            transaction("cs1", "create-session", (100, "Create Session Request"), (106, "Create Session Response"), session_teid=1),
+            transaction("ds", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response"), session_teid=1, response_cause=16),
+            transaction("cs2", "create-session", (400, "Create Session Request"), (406, "Create Session Response"), session_teid=9),
+            transaction("cs3", "create-session", (700, "Create Session Request"), (706, "Create Session Response"), session_teid=11),
+        )
+        analysis = self.analyze(events, transactions)
+        self.assertEqual(
+            analysis["advertisement_families"][0]["family_classification"],
+            "INSUFFICIENT_GENERATION_EVIDENCE",
+        )
+        self.assertEqual(analysis["lifecycle_subject_count"], 0)
+
+    # G07 / G08 ------------------------------------------------------------
+    def test_same_transaction_family_and_retransmission_stay_intact(self) -> None:
+        events = allocation(100)
+        analysis = self.analyze(
+            events,
+            tx_document(
+                transaction(
+                    "cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response"),
+                    retransmissions=[(112, "Create Session Request")],
+                )
+            ),
+        )
+        family = analysis["advertisement_families"][0]
+        self.assertEqual(family["family_classification"], "SAME_TRANSACTION_ADVERTISEMENTS")
+        self.assertEqual(analysis["lifecycle_subject_count"], 1)
+
+    # G09 -----------------------------------------------------------------
+    def test_no_cross_interface_identity_is_fabricated(self) -> None:
+        events, transactions = self.three_way()
+        analysis = self.analyze(events, transactions)
+        for family in analysis["advertisement_families"]:
+            self.assertNotIn("session_reference", family)
+        for generation in analysis["lifecycle_subjects"]:
+            self.assertNotIn("session_reference", generation)
+        self.assertTrue(any("S11" in item for item in analysis["not_confirmed"]))
+
+    # G10 -----------------------------------------------------------------
+    def test_generation_references_remain_deterministic_and_scoped(self) -> None:
+        events, transactions = self.three_way()
+        first = self.analyze(json.loads(json.dumps(events)), json.loads(json.dumps(transactions)))
+        second = self.analyze(json.loads(json.dumps(events)), json.loads(json.dumps(transactions)))
+        self.assertEqual(first, second)
+        references = [item["generation_reference"] for item in first["lifecycle_subjects"]]
+        self.assertEqual(len(set(references)), len(references))
+        self.assertTrue(all(item.startswith("epc-bearer-generation-") for item in references))
+
+
+# ---------------------------------------------------------------------------
+# I — accounting and invariance
+# ---------------------------------------------------------------------------
+class AccountingInvarianceTests(unittest.TestCase):
+    """I: attribution never duplicates a packet and never invents a verdict."""
+
+    def analyze(self, **kwargs):
+        events = allocation(100) + release(300) + allocation(400)
+        transactions = tx_document(
+            transaction("cs1", "create-session", (100, "Create Session Request"), (106, "Create Session Response"), session_teid=1),
+            transaction("ds", "delete-session", (300, "Delete Session Request"), (306, "Delete Session Response"), session_teid=1, response_cause=16),
+            transaction("cs2", "create-session", (400, "Create Session Request"), (406, "Create Session Response"), session_teid=9),
+        )
+        return model.analyze(events, transactions=transactions, **kwargs)
+
+    def test_no_packet_is_attributed_twice(self) -> None:
+        streams = [stream(packets=4, octets=400, first=150, last=450)]
+        gtpu = [gtpu_event(frame, length=100) for frame in (150, 303, 350, 450)]
+        analysis = self.analyze(s1u_analysis=s1u_document(*streams), gtpu_events=gtpu)
+        total = sum(
+            item["observed_g_pdu_count"]
+            for item in analysis["generation_scoped_s1u_observations"]
+            + analysis["unresolved_packet_observations"]
+        )
+        self.assertEqual(total, 4)
+        self.assertTrue(analysis["accounting"]["conserved_g_pdu"])
+        self.assertTrue(analysis["accounting"]["conserved_payload_octets"])
+
+    def test_pending_release_is_not_a_delivery_outcome(self) -> None:
+        streams = [stream(packets=3, octets=300, first=200, last=400)]
+        gtpu = [gtpu_event(frame, length=100) for frame in (200, 303, 400)]
+        analysis = self.analyze(s1u_analysis=s1u_document(*streams), gtpu_events=gtpu)
+        serialized = json.dumps(analysis)
+        for forbidden in ("DELIVERY_CONFIRMED", "PACKET_LOSS", "TUNNEL_FAILED", "APPLICATION_REACHABLE"):
+            self.assertNotIn(forbidden, serialized)
+        self.assertIsNone(analysis["first_abnormal_boundary"])
+
+    def test_direction_semantics_are_unchanged(self) -> None:
+        # One generation only, so the stream has a single proved owner.
+        events = allocation(100)
+        transactions = tx_document(
+            transaction("cs", "create-session", (100, "Create Session Request"), (106, "Create Session Response"))
+        )
+        streams = [stream(direction="UPLINK", packets=2, octets=200, first=150, last=160)]
+        gtpu = [gtpu_event(150, length=100), gtpu_event(160, length=100)]
+        analysis = model.analyze(
+            events, transactions=transactions, s1u_analysis=s1u_document(*streams), gtpu_events=gtpu
+        )
+        scoped = analysis["generation_scoped_s1u_observations"][0]
+        self.assertEqual(scoped["direction"], "UPLINK")
+        self.assertEqual(scoped["receiving_endpoint_role"], "sgw_s1u")
 
 
 if __name__ == "__main__":

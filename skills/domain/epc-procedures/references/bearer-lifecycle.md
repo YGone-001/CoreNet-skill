@@ -56,15 +56,60 @@ generation. Repeated Modify Bearer evidence never fabricates a new generation.
 
 ## Closing a generation
 
-A generation closes only when an accepted release transaction **names the S1-U
-endpoint it releases**. In the accepted real capture every Delete Session request
-carries no S1-U F-TEID, so every generation stays `OPEN_AT_CAPTURE_END` with
-`RELEASE_STATUS_UNRESOLVED`; an open generation does not prove the bearer is still
-active.
+A generation closes only when **all** of the following hold:
+
+1. the release is an explicit GTPv2-C release transaction in the **same capture**;
+2. the transaction is `MATCHED` with a correlation strength in the proof set;
+3. exactly one correlated response establishes the outcome;
+4. that response carries a **message-scope** accepted Cause;
+5. the request names the released endpoint (address, TEID, interface type);
+6. the release names the **same control-plane context** as the allocation;
+7. the bearer identity is compatible when both sides publish one;
+8. exactly one bound release candidate exists.
+
+Endpoint equality alone never closes a generation. A release from another capture,
+from another control-plane context, with a rejected response, with an uncorrelated
+response or with an unproved Cause leaves `RELEASE_STATUS_UNRESOLVED`.
+
+In the accepted real capture every Delete Session request carries no S1-U F-TEID,
+so no release can be bound and every generation stays `OPEN_AT_CAPTURE_END`; an
+open generation does not prove the bearer is still active.
 
 An accepted Delete Session that carries no endpoint still closes the session
 control-plane context as the session-control capability already reports. It does
 not close an independently linked S1-U generation.
+
+## Release initiation and confirmation
+
+```text
+release_request_frame        300   initiation evidence
+release_confirmation_frame   306   the correlated accepted response
+release_effective_frame_proven  false
+```
+
+A boundary anchors on the confirmation frame, never on the request. The request
+frame stays visible as initiation evidence, and the document never claims the
+exact instant user-plane forwarding stopped.
+
+Packets observed between the request and the confirmation belong to **neither**
+generation: they are published as `GENERATION_UNRESOLVED` with basis
+`release_in_progress_interval`. The closed generation owns frames up to and
+including its release request; a later generation owns frames from its own proved
+allocation. No packet is moved across that interval by proximity.
+
+## Correlation strength
+
+```text
+STRONG      eligible when every other gate passes
+SUPPORTED   eligible when every other gate passes; published so the weaker
+            corroboration stays visible
+NONE        never sufficient, for a family or for a release
+missing or unreviewed   never sufficient
+```
+
+A `MATCHED` pair without corroboration is not independent proof. The reviewed
+vocabulary comes from the accepted GTPv2-C transaction contract; an unknown value
+is rejected rather than silently accepted.
 
 ## Reuse
 
