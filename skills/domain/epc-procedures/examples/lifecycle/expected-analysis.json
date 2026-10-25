@@ -1,0 +1,597 @@
+{
+  "accounting": {
+    "aggregate_g_pdu_count": 6,
+    "aggregate_payload_octets": 600,
+    "attributed_g_pdu_count": 5,
+    "attributed_payload_octets": 500,
+    "conserved_g_pdu": true,
+    "conserved_payload_octets": true,
+    "unresolved_g_pdu_count": 1,
+    "unresolved_payload_octets": 100
+  },
+  "additional_evidence_needed": [
+    "an accepted release that names its S1-U endpoint is required to separate two generations that reuse one endpoint value",
+    "a proved generation window covering the unresolved frames is required to attribute them",
+    "the EPC session-control analysis is required to bind a release to a control-plane context"
+  ],
+  "advertisement_families": [
+    {
+      "advertisement_count": 2,
+      "advertisement_family_reference": "epc-advertisement-family-1ad1dbb06b",
+      "bearer_identity_scope": [
+        5
+      ],
+      "capture_file": "corenet-epc-integrated.pcap",
+      "classification_basis": "matched_request_and_response_advertise_the_same_endpoint",
+      "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 27,
+          "message_type": "Modify Bearer Request",
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 29,
+          "message_type": "Modify Bearer Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "family_classification": "SAME_TRANSACTION_ADVERTISEMENTS",
+      "item_scope": [
+        "bearer"
+      ],
+      "limitations": [],
+      "observation_window": {
+        "end_frame": 29,
+        "start_frame": 27
+      },
+      "partitions": [
+        {
+          "frames": [
+            27,
+            29
+          ],
+          "procedure_family": "modify-bearer",
+          "transaction_reference": "gtpv2-modify-bearer-27-5"
+        }
+      ],
+      "receiving_endpoint_address": "127.0.0.5",
+      "receiving_endpoint_role": "enodeb_s1u",
+      "receiving_endpoint_teid": 3355633680,
+      "reviewed_interface_type": 0,
+      "source_frames": [
+        27,
+        29
+      ],
+      "source_message_types": [
+        "Modify Bearer Request",
+        "Modify Bearer Response"
+      ],
+      "source_protocols": [
+        "GTPv2-C"
+      ],
+      "source_transaction_references": [
+        "gtpv2-modify-bearer-27-5"
+      ]
+    },
+    {
+      "advertisement_count": 1,
+      "advertisement_family_reference": "epc-advertisement-family-4f2a0befb8",
+      "bearer_identity_scope": [
+        5
+      ],
+      "capture_file": "corenet-epc-integrated.pcap",
+      "classification_basis": "single_observed_advertisement",
+      "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 22,
+          "message_type": "Create Session Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "family_classification": "SINGLE_ADVERTISEMENT",
+      "item_scope": [
+        "bearer"
+      ],
+      "limitations": [],
+      "observation_window": {
+        "end_frame": 22,
+        "start_frame": 22
+      },
+      "partitions": [
+        {
+          "frames": [
+            22
+          ],
+          "procedure_family": "create-session",
+          "transaction_reference": "gtpv2-create-session-20-4"
+        }
+      ],
+      "receiving_endpoint_address": "192.168.64.128",
+      "receiving_endpoint_role": "sgw_s1u",
+      "receiving_endpoint_teid": 49676,
+      "reviewed_interface_type": 1,
+      "source_frames": [
+        22
+      ],
+      "source_message_types": [
+        "Create Session Response"
+      ],
+      "source_protocols": [
+        "GTPv2-C"
+      ],
+      "source_transaction_references": [
+        "gtpv2-create-session-20-4"
+      ]
+    }
+  ],
+  "advertisement_families_omitted": 0,
+  "advertisement_family_count": 2,
+  "ambiguous_association_count": 0,
+  "ambiguous_associations": [],
+  "analysis_name": "epc-bearer-lifecycle",
+  "analysis_scope": {
+    "advertisement_family_classifications": [
+      "SINGLE_ADVERTISEMENT",
+      "SAME_TRANSACTION_ADVERTISEMENTS",
+      "SAME_GENERATION_UPDATE_SUPPORTED",
+      "SEPARATE_GENERATIONS_ESTABLISHED",
+      "COMPETING_ALLOCATION_EVIDENCE",
+      "INSUFFICIENT_GENERATION_EVIDENCE"
+    ],
+    "association_statuses": [
+      "SUPPORTED",
+      "AMBIGUOUS",
+      "GENERATION_UNRESOLVED",
+      "NOT_ESTABLISHED"
+    ],
+    "capability": "bounded EPC bearer lifecycle-generation evidence",
+    "deviation_vocabulary": [
+      "BEARER_IDENTITY_CONFLICT",
+      "COMPETING_ALLOCATION_EVIDENCE",
+      "GENERATION_BOUNDARY_UNRESOLVED",
+      "GENERATION_UNRESOLVED_PACKETS",
+      "PACKET_ACCOUNTING_MISMATCH"
+    ],
+    "generation_states": [
+      "OPEN_AT_CAPTURE_END",
+      "CLOSED_BY_ACCEPTED_RELEASE",
+      "BOUNDARY_AMBIGUOUS"
+    ],
+    "identity_rule": "a generation is scoped by capture, receiving role, endpoint address, endpoint TEID and interface type, and is anchored on its first accepted advertisement frame",
+    "lifecycle_observations": [
+      "ALLOCATION_ADVERTISED",
+      "ALLOCATION_RESPONSE_OBSERVED",
+      "ALLOCATION_ACCEPTED_OBSERVED",
+      "ENDPOINT_UPDATE_ADVERTISED",
+      "ENDPOINT_UPDATE_ACCEPTED_OBSERVED",
+      "RELEASE_REQUEST_OBSERVED",
+      "RELEASE_ACCEPTED_OBSERVED",
+      "RELEASE_STATUS_UNRESOLVED",
+      "ENDPOINT_REUSE_OBSERVED",
+      "GENERATION_BOUNDARY_ESTABLISHED",
+      "GENERATION_BOUNDARY_AMBIGUOUS"
+    ]
+  },
+  "analysis_version": "1.0.0",
+  "boundary_note": "a lifecycle generation boundary is not an abnormal failure boundary; this analysis never selects a first abnormal boundary",
+  "boundary_selection_status": "NOT_APPLICABLE",
+  "domain": "epc-procedures",
+  "domain_version": "0.5.0",
+  "endpoint_reuse_observation_count": 0,
+  "endpoint_reuse_observations": [],
+  "evidence_limitations": [
+    "a release transaction reached no accepted outcome or named no S1-U endpoint, so no generation is closed by it"
+  ],
+  "first_abnormal_boundary": null,
+  "generation_boundary_count": 0,
+  "generation_boundary_evidence": [
+    {
+      "correlation_status": "MATCHED",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 10,
+          "message_type": "Delete Session Request",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "frame_number": 10,
+      "message_type": "Delete Session Request",
+      "release_outcome": "UNRESOLVED",
+      "released_endpoints": [],
+      "transaction_reference": "gtpv2-delete-session-10-1"
+    },
+    {
+      "correlation_status": "MATCHED",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 11,
+          "message_type": "Delete Session Request",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "frame_number": 11,
+      "message_type": "Delete Session Request",
+      "release_outcome": "UNRESOLVED",
+      "released_endpoints": [],
+      "transaction_reference": "gtpv2-delete-session-11-2"
+    }
+  ],
+  "generation_observations": [
+    {
+      "capture_file": "corenet-epc-integrated.pcap",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 22,
+          "message_type": "Create Session Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "generation_reference": "epc-bearer-generation-4f2a0befb8",
+      "observation": "ALLOCATION_ADVERTISED",
+      "observation_window": {
+        "end_frame": 22,
+        "start_frame": 22
+      },
+      "receiving_endpoint_role": "sgw_s1u",
+      "reviewed_interface_type": 1
+    },
+    {
+      "capture_file": "corenet-epc-integrated.pcap",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 22,
+          "message_type": "Create Session Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "generation_reference": "epc-bearer-generation-4f2a0befb8",
+      "observation": "ALLOCATION_ACCEPTED_OBSERVED",
+      "observation_window": {
+        "end_frame": 22,
+        "start_frame": 22
+      },
+      "receiving_endpoint_role": "sgw_s1u",
+      "reviewed_interface_type": 1
+    },
+    {
+      "capture_file": "corenet-epc-integrated.pcap",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 22,
+          "message_type": "Create Session Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "generation_reference": "epc-bearer-generation-4f2a0befb8",
+      "observation": "RELEASE_STATUS_UNRESOLVED",
+      "observation_window": {
+        "end_frame": 22,
+        "start_frame": 22
+      },
+      "receiving_endpoint_role": "sgw_s1u",
+      "reviewed_interface_type": 1
+    },
+    {
+      "capture_file": "corenet-epc-integrated.pcap",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 27,
+          "message_type": "Modify Bearer Request",
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 29,
+          "message_type": "Modify Bearer Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "generation_reference": "epc-bearer-generation-0432148dc5",
+      "observation": "ALLOCATION_ADVERTISED",
+      "observation_window": {
+        "end_frame": 29,
+        "start_frame": 27
+      },
+      "receiving_endpoint_role": "enodeb_s1u",
+      "reviewed_interface_type": 0
+    },
+    {
+      "capture_file": "corenet-epc-integrated.pcap",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 27,
+          "message_type": "Modify Bearer Request",
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 29,
+          "message_type": "Modify Bearer Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "generation_reference": "epc-bearer-generation-0432148dc5",
+      "observation": "ALLOCATION_RESPONSE_OBSERVED",
+      "observation_window": {
+        "end_frame": 29,
+        "start_frame": 27
+      },
+      "receiving_endpoint_role": "enodeb_s1u",
+      "reviewed_interface_type": 0
+    },
+    {
+      "capture_file": "corenet-epc-integrated.pcap",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 27,
+          "message_type": "Modify Bearer Request",
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 29,
+          "message_type": "Modify Bearer Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "generation_reference": "epc-bearer-generation-0432148dc5",
+      "observation": "ALLOCATION_ACCEPTED_OBSERVED",
+      "observation_window": {
+        "end_frame": 29,
+        "start_frame": 27
+      },
+      "receiving_endpoint_role": "enodeb_s1u",
+      "reviewed_interface_type": 0
+    },
+    {
+      "capture_file": "corenet-epc-integrated.pcap",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 27,
+          "message_type": "Modify Bearer Request",
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 29,
+          "message_type": "Modify Bearer Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "generation_reference": "epc-bearer-generation-0432148dc5",
+      "observation": "RELEASE_STATUS_UNRESOLVED",
+      "observation_window": {
+        "end_frame": 29,
+        "start_frame": 27
+      },
+      "receiving_endpoint_role": "enodeb_s1u",
+      "reviewed_interface_type": 0
+    }
+  ],
+  "generation_scoped_observation_count": 2,
+  "generation_scoped_s1u_observations": [
+    {
+      "allocation_evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 22,
+          "message_type": "Create Session Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "association_status": "SUPPORTED",
+      "direction": "UPLINK",
+      "first_observed_frame": 30,
+      "generation_boundary_refs": [],
+      "generation_reference": "epc-bearer-generation-4f2a0befb8",
+      "last_observed_frame": 34,
+      "limitations": [
+        "packet counts are observations at the capture point; attribution to a generation does not prove UE delivery or application reachability"
+      ],
+      "observed_g_pdu_count": 3,
+      "observed_payload_octets": 300,
+      "packet_evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 30,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 32,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 34,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        }
+      ],
+      "receiving_endpoint_role": "sgw_s1u",
+      "source_stream_reference": "epc-s1u-stream-0000000001"
+    },
+    {
+      "allocation_evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 27,
+          "message_type": "Modify Bearer Request",
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 29,
+          "message_type": "Modify Bearer Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "association_status": "SUPPORTED",
+      "direction": "DOWNLINK",
+      "first_observed_frame": 40,
+      "generation_boundary_refs": [],
+      "generation_reference": "epc-bearer-generation-0432148dc5",
+      "last_observed_frame": 44,
+      "limitations": [
+        "packet counts are observations at the capture point; attribution to a generation does not prove UE delivery or application reachability"
+      ],
+      "observed_g_pdu_count": 2,
+      "observed_payload_octets": 200,
+      "packet_evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 40,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 44,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        }
+      ],
+      "receiving_endpoint_role": "enodeb_s1u",
+      "source_stream_reference": "epc-s1u-stream-0000000002"
+    }
+  ],
+  "input_provenance": {
+    "default_bearer_analysis": null,
+    "gtpu_event_count": 6,
+    "gtpu_events": "gtpu-events.jsonl",
+    "gtpv2_event_count": 12,
+    "gtpv2_events": "gtpv2-events.jsonl",
+    "gtpv2_transactions": "gtpv2-transactions.json",
+    "s1u_observation": "s1u-observation.json",
+    "session_analysis": null,
+    "transaction_count": 5
+  },
+  "lifecycle_subject_count": 2,
+  "lifecycle_subjects": [
+    {
+      "advertisement_family_references": [
+        "epc-advertisement-family-4f2a0befb8"
+      ],
+      "capture_file": "corenet-epc-integrated.pcap",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 22,
+          "message_type": "Create Session Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "generation_boundary": null,
+      "generation_reference": "epc-bearer-generation-4f2a0befb8",
+      "generation_state": "OPEN_AT_CAPTURE_END",
+      "limitations": [
+        "no accepted release names this endpoint, so the generation stays open at the capture end; an open generation does not prove the bearer is still active"
+      ],
+      "observation_window": {
+        "end_frame": 22,
+        "start_frame": 22
+      },
+      "observations": [
+        "ALLOCATION_ADVERTISED",
+        "ALLOCATION_ACCEPTED_OBSERVED",
+        "RELEASE_STATUS_UNRESOLVED"
+      ],
+      "receiving_endpoint_address": "192.168.64.128",
+      "receiving_endpoint_role": "sgw_s1u",
+      "receiving_endpoint_teid": 49676,
+      "reviewed_interface_type": 1
+    },
+    {
+      "advertisement_family_references": [
+        "epc-advertisement-family-1ad1dbb06b"
+      ],
+      "capture_file": "corenet-epc-integrated.pcap",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 27,
+          "message_type": "Modify Bearer Request",
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 29,
+          "message_type": "Modify Bearer Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "generation_boundary": null,
+      "generation_reference": "epc-bearer-generation-0432148dc5",
+      "generation_state": "OPEN_AT_CAPTURE_END",
+      "limitations": [
+        "no accepted release names this endpoint, so the generation stays open at the capture end; an open generation does not prove the bearer is still active"
+      ],
+      "observation_window": {
+        "end_frame": 29,
+        "start_frame": 27
+      },
+      "observations": [
+        "ALLOCATION_ADVERTISED",
+        "ALLOCATION_RESPONSE_OBSERVED",
+        "ALLOCATION_ACCEPTED_OBSERVED",
+        "RELEASE_STATUS_UNRESOLVED"
+      ],
+      "receiving_endpoint_address": "127.0.0.5",
+      "receiving_endpoint_role": "enodeb_s1u",
+      "receiving_endpoint_teid": 3355633680,
+      "reviewed_interface_type": 0
+    }
+  ],
+  "lifecycle_subjects_omitted": 0,
+  "not_confirmed": [
+    "an advertisement family is a group of protocol advertisements, not an EPS bearer",
+    "a matched request and response prove correlation, not successful user-plane provisioning",
+    "an accepted Cause is a control-plane outcome; it does not confirm UE delivery or application reachability",
+    "a generation reference is a scoped pseudonymous label, never a subscriber identity",
+    "a numerically reused TEID is not treated as a new generation without a proved boundary",
+    "an unresolved generation attribution is not packet loss and not a tunnel failure",
+    "no S11 to S5/S8 session identity is asserted",
+    "no complete EPC bearer state machine is implemented"
+  ],
+  "procedure_local_deviation_count": 0,
+  "procedure_local_deviations": [],
+  "release_observation_count": 2,
+  "unbound_evidence": [],
+  "unresolved_packet_observation_count": 1,
+  "unresolved_packet_observations": [
+    {
+      "association_status": "GENERATION_UNRESOLVED",
+      "basis": "no_supported_generation_covers_this_stream",
+      "capture_file": "corenet-epc-integrated.pcap",
+      "direction": "UNKNOWN",
+      "limitations": [
+        "these packets remain visible and unassigned; an unresolved generation attribution is not packet loss and not a tunnel failure"
+      ],
+      "observation_window": {
+        "end_frame": 52,
+        "start_frame": 50
+      },
+      "observed_g_pdu_count": 1,
+      "observed_payload_octets": 100,
+      "stream_reference": "epc-s1u-stream-0000000003"
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "model": "epc-bearer-lifecycle",
+  "model_version": "1.0.0",
+  "reviewed_against": [
+    "3GPP TS 23.401 §5.3.2 initial attach and default bearer establishment",
+    "3GPP TS 23.401 §5.4 bearer modification",
+    "3GPP TS 23.401 §5.3.5 detach and bearer release",
+    "3GPP TS 29.274 §7.2 GTPv2-C message composition",
+    "3GPP TS 29.274 §8.22 F-TEID interface types",
+    "3GPP TS 29.274 §8.4 Cause values",
+    "3GPP TS 36.413 §9.1.4 E-RABToBeSetupItemCtxtSUReq",
+    "3GPP TS 36.413 §9.1.5 E-RABSetupItemCtxtSURes",
+    "3GPP TS 29.281 §4.4 GTP-U TEID and receiving endpoint"
+  ],
+  "advertisement_family_classifications": [
+    "SINGLE_ADVERTISEMENT",
+    "SAME_TRANSACTION_ADVERTISEMENTS",
+    "SAME_GENERATION_UPDATE_SUPPORTED",
+    "SEPARATE_GENERATIONS_ESTABLISHED",
+    "COMPETING_ALLOCATION_EVIDENCE",
+    "INSUFFICIENT_GENERATION_EVIDENCE"
+  ],
+  "lifecycle_observations": [
+    "ALLOCATION_ADVERTISED",
+    "ALLOCATION_RESPONSE_OBSERVED",
+    "ALLOCATION_ACCEPTED_OBSERVED",
+    "ENDPOINT_UPDATE_ADVERTISED",
+    "ENDPOINT_UPDATE_ACCEPTED_OBSERVED",
+    "RELEASE_REQUEST_OBSERVED",
+    "RELEASE_ACCEPTED_OBSERVED",
+    "RELEASE_STATUS_UNRESOLVED",
+    "ENDPOINT_REUSE_OBSERVED",
+    "GENERATION_BOUNDARY_ESTABLISHED",
+    "GENERATION_BOUNDARY_AMBIGUOUS"
+  ],
+  "generation_states": [
+    "OPEN_AT_CAPTURE_END",
+    "CLOSED_BY_ACCEPTED_RELEASE",
+    "BOUNDARY_AMBIGUOUS"
+  ],
+  "association_statuses": [
+    "SUPPORTED",
+    "AMBIGUOUS",
+    "GENERATION_UNRESOLVED",
+    "NOT_ESTABLISHED"
+  ],
+  "deviation_vocabulary": [
+    "BEARER_IDENTITY_CONFLICT",
+    "COMPETING_ALLOCATION_EVIDENCE",
+    "GENERATION_BOUNDARY_UNRESOLVED",
+    "GENERATION_UNRESOLVED_PACKETS",
+    "PACKET_ACCOUNTING_MISMATCH"
+  ],
+  "identity_rules": {
+    "generation_scope": [
+      "capture_identity",
+      "receiving_endpoint_role",
+      "endpoint_address",
+      "endpoint_teid",
+      "interface_type",
+      "first_accepted_advertisement_frame"
+    ],
+    "teid_alone_is_not_a_generation_identity": true,
+    "ebi_is_not_a_global_identity": true,
+    "erab_id_is_not_a_global_identity": true,
+    "s11_to_s5s8_link": "NOT_ESTABLISHED",
+    "same_transaction_requires": [
+      "explicit_transaction_membership",
+      "unambiguous_request_response_pair",
+      "compatible_procedure_family",
+      "identical_interface_type",
+      "identical_endpoint_address_and_teid",
+      "compatible_item_scoped_bearer_identity",
+      "no_negative_cause",
+      "no_competing_allocation_candidate"
+    ],
+    "generation_closure_requires": [
+      "accepted_release_outcome",
+      "release_names_the_released_s1u_endpoint",
+      "single_candidate_boundary"
+    ],
+    "packet_attribution_requires": [
+      "frame_level_gtpu_event",
+      "proved_generation_window",
+      "unique_generation_for_the_endpoint"
+    ]
+  },
+  "not_confirmed": [
+    "an advertisement family is a group of protocol advertisements, not an EPS bearer",
+    "a matched request and response prove correlation, not successful user-plane provisioning",
+    "an accepted Cause is a control-plane outcome; it does not confirm UE delivery or application reachability",
+    "a generation reference is a scoped pseudonymous label, never a subscriber identity",
+    "a numerically reused TEID is not treated as a new generation without a proved boundary",
+    "an unresolved generation attribution is not packet loss and not a tunnel failure",
+    "no S11 to S5/S8 session identity is asserted",
+    "no complete EPC bearer state machine is implemented"
+  ]
+}

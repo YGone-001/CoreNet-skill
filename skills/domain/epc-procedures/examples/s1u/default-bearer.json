@@ -1,75 +1,6 @@
 {
   "additional_evidence_needed": [],
-  "ambiguous_links": [
-    {
-      "association_strength": "AMBIGUOUS",
-      "bearer_association_status": "AMBIGUOUS",
-      "candidate_target_frames": [
-        27,
-        29
-      ],
-      "competing_source_subjects": [],
-      "endpoint_equality_observed": true,
-      "endpoint_reuse_across_subjects": false,
-      "evidence_refs": [
-        {
-          "evidence_level": "OBSERVED",
-          "frame_number": 24,
-          "message_type": null,
-          "protocol": "S1AP"
-        },
-        {
-          "evidence_level": "OBSERVED",
-          "frame_number": 27,
-          "message_type": "Modify Bearer Request",
-          "protocol": "GTPv2-C"
-        },
-        {
-          "evidence_level": "OBSERVED",
-          "frame_number": 29,
-          "message_type": "Modify Bearer Response",
-          "protocol": "GTPv2-C"
-        }
-      ],
-      "expected_interface_type": 0,
-      "limitations": [
-        "more than one observed GTPv2-C record publishes this S1-U endpoint, so no single bearer allocation is selected"
-      ],
-      "link_basis": "several_gtpv2_s1u_f_teids_match_this_endpoint",
-      "link_type": "s1ap_erab_to_gtpv2_bearer",
-      "observed_interface_types": [
-        0
-      ],
-      "s1ap_message_type": null,
-      "s1ap_owner_item_count": 1,
-      "s1u_gtp_teid": 3355633680,
-      "s1u_transport_layer_address": "127.0.0.5",
-      "source_endpoint_role": "enodeb_s1u",
-      "source_endpoint_role_basis": "initial_context_setup_response_erab_semantics",
-      "source_erab_id": 5,
-      "source_erab_item_frame": 24,
-      "source_frame": 24,
-      "source_list_role": "SUCCESS",
-      "source_subject_reference": "epc-default-bearer-04eb0b032d",
-      "status": "AMBIGUOUS",
-      "supporting_identifiers": [
-        {
-          "identifier": "s1u_transport_layer_address",
-          "value": "127.0.0.5"
-        },
-        {
-          "identifier": "s1u_gtp_teid",
-          "value": 3355633680
-        },
-        {
-          "identifier": "f_teid_interface_type",
-          "value": 0
-        }
-      ],
-      "target_interface_type": null,
-      "target_subject_reference": null
-    }
-  ],
+  "ambiguous_links": [],
   "analysis_name": "eps-default-bearer",
   "analysis_scope": {
     "capability": "bounded EPS default-bearer signalling evidence",
@@ -517,17 +448,24 @@
         {
           "conditional": true,
           "first_frame": 22,
-          "last_frame": 22,
+          "last_frame": 27,
           "limitations": [
             "the S1-U endpoint equality links the S1AP E-RAB item to a GTPv2-C message; it does not link the UE context to a session-control subject"
           ],
-          "message_count": 1,
+          "message_count": 2,
           "messages": [
             {
               "eps_bearer_identity": 5,
               "frame_number": 22,
               "link_status": "SUPPORTED",
               "message_type": "Create Session Response",
+              "protocol": "GTPv2-C"
+            },
+            {
+              "eps_bearer_identity": 5,
+              "frame_number": 27,
+              "link_status": "SUPPORTED",
+              "message_type": "Modify Bearer Request",
               "protocol": "GTPv2-C"
             }
           ],
@@ -538,6 +476,7 @@
       ],
       "tunnel_links": [
         {
+          "advertisement_family": null,
           "association_strength": "SUPPORTED",
           "bearer_association_status": "SUPPORTED",
           "candidate_target_frames": [
@@ -605,8 +544,24 @@
           "target_subject_reference": "gtpv2-frame:22"
         },
         {
-          "association_strength": "AMBIGUOUS",
-          "bearer_association_status": "AMBIGUOUS",
+          "advertisement_family": {
+            "bearer_identity": 5,
+            "classification": "SAME_TRANSACTION_ADVERTISEMENTS",
+            "correlation_status": "MATCHED",
+            "correlation_strength": "STRONG",
+            "frames": [
+              27,
+              29
+            ],
+            "interface_type": 0,
+            "message_types": [
+              "Modify Bearer Request",
+              "Modify Bearer Response"
+            ],
+            "transaction_reference": "gtpv2-modify-bearer-27-5"
+          },
+          "association_strength": "SUPPORTED",
+          "bearer_association_status": "SUPPORTED",
           "candidate_target_frames": [
             27,
             29
@@ -636,13 +591,16 @@
           ],
           "expected_interface_type": 0,
           "limitations": [
-            "more than one observed GTPv2-C record publishes this S1-U endpoint, so no single bearer allocation is selected"
+            "the repeated advertisements belong to one accepted transaction, so they describe one allocation; this is not a second bearer generation",
+            "the E-RAB identity and the EPS bearer identity are different identifiers and are never equated",
+            "endpoint equality is control-plane provisioning evidence, not proof that a GTP-U tunnel forwards traffic"
           ],
-          "link_basis": "several_gtpv2_s1u_f_teids_match_this_endpoint",
+          "link_basis": "one_accepted_transaction_advertises_this_endpoint",
           "link_type": "s1ap_erab_to_gtpv2_bearer",
           "observed_interface_types": [
             0
           ],
+          "ordering": "s1ap_precedes_gtpv2",
           "s1ap_message_type": null,
           "s1ap_owner_item_count": 1,
           "s1u_gtp_teid": 3355633680,
@@ -654,7 +612,7 @@
           "source_frame": 24,
           "source_list_role": "SUCCESS",
           "source_subject_reference": "epc-default-bearer-04eb0b032d",
-          "status": "AMBIGUOUS",
+          "status": "SUPPORTED",
           "supporting_identifiers": [
             {
               "identifier": "s1u_transport_layer_address",
@@ -669,8 +627,12 @@
               "value": 0
             }
           ],
-          "target_interface_type": null,
-          "target_subject_reference": null
+          "target_eps_bearer_identity": 5,
+          "target_frame": 27,
+          "target_interface_type": 0,
+          "target_message_type": "Modify Bearer Request",
+          "target_scope": "bearer",
+          "target_subject_reference": "gtpv2-frame:27"
         }
       ],
       "ue_context": {
@@ -917,6 +879,7 @@
       "target_subject_reference": "epc-attach-b6188d3ca5"
     },
     {
+      "advertisement_family": null,
       "association_strength": "SUPPORTED",
       "bearer_association_status": "SUPPORTED",
       "candidate_target_frames": [
@@ -982,6 +945,97 @@
       "target_message_type": "Create Session Response",
       "target_scope": "bearer",
       "target_subject_reference": "gtpv2-frame:22"
+    },
+    {
+      "advertisement_family": {
+        "bearer_identity": 5,
+        "classification": "SAME_TRANSACTION_ADVERTISEMENTS",
+        "correlation_status": "MATCHED",
+        "correlation_strength": "STRONG",
+        "frames": [
+          27,
+          29
+        ],
+        "interface_type": 0,
+        "message_types": [
+          "Modify Bearer Request",
+          "Modify Bearer Response"
+        ],
+        "transaction_reference": "gtpv2-modify-bearer-27-5"
+      },
+      "association_strength": "SUPPORTED",
+      "bearer_association_status": "SUPPORTED",
+      "candidate_target_frames": [
+        27,
+        29
+      ],
+      "competing_source_subjects": [],
+      "endpoint_equality_observed": true,
+      "endpoint_reuse_across_subjects": false,
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 24,
+          "message_type": null,
+          "protocol": "S1AP"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 27,
+          "message_type": "Modify Bearer Request",
+          "protocol": "GTPv2-C"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 29,
+          "message_type": "Modify Bearer Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "expected_interface_type": 0,
+      "limitations": [
+        "the repeated advertisements belong to one accepted transaction, so they describe one allocation; this is not a second bearer generation",
+        "the E-RAB identity and the EPS bearer identity are different identifiers and are never equated",
+        "endpoint equality is control-plane provisioning evidence, not proof that a GTP-U tunnel forwards traffic"
+      ],
+      "link_basis": "one_accepted_transaction_advertises_this_endpoint",
+      "link_type": "s1ap_erab_to_gtpv2_bearer",
+      "observed_interface_types": [
+        0
+      ],
+      "ordering": "s1ap_precedes_gtpv2",
+      "s1ap_message_type": null,
+      "s1ap_owner_item_count": 1,
+      "s1u_gtp_teid": 3355633680,
+      "s1u_transport_layer_address": "127.0.0.5",
+      "source_endpoint_role": "enodeb_s1u",
+      "source_endpoint_role_basis": "initial_context_setup_response_erab_semantics",
+      "source_erab_id": 5,
+      "source_erab_item_frame": 24,
+      "source_frame": 24,
+      "source_list_role": "SUCCESS",
+      "source_subject_reference": "epc-default-bearer-04eb0b032d",
+      "status": "SUPPORTED",
+      "supporting_identifiers": [
+        {
+          "identifier": "s1u_transport_layer_address",
+          "value": "127.0.0.5"
+        },
+        {
+          "identifier": "s1u_gtp_teid",
+          "value": 3355633680
+        },
+        {
+          "identifier": "f_teid_interface_type",
+          "value": 0
+        }
+      ],
+      "target_eps_bearer_identity": 5,
+      "target_frame": 27,
+      "target_interface_type": 0,
+      "target_message_type": "Modify Bearer Request",
+      "target_scope": "bearer",
+      "target_subject_reference": "gtpv2-frame:27"
     }
   ],
   "evidence_limitations": [
@@ -1044,47 +1098,8 @@
   ],
   "procedure": "eps-default-bearer",
   "procedure_label": "EPS default bearer",
-  "procedure_local_deviation_count": 1,
-  "procedure_local_deviations": [
-    {
-      "deviation_type": "TUNNEL_ENDPOINT_LINK_AMBIGUOUS",
-      "eps_bearer_identity": null,
-      "esm_cause_code": null,
-      "esm_cause_name": null,
-      "evidence_level": "OBSERVED",
-      "evidence_refs": [
-        {
-          "evidence_level": "OBSERVED",
-          "frame_number": 24,
-          "message_type": null,
-          "protocol": "S1AP"
-        },
-        {
-          "evidence_level": "OBSERVED",
-          "frame_number": 27,
-          "message_type": "Modify Bearer Request",
-          "protocol": "GTPv2-C"
-        },
-        {
-          "evidence_level": "OBSERVED",
-          "frame_number": 29,
-          "message_type": "Modify Bearer Response",
-          "protocol": "GTPv2-C"
-        }
-      ],
-      "frame_number": 24,
-      "instance_reference": "epc-default-bearer-04eb0b032d",
-      "limitations": [
-        "more than one observed GTPv2-C record publishes this S1-U endpoint, so no single bearer allocation is selected"
-      ],
-      "message_type": null,
-      "observation_window": {
-        "end_frame": 24,
-        "start_frame": 24
-      },
-      "protocol": "GTPv2-C"
-    }
-  ],
+  "procedure_local_deviation_count": 0,
+  "procedure_local_deviations": [],
   "procedure_local_deviations_omitted": 0,
   "s1_erab_observation_count": 2,
   "s1_erab_observations": [

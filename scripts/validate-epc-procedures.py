@@ -64,6 +64,18 @@ REQUIRED = (
     "examples/s1u/default-bearer.json",
     "examples/s1u/gtpv2-endpoints.jsonl",
     "examples/s1u/expected-observation.json",
+    "references/bearer-lifecycle.md",
+    "references/advertisement-family.md",
+    "rules/epc-bearer-lifecycle-model.json",
+    "schemas/epc-bearer-lifecycle-analysis.schema.json",
+    "scripts/epc_bearer_lifecycle_model.py",
+    "scripts/analyze_epc_bearer_lifecycle.py",
+    "tests/test_epc_bearer_lifecycle.py",
+    "examples/lifecycle/gtpv2-events.jsonl",
+    "examples/lifecycle/gtpv2-transactions.json",
+    "examples/lifecycle/s1u-observation.json",
+    "examples/lifecycle/gtpu-events.jsonl",
+    "examples/lifecycle/expected-analysis.json",
 )
 
 S1U_FORBIDDEN_KEYS = {
@@ -258,6 +270,7 @@ def validate(root: Path = ROOT) -> list[str]:
     errors.extend(_validate_session_control(skill, root))
     errors.extend(_validate_default_bearer(skill, root))
     errors.extend(_validate_s1u(skill, root))
+    errors.extend(_validate_lifecycle(skill, root))
 
     malformed = skill / "examples" / "extracted" / "malformed-nas.jsonl"
     if not malformed.is_file():
@@ -688,6 +701,7 @@ def _validate_default_bearer(skill: Path, root: Path) -> list[str]:
             attach_analysis=model.read_json(base / "attach-analysis.json"),
             session_analysis=model.read_json(base / "session-analysis.json"),
             gtpv2_events=model.read_jsonl(base / "gtpv2-events.jsonl"),
+            gtpv2_transactions=model.read_json(base / "gtpv2-transactions.json"),
         )
         expected = json.loads((base / "expected-analysis.json").read_text(encoding="utf-8"))
     except (ValueError, OSError, json.JSONDecodeError, model.InputError) as exc:
@@ -808,6 +822,185 @@ def _validate_default_bearer(skill: Path, root: Path) -> list[str]:
     for forbidden in ("internet", "10.45.0."):
         if forbidden in serialized:
             fail(f"default-bearer analysis publishes forbidden value '{forbidden}'")
+
+    return errors
+
+
+def load_lifecycle_model(root: Path):
+    path = root / "skills" / "domain" / "epc-procedures" / "scripts" / "epc_bearer_lifecycle_model.py"
+    spec = importlib.util.spec_from_file_location("epc_bearer_lifecycle_under_test", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _validate_lifecycle(skill: Path, root: Path) -> list[str]:
+    errors: list[str] = []
+
+    def fail(message: str) -> None:
+        errors.append(message)
+
+    try:
+        schema = json.loads(
+            (skill / "schemas" / "epc-bearer-lifecycle-analysis.schema.json").read_text(encoding="utf-8")
+        )
+    except json.JSONDecodeError as exc:
+        return [f"invalid lifecycle schema: {exc}"]
+
+    for field in (
+        "lifecycle_subjects",
+        "advertisement_families",
+        "generation_observations",
+        "generation_boundary_evidence",
+        "endpoint_reuse_observations",
+        "generation_scoped_s1u_observations",
+        "unresolved_packet_observations",
+        "ambiguous_associations",
+        "unbound_evidence",
+        "procedure_local_deviations",
+        "evidence_limitations",
+        "additional_evidence_needed",
+        "not_confirmed",
+        "accounting",
+    ):
+        if field not in schema.get("required", []):
+            fail(f"lifecycle schema does not require '{field}'")
+    if schema.get("properties", {}).get("boundary_selection_status", {}).get("const") != "NOT_APPLICABLE":
+        fail("a lifecycle analysis must not claim a boundary selection")
+
+    try:
+        rules = json.loads(
+            (skill / "rules" / "epc-bearer-lifecycle-model.json").read_text(encoding="utf-8")
+        )
+    except json.JSONDecodeError as exc:
+        return errors + [f"invalid lifecycle rules model: {exc}"]
+
+    model = load_lifecycle_model(root)
+    if list(rules.get("advertisement_family_classifications", ())) != list(model.FAMILY_CLASSIFICATIONS):
+        fail("lifecycle rules family classifications do not match the implemented set")
+    if list(rules.get("lifecycle_observations", ())) != list(model.OBSERVATIONS):
+        fail("lifecycle rules observations do not match the implemented set")
+    if list(rules.get("generation_states", ())) != list(model.GENERATION_STATES):
+        fail("lifecycle rules generation states do not match the implemented set")
+    if list(rules.get("association_statuses", ())) != list(model.ASSOCIATION_STATUSES):
+        fail("lifecycle rules association statuses do not match the implemented set")
+    if list(rules.get("deviation_vocabulary", ())) != list(model.DEVIATION_TYPES):
+        fail("lifecycle rules deviations do not match the implemented set")
+    if tuple(rules.get("not_confirmed", ())) != tuple(model.NOT_CONFIRMED):
+        fail("lifecycle rules not_confirmed list does not match the implemented list")
+    if rules.get("identity_rules", {}).get("s11_to_s5s8_link") != "NOT_ESTABLISHED":
+        fail("lifecycle rules must keep the S11 to S5/S8 link NOT_ESTABLISHED")
+
+    base = skill / "examples" / "lifecycle"
+    try:
+        produced = model.analyze(
+            model.read_jsonl(base / "gtpv2-events.jsonl"),
+            transactions=model.read_json(base / "gtpv2-transactions.json"),
+            s1u_analysis=model.read_json(base / "s1u-observation.json"),
+            gtpu_events=model.read_jsonl(base / "gtpu-events.jsonl"),
+        )
+        expected = json.loads((base / "expected-analysis.json").read_text(encoding="utf-8"))
+    except (ValueError, OSError, json.JSONDecodeError, model.InputError) as exc:
+        return errors + [f"lifecycle fixture: {exc}"]
+
+    produced.pop("input_provenance", None)
+    expected_without = dict(expected)
+    expected_without.pop("input_provenance", None)
+    if produced != expected_without:
+        fail("lifecycle analysis does not reproduce the committed expected result")
+
+    if expected.get("first_abnormal_boundary") is not None:
+        fail("a lifecycle analysis must never select an abnormal boundary")
+    if not expected.get("not_confirmed"):
+        fail("a lifecycle analysis must publish what it does not confirm")
+
+    accounting = expected.get("accounting") or {}
+    if accounting.get("attributed_g_pdu_count", 0) + accounting.get("unresolved_g_pdu_count", 0) != accounting.get(
+        "aggregate_g_pdu_count", -1
+    ):
+        fail("lifecycle G-PDU accounting does not conserve the aggregate count")
+    if accounting.get("attributed_payload_octets", 0) + accounting.get(
+        "unresolved_payload_octets", 0
+    ) != accounting.get("aggregate_payload_octets", -1):
+        fail("lifecycle payload-octet accounting does not conserve the aggregate count")
+    if not accounting.get("conserved_g_pdu") or not accounting.get("conserved_payload_octets"):
+        fail("lifecycle analysis must report conserved accounting")
+
+    families = expected.get("advertisement_families") or []
+    if not families:
+        fail("lifecycle fixture must produce at least one advertisement family")
+    generated = {ref for subject in expected.get("lifecycle_subjects") or [] for ref in subject.get("advertisement_family_references") or []}
+    for family in families:
+        classification = family.get("family_classification")
+        if classification not in model.FAMILY_CLASSIFICATIONS:
+            fail(f"unexpected advertisement family classification: {classification}")
+        if family.get("receiving_endpoint_role") != model.INTERFACE_TYPE_ROLE.get(
+            family.get("reviewed_interface_type")
+        ):
+            fail("an advertisement family publishes an endpoint role that does not match its interface type")
+        if classification == model.FAMILY_SAME_TRANSACTION:
+            if len(family.get("source_frames") or []) < 2:
+                fail("a same-transaction family must retain every advertisement frame")
+            if len(family.get("source_transaction_references") or []) != 1:
+                fail("a same-transaction family must name exactly one accepted transaction")
+            if family.get("correlation_status") != "MATCHED":
+                fail("a same-transaction family requires a matched correlation")
+        if classification in (model.FAMILY_COMPETING, model.FAMILY_INSUFFICIENT):
+            if family.get("advertisement_family_reference") in generated:
+                fail("an unproved advertisement family must not open a generation")
+        if classification == model.FAMILY_SINGLE and len(family.get("source_frames") or []) != 1:
+            fail("a single-advertisement family must name exactly one frame")
+
+    for subject in expected.get("lifecycle_subjects") or []:
+        if subject.get("generation_state") not in model.GENERATION_STATES:
+            fail(f"unexpected generation state: {subject.get('generation_state')}")
+        if not subject.get("generation_reference", "").startswith("epc-bearer-generation-"):
+            fail("a generation reference must use the scoped pseudonymous prefix")
+        if subject.get("generation_state") == model.GENERATION_CLOSED and not subject.get("generation_boundary"):
+            fail("a closed generation must publish its boundary")
+        if subject.get("generation_state") == model.GENERATION_OPEN and subject.get("generation_boundary"):
+            fail("an open generation must not publish a boundary")
+        if model.OBS_RELEASE_UNRESOLVED in (subject.get("observations") or []) and subject.get(
+            "generation_state"
+        ) != model.GENERATION_OPEN:
+            fail("an unresolved release must leave the generation open")
+        for observation in subject.get("observations") or []:
+            if observation not in model.OBSERVATIONS:
+                fail(f"unexpected lifecycle observation: {observation}")
+
+    scoped = expected.get("generation_scoped_s1u_observations") or []
+    unresolved = expected.get("unresolved_packet_observations") or []
+    per_stream: dict[str, int] = {}
+    for item in scoped:
+        per_stream[item.get("source_stream_reference")] = per_stream.get(item.get("source_stream_reference"), 0) + item.get(
+            "observed_g_pdu_count", 0
+        )
+    for item in unresolved:
+        per_stream[item.get("stream_reference")] = per_stream.get(item.get("stream_reference"), 0) + item.get(
+            "observed_g_pdu_count", 0
+        )
+    for stream in (model.read_json(base / "s1u-observation.json").get("stream_observations") or []):
+        reference = stream.get("stream_reference")
+        if per_stream.get(reference, 0) != stream.get("observed_g_pdu_packet_count"):
+            fail(f"lifecycle packet accounting does not conserve stream {reference}")
+
+    serialized = json.dumps(expected)
+    for forbidden in (
+        "PACKET_LOSS",
+        "DELIVERY_CONFIRMED",
+        "USER_RECEIVED_PACKET",
+        "APPLICATION_REACHABLE",
+        "TUNNEL_FAILED",
+    ):
+        if forbidden in serialized:
+            fail(f"lifecycle analysis publishes forbidden claim '{forbidden}'")
+    for forbidden in ("internet", "10.45.0."):
+        if forbidden in serialized:
+            fail(f"lifecycle analysis publishes forbidden value '{forbidden}'")
+    if LONG_DIGITS.search(serialized):
+        fail("lifecycle analysis publishes a long digit run that may be an identifier")
 
     return errors
 

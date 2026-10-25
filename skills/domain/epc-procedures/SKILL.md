@@ -204,6 +204,59 @@ application reachability or packet loss, never republishes inner packet content,
 and keeps `boundary_selection_status` at `NOT_APPLICABLE`. See
 `references/s1u-observation.md`.
 
+## Bearer Lifecycle
+
+Version 0.5.0 adds a fifth, independently executable capability:
+`scripts/analyze_epc_bearer_lifecycle.py`. It consumes the GTPv2-C detailed events
+and their accepted transaction correlation plus, optionally, the accepted EPC
+session-control, default-bearer and S1-U observation documents and the detailed
+GTP-U events.
+
+```bash
+python3 scripts/analyze_epc_bearer_lifecycle.py \
+  --gtpv2 gtpv2-events.jsonl \
+  --transactions gtpv2-transactions.json \
+  --session epc-session-analysis.json \
+  --default-bearer epc-default-bearer-analysis.json \
+  --s1u epc-s1u-observation.json \
+  --gtpu gtpu-events.jsonl \
+  --output epc-bearer-lifecycle-analysis.json \
+  --timeline-output epc-bearer-lifecycle-timeline.jsonl
+```
+
+Only `--gtpv2` and `--transactions` are required; a partial input set produces
+bounded, explicit limitations instead of a silent result. The capability answers
+three separate questions and never collapses them:
+
+* **Advertisement family** — repeated S1-U F-TEID advertisements are consolidated
+  only when they are members of one accepted `MATCHED` transaction whose request
+  and response advertise the same endpoint under one item-scoped bearer identity
+  with no negative Cause. A family keeps every source frame and is never a new
+  allocation. `OPEN_REQUEST`, `RESPONSE_ONLY` and `AMBIGUOUS` transactions, weak
+  correlation, conflicting bearer identities and competing allocations never
+  consolidate.
+* **Generation** — a generation is scoped by capture, receiving role, endpoint
+  address, endpoint TEID, reviewed interface type and its first accepted
+  advertisement frame, and is labelled `epc-bearer-generation-<hash>`. It closes
+  only when an accepted release transaction names the endpoint it releases; in the
+  accepted real capture every Delete Session request carries no S1-U F-TEID, so
+  every generation stays `OPEN_AT_CAPTURE_END` with `RELEASE_STATUS_UNRESOLVED`.
+  Repeated Modify Bearer evidence updates one generation and never fabricates a new
+  one, and a numerically reused TEID is never a new generation without a proved
+  boundary.
+* **Packet attribution** — G-PDUs are attributed from frame-level events inside a
+  proved generation window. The accounting invariant is published and checked:
+  aggregate G-PDU and payload octets equal the attributed plus the unresolved
+  counts. Packets are never split proportionally, never assigned by stream
+  proximity, and never moved to the earliest generation of a reused endpoint.
+  Unresolved packets stay visible as `GENERATION_UNRESOLVED` and are neither
+  packet loss nor a tunnel failure.
+
+A lifecycle generation boundary is not an abnormal failure boundary: the
+capability keeps `boundary_selection_status` at `NOT_APPLICABLE` and never selects
+a first abnormal boundary. See `references/bearer-lifecycle.md` and
+`references/advertisement-family.md`.
+
 ## Failure Behavior
 
 | Condition | Behavior |
@@ -236,4 +289,4 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Original CoreNet Domain-layer package. No upstream material imported. Normative
 references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the accepted
-`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.4.0.
+`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.5.0.

@@ -1,0 +1,982 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill/schemas/epc-bearer-lifecycle-analysis.schema.json",
+  "title": "EPC bearer lifecycle-generation analysis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "domain",
+    "domain_version",
+    "analysis_name",
+    "analysis_version",
+    "input_provenance",
+    "analysis_scope",
+    "lifecycle_subject_count",
+    "lifecycle_subjects",
+    "advertisement_families",
+    "generation_observations",
+    "generation_boundary_evidence",
+    "endpoint_reuse_observations",
+    "generation_scoped_s1u_observations",
+    "unresolved_packet_observations",
+    "ambiguous_associations",
+    "unbound_evidence",
+    "procedure_local_deviations",
+    "evidence_limitations",
+    "additional_evidence_needed",
+    "not_confirmed",
+    "accounting",
+    "boundary_selection_status",
+    "first_abnormal_boundary",
+    "release_observation_count"
+  ],
+  "properties": {
+    "domain": {
+      "const": "epc-procedures"
+    },
+    "domain_version": {
+      "type": "string"
+    },
+    "analysis_name": {
+      "const": "epc-bearer-lifecycle"
+    },
+    "analysis_version": {
+      "type": "string"
+    },
+    "input_provenance": {
+      "type": "object"
+    },
+    "analysis_scope": {
+      "type": "object"
+    },
+    "lifecycle_subject_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lifecycle_subjects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/generation"
+      }
+    },
+    "lifecycle_subjects_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "advertisement_family_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "advertisement_families": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/family"
+      }
+    },
+    "advertisement_families_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "generation_observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/observation"
+      }
+    },
+    "generation_boundary_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/boundary"
+      }
+    },
+    "generation_boundary_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "endpoint_reuse_observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reuse"
+      }
+    },
+    "endpoint_reuse_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "generation_scoped_s1u_observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/scoped"
+      }
+    },
+    "generation_scoped_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unresolved_packet_observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/unresolved"
+      }
+    },
+    "unresolved_packet_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ambiguous_associations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ambiguous"
+      }
+    },
+    "ambiguous_association_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unbound_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/family"
+      }
+    },
+    "procedure_local_deviations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/deviation"
+      }
+    },
+    "procedure_local_deviation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence_limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "additional_evidence_needed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "not_confirmed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "accounting": {
+      "$ref": "#/$defs/accounting"
+    },
+    "boundary_selection_status": {
+      "const": "NOT_APPLICABLE"
+    },
+    "first_abnormal_boundary": {
+      "type": "null"
+    },
+    "boundary_note": {
+      "type": "string"
+    },
+    "release_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "$defs": {
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "frame_number",
+        "message_type",
+        "evidence_level"
+      ],
+      "properties": {
+        "protocol": {
+          "type": "string"
+        },
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_level": {
+          "const": "OBSERVED"
+        }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_frame",
+        "end_frame"
+      ],
+      "properties": {
+        "start_frame": {
+          "type": "integer"
+        },
+        "end_frame": {
+          "type": "integer"
+        }
+      }
+    },
+    "family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "advertisement_family_reference",
+        "capture_file",
+        "receiving_endpoint_address",
+        "receiving_endpoint_teid",
+        "receiving_endpoint_role",
+        "reviewed_interface_type",
+        "source_frames",
+        "source_message_types",
+        "source_protocols",
+        "source_transaction_references",
+        "item_scope",
+        "bearer_identity_scope",
+        "correlation_status",
+        "correlation_strength",
+        "family_classification",
+        "classification_basis",
+        "advertisement_count",
+        "partitions",
+        "evidence_refs",
+        "observation_window",
+        "limitations"
+      ],
+      "properties": {
+        "advertisement_family_reference": {
+          "type": "string"
+        },
+        "capture_file": {
+          "type": "string"
+        },
+        "receiving_endpoint_address": {
+          "type": "string"
+        },
+        "receiving_endpoint_teid": {
+          "type": "integer"
+        },
+        "receiving_endpoint_role": {
+          "enum": [
+            "sgw_s1u",
+            "enodeb_s1u"
+          ]
+        },
+        "reviewed_interface_type": {
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "source_frames": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "source_message_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_protocols": {
+          "type": "array",
+          "items": {
+            "const": "GTPv2-C"
+          }
+        },
+        "source_transaction_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "item_scope": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "message",
+              "bearer"
+            ]
+          }
+        },
+        "bearer_identity_scope": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "correlation_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "correlation_strength": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "family_classification": {
+          "enum": [
+            "SINGLE_ADVERTISEMENT",
+            "SAME_TRANSACTION_ADVERTISEMENTS",
+            "SAME_GENERATION_UPDATE_SUPPORTED",
+            "SEPARATE_GENERATIONS_ESTABLISHED",
+            "COMPETING_ALLOCATION_EVIDENCE",
+            "INSUFFICIENT_GENERATION_EVIDENCE"
+          ]
+        },
+        "classification_basis": {
+          "type": "string"
+        },
+        "advertisement_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "partitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "transaction_reference",
+              "procedure_family",
+              "frames"
+            ],
+            "properties": {
+              "transaction_reference": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "procedure_family": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "frames": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "evidence_refs_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observation_window": {
+          "$ref": "#/$defs/window"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generation_reference",
+        "capture_file",
+        "receiving_endpoint_address",
+        "receiving_endpoint_teid",
+        "receiving_endpoint_role",
+        "reviewed_interface_type",
+        "generation_state",
+        "generation_boundary",
+        "advertisement_family_references",
+        "observations",
+        "observation_window",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "generation_reference": {
+          "type": "string"
+        },
+        "capture_file": {
+          "type": "string"
+        },
+        "receiving_endpoint_address": {
+          "type": "string"
+        },
+        "receiving_endpoint_teid": {
+          "type": "integer"
+        },
+        "receiving_endpoint_role": {
+          "enum": [
+            "sgw_s1u",
+            "enodeb_s1u"
+          ]
+        },
+        "reviewed_interface_type": {
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "generation_state": {
+          "enum": [
+            "OPEN_AT_CAPTURE_END",
+            "CLOSED_BY_ACCEPTED_RELEASE",
+            "BOUNDARY_AMBIGUOUS"
+          ]
+        },
+        "generation_boundary": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "frame_number",
+            "transaction_reference",
+            "basis"
+          ],
+          "properties": {
+            "frame_number": {
+              "type": "integer"
+            },
+            "transaction_reference": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "basis": {
+              "type": "string"
+            }
+          }
+        },
+        "advertisement_family_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/observation_name"
+          }
+        },
+        "observation_window": {
+          "$ref": "#/$defs/window"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "observation_name": {
+      "enum": [
+        "ALLOCATION_ADVERTISED",
+        "ALLOCATION_RESPONSE_OBSERVED",
+        "ALLOCATION_ACCEPTED_OBSERVED",
+        "ENDPOINT_UPDATE_ADVERTISED",
+        "ENDPOINT_UPDATE_ACCEPTED_OBSERVED",
+        "RELEASE_REQUEST_OBSERVED",
+        "RELEASE_ACCEPTED_OBSERVED",
+        "RELEASE_STATUS_UNRESOLVED",
+        "ENDPOINT_REUSE_OBSERVED",
+        "GENERATION_BOUNDARY_ESTABLISHED",
+        "GENERATION_BOUNDARY_AMBIGUOUS"
+      ]
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation",
+        "generation_reference",
+        "capture_file",
+        "receiving_endpoint_role",
+        "reviewed_interface_type",
+        "observation_window",
+        "evidence_refs"
+      ],
+      "properties": {
+        "observation": {
+          "$ref": "#/$defs/observation_name"
+        },
+        "generation_reference": {
+          "type": "string"
+        },
+        "capture_file": {
+          "type": "string"
+        },
+        "receiving_endpoint_role": {
+          "enum": [
+            "sgw_s1u",
+            "enodeb_s1u"
+          ]
+        },
+        "reviewed_interface_type": {
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "observation_window": {
+          "$ref": "#/$defs/window"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        }
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frame_number",
+        "message_type",
+        "transaction_reference",
+        "correlation_status",
+        "release_outcome",
+        "released_endpoints",
+        "evidence_refs"
+      ],
+      "properties": {
+        "frame_number": {
+          "type": "integer"
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transaction_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "correlation_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "release_outcome": {
+          "enum": [
+            "ACCEPTED",
+            "UNRESOLVED"
+          ]
+        },
+        "released_endpoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "address",
+              "teid",
+              "interface_type",
+              "role"
+            ],
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "teid": {
+                "type": "integer"
+              },
+              "interface_type": {
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              "role": {
+                "enum": [
+                  "sgw_s1u",
+                  "enodeb_s1u"
+                ]
+              }
+            }
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        }
+      }
+    },
+    "reuse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "endpoint_address",
+        "endpoint_teid",
+        "receiving_endpoint_role",
+        "reviewed_interface_type",
+        "capture_file",
+        "previous_generation_reference",
+        "current_generation_reference",
+        "basis",
+        "observations",
+        "advertisement_family_reference",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "endpoint_address": {
+          "type": "string"
+        },
+        "endpoint_teid": {
+          "type": "integer"
+        },
+        "receiving_endpoint_role": {
+          "enum": [
+            "sgw_s1u",
+            "enodeb_s1u"
+          ]
+        },
+        "reviewed_interface_type": {
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "capture_file": {
+          "type": "string"
+        },
+        "previous_generation_reference": {
+          "type": "string"
+        },
+        "current_generation_reference": {
+          "type": "string"
+        },
+        "basis": {
+          "type": "string"
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/observation_name"
+          }
+        },
+        "advertisement_family_reference": {
+          "type": "string"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "scoped": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_stream_reference",
+        "generation_reference",
+        "receiving_endpoint_role",
+        "direction",
+        "first_observed_frame",
+        "last_observed_frame",
+        "observed_g_pdu_count",
+        "observed_payload_octets",
+        "association_status",
+        "allocation_evidence_refs",
+        "generation_boundary_refs",
+        "packet_evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "source_stream_reference": {
+          "type": "string"
+        },
+        "generation_reference": {
+          "type": "string"
+        },
+        "receiving_endpoint_role": {
+          "enum": [
+            "sgw_s1u",
+            "enodeb_s1u"
+          ]
+        },
+        "direction": {
+          "enum": [
+            "DOWNLINK",
+            "UPLINK",
+            "UNKNOWN"
+          ]
+        },
+        "first_observed_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "last_observed_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "observed_g_pdu_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_payload_octets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "association_status": {
+          "const": "SUPPORTED"
+        },
+        "allocation_evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "generation_boundary_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "packet_evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "unresolved": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream_reference",
+        "capture_file",
+        "direction",
+        "association_status",
+        "basis",
+        "observed_g_pdu_count",
+        "observed_payload_octets",
+        "observation_window",
+        "limitations"
+      ],
+      "properties": {
+        "stream_reference": {
+          "type": "string"
+        },
+        "capture_file": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "DOWNLINK",
+            "UPLINK",
+            "UNKNOWN"
+          ]
+        },
+        "association_status": {
+          "const": "GENERATION_UNRESOLVED"
+        },
+        "basis": {
+          "type": "string"
+        },
+        "observed_g_pdu_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_payload_octets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observation_window": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ambiguous": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream_reference",
+        "capture_file",
+        "generation_references",
+        "association_status",
+        "basis",
+        "observed_g_pdu_packet_count",
+        "observed_payload_byte_count"
+      ],
+      "properties": {
+        "stream_reference": {
+          "type": "string"
+        },
+        "capture_file": {
+          "type": "string"
+        },
+        "generation_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "association_status": {
+          "const": "AMBIGUOUS"
+        },
+        "basis": {
+          "type": "string"
+        },
+        "observed_g_pdu_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_payload_byte_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "deviation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deviation_type",
+        "evidence_level"
+      ],
+      "properties": {
+        "deviation_type": {
+          "type": "string"
+        },
+        "evidence_level": {
+          "const": "OBSERVED"
+        },
+        "stream_reference": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "frame_count": {
+          "type": "integer"
+        },
+        "aggregate_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aggregate_g_pdu_count",
+        "attributed_g_pdu_count",
+        "unresolved_g_pdu_count",
+        "aggregate_payload_octets",
+        "attributed_payload_octets",
+        "unresolved_payload_octets",
+        "conserved_g_pdu",
+        "conserved_payload_octets"
+      ],
+      "properties": {
+        "aggregate_g_pdu_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attributed_g_pdu_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved_g_pdu_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "aggregate_payload_octets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attributed_payload_octets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved_payload_octets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "conserved_g_pdu": {
+          "type": "boolean"
+        },
+        "conserved_payload_octets": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

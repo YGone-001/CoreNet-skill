@@ -100,6 +100,25 @@ TEID against an advertised S1-U F-TEID). It never claims UE delivery, service
 success or application reachability, and it never republishes inner packet
 content. See `references/s1u-observation.md`.
 
+```bash
+python3 scripts/analyze_epc_bearer_lifecycle.py \
+  --gtpv2 gtpv2-events.jsonl \
+  --transactions gtpv2-transactions.json \
+  --s1u epc-s1u-observation.json \
+  --gtpu gtpu-events.jsonl \
+  --output epc-bearer-lifecycle-analysis.json \
+  --timeline-output epc-bearer-lifecycle-timeline.jsonl
+```
+
+The lifecycle path consumes already-extracted GTPv2-C evidence and its accepted
+transaction correlation. It classifies repeated S1-U F-TEID advertisements into
+advertisement families, publishes bounded generation observations with scoped
+pseudonymous references, closes a generation only when an accepted release names
+the endpoint it releases, and attributes observed G-PDUs to a generation from
+frame-level events with conserved packet and octet accounting. Unresolved packets
+stay visible and are neither packet loss nor a tunnel failure. See
+`references/bearer-lifecycle.md` and `references/advertisement-family.md`.
+
 ## What it reports
 
 | Evidence | Detail |
@@ -126,4 +145,4 @@ global failure boundary, no subscriber identity. See `SKILL.md`.
 
 ## Version
 
-0.4.0
+0.5.0

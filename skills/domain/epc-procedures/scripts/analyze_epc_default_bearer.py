@@ -43,6 +43,11 @@ def parser() -> argparse.ArgumentParser:
         type=Path,
         help="detailed GTPv2-C event JSONL, used only for exact S1-U tunnel endpoint identity",
     )
+    result.add_argument(
+        "--transactions",
+        type=Path,
+        help="accepted GTPv2-C transaction correlation JSON, used to recognise repeated advertisements",
+    )
     result.add_argument("--output", type=Path, required=True, help="default-bearer analysis JSON destination")
     result.add_argument("--timeline-output", type=Path, help="optional procedure timeline JSONL destination")
     result.add_argument("--force", action="store_true", help="explicitly replace existing outputs")
@@ -94,19 +99,25 @@ def _provenance(args: argparse.Namespace, nas: list, s1ap: list, gtpv2: list) ->
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
-    sources = [path for path in (args.nas, args.s1ap, args.attach, args.session, args.gtpv2) if path is not None]
+    sources = [
+        path
+        for path in (args.nas, args.s1ap, args.attach, args.session, args.gtpv2, args.transactions)
+        if path is not None
+    ]
     try:
         nas = read_jsonl(args.nas)
         s1ap = read_jsonl(args.s1ap) if args.s1ap is not None else []
         gtpv2 = read_jsonl(args.gtpv2) if args.gtpv2 is not None else []
         attach = read_json(args.attach) if args.attach is not None else None
         session = read_json(args.session) if args.session is not None else None
+        transactions = read_json(args.transactions) if args.transactions is not None else None
         analysis = analyze(
             nas,
             s1ap,
             attach_analysis=attach,
             session_analysis=session,
             gtpv2_events=gtpv2,
+            gtpv2_transactions=transactions,
             provenance=_provenance(args, nas, s1ap, gtpv2),
         )
         _check(sources, args.output, args.force)

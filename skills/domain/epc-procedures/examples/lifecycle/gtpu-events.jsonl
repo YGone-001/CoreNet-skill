@@ -1,0 +1,6 @@
+{"capture_file": "corenet-epc-integrated.pcap", "frame_number": 30, "header": {"message_length": 100, "message_type": "G-PDU", "teid": 49676}, "outer": {"destination_address": "192.168.64.128", "source_address": "127.0.0.37"}}
+{"capture_file": "corenet-epc-integrated.pcap", "frame_number": 32, "header": {"message_length": 100, "message_type": "G-PDU", "teid": 49676}, "outer": {"destination_address": "192.168.64.128", "source_address": "127.0.0.37"}}
+{"capture_file": "corenet-epc-integrated.pcap", "frame_number": 34, "header": {"message_length": 100, "message_type": "G-PDU", "teid": 49676}, "outer": {"destination_address": "192.168.64.128", "source_address": "127.0.0.37"}}
+{"capture_file": "corenet-epc-integrated.pcap", "frame_number": 40, "header": {"message_length": 100, "message_type": "G-PDU", "teid": 3355633680}, "outer": {"destination_address": "127.0.0.5", "source_address": "127.0.0.5"}}
+{"capture_file": "corenet-epc-integrated.pcap", "frame_number": 44, "header": {"message_length": 100, "message_type": "G-PDU", "teid": 3355633680}, "outer": {"destination_address": "127.0.0.5", "source_address": "127.0.0.5"}}
+{"capture_file": "corenet-epc-integrated.pcap", "frame_number": 50, "header": {"message_length": 100, "message_type": "G-PDU", "teid": 4242}, "outer": {"destination_address": "127.0.0.9", "source_address": "127.0.0.5"}}

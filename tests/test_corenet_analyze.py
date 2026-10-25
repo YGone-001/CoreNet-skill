@@ -2500,5 +2500,141 @@ class EpcUserPlaneDeclarationTests(WorkflowTestCase):
         self.assertEqual(subject["bearer_association_status"], "NOT_ESTABLISHED")
 
 
+def lifecycle_analysis(
+    *,
+    families: int = 2,
+    generations: int = 2,
+    attributed: int = 5,
+    unresolved: int = 1,
+    aggregate: int = 6,
+) -> dict:
+    return {
+        "domain": "epc-procedures",
+        "analysis_name": "epc-bearer-lifecycle",
+        "analysis_version": "1.0.0",
+        "lifecycle_subject_count": generations,
+        "advertisement_family_count": families,
+        "generation_boundary_count": 0,
+        "endpoint_reuse_observation_count": 0,
+        "generation_scoped_observation_count": attributed,
+        "unresolved_packet_observation_count": 1,
+        "procedure_local_deviation_count": 0,
+        "advertisement_families": [
+            {
+                "advertisement_family_reference": "epc-advertisement-family-0000000001",
+                "family_classification": "SAME_TRANSACTION_ADVERTISEMENTS",
+            },
+            {
+                "advertisement_family_reference": "epc-advertisement-family-0000000002",
+                "family_classification": "SINGLE_ADVERTISEMENT",
+            },
+        ][:families],
+        "lifecycle_subjects": [
+            {
+                "generation_reference": f"epc-bearer-generation-{index:010x}",
+                "capture_file": "fixture.pcap",
+                "receiving_endpoint_role": "sgw_s1u" if index % 2 == 0 else "enodeb_s1u",
+                "reviewed_interface_type": 1 if index % 2 == 0 else 0,
+                "generation_state": "OPEN_AT_CAPTURE_END",
+                "observations": ["ALLOCATION_ADVERTISED", "RELEASE_STATUS_UNRESOLVED"],
+                "observation_window": {"start_frame": 20 + index, "end_frame": 30 + index},
+            }
+            for index in range(generations)
+        ],
+        "accounting": {
+            "aggregate_g_pdu_count": aggregate,
+            "attributed_g_pdu_count": attributed,
+            "unresolved_g_pdu_count": unresolved,
+            "aggregate_payload_octets": aggregate * 100,
+            "attributed_payload_octets": attributed * 100,
+            "unresolved_payload_octets": unresolved * 100,
+            "conserved_g_pdu": attributed + unresolved == aggregate,
+            "conserved_payload_octets": True,
+        },
+        "evidence_limitations": ["no release transaction was observed"],
+        "additional_evidence_needed": [],
+        "not_confirmed": ["an advertisement family is not an EPS bearer"],
+        "boundary_selection_status": "NOT_APPLICABLE",
+        "first_abnormal_boundary": None,
+    }
+
+
+class EpcLifecycleIntegrationTests(WorkflowTestCase):
+    """The unified EPC adapter publishes bounded lifecycle evidence."""
+
+    def use_payload(self, payload: dict) -> None:
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+
+    def epc_result(self) -> dict:
+        return self.domain_result()
+
+    def test_lifecycle_evidence_is_published_without_new_subjects(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["lifecycle_analysis"] = lifecycle_analysis()
+        payload["lifecycle_error"] = None
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        block = result["bearer_lifecycle"]
+        self.assertEqual(block["advertisement_family_count"], 2)
+        self.assertEqual(block["lifecycle_subject_count"], 2)
+        self.assertTrue(block["accounting"]["conserved_g_pdu"])
+        self.assertEqual(block["boundary_selection_status"], "NOT_APPLICABLE")
+        subject_types = {subject["subject_type"] for subject in result["diagnostic_subjects"]}
+        self.assertEqual(
+            subject_types,
+            {"EPS_ATTACH", "EPC_SESSION_CONTROL", "EPS_DEFAULT_BEARER", "EPC_S1U_OBSERVATION"},
+            "generation evidence must not create an artificial diagnostic subject",
+        )
+        summary = [
+            item
+            for item in result["procedure_summaries"]
+            if item.get("procedure") == "eps-bearer-lifecycle"
+        ]
+        self.assertEqual(len(summary), 1)
+        self.assertEqual(summary[0]["execution_status"], "EXECUTED")
+
+    def test_report_shows_lifecycle_accounting(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["lifecycle_analysis"] = lifecycle_analysis()
+        payload["lifecycle_error"] = None
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        text = self.read_text()
+        self.assertIn("Bearer Lifecycle Evidence", text)
+        self.assertIn("5 attributed + 1 unresolved = 6 observed G-PDU", text)
+        self.assertIn("boundary selection: NOT_APPLICABLE", text)
+
+    def test_lifecycle_failure_degrades_but_preserves_evidence(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["lifecycle_analysis"] = None
+        payload["lifecycle_error"] = {
+            "code": "BEARER_LIFECYCLE_FAILED",
+            "message": "transaction correlation is unreadable",
+        }
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertIsNone(result["bearer_lifecycle"])
+        self.assertEqual(result["failure_code"], "BEARER_LIFECYCLE_FAILED")
+        self.assertTrue(
+            any("bearer lifecycle analysis failed" in item for item in result["degradation"])
+        )
+        self.assertTrue(
+            [subject for subject in result["diagnostic_subjects"] if subject["subject_type"] == "EPC_S1U_OBSERVATION"]
+        )
+
+    def test_missing_lifecycle_step_is_not_a_failure(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["lifecycle_analysis"] = None
+        payload["lifecycle_error"] = None
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "COMPLETED")
+        self.assertIsNone(result["bearer_lifecycle"])
+
+
 if __name__ == "__main__":
     unittest.main()

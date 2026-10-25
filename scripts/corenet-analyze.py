@@ -61,6 +61,9 @@ GTPV2_CORRELATE_SCRIPT = ROOT / "skills" / "protocol" / "gtpv2" / "scripts" / "c
 GTPU_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "gtpu" / "scripts" / "extract-gtpu.py"
 GTPU_SUMMARIZE_SCRIPT = ROOT / "skills" / "protocol" / "gtpu" / "scripts" / "summarize-gtpu.py"
 EPC_S1U_ANALYZE_SCRIPT = ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_s1u.py"
+EPC_LIFECYCLE_ANALYZE_SCRIPT = (
+    ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_bearer_lifecycle.py"
+)
 EPC_DEFAULT_BEARER_ANALYZE_SCRIPT = (
     ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_default_bearer.py"
 )
@@ -1473,6 +1476,55 @@ def render_text_report(report: dict[str, Any]) -> str:
     if not subject_any:
         _empty(lines, "no diagnostic group was established")
 
+    lifecycle_blocks = [
+        (result, result.get("bearer_lifecycle"))
+        for result in results
+        if isinstance(result.get("bearer_lifecycle"), dict)
+    ]
+    if lifecycle_blocks:
+        _section(lines, "Bearer Lifecycle Evidence")
+    for result, block in lifecycle_blocks:
+        accounting = block.get("accounting") or {}
+        lines.append(
+            f"  {result['domain']}: {_value(block.get('advertisement_family_count'))} advertisement "
+            f"family(ies), {_value(block.get('lifecycle_subject_count'))} generation(s), "
+            f"{_value(block.get('generation_boundary_count'))} proved boundary(ies), "
+            f"{_value(block.get('release_observation_count'))} release observation(s)"
+        )
+        lines.append(
+            f"    packets: {_value(accounting.get('attributed_g_pdu_count'))} attributed + "
+            f"{_value(accounting.get('unresolved_g_pdu_count'))} unresolved = "
+            f"{_value(accounting.get('aggregate_g_pdu_count'))} observed G-PDU "
+            f"(conserved {_value(accounting.get('conserved_g_pdu'))})"
+        )
+        lines.append(
+            f"    octets: {_value(accounting.get('attributed_payload_octets'))} attributed + "
+            f"{_value(accounting.get('unresolved_payload_octets'))} unresolved = "
+            f"{_value(accounting.get('aggregate_payload_octets'))} observed payload octets "
+            f"(conserved {_value(accounting.get('conserved_payload_octets'))})"
+        )
+        for classification in sorted(set((block.get("advertisement_family_classifications") or {}).values())):
+            count = sum(
+                1
+                for item in (block.get("advertisement_family_classifications") or {}).values()
+                if item == classification
+            )
+            lines.append(f"    family classification: {classification} x{count}")
+        for generation in block.get("generations") or []:
+            window = generation.get("observation_window") or {}
+            lines.append(
+                f"    generation {generation.get('generation_reference')} "
+                f"[{_value(generation.get('receiving_endpoint_role'))}, "
+                f"interface type {_value(generation.get('reviewed_interface_type'))}]: "
+                f"{_value(generation.get('generation_state'))}, "
+                f"frames {_value(window.get('start_frame'))}-{_value(window.get('end_frame'))}, "
+                f"observations {', '.join(generation.get('observations') or []) or 'none'}"
+            )
+        lines.append(
+            "    boundary selection: NOT_APPLICABLE "
+            "(a lifecycle generation boundary is not an abnormal failure boundary)"
+        )
+
     _section(lines, "First Abnormal Boundary per Subject")
     boundary_any = False
     for result in results:
@@ -1939,6 +1991,8 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
             command.extend(["--session", str(session_path)])
         if gtpv2_event_count:
             command.extend(["--gtpv2", str(gtpv2_events)])
+        if gtpv2_transactions.is_file():
+            command.extend(["--transactions", str(gtpv2_transactions)])
         try:
             # Exit 6 means "no default-bearer instance", which is a valid result
             # for a capture without readable ESM evidence, not a failure.
@@ -2026,6 +2080,47 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                 "message": scrub_free_text(str(exc)),
             }
 
+    lifecycle_analysis: dict[str, Any] | None = None
+    lifecycle_error: dict[str, Any] | None = None
+    if gtpv2_event_count and gtpv2_transactions.is_file():
+        lifecycle_path = run_dir / "epc-bearer-lifecycle-analysis.json"
+        lifecycle_command = [
+            sys.executable,
+            str(EPC_LIFECYCLE_ANALYZE_SCRIPT),
+            "--gtpv2",
+            str(gtpv2_events),
+            "--transactions",
+            str(gtpv2_transactions),
+            "--output",
+            str(lifecycle_path),
+            "--force",
+        ]
+        if session_path.is_file():
+            lifecycle_command.extend(["--session", str(session_path)])
+        if default_bearer_path.is_file():
+            lifecycle_command.extend(["--default-bearer", str(default_bearer_path)])
+        if s1u_path.is_file():
+            lifecycle_command.extend(["--s1u", str(s1u_path)])
+        if gtpu_event_count:
+            lifecycle_command.extend(["--gtpu", str(gtpu_events)])
+        try:
+            _run_component(lifecycle_command, "EPC bearer lifecycle analysis", allow_empty=True)
+            if lifecycle_path.is_file():
+                lifecycle_analysis = json.loads(lifecycle_path.read_text(encoding="utf-8"))
+                if not isinstance(lifecycle_analysis, dict):
+                    raise AnalysisError(
+                        "PIPELINE_OUTPUT_UNREADABLE",
+                        "EPC bearer lifecycle analysis is not an object",
+                    )
+        except (AnalysisError, OSError, json.JSONDecodeError) as exc:
+            # Usable Attach, session-control, default-bearer and S1-U evidence is
+            # preserved; the failure is reported, never silently completed.
+            lifecycle_analysis = None
+            lifecycle_error = {
+                "code": "BEARER_LIFECYCLE_FAILED",
+                "message": scrub_free_text(str(exc)),
+            }
+
     return {
         "analysis": analysis,
         "session_analysis": session_analysis,
@@ -2037,6 +2132,8 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
         "gtpu_stream_count": gtpu_stream_count,
         "boundary_analysis": boundary_analysis,
         "boundary_error": boundary_error,
+        "lifecycle_analysis": lifecycle_analysis,
+        "lifecycle_error": lifecycle_error,
         "s1ap_event_count": _count_lines(s1ap_events),
         "nas_eps_event_count": _count_lines(nas_events),
         "gtpv2_event_count": gtpv2_event_count,
@@ -2638,6 +2735,58 @@ def _project_s1u_subject(stream: dict[str, Any], analysis: dict[str, Any]) -> di
     return entry
 
 
+def _project_bearer_lifecycle(lifecycle: Any) -> dict[str, Any] | None:
+    """Bounded lifecycle-generation evidence, projected without new subjects."""
+    if not isinstance(lifecycle, dict):
+        return None
+    families = lifecycle.get("advertisement_families") or []
+    generations = lifecycle.get("lifecycle_subjects") or []
+    accounting = lifecycle.get("accounting") or {}
+    return {
+        "analysis_name": lifecycle.get("analysis_name"),
+        "analysis_version": lifecycle.get("analysis_version"),
+        "advertisement_family_count": lifecycle.get("advertisement_family_count", 0),
+        "advertisement_family_classifications": {
+            item.get("advertisement_family_reference"): item.get("family_classification")
+            for item in families[:MAX_LIST_ITEMS]
+            if isinstance(item, dict)
+        },
+        "lifecycle_subject_count": lifecycle.get("lifecycle_subject_count", 0),
+        "generations": [
+            {
+                "generation_reference": item.get("generation_reference"),
+                "capture_file": item.get("capture_file"),
+                "receiving_endpoint_role": item.get("receiving_endpoint_role"),
+                "reviewed_interface_type": item.get("reviewed_interface_type"),
+                "generation_state": item.get("generation_state"),
+                "observations": item.get("observations") or [],
+                "observation_window": item.get("observation_window"),
+            }
+            for item in generations[:MAX_LIST_ITEMS]
+            if isinstance(item, dict)
+        ],
+        "generation_boundary_count": lifecycle.get("generation_boundary_count", 0),
+        "release_observation_count": lifecycle.get("release_observation_count", 0),
+        "endpoint_reuse_observation_count": lifecycle.get("endpoint_reuse_observation_count", 0),
+        "generation_scoped_observation_count": lifecycle.get("generation_scoped_observation_count", 0),
+        "unresolved_packet_observation_count": lifecycle.get(
+            "unresolved_packet_observation_count", 0
+        ),
+        "accounting": {
+            "aggregate_g_pdu_count": accounting.get("aggregate_g_pdu_count"),
+            "attributed_g_pdu_count": accounting.get("attributed_g_pdu_count"),
+            "unresolved_g_pdu_count": accounting.get("unresolved_g_pdu_count"),
+            "aggregate_payload_octets": accounting.get("aggregate_payload_octets"),
+            "attributed_payload_octets": accounting.get("attributed_payload_octets"),
+            "unresolved_payload_octets": accounting.get("unresolved_payload_octets"),
+            "conserved_g_pdu": accounting.get("conserved_g_pdu"),
+            "conserved_payload_octets": accounting.get("conserved_payload_octets"),
+        },
+        "boundary_selection_status": lifecycle.get("boundary_selection_status"),
+        "not_confirmed": (lifecycle.get("not_confirmed") or [])[:MAX_LIST_ITEMS],
+    }
+
+
 def execute_epc_domain(
     capture: Path,
     work_dir: Path,
@@ -2661,6 +2810,8 @@ def execute_epc_domain(
     gtpu_stream_count = payload.get("gtpu_stream_count", 0) or 0
     boundary = payload.get("boundary_analysis")
     boundary_error = payload.get("boundary_error")
+    lifecycle = payload.get("lifecycle_analysis")
+    lifecycle_error = payload.get("lifecycle_error")
     groups_by_reference: dict[str, Any] = {}
     if isinstance(boundary, dict):
         for group in boundary.get("diagnostic_groups") or []:
@@ -2710,7 +2861,7 @@ def execute_epc_domain(
     omitted_subjects = max(0, len(subjects) - MAX_DIAGNOSTIC_SUBJECTS)
     subjects = subjects[:MAX_DIAGNOSTIC_SUBJECTS]
 
-    if (boundary_error or default_bearer_error or s1u_error) and (
+    if (boundary_error or default_bearer_error or s1u_error or lifecycle_error) and (
         instances or session_subjects or default_bearer_instances or s1u_subjects
     ):
         status = STATUS_PARTIAL
@@ -2740,6 +2891,9 @@ def execute_epc_domain(
     if isinstance(s1u, dict):
         limitations.extend(s1u.get("evidence_limitations") or [])
         additional.extend(s1u.get("additional_evidence_needed") or [])
+    if isinstance(lifecycle, dict):
+        limitations.extend(lifecycle.get("evidence_limitations") or [])
+        additional.extend(lifecycle.get("additional_evidence_needed") or [])
     bounded_limitations, _ = _bounded_limitations(list(dict.fromkeys(limitations)))
     bounded_additional, _ = _bounded_limitations(list(dict.fromkeys(additional)))
 
@@ -2820,6 +2974,28 @@ def execute_epc_domain(
                 "unbound_stream_count": (s1u or {}).get("unbound_stream_count", 0),
                 "observed_g_pdu_packet_count": (s1u or {}).get("observed_g_pdu_packet_count", 0),
             },
+            {
+                "procedure_domain": "epc-procedures",
+                "procedure": "eps-bearer-lifecycle",
+                "execution_status": (
+                    "EXECUTED"
+                    if isinstance(lifecycle, dict) and lifecycle.get("lifecycle_subject_count")
+                    else "NO_SUBJECT"
+                ),
+                "instance_count": (lifecycle or {}).get("lifecycle_subject_count", 0),
+                "advertisement_family_count": (lifecycle or {}).get("advertisement_family_count", 0),
+                "generation_boundary_count": (lifecycle or {}).get("generation_boundary_count", 0),
+                "endpoint_reuse_observation_count": (lifecycle or {}).get(
+                    "endpoint_reuse_observation_count", 0
+                ),
+                "generation_scoped_observation_count": (lifecycle or {}).get(
+                    "generation_scoped_observation_count", 0
+                ),
+                "unresolved_packet_observation_count": (lifecycle or {}).get(
+                    "unresolved_packet_observation_count", 0
+                ),
+                "deviation_count": (lifecycle or {}).get("procedure_local_deviation_count", 0),
+            },
         ],
         "diagnostic_groups": None,
         "diagnostic_subject_count": len(subjects),
@@ -2836,6 +3012,7 @@ def execute_epc_domain(
             if isinstance(boundary, dict) and not boundary_error
             else None
         ),
+        "bearer_lifecycle": _project_bearer_lifecycle(lifecycle),
         "evidence_limitations": bounded_limitations,
         "additional_evidence_needed": bounded_additional,
         "degradation": [],
@@ -2879,6 +3056,12 @@ def execute_epc_domain(
         degradation.append(
             "EPC failure-boundary orchestration failed: "
             f"{boundary_error.get('code')} {boundary_error.get('message')}".strip()
+        )
+    if lifecycle_error:
+        result["failure_code"] = "BEARER_LIFECYCLE_FAILED"
+        degradation.append(
+            "EPC bearer lifecycle analysis failed: "
+            f"{lifecycle_error.get('code')} {lifecycle_error.get('message')}".strip()
         )
     result["degradation"] = degradation
     return result

@@ -1011,8 +1011,87 @@ def _candidate_identity(entry: dict[str, Any]) -> tuple[Any, Any, Any]:
     )
 
 
+def _transaction_binding(
+    transactions: dict[str, Any] | None,
+) -> dict[int, dict[str, Any]]:
+    """Map an observed GTPv2-C frame to its accepted transaction and role."""
+    index: dict[int, dict[str, Any]] = {}
+    if not isinstance(transactions, dict):
+        return index
+    for transaction in transactions.get("transactions") or []:
+        if not isinstance(transaction, dict):
+            continue
+        for role in ("request", "response"):
+            message = transaction.get(role)
+            if not isinstance(message, dict):
+                continue
+            frame = message.get("frame_number")
+            if isinstance(frame, int) and not isinstance(frame, bool):
+                index[frame] = {"transaction": transaction, "role": role}
+    return index
+
+
+def advertisement_family(
+    candidates: list[dict[str, Any]], index: dict[int, dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Consolidate repeated advertisements of one endpoint into one proved family.
+
+    Duplicate-message ambiguity is removed only when every candidate belongs to
+    one accepted, unambiguous transaction whose request and response advertise
+    the same endpoint under one item-scoped bearer identity with no negative
+    Cause. A family is not a bearer and not a generation.
+    """
+    if len(candidates) < 2 or not index:
+        return None
+    frames = [entry["event"].get("frame_number") for entry in candidates]
+    if any(frame not in index for frame in frames):
+        return None
+    references = {
+        index[frame]["transaction"].get("transaction_reference") for frame in frames
+    }
+    if len(references) != 1:
+        return None
+
+    transaction = index[frames[0]]["transaction"]
+    if transaction.get("correlation_status") != "MATCHED":
+        return None
+    if transaction.get("correlation_strength") == "WEAK":
+        return None
+
+    roles = {index[frame]["role"] for frame in frames}
+    if roles != {"request", "response"}:
+        return None
+
+    identities = {entry.get("ebi") for entry in candidates if entry.get("ebi") is not None}
+    if len(identities) > 1:
+        return None
+
+    for entry in candidates:
+        if entry.get("scope") != "bearer":
+            continue
+        context = (entry["event"].get("bearer_contexts") or [{}])[0]
+        cause = context.get("cause") if isinstance(context, dict) else None
+        code = cause.get("cause_code") if isinstance(cause, dict) else None
+        if isinstance(code, int) and code not in (16, 17, 18):
+            return None
+
+    ordered = sorted(candidates, key=lambda entry: int(entry["event"].get("frame_number") or 0))
+    return {
+        "classification": "SAME_TRANSACTION_ADVERTISEMENTS",
+        "transaction_reference": transaction.get("transaction_reference"),
+        "correlation_status": transaction.get("correlation_status"),
+        "correlation_strength": transaction.get("correlation_strength"),
+        "frames": [entry["event"].get("frame_number") for entry in ordered],
+        "message_types": [entry["event"].get("message_type") for entry in ordered],
+        "interface_type": ordered[0].get("interface_type"),
+        "bearer_identity": sorted(identities)[0] if identities else None,
+    }
+
+
 def tunnel_links(
-    instances: list[dict[str, Any]], gtpv2_events: list[dict[str, Any]]
+    instances: list[dict[str, Any]],
+    gtpv2_events: list[dict[str, Any]],
+    transactions: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Relate S1AP E-RAB tunnel endpoints to GTPv2-C S1-U F-TEID evidence.
 
@@ -1030,6 +1109,7 @@ def tunnel_links(
     """
     entries = _gtpv2_endpoint_index(gtpv2_events)
     requests = _endpoint_requests(instances, entries)
+    binding = _transaction_binding(transactions)
 
     # Competing source subjects per endpoint, computed before any link is built so
     # that iteration order can never decide ownership.
@@ -1086,6 +1166,9 @@ def tunnel_links(
             "s1u_transport_layer_address": address,
             "s1u_gtp_teid": teid,
             "supporting_identifiers": supporting_identifiers,
+            # Every tunnel link publishes the key; only a consolidated link names a
+            # proved advertisement family.
+            "advertisement_family": None,
             "expected_interface_type": expected_interface_type,
             "observed_interface_types": observed_interface_types,
             "source_endpoint_role": request.get("role"),
@@ -1127,26 +1210,73 @@ def tunnel_links(
 
         target_frames = [identity[0] for identity in candidate_identities]
         if len(candidate_identities) > 1:
+            family = advertisement_family(candidates, binding)
+            repeated_evidence = [_evidence_ref("S1AP", item.get("frame_number"), None)] + [
+                _evidence_ref(
+                    "GTPv2-C", entry["event"].get("frame_number"), entry["event"].get("message_type")
+                )
+                for entry in candidates[:MAX_EVIDENCE_REFERENCES]
+            ]
+            if family is None or competing_subjects:
+                limitations = [
+                    "more than one observed GTPv2-C record publishes this S1-U endpoint, so no "
+                    "single bearer allocation is selected"
+                ]
+                if family is not None and competing_subjects:
+                    limitations.append(
+                        "the repeated advertisements form one accepted transaction family, but more "
+                        "than one UE context claims the endpoint, so no owner is selected"
+                    )
+                links.append(
+                    {
+                        **base,
+                        "status": "AMBIGUOUS",
+                        "bearer_association_status": "AMBIGUOUS",
+                        "target_subject_reference": None,
+                        "target_interface_type": None,
+                        "candidate_target_frames": target_frames,
+                        "advertisement_family": family,
+                        "link_basis": (
+                            "several_gtpv2_s1u_f_teids_match_this_endpoint"
+                            if family is None
+                            else "advertisement_family_matched_by_several_ue_contexts"
+                        ),
+                        "evidence_refs": repeated_evidence,
+                        "association_strength": "AMBIGUOUS",
+                        "limitations": limitations,
+                    }
+                )
+                continue
+            # One accepted transaction advertises this endpoint on both sides: the
+            # repetition is a duplicate message, not a second allocation.
             links.append(
                 {
                     **base,
-                    "status": "AMBIGUOUS",
-                    "bearer_association_status": "AMBIGUOUS",
-                    "target_subject_reference": None,
-                    "target_interface_type": None,
+                    "status": "SUPPORTED",
+                    "bearer_association_status": "SUPPORTED",
+                    "target_subject_reference": f"gtpv2-frame:{family['frames'][0]}",
+                    "target_frame": family["frames"][0],
+                    "target_message_type": family["message_types"][0],
+                    "target_eps_bearer_identity": family.get("bearer_identity"),
+                    "target_scope": candidates[0].get("scope"),
+                    "target_interface_type": family.get("interface_type"),
                     "candidate_target_frames": target_frames,
-                    "link_basis": "several_gtpv2_s1u_f_teids_match_this_endpoint",
-                    "evidence_refs": [_evidence_ref("S1AP", item.get("frame_number"), None)]
-                    + [
-                        _evidence_ref(
-                            "GTPv2-C", entry["event"].get("frame_number"), entry["event"].get("message_type")
-                        )
-                        for entry in candidates[:MAX_EVIDENCE_REFERENCES]
-                    ],
-                    "association_strength": "AMBIGUOUS",
+                    "advertisement_family": family,
+                    "link_basis": "one_accepted_transaction_advertises_this_endpoint",
+                    "evidence_refs": repeated_evidence,
+                    "association_strength": "SUPPORTED",
+                    "ordering": (
+                        "gtpv2_precedes_s1ap"
+                        if int(family["frames"][0] or 0) < int(item.get("frame_number") or 0)
+                        else "s1ap_precedes_gtpv2"
+                    ),
                     "limitations": [
-                        "more than one observed GTPv2-C record publishes this S1-U endpoint, so no "
-                        "single bearer allocation is selected"
+                        "the repeated advertisements belong to one accepted transaction, so they "
+                        "describe one allocation; this is not a second bearer generation",
+                        "the E-RAB identity and the EPS bearer identity are different identifiers "
+                        "and are never equated",
+                        "endpoint equality is control-plane provisioning evidence, not proof that a "
+                        "GTP-U tunnel forwards traffic",
                     ],
                 }
             )
@@ -1301,13 +1431,14 @@ def analyze(
     attach_analysis: dict[str, Any] | None = None,
     session_analysis: dict[str, Any] | None = None,
     gtpv2_events: list[dict[str, Any]] | None = None,
+    gtpv2_transactions: dict[str, Any] | None = None,
     provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Reconstruct bounded default-bearer evidence from accepted lower-layer output."""
     gtpv2_events = gtpv2_events or []
     instances, unbound, ambiguous_frames = group_instances(nas_events, s1ap_events, attach_analysis)
 
-    links = tunnel_links(instances, gtpv2_events)
+    links = tunnel_links(instances, gtpv2_events, gtpv2_transactions)
     by_instance: dict[str, list[dict[str, Any]]] = {}
     for link in links:
         by_instance.setdefault(str(link.get("source_subject_reference")), []).append(link)

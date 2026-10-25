@@ -332,6 +332,14 @@ S1AP/NAS-EPS keeps the accepted Attach result; a capture without GTP-U reports
 The EPC result reports procedure instances, per-stage observations, procedure-local
 deviations with exact frames, and diagnostic subjects whose `subject_type` is
 `EPS_ATTACH`, `EPC_SESSION_CONTROL`, `EPS_DEFAULT_BEARER` or `EPC_S1U_OBSERVATION`.
+A fifth EPC step publishes bounded bearer lifecycle-generation evidence beneath the
+EPC domain result: repeated S1-U F-TEID advertisements are consolidated into an
+advertisement family only when one accepted transaction proves the request/response
+relationship, a generation closes only when an accepted release names the endpoint it
+releases, and observed G-PDUs are attributed to a proved generation from frame-level
+events with conserved packet and octet accounting. Unresolved packets stay visible,
+no generation subject is invented, and a lifecycle failure degrades the EPC status
+instead of being reported as completed.
 An S1-U observation subject reports one directed GTP-U stream with its observed G-PDU
 and payload-octet counts and its `SUPPORTED`/`AMBIGUOUS`/`NOT_ESTABLISHED`
 association; it never claims UE delivery or application reachability. A default-bearer subject

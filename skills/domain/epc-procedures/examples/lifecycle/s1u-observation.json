@@ -1,0 +1,52 @@
+{
+  "stream_observations": [
+    {
+      "association_status": "SUPPORTED",
+      "capture_file": "corenet-epc-integrated.pcap",
+      "direction": "UPLINK",
+      "first_frame": 30,
+      "last_frame": 34,
+      "message_types": [
+        "G-PDU"
+      ],
+      "observed_g_pdu_packet_count": 3,
+      "observed_payload_byte_count": 300,
+      "outer_destination": "192.168.64.128",
+      "outer_source": "127.0.0.37",
+      "stream_reference": "epc-s1u-stream-0000000001",
+      "teid": 49676
+    },
+    {
+      "association_status": "SUPPORTED",
+      "capture_file": "corenet-epc-integrated.pcap",
+      "direction": "DOWNLINK",
+      "first_frame": 40,
+      "last_frame": 44,
+      "message_types": [
+        "G-PDU"
+      ],
+      "observed_g_pdu_packet_count": 2,
+      "observed_payload_byte_count": 200,
+      "outer_destination": "127.0.0.5",
+      "outer_source": "127.0.0.5",
+      "stream_reference": "epc-s1u-stream-0000000002",
+      "teid": 3355633680
+    },
+    {
+      "association_status": "NOT_ESTABLISHED",
+      "capture_file": "corenet-epc-integrated.pcap",
+      "direction": "UNKNOWN",
+      "first_frame": 50,
+      "last_frame": 52,
+      "message_types": [
+        "G-PDU"
+      ],
+      "observed_g_pdu_packet_count": 1,
+      "observed_payload_byte_count": 100,
+      "outer_destination": "127.0.0.9",
+      "outer_source": "127.0.0.5",
+      "stream_reference": "epc-s1u-stream-0000000003",
+      "teid": 4242
+    }
+  ]
+}

@@ -213,6 +213,8 @@ class ExampleTests(unittest.TestCase):
             str(EXAMPLES / "session-analysis.json"),
             "--gtpv2",
             str(EXAMPLES / "gtpv2-events.jsonl"),
+            "--transactions",
+            str(EXAMPLES / "gtpv2-transactions.json"),
             "--output",
             str(output),
             *extra,
@@ -288,30 +290,47 @@ class ExampleTests(unittest.TestCase):
 
     def test_role_specific_endpoint_matching_keeps_the_two_sides_apart(self) -> None:
         analysis = load_json(self.analyze_example())
-        # The SGW-U endpoint from the Initial Context Setup Request is compared
-        # with the S1-U F-TEID (interface type 1) only.
         supported = [
             item
             for item in analysis["established_links"]
             if item.get("link_type") == "s1ap_erab_to_gtpv2_bearer"
         ]
-        self.assertEqual(len(supported), 1)
-        self.assertEqual(supported[0]["source_frame"], 23)
-        self.assertEqual(supported[0]["source_endpoint_role"], "sgw_s1u")
-        self.assertEqual(supported[0]["target_interface_type"], 1)
+        by_frame = {item["source_frame"]: item for item in supported}
+        self.assertEqual(sorted(by_frame), [23, 24])
+
+        # The SGW-U endpoint from the Initial Context Setup Request is compared
+        # with the S1-U F-TEID of interface type 1 only.
+        request_link = by_frame[23]
+        self.assertEqual(request_link["source_endpoint_role"], "sgw_s1u")
+        self.assertEqual(request_link["target_interface_type"], 1)
+        self.assertIsNone(request_link["advertisement_family"])
+
         # The eNodeB endpoint from the Initial Context Setup Response is compared
-        # with interface type 0 records only, and two of them publish the same
-        # endpoint, so no single target is selected.
-        ambiguous = [
-            item
-            for item in analysis["ambiguous_links"]
-            if item.get("link_type") == "s1ap_erab_to_gtpv2_bearer"
-        ]
-        self.assertEqual(len(ambiguous), 1)
-        self.assertEqual(ambiguous[0]["source_frame"], 24)
-        self.assertEqual(ambiguous[0]["source_endpoint_role"], "enodeb_s1u")
-        self.assertEqual(ambiguous[0]["candidate_target_frames"], [27, 29])
-        self.assertEqual(ambiguous[0]["link_basis"], "several_gtpv2_s1u_f_teids_match_this_endpoint")
+        # with interface type 0 records only. Two records publish it, and both are
+        # the request and response of one accepted Modify Bearer transaction, so
+        # they are one advertisement family rather than a second allocation.
+        response_link = by_frame[24]
+        self.assertEqual(response_link["source_endpoint_role"], "enodeb_s1u")
+        self.assertEqual(response_link["target_interface_type"], 0)
+        family = response_link["advertisement_family"]
+        self.assertIsNotNone(family)
+        self.assertEqual(family["classification"], "SAME_TRANSACTION_ADVERTISEMENTS")
+        self.assertEqual(family["frames"], [27, 29])
+        self.assertEqual(family["bearer_identity"], 5)
+        self.assertEqual(family["correlation_status"], "MATCHED")
+        self.assertEqual(
+            [ref["frame_number"] for ref in response_link["evidence_refs"]],
+            [24, 27, 29],
+            "both advertisement frames must stay in the published evidence",
+        )
+        self.assertFalse(
+            [
+                item
+                for item in analysis["ambiguous_links"]
+                if item.get("link_type") == "s1ap_erab_to_gtpv2_bearer"
+            ],
+            "a proved advertisement family removes duplicate-message ambiguity",
+        )
         self.assertFalse(
             [item for item in analysis["unbound_evidence"] if item.get("link_type")],
             "both E-RAB endpoints have a compatible GTPv2-C record of their own role",
