@@ -164,7 +164,79 @@
     "gtpv2_supporting_evidence": {
       "type": "array",
       "items": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "protocol",
+          "frame_number",
+          "message_type",
+          "procedure_family",
+          "scope",
+          "interface_type",
+          "interface_type_name",
+          "teid",
+          "transport_layer_address",
+          "eps_bearer_identity"
+        ],
+        "properties": {
+          "protocol": {
+            "const": "GTPv2-C"
+          },
+          "frame_number": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "message_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "procedure_family": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope": {
+            "enum": [
+              "message",
+              "bearer"
+            ]
+          },
+          "interface_type": {
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "interface_type_name": {
+            "enum": [
+              "S1-U eNodeB GTP-U interface",
+              "S1-U SGW GTP-U interface"
+            ]
+          },
+          "teid": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "transport_layer_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "eps_bearer_identity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
       }
     },
     "gtpv2_supporting_evidence_count": {
@@ -686,7 +758,22 @@
           "type": [
             "integer",
             "null"
-          ]
+          ],
+          "description": "the selected target's observed interface type; null when no owner is selected"
+        },
+        "expected_interface_type": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "the interface type the reviewed role requires; a rule, never observed evidence"
+        },
+        "observed_interface_types": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "every interface type actually carried by a matching GTPv2-C F-TEID"
         }
       }
     },

@@ -1097,5 +1097,219 @@ class UeContextReferenceTests(unittest.TestCase):
         )
 
 
+class InterfaceTypeEvidenceTests(unittest.TestCase):
+    """F1/F2: an observed interface type must match its source F-TEID record."""
+
+    def analyze(self, s1ap_items: list[dict], gtpv2: list[dict]) -> dict:
+        return model.analyze(
+            [_activation(10)],
+            [_setup(10, items=s1ap_items)],
+            gtpv2_events=gtpv2,
+        )
+
+    def links(self, analysis: dict) -> list[dict]:
+        return [
+            link
+            for link in analysis["established_links"]
+            + analysis["ambiguous_links"]
+            + analysis["unbound_evidence"]
+            if isinstance(link, dict) and link.get("link_type") == "s1ap_erab_to_gtpv2_bearer"
+        ]
+
+    @staticmethod
+    def interface_identifiers(link: dict) -> list[dict]:
+        return [
+            item
+            for item in link.get("supporting_identifiers") or []
+            if item.get("identifier") == "f_teid_interface_type"
+        ]
+
+    # T01 -----------------------------------------------------------------
+    def test_sgw_u_type_one_link_publishes_observed_type_one(self) -> None:
+        analysis = self.analyze(
+            [_erab_item(5, "198.51.100.10", 4242, frame=10, role="sgw_s1u")],
+            [_tunnel_event(8, interface_type=1)],
+        )
+        link = self.links(analysis)[0]
+        self.assertEqual(link["status"], "SUPPORTED")
+        self.assertEqual(link["target_interface_type"], 1)
+        self.assertEqual(link["observed_interface_types"], [1])
+        self.assertEqual(link["expected_interface_type"], 1)
+        self.assertEqual(self.interface_identifiers(link), [{"identifier": "f_teid_interface_type", "value": 1}])
+
+    # T02 -----------------------------------------------------------------
+    def test_enodeb_type_zero_link_publishes_observed_type_zero(self) -> None:
+        analysis = self.analyze(
+            [_erab_item(5, "198.51.100.10", 4242, frame=10, role="enodeb_s1u")],
+            [_tunnel_event(8, interface_type=0, message="Modify Bearer Request", family="modify-bearer")],
+        )
+        link = self.links(analysis)[0]
+        self.assertEqual(link["status"], "SUPPORTED")
+        self.assertEqual(link["source_endpoint_role"], "enodeb_s1u")
+        self.assertEqual(link["target_interface_type"], 0)
+        self.assertEqual(link["observed_interface_types"], [0])
+        self.assertEqual(link["expected_interface_type"], 0)
+        self.assertEqual(self.interface_identifiers(link), [{"identifier": "f_teid_interface_type", "value": 0}])
+
+    # T03 -----------------------------------------------------------------
+    def test_type_zero_link_never_publishes_type_one(self) -> None:
+        analysis = self.analyze(
+            [_erab_item(5, "198.51.100.10", 4242, frame=10, role="enodeb_s1u")],
+            [_tunnel_event(8, interface_type=0, message="Modify Bearer Request", family="modify-bearer")],
+        )
+        for link in self.links(analysis):
+            values = [item["value"] for item in self.interface_identifiers(link)]
+            self.assertNotIn(1, values)
+            self.assertEqual(link["target_interface_type"], 0)
+
+    # T04 -----------------------------------------------------------------
+    def test_type_one_link_never_publishes_type_zero(self) -> None:
+        analysis = self.analyze(
+            [_erab_item(5, "198.51.100.10", 4242, frame=10, role="sgw_s1u")],
+            [_tunnel_event(8, interface_type=1)],
+        )
+        for link in self.links(analysis):
+            values = [item["value"] for item in self.interface_identifiers(link)]
+            self.assertNotIn(0, values)
+            self.assertEqual(link["target_interface_type"], 1)
+
+    # T05 -----------------------------------------------------------------
+    def test_no_match_link_publishes_no_observed_interface_type(self) -> None:
+        analysis = self.analyze(
+            [_erab_item(5, "198.51.100.10", 4242, frame=10, role="sgw_s1u")],
+            [],
+        )
+        link = self.links(analysis)[0]
+        self.assertEqual(link["status"], "NOT_ESTABLISHED")
+        self.assertEqual(self.interface_identifiers(link), [])
+        self.assertEqual(link["observed_interface_types"], [])
+        self.assertIsNone(link["target_interface_type"])
+        # The role still documents its expected type as a rule, never as evidence.
+        self.assertEqual(link["expected_interface_type"], 1)
+
+    def test_role_mismatch_link_publishes_no_observed_interface_type(self) -> None:
+        analysis = self.analyze(
+            [_erab_item(5, "198.51.100.10", 4242, frame=10, role="enodeb_s1u")],
+            [_tunnel_event(8, interface_type=1)],
+        )
+        link = self.links(analysis)[0]
+        self.assertEqual(link["status"], "NOT_ESTABLISHED")
+        self.assertEqual(self.interface_identifiers(link), [])
+        self.assertEqual(link["observed_interface_types"], [])
+        self.assertIsNone(link["target_interface_type"])
+
+    # T06 -----------------------------------------------------------------
+    def test_ambiguous_link_does_not_select_an_interface_type(self) -> None:
+        analysis = self.analyze(
+            [_erab_item(5, "198.51.100.10", 4242, frame=10, role="sgw_s1u")],
+            [_tunnel_event(8), _tunnel_event(9, message="Modify Bearer Request", family="modify-bearer")],
+        )
+        link = self.links(analysis)[0]
+        self.assertEqual(link["status"], "AMBIGUOUS")
+        # Every surviving candidate really carried type 1, so it is published as
+        # observed evidence; no owner and no target type are selected.
+        self.assertEqual(link["observed_interface_types"], [1])
+        self.assertIsNone(link["target_interface_type"])
+        self.assertIsNone(link["target_subject_reference"])
+        self.assertEqual(link["candidate_target_frames"], [8, 9])
+
+    # T07 -----------------------------------------------------------------
+    def test_existing_ownership_protections_are_unchanged(self) -> None:
+        analysis = model.analyze(
+            [_activation(10), _activation(40, association=2)],
+            [
+                _setup(10, enb=1, mme=9, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)]),
+                _setup(40, enb=2, mme=11, association=2,
+                       items=[_erab_item(5, "198.51.100.10", 4242, frame=40)]),
+            ],
+            gtpv2_events=[_tunnel_event(8)],
+        )
+        links = self.links(analysis)
+        self.assertEqual(len(links), 2)
+        for link in links:
+            self.assertEqual(link["status"], "AMBIGUOUS")
+            self.assertTrue(link["endpoint_reuse_across_subjects"])
+            self.assertIsNone(link["target_subject_reference"])
+
+    # T08 / T09 / T10 -----------------------------------------------------
+    def test_supporting_inventory_keeps_both_reviewed_interface_types(self) -> None:
+        analysis = self.analyze(
+            [_erab_item(5, "198.51.100.10", 4242, frame=10, role="sgw_s1u")],
+            [
+                _tunnel_event(8, interface_type=1),
+                _tunnel_event(9, interface_type=0, message="Modify Bearer Request", family="modify-bearer"),
+                _tunnel_event(11, interface_type=2, message="Create Session Response"),
+                _tunnel_event(12, interface_type=8, message="Create Session Response"),
+            ],
+        )
+        inventory = analysis["gtpv2_supporting_evidence"]
+        types = [entry["interface_type"] for entry in inventory]
+        self.assertIn(1, types)
+        self.assertIn(0, types)
+        self.assertNotIn(2, types)
+        self.assertNotIn(8, types)
+        names = {entry["interface_type"]: entry["interface_type_name"] for entry in inventory}
+        self.assertEqual(names[0], "S1-U eNodeB GTP-U interface")
+        self.assertEqual(names[1], "S1-U SGW GTP-U interface")
+
+    # T11 -----------------------------------------------------------------
+    def test_supporting_inventory_preserves_exact_source_frames(self) -> None:
+        analysis = self.analyze(
+            [_erab_item(5, "198.51.100.10", 4242, frame=10, role="sgw_s1u")],
+            [
+                _tunnel_event(8, interface_type=1),
+                _tunnel_event(9, interface_type=0, message="Modify Bearer Request", family="modify-bearer"),
+            ],
+        )
+        frames = {
+            entry["interface_type"]: (entry["frame_number"], entry["message_type"])
+            for entry in analysis["gtpv2_supporting_evidence"]
+        }
+        self.assertEqual(frames[1], (8, "Create Session Response"))
+        self.assertEqual(frames[0], (9, "Modify Bearer Request"))
+
+    # T12 -----------------------------------------------------------------
+    def test_message_scope_and_bearer_scope_stay_separate(self) -> None:
+        analysis = self.analyze(
+            [_erab_item(5, "198.51.100.10", 4242, frame=10, role="sgw_s1u")],
+            [
+                _tunnel_event(8, interface_type=1, scope="message"),
+                _tunnel_event(9, interface_type=0, scope="bearer",
+                              message="Modify Bearer Request", family="modify-bearer"),
+            ],
+        )
+        scopes = {
+            (entry["interface_type"], entry["scope"]) for entry in analysis["gtpv2_supporting_evidence"]
+        }
+        self.assertEqual(scopes, {(1, "message"), (0, "bearer")})
+
+    # T13 -----------------------------------------------------------------
+    def test_supporting_inventory_creates_no_new_identity_link(self) -> None:
+        analysis = self.analyze(
+            [_erab_item(5, "198.51.100.10", 4242, frame=10, role="sgw_s1u")],
+            [_tunnel_event(9, interface_type=0, message="Modify Bearer Request", family="modify-bearer")],
+        )
+        self.assertTrue(analysis["gtpv2_supporting_evidence"])
+        link_types = {
+            link.get("link_type")
+            for link in analysis["established_links"] + analysis["ambiguous_links"] + analysis["unbound_evidence"]
+            if isinstance(link, dict)
+        }
+        # Only the two reviewed link types exist; a supporting F-TEID record never
+        # becomes an Attach, S11 or S5/S8 identity join.
+        self.assertEqual(
+            link_types, {"s1ap_erab_to_gtpv2_bearer", "esm_to_s1ap_ue_context"}
+        )
+        self.assertTrue(
+            any("S11" in item for item in analysis["not_confirmed"]),
+            "the S11 to S5/S8 identity statement must remain unconfirmed",
+        )
+        # A type 0 record supports an eNodeB endpoint only; it never turns into a
+        # supported relationship for an SGW endpoint.
+        self.assertFalse(
+            [link for link in analysis["established_links"] if link.get("status") == "SUPPORTED"]
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -128,6 +128,18 @@ ROLE_INTERFACE_TYPES = {ROLE_SGW: frozenset({1}), ROLE_ENODEB: frozenset({0})}
 # Interface types that carry an S1-U F-TEID in the accepted GTPv2-C contract.
 S1U_INTERFACE_TYPES = frozenset({1})
 
+# Every reviewed S1-U F-TEID interface type (TS 29.274 §8.22): type 1 identifies
+# the SGW's S1-U GTP-U endpoint and type 0 the eNodeB's. Both may appear in the
+# supporting-evidence inventory; only the S1AP-derived receiving role decides
+# which one may be compared with a given E-RAB endpoint.
+S1U_SUPPORTING_INTERFACE_TYPES = frozenset({0, 1})
+
+# Reviewed interface type names, published only next to an observed record.
+S1U_INTERFACE_TYPE_NAMES = {
+    0: "S1-U eNodeB GTP-U interface",
+    1: "S1-U SGW GTP-U interface",
+}
+
 REVIEWED_GTPV2_FAMILIES = frozenset(
     {
         "create-session",
@@ -1038,6 +1050,33 @@ def tunnel_links(
         owners = subjects_by_endpoint[request["key"]]
         competing_subjects = [owner for owner in owners if owner != str(instance.get("instance_reference"))]
 
+        # An interface type is evidence only when a matching GTPv2-C record carried
+        # it. The role's expected type is a rule, never an observed identifier.
+        observed_interface_types = sorted(
+            {
+                entry["interface_type"]
+                for entry in candidates
+                if isinstance(entry.get("interface_type"), int)
+            }
+        )
+        expected_types = sorted(ROLE_INTERFACE_TYPES.get(request.get("role") or "", frozenset()))
+        expected_interface_type = expected_types[0] if len(expected_types) == 1 else None
+
+        supporting_identifiers: list[dict[str, Any]] = [
+            {"identifier": "s1u_transport_layer_address", "value": address},
+            {"identifier": "s1u_gtp_teid", "value": teid},
+        ]
+        if len(observed_interface_types) == 1:
+            supporting_identifiers.append(
+                {"identifier": "f_teid_interface_type", "value": observed_interface_types[0]}
+            )
+        elif observed_interface_types:
+            # Several genuine candidates survive the role filter: keep every
+            # observed type instead of publishing a fabricated singleton.
+            supporting_identifiers.append(
+                {"identifier": "f_teid_interface_type", "value": observed_interface_types}
+            )
+
         base: dict[str, Any] = {
             "link_type": "s1ap_erab_to_gtpv2_bearer",
             "source_subject_reference": instance.get("instance_reference"),
@@ -1046,11 +1085,9 @@ def tunnel_links(
             "s1ap_message_type": None,
             "s1u_transport_layer_address": address,
             "s1u_gtp_teid": teid,
-            "supporting_identifiers": [
-                {"identifier": "s1u_transport_layer_address", "value": address},
-                {"identifier": "s1u_gtp_teid", "value": teid},
-                {"identifier": "f_teid_interface_type", "value": sorted(S1U_INTERFACE_TYPES)},
-            ],
+            "supporting_identifiers": supporting_identifiers,
+            "expected_interface_type": expected_interface_type,
+            "observed_interface_types": observed_interface_types,
             "source_endpoint_role": request.get("role"),
             "source_endpoint_role_basis": item.get("endpoint_role_basis"),
             "source_list_role": item.get("list_role"),
@@ -1068,6 +1105,7 @@ def tunnel_links(
                     "status": "NOT_ESTABLISHED",
                     "bearer_association_status": "NOT_ESTABLISHED",
                     "target_subject_reference": None,
+                    "target_interface_type": None,
                     "candidate_target_frames": [],
                     "link_basis": (
                         "endpoint_role_unavailable"
@@ -1095,6 +1133,7 @@ def tunnel_links(
                     "status": "AMBIGUOUS",
                     "bearer_association_status": "AMBIGUOUS",
                     "target_subject_reference": None,
+                    "target_interface_type": None,
                     "candidate_target_frames": target_frames,
                     "link_basis": "several_gtpv2_s1u_f_teids_match_this_endpoint",
                     "evidence_refs": [_evidence_ref("S1AP", item.get("frame_number"), None)]
@@ -1125,6 +1164,7 @@ def tunnel_links(
                     "status": "AMBIGUOUS",
                     "bearer_association_status": "AMBIGUOUS",
                     "target_subject_reference": None,
+                    "target_interface_type": None,
                     "candidate_target_frames": target_frames,
                     "link_basis": "one_gtpv2_s1u_f_teid_matched_by_several_ue_contexts",
                     "evidence_refs": [_evidence_ref("S1AP", item.get("frame_number"), None)]
@@ -1427,7 +1467,10 @@ def analyze(
 
     gtpv2_supporting: list[dict[str, Any]] = []
     for entry in _gtpv2_endpoint_index(gtpv2_events):
-        if entry["interface_type"] not in S1U_INTERFACE_TYPES:
+        # Both reviewed S1-U interface types are admissible here: a downlink
+        # relationship is supported by a type 0 F-TEID, so filtering type 0 out
+        # would make a link contradict its own supporting inventory.
+        if entry["interface_type"] not in S1U_SUPPORTING_INTERFACE_TYPES:
             continue
         gtpv2_supporting.append(
             {
@@ -1437,6 +1480,7 @@ def analyze(
                 "procedure_family": entry.get("procedure_family"),
                 "scope": entry.get("scope"),
                 "interface_type": entry.get("interface_type"),
+                "interface_type_name": S1U_INTERFACE_TYPE_NAMES.get(entry.get("interface_type")),
                 "teid": entry.get("teid"),
                 "transport_layer_address": entry.get("ipv4"),
                 "eps_bearer_identity": entry.get("ebi"),

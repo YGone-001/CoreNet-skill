@@ -81,6 +81,13 @@ A stream publishes what the matching advertisements actually contained:
 | `matched_endpoint_interface_types` | the advertised GTPv2-C interface types, empty for an S1AP-only match |
 | `matched_endpoint_interface_type_names` | the reviewed names of those interface types |
 
+Every published `GTP-U` reference names the message that the frame-anchored GTP-U
+event reports for that frame. A stream's first and last frames are not necessarily
+G-PDUs, so identity is never inferred from stream membership, the G-PDU count, the
+UDP port, the header TEID or the first element of a sorted message-type list. When
+no event exists for a frame, the reference keeps the frame and publishes
+`message_type: null`; `"G-PDU"` is never used as a fallback.
+
 An S1AP E-RAB item carries a transport address and a TEID but **no** GTPv2-C
 interface type, so an S1AP-only match publishes an empty interface-type list and
 the workflow publishes `interface_type: null` with the basis

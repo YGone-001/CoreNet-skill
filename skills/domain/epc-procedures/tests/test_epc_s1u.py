@@ -598,5 +598,168 @@ class EndpointRoleTests(unittest.TestCase):
         self.assertIsNone(item["matched_endpoint_role_basis"])
 
 
+class EvidenceReferenceIdentityTests(unittest.TestCase):
+    """F3: a protocol reference names the message actually observed in that frame."""
+
+    def references(self, analysis: dict, index: int = 0) -> list[tuple[str, int, str | None]]:
+        item = analysis["stream_observations"][index]
+        return [
+            (ref["protocol"], ref["frame_number"], ref["message_type"])
+            for ref in item["evidence_refs"]
+        ]
+
+    # T14 -----------------------------------------------------------------
+    def test_echo_request_stream_is_not_labelled_g_pdu(self) -> None:
+        item = stream(g_pdu=0, octets=0, first=20, last=21, message_types=("Echo Request",))
+        analysis = analyze(
+            [item],
+            events=[
+                gtpu_event(20, message_type="Echo Request"),
+                gtpu_event(21, message_type="Echo Request"),
+            ],
+        )
+        refs = self.references(analysis)
+        self.assertIn(("GTP-U", 20, "Echo Request"), refs)
+        self.assertIn(("GTP-U", 21, "Echo Request"), refs)
+        self.assertFalse([ref for ref in refs if ref[2] == "G-PDU"])
+
+    # T15 -----------------------------------------------------------------
+    def test_echo_response_stream_is_not_labelled_g_pdu(self) -> None:
+        item = stream(g_pdu=0, octets=0, first=22, last=23, message_types=("Echo Response",))
+        analysis = analyze(
+            [item],
+            events=[
+                gtpu_event(22, message_type="Echo Response"),
+                gtpu_event(23, message_type="Echo Response"),
+            ],
+        )
+        refs = self.references(analysis)
+        self.assertIn(("GTP-U", 22, "Echo Response"), refs)
+        self.assertFalse([ref for ref in refs if ref[2] == "G-PDU"])
+
+    # T16 -----------------------------------------------------------------
+    def test_g_pdu_stream_keeps_g_pdu_identity(self) -> None:
+        analysis = analyze([stream(first=30, last=32)])
+        refs = self.references(analysis)
+        self.assertTrue(refs)
+        for protocol, frame, message_type in refs:
+            self.assertEqual(protocol, "GTP-U")
+            self.assertEqual(message_type, "G-PDU")
+            self.assertEqual(frame, 30)
+
+    # T17 -----------------------------------------------------------------
+    def test_mixed_stream_uses_the_identity_of_each_referenced_frame(self) -> None:
+        analysis = analyze(
+            [stream(first=30, last=32, message_types=("Echo Request", "G-PDU"))],
+            events=[
+                gtpu_event(30, message_type="G-PDU"),
+                gtpu_event(31, message_type="Echo Request"),
+                gtpu_event(32, message_type="G-PDU"),
+            ],
+        )
+        refs = self.references(analysis)
+        self.assertIn(("GTP-U", 30, "G-PDU"), refs)
+        self.assertIn(("GTP-U", 31, "Echo Request"), refs)
+        self.assertIn(("GTP-U", 32, "G-PDU"), refs)
+
+    # T18 -----------------------------------------------------------------
+    def test_error_indication_keeps_its_source_frame_and_type(self) -> None:
+        analysis = analyze(
+            [stream(first=40, last=42, error_frames=(42,))],
+            events=[
+                gtpu_event(40, message_type="G-PDU"),
+                gtpu_event(42, message_type="Error Indication"),
+            ],
+        )
+        refs = self.references(analysis)
+        self.assertIn(("GTP-U", 42, "Error Indication"), refs)
+        self.assertNotIn(("GTP-U", 42, "G-PDU"), refs)
+
+    # T19 -----------------------------------------------------------------
+    def test_end_marker_keeps_its_source_frame_and_type(self) -> None:
+        analysis = analyze(
+            [stream(first=50, last=52, end_marker=(52,))],
+            events=[
+                gtpu_event(50, message_type="G-PDU"),
+                gtpu_event(52, message_type="End Marker"),
+            ],
+        )
+        refs = self.references(analysis)
+        self.assertIn(("GTP-U", 52, "End Marker"), refs)
+        self.assertNotIn(("GTP-U", 52, "G-PDU"), refs)
+
+    # T20 -----------------------------------------------------------------
+    def test_missing_event_identity_is_not_replaced_with_g_pdu(self) -> None:
+        analysis = analyze([stream(first=60, last=61)], events=[])
+        refs = self.references(analysis)
+        self.assertTrue(refs, "frame provenance must be preserved")
+        self.assertEqual({ref[1] for ref in refs}, {60, 61})
+        for _protocol, _frame, message_type in refs:
+            self.assertIsNone(message_type)
+        self.assertFalse([ref for ref in refs if ref[2] == "G-PDU"])
+
+    # T21 -----------------------------------------------------------------
+    def test_bounded_references_preserve_the_omission_count(self) -> None:
+        frames = list(range(100, 200))
+        analysis = analyze(
+            [stream(g_pdu=len(frames), octets=len(frames) * 100, first=100, last=199)],
+            events=[gtpu_event(frame) for frame in frames],
+        )
+        item = analysis["stream_observations"][0]
+        self.assertEqual(len(item["evidence_refs"]), model.MAX_EVIDENCE_REFERENCES)
+        self.assertEqual(item["evidence_refs_omitted"], len(frames) - model.MAX_EVIDENCE_REFERENCES)
+
+    def test_bounded_references_cover_every_observed_message_type(self) -> None:
+        frames = list(range(200, 240))
+        events = [gtpu_event(frame) for frame in frames]
+        events[39] = gtpu_event(239, message_type="End Marker")
+        analysis = analyze(
+            [stream(g_pdu=39, octets=3900, first=200, last=239)],
+            events=events,
+        )
+        refs = self.references(analysis)
+        types = {ref[2] for ref in refs}
+        self.assertIn("G-PDU", types)
+        self.assertIn("End Marker", types)
+        self.assertLessEqual(len(refs), model.MAX_EVIDENCE_REFERENCES)
+
+    def test_bounded_references_keep_the_advertising_evidence(self) -> None:
+        frames = list(range(300, 400))
+        analysis = analyze(
+            [stream(g_pdu=len(frames), octets=len(frames) * 100, first=300, last=399)],
+            events=[gtpu_event(frame) for frame in frames],
+            default_bearer=default_bearer(),
+        )
+        item = analysis["stream_observations"][0]
+        refs = self.references(analysis)
+        self.assertEqual(item["association_status"], model.ASSOCIATION_SUPPORTED)
+        # The advertisement is the primary evidence and is never squeezed out by
+        # the packet samples that share the same bound.
+        self.assertEqual(refs[0], ("S1AP", 23, "InitialContextSetupRequest"))
+        self.assertEqual(refs[1][0], "GTP-U")
+        self.assertEqual(
+            len(item["evidence_refs"]), model.MAX_EVIDENCE_REFERENCES
+        )
+        self.assertGreater(item["evidence_refs_omitted"], 0)
+
+    # T22 -----------------------------------------------------------------
+    def test_input_reordering_does_not_change_published_evidence(self) -> None:
+        events = [
+            gtpu_event(70, message_type="G-PDU"),
+            gtpu_event(71, message_type="Echo Request"),
+            gtpu_event(72, message_type="G-PDU"),
+        ]
+        forward = analyze(
+            [stream(first=70, last=72, message_types=("Echo Request", "G-PDU"))], events=events
+        )
+        backward = analyze(
+            [stream(first=70, last=72, message_types=("Echo Request", "G-PDU"))],
+            events=list(reversed(events)),
+        )
+        self.assertEqual(forward["stream_observations"][0]["evidence_refs"],
+                         backward["stream_observations"][0]["evidence_refs"])
+        self.assertEqual(forward, backward)
+
+
 if __name__ == "__main__":
     unittest.main()

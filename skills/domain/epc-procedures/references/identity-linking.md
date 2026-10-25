@@ -52,6 +52,21 @@ When several GTPv2-C messages publish the same endpoint, the link is `AMBIGUOUS`
 and no transaction is selected. When none does, it is `NOT_ESTABLISHED` and is
 published in `unbound_evidence` so both sides stay visible.
 
+The interface type a link publishes is the one the matching F-TEID record actually
+carried, and it is the only value that may appear under
+`supporting_identifiers` -> `f_teid_interface_type`. The role's expected type is
+published separately as `expected_interface_type` and is a rule, not evidence: a
+type 1 record is expected for an `sgw_s1u` endpoint and a type 0 record for an
+`enodeb_s1u` endpoint. A link with no matching record publishes no observed
+interface type, and an ambiguous link selects neither an owner nor a target
+interface type.
+
+Both reviewed S1-U interface types appear in the top-level
+`gtpv2_supporting_evidence` inventory. Filtering type 0 out of that inventory while
+a downlink relationship relies on it would make the document contradict itself, so
+the inventory is complete for the reviewed S1-U types and still excludes every
+other GTPv2-C interface.
+
 ## Forbidden links
 
 | Link | Status | Reason |

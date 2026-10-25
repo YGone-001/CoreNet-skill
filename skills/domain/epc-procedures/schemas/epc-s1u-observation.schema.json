@@ -483,7 +483,8 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "the message actually observed in this frame; null when no frame-anchored event is available, never a substituted default"
         },
         "evidence_level": {
           "type": "string"

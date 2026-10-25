@@ -474,11 +474,54 @@ def build_stream(
         # control stream rather than an unbound bearer association.
         basis = "echo_context_has_no_bearer_receiving_endpoint"
 
-    references = [
-        _evidence_ref("GTP-U", stream.get("first_frame"), "G-PDU"),
-        _evidence_ref("GTP-U", stream.get("last_frame"), "G-PDU"),
-    ]
-    references.extend(matched_endpoint_refs[:MAX_LIST_ITEMS])
+    # Protocol evidence must name the message actually observed in that frame. A
+    # stream's first and last frames are not necessarily G-PDUs, so identity comes
+    # from the frame-anchored GTP-U events and never from stream membership, the
+    # G-PDU count, the UDP port or the header TEID.
+    observed_message_types: dict[int, str] = {}
+    for event in stream_events:
+        frame = event.get("frame_number")
+        header = event.get("header")
+        if not isinstance(frame, int) or isinstance(frame, bool) or not isinstance(header, dict):
+            continue
+        message_type = header.get("message_type")
+        if isinstance(message_type, str) and message_type:
+            observed_message_types.setdefault(frame, message_type)
+
+    packet_references: list[dict[str, Any]] = []
+    if observed_message_types:
+        ordered_frames = sorted(observed_message_types)
+        # Publish one frame per observed message type first, so a bounded list can
+        # never hide a message identity the stream actually carried, then fill the
+        # remaining slots in frame order.
+        representatives: list[int] = []
+        covered: set[str] = set()
+        for frame in ordered_frames:
+            message_type = observed_message_types[frame]
+            if message_type in covered:
+                continue
+            covered.add(message_type)
+            representatives.append(frame)
+        representative_set = set(representatives)
+        ordered = representatives + [frame for frame in ordered_frames if frame not in representative_set]
+        for frame in ordered:
+            packet_references.append(_evidence_ref("GTP-U", frame, observed_message_types[frame]))
+    else:
+        # No frame-anchored event is available: keep the frame provenance and
+        # leave the message identity unavailable rather than inventing "G-PDU".
+        for frame in (stream.get("first_frame"), stream.get("last_frame")):
+            packet_references.append(_evidence_ref("GTP-U", frame, None))
+
+    # The advertisement that supports the relationship is the primary evidence, so
+    # it is published first and survives any tighter downstream bound. The packet
+    # samples keep the remaining slots.
+    endpoint_references = matched_endpoint_refs[:MAX_LIST_ITEMS]
+    endpoint_dropped = max(0, len(matched_endpoint_refs) - len(endpoint_references))
+    packet_budget = max(1, MAX_EVIDENCE_REFERENCES - len(endpoint_references))
+    published_packets = packet_references[:packet_budget]
+    packet_dropped = max(0, len(packet_references) - len(published_packets))
+
+    references = endpoint_references + published_packets
     references = [item for item in references if item["frame_number"] is not None]
     seen: set[tuple[Any, Any]] = set()
     bounded: list[dict[str, Any]] = []
@@ -488,8 +531,10 @@ def build_stream(
             continue
         seen.add(key)
         bounded.append(item)
-    omitted = max(0, len(bounded) - MAX_EVIDENCE_REFERENCES)
+    overflow = max(0, len(bounded) - MAX_EVIDENCE_REFERENCES)
     bounded = bounded[:MAX_EVIDENCE_REFERENCES]
+    # Every reference the bound withholds is counted, not only the last overflow.
+    omitted = packet_dropped + endpoint_dropped + overflow
 
     if not isinstance(g_pdu_count, int) or g_pdu_count == 0:
         limitations.append(

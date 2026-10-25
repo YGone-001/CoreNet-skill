@@ -496,8 +496,9 @@ def _validate_s1u(skill: Path, root: Path) -> list[str]:
 
     base = skill / "examples" / "s1u"
     try:
+        gtpu_events = model.read_jsonl(base / "gtpu-events.jsonl")
         produced = model.analyze(
-            model.read_jsonl(base / "gtpu-events.jsonl"),
+            gtpu_events,
             model.read_json(base / "gtpu-streams.json"),
             default_bearer=model.read_json(base / "default-bearer.json"),
             gtpv2_events=model.read_jsonl(base / "gtpv2-endpoints.jsonl"),
@@ -505,6 +506,18 @@ def _validate_s1u(skill: Path, root: Path) -> list[str]:
         expected = json.loads((base / "expected-observation.json").read_text(encoding="utf-8"))
     except (ValueError, OSError, json.JSONDecodeError, model.InputError) as exc:
         return errors + [f"S1-U fixture: {exc}"]
+
+    observed_types: dict[int, str] = {}
+    for event in gtpu_events:
+        if not isinstance(event, dict):
+            continue
+        frame = event.get("frame_number")
+        header = event.get("header")
+        if not isinstance(frame, int) or not isinstance(header, dict):
+            continue
+        message_type = header.get("message_type")
+        if isinstance(message_type, str) and message_type:
+            observed_types.setdefault(frame, message_type)
 
     produced.pop("input_provenance", None)
     expected_without = dict(expected)
@@ -529,6 +542,22 @@ def _validate_s1u(skill: Path, root: Path) -> list[str]:
         forbidden = S1U_FORBIDDEN_KEYS & set(stream)
         if forbidden:
             fail(f"S1-U stream publishes forbidden field(s) {sorted(forbidden)}")
+        for reference in stream.get("evidence_refs") or []:
+            if not isinstance(reference, dict) or reference.get("protocol") != "GTP-U":
+                continue
+            frame = reference.get("frame_number")
+            message_type = reference.get("message_type")
+            actual = observed_types.get(frame)
+            if actual is not None and message_type != actual:
+                fail(
+                    "an S1-U evidence reference does not name the message observed in its frame "
+                    f"(frame {frame}: {message_type!r} vs {actual!r})"
+                )
+            if actual is None and message_type is not None:
+                fail(
+                    "an S1-U evidence reference names a message for a frame with no observed event "
+                    f"(frame {frame}: {message_type!r})"
+                )
         protocols = stream.get("matched_endpoint_source_protocols") or []
         interface_types = stream.get("matched_endpoint_interface_types") or []
         if not isinstance(protocols, list) or not isinstance(interface_types, list):
@@ -637,6 +666,20 @@ def _validate_default_bearer(skill: Path, root: Path) -> list[str]:
     if rules.get("identity_rules", {}).get("s11_to_s5s8_link") != "NOT_ESTABLISHED":
         fail("default-bearer rules must keep the S11 to S5/S8 link NOT_ESTABLISHED")
 
+    # The supporting inventory admits every reviewed S1-U interface type, while
+    # only the S1AP-derived role decides which one may match an endpoint.
+    reviewed_types = set()
+    for role_types in model.ROLE_INTERFACE_TYPES.values():
+        reviewed_types |= set(role_types)
+    if set(model.S1U_SUPPORTING_INTERFACE_TYPES) != reviewed_types:
+        fail("the S1-U supporting inventory must cover exactly the reviewed role interface types")
+    if set(model.S1U_INTERFACE_TYPE_NAMES) != reviewed_types:
+        fail("the S1-U interface type names must cover exactly the reviewed role interface types")
+    if model.S1U_INTERFACE_TYPE_NAMES.get(0) != "S1-U eNodeB GTP-U interface":
+        fail("interface type 0 must be named 'S1-U eNodeB GTP-U interface'")
+    if model.S1U_INTERFACE_TYPE_NAMES.get(1) != "S1-U SGW GTP-U interface":
+        fail("interface type 1 must be named 'S1-U SGW GTP-U interface'")
+
     base = skill / "examples" / "default-bearer"
     try:
         produced = model.analyze(
@@ -685,13 +728,68 @@ def _validate_default_bearer(skill: Path, root: Path) -> list[str]:
         if "apn_name" in bearer or "pdn_address" in bearer:
             fail("default-bearer instance publishes a subscriber-level value")
 
-    for link in (expected.get("established_links") or []) + (expected.get("ambiguous_links") or []):
+    inventory = expected.get("gtpv2_supporting_evidence") or []
+    for entry in inventory:
+        if entry.get("interface_type") not in model.S1U_SUPPORTING_INTERFACE_TYPES:
+            fail(f"unrelated interface type in the supporting inventory: {entry.get('interface_type')}")
+        if entry.get("interface_type_name") != model.S1U_INTERFACE_TYPE_NAMES.get(entry.get("interface_type")):
+            fail("a supporting F-TEID entry publishes a name that does not match its interface type")
+
+    all_links = (
+        (expected.get("established_links") or [])
+        + (expected.get("ambiguous_links") or [])
+        + (expected.get("unbound_evidence") or [])
+    )
+    for link in all_links:
         if link.get("status") not in model.LINK_STATUSES:
             fail(f"unexpected link status: {link.get('status')}")
         if link.get("link_type") == "s1ap_erab_to_gtpv2_bearer" and link.get("status") == "ESTABLISHED":
             fail("an S1AP to GTPv2 tunnel link must never be published as ESTABLISHED")
         if "s11" in str(link.get("link_type", "")).lower():
             fail("an S11 to S5/S8 link must never be published")
+        if link.get("link_type") != "s1ap_erab_to_gtpv2_bearer":
+            continue
+        published = [
+            item.get("value")
+            for item in link.get("supporting_identifiers") or []
+            if item.get("identifier") == "f_teid_interface_type"
+        ]
+        observed = link.get("observed_interface_types")
+        if not isinstance(observed, list):
+            fail("a tunnel link must publish the observed interface types as a list")
+            continue
+        for interface_type in observed:
+            if interface_type not in model.S1U_SUPPORTING_INTERFACE_TYPES:
+                fail(f"a tunnel link publishes an unreviewed observed interface type: {interface_type}")
+        if len(published) > 1:
+            fail("a tunnel link must publish at most one f_teid_interface_type identifier")
+        if not observed:
+            if published:
+                fail("a link without an observed F-TEID must not publish an interface type")
+            if link.get("target_interface_type") is not None:
+                fail("a link without an observed F-TEID must not select a target interface type")
+            continue
+        if not published:
+            fail("a link with an observed F-TEID must publish its interface type")
+            continue
+        value = published[0]
+        expected_value = observed[0] if len(observed) == 1 else observed
+        if value != expected_value:
+            fail(
+                "the published interface type does not match the observed F-TEID "
+                f"({value!r} vs {expected_value!r})"
+            )
+        if link.get("status") == "SUPPORTED":
+            if link.get("target_interface_type") != observed[0]:
+                fail("a supported link must publish the observed interface type as its target")
+            frames = {
+                (entry.get("frame_number"), entry.get("interface_type")) for entry in inventory
+            }
+            if (link.get("target_frame"), observed[0]) not in frames:
+                fail("a supported link names a target F-TEID missing from the supporting inventory")
+        else:
+            if link.get("target_interface_type") is not None:
+                fail("a link without a selected owner must not publish a target interface type")
 
     for deviation in expected.get("procedure_local_deviations") or []:
         if deviation.get("deviation_type") not in model.DEVIATION_TYPES:

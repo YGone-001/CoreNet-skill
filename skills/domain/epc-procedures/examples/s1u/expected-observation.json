@@ -69,21 +69,57 @@
       "evidence_refs": [
         {
           "evidence_level": "OBSERVED",
+          "frame_number": 23,
+          "message_type": "InitialContextSetupRequest",
+          "protocol": "S1AP"
+        },
+        {
+          "evidence_level": "OBSERVED",
           "frame_number": 30,
           "message_type": "G-PDU",
           "protocol": "GTP-U"
         },
         {
           "evidence_level": "OBSERVED",
+          "frame_number": 42,
+          "message_type": "Error Indication",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
           "frame_number": 43,
+          "message_type": "End Marker",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 31,
           "message_type": "G-PDU",
           "protocol": "GTP-U"
         },
         {
           "evidence_level": "OBSERVED",
-          "frame_number": 23,
-          "message_type": "InitialContextSetupRequest",
-          "protocol": "S1AP"
+          "frame_number": 32,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 33,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 34,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 35,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
         }
       ],
       "frame_number": 30,
@@ -153,21 +189,57 @@
       "evidence_refs": [
         {
           "evidence_level": "OBSERVED",
+          "frame_number": 23,
+          "message_type": "InitialContextSetupRequest",
+          "protocol": "S1AP"
+        },
+        {
+          "evidence_level": "OBSERVED",
           "frame_number": 30,
           "message_type": "G-PDU",
           "protocol": "GTP-U"
         },
         {
           "evidence_level": "OBSERVED",
+          "frame_number": 42,
+          "message_type": "Error Indication",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
           "frame_number": 43,
+          "message_type": "End Marker",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 31,
           "message_type": "G-PDU",
           "protocol": "GTP-U"
         },
         {
           "evidence_level": "OBSERVED",
-          "frame_number": 23,
-          "message_type": "InitialContextSetupRequest",
-          "protocol": "S1AP"
+          "frame_number": 32,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 33,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 34,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 35,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
         }
       ],
       "first_frame": 30,
@@ -231,7 +303,25 @@
       "evidence_refs": [
         {
           "evidence_level": "OBSERVED",
+          "frame_number": 24,
+          "message_type": "InitialContextSetupResponse",
+          "protocol": "S1AP"
+        },
+        {
+          "evidence_level": "OBSERVED",
           "frame_number": 36,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 37,
+          "message_type": "G-PDU",
+          "protocol": "GTP-U"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 38,
           "message_type": "G-PDU",
           "protocol": "GTP-U"
         },
@@ -240,12 +330,6 @@
           "frame_number": 39,
           "message_type": "G-PDU",
           "protocol": "GTP-U"
-        },
-        {
-          "evidence_level": "OBSERVED",
-          "frame_number": 24,
-          "message_type": "InitialContextSetupResponse",
-          "protocol": "S1AP"
         }
       ],
       "first_frame": 36,
@@ -308,7 +392,7 @@
         {
           "evidence_level": "OBSERVED",
           "frame_number": 40,
-          "message_type": "G-PDU",
+          "message_type": "Echo Request",
           "protocol": "GTP-U"
         }
       ],
@@ -363,7 +447,7 @@
         {
           "evidence_level": "OBSERVED",
           "frame_number": 41,
-          "message_type": "G-PDU",
+          "message_type": "Echo Response",
           "protocol": "GTP-U"
         }
       ],

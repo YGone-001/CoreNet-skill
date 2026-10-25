@@ -160,6 +160,14 @@ such a link is `SUPPORTED` rather than `ESTABLISHED` because an E-RAB identity i
 never equated with an EPS bearer identity. S11 to S5/S8 and Attach to session
 links stay `NOT_ESTABLISHED`.
 
+A link publishes the interface type that the matching GTPv2-C F-TEID actually
+carried (`supporting_identifiers` -> `f_teid_interface_type`), never the type its
+role expects: type 1 for an `sgw_s1u` endpoint and type 0 for an `enodeb_s1u`
+endpoint are documented as `expected_interface_type`, and a link with no matching
+record publishes no observed type at all. The top-level
+`gtpv2_supporting_evidence` inventory keeps both reviewed S1-U interface types, so
+a downlink relationship never contradicts the evidence inventory it cites.
+
 The capability publishes `not_confirmed` explicitly and keeps
 `boundary_selection_status` at `NOT_EVALUATED`. See `references/default-bearer.md`
 and `references/identity-linking.md`.
@@ -187,7 +195,11 @@ a TEID value alone never establishes ownership. The association is `SUPPORTED`,
 `AMBIGUOUS` or `NOT_ESTABLISHED`, and unbound streams stay observable.
 
 The capability reports observed G-PDU counts and bounded payload-octet counts with
-their documented definition. It never claims UE delivery, bearer service success,
+their documented definition. Every protocol reference names the message actually
+observed in that frame, taken from the frame-anchored GTP-U event, so an Echo
+Request, Echo Response, Error Indication or End Marker frame is never published as
+a G-PDU; when no event is available the message identity stays null. It never
+claims UE delivery, bearer service success,
 application reachability or packet loss, never republishes inner packet content,
 and keeps `boundary_selection_status` at `NOT_APPLICABLE`. See
 `references/s1u-observation.md`.

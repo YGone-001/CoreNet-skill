@@ -31,11 +31,15 @@
           "protocol": "GTPv2-C"
         }
       ],
+      "expected_interface_type": 0,
       "limitations": [
         "more than one observed GTPv2-C record publishes this S1-U endpoint, so no single bearer allocation is selected"
       ],
       "link_basis": "several_gtpv2_s1u_f_teids_match_this_endpoint",
       "link_type": "s1ap_erab_to_gtpv2_bearer",
+      "observed_interface_types": [
+        0
+      ],
       "s1ap_message_type": null,
       "s1ap_owner_item_count": 1,
       "s1u_gtp_teid": 3355633680,
@@ -59,11 +63,10 @@
         },
         {
           "identifier": "f_teid_interface_type",
-          "value": [
-            1
-          ]
+          "value": 0
         }
       ],
+      "target_interface_type": null,
       "target_subject_reference": null
     }
   ],
@@ -557,12 +560,16 @@
               "protocol": "GTPv2-C"
             }
           ],
+          "expected_interface_type": 1,
           "limitations": [
             "the E-RAB identity and the EPS bearer identity are different identifiers and are never equated",
             "endpoint equality is control-plane provisioning evidence, not proof that a GTP-U tunnel forwards traffic"
           ],
           "link_basis": "unique_exact_s1u_endpoint_equality_with_reviewed_interface_type",
           "link_type": "s1ap_erab_to_gtpv2_bearer",
+          "observed_interface_types": [
+            1
+          ],
           "ordering": "gtpv2_precedes_s1ap",
           "s1ap_message_type": null,
           "s1ap_owner_item_count": 1,
@@ -587,9 +594,7 @@
             },
             {
               "identifier": "f_teid_interface_type",
-              "value": [
-                1
-              ]
+              "value": 1
             }
           ],
           "target_eps_bearer_identity": 5,
@@ -629,11 +634,15 @@
               "protocol": "GTPv2-C"
             }
           ],
+          "expected_interface_type": 0,
           "limitations": [
             "more than one observed GTPv2-C record publishes this S1-U endpoint, so no single bearer allocation is selected"
           ],
           "link_basis": "several_gtpv2_s1u_f_teids_match_this_endpoint",
           "link_type": "s1ap_erab_to_gtpv2_bearer",
+          "observed_interface_types": [
+            0
+          ],
           "s1ap_message_type": null,
           "s1ap_owner_item_count": 1,
           "s1u_gtp_teid": 3355633680,
@@ -657,11 +666,10 @@
             },
             {
               "identifier": "f_teid_interface_type",
-              "value": [
-                1
-              ]
+              "value": 0
             }
           ],
+          "target_interface_type": null,
           "target_subject_reference": null
         }
       ],
@@ -931,12 +939,16 @@
           "protocol": "GTPv2-C"
         }
       ],
+      "expected_interface_type": 1,
       "limitations": [
         "the E-RAB identity and the EPS bearer identity are different identifiers and are never equated",
         "endpoint equality is control-plane provisioning evidence, not proof that a GTP-U tunnel forwards traffic"
       ],
       "link_basis": "unique_exact_s1u_endpoint_equality_with_reviewed_interface_type",
       "link_type": "s1ap_erab_to_gtpv2_bearer",
+      "observed_interface_types": [
+        1
+      ],
       "ordering": "gtpv2_precedes_s1ap",
       "s1ap_message_type": null,
       "s1ap_owner_item_count": 1,
@@ -961,9 +973,7 @@
         },
         {
           "identifier": "f_teid_interface_type",
-          "value": [
-            1
-          ]
+          "value": 1
         }
       ],
       "target_eps_bearer_identity": 5,
@@ -985,15 +995,40 @@
       "eps_bearer_identity": 5,
       "frame_number": 22,
       "interface_type": 1,
+      "interface_type_name": "S1-U SGW GTP-U interface",
       "message_type": "Create Session Response",
       "procedure_family": "create-session",
       "protocol": "GTPv2-C",
       "scope": "bearer",
       "teid": 49676,
       "transport_layer_address": "192.168.64.128"
+    },
+    {
+      "eps_bearer_identity": 5,
+      "frame_number": 27,
+      "interface_type": 0,
+      "interface_type_name": "S1-U eNodeB GTP-U interface",
+      "message_type": "Modify Bearer Request",
+      "procedure_family": "modify-bearer",
+      "protocol": "GTPv2-C",
+      "scope": "bearer",
+      "teid": 3355633680,
+      "transport_layer_address": "127.0.0.5"
+    },
+    {
+      "eps_bearer_identity": 5,
+      "frame_number": 29,
+      "interface_type": 0,
+      "interface_type_name": "S1-U eNodeB GTP-U interface",
+      "message_type": "Modify Bearer Response",
+      "procedure_family": "modify-bearer",
+      "protocol": "GTPv2-C",
+      "scope": "bearer",
+      "teid": 3355633680,
+      "transport_layer_address": "127.0.0.5"
     }
   ],
-  "gtpv2_supporting_evidence_count": 1,
+  "gtpv2_supporting_evidence_count": 3,
   "input_provenance": {
     "nas_eps_events": "gtpu-fields.jsonl",
     "note": "derived from the accepted default-bearer example with the capture identity renamed to the S1-U structured fixture; the endpoint values and reviewed roles are the accepted laboratory values"
