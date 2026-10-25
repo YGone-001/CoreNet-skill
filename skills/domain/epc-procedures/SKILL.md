@@ -358,4 +358,4 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Original CoreNet Domain-layer package. No upstream material imported. Normative
 references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the accepted
-`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.6.1.
+`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.6.2.

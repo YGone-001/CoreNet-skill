@@ -1879,6 +1879,77 @@ def _validate_session_identity(skill: Path, root: Path) -> list[str]:
     ):
         fail("a truncated identity analysis must not close any generation")
 
+    # C1: an endpoint advertised only at message scope, without any grouped
+    # bearer-context item carrying a readable EBI, cannot establish a bearer
+    # association or a closure candidate; the lifecycle closes nothing for it.
+    scope_only_events, scope_only_document = _session_identity_scenario()
+    for item in scope_only_events:
+        if item["frame_number"] == 103:
+            item["bearer_contexts"] = []
+            item["f_teids"] = item["f_teids"] + [
+                {"scope": "message", "interface_type": 1, "teid": 56, "ipv4": "10.0.0.20"}
+            ]
+    scope_only = model.analyze(scope_only_events, transactions=scope_only_document)
+    scope_links = {
+        item["bearer_endpoint"]["role"]: item
+        for item in scope_only["session_to_generation_links"]
+    }
+    if scope_links.get("sgw_s1u", {}).get("association_status") != "NOT_ESTABLISHED":
+        fail("a message-scope-only endpoint must not establish a bearer association")
+    if scope_links.get("sgw_s1u", {}).get("association_basis") != (
+        "grouped_bearer_item_identity_missing"
+    ):
+        fail("a missing grouped bearer-item identity must publish its fail-closed basis")
+    if scope_links.get("enodeb_s1u", {}).get("association_status") != "ESTABLISHED":
+        fail("a message-scope-only advertisement must not block other receiving roles")
+    if scope_only["established_closure_candidate_count"] != 1:
+        fail("only the grouped-evidence endpoint may keep an established closure candidate")
+    scope_index = lifecycle.transaction_index(scope_only_document, scope_only_events)
+    scope_boundaries = lifecycle.release_boundaries(scope_only_events, scope_index)
+    scope_records = lifecycle.endpoint_records(scope_only_events)
+    scope_conflicts = lifecycle.transaction_endpoint_values(
+        scope_only_document, scope_only_events, scope_index
+    )
+    scope_families = lifecycle.build_advertisement_families(
+        scope_records, scope_index, scope_conflicts, scope_boundaries
+    )
+    scope_generations, _ = lifecycle.build_generations(
+        scope_families,
+        scope_boundaries,
+        lifecycle._session_identity_closure_index(scope_only),
+    )
+    if sum(
+        1
+        for generation in scope_generations
+        if generation["generation_state"] == "CLOSED_BY_ACCEPTED_RELEASE"
+    ) != 1:
+        fail("the message-scope-only generation must stay open at the lifecycle")
+
+    # C2: missing completeness metadata, underdeclared counts and nonzero
+    # omitted counts fail closed with their own precise limitation token; only
+    # positive truncation keeps SOURCE_CANDIDATES_TRUNCATED.
+    missing_count = json.loads(json.dumps(analysis))
+    missing_count.pop("generation_closure_candidate_count")
+    missing_index = lifecycle._session_identity_closure_index(missing_count)
+    if missing_index.get("complete"):
+        fail("a missing candidate count must fail the completeness gate")
+    if "SOURCE_CANDIDATES_METADATA_INVALID" not in str(missing_index.get("limitation")):
+        fail("a missing candidate count must publish the metadata-invalid limitation")
+    underdeclared = json.loads(json.dumps(analysis))
+    underdeclared["generation_closure_candidate_count"] = 1
+    under_index = lifecycle._session_identity_closure_index(underdeclared)
+    if under_index.get("complete"):
+        fail("an underdeclared candidate count must fail the completeness gate")
+    if "SOURCE_CANDIDATES_METADATA_INVALID" not in str(under_index.get("limitation")):
+        fail("an underdeclared candidate count must publish the metadata-invalid limitation")
+    nonzero_omitted = json.loads(json.dumps(analysis))
+    nonzero_omitted["generation_closure_candidates_omitted"] = 5
+    omitted_index = lifecycle._session_identity_closure_index(nonzero_omitted)
+    if omitted_index.get("complete"):
+        fail("a nonzero omitted count must fail the completeness gate")
+    if "SOURCE_CANDIDATES_METADATA_INVALID" not in str(omitted_index.get("limitation")):
+        fail("a nonzero omitted count must publish the metadata-invalid limitation")
+
     return errors
 
 if __name__ == "__main__":

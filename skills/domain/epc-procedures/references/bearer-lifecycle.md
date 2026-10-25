@@ -206,9 +206,14 @@ input contract the lifecycle capability may close a generation through the
 5. exactly one candidate release remains; an ambiguous direct path never falls
    back to the session-context path, and an ambiguous identity chain closes
    nothing;
-6. the identity analysis is complete: each published count equals its published
-   record array, otherwise the lifecycle publishes `SOURCE_CANDIDATES_TRUNCATED`
-   and refuses session-context closure for the whole analysis.
+6. the identity analysis is complete as an affirmative proof: for every
+   closure-critical collection the declared count must be present, a nonnegative
+   integer, equal to the published record array, and the published omitted count
+   must be present, valid and zero. Positive truncation publishes
+   `SOURCE_CANDIDATES_TRUNCATED`; every other missing, invalid, underdeclared or
+   nonzero-omitted metadata publishes `SOURCE_CANDIDATES_METADATA_INVALID` — both
+   refuse session-context closure for the whole analysis, with no input-order
+   fallback.
 
 The lifecycle also never closes a generation whose owning session context lacks an
 accepted allocation outcome, or whose endpoint carries a rejected or unresolved

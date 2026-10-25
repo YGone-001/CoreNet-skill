@@ -151,4 +151,4 @@ global failure boundary, no subscriber identity. See `SKILL.md`.
 
 ## Version
 
-0.6.1
+0.6.2

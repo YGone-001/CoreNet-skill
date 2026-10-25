@@ -93,6 +93,14 @@ blocks that endpoint's bearer association, and one endpoint advertising more tha
 one distinct item-scoped bearer identity stays `AMBIGUOUS` — both source records
 are preserved and no single bearer generation is isolated.
 
+Bearer identity is an affirmative requirement: at least one grouped item must
+carry a readable item-scoped EBI before anything is established. An endpoint
+advertised only at message scope, or whose grouped items carry no readable EBI,
+fails closed on `grouped_bearer_item_identity_missing`; the message-scope
+advertisement remains observable diagnostic evidence that neither establishes nor
+blocks the association, and a duplicated message-scope record never disqualifies
+an otherwise independently proved grouped relationship.
+
 ## Hop classification
 
 Every classifying F-TEID must be corroborated by the publishing message's own

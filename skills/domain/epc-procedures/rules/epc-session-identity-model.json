@@ -53,6 +53,7 @@
       "every grouped bearer item of the endpoint inside the owning context accepted",
       "an item without a grouped bearer Cause falls back only to its own transaction's correlated response message Cause",
       "flat unbound IE values are never assigned to any item by position",
+      "at least one grouped bearer-context item with a readable item-scoped bearer identity",
       "at most one distinct item-scoped bearer identity per endpoint in the context",
       "exactly one endpoint of the receiving role in the context"
     ],

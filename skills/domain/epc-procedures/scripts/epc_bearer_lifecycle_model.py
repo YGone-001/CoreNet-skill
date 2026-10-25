@@ -1629,27 +1629,77 @@ def _session_identity_closure_index(session_identity: Any) -> dict[str, Any]:
                 candidate.get("bearer_endpoint_reference"),
             )
         )
-    # Completeness gate: the identity document publishes full collection counts
-    # but bounded arrays. When a published count exceeds the number of published
-    # records the candidate set is known to be truncated, so no uniqueness claim
-    # and no session-context closure may rest on it.
+    # Completeness gate: candidate completeness is an affirmative proof
+    # requirement, not a best-effort truncation warning. For every
+    # closure-critical collection the declared count must be present, a
+    # nonnegative integer (booleans are not integers), equal to the number of
+    # published records, and the published omitted count must be present, valid
+    # and zero. Truncation keeps its own precise limitation token; every other
+    # missing or inconsistent completeness metadata fails closed separately.
     index["complete"] = True
     index["limitation"] = None
-    for count_key, records in (
-        ("session_to_generation_count", session_identity.get("session_to_generation_links") or []),
-        ("release_session_binding_count", session_identity.get("release_session_bindings") or []),
+
+    def _nonnegative_integer(value: Any) -> int | None:
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None
+        return value
+
+    for array_key, count_key, omitted_key in (
         (
+            "release_session_bindings",
+            "release_session_binding_count",
+            "release_session_bindings_omitted",
+        ),
+        (
+            "session_to_generation_links",
+            "session_to_generation_count",
+            "session_to_generation_omitted",
+        ),
+        (
+            "generation_closure_candidates",
             "generation_closure_candidate_count",
-            session_identity.get("generation_closure_candidates") or [],
+            "generation_closure_candidates_omitted",
         ),
     ):
-        count = _int(session_identity.get(count_key))
-        if count is not None and count > len(records):
+        records = session_identity.get(array_key)
+        if not isinstance(records, list):
             index["complete"] = False
             index["limitation"] = (
-                f"SOURCE_CANDIDATES_TRUNCATED: {count_key}={count} exceeds the "
+                f"SOURCE_CANDIDATES_METADATA_INVALID: {array_key} is not a published record "
+                "array, so session-context closure is refused for this analysis"
+            )
+            break
+        declared = _nonnegative_integer(session_identity.get(count_key))
+        if declared is None:
+            index["complete"] = False
+            index["limitation"] = (
+                f"SOURCE_CANDIDATES_METADATA_INVALID: {count_key} is missing or not a "
+                "nonnegative integer, so candidate-set completeness is unproven and "
+                "session-context closure is refused for this analysis"
+            )
+            break
+        if declared > len(records):
+            index["complete"] = False
+            index["limitation"] = (
+                f"SOURCE_CANDIDATES_TRUNCATED: {count_key}={declared} exceeds the "
                 f"{len(records)} published records, so session-context closure is refused for "
                 "this analysis"
+            )
+            break
+        if declared < len(records):
+            index["complete"] = False
+            index["limitation"] = (
+                f"SOURCE_CANDIDATES_METADATA_INVALID: {count_key}={declared} underdeclares the "
+                f"{len(records)} published records, so session-context closure is refused for "
+                "this analysis"
+            )
+            break
+        omitted = _nonnegative_integer(session_identity.get(omitted_key))
+        if omitted is None or omitted != 0:
+            index["complete"] = False
+            index["limitation"] = (
+                f"SOURCE_CANDIDATES_METADATA_INVALID: {omitted_key} is missing, invalid or "
+                "nonzero, so session-context closure is refused for this analysis"
             )
             break
     return index

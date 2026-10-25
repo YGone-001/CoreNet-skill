@@ -1143,25 +1143,39 @@ def build_session_generation_links(
         # Bearer-item evidence of this endpoint inside the owning context: the
         # item records come from the grouped bearer-context hierarchy only, so
         # a bearer-scope Cause blocks exactly its own item and flat unbound IE
-        # values can never be assigned to any item by position.
+        # values can never be assigned to any item by position. Only grouped
+        # (bearer-scope) items can carry an item-scoped bearer identity; a
+        # message-scope advertisement stays observable diagnostic evidence and
+        # neither establishes nor blocks the association by itself.
         context_items = [
             item
             for item in endpoint.get("items") or []
             if item.get("transaction_reference")
             in set(context["member_transaction_references"])
         ]
+        grouped_items = [
+            item for item in context_items if item.get("scope") == "bearer"
+        ]
         distinct_identities = {
             item["eps_bearer_identity"]
-            for item in context_items
+            for item in grouped_items
             if item["eps_bearer_identity"] is not None
         }
-        item_outcomes = {_item_outcome(item) for item in context_items}
+        item_outcomes = {_item_outcome(item) for item in grouped_items}
         limitations: list[str] = []
         if context["association_status"] != STATUS_ESTABLISHED:
             status = STATUS_NOT_ESTABLISHED
             basis = "owning_session_context_not_established"
             limitations.append(
                 "the owning session context is not established, so the link cannot be established"
+            )
+        elif not distinct_identities:
+            status = STATUS_NOT_ESTABLISHED
+            basis = "grouped_bearer_item_identity_missing"
+            limitations.append(
+                "no grouped bearer-context item of this endpoint carries a readable item-scoped "
+                "bearer identity, so the message-scope advertisement alone cannot establish a "
+                "bearer association"
             )
         elif len(distinct_identities) > 1:
             status = STATUS_AMBIGUOUS
@@ -1595,6 +1609,20 @@ def build_closure_candidates(
                 release_bearer_identities.get(str(binding["source_subject_reference"]), [])
             )
             endpoint_identities = set(link["bearer_endpoint"]["eps_bearer_identities"] or [])
+            if not endpoint_identities:
+                candidates.append(
+                    _candidate(
+                        binding,
+                        link,
+                        STATUS_NOT_ESTABLISHED,
+                        "endpoint_bearer_identity_unestablished",
+                        [
+                            "the linked endpoint carries no independently established item-scoped "
+                            "bearer identity, so no closure candidate may rest on it"
+                        ],
+                    )
+                )
+                continue
             if (
                 release_identities
                 and endpoint_identities

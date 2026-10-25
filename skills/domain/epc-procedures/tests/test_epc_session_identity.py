@@ -23,6 +23,7 @@ LIFECYCLE_CLI = SCRIPTS / "analyze_epc_bearer_lifecycle.py"
 
 sys.path.insert(0, str(SCRIPTS))
 import epc_session_identity_model as model  # noqa: E402
+import epc_bearer_lifecycle_model as lifecycle_model  # noqa: E402
 
 CAPTURE_A = "capture-a.pcap"
 CAPTURE_B = "capture-b.pcap"
@@ -447,6 +448,59 @@ class SessionIdentityTestCase(unittest.TestCase):
     def base(self) -> tuple[list[dict], dict]:
         return base_document()
 
+    def write_inputs(self, tmp: Path, events: list[dict], transactions: dict) -> tuple[Path, Path]:
+        events_path = tmp / "events.jsonl"
+        transactions_path = tmp / "transactions.json"
+        events_path.write_text(
+            "".join(json.dumps(item, sort_keys=True) + "\n" for item in events),
+            encoding="utf-8",
+        )
+        transactions_path.write_text(
+            json.dumps(transactions, sort_keys=True), encoding="utf-8"
+        )
+        return events_path, transactions_path
+
+    def run_identity(self, tmp: Path, events_path: Path, transactions_path: Path) -> Path:
+        identity_output = tmp / "identity.json"
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(CLI),
+                "--gtpv2",
+                str(events_path),
+                "--transactions",
+                str(transactions_path),
+                "--output",
+                str(identity_output),
+                "--force",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        return identity_output
+
+    def run_lifecycle(
+        self, tmp: Path, events_path: Path, transactions_path: Path, identity_path: Path | None
+    ) -> tuple[int, dict | None]:
+        output = tmp / "lifecycle.json"
+        command = [
+            sys.executable,
+            str(LIFECYCLE_CLI),
+            "--gtpv2",
+            str(events_path),
+            "--transactions",
+            str(transactions_path),
+            "--output",
+            str(output),
+            "--force",
+        ]
+        if identity_path is not None:
+            command.extend(["--session-identity", str(identity_path)])
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        analysis = json.loads(output.read_text(encoding="utf-8")) if output.exists() else None
+        return completed.returncode, analysis
 
 # ---------------------------------------------------------------------------
 # A — hop-local identity
@@ -2486,58 +2540,6 @@ def gtpu_frame_event(frame: int, *, destination: str, teid: int, length: int = 1
 
 
 class LifecycleClosureCompletenessTests(SessionIdentityTestCase):
-    def run_identity(self, tmp: Path, events_path: Path, transactions_path: Path) -> Path:
-        identity_output = tmp / "identity.json"
-        completed = subprocess.run(
-            [
-                sys.executable,
-                str(CLI),
-                "--gtpv2",
-                str(events_path),
-                "--transactions",
-                str(transactions_path),
-                "--output",
-                str(identity_output),
-                "--force",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        return identity_output
-
-    def run_lifecycle(self, tmp: Path, events_path: Path, transactions_path: Path, identity_path: Path | None) -> tuple[int, dict | None]:
-        output = tmp / "lifecycle.json"
-        command = [
-            sys.executable,
-            str(LIFECYCLE_CLI),
-            "--gtpv2",
-            str(events_path),
-            "--transactions",
-            str(transactions_path),
-            "--output",
-            str(output),
-            "--force",
-        ]
-        if identity_path is not None:
-            command.extend(["--session-identity", str(identity_path)])
-        completed = subprocess.run(command, capture_output=True, text=True, check=False)
-        analysis = json.loads(output.read_text(encoding="utf-8")) if output.exists() else None
-        return completed.returncode, analysis
-
-    def write_inputs(self, tmp: Path, events: list[dict], transactions: dict) -> tuple[Path, Path]:
-        events_path = tmp / "events.jsonl"
-        transactions_path = tmp / "transactions.json"
-        events_path.write_text(
-            "".join(json.dumps(item, sort_keys=True) + "\n" for item in events),
-            encoding="utf-8",
-        )
-        transactions_path.write_text(
-            json.dumps(transactions, sort_keys=True), encoding="utf-8"
-        )
-        return events_path, transactions_path
-
     def test_l01_accepted_release_accepted_allocation_unique_binding_closes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -3015,6 +3017,303 @@ class InvarianceTests(SessionIdentityTestCase):
                 self.assertEqual(completed.returncode, 0, completed.stderr)
                 outputs.append(output.read_bytes())
             self.assertEqual(outputs[0], outputs[1])
+
+
+# ---------------------------------------------------------------------------
+# P1-C-I-C-R — C1: missing grouped bearer-item identity (eight cases)
+# ---------------------------------------------------------------------------
+def message_scope_only_fixture() -> tuple[list[dict], dict]:
+    events, transactions = base_document()
+    for item in events:
+        if item["frame_number"] == 103:
+            item["bearer_contexts"] = []
+            item["f_teids"] = [fteid(11, 14, SGW), fteid(1, 56, SGW_S1U)]
+    return events, transactions
+
+
+class MissingBearerIdentityTests(SessionIdentityTestCase):
+    def test_c1_1_message_scope_only_endpoint_cannot_establish(self) -> None:
+        events, transactions = message_scope_only_fixture()
+        result = self.analyze(events, transactions)
+        link = next(
+            item
+            for item in result["session_to_generation_links"]
+            if item["bearer_endpoint"]["role"] == "sgw_s1u"
+        )
+        self.assertEqual(link["association_status"], NOT_ESTABLISHED)
+        self.assertEqual(link["association_basis"], "grouped_bearer_item_identity_missing")
+        other = next(
+            item
+            for item in result["session_to_generation_links"]
+            if item["bearer_endpoint"]["role"] == "enodeb_s1u"
+        )
+        self.assertEqual(other["association_status"], ESTABLISHED)
+        candidate = next(
+            item
+            for item in result["generation_closure_candidates"]
+            if item["bearer_endpoint_reference"] == link["target_subject_reference"]
+        )
+        self.assertEqual(candidate["association_status"], NOT_ESTABLISHED)
+        self.assertEqual(result["established_closure_candidate_count"], 1)
+
+    def test_c1_2_grouped_bearer_item_with_missing_ebi_cannot_establish(self) -> None:
+        events, transactions = base_document()
+        for item in events:
+            if item["frame_number"] == 103:
+                item["bearer_contexts"] = [
+                    {"ebi": None, "cause": None, "f_teids": [bearer_fteid(1, 56, SGW_S1U)]}
+                ]
+        result = self.analyze(events, transactions)
+        link = next(
+            item
+            for item in result["session_to_generation_links"]
+            if item["bearer_endpoint"]["role"] == "sgw_s1u"
+        )
+        self.assertEqual(link["association_status"], NOT_ESTABLISHED)
+        self.assertEqual(link["association_basis"], "grouped_bearer_item_identity_missing")
+
+    def test_c1_3_accepted_grouped_ebi5_item_establishes(self) -> None:
+        events, transactions = base_document()
+        result = self.analyze(events, transactions)
+        link = next(
+            item
+            for item in result["session_to_generation_links"]
+            if item["bearer_endpoint"]["role"] == "sgw_s1u"
+        )
+        self.assertEqual(link["association_status"], ESTABLISHED)
+        self.assertEqual(link["bearer_endpoint"]["eps_bearer_identities"], [5])
+
+    def test_c1_4_grouped_item_with_duplicate_message_scope_advertisement(self) -> None:
+        events, transactions = base_document()
+        for item in events:
+            if item["frame_number"] == 103:
+                item["f_teids"] = item["f_teids"] + [fteid(1, 56, SGW_S1U)]
+        result = self.analyze(events, transactions)
+        link = next(
+            item
+            for item in result["session_to_generation_links"]
+            if item["bearer_endpoint"]["role"] == "sgw_s1u"
+        )
+        self.assertEqual(link["association_status"], ESTABLISHED)
+        self.assertEqual(link["association_basis"], model.BASIS_ENDPOINT_LINK)
+
+    def test_c1_5_two_grouped_identities_remain_ambiguous(self) -> None:
+        events, transactions = base_document()
+        for item in events:
+            if item["frame_number"] == 103:
+                item["bearer_contexts"] = [
+                    bearer_context(5, [bearer_fteid(1, 56, SGW_S1U)]),
+                    bearer_context(6, [bearer_fteid(1, 56, SGW_S1U)]),
+                ]
+        result = self.analyze(events, transactions)
+        link = next(
+            item
+            for item in result["session_to_generation_links"]
+            if item["bearer_endpoint"]["role"] == "sgw_s1u"
+        )
+        self.assertEqual(link["association_status"], AMBIGUOUS)
+        self.assertEqual(link["association_basis"], "distinct_bearer_identities_share_one_endpoint")
+
+    def test_c1_6_rejected_grouped_item_is_not_overridden_by_message_cause(self) -> None:
+        events, transactions = base_document()
+        for item in events:
+            if item["frame_number"] == 103:
+                for bearer in item["bearer_contexts"]:
+                    if any(ft["interface_type"] == 1 for ft in bearer["f_teids"]):
+                        bearer["cause"] = {
+                            "cause_code": 72,
+                            "cause_name": "No resources available",
+                            "scope": "bearer",
+                        }
+        result = self.analyze(events, transactions)
+        link = next(
+            item
+            for item in result["session_to_generation_links"]
+            if item["bearer_endpoint"]["role"] == "sgw_s1u"
+        )
+        self.assertEqual(link["association_status"], NOT_ESTABLISHED)
+        self.assertEqual(link["association_basis"], "bearer_item_rejected_observed")
+
+    def test_c1_7_accepted_delete_keeps_binding_but_no_closure_candidate(self) -> None:
+        events, transactions = message_scope_only_fixture()
+        result = self.analyze(events, transactions)
+        binding = next(
+            item
+            for item in result["release_session_bindings"]
+            if item["source_subject_reference"] == "s11-delete-a"
+        )
+        self.assertEqual(binding["association_status"], ESTABLISHED)
+        self.assertEqual(binding["release_outcome_status"], "ACCEPTED")
+        sgw_link = next(
+            item
+            for item in result["session_to_generation_links"]
+            if item["bearer_endpoint"]["role"] == "sgw_s1u"
+        )
+        candidate = next(
+            item
+            for item in result["generation_closure_candidates"]
+            if item["bearer_endpoint_reference"] == sgw_link["target_subject_reference"]
+        )
+        self.assertEqual(candidate["association_status"], NOT_ESTABLISHED)
+
+    def test_c1_8_lifecycle_does_not_close_the_missing_identity_generation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            events, transactions = message_scope_only_fixture()
+            events_path, transactions_path = self.write_inputs(tmp_path, events, transactions)
+            identity = self.run_identity(tmp_path, events_path, transactions_path)
+            code, analysis = self.run_lifecycle(
+                tmp_path, events_path, transactions_path, identity
+            )
+            self.assertEqual(code, 0)
+            self.assertEqual(analysis["generation_boundary_count"], 1)
+            closed_roles = {
+                subject["receiving_endpoint_role"]
+                for subject in analysis["lifecycle_subjects"]
+                if subject["generation_boundary"]
+            }
+            self.assertEqual(closed_roles, {"enodeb_s1u"})
+            open_roles = {
+                subject["receiving_endpoint_role"]
+                for subject in analysis["lifecycle_subjects"]
+                if subject["generation_boundary"] is None
+            }
+            self.assertEqual(open_roles, {"sgw_s1u"})
+
+
+# ---------------------------------------------------------------------------
+# P1-C-I-C-R — C2: completeness metadata fail-closed (six variants)
+# ---------------------------------------------------------------------------
+class CompletenessMetadataTests(SessionIdentityTestCase):
+    def closure_verdict(self, doc: dict) -> tuple[bool, str | None, int, dict]:
+        index = lifecycle_model._session_identity_closure_index(doc)
+        events, transactions = base_document()
+        idx = lifecycle_model.transaction_index(transactions, events)
+        boundaries = lifecycle_model.release_boundaries(events, idx)
+        records = lifecycle_model.endpoint_records(events)
+        conflicts = lifecycle_model.transaction_endpoint_values(transactions, events, idx)
+        families = lifecycle_model.build_advertisement_families(records, idx, conflicts, boundaries)
+        generations, _ = lifecycle_model.build_generations(families, boundaries, index)
+        closed = sum(
+            1 for item in generations if item["generation_state"] == "CLOSED_BY_ACCEPTED_RELEASE"
+        )
+        return index.get("complete"), index.get("limitation"), closed, boundaries
+
+    def variant_doc(self, mutate) -> dict:
+        events, transactions = base_document()
+        doc = self.analyze(events, transactions)
+        doc = json.loads(json.dumps(doc))
+        mutate(doc)
+        return doc
+
+    def test_c2_a_missing_count_fails_closed(self) -> None:
+        def mutate(doc):
+            doc.pop("generation_closure_candidate_count")
+
+        complete, limitation, closed, boundaries = self.closure_verdict(self.variant_doc(mutate))
+        self.assertFalse(complete)
+        self.assertIn("SOURCE_CANDIDATES_METADATA_INVALID", limitation)
+        self.assertIn("generation_closure_candidate_count", limitation)
+        self.assertEqual(closed, 0)
+        self.assertEqual(
+            sum(1 for item in boundaries if item["release_outcome"] == "ACCEPTED"), 2
+        )
+
+    def test_c2_b_invalid_count_fails_closed(self) -> None:
+        for invalid in ("many", None, True, 1.5):
+            def mutate(doc, invalid=invalid):
+                doc["generation_closure_candidate_count"] = invalid
+
+            complete, limitation, closed, _ = self.closure_verdict(self.variant_doc(mutate))
+            self.assertFalse(complete, repr(invalid))
+            self.assertIn("SOURCE_CANDIDATES_METADATA_INVALID", limitation)
+            self.assertEqual(closed, 0, repr(invalid))
+
+    def test_c2_c_underdeclared_count_fails_closed(self) -> None:
+        def mutate(doc):
+            doc["generation_closure_candidate_count"] = 1
+
+        complete, limitation, closed, _ = self.closure_verdict(self.variant_doc(mutate))
+        self.assertFalse(complete)
+        self.assertIn("SOURCE_CANDIDATES_METADATA_INVALID", limitation)
+        self.assertIn("underdeclares", limitation)
+        self.assertEqual(closed, 0)
+
+    def test_c2_d_nonzero_omitted_count_fails_closed(self) -> None:
+        def mutate(doc):
+            doc["generation_closure_candidates_omitted"] = 5
+
+        complete, limitation, closed, _ = self.closure_verdict(self.variant_doc(mutate))
+        self.assertFalse(complete)
+        self.assertIn("SOURCE_CANDIDATES_METADATA_INVALID", limitation)
+        self.assertIn("generation_closure_candidates_omitted", limitation)
+        self.assertEqual(closed, 0)
+
+    def test_c2_e_truncation_remains_blocked_with_its_own_token(self) -> None:
+        def mutate(doc):
+            doc["generation_closure_candidate_count"] = 257
+            filler = json.loads(json.dumps(doc["generation_closure_candidates"][0]))
+            filler.pop("generation_closure_candidate_reference", None)
+            doc["generation_closure_candidates"] = doc["generation_closure_candidates"] + [
+                filler
+            ] * (256 - len(doc["generation_closure_candidates"]))
+
+        complete, limitation, closed, _ = self.closure_verdict(self.variant_doc(mutate))
+        self.assertFalse(complete)
+        self.assertIn("SOURCE_CANDIDATES_TRUNCATED", limitation)
+        self.assertEqual(closed, 0)
+
+    def test_c2_f_valid_complete_document_permits_closure(self) -> None:
+        events, transactions = base_document()
+        doc = self.analyze(events, transactions)
+        complete, limitation, closed, _ = self.closure_verdict(json.loads(json.dumps(doc)))
+        self.assertTrue(complete)
+        self.assertIsNone(limitation)
+        self.assertEqual(closed, 2)
+
+    def test_c2_no_input_order_fallback_selects_a_candidate(self) -> None:
+        def mutate(doc):
+            doc["generation_closure_candidate_count"] = 1
+
+        doc = self.variant_doc(mutate)
+        doc["generation_closure_candidates"] = list(
+            reversed(doc["generation_closure_candidates"])
+        )
+        complete, limitation, closed, _ = self.closure_verdict(doc)
+        self.assertFalse(complete)
+        self.assertEqual(closed, 0)
+
+    def test_c2_cli_end_to_end_missing_count(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            events, transactions = self.base()
+            events_path, transactions_path = self.write_inputs(tmp_path, events, transactions)
+            identity = self.run_identity(tmp_path, events_path, transactions_path)
+            doctored = json.loads(identity.read_text(encoding="utf-8"))
+            doctored.pop("generation_closure_candidate_count")
+            broken = tmp_path / "identity-missing-count.json"
+            broken.write_text(json.dumps(doctored, sort_keys=True), encoding="utf-8")
+            code, analysis = self.run_lifecycle(
+                tmp_path, events_path, transactions_path, broken
+            )
+            self.assertEqual(code, 0)
+            self.assertIsNotNone(analysis)
+            self.assertEqual(analysis["generation_boundary_count"], 0)
+            self.assertTrue(
+                any(
+                    "SOURCE_CANDIDATES_METADATA_INVALID" in item
+                    for item in analysis["evidence_limitations"]
+                )
+            )
+            # The accepted release outcomes stay visible and unchanged.
+            self.assertEqual(
+                sum(
+                    1
+                    for item in analysis["generation_boundary_evidence"]
+                    if item["release_outcome"] == "ACCEPTED"
+                ),
+                2,
+            )
 
 
 if __name__ == "__main__":
