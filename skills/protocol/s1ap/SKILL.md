@@ -37,6 +37,22 @@ InitialUEMessage, UplinkNASTransport, DownlinkNASTransport,
 InitialContextSetupRequest, InitialContextSetupResponse, InitialContextSetupFailure,
 UEContextReleaseRequest, UEContextReleaseCommand, UEContextReleaseComplete.
 
+### E-RAB item evidence (bounded)
+
+- Publish item-scoped E-RAB evidence for the Initial Context Setup request and
+  response: E-RAB identity, QCI, ARP presence, transport layer address and
+  GTP-TEID, each bound to its own item from a PDML dissection.
+- Publish the S1-U endpoint role from the message identity only; the role is never
+  inferred from a transport address.
+- Flat field input cannot prove an item boundary, so it is published as
+  `unbound_erab_evidence`: the observed E-RAB identities are listed and no QoS
+  value or tunnel endpoint is attributed to any of them.
+- Report `nas_pdu_embedded` separately from `nas_pdu_present`, because an Initial
+  Context Setup Request carries its NAS-PDU inside the E-RAB item.
+- An E-RAB identity is not a UE identity, and a published GTP-TEID is
+  control-plane provisioning evidence, never proof that a GTP-U tunnel forwards
+  traffic.
+
 ## Non-Goals
 
 - No NAS decoding of any kind; the NAS-PDU payload is never read or published.

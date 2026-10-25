@@ -108,7 +108,7 @@ own PFCP or GTP-U semantics, does not perform TLS decryption, does not join
 cross-interface session state, and does not determine PDU session or SMF/AMF
 verdicts.
 
-Implemented: `s1ap`, the S1-MME signaling Protocol Skill. Version 0.1.0
+Implemented: `s1ap`, the S1-MME signaling Protocol Skill. Version 0.2.0
 implements a bounded subset of TS 36.413 (S1AP), verified against the S1AP
 dissector of Wireshark/TShark 4.7.1: S1 setup (request/response/failure),
 InitialUEMessage, UplinkNASTransport, DownlinkNASTransport, Initial Context
@@ -116,23 +116,32 @@ Setup (request/response/failure), UEContextReleaseRequest, and UE context
 release (command/complete). It resolves the S1AP PDU category with its
 resolution basis, keeps eNB-UE-S1AP-ID and MME-UE-S1AP-ID strictly separate,
 preserves Cause group and value, reports NAS-PDU presence and length only,
-extracts bounded E-RAB item evidence for Initial Context Setup, and correlates
+publishes item-scoped E-RAB evidence for Initial Context Setup (E-RAB identity,
+QCI, ARP presence, transport layer address and GTP-TEID bound to their own item
+from a PDML dissection, with flat field input published as explicitly unbound),
+and correlates
 frames into UE contexts scoped by capture file and SCTP association with
 explicit STRONG/SUPPORTED/AMBIGUOUS/UNBOUND strength. It does not decode NAS,
 does not model LTE Attach state, does not select abnormal boundaries, and does
 not attribute root cause.
 
-Implemented: `nas-eps`, the EPS NAS Protocol Skill. Version 0.1.0 implements a
+Implemented: `nas-eps`, the EPS NAS Protocol Skill. Version 0.2.0 implements a
 bounded subset of TS 24.301, verified against the NAS-EPS dissector of
 Wireshark/TShark 4.7.1: EPS attach (request/accept/complete/reject), Identity
 request/response, Authentication request/response/failure/reject, and NAS
 Security Mode Command/Complete/Reject, with security-header-type and protection
 classification, EMM cause preservation, bounded attach-type and identity-type
-values, ESM container presence and length only, and explicit
+values, ESM container presence and length, and explicit
 PROTECTED_INNER_MESSAGE_UNAVAILABLE classification. Authentication and NAS
-security mode control stay distinct procedures. It never publishes subscriber
-identities, authentication parameters or payload bytes, and it does not decode
-ESM, model bearer state, or determine Attach outcomes.
+security mode control stay distinct procedures. Version 0.2.0 adds a bounded ESM
+subset — PDN connectivity request/reject, activate default EPS bearer context
+request/accept/reject, ESM information request/response and ESM status — read from
+a PDML dissection so each message keeps its ESM container and enclosing NAS
+message, with the EPS bearer identity and the procedure transaction identity kept
+as separate fields, ESM cause preservation, and APN presence/length, PDN address
+presence/family and QoS/PCO presence published without any value. It never
+publishes subscriber identities, authentication parameters or payload bytes, and
+it does not model bearer state or determine Attach outcomes.
 
 Implemented: `gtpv2`, the GTPv2-C session-control Protocol Skill. Version 0.1.0
 implements a bounded subset of TS 29.274 on S11 and S5/S8, verified against the

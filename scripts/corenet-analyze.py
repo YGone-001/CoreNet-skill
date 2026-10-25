@@ -58,6 +58,9 @@ EPC_SESSION_ANALYZE_SCRIPT = (
 )
 GTPV2_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "gtpv2" / "scripts" / "extract-gtpv2.py"
 GTPV2_CORRELATE_SCRIPT = ROOT / "skills" / "protocol" / "gtpv2" / "scripts" / "correlate-gtpv2.py"
+EPC_DEFAULT_BEARER_ANALYZE_SCRIPT = (
+    ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_default_bearer.py"
+)
 EPC_BOUNDARY_SCRIPT = (
     ROOT / "skills" / "orchestration" / "epc-failure-boundary" / "scripts" / "analyze_epc_failure_boundary.py"
 )
@@ -1378,6 +1381,26 @@ def render_text_report(report: dict[str, Any]) -> str:
                     f"({_value(link.get('context_count'))} context(s), "
                     f"reference {_value(link.get('subject_reference'))})"
                 )
+            if subject.get("subject_type") == "EPS_DEFAULT_BEARER":
+                evidence = subject.get("interface_evidence") or {}
+                lines.append(
+                    f"      default bearer: interfaces {', '.join(evidence.get('interfaces') or [])} "
+                    f"(basis {_value(evidence.get('basis'))}), "
+                    f"association {_value(subject.get('association_strength'))}, "
+                    f"attach {_value(subject.get('attach_association'))}, "
+                    f"tunnel {_value(subject.get('cross_interface_association'))}"
+                )
+                lines.append(
+                    f"      ESM: request frame {_value(subject.get('request_frame'))} -> "
+                    f"response frame {_value(subject.get('response_frame'))}, "
+                    f"cause {_value((subject.get('message_cause') or {}).get('cause_code'))}"
+                )
+                for outcome in subject.get("outcomes") or []:
+                    lines.append(f"      outcome: {outcome}")
+                for stage in subject.get("procedure_stages") or []:
+                    lines.append(
+                        f"      stage {stage.get('stage_id')}: {_value(stage.get('status'))}"
+                    )
             if subject.get("subject_type") == "EPC_SESSION_CONTROL":
                 evidence = subject.get("interface_evidence") or {}
                 lines.append(
@@ -1836,10 +1859,51 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                     "PIPELINE_OUTPUT_UNREADABLE", "EPC session-control analysis is not an object"
                 )
 
+    default_bearer_analysis: dict[str, Any] | None = None
+    default_bearer_error: dict[str, Any] | None = None
+    default_bearer_path = run_dir / "epc-default-bearer-analysis.json"
+    if _count_lines(nas_events) or _count_lines(s1ap_events):
+        command = [
+            sys.executable,
+            str(EPC_DEFAULT_BEARER_ANALYZE_SCRIPT),
+            "--nas",
+            str(nas_events),
+            "--s1ap",
+            str(s1ap_events),
+            "--output",
+            str(default_bearer_path),
+            "--force",
+        ]
+        if analysis_path.is_file():
+            command.extend(["--attach", str(analysis_path)])
+        if session_path.is_file():
+            command.extend(["--session", str(session_path)])
+        if gtpv2_event_count:
+            command.extend(["--gtpv2", str(gtpv2_events)])
+        try:
+            # Exit 6 means "no default-bearer instance", which is a valid result
+            # for a capture without readable ESM evidence, not a failure.
+            _run_component(command, "EPC default-bearer analysis", allow_empty=True)
+            if default_bearer_path.is_file():
+                default_bearer_analysis = json.loads(default_bearer_path.read_text(encoding="utf-8"))
+                if not isinstance(default_bearer_analysis, dict):
+                    raise AnalysisError(
+                        "PIPELINE_OUTPUT_UNREADABLE",
+                        "EPC default-bearer analysis is not an object",
+                    )
+        except (AnalysisError, OSError, json.JSONDecodeError) as exc:
+            default_bearer_analysis = None
+            default_bearer_error = {
+                "code": "DEFAULT_BEARER_FAILED",
+                "message": scrub_free_text(str(exc)),
+            }
+
     boundary_analysis: dict[str, Any] | None = None
     boundary_error: dict[str, Any] | None = None
-    has_subjects = bool(analysis.get("procedure_instances")) or bool(
-        (session_analysis or {}).get("control_plane_subjects")
+    has_subjects = (
+        bool(analysis.get("procedure_instances"))
+        or bool((session_analysis or {}).get("control_plane_subjects"))
+        or bool((default_bearer_analysis or {}).get("default_bearer_instances"))
     )
     if has_subjects:
         boundary_path = run_dir / "epc-boundary-analysis.json"
@@ -1873,6 +1937,8 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
     return {
         "analysis": analysis,
         "session_analysis": session_analysis,
+        "default_bearer_analysis": default_bearer_analysis,
+        "default_bearer_error": default_bearer_error,
         "boundary_analysis": boundary_analysis,
         "boundary_error": boundary_error,
         "s1ap_event_count": _count_lines(s1ap_events),
@@ -2216,6 +2282,161 @@ def _project_epc_session_subject(
     return entry
 
 
+def _project_default_bearer_subject(instance: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
+    """Publish one EPS default-bearer instance as a diagnostic subject."""
+    reference = instance.get("instance_reference")
+    stages = instance.get("stages") or []
+    by_stage = {stage.get("stage_id"): stage for stage in stages if isinstance(stage, dict)}
+    activation_request = by_stage.get("default-bearer-activation-request") or {}
+    activation_response = by_stage.get("default-bearer-activation-response") or {}
+    pdn_request = by_stage.get("pdn-connectivity-request") or {}
+    response_messages = [
+        message for message in activation_response.get("messages") or [] if isinstance(message, dict)
+    ]
+    cause = None
+    for message in response_messages:
+        if isinstance(message.get("esm_cause"), dict):
+            cause = {
+                "cause_code": message["esm_cause"].get("value"),
+                "cause_name": scrub_free_text(message["esm_cause"].get("name")),
+                "scope": "esm",
+            }
+            break
+    if cause is None:
+        for message in pdn_request.get("messages") or []:
+            if isinstance(message, dict) and isinstance(message.get("esm_cause"), dict):
+                cause = {
+                    "cause_code": message["esm_cause"].get("value"),
+                    "cause_name": scrub_free_text(message["esm_cause"].get("name")),
+                    "scope": "esm",
+                }
+                break
+    deviations = [
+        {
+            "deviation_type": item.get("deviation_type"),
+            "frame_number": item.get("frame_number"),
+            "protocol": item.get("protocol"),
+            "message_type": scrub_free_text(item.get("message_type")),
+            "esm_cause_code": item.get("esm_cause_code"),
+            "esm_cause_name": scrub_free_text(item.get("esm_cause_name")),
+        }
+        for item in instance.get("deviations") or []
+        if isinstance(item, dict)
+    ]
+    evidence_refs, references_omitted = _bounded_evidence_refs(instance.get("evidence_refs"))
+    limitations, limitations_omitted = _bounded_limitations(instance.get("limitations"))
+    bearer = instance.get("bearer_context") or {}
+    entry: dict[str, Any] = {
+        "diagnostic_group_reference": reference,
+        "subject_type": "EPS_DEFAULT_BEARER",
+        "boundary_selection_status": "NOT_EVALUATED",
+        "boundary_confidence": None,
+        "first_abnormal_boundary": None,
+        "candidate_boundary_count": 0,
+        "source_domain_instances": [
+            {
+                "source_domain": "epc-procedures",
+                "capture_file": (instance.get("ue_context") or {}).get("capture_file"),
+                "instance_reference": reference,
+            }
+        ],
+        "subject_link": {
+            "basis": instance.get("association_basis"),
+            "context_count": 1,
+            "subject_reference": reference,
+            "attach_status": (instance.get("attach_link") or {}).get("status"),
+            "attach_subject_reference": (instance.get("attach_link") or {}).get("target_subject_reference"),
+        },
+        "attempt_index": None,
+        "association_strength": instance.get("association_strength"),
+        "procedure_families": ["eps-default-bearer"],
+        "transaction_references": [],
+        "primary_transaction": None,
+        "interface_evidence": {
+            "interfaces": ["S1-MME", "S1-U"],
+            "basis": "s1ap_ue_context_and_esm_container",
+            "evidence_message": None,
+        },
+        "procedure_stages": [
+            {
+                "stage_id": stage.get("stage_id"),
+                "status": stage.get("status"),
+                "conditional": stage.get("conditional"),
+                "first_frame": stage.get("first_frame"),
+                "last_frame": stage.get("last_frame"),
+                "messages": [
+                    {
+                        "protocol": message.get("protocol"),
+                        "frame_number": message.get("frame_number"),
+                        "message_type": scrub_free_text(message.get("message_type")),
+                        "result": message.get("result"),
+                    }
+                    for message in stage.get("messages") or []
+                    if isinstance(message, dict)
+                ][:MAX_LIST_ITEMS],
+            }
+            for stage in stages
+            if isinstance(stage, dict)
+        ],
+        "procedure_deviations": _project_epc_deviations(deviations),
+        "request_frame": activation_request.get("first_frame") or pdn_request.get("first_frame"),
+        "response_frame": activation_response.get("first_frame"),
+        "message_cause": cause,
+        "bearer_contexts": [
+            {
+                "item_index": 0,
+                "ebi": bearer.get("eps_bearer_identity"),
+                "scope": "bearer",
+                "cause": None,
+                "ebi_basis": bearer.get("eps_bearer_identity_basis"),
+                "pdn_type": scrub_free_text(bearer.get("pdn_type")),
+                "apn_present": bearer.get("apn_present"),
+                "apn_length": bearer.get("apn_length"),
+                "pdn_address_present": bearer.get("pdn_address_present"),
+                "pdn_address_family": scrub_free_text(bearer.get("pdn_address_family")),
+                "qos_present": bearer.get("qos_present"),
+                "pco_present": bearer.get("pco_present"),
+                "f_teids": [],
+            }
+        ],
+        "f_teid_evidence": [
+            {
+                "scope": "bearer",
+                "interface_type": 1,
+                "interface_type_name": "S1-U eNodeB GTP-U",
+                "teid": item.get("gtp_teid"),
+                "transport_layer_address": item.get("transport_layer_address"),
+                "erab_id": item.get("erab_id"),
+                "qci": item.get("qci"),
+                "frame_number": item.get("frame_number"),
+                "binding_basis": item.get("binding_basis"),
+            }
+            for item in instance.get("erab_items") or []
+            if isinstance(item, dict)
+        ][:MAX_LIST_ITEMS],
+        "outcomes": [
+            item for item in instance.get("outcomes") or [] if isinstance(item, str)
+        ],
+        "cross_interface_association": "SUPPORTED"
+        if any(
+            isinstance(link, dict) and link.get("status") == "SUPPORTED"
+            for link in instance.get("tunnel_links") or []
+        )
+        else "NOT_ESTABLISHED",
+        "attach_association": (instance.get("attach_link") or {}).get("status") or "NOT_ESTABLISHED",
+        "observations": [],
+        "evidence_refs": evidence_refs,
+        "observation_window": _bounded_observation_window(instance.get("observation_window")),
+        "evidence_limitations": limitations,
+        "additional_evidence_needed": scrub_list(instance.get("additional_evidence_needed")),
+    }
+    if references_omitted:
+        entry["evidence_refs_omitted"] = references_omitted
+    if limitations_omitted:
+        entry["limitations_omitted"] = limitations_omitted
+    return entry
+
+
 def execute_epc_domain(
     capture: Path,
     work_dir: Path,
@@ -2229,6 +2450,9 @@ def execute_epc_domain(
     session = payload.get("session_analysis")
     instances = analysis.get("procedure_instances") or []
     session_subjects = (session or {}).get("control_plane_subjects") or []
+    default_bearer = payload.get("default_bearer_analysis")
+    default_bearer_error = payload.get("default_bearer_error")
+    default_bearer_instances = (default_bearer or {}).get("default_bearer_instances") or []
     boundary = payload.get("boundary_analysis")
     boundary_error = payload.get("boundary_error")
     groups_by_reference: dict[str, Any] = {}
@@ -2238,6 +2462,7 @@ def execute_epc_domain(
                 groups_by_reference[group["diagnostic_group_reference"]] = group
     attach_deviations = sum(len(instance.get("deviations") or []) for instance in instances)
     session_deviations = (session or {}).get("procedure_local_deviation_count", 0) or 0
+    default_bearer_deviations = (default_bearer or {}).get("procedure_local_deviation_count", 0) or 0
     gtpv2_event_count = payload.get("gtpv2_event_count", 0) or 0
     gtpv2_transaction_count = payload.get("gtpv2_transaction_count", 0) or 0
 
@@ -2251,12 +2476,16 @@ def execute_epc_domain(
         )
         for subject in session_subjects
     )
+    subjects.extend(
+        _project_default_bearer_subject(instance, default_bearer or {})
+        for instance in default_bearer_instances
+    )
     omitted_subjects = max(0, len(subjects) - MAX_DIAGNOSTIC_SUBJECTS)
     subjects = subjects[:MAX_DIAGNOSTIC_SUBJECTS]
 
-    if boundary_error and (instances or session_subjects):
+    if (boundary_error or default_bearer_error) and (instances or session_subjects or default_bearer_instances):
         status = STATUS_PARTIAL
-    elif instances or session_subjects:
+    elif instances or session_subjects or default_bearer_instances:
         status = STATUS_COMPLETED
     else:
         status = STATUS_INSUFFICIENT_EVIDENCE
@@ -2276,6 +2505,9 @@ def execute_epc_domain(
     if isinstance(session, dict):
         limitations.extend(session.get("evidence_limitations") or [])
         additional.extend(session.get("additional_evidence_needed") or [])
+    if isinstance(default_bearer, dict):
+        limitations.extend(default_bearer.get("evidence_limitations") or [])
+        additional.extend(default_bearer.get("additional_evidence_needed") or [])
     bounded_limitations, _ = _bounded_limitations(list(dict.fromkeys(limitations)))
     bounded_additional, _ = _bounded_limitations(list(dict.fromkeys(additional)))
 
@@ -2323,6 +2555,21 @@ def execute_epc_domain(
                 "transaction_count": gtpv2_transaction_count,
                 "deviation_count": session_deviations,
             },
+            {
+                "procedure_domain": "epc-procedures",
+                "procedure": "eps-default-bearer",
+                "execution_status": "EXECUTED" if default_bearer_instances else "NO_SUBJECT",
+                "instance_count": len(default_bearer_instances),
+                "esm_observation_count": (default_bearer or {}).get("esm_observation_count", 0),
+                "erab_observation_count": (default_bearer or {}).get("s1_erab_observation_count", 0),
+                "established_link_count": sum(
+                    1
+                    for instance in default_bearer_instances
+                    for link in (instance or {}).get("tunnel_links") or []
+                    if isinstance(link, dict) and link.get("status") == "SUPPORTED"
+                ),
+                "deviation_count": default_bearer_deviations,
+            },
         ],
         "diagnostic_groups": None,
         "diagnostic_subject_count": len(subjects),
@@ -2353,9 +2600,19 @@ def execute_epc_domain(
         degradation.append(
             "no GTPv2-C session-control subject was reconstructed from the observed evidence"
         )
+    if not default_bearer_instances:
+        degradation.append(
+            "no EPS default-bearer subject was reconstructed from the observed evidence"
+        )
     if omitted_subjects:
         degradation.append(
             f"{omitted_subjects} diagnostic subject(s) were omitted by the publication cap"
+        )
+    if default_bearer_error:
+        result["failure_code"] = "DEFAULT_BEARER_FAILED"
+        degradation.append(
+            "EPC default-bearer analysis failed: "
+            f"{default_bearer_error.get('code')} {default_bearer_error.get('message')}".strip()
         )
     if boundary_error:
         result["failure_code"] = "ORCHESTRATION_FAILED"

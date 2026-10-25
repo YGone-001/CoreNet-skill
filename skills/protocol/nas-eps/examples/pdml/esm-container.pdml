@@ -1,0 +1,787 @@
+<?xml version='1.0' encoding='utf-8'?>
+<pdml version="0.0.0">
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792857018.724101425" show="1792857018.724101425" />
+   <field name="frame.number" showname="Frame Number: 9" show="9" />
+  </proto>
+  <proto name="eth">
+   <field name="eth.dst" showname="Destination: 00:00:00_00:00:00 (00:00:00:00:00:00)" show="00:00:00:00:00:00">
+    <field name="eth.dst_resolved" showname="Destination (resolved): 00:00:00_00:00:00" hide="yes" show="00:00:00_00:00:00" />
+    <field name="eth.dst.oui" showname="Destination OUI: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common)" hide="yes" show="0" />
+    <field name="eth.dst.oui_resolved" showname="Destination OUI (resolved): Officially Xerox, but 0:0:0:0:0:0 is more common" hide="yes" show="Officially Xerox, but 0:0:0:0:0:0 is more common" />
+    <field name="eth.dst.lg" showname=".... ..0. .... .... .... .... = LG bit: Globally unique address (factory default)" show="False" />
+    <field name="eth.dst.ig" showname=".... ...0 .... .... .... .... = IG bit: Individual address (unicast)" show="False" />
+    <field name="eth.addr" showname="Address: 00:00:00_00:00:00 (00:00:00:00:00:00)" hide="yes" show="00:00:00:00:00:00" />
+    <field name="eth.addr_resolved" showname="Address (resolved): 00:00:00_00:00:00" hide="yes" show="00:00:00_00:00:00" />
+    <field name="eth.addr.oui" showname="Address OUI: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common)" hide="yes" show="0" />
+    <field name="eth.addr.oui_resolved" showname="Address OUI (resolved): Officially Xerox, but 0:0:0:0:0:0 is more common" hide="yes" show="Officially Xerox, but 0:0:0:0:0:0 is more common" />
+    <field name="eth.lg" showname=".... ..0. .... .... .... .... = LG bit: Globally unique address (factory default)" hide="yes" show="False" />
+    <field name="eth.ig" showname=".... ...0 .... .... .... .... = IG bit: Individual address (unicast)" hide="yes" show="False" />
+   </field>
+   <field name="eth.src" showname="Source: 00:00:00_00:00:00 (00:00:00:00:00:00)" show="00:00:00:00:00:00">
+    <field name="eth.src_resolved" showname="Source (resolved): 00:00:00_00:00:00" hide="yes" show="00:00:00_00:00:00" />
+    <field name="eth.src.oui" showname="Source OUI: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common)" hide="yes" show="0" />
+    <field name="eth.src.oui_resolved" showname="Source OUI (resolved): Officially Xerox, but 0:0:0:0:0:0 is more common" hide="yes" show="Officially Xerox, but 0:0:0:0:0:0 is more common" />
+    <field name="eth.src.lg" showname=".... ..0. .... .... .... .... = LG bit: Globally unique address (factory default)" show="False" />
+    <field name="eth.src.ig" showname=".... ...0 .... .... .... .... = IG bit: Individual address (unicast)" show="False" />
+    <field name="eth.addr" showname="Address: 00:00:00_00:00:00 (00:00:00:00:00:00)" hide="yes" show="00:00:00:00:00:00" />
+    <field name="eth.addr_resolved" showname="Address (resolved): 00:00:00_00:00:00" hide="yes" show="00:00:00_00:00:00" />
+    <field name="eth.addr.oui" showname="Address OUI: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common)" hide="yes" show="0" />
+    <field name="eth.addr.oui_resolved" showname="Address OUI (resolved): Officially Xerox, but 0:0:0:0:0:0 is more common" hide="yes" show="Officially Xerox, but 0:0:0:0:0:0 is more common" />
+    <field name="eth.lg" showname=".... ..0. .... .... .... .... = LG bit: Globally unique address (factory default)" hide="yes" show="False" />
+    <field name="eth.ig" showname=".... ...0 .... .... .... .... = IG bit: Individual address (unicast)" hide="yes" show="False" />
+   </field>
+   <field name="eth.type" showname="Type: IPv4 (0x0800)" show="0x0800" />
+   <field name="eth.stream" showname="Stream index: 0" show="0" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.version" showname="0100 .... = Version: 4" show="4" />
+   <field name="ip.hdr_len" showname=".... 0101 = Header Length: 20 bytes (5)" show="20" />
+   <field name="ip.dsfield" showname="Differentiated Services Field: 0x02 (DSCP: CS0, ECN: ECT(0))" show="0x02">
+    <field name="ip.dsfield.dscp" showname="0000 00.. = Differentiated Services Codepoint: Default (0)" show="0" />
+    <field name="ip.dsfield.ecn" showname=".... ..10 = Explicit Congestion Notification: ECN-Capable Transport codepoint '10' (2)" show="2" />
+   </field>
+   <field name="ip.len" showname="Total Length: 128" show="128" />
+   <field name="ip.id" showname="Identification: 0x0004 (4)" show="0x0004" />
+   <field name="ip.flags" showname="010. .... = Flags: 0x2, Don't fragment" show="0x02">
+    <field name="ip.flags.rb" showname="0... .... = Reserved bit: Not set" show="False" />
+    <field name="ip.flags.df" showname=".1.. .... = Don't fragment: Set" show="True" />
+    <field name="ip.flags.mf" showname="..0. .... = More fragments: Not set" show="False" />
+   </field>
+   <field name="ip.frag_offset" showname="...0 0000 0000 0000 = Fragment Offset: 0" show="0" />
+   <field name="ip.ttl" showname="Time to Live: 64" show="64" />
+   <field name="ip.proto" showname="Protocol: SCTP (132)" show="132" />
+   <field name="ip.checksum" showname="Header Checksum: 0x37a3 [validation disabled]" show="0x37a3" />
+   <field name="ip.checksum.status" showname="Header checksum status: Unverified" show="2" />
+   <field name="ip.src" showname="Source Address: 192.168.64.128" show="192.168.64.128" />
+   <field name="ip.addr" showname="Source or Destination Address: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.src_host" showname="Source Host: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.host" showname="Source or Destination Host: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.dst" showname="Destination Address: 192.168.64.128" show="192.168.64.128" />
+   <field name="ip.addr" showname="Source or Destination Address: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.dst_host" showname="Destination Host: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.host" showname="Source or Destination Host: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.stream" showname="Stream index: 0" show="0" />
+  </proto>
+  <proto name="sctp">
+   <field name="sctp.srcport" showname="Source port: 60298" show="60298" />
+   <field name="sctp.dstport" showname="Destination port: 36412" show="36412" />
+   <field name="sctp.verification_tag" showname="Verification tag: 0xae08b309" show="0xae08b309" />
+   <field name="sctp.assoc_index" showname="Association index: disabled (enable in preferences)" show="65535" />
+   <field name="sctp.port" showname="Port: 60298" hide="yes" show="60298" />
+   <field name="sctp.port" showname="Port: 36412" hide="yes" show="36412" />
+   <field name="sctp.checksum" showname="Checksum: 0x00000000 [unverified]" show="0x00000000" />
+   <field name="sctp.checksum.status" showname="Checksum Status: Unverified" show="2" />
+   <field name="sctp.chunk" showname="DATA chunk (ordered, complete segment, TSN: 1, SID: 1, SSN: 0, PPID: 18, payload length: 77 bytes)" show="">
+    <field name="sctp.chunk_type" showname="Chunk type: DATA (0)" show="0">
+     <field name="sctp.chunk_bit_1" showname="0... .... = Bit: Stop processing of the packet" show="False" />
+     <field name="sctp.chunk_bit_2" showname=".0.. .... = Bit: Do not report" show="False" />
+    </field>
+    <field name="sctp.chunk_flags" showname="Chunk flags: 0x03" show="0x03">
+     <field name="sctp.data_i_bit" showname=".... 0... = I-Bit: Possibly delay SACK" show="False" />
+     <field name="sctp.data_u_bit" showname=".... .0.. = U-Bit: Ordered delivery" show="False" />
+     <field name="sctp.data_b_bit" showname=".... ..1. = B-Bit: First segment" show="True" />
+     <field name="sctp.data_e_bit" showname=".... ...1 = E-Bit: Last segment" show="True" />
+    </field>
+    <field name="sctp.chunk_length" showname="Chunk length: 93" show="93" />
+    <field name="sctp.data_tsn" showname="Transmission sequence number (relative): 1" show="1" />
+    <field name="sctp.data_tsn_raw" showname="Transmission sequence number (absolute): 2248240197" show="2248240197" />
+    <field name="sctp.data_sid" showname="Stream identifier: 0x0001" show="0x0001" />
+    <field name="sctp.data_ssn" showname="Stream sequence number: 0" show="0" />
+    <field name="sctp.data_payload_proto_id" showname="Payload protocol identifier: S1 Application Protocol (S1AP) (18)" show="18" />
+    <field name="sctp.chunk_padding" showname="Chunk padding: 000000" show="00:00:00" />
+   </field>
+  </proto>
+  <proto name="s1ap">
+   <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+   <field name="per.choice_index" showname="Choice Index: 0" hide="yes" show="0" />
+   <field name="s1ap.S1AP_PDU" showname="S1AP-PDU: initiatingMessage (0)" show="0">
+    <field name="s1ap.initiatingMessage_element" showname="initiatingMessage" show="">
+     <field name="s1ap.procedureCode" showname="procedureCode: id-initialUEMessage (12)" show="12" />
+     <field name="per.enum_index" showname="Enumerated Index: 1" hide="yes" show="1" />
+     <field name="s1ap.criticality" showname="criticality: ignore (1)" show="1" />
+     <field name="per.open_type_length" showname="Open Type Length: 73" hide="yes" show="73" />
+     <field name="s1ap.initiatingMessagevalue_element" showname="value" show="">
+      <field name="s1ap.InitialUEMessage_element" showname="InitialUEMessage" show="">
+       <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+       <field name="per.sequence_of_length" showname="Sequence-Of Length: 5" hide="yes" show="5" />
+       <field name="s1ap.protocolIEs" showname="protocolIEs: 5 items" show="5">
+        <field name="" show="Item 0: id-eNB-UE-S1AP-ID">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-eNB-UE-S1AP-ID (8)" show="8" />
+          <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+          <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+          <field name="per.open_type_length" showname="Open Type Length: 2" hide="yes" show="2" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.ENB_UE_S1AP_ID" showname="ENB-UE-S1AP-ID: 1" show="1" />
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 1: id-NAS-PDU">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-NAS-PDU (26)" show="26" />
+          <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+          <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+          <field name="per.open_type_length" showname="Open Type Length: 33" hide="yes" show="33" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="per.octet_string_length" showname="Octet String Length: 32" hide="yes" show="32" />
+           <field name="s1ap.NAS_PDU" showname="NAS-PDU: 07417108490620000000001002a020000f0201d011280908696e7465726e6574" show="07:41:71:08:49:06:20:00:00:00:00:10:02:a0:20:00:0f:02:01:d0:11:28:09:08:69:6e:74:65:72:6e:65:74" />
+           <proto name="nas-eps" showname="Non-Access-Stratum (NAS)PDU" size="32" pos="80">
+            <field name="nas-eps.security_header_type" showname="0000 .... = Security header type: Plain NAS message, not security protected (0)" show="0" />
+            <field name="gsm_a.L3_protocol_discriminator" showname=".... 0111 = Protocol discriminator: EPS mobility management messages (0x7)" show="0x07" />
+            <field name="nas-eps.nas_msg_emm_type" showname="NAS EPS Mobility Management Message Type: Attach request (0x41)" show="0x41" />
+            <field name="nas-eps.emm.tsc" showname="0... .... = Type of security context flag (TSC): Native security context (for KSIasme or KSIamf)" show="False" />
+            <field name="nas-eps.emm.nas_key_set_id" showname=".111 .... = NAS key set identifier: No key is available (7)" show="7" />
+            <field name="nas-eps.spare_bits" showname=".... 0... = Spare bit(s): 0x00" show="0x00" />
+            <field name="nas-eps.emm.eps_att_type" showname=".... .001 = EPS attach type: EPS attach (1)" show="1" />
+            <field name="" show="EPS mobile identity">
+             <field name="gsm_a.len" showname="Length: 8" show="8" />
+             <field name="nas-eps.emm.odd_even" showname=".... 1... = Odd/even indication: Odd number of identity digits" show="True" />
+             <field name="nas-eps.emm.type_of_id" showname=".... .001 = Type of identity: IMSI (1)" show="1" />
+            </field>
+            <field name="" show="UE network capability">
+             <field name="gsm_a.len" showname="Length: 2" show="2" />
+             <field name="nas-eps.emm.eea0" showname="1... .... = EEA0: Supported" show="True" />
+             <field name="nas-eps.emm.128eea1" showname=".0.. .... = 128-EEA1: Not supported" show="False" />
+             <field name="nas-eps.emm.128eea2" showname="..1. .... = 128-EEA2: Supported" show="True" />
+             <field name="nas-eps.emm.eea3" showname="...0 .... = 128-EEA3: Not supported" show="False" />
+             <field name="nas-eps.emm.eea4" showname=".... 0... = EEA4: Not supported" show="False" />
+             <field name="nas-eps.emm.eea5" showname=".... .0.. = EEA5: Not supported" show="False" />
+             <field name="nas-eps.emm.eea6" showname=".... ..0. = EEA6: Not supported" show="False" />
+             <field name="nas-eps.emm.eea7" showname=".... ...0 = EEA7: Not supported" show="False" />
+             <field name="nas-eps.emm.eia0" showname="0... .... = EIA0: Not supported" show="False" />
+             <field name="nas-eps.emm.128eia1" showname=".0.. .... = 128-EIA1: Not supported" show="False" />
+             <field name="nas-eps.emm.128eia2" showname="..1. .... = 128-EIA2: Supported" show="True" />
+             <field name="nas-eps.emm.eia3" showname="...0 .... = 128-EIA3: Not supported" show="False" />
+             <field name="nas-eps.emm.eia4" showname=".... 0... = EIA4: Not supported" show="False" />
+             <field name="nas-eps.emm.eia5" showname=".... .0.. = EIA5: Not supported" show="False" />
+             <field name="nas-eps.emm.eia6" showname=".... ..0. = EIA6: Not supported" show="False" />
+             <field name="nas-eps.emm.eps_upip" showname=".... ...0 = EPS-UPIP: Not supported" show="False" />
+            </field>
+            <field name="" show="ESM message container">
+             <field name="gsm_a.len" showname="Length: 15" show="15" />
+             <field name="nas-eps.emm.esm_msg_cont" showname="redacted" show="000000000000000000000000000000">
+              <field name="nas-eps.bearer_id" showname="0000 .... = EPS bearer identity: No EPS bearer identity assigned (0)" show="0" />
+              <field name="gsm_a.L3_protocol_discriminator" showname=".... 0010 = Protocol discriminator: EPS session management messages (0x2)" show="0x02" />
+              <field name="nas-eps.esm.proc_trans_id" showname="Procedure transaction identity: 1" show="1" />
+              <field name="nas-eps.nas_msg_esm_type" showname="NAS EPS session management messages: PDN connectivity request (0xd0)" show="0xd0" />
+              <field name="nas-eps.esm_pdn_type" showname="0001 .... = PDN type: IPv4 (1)" show="1" />
+              <field name="nas-eps.esm_request_type" showname=".... 0001 = Request type: Initial request (1)" show="1" />
+              <field name="" show="Access Point Name">
+               <field name="gsm_a.gm.elem_id" showname="Element ID: 0x28" show="0x28" />
+               <field name="gsm_a.len" showname="Length: 9" show="9" />
+               <field name="gsm_a.gm.sm.apn" showname="redacted" show="apn.test" />
+              </field>
+             </field>
+            </field>
+           </proto>
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 2: id-TAI">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-TAI (67)" show="67" />
+          <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+          <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+          <field name="per.open_type_length" showname="Open Type Length: 6" hide="yes" show="6" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.TAI_element" showname="TAI" show="">
+            <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+            <field name="per.optional_field_bit" showname=".0.. .... Optional Field Bit: False (iE-Extensions is NOT present)" hide="yes" show="False" />
+            <field name="s1ap.pLMNidentity" showname="pLMNidentity: 64f020" show="64:f0:20" />
+            <field name="s1ap.tAC" showname="tAC: 1 (0x0001)" show="1" />
+           </field>
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 3: id-EUTRAN-CGI">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-EUTRAN-CGI (100)" show="100" />
+          <field name="per.enum_index" showname="Enumerated Index: 1" hide="yes" show="1" />
+          <field name="s1ap.criticality" showname="criticality: ignore (1)" show="1" />
+          <field name="per.open_type_length" showname="Open Type Length: 8" hide="yes" show="8" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.EUTRAN_CGI_element" showname="EUTRAN-CGI" show="">
+            <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+            <field name="per.optional_field_bit" showname=".0.. .... Optional Field Bit: False (iE-Extensions is NOT present)" hide="yes" show="False" />
+            <field name="s1ap.pLMNidentity" showname="pLMNidentity: 64f020" show="64:f0:20" />
+            <field name="s1ap.CellIdentity" showname="0000 0000 0001 1001 1011 0000 0000 .... = cell-ID: 0x0019b00" show="0x00019b00" />
+           </field>
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 4: id-RRC-Establishment-Cause">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-RRC-Establishment-Cause (134)" show="134" />
+          <field name="per.enum_index" showname="Enumerated Index: 1" hide="yes" show="1" />
+          <field name="s1ap.criticality" showname="criticality: ignore (1)" show="1" />
+          <field name="per.open_type_length" showname="Open Type Length: 1" hide="yes" show="1" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="per.extension_present_bit" showname="0... .... Extension Present Bit: False" hide="yes" show="False" />
+           <field name="per.enum_index" showname="Enumerated Index: 3" hide="yes" show="3" />
+           <field name="s1ap.RRC_Establishment_Cause" showname="RRC-Establishment-Cause: mo-Signalling (3)" show="3" />
+          </field>
+         </field>
+        </field>
+       </field>
+      </field>
+     </field>
+    </field>
+   </field>
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792857019.284002358" show="1792857019.284002358" />
+   <field name="frame.number" showname="Frame Number: 23" show="23" />
+  </proto>
+  <proto name="eth">
+   <field name="eth.dst" showname="Destination: 00:00:00_00:00:00 (00:00:00:00:00:00)" show="00:00:00:00:00:00">
+    <field name="eth.dst_resolved" showname="Destination (resolved): 00:00:00_00:00:00" hide="yes" show="00:00:00_00:00:00" />
+    <field name="eth.dst.oui" showname="Destination OUI: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common)" hide="yes" show="0" />
+    <field name="eth.dst.oui_resolved" showname="Destination OUI (resolved): Officially Xerox, but 0:0:0:0:0:0 is more common" hide="yes" show="Officially Xerox, but 0:0:0:0:0:0 is more common" />
+    <field name="eth.dst.lg" showname=".... ..0. .... .... .... .... = LG bit: Globally unique address (factory default)" show="False" />
+    <field name="eth.dst.ig" showname=".... ...0 .... .... .... .... = IG bit: Individual address (unicast)" show="False" />
+    <field name="eth.addr" showname="Address: 00:00:00_00:00:00 (00:00:00:00:00:00)" hide="yes" show="00:00:00:00:00:00" />
+    <field name="eth.addr_resolved" showname="Address (resolved): 00:00:00_00:00:00" hide="yes" show="00:00:00_00:00:00" />
+    <field name="eth.addr.oui" showname="Address OUI: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common)" hide="yes" show="0" />
+    <field name="eth.addr.oui_resolved" showname="Address OUI (resolved): Officially Xerox, but 0:0:0:0:0:0 is more common" hide="yes" show="Officially Xerox, but 0:0:0:0:0:0 is more common" />
+    <field name="eth.lg" showname=".... ..0. .... .... .... .... = LG bit: Globally unique address (factory default)" hide="yes" show="False" />
+    <field name="eth.ig" showname=".... ...0 .... .... .... .... = IG bit: Individual address (unicast)" hide="yes" show="False" />
+   </field>
+   <field name="eth.src" showname="Source: 00:00:00_00:00:00 (00:00:00:00:00:00)" show="00:00:00:00:00:00">
+    <field name="eth.src_resolved" showname="Source (resolved): 00:00:00_00:00:00" hide="yes" show="00:00:00_00:00:00" />
+    <field name="eth.src.oui" showname="Source OUI: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common)" hide="yes" show="0" />
+    <field name="eth.src.oui_resolved" showname="Source OUI (resolved): Officially Xerox, but 0:0:0:0:0:0 is more common" hide="yes" show="Officially Xerox, but 0:0:0:0:0:0 is more common" />
+    <field name="eth.src.lg" showname=".... ..0. .... .... .... .... = LG bit: Globally unique address (factory default)" show="False" />
+    <field name="eth.src.ig" showname=".... ...0 .... .... .... .... = IG bit: Individual address (unicast)" show="False" />
+    <field name="eth.addr" showname="Address: 00:00:00_00:00:00 (00:00:00:00:00:00)" hide="yes" show="00:00:00:00:00:00" />
+    <field name="eth.addr_resolved" showname="Address (resolved): 00:00:00_00:00:00" hide="yes" show="00:00:00_00:00:00" />
+    <field name="eth.addr.oui" showname="Address OUI: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common)" hide="yes" show="0" />
+    <field name="eth.addr.oui_resolved" showname="Address OUI (resolved): Officially Xerox, but 0:0:0:0:0:0 is more common" hide="yes" show="Officially Xerox, but 0:0:0:0:0:0 is more common" />
+    <field name="eth.lg" showname=".... ..0. .... .... .... .... = LG bit: Globally unique address (factory default)" hide="yes" show="False" />
+    <field name="eth.ig" showname=".... ...0 .... .... .... .... = IG bit: Individual address (unicast)" hide="yes" show="False" />
+   </field>
+   <field name="eth.type" showname="Type: IPv4 (0x0800)" show="0x0800" />
+   <field name="eth.stream" showname="Stream index: 0" show="0" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.version" showname="0100 .... = Version: 4" show="4" />
+   <field name="ip.hdr_len" showname=".... 0101 = Header Length: 20 bytes (5)" show="20" />
+   <field name="ip.dsfield" showname="Differentiated Services Field: 0x02 (DSCP: CS0, ECN: ECT(0))" show="0x02">
+    <field name="ip.dsfield.dscp" showname="0000 00.. = Differentiated Services Codepoint: Default (0)" show="0" />
+    <field name="ip.dsfield.ecn" showname=".... ..10 = Explicit Congestion Notification: ECN-Capable Transport codepoint '10' (2)" show="2" />
+   </field>
+   <field name="ip.len" showname="Total Length: 244" show="244" />
+   <field name="ip.id" showname="Identification: 0x0388 (904)" show="0x0388" />
+   <field name="ip.flags" showname="010. .... = Flags: 0x2, Don't fragment" show="0x02">
+    <field name="ip.flags.rb" showname="0... .... = Reserved bit: Not set" show="False" />
+    <field name="ip.flags.df" showname=".1.. .... = Don't fragment: Set" show="True" />
+    <field name="ip.flags.mf" showname="..0. .... = More fragments: Not set" show="False" />
+   </field>
+   <field name="ip.frag_offset" showname="...0 0000 0000 0000 = Fragment Offset: 0" show="0" />
+   <field name="ip.ttl" showname="Time to Live: 64" show="64" />
+   <field name="ip.proto" showname="Protocol: SCTP (132)" show="132" />
+   <field name="ip.checksum" showname="Header Checksum: 0x33ab [validation disabled]" show="0x33ab" />
+   <field name="ip.checksum.status" showname="Header checksum status: Unverified" show="2" />
+   <field name="ip.src" showname="Source Address: 192.168.64.128" show="192.168.64.128" />
+   <field name="ip.addr" showname="Source or Destination Address: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.src_host" showname="Source Host: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.host" showname="Source or Destination Host: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.dst" showname="Destination Address: 192.168.64.128" show="192.168.64.128" />
+   <field name="ip.addr" showname="Source or Destination Address: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.dst_host" showname="Destination Host: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.host" showname="Source or Destination Host: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.stream" showname="Stream index: 0" show="0" />
+  </proto>
+  <proto name="sctp">
+   <field name="sctp.srcport" showname="Source port: 36412" show="36412" />
+   <field name="sctp.dstport" showname="Destination port: 60298" show="60298" />
+   <field name="sctp.verification_tag" showname="Verification tag: 0xde6b990c" show="0xde6b990c" />
+   <field name="sctp.assoc_index" showname="Association index: disabled (enable in preferences)" show="65535" />
+   <field name="sctp.port" showname="Port: 36412" hide="yes" show="36412" />
+   <field name="sctp.port" showname="Port: 60298" hide="yes" show="60298" />
+   <field name="sctp.checksum" showname="Checksum: 0x00000000 [unverified]" show="0x00000000" />
+   <field name="sctp.checksum.status" showname="Checksum Status: Unverified" show="2" />
+   <field name="sctp.chunk" showname="SACK chunk (Cumulative TSN: 2248240199, a_rwnd: 106496, gaps: 0, duplicate TSNs: 0)" show="">
+    <field name="sctp.chunk_type" showname="Chunk type: SACK (3)" show="3">
+     <field name="sctp.chunk_bit_1" showname="0... .... = Bit: Stop processing of the packet" show="False" />
+     <field name="sctp.chunk_bit_2" showname=".0.. .... = Bit: Do not report" show="False" />
+    </field>
+    <field name="sctp.chunk_flags" showname="Chunk flags: 0x00" show="0x00">
+     <field name="sctp.sack_nonce_sum" showname=".... ...0 = Nonce sum: 0" show="0" />
+    </field>
+    <field name="sctp.chunk_length" showname="Chunk length: 16" show="16" />
+    <field name="sctp.sack_cumulative_tsn_ack" showname="Cumulative TSN ACK (relative): 3" show="3" />
+    <field name="sctp.sack_cumulative_tsn_ack_raw" showname="Cumulative TSN ACK (absolute): 2248240199" show="2248240199" />
+    <field name="sctp.sack_a_rwnd" showname="Advertised receiver window credit (a_rwnd): 106496" show="106496" />
+    <field name="sctp.sack_number_of_gap_blocks" showname="Number of gap acknowledgement blocks: 0" show="0" />
+    <field name="sctp.sack_number_of_duplicated_tsns" showname="Number of duplicated TSNs: 0" show="0" />
+   </field>
+   <field name="sctp.chunk" showname="DATA chunk (ordered, complete segment, TSN: 3, SID: 1, SSN: 2, PPID: 18, payload length: 180 bytes)" show="">
+    <field name="sctp.chunk_type" showname="Chunk type: DATA (0)" show="0">
+     <field name="sctp.chunk_bit_1" showname="0... .... = Bit: Stop processing of the packet" show="False" />
+     <field name="sctp.chunk_bit_2" showname=".0.. .... = Bit: Do not report" show="False" />
+    </field>
+    <field name="sctp.chunk_flags" showname="Chunk flags: 0x03" show="0x03">
+     <field name="sctp.data_i_bit" showname=".... 0... = I-Bit: Possibly delay SACK" show="False" />
+     <field name="sctp.data_u_bit" showname=".... .0.. = U-Bit: Ordered delivery" show="False" />
+     <field name="sctp.data_b_bit" showname=".... ..1. = B-Bit: First segment" show="True" />
+     <field name="sctp.data_e_bit" showname=".... ...1 = E-Bit: Last segment" show="True" />
+    </field>
+    <field name="sctp.chunk_length" showname="Chunk length: 196" show="196" />
+    <field name="sctp.data_tsn" showname="Transmission sequence number (relative): 3" show="3" />
+    <field name="sctp.data_tsn_raw" showname="Transmission sequence number (absolute): 2335676186" show="2335676186" />
+    <field name="sctp.data_sid" showname="Stream identifier: 0x0001" show="0x0001" />
+    <field name="sctp.data_ssn" showname="Stream sequence number: 2" show="2" />
+    <field name="sctp.data_payload_proto_id" showname="Payload protocol identifier: S1 Application Protocol (S1AP) (18)" show="18" />
+   </field>
+  </proto>
+  <proto name="s1ap">
+   <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+   <field name="per.choice_index" showname="Choice Index: 0" hide="yes" show="0" />
+   <field name="s1ap.S1AP_PDU" showname="S1AP-PDU: initiatingMessage (0)" show="0">
+    <field name="s1ap.initiatingMessage_element" showname="initiatingMessage" show="">
+     <field name="s1ap.procedureCode" showname="procedureCode: id-InitialContextSetup (9)" show="9" />
+     <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+     <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+     <field name="per.open_type_length" showname="Open Type Length: 175" hide="yes" show="175" />
+     <field name="s1ap.initiatingMessagevalue_element" showname="value" show="">
+      <field name="s1ap.InitialContextSetupRequest_element" showname="InitialContextSetupRequest" show="">
+       <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+       <field name="per.sequence_of_length" showname="Sequence-Of Length: 7" hide="yes" show="7" />
+       <field name="s1ap.protocolIEs" showname="protocolIEs: 7 items" show="7">
+        <field name="" show="Item 0: id-MME-UE-S1AP-ID">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-MME-UE-S1AP-ID (0)" show="0" />
+          <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+          <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+          <field name="per.open_type_length" showname="Open Type Length: 2" hide="yes" show="2" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.MME_UE_S1AP_ID" showname="MME-UE-S1AP-ID: 9" show="9" />
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 1: id-eNB-UE-S1AP-ID">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-eNB-UE-S1AP-ID (8)" show="8" />
+          <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+          <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+          <field name="per.open_type_length" showname="Open Type Length: 2" hide="yes" show="2" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.ENB_UE_S1AP_ID" showname="ENB-UE-S1AP-ID: 1" show="1" />
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 2: id-uEaggregateMaximumBitrate">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-uEaggregateMaximumBitrate (66)" show="66" />
+          <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+          <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+          <field name="per.open_type_length" showname="Open Type Length: 10" hide="yes" show="10" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.UEAggregateMaximumBitrate_element" showname="UEAggregateMaximumBitrate" show="">
+            <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+            <field name="per.optional_field_bit" showname=".0.. .... Optional Field Bit: False (iE-Extensions is NOT present)" hide="yes" show="False" />
+            <field name="s1ap.uEaggregateMaximumBitRateDL" showname="uEaggregateMaximumBitRateDL: 1000000000bits/s" show="1000000000" />
+            <field name="s1ap.uEaggregateMaximumBitRateUL" showname="uEaggregateMaximumBitRateUL: 1000000000bits/s" show="1000000000" />
+           </field>
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 3: id-E-RABToBeSetupListCtxtSUReq">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-E-RABToBeSetupListCtxtSUReq (24)" show="24" />
+          <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+          <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+          <field name="per.open_type_length" showname="Open Type Length: 85" hide="yes" show="85" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="per.sequence_of_length" showname="Sequence-Of Length: 1" hide="yes" show="1" />
+           <field name="s1ap.E_RABToBeSetupListCtxtSUReq" showname="E-RABToBeSetupListCtxtSUReq: 1 item" show="1">
+            <field name="" show="Item 0: id-E-RABToBeSetupItemCtxtSUReq">
+             <field name="s1ap.ProtocolIE_SingleContainer_element" showname="ProtocolIE-SingleContainer" show="">
+              <field name="s1ap.id" showname="id: id-E-RABToBeSetupItemCtxtSUReq (52)" show="52" />
+              <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+              <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+              <field name="per.open_type_length" showname="Open Type Length: 80" hide="yes" show="80" />
+              <field name="s1ap.ie_field_value_element" showname="value" show="">
+               <field name="s1ap.E_RABToBeSetupItemCtxtSUReq_element" showname="E-RABToBeSetupItemCtxtSUReq" show="">
+                <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+                <field name="per.optional_field_bit" showname=".1.. .... Optional Field Bit: True (nAS-PDU is present)" hide="yes" show="True" />
+                <field name="per.optional_field_bit" showname="..0. .... Optional Field Bit: False (iE-Extensions is NOT present)" hide="yes" show="False" />
+                <field name="per.extension_present_bit" showname="...0 .... Extension Present Bit: False" hide="yes" show="False" />
+                <field name="s1ap.e_RAB_ID" showname="e-RAB-ID: 5" show="5" />
+                <field name="s1ap.e_RABlevelQoSParameters_element" showname="e-RABlevelQoSParameters" show="">
+                 <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+                 <field name="per.optional_field_bit" showname=".0.. .... Optional Field Bit: False (gbrQosInformation is NOT present)" hide="yes" show="False" />
+                 <field name="per.optional_field_bit" showname="..0. .... Optional Field Bit: False (iE-Extensions is NOT present)" hide="yes" show="False" />
+                 <field name="s1ap.qCI" showname="qCI: 9" show="9" />
+                 <field name="s1ap.allocationRetentionPriority_element" showname="allocationRetentionPriority" show="">
+                  <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+                  <field name="per.optional_field_bit" showname=".0.. .... Optional Field Bit: False (iE-Extensions is NOT present)" hide="yes" show="False" />
+                  <field name="s1ap.priorityLevel" showname="priorityLevel: Unknown (8)" show="8" />
+                  <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+                  <field name="s1ap.pre_emptionCapability" showname="pre-emptionCapability: shall-not-trigger-pre-emption (0)" show="0" />
+                  <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+                  <field name="s1ap.pre_emptionVulnerability" showname="pre-emptionVulnerability: not-pre-emptable (0)" show="0" />
+                 </field>
+                </field>
+                <field name="per.extension_present_bit" showname="0... .... Extension Present Bit: False" hide="yes" show="False" />
+                <field name="per.bit_string_length" showname="Bit String Length: 32" hide="yes" show="32" />
+                <field name="s1ap.transportLayerAddress" showname="transportLayerAddress: c0a84080 [bit length 32, 1100 0000  1010 1000  0100 0000  1000 0000 decimal value 3232252032]" show="c0:a8:40:80">
+                 <field name="s1ap.transportLayerAddressIPv4" showname="transportLayerAddress(IPv4): 192.168.64.128" show="192.168.64.128" />
+                </field>
+                <field name="s1ap.gTP_TEID" showname="gTP-TEID: 0000c20c" show="00:00:c2:0c" />
+                <field name="per.octet_string_length" showname="Octet String Length: 65" hide="yes" show="65" />
+                <field name="s1ap.nAS_PDU" showname="nAS-PDU: 27b93ff1710107420129064064f0200001001d5201c101090908696e7465726e657405010a2d00085e06fefefafa0202500bf664f020000201c00007ce64020108" show="27:b9:3f:f1:71:01:07:42:01:29:06:40:64:f0:20:00:01:00:1d:52:01:c1:01:09:09:08:69:6e:74:65:72:6e:65:74:05:01:0a:2d:00:08:5e:06:fe:fe:fa:fa:02:02:50:0b:f6:64:f0:20:00:02:01:c0:00:07:ce:64:02:01:08" />
+                <proto name="nas-eps" showname="Non-Access-Stratum (NAS)PDU" size="65" pos="136">
+                 <field name="nas-eps.security_header_type" showname="0010 .... = Security header type: Integrity protected and ciphered (2)" show="2" />
+                 <field name="gsm_a.L3_protocol_discriminator" showname=".... 0111 = Protocol discriminator: EPS mobility management messages (0x7)" show="0x07" />
+                 <field name="nas-eps.msg_auth_code" showname="redacted" show="0000000000" />
+                 <field name="nas-eps.seq_no" showname="Sequence number: 1" show="1" />
+                 <field name="nas-eps.ciphered_msg" showname="Ciphered message: 07420129064064f0200001001d5201c101090908696e7465726e657405010a2d00085e06fefefafa0202500bf664f020000201c00007ce64020108" show="07:42:01:29:06:40:64:f0:20:00:01:00:1d:52:01:c1:01:09:09:08:69:6e:74:65:72:6e:65:74:05:01:0a:2d:00:08:5e:06:fe:fe:fa:fa:02:02:50:0b:f6:64:f0:20:00:02:01:c0:00:07:ce:64:02:01:08" />
+                 <field name="nas-eps.security_header_type" showname="0000 .... = Security header type: Plain NAS message, not security protected (0)" show="0" />
+                 <field name="gsm_a.L3_protocol_discriminator" showname=".... 0111 = Protocol discriminator: EPS mobility management messages (0x7)" show="0x07" />
+                 <field name="nas-eps.nas_msg_emm_type" showname="NAS EPS Mobility Management Message Type: Attach accept (0x42)" show="0x42" />
+                 <field name="nas-eps.emm.spare_half_octet" showname="0000 .... = Spare half octet: 0" show="0" />
+                 <field name="nas-eps.spare_bits" showname=".... 0... = Spare bit(s): 0x00" show="0x00" />
+                 <field name="nas-eps.emm.EPS_attach_result" showname=".... .001 = Attach result: EPS only (1)" show="1" />
+                 <field name="" show="GPRS Timer - T3412 value">
+                                  </field>
+                 <field name="" show="Tracking area identity list - TAI list">
+                  <field name="gsm_a.len" showname="Length: 6" show="6" />
+                  <field name="nas-eps.spare_bits" showname="0... .... = Spare bit(s): 0x00" show="0x00" />
+                  <field name="nas-eps.emm.tai_tol" showname=".10. .... = Type of list: list of TAIs belonging to different PLMNs (2)" show="2" />
+                  <field name="nas-eps.emm.tai_n_elem" showname="...0 0000 = Number of elements: 0 [+1 = 1 element]" show="0" />
+                  <field name="nas-eps.emm.tai_tac" showname="Tracking area code (TAC): 1" show="1" />
+                 </field>
+                 <field name="" show="ESM message container">
+                  <field name="gsm_a.len" showname="Length: 29" show="29" />
+                  <field name="nas-eps.emm.esm_msg_cont" showname="redacted" show="0000000000000000000000000000000000000000000000000000000000">
+                   <field name="nas-eps.bearer_id" showname="0101 .... = EPS bearer identity: EPS bearer identity value 5 (5)" show="5" />
+                   <field name="gsm_a.L3_protocol_discriminator" showname=".... 0010 = Protocol discriminator: EPS session management messages (0x2)" show="0x02" />
+                   <field name="nas-eps.esm.proc_trans_id" showname="Procedure transaction identity: 1" show="1" />
+                   <field name="nas-eps.nas_msg_esm_type" showname="NAS EPS session management messages: Activate default EPS bearer context request (0xc1)" show="0xc1" />
+                   <field name="" show="EPS quality of service">
+                    <field name="gsm_a.len" showname="Length: 1" show="1" />
+                    <field name="nas-eps.esm.qci" showname="Quality of Service Class Identifier (QCI): QCI 9 (9)" show="9" />
+                   </field>
+                   <field name="" show="Access Point Name">
+                    <field name="gsm_a.len" showname="Length: 9" show="9" />
+                    <field name="gsm_a.gm.sm.apn" showname="redacted" show="apn.test" />
+                   </field>
+                   <field name="" show="PDN address">
+                    <field name="gsm_a.len" showname="Length: 5" show="5" />
+                    <field name="nas-eps.spare_bits" showname="0000 0... = Spare bit(s): 0x00" show="0x00" />
+                    <field name="nas-eps.esm_pdn_type" showname="PDN type: IPv4 (1)" show="1" />
+                    <field name="nas-eps.esm.pdn_ipv4" showname="redacted" show="198.51.100.7" />
+                   </field>
+                   <field name="" show="APN aggregate maximum bit rate">
+                    <field name="nas-eps.esm.elem_id" showname="Element ID: 0x5e" show="0x5e" />
+                    <field name="gsm_a.len" showname="Length: 6" show="6" />
+                    <field name="nas-eps.esm.apn_ambr_dl" showname="APN-AMBR for downlink: 8640 kbps" show="254" />
+                    <field name="nas-eps.esm.apn_ambr_ul" showname="APN-AMBR for uplink: 8640 kbps" show="254" />
+                    <field name="nas-eps.esm.apn_ambr_dl_ext" showname="APN-AMBR for downlink (extended): 256 Mbps" show="250" />
+                    <field name="nas-eps.esm.apn_ambr_ul_ext" showname="APN-AMBR for uplink (extended): 256 Mbps" show="250" />
+                    <field name="nas-eps.esm.apn_ambr_dl_ext2" showname="APN-AMBR for downlink (extended-2): 512 Mbps" show="2" />
+                    <field name="nas-eps.esm.apn_ambr_dl_total" showname="Total APN-AMBR for downlink: 768.000 Mbps" show="768000" />
+                    <field name="nas-eps.esm.apn_ambr_ul_ext2" showname="APN-AMBR for uplink (extended-2): 512 Mbps" show="2" />
+                    <field name="nas-eps.esm.apn_ambr_ul_total" showname="Total APN-AMBR for uplink: 768.000 Mbps" show="768000" />
+                   </field>
+                  </field>
+                 </field>
+                 <field name="" show="EPS mobile identity - GUTI">
+                  <field name="nas-eps.emm.elem_id" showname="Element ID: 0x50" show="0x50" />
+                  <field name="gsm_a.len" showname="Length: 11" show="11" />
+                  <field name="nas-eps.emm.odd_even" showname=".... 0... = Odd/even indication: Even number of identity digits" show="False" />
+                  <field name="nas-eps.emm.type_of_id" showname=".... .110 = Type of identity: GUTI (6)" show="6" />
+                  <field name="nas-eps.emm.m_tmsi" showname="redacted" show="0000000000" />
+                  <field name="3gpp.tmsi" showname="redacted" hide="yes" show="0000000000" />
+                 </field>
+                 <field name="" show="EPS network feature support">
+                  <field name="nas-eps.emm.elem_id" showname="Element ID: 0x64" show="0x64" />
+                  <field name="gsm_a.len" showname="Length: 2" show="2" />
+                  <field name="nas-eps.emm.cp_ciot" showname="0... .... = Control plane CIoT EPS optimization: Not supported" show="False" />
+                  <field name="nas-eps.emm.er_wo_pdn" showname=".0.. .... = EMM-REGISTERED w/o PDN connectivity: Not supported" show="False" />
+                  <field name="nas-eps.emm.esr_ps" showname="..0. .... = Support of EXTENDED SERVICE REQUEST for packet services: Not supported" show="False" />
+                  <field name="nas-eps.emm.cs_lcs" showname="...0 0... = CS-LCS: no information about support of location services via CS domain is available (0)" show="0" />
+                  <field name="nas-eps.emm.epc_lcs" showname=".... .0.. = Location services via EPC: Not supported" show="False" />
+                  <field name="nas-eps.emm.emc_bs" showname=".... ..0. = Emergency bearer services in S1 mode: Not supported" show="False" />
+                  <field name="nas-eps.emm.ims_vops" showname=".... ...1 = IMS voice over PS session in S1 mode: Supported" show="True" />
+                  <field name="nas-eps.emm.15_bearers" showname="0... .... = Signalling for a maximum number of 15 EPS bearer contexts: Not supported" show="False" />
+                  <field name="nas-eps.emm.iwkn26" showname=".0.. .... = Interworking without N26 interface: Not supported" show="False" />
+                  <field name="nas-eps.emm.restrict_dcnr" showname="..0. .... = Restriction on the use of dual connectivity with NR: Not restricted" show="False" />
+                  <field name="nas-eps.emm.restrict_ec" showname="...0 .... = Restriction on enhanced coverage: Not restricted" show="False" />
+                  <field name="nas-eps.emm.epco" showname=".... 1... = Extended protocol configuration options: Supported" show="True" />
+                  <field name="nas-eps.emm.hc_cp_ciot" showname=".... .0.. = Header compression for control plane CIoT EPS optimization: Not supported" show="False" />
+                  <field name="nas-eps.emm.s1_u_data" showname=".... ..0. = S1-u data transfer: Not supported" show="False" />
+                  <field name="nas-eps.emm.up_ciot" showname=".... ...0 = User plane CIoT EPS optimization: Not supported" show="False" />
+                 </field>
+                </proto>
+               </field>
+              </field>
+             </field>
+            </field>
+           </field>
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 4: id-UESecurityCapabilities">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-UESecurityCapabilities (107)" show="107" />
+          <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+          <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+          <field name="per.open_type_length" showname="Open Type Length: 5" hide="yes" show="5" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.UESecurityCapabilities_element" showname="UESecurityCapabilities" show="">
+            <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+            <field name="per.optional_field_bit" showname=".0.. .... Optional Field Bit: False (iE-Extensions is NOT present)" hide="yes" show="False" />
+            <field name="per.extension_present_bit" showname="..0. .... Extension Present Bit: False" hide="yes" show="False" />
+            <field name="s1ap.encryptionAlgorithms" showname="encryptionAlgorithms: 4000 [bit length 16, 0100 0000  0000 0000 decimal value 16384]" show="40:00">
+             <field name="s1ap.encryptionAlgorithms.EEA1" showname="0... .... .... .... = 128-EEA1: Not supported" show="False" />
+             <field name="s1ap.encryptionAlgorithms.EEA2" showname=".1.. .... .... .... = 128-EEA2: Supported" show="True" />
+             <field name="s1ap.encryptionAlgorithms.EEA3" showname="..0. .... .... .... = 128-EEA3: Not supported" show="False" />
+             <field name="s1ap.encryptionAlgorithms.Reserved" showname="...0 0000 0000 0000 = Reserved: 0x0000" show="0x0000" />
+            </field>
+            <field name="per.extension_present_bit" showname="...0 .... Extension Present Bit: False" hide="yes" show="False" />
+            <field name="s1ap.integrityProtectionAlgorithms" showname="integrityProtectionAlgorithms: 4000 [bit length 16, 0100 0000  0000 0000 decimal value 16384]" show="40:00">
+             <field name="s1ap.integrityProtectionAlgorithms.EIA1" showname="0... .... .... .... = 128-EIA1: Not supported" show="False" />
+             <field name="s1ap.integrityProtectionAlgorithms.EIA2" showname=".1.. .... .... .... = 128-EIA2: Supported" show="True" />
+             <field name="s1ap.integrityProtectionAlgorithms.EIA3" showname="..0. .... .... .... = 128-EIA3: Not supported" show="False" />
+             <field name="s1ap.integrityProtectionAlgorithms.EIA7" showname=".... ..0. .... .... = EIA7: Not supported" show="False" />
+             <field name="s1ap.integrityProtectionAlgorithms.Reserved" showname="...0 00.0 0000 0000 = Reserved: 0x0000" show="0x0000" />
+            </field>
+           </field>
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 5: id-SecurityKey">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-SecurityKey (73)" show="73" />
+          <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+          <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+          <field name="per.open_type_length" showname="Open Type Length: 32" hide="yes" show="32" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.SecurityKey" showname="SecurityKey: 420952bdefad8518bf8567cadb6d4dcbf76ee0165ff5d4a210d5521d872f9ea7 [bit length 256]" show="42:09:52:bd:ef:ad:85:18:bf:85:67:ca:db:6d:4d:cb:f7:6e:e0:16:5f:f5:d4:a2:10:d5:52:1d:87:2f:9e:a7" />
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 6: id-Masked-IMEISV">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-Masked-IMEISV (192)" show="192" />
+          <field name="per.enum_index" showname="Enumerated Index: 1" hide="yes" show="1" />
+          <field name="s1ap.criticality" showname="criticality: ignore (1)" show="1" />
+          <field name="per.open_type_length" showname="Open Type Length: 8" hide="yes" show="8" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.Masked_IMEISV" showname="Masked-IMEISV: 1122334455ffff88 [bit length 64, 0001 0001  0010 0010  0011 0011  0100 0100  0101 0101  1111 1111  1111 1111  1000 1000 decimal value 1234605616446570376]" show="11:22:33:44:55:ff:ff:88" />
+          </field>
+         </field>
+        </field>
+       </field>
+      </field>
+     </field>
+    </field>
+   </field>
+  </proto>
+ </packet>
+ <packet>
+  <proto name="frame">
+   <field name="frame.time_epoch" showname="Epoch Arrival Time: 1792857019.487107399" show="1792857019.487107399" />
+   <field name="frame.number" showname="Frame Number: 26" show="26" />
+  </proto>
+  <proto name="eth">
+   <field name="eth.dst" showname="Destination: 00:00:00_00:00:00 (00:00:00:00:00:00)" show="00:00:00:00:00:00">
+    <field name="eth.dst_resolved" showname="Destination (resolved): 00:00:00_00:00:00" hide="yes" show="00:00:00_00:00:00" />
+    <field name="eth.dst.oui" showname="Destination OUI: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common)" hide="yes" show="0" />
+    <field name="eth.dst.oui_resolved" showname="Destination OUI (resolved): Officially Xerox, but 0:0:0:0:0:0 is more common" hide="yes" show="Officially Xerox, but 0:0:0:0:0:0 is more common" />
+    <field name="eth.dst.lg" showname=".... ..0. .... .... .... .... = LG bit: Globally unique address (factory default)" show="False" />
+    <field name="eth.dst.ig" showname=".... ...0 .... .... .... .... = IG bit: Individual address (unicast)" show="False" />
+    <field name="eth.addr" showname="Address: 00:00:00_00:00:00 (00:00:00:00:00:00)" hide="yes" show="00:00:00:00:00:00" />
+    <field name="eth.addr_resolved" showname="Address (resolved): 00:00:00_00:00:00" hide="yes" show="00:00:00_00:00:00" />
+    <field name="eth.addr.oui" showname="Address OUI: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common)" hide="yes" show="0" />
+    <field name="eth.addr.oui_resolved" showname="Address OUI (resolved): Officially Xerox, but 0:0:0:0:0:0 is more common" hide="yes" show="Officially Xerox, but 0:0:0:0:0:0 is more common" />
+    <field name="eth.lg" showname=".... ..0. .... .... .... .... = LG bit: Globally unique address (factory default)" hide="yes" show="False" />
+    <field name="eth.ig" showname=".... ...0 .... .... .... .... = IG bit: Individual address (unicast)" hide="yes" show="False" />
+   </field>
+   <field name="eth.src" showname="Source: 00:00:00_00:00:00 (00:00:00:00:00:00)" show="00:00:00:00:00:00">
+    <field name="eth.src_resolved" showname="Source (resolved): 00:00:00_00:00:00" hide="yes" show="00:00:00_00:00:00" />
+    <field name="eth.src.oui" showname="Source OUI: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common)" hide="yes" show="0" />
+    <field name="eth.src.oui_resolved" showname="Source OUI (resolved): Officially Xerox, but 0:0:0:0:0:0 is more common" hide="yes" show="Officially Xerox, but 0:0:0:0:0:0 is more common" />
+    <field name="eth.src.lg" showname=".... ..0. .... .... .... .... = LG bit: Globally unique address (factory default)" show="False" />
+    <field name="eth.src.ig" showname=".... ...0 .... .... .... .... = IG bit: Individual address (unicast)" show="False" />
+    <field name="eth.addr" showname="Address: 00:00:00_00:00:00 (00:00:00:00:00:00)" hide="yes" show="00:00:00:00:00:00" />
+    <field name="eth.addr_resolved" showname="Address (resolved): 00:00:00_00:00:00" hide="yes" show="00:00:00_00:00:00" />
+    <field name="eth.addr.oui" showname="Address OUI: 00:00:00 (Officially Xerox, but 0:0:0:0:0:0 is more common)" hide="yes" show="0" />
+    <field name="eth.addr.oui_resolved" showname="Address OUI (resolved): Officially Xerox, but 0:0:0:0:0:0 is more common" hide="yes" show="Officially Xerox, but 0:0:0:0:0:0 is more common" />
+    <field name="eth.lg" showname=".... ..0. .... .... .... .... = LG bit: Globally unique address (factory default)" hide="yes" show="False" />
+    <field name="eth.ig" showname=".... ...0 .... .... .... .... = IG bit: Individual address (unicast)" hide="yes" show="False" />
+   </field>
+   <field name="eth.type" showname="Type: IPv4 (0x0800)" show="0x0800" />
+   <field name="eth.stream" showname="Stream index: 0" show="0" />
+  </proto>
+  <proto name="ip">
+   <field name="ip.version" showname="0100 .... = Version: 4" show="4" />
+   <field name="ip.hdr_len" showname=".... 0101 = Header Length: 20 bytes (5)" show="20" />
+   <field name="ip.dsfield" showname="Differentiated Services Field: 0x02 (DSCP: CS0, ECN: ECT(0))" show="0x02">
+    <field name="ip.dsfield.dscp" showname="0000 00.. = Differentiated Services Codepoint: Default (0)" show="0" />
+    <field name="ip.dsfield.ecn" showname=".... ..10 = Explicit Congestion Notification: ECN-Capable Transport codepoint '10' (2)" show="2" />
+   </field>
+   <field name="ip.len" showname="Total Length: 108" show="108" />
+   <field name="ip.id" showname="Identification: 0x0008 (8)" show="0x0008" />
+   <field name="ip.flags" showname="010. .... = Flags: 0x2, Don't fragment" show="0x02">
+    <field name="ip.flags.rb" showname="0... .... = Reserved bit: Not set" show="False" />
+    <field name="ip.flags.df" showname=".1.. .... = Don't fragment: Set" show="True" />
+    <field name="ip.flags.mf" showname="..0. .... = More fragments: Not set" show="False" />
+   </field>
+   <field name="ip.frag_offset" showname="...0 0000 0000 0000 = Fragment Offset: 0" show="0" />
+   <field name="ip.ttl" showname="Time to Live: 64" show="64" />
+   <field name="ip.proto" showname="Protocol: SCTP (132)" show="132" />
+   <field name="ip.checksum" showname="Header Checksum: 0x37b3 [validation disabled]" show="0x37b3" />
+   <field name="ip.checksum.status" showname="Header checksum status: Unverified" show="2" />
+   <field name="ip.src" showname="Source Address: 192.168.64.128" show="192.168.64.128" />
+   <field name="ip.addr" showname="Source or Destination Address: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.src_host" showname="Source Host: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.host" showname="Source or Destination Host: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.dst" showname="Destination Address: 192.168.64.128" show="192.168.64.128" />
+   <field name="ip.addr" showname="Source or Destination Address: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.dst_host" showname="Destination Host: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.host" showname="Source or Destination Host: 192.168.64.128" hide="yes" show="192.168.64.128" />
+   <field name="ip.stream" showname="Stream index: 0" show="0" />
+  </proto>
+  <proto name="sctp">
+   <field name="sctp.srcport" showname="Source port: 60298" show="60298" />
+   <field name="sctp.dstport" showname="Destination port: 36412" show="36412" />
+   <field name="sctp.verification_tag" showname="Verification tag: 0xae08b309" show="0xae08b309" />
+   <field name="sctp.assoc_index" showname="Association index: disabled (enable in preferences)" show="65535" />
+   <field name="sctp.port" showname="Port: 60298" hide="yes" show="60298" />
+   <field name="sctp.port" showname="Port: 36412" hide="yes" show="36412" />
+   <field name="sctp.checksum" showname="Checksum: 0x00000000 [unverified]" show="0x00000000" />
+   <field name="sctp.checksum.status" showname="Checksum Status: Unverified" show="2" />
+   <field name="sctp.chunk" showname="DATA chunk (ordered, complete segment, TSN: 5, SID: 1, SSN: 4, PPID: 18, payload length: 59 bytes)" show="">
+    <field name="sctp.chunk_type" showname="Chunk type: DATA (0)" show="0">
+     <field name="sctp.chunk_bit_1" showname="0... .... = Bit: Stop processing of the packet" show="False" />
+     <field name="sctp.chunk_bit_2" showname=".0.. .... = Bit: Do not report" show="False" />
+    </field>
+    <field name="sctp.chunk_flags" showname="Chunk flags: 0x03" show="0x03">
+     <field name="sctp.data_i_bit" showname=".... 0... = I-Bit: Possibly delay SACK" show="False" />
+     <field name="sctp.data_u_bit" showname=".... .0.. = U-Bit: Ordered delivery" show="False" />
+     <field name="sctp.data_b_bit" showname=".... ..1. = B-Bit: First segment" show="True" />
+     <field name="sctp.data_e_bit" showname=".... ...1 = E-Bit: Last segment" show="True" />
+    </field>
+    <field name="sctp.chunk_length" showname="Chunk length: 75" show="75" />
+    <field name="sctp.data_tsn" showname="Transmission sequence number (relative): 5" show="5" />
+    <field name="sctp.data_tsn_raw" showname="Transmission sequence number (absolute): 2248240201" show="2248240201" />
+    <field name="sctp.data_sid" showname="Stream identifier: 0x0001" show="0x0001" />
+    <field name="sctp.data_ssn" showname="Stream sequence number: 4" show="4" />
+    <field name="sctp.data_payload_proto_id" showname="Payload protocol identifier: S1 Application Protocol (S1AP) (18)" show="18" />
+    <field name="sctp.chunk_padding" showname="Chunk padding: 00" show="00" />
+   </field>
+  </proto>
+  <proto name="s1ap">
+   <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+   <field name="per.choice_index" showname="Choice Index: 0" hide="yes" show="0" />
+   <field name="s1ap.S1AP_PDU" showname="S1AP-PDU: initiatingMessage (0)" show="0">
+    <field name="s1ap.initiatingMessage_element" showname="initiatingMessage" show="">
+     <field name="s1ap.procedureCode" showname="procedureCode: id-uplinkNASTransport (13)" show="13" />
+     <field name="per.enum_index" showname="Enumerated Index: 1" hide="yes" show="1" />
+     <field name="s1ap.criticality" showname="criticality: ignore (1)" show="1" />
+     <field name="per.open_type_length" showname="Open Type Length: 55" hide="yes" show="55" />
+     <field name="s1ap.initiatingMessagevalue_element" showname="value" show="">
+      <field name="s1ap.UplinkNASTransport_element" showname="UplinkNASTransport" show="">
+       <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+       <field name="per.sequence_of_length" showname="Sequence-Of Length: 5" hide="yes" show="5" />
+       <field name="s1ap.protocolIEs" showname="protocolIEs: 5 items" show="5">
+        <field name="" show="Item 0: id-MME-UE-S1AP-ID">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-MME-UE-S1AP-ID (0)" show="0" />
+          <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+          <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+          <field name="per.open_type_length" showname="Open Type Length: 2" hide="yes" show="2" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.MME_UE_S1AP_ID" showname="MME-UE-S1AP-ID: 9" show="9" />
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 1: id-eNB-UE-S1AP-ID">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-eNB-UE-S1AP-ID (8)" show="8" />
+          <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+          <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+          <field name="per.open_type_length" showname="Open Type Length: 2" hide="yes" show="2" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.ENB_UE_S1AP_ID" showname="ENB-UE-S1AP-ID: 1" show="1" />
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 2: id-NAS-PDU">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-NAS-PDU (26)" show="26" />
+          <field name="per.enum_index" showname="Enumerated Index: 0" hide="yes" show="0" />
+          <field name="s1ap.criticality" showname="criticality: reject (0)" show="0" />
+          <field name="per.open_type_length" showname="Open Type Length: 14" hide="yes" show="14" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="per.octet_string_length" showname="Octet String Length: 13" hide="yes" show="13" />
+           <field name="s1ap.NAS_PDU" showname="NAS-PDU: 279f2e30b101074300035201c2" show="27:9f:2e:30:b1:01:07:43:00:03:52:01:c2" />
+           <proto name="nas-eps" showname="Non-Access-Stratum (NAS)PDU" size="13" pos="86">
+            <field name="nas-eps.security_header_type" showname="0010 .... = Security header type: Integrity protected and ciphered (2)" show="2" />
+            <field name="gsm_a.L3_protocol_discriminator" showname=".... 0111 = Protocol discriminator: EPS mobility management messages (0x7)" show="0x07" />
+            <field name="nas-eps.msg_auth_code" showname="redacted" show="0000000000" />
+            <field name="nas-eps.seq_no" showname="Sequence number: 1" show="1" />
+            <field name="nas-eps.ciphered_msg" showname="Ciphered message: 074300035201c2" show="07:43:00:03:52:01:c2" />
+            <field name="nas-eps.security_header_type" showname="0000 .... = Security header type: Plain NAS message, not security protected (0)" show="0" />
+            <field name="gsm_a.L3_protocol_discriminator" showname=".... 0111 = Protocol discriminator: EPS mobility management messages (0x7)" show="0x07" />
+            <field name="nas-eps.nas_msg_emm_type" showname="NAS EPS Mobility Management Message Type: Attach complete (0x43)" show="0x43" />
+            <field name="" show="ESM message container">
+             <field name="gsm_a.len" showname="Length: 3" show="3" />
+             <field name="nas-eps.emm.esm_msg_cont" showname="redacted" show="000000">
+              <field name="nas-eps.bearer_id" showname="0101 .... = EPS bearer identity: EPS bearer identity value 5 (5)" show="5" />
+              <field name="gsm_a.L3_protocol_discriminator" showname=".... 0010 = Protocol discriminator: EPS session management messages (0x2)" show="0x02" />
+              <field name="nas-eps.esm.proc_trans_id" showname="Procedure transaction identity: 1" show="1" />
+              <field name="nas-eps.nas_msg_esm_type" showname="NAS EPS session management messages: Activate default EPS bearer context accept (0xc2)" show="0xc2" />
+             </field>
+            </field>
+           </proto>
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 3: id-EUTRAN-CGI">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-EUTRAN-CGI (100)" show="100" />
+          <field name="per.enum_index" showname="Enumerated Index: 1" hide="yes" show="1" />
+          <field name="s1ap.criticality" showname="criticality: ignore (1)" show="1" />
+          <field name="per.open_type_length" showname="Open Type Length: 8" hide="yes" show="8" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.EUTRAN_CGI_element" showname="EUTRAN-CGI" show="">
+            <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+            <field name="per.optional_field_bit" showname=".0.. .... Optional Field Bit: False (iE-Extensions is NOT present)" hide="yes" show="False" />
+            <field name="s1ap.pLMNidentity" showname="pLMNidentity: 64f020" show="64:f0:20" />
+            <field name="s1ap.CellIdentity" showname="0000 0000 0001 1001 1011 0000 0000 .... = cell-ID: 0x0019b00" show="0x00019b00" />
+           </field>
+          </field>
+         </field>
+        </field>
+        <field name="" show="Item 4: id-TAI">
+         <field name="s1ap.ProtocolIE_Field_element" showname="ProtocolIE-Field" show="">
+          <field name="s1ap.id" showname="id: id-TAI (67)" show="67" />
+          <field name="per.enum_index" showname="Enumerated Index: 1" hide="yes" show="1" />
+          <field name="s1ap.criticality" showname="criticality: ignore (1)" show="1" />
+          <field name="per.open_type_length" showname="Open Type Length: 6" hide="yes" show="6" />
+          <field name="s1ap.ie_field_value_element" showname="value" show="">
+           <field name="s1ap.TAI_element" showname="TAI" show="">
+            <field name="per.extension_bit" showname="0... .... Extension Bit: False" hide="yes" show="False" />
+            <field name="per.optional_field_bit" showname=".0.. .... Optional Field Bit: False (iE-Extensions is NOT present)" hide="yes" show="False" />
+            <field name="s1ap.pLMNidentity" showname="pLMNidentity: 64f020" show="64:f0:20" />
+            <field name="s1ap.tAC" showname="tAC: 1 (0x0001)" show="1" />
+           </field>
+          </field>
+         </field>
+        </field>
+       </field>
+      </field>
+     </field>
+    </field>
+   </field>
+  </proto>
+ </packet>
+</pdml>

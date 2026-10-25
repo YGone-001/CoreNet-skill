@@ -295,3 +295,180 @@ class ModelTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EsmTests(unittest.TestCase):
+    """Bounded ESM evidence: message identity, container binding and privacy."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        import nas_eps_esm
+
+        cls.esm = nas_eps_esm
+        cls.container = nas_eps_esm.pdml_esm_index(
+            (EXAMPLES / "pdml" / "esm-container.pdml").read_text(encoding="utf-8"),
+            "esm-container.pdml",
+        )
+        cls.reject = nas_eps_esm.pdml_esm_index(
+            (EXAMPLES / "pdml" / "esm-reject.pdml").read_text(encoding="utf-8"),
+            "esm-reject.pdml",
+        )
+
+    def item(self, index: dict, frame: int) -> dict:
+        return index[frame][0]
+
+    # E01 -----------------------------------------------------------------
+    def test_pdn_connectivity_request_is_decoded(self) -> None:
+        item = self.item(self.container, 9)
+        self.assertEqual(item["message_type_code"], 208)
+        self.assertEqual(item["message_type"], "PDN connectivity request")
+        self.assertEqual(item["support_status"], "SUPPORTED")
+        self.assertEqual(item["procedure"], "pdn-connectivity")
+        self.assertEqual(item["result"], "REQUEST")
+        self.assertEqual(item["pdn_type"], {"value": 1, "name": "IPv4"})
+        self.assertEqual(item["request_type"]["value"], 1)
+
+    # E02 -----------------------------------------------------------------
+    def test_pdn_connectivity_reject_preserves_esm_cause(self) -> None:
+        item = self.item(self.reject, 47)
+        self.assertEqual(item["message_type_code"], 209)
+        self.assertEqual(item["result"], "REJECT")
+        self.assertEqual(item["esm_cause"], {"value": 27, "name": "Missing or unknown APN"})
+
+    # E03 -----------------------------------------------------------------
+    def test_activate_default_bearer_request_is_decoded(self) -> None:
+        item = self.item(self.container, 23)
+        self.assertEqual(item["message_type_code"], 193)
+        self.assertEqual(item["message_type"], "Activate default EPS bearer context request")
+        self.assertEqual(item["procedure"], "default-bearer-activation")
+        self.assertEqual(item["qos_present"], True)
+        self.assertEqual(item["pdn_address_present"], True)
+        self.assertEqual(item["pdn_address_family"], "IPv4")
+
+    # E04 -----------------------------------------------------------------
+    def test_activate_default_bearer_accept_is_decoded(self) -> None:
+        item = self.item(self.container, 26)
+        self.assertEqual(item["message_type_code"], 194)
+        self.assertEqual(item["result"], "ACCEPT")
+        self.assertEqual(item["eps_bearer_identity"], 5)
+
+    # E05 -----------------------------------------------------------------
+    def test_activation_reject_preserves_its_cause(self) -> None:
+        record = {
+            "frame.number": "70",
+            "frame.time_epoch": "1792857019.100000000",
+            "nas-eps.security_header_type": "2",
+            "nas-eps.nas_msg_emm_type": "0x62",
+            "nas-eps.nas_msg_esm_type": "0xc3",
+            "nas-eps.bearer_id": "5",
+            "nas-eps.esm.proc_trans_id": "1",
+            "nas-eps.esm.cause": "26",
+        }
+        event = model.normalize_record(record, "flat.jsonl")
+        item = event["esm_messages"][0]
+        self.assertEqual(item["message_type"], "Activate default EPS bearer context reject")
+        self.assertEqual(item["result"], "REJECT")
+        self.assertEqual(item["esm_cause"], {"value": 26, "name": "Insufficient resources"})
+        self.assertEqual(item["binding_basis"], "flat_fields")
+
+    # E06 -----------------------------------------------------------------
+    def test_esm_information_request_and_response_stay_distinct(self) -> None:
+        request = self.item(self.reject, 43)
+        response = self.item(self.reject, 45)
+        self.assertEqual(request["message_type"], "ESM information request")
+        self.assertEqual(response["message_type"], "ESM information response")
+        self.assertEqual(request["result"], "REQUEST")
+        self.assertEqual(response["result"], "RESPONSE")
+        self.assertFalse(request["apn_present"])
+        self.assertTrue(response["apn_present"])
+
+    # E07 -----------------------------------------------------------------
+    def test_ebi_and_pti_are_separate_fields(self) -> None:
+        activation = self.item(self.container, 23)
+        self.assertEqual(activation["eps_bearer_identity"], 5)
+        self.assertEqual(activation["procedure_transaction_identity"], 1)
+        information = self.item(self.reject, 43)
+        self.assertEqual(information["eps_bearer_identity"], 0)
+        self.assertEqual(information["procedure_transaction_identity"], 2)
+        self.assertNotEqual(
+            activation["eps_bearer_identity"], activation["procedure_transaction_identity"]
+        )
+
+    # E08 -----------------------------------------------------------------
+    def test_equal_pti_in_different_frames_does_not_merge(self) -> None:
+        items = [self.item(self.container, frame) for frame in (9, 23, 26)]
+        self.assertEqual([item["procedure_transaction_identity"] for item in items], [1, 1, 1])
+        self.assertEqual(len({item["evidence"]["source"] for item in items}), 3)
+        self.assertEqual([item["frame_number"] for item in items], [9, 23, 26])
+
+    # E09 -----------------------------------------------------------------
+    def test_container_binding_comes_from_the_dissector_tree(self) -> None:
+        activation = self.item(self.container, 23)
+        self.assertEqual(activation["container"]["kind"], "esm_message_container")
+        self.assertEqual(activation["container"]["enclosing_emm_message_type"], "Attach accept")
+        self.assertEqual(activation["container"]["enclosing_emm_message_type_code"], 66)
+        self.assertEqual(activation["container"]["basis"], "pdml_esm_container_ie")
+        self.assertEqual(activation["binding_basis"], "pdml_grouped_ie")
+        reject = self.item(self.reject, 47)
+        self.assertEqual(reject["container"]["enclosing_emm_message_type"], "Attach reject")
+        standalone = self.item(self.reject, 43)
+        self.assertEqual(standalone["container"]["kind"], "standalone")
+
+    # E10 -----------------------------------------------------------------
+    def test_ciphered_inner_esm_is_unavailable_not_absent(self) -> None:
+        record = {
+            "frame.number": "50",
+            "frame.time_epoch": "1792857019.200000000",
+            "nas-eps.security_header_type": "2",
+            "nas-eps.ciphered_msg": "aa:bb:cc:dd:ee:ff",
+            "nas-eps.msg_auth_code": "11:22:33:44",
+        }
+        event = model.normalize_record(record, "flat.jsonl")
+        self.assertEqual(event["support_status"], "PROTECTED_INNER_MESSAGE_UNAVAILABLE")
+        self.assertTrue(event["protected_inner_message_unavailable"])
+        self.assertEqual(event["esm_messages"], [])
+
+    # E11 -----------------------------------------------------------------
+    def test_existing_emm_projection_is_unchanged(self) -> None:
+        record = {
+            "frame.number": "1",
+            "frame.time_epoch": "1792857019.300000000",
+            "nas-eps.security_header_type": "0",
+            "nas-eps.nas_msg_emm_type": "0x41",
+            "nas-eps.emm.eps_att_type": "1",
+            "nas-eps.emm.type_of_id": "1",
+            "s1ap.procedureCode": "12",
+        }
+        event = model.normalize_record(record, "flat.jsonl")
+        self.assertEqual(event["message_type"], "Attach request")
+        self.assertEqual(event["procedure"], "eps-attach")
+        self.assertEqual(event["result"], "REQUEST")
+        self.assertEqual(event["direction"], "uplink")
+        self.assertEqual(event["direction_basis"], "enclosing_s1ap_procedure")
+        self.assertEqual(event["attach_type"], {"value": 1, "name": "EPS attach"})
+        self.assertEqual(event["esm_messages"], [])
+
+    # E12 -----------------------------------------------------------------
+    def test_esm_evidence_never_publishes_values(self) -> None:
+        payload = json.dumps(self.container) + json.dumps(self.reject)
+        for forbidden in (
+            "apn.test",
+            "198.51.100.7",
+            "internet",
+            "10.45.0.",
+            "3221227470",
+            "460020000000001",
+        ):
+            self.assertNotIn(forbidden, payload)
+        activation = self.item(self.container, 23)
+        self.assertTrue(activation["apn_present"])
+        self.assertEqual(activation["apn_length"], 8)
+        self.assertNotIn("apn_name", activation)
+        self.assertNotIn("pdn_address", activation)
+
+    def test_direction_follows_the_enclosing_s1ap_message(self) -> None:
+        from pathlib import Path
+
+        events = read_events(Path(EXAMPLES / "expected" / "attach-flow-events.jsonl"))
+        self.assertTrue(all(event["esm_messages"] == [] for event in events))
+        self.assertEqual([event["direction"] for event in events], ["uplink", "downlink"])

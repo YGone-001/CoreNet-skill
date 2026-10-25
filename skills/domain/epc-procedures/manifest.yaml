@@ -1,5 +1,5 @@
 name: epc-procedures
-version: 0.2.0
+version: 0.3.0
 category: domain
 description: >
   Bounded EPS Attach procedure analysis over already-extracted S1AP and NAS-EPS
@@ -11,7 +11,12 @@ description: >
   already-extracted GTPv2-C events and transactions: message-scope and
   bearer-scope Cause separation, item-scoped bearer context evidence,
   evidence-based interface resolution, control-plane TEID continuity grouping
-  and explicit cross-interface and Attach-association limitations. No protocol
+  and explicit cross-interface and Attach-association limitations, plus bounded
+  EPS default-bearer signalling evidence over already-extracted NAS-EPS ESM,
+  S1AP E-RAB and GTPv2-C tunnel-endpoint evidence: staged PDN connectivity, ESM
+  information exchange, default bearer activation and S1 E-RAB setup with
+  explicit protected-ESM handling, typed and frame-anchored ESM negative
+  deviations, and evidence-safe cross-interface identity links. No protocol
   decoding, no bearer or PDN success claim, no global failure-boundary
   selection, no root cause.
 scope:
@@ -26,15 +31,19 @@ scope:
     - message-scope and item-scoped F-TEID and EBI evidence
     - evidence-based S11 and S5/S8 hop resolution without transport-address inference
     - control-plane TEID continuity grouping with generation handling and explicit reuse
+    - bounded ESM evidence for PDN connectivity, default bearer activation and the ESM information exchange
+    - item-scoped S1AP E-RAB tunnel endpoint evidence and exact S1-U endpoint comparison
+    - default-bearer stage model with OBSERVED, NOT_OBSERVED, UNAVAILABLE_PROTECTED, AMBIGUOUS and INSUFFICIENT_EVIDENCE
+    - evidence-safe identity links classified ESTABLISHED, SUPPORTED, AMBIGUOUS or NOT_ESTABLISHED
   excludes:
     - Diameter, S6a or Gx/Gy signalling
     - cross-interface S11 to S5/S8 session association without a reviewed identity bridge
     - Attach UE to GTPv2-C session association without a reviewed identity bridge
     - full EPS bearer lifecycle and user-plane delivery verdicts
-    - complete ESM decoding, PDN connection lifecycle and EPS bearer state
+    - dedicated EPS bearer procedures, PDN disconnect lifecycle and the complete ESM state machine
     - S1-U user-plane validation
     - success, failure or root-cause verdicts and network-function blame
-    - global EPC first-abnormal-boundary selection (no EPC Analysis Orchestration exists)
+    - global EPC first-abnormal-boundary selection; per-subject selection belongs to the epc-failure-boundary Orchestration Skill
     - subscriber identity handling of any kind
 dependencies:
   required: []
@@ -48,14 +57,17 @@ inputs:
   - detailed NAS-EPS event JSONL produced by the nas-eps Protocol Skill
   - detailed GTPv2-C event JSONL produced by the gtpv2 Protocol Skill
   - GTPv2-C transaction correlation JSON produced by the gtpv2 Protocol Skill
+  - GTPv2-C event JSONL for exact S1-U tunnel endpoint identity only
 outputs:
   - EPS Attach analysis JSON (schemas/epc-attach-analysis.schema.json)
   - stage timeline JSON Lines
   - protocol-local text timeline
   - EPC session-control analysis JSON (schemas/epc-session-analysis.schema.json)
   - session-control procedure timeline JSON Lines
+  - EPS default-bearer analysis JSON (schemas/epc-default-bearer-analysis.schema.json)
+  - default-bearer procedure timeline JSON Lines and text
 protocols: [S1AP, NAS-EPS, GTPv2-C]
-interfaces: [S1-MME, N1, S11, S5/S8]
+interfaces: [S1-MME, N1, S11, S5/S8, S1-U]
 network_functions: []
 evidence_levels:
   - OBSERVED

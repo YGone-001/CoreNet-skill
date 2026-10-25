@@ -31,6 +31,16 @@ python3 scripts/extract-nas-eps.py examples/extracted/attach-flow.jsonl \
 python3 scripts/nas_eps_timeline.py nas-eps-events.jsonl --format text
 ```
 
+## ESM evidence
+
+Each event carries `esm_messages`, read from a PDML dissection so that an ESM
+message keeps its ESM container boundary and its enclosing NAS message. Only
+reviewed, non-identifying fields are published: message identity, EBI, PTI, ESM
+cause, PDN type, request type, APN presence and length, PDN address presence and
+family, QoS and PCO presence, protection state and direction. The APN name, the
+assigned PDN address and the container bytes are never retained. Flat field input
+publishes `binding_basis: flat_fields` and never claims a container.
+
 ## What it extracts
 
 | Evidence | Detail |

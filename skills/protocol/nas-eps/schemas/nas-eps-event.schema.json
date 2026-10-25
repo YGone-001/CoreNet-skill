@@ -29,7 +29,8 @@
     "message_authentication_code_present",
     "protected_inner_message_unavailable",
     "evidence",
-    "derivations"
+    "derivations",
+    "esm_messages"
   ],
   "additionalProperties": false,
   "properties": {
@@ -37,65 +38,463 @@
       "type": "string",
       "description": "UTC ISO-8601 observation time with microsecond precision."
     },
-    "frame_number": {"type": "integer", "minimum": 1},
-    "capture_file": {"type": "string"},
-    "protocol_discriminator": {"type": "string"},
-    "protocol_discriminator_basis": {"type": "string"},
-    "security_header_type": {"type": ["integer", "null"]},
-    "protection": {"type": ["string", "null"]},
-    "protection_description": {"type": ["string", "null"]},
-    "message_type_code": {"type": ["integer", "null"]},
-    "message_type": {"type": ["string", "null"]},
+    "frame_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "capture_file": {
+      "type": "string"
+    },
+    "protocol_discriminator": {
+      "type": "string"
+    },
+    "protocol_discriminator_basis": {
+      "type": "string"
+    },
+    "security_header_type": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "protection": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "protection_description": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "message_type_code": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "message_type": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "support_status": {
       "type": "string",
-      "enum": ["SUPPORTED", "UNSUPPORTED", "UNKNOWN", "PROTECTED_INNER_MESSAGE_UNAVAILABLE"]
+      "enum": [
+        "SUPPORTED",
+        "UNSUPPORTED",
+        "UNKNOWN",
+        "PROTECTED_INNER_MESSAGE_UNAVAILABLE"
+      ]
     },
-    "procedure": {"type": ["string", "null"]},
-    "result": {"type": ["string", "null"]},
+    "procedure": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "result": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "direction": {
-      "type": ["string", "null"],
-      "enum": ["uplink", "downlink", null]
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "uplink",
+        "downlink",
+        null
+      ]
     },
-    "direction_basis": {"type": "string"},
+    "direction_basis": {
+      "type": "string"
+    },
     "emm_cause": {
-      "type": ["object", "null"],
-      "required": ["value", "name"],
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "value",
+        "name"
+      ],
       "additionalProperties": false,
       "properties": {
-        "value": {"type": "integer"},
-        "name": {"type": ["string", "null"]}
+        "value": {
+          "type": "integer"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "attach_type": {
-      "type": ["object", "null"],
-      "required": ["value", "name"],
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "value",
+        "name"
+      ],
       "additionalProperties": false,
       "properties": {
-        "value": {"type": "integer"},
-        "name": {"type": ["string", "null"]}
+        "value": {
+          "type": "integer"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
-    "identity_type_value": {"type": ["integer", "null"]},
-    "esm_container_present": {"type": "boolean"},
-    "esm_container_length": {"type": ["integer", "null"], "minimum": 0},
-    "ciphered_payload_present": {"type": "boolean"},
-    "message_authentication_code_present": {"type": "boolean"},
-    "protected_inner_message_unavailable": {"type": "boolean"},
-    "source": {"type": ["object", "null"]},
-    "destination": {"type": ["object", "null"]},
-    "sctp": {"type": ["object", "null"]},
+    "identity_type_value": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "esm_container_present": {
+      "type": "boolean"
+    },
+    "esm_container_length": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "ciphered_payload_present": {
+      "type": "boolean"
+    },
+    "message_authentication_code_present": {
+      "type": "boolean"
+    },
+    "protected_inner_message_unavailable": {
+      "type": "boolean"
+    },
+    "source": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "destination": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "sctp": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
     "evidence": {
       "type": "object",
-      "required": ["level", "source"],
+      "required": [
+        "level",
+        "source"
+      ],
       "additionalProperties": false,
       "properties": {
-        "level": {"type": "string", "enum": ["OBSERVED", "DERIVED"]},
-        "source": {"type": "string"}
+        "level": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "DERIVED"
+          ]
+        },
+        "source": {
+          "type": "string"
+        }
       }
     },
     "derivations": {
       "type": "array",
-      "items": {"type": "string"}
+      "items": {
+        "type": "string"
+      }
+    },
+    "esm_messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "occurrence_index",
+          "message_type_code",
+          "message_type",
+          "support_status",
+          "procedure",
+          "result",
+          "eps_bearer_identity",
+          "procedure_transaction_identity",
+          "esm_cause",
+          "pdn_type",
+          "request_type",
+          "apn_present",
+          "apn_length",
+          "pdn_address_present",
+          "pdn_address_family",
+          "qos_present",
+          "pco_present",
+          "information_element_count",
+          "container",
+          "protection_state",
+          "protection_state_basis",
+          "direction",
+          "direction_basis",
+          "binding_basis",
+          "frame_number",
+          "capture_file",
+          "evidence",
+          "limitations"
+        ],
+        "properties": {
+          "occurrence_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "message_type_code": {
+            "type": "integer"
+          },
+          "message_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "support_status": {
+            "enum": [
+              "SUPPORTED",
+              "UNSUPPORTED",
+              "UNKNOWN"
+            ]
+          },
+          "procedure": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "result": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "eps_bearer_identity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "procedure_transaction_identity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "esm_cause": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "value",
+              "name"
+            ],
+            "properties": {
+              "value": {
+                "type": "integer"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "pdn_type": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "value",
+              "name"
+            ],
+            "properties": {
+              "value": {
+                "type": "integer"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "request_type": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "value",
+              "name"
+            ],
+            "properties": {
+              "value": {
+                "type": "integer"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "apn_present": {
+            "type": "boolean"
+          },
+          "apn_length": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "pdn_address_present": {
+            "type": "boolean"
+          },
+          "pdn_address_family": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "qos_present": {
+            "type": "boolean"
+          },
+          "pco_present": {
+            "type": "boolean"
+          },
+          "information_element_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "container": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "enclosing_emm_message_type_code",
+              "enclosing_emm_message_type",
+              "frame_number",
+              "basis"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "esm_message_container",
+                  "standalone",
+                  "unbound"
+                ]
+              },
+              "enclosing_emm_message_type_code": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "enclosing_emm_message_type": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "frame_number": {
+                "type": "integer"
+              },
+              "basis": {
+                "type": "string"
+              }
+            }
+          },
+          "protection_state": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "protection_state_basis": {
+            "type": "string"
+          },
+          "direction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "direction_basis": {
+            "type": "string"
+          },
+          "binding_basis": {
+            "enum": [
+              "pdml_grouped_ie",
+              "flat_fields"
+            ]
+          },
+          "frame_number": {
+            "type": "integer"
+          },
+          "capture_file": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "level",
+              "source"
+            ],
+            "properties": {
+              "level": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            }
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
     }
   }
 }

@@ -26,7 +26,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN
 from pathlib import Path
-from typing import Iterable, Iterator
+from typing import Any, Iterable, Iterator
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import nas_eps_esm
 
 EXIT_TOOL_UNAVAILABLE = 3
 EXIT_TSHARK_FAILURE = 4
@@ -66,6 +69,16 @@ FIELDS = (
     "nas-eps.ciphered_msg",
     "nas-eps.msg_auth_code",
     "s1ap.procedureCode",
+    "s1ap.initiatingMessage_element",
+    "s1ap.successfulOutcome_element",
+    "s1ap.unsuccessfulOutcome_element",
+    "nas-eps.nas_msg_esm_type",
+    "nas-eps.bearer_id",
+    "nas-eps.esm.proc_trans_id",
+    "nas-eps.esm.cause",
+    "nas-eps.esm_pdn_type",
+    "nas-eps.esm.request_type",
+    "nas-eps.esm.qci",
 )
 
 FIELD_SPECS: tuple[FieldSpec, ...] = tuple(
@@ -219,7 +232,29 @@ EMM_CAUSES = {
 # Enclosing S1AP procedure codes that carry NAS in a known direction. The S1AP
 # message identity is used only as an encapsulation direction hint; NAS-EPS owns
 # no S1AP semantics and works without this field.
-S1AP_DIRECTION = {11: "downlink", 12: "uplink", 13: "uplink"}
+S1AP_DIRECTION = {11: "downlink", 12: "uplink", 13: "uplink", 18: "uplink"}
+
+# TS 36.413 fixes which signaling side sends each message, so the enclosing
+# procedure plus its PDU category also fixes the direction of the carried NAS.
+# Only reviewed pairs are listed; anything else stays unresolved.
+PROCEDURE_DIRECTION = {
+    (9, "initiatingMessage"): "downlink",
+    (9, "successfulOutcome"): "uplink",
+    (9, "unsuccessfulOutcome"): "uplink",
+    (11, "initiatingMessage"): "downlink",
+    (12, "initiatingMessage"): "uplink",
+    (13, "initiatingMessage"): "uplink",
+    (17, "initiatingMessage"): "uplink",
+    (17, "successfulOutcome"): "downlink",
+    (23, "initiatingMessage"): "downlink",
+    (23, "successfulOutcome"): "uplink",
+}
+
+PDU_TYPE_FIELDS = (
+    ("initiatingMessage", "s1ap.initiatingMessage_element"),
+    ("successfulOutcome", "s1ap.successfulOutcome_element"),
+    ("unsuccessfulOutcome", "s1ap.unsuccessfulOutcome_element"),
+)
 
 SUPPORT_STATUSES = ("SUPPORTED", "UNSUPPORTED", "UNKNOWN", "PROTECTED_INNER_MESSAGE_UNAVAILABLE")
 
@@ -362,9 +397,21 @@ def protection_profile(security_header_type: int | None) -> tuple[str | None, st
     return "UNKNOWN", None
 
 
+def pdu_type_hint(record: dict[str, object]) -> str | None:
+    for pdu_type, field in PDU_TYPE_FIELDS:
+        if first_token(record.get(field)) is not None:
+            return pdu_type
+    return None
+
+
 def direction_hint(record: dict[str, object]) -> tuple[str | None, str]:
-    """Direction from the enclosing S1AP procedure, when the decoder exposes it."""
+    """Direction from the enclosing S1AP message, when the decoder exposes it."""
     code = optional_number(record.get("s1ap.procedureCode"))
+    pdu_type = pdu_type_hint(record)
+    if code is not None and pdu_type is not None:
+        reviewed = PROCEDURE_DIRECTION.get((code, pdu_type))
+        if reviewed is not None:
+            return reviewed, "enclosing_s1ap_procedure_and_pdu_type"
     if code is not None and code in S1AP_DIRECTION:
         return S1AP_DIRECTION[code], "enclosing_s1ap_procedure"
     return None, "unavailable"
@@ -384,7 +431,35 @@ def resolve_message(code: int | None, protection: str | None) -> tuple[str | Non
     return name, "UNSUPPORTED", None
 
 
-def normalize_record(record: object, capture_file: str) -> dict[str, object]:
+def _esm_messages(
+    record: dict[str, object],
+    capture_file: str,
+    frame_number: int,
+    esm_index: dict[int, list[dict[str, Any]]] | None,
+    protection: str | None,
+    direction: str | None,
+) -> list[dict[str, Any]]:
+    """ESM messages for this frame, with the enclosing NAS context applied."""
+    if esm_index is not None:
+        items = [dict(item) for item in esm_index.get(frame_number, [])]
+    else:
+        items = nas_eps_esm.flat_esm_messages(record, capture_file)
+    for item in items:
+        # An ESM message always travels inside this NAS message, so its
+        # protection and direction are the enclosing message's, never guessed.
+        item["protection_state"] = protection
+        item["protection_state_basis"] = "enclosing_nas_security_header"
+        if item.get("direction") is None:
+            item["direction"] = direction
+            item["direction_basis"] = "enclosing_nas_message" if direction else "unavailable"
+    return items
+
+
+def normalize_record(
+    record: object,
+    capture_file: str,
+    esm_index: dict[int, list[dict[str, Any]]] | None = None,
+) -> dict[str, object]:
     """Project one structured NAS-EPS observation into the detailed event."""
     if not isinstance(record, dict):
         raise InputError("structured NAS-EPS record must be a JSON object")
@@ -462,6 +537,9 @@ def normalize_record(record: object, capture_file: str) -> dict[str, object]:
         "ciphered_payload_present": ciphered_present,
         "message_authentication_code_present": mac_present,
         "protected_inner_message_unavailable": support_status == "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
+        "esm_messages": _esm_messages(
+            record, capture_file, frame_number, esm_index, protection, direction
+        ),
         "evidence": {"level": "OBSERVED", "source": source_ref},
         "derivations": derivations,
     }
@@ -727,6 +805,39 @@ def tshark_records(capture: Path) -> Iterator[dict[str, object]]:
     return_code = process.wait()
     if return_code != 0:
         raise TsharkError(f"tshark capture parsing failed: {stderr or f'exit {return_code}'}")
+
+
+def pdml_dissection(capture: Path) -> str:
+    """Run a PDML dissection so ESM container boundaries stay provable."""
+    exe = resolve_tshark_executable()
+    command = [
+        exe,
+        "-n",
+        "-r",
+        str(capture),
+        "-T",
+        "pdml",
+        "-Y",
+        resolve_filter(FILTER_CANDIDATES, get_available_protocols(exe)),
+    ]
+    try:
+        completed = subprocess.run(
+            command, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False
+        )
+    except FileNotFoundError as exc:
+        raise ToolUnavailable("tshark is unavailable; install Wireshark/tshark manually and retry") from exc
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or "unknown tshark failure"
+        raise TsharkError(f"tshark PDML dissection failed: {detail}")
+    return completed.stdout
+
+
+def esm_index_for_capture(capture: Path) -> dict[int, list[dict[str, Any]]]:
+    """ESM messages per frame, read from the dissector tree of this capture."""
+    try:
+        return nas_eps_esm.pdml_esm_index(pdml_dissection(capture), safe_capture_name(capture))
+    except ValueError as exc:
+        raise TsharkError(f"tshark PDML dissection is unreadable: {exc}") from exc
 
 
 def input_kind(path: Path, requested: str) -> str:

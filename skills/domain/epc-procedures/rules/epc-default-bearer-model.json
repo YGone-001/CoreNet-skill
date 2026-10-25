@@ -1,0 +1,82 @@
+{
+  "model": "epc-default-bearer",
+  "model_version": "1.0.0",
+  "reviewed_against": [
+    "3GPP TS 23.401 §5.3.2 initial attach and default bearer establishment",
+    "3GPP TS 24.301 §6.5 PDN connectivity procedures",
+    "3GPP TS 24.301 §6.5.1.5 ESM container transport inside EMM messages",
+    "3GPP TS 24.301 §9.3 ESM message identities",
+    "3GPP TS 24.301 §9.9.4.4 ESM cause values",
+    "3GPP TS 36.413 §9.1.4 E-RABToBeSetupItemCtxtSUReq",
+    "3GPP TS 36.413 §9.1.5 E-RABSetupItemCtxtSURes"
+  ],
+  "stages": {
+    "pdn-connectivity-request": { "conditional": false, "esm_messages": [208, 209] },
+    "esm-information-exchange": { "conditional": true, "esm_messages": [217, 218] },
+    "default-bearer-activation-request": { "conditional": false, "esm_messages": [193] },
+    "default-bearer-activation-response": { "conditional": false, "esm_messages": [194, 195] },
+    "s1-erab-setup": {
+      "conditional": true,
+      "s1ap_messages": [
+        "InitialContextSetupRequest",
+        "InitialContextSetupResponse",
+        "InitialContextSetupFailure"
+      ]
+    },
+    "supporting-gtpv2-session-control": {
+      "conditional": true,
+      "basis": "exact_s1u_endpoint_equality_with_reviewed_interface_type"
+    }
+  },
+  "stage_status_vocabulary": [
+    "OBSERVED",
+    "NOT_OBSERVED",
+    "UNAVAILABLE_PROTECTED",
+    "AMBIGUOUS",
+    "INSUFFICIENT_EVIDENCE"
+  ],
+  "outcome_vocabulary": [
+    "PDN_CONNECTIVITY_REQUEST_OBSERVED",
+    "PDN_CONNECTIVITY_REJECT_OBSERVED",
+    "DEFAULT_BEARER_ACTIVATION_REQUEST_OBSERVED",
+    "DEFAULT_BEARER_ACTIVATION_ACCEPT_OBSERVED",
+    "DEFAULT_BEARER_ACTIVATION_REJECT_OBSERVED",
+    "S1_ERAB_SETUP_REQUEST_OBSERVED",
+    "S1_ERAB_SETUP_RESPONSE_OBSERVED",
+    "DEFAULT_BEARER_SIGNALING_INCOMPLETE",
+    "PROTECTED_ESM_UNAVAILABLE"
+  ],
+  "link_status_vocabulary": ["ESTABLISHED", "SUPPORTED", "AMBIGUOUS", "NOT_ESTABLISHED"],
+  "negative_deviation_types": [
+    "PDN_CONNECTIVITY_REJECT_OBSERVED",
+    "DEFAULT_BEARER_ACTIVATION_REJECT_OBSERVED",
+    "ESM_REJECTION_OBSERVED"
+  ],
+  "limitation_deviation_types": [
+    "PROTECTED_ESM_UNAVAILABLE",
+    "ERAB_ITEM_EVIDENCE_UNAVAILABLE",
+    "TUNNEL_ENDPOINT_LINK_AMBIGUOUS",
+    "ESM_EVIDENCE_UNBOUND"
+  ],
+  "identity_rules": {
+    "s1u_interface_types": [1],
+    "erab_id_is_not_an_eps_bearer_identity": true,
+    "s11_to_s5s8_link": "NOT_ESTABLISHED",
+    "attach_to_session_link": "NOT_ESTABLISHED",
+    "tunnel_link_requires": [
+      "same_capture",
+      "reviewed_s1u_interface_type",
+      "exact_transport_layer_address_equality",
+      "exact_gtp_teid_equality",
+      "single_candidate"
+    ]
+  },
+  "not_confirmed": [
+    "an accepted ESM response is protocol-level evidence only; it does not prove that the default bearer carries user traffic",
+    "an E-RAB GTP-TEID is control-plane provisioning evidence only; it does not prove that a GTP-U tunnel forwards packets",
+    "the UE context of this analysis is not equated with any GTPv2-C session subject without a reviewed identity bridge",
+    "no S11 to S5/S8 session association is asserted",
+    "no root cause, network-function blame or subscriber service quality verdict is produced",
+    "the absence of an observed stage does not prove that the stage did not happen"
+  ]
+}

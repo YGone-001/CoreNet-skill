@@ -23,13 +23,22 @@ REQUIRED = (
     "references/protection-rules.md",
     "references/failure-cases.md",
     "scripts/nas_eps_model.py",
+    "scripts/nas_eps_esm.py",
     "scripts/extract-nas-eps.py",
     "scripts/nas_eps_timeline.py",
     "schemas/nas-eps-event.schema.json",
     "schemas/trace-event.schema.json",
     "filters/wireshark.txt",
     "tests/test_nas_eps.py",
+    "examples/pdml/esm-container.pdml",
+    "examples/pdml/esm-reject.pdml",
 )
+
+# Reviewed ESM message identities that the bounded subset must support.
+ESM_SUPPORTED = (193, 194, 195, 208, 209, 217, 218, 232)
+
+# Values that must never appear in published ESM evidence.
+ESM_FORBIDDEN = ("internet", "apn.test", "10.45.0.", "198.51.100.7")
 
 FIXTURES = {
     "examples/extracted/attach-flow.jsonl": "examples/expected/attach-flow-events.jsonl",
@@ -73,6 +82,16 @@ FORBIDDEN_EVENT_KEYS = {
 LIFECYCLE_MARKER = re.compile(r"(?i)\bphase\s*[0-9]+\b|\bmilestone\s*[a-z]?[0-9]+\b")
 HEX_BLOB = re.compile(r"\b[0-9a-fA-F]{64,}\b")
 LONG_DIGITS = re.compile(r"\d{14,}")
+
+
+def load_esm_model():
+    path = ROOT / "skills" / "protocol" / "nas-eps" / "scripts" / "nas_eps_esm.py"
+    spec = importlib.util.spec_from_file_location("nas_eps_esm_under_test", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def load_model():
@@ -186,6 +205,48 @@ def validate(root: Path = ROOT) -> list[str]:
                 fail(f"{expected}: publishes a long hex payload blob")
             if LONG_DIGITS.search(serialised):
                 fail(f"{expected}: publishes a long digit run that may be an identifier")
+
+    esm = load_esm_model()
+    if set(ESM_SUPPORTED) != set(esm.SUPPORTED_ESM_MESSAGES):
+        fail("ESM supported message set does not match the reviewed subset")
+    for fixture, frames in (
+        ("esm-container.pdml", (9, 23, 26)),
+        ("esm-reject.pdml", (43, 45, 47)),
+    ):
+        path = skill / "examples" / "pdml" / fixture
+        try:
+            index = esm.pdml_esm_index(path.read_text(encoding="utf-8"), fixture)
+        except ValueError as exc:
+            fail(f"{fixture}: {exc}")
+            continue
+        if tuple(sorted(index)) != frames:
+            fail(f"{fixture}: ESM frames do not match the reviewed fixture")
+            continue
+        for frame, items in index.items():
+            if not items:
+                fail(f"{fixture}: frame {frame} produced no ESM message")
+            for item in items:
+                if item["message_type_code"] not in ESM_SUPPORTED and item["support_status"] == "SUPPORTED":
+                    fail(f"{fixture}: an unreviewed ESM message is marked SUPPORTED")
+                if item["binding_basis"] != "pdml_grouped_ie":
+                    fail(f"{fixture}: an ESM message lost its dissector binding")
+                if item["apn_length"] is not None and not item["apn_present"]:
+                    fail(f"{fixture}: an APN length is published without APN presence")
+                serialised = json.dumps(item)
+                for forbidden in ESM_FORBIDDEN:
+                    if forbidden in serialised:
+                        fail(f"{fixture}: publishes forbidden ESM value '{forbidden}'")
+                if HEX_BLOB.search(serialised):
+                    fail(f"{fixture}: publishes a long hex payload blob")
+
+    esm_reject = esm.pdml_esm_index(
+        (skill / "examples" / "pdml" / "esm-reject.pdml").read_text(encoding="utf-8"), "esm-reject.pdml"
+    )
+    reject = esm_reject[47][0]
+    if reject["esm_cause"] != {"value": 27, "name": "Missing or unknown APN"}:
+        fail("the PDN connectivity reject fixture lost its reviewed ESM cause")
+    if reject["container"]["enclosing_emm_message_type"] != "Attach reject":
+        fail("the PDN connectivity reject fixture lost its enclosing NAS message")
 
     protected = read_jsonl(skill / "examples/expected/protected-inner-events.jsonl")
     unavailable = [event for event in protected if event["support_status"] == "PROTECTED_INNER_MESSAGE_UNAVAILABLE"]

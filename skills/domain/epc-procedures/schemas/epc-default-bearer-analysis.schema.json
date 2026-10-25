@@ -1,0 +1,311 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill/schemas/epc-default-bearer-analysis.schema.json",
+  "title": "EPC default-bearer analysis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "domain",
+    "domain_version",
+    "analysis_name",
+    "analysis_version",
+    "procedure",
+    "procedure_label",
+    "analysis_scope",
+    "input_provenance",
+    "instance_count",
+    "default_bearer_instances",
+    "esm_observations",
+    "esm_observation_count",
+    "s1_erab_observations",
+    "s1_erab_observation_count",
+    "gtpv2_supporting_evidence",
+    "gtpv2_supporting_evidence_count",
+    "established_links",
+    "ambiguous_links",
+    "unbound_evidence",
+    "procedure_local_deviations",
+    "procedure_local_deviation_count",
+    "procedure_local_deviations_omitted",
+    "evidence_limitations",
+    "additional_evidence_needed",
+    "not_confirmed",
+    "boundary_selection_status",
+    "first_abnormal_boundary",
+    "boundary_note"
+  ],
+  "properties": {
+    "domain": { "const": "epc-procedures" },
+    "domain_version": { "type": "string" },
+    "analysis_name": { "const": "eps-default-bearer" },
+    "analysis_version": { "type": "string" },
+    "procedure": { "const": "eps-default-bearer" },
+    "procedure_label": { "type": "string" },
+    "analysis_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "stages",
+        "stage_status_vocabulary",
+        "outcome_vocabulary",
+        "link_status_vocabulary",
+        "supported_esm_messages",
+        "input_contract",
+        "excluded"
+      ],
+      "properties": {
+        "capability": { "type": "string" },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["stage_id", "stage_label", "conditional"],
+            "properties": {
+              "stage_id": { "type": "string" },
+              "stage_label": { "type": "string" },
+              "conditional": { "type": "boolean" }
+            }
+          }
+        },
+        "stage_status_vocabulary": { "type": "array", "items": { "type": "string" } },
+        "outcome_vocabulary": { "type": "array", "items": { "type": "string" } },
+        "link_status_vocabulary": { "type": "array", "items": { "type": "string" } },
+        "supported_esm_messages": { "type": "array", "items": { "type": "integer" } },
+        "input_contract": { "type": "string" },
+        "excluded": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "input_provenance": { "type": "object" },
+    "instance_count": { "type": "integer", "minimum": 0 },
+    "default_bearer_instances": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/instance" }
+    },
+    "esm_observations": { "type": "array", "items": { "type": "object" } },
+    "esm_observation_count": { "type": "integer", "minimum": 0 },
+    "s1_erab_observations": { "type": "array", "items": { "type": "object" } },
+    "s1_erab_observation_count": { "type": "integer", "minimum": 0 },
+    "gtpv2_supporting_evidence": { "type": "array", "items": { "type": "object" } },
+    "gtpv2_supporting_evidence_count": { "type": "integer", "minimum": 0 },
+    "established_links": { "type": "array", "items": { "$ref": "#/$defs/link" } },
+    "ambiguous_links": { "type": "array", "items": { "$ref": "#/$defs/link" } },
+    "unbound_evidence": { "type": "array", "items": { "type": "object" } },
+    "procedure_local_deviations": { "type": "array", "items": { "$ref": "#/$defs/deviation" } },
+    "procedure_local_deviation_count": { "type": "integer", "minimum": 0 },
+    "procedure_local_deviations_omitted": { "type": "integer", "minimum": 0 },
+    "evidence_limitations": { "type": "array", "items": { "type": "string" } },
+    "additional_evidence_needed": { "type": "array", "items": { "type": "string" } },
+    "not_confirmed": { "type": "array", "items": { "type": "string" } },
+    "boundary_selection_status": { "const": "NOT_EVALUATED" },
+    "first_abnormal_boundary": { "type": "null" },
+    "boundary_note": { "type": "string" }
+  },
+  "$defs": {
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage_id",
+        "stage_label",
+        "status",
+        "conditional",
+        "message_count",
+        "first_frame",
+        "last_frame",
+        "messages",
+        "limitations"
+      ],
+      "properties": {
+        "stage_id": {
+          "enum": [
+            "pdn-connectivity-request",
+            "esm-information-exchange",
+            "default-bearer-activation-request",
+            "default-bearer-activation-response",
+            "s1-erab-setup",
+            "supporting-gtpv2-session-control"
+          ]
+        },
+        "stage_label": { "type": "string" },
+        "status": {
+          "enum": [
+            "OBSERVED",
+            "NOT_OBSERVED",
+            "UNAVAILABLE_PROTECTED",
+            "AMBIGUOUS",
+            "INSUFFICIENT_EVIDENCE"
+          ]
+        },
+        "conditional": { "type": "boolean" },
+        "message_count": { "type": "integer", "minimum": 0 },
+        "first_frame": { "type": ["integer", "null"] },
+        "last_frame": { "type": ["integer", "null"] },
+        "messages": { "type": "array", "items": { "type": "object" } },
+        "limitations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instance_reference",
+        "procedure",
+        "ue_context",
+        "association_basis",
+        "association_strength",
+        "attach_link",
+        "stages",
+        "outcomes",
+        "bearer_context",
+        "erab_items",
+        "esm_message_count",
+        "deviations",
+        "observation_window",
+        "evidence_refs",
+        "limitations",
+        "additional_evidence_needed"
+      ],
+      "properties": {
+        "instance_reference": { "type": "string", "pattern": "^epc-default-bearer-[0-9a-f]{10}$" },
+        "procedure": { "const": "eps-default-bearer" },
+        "ue_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "capture_file",
+            "sctp_association",
+            "enb_ue_s1ap_id",
+            "mme_ue_s1ap_id"
+          ],
+          "properties": {
+            "capture_file": { "type": ["string", "null"] },
+            "sctp_association": { "type": ["string", "null"] },
+            "enb_ue_s1ap_id": { "type": ["integer", "null"] },
+            "mme_ue_s1ap_id": { "type": ["integer", "null"] }
+          }
+        },
+        "association_basis": { "type": "string" },
+        "association_strength": { "enum": ["STRONG", "SUPPORTED", "AMBIGUOUS", "UNBOUND"] },
+        "attach_link": { "$ref": "#/$defs/link" },
+        "stages": { "type": "array", "items": { "$ref": "#/$defs/stage" } },
+        "outcomes": { "type": "array", "items": { "type": "string" } },
+        "bearer_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "eps_bearer_identity",
+            "eps_bearer_identity_basis",
+            "pdn_type",
+            "apn_present",
+            "apn_length",
+            "pdn_address_present",
+            "pdn_address_family",
+            "qos_present",
+            "pco_present"
+          ],
+          "properties": {
+            "eps_bearer_identity": { "type": ["integer", "null"] },
+            "eps_bearer_identity_basis": { "type": ["string", "null"] },
+            "pdn_type": { "type": ["string", "null"] },
+            "apn_present": { "type": ["boolean", "null"] },
+            "apn_length": { "type": ["integer", "null"] },
+            "pdn_address_present": { "type": ["boolean", "null"] },
+            "pdn_address_family": { "type": ["string", "null"] },
+            "qos_present": { "type": ["boolean", "null"] },
+            "pco_present": { "type": ["boolean", "null"] }
+          }
+        },
+        "erab_items": { "type": "array", "items": { "type": "object" } },
+        "esm_message_count": { "type": "integer", "minimum": 0 },
+        "deviations": { "type": "array", "items": { "$ref": "#/$defs/deviation" } },
+        "observation_window": { "$ref": "#/$defs/window" },
+        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/evidence_ref" } },
+        "limitations": { "type": "array", "items": { "type": "string" } },
+        "additional_evidence_needed": { "type": "array", "items": { "type": "string" } },
+        "tunnel_links": { "type": "array", "items": { "$ref": "#/$defs/link" } }
+      }
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["link_type", "status"],
+      "properties": {
+        "link_type": {
+          "enum": ["esm_to_s1ap_ue_context", "esm_to_eps_attach", "s1ap_erab_to_gtpv2_bearer"]
+        },
+        "status": { "enum": ["ESTABLISHED", "SUPPORTED", "AMBIGUOUS", "NOT_ESTABLISHED"] },
+        "source_subject_reference": { "type": ["string", "null"] },
+        "target_subject_reference": { "type": ["string", "null"] },
+        "link_basis": { "type": "string" },
+        "supporting_identifiers": { "type": "array", "items": { "type": "object" } },
+        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/evidence_ref" } },
+        "association_strength": { "type": ["string", "null"] },
+        "limitations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "deviation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deviation_type",
+        "instance_reference",
+        "protocol",
+        "message_type",
+        "frame_number",
+        "esm_cause_code",
+        "esm_cause_name",
+        "eps_bearer_identity",
+        "evidence_level",
+        "evidence_refs",
+        "observation_window",
+        "limitations"
+      ],
+      "properties": {
+        "deviation_type": {
+          "enum": [
+            "PDN_CONNECTIVITY_REJECT_OBSERVED",
+            "DEFAULT_BEARER_ACTIVATION_REJECT_OBSERVED",
+            "ESM_REJECTION_OBSERVED",
+            "PROTECTED_ESM_UNAVAILABLE",
+            "ERAB_ITEM_EVIDENCE_UNAVAILABLE",
+            "TUNNEL_ENDPOINT_LINK_AMBIGUOUS",
+            "ESM_EVIDENCE_UNBOUND"
+          ]
+        },
+        "instance_reference": { "type": ["string", "null"] },
+        "protocol": { "type": "string" },
+        "message_type": { "type": ["string", "null"] },
+        "frame_number": { "type": ["integer", "null"] },
+        "esm_cause_code": { "type": ["integer", "null"] },
+        "esm_cause_name": { "type": ["string", "null"] },
+        "eps_bearer_identity": { "type": ["integer", "null"] },
+        "evidence_level": { "const": "OBSERVED" },
+        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/evidence_ref" } },
+        "observation_window": { "$ref": "#/$defs/window" },
+        "limitations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "frame_number", "message_type", "evidence_level"],
+      "properties": {
+        "protocol": { "type": "string" },
+        "frame_number": { "type": ["integer", "null"] },
+        "message_type": { "type": ["string", "null"] },
+        "evidence_level": { "type": "string" }
+      }
+    },
+    "window": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["start_frame", "end_frame"],
+      "properties": {
+        "start_frame": { "type": "integer" },
+        "end_frame": { "type": "integer" }
+      }
+    }
+  }
+}

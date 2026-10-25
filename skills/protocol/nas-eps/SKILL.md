@@ -4,7 +4,7 @@
 
 Answer WHAT an observed EPS NAS message means at the protocol layer: message
 identity, protection state, procedure family, EMM cause, bounded attach and identity
-metadata, and ESM container presence.
+metadata, ESM container presence, and bounded ESM session-management evidence.
 
 This is a Protocol-layer Skill for the EPS NAS protocol (UE to MME, carried over
 S1AP on N1), bounded to the EPS attach, identity, authentication and NAS security
@@ -28,6 +28,25 @@ mode control message set of 3GPP TS 24.301, as implemented by the Wireshark/TSha
 - Report direction when the enclosing S1AP message exposes it, with the basis
   recorded; otherwise leave it null.
 - Support both a live capture input and a structured fields JSONL input.
+
+### ESM session management (bounded)
+
+- Decode the reviewed ESM subset: PDN connectivity request/reject, activate
+  default EPS bearer context request/accept/reject, ESM information
+  request/response and ESM status. Other known ESM identities are named but
+  reported as `UNSUPPORTED`.
+- Read ESM messages from a PDML dissection so each message keeps its ESM
+  container boundary and its enclosing NAS message. Flat field input is published
+  as `flat_fields` and never claims a container.
+- Publish the EPS bearer identity and the procedure transaction identity as
+  separate fields, and never join two NAS messages because a PTI or an EBI value
+  happens to match.
+- Publish APN presence and length only, PDN address presence and family only, and
+  QoS/PCO presence only. The APN name, the assigned PDN address and the ESM
+  container bytes are never retained.
+- A ciphered NAS message whose inner ESM cannot be read keeps
+  `PROTECTED_INNER_MESSAGE_UNAVAILABLE`; it is never reported as an absent ESM
+  message.
 
 Supported messages: Attach request, Attach accept, Attach complete, Attach reject,
 Identity request, Identity response, Authentication request, Authentication response,

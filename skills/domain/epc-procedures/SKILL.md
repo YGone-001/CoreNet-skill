@@ -121,6 +121,47 @@ S11 and S5/S8 subjects stay separate, and every subject reports
 capability publishes `not_confirmed` explicitly and keeps
 `boundary_selection_status` at `NOT_EVALUATED`.
 
+## Default-Bearer Analysis
+
+Version 0.3.0 adds a third, independently executable capability:
+`scripts/analyze_epc_default_bearer.py`. It consumes NAS-EPS events (with their
+decoded ESM messages), S1AP events (with item-scoped E-RAB evidence), the EPS
+Attach analysis, the EPC session-control analysis, and optionally GTPv2-C events
+for exact S1-U tunnel endpoint identity only.
+
+```bash
+python3 scripts/analyze_epc_default_bearer.py \
+  --nas nas-eps-events.jsonl \
+  --s1ap s1ap-events.jsonl \
+  --attach epc-attach-analysis.json \
+  --session epc-session-analysis.json \
+  --gtpv2 gtpv2-events.jsonl \
+  --output epc-default-bearer-analysis.json \
+  --timeline-output epc-default-bearer-timeline.jsonl
+```
+
+Only `--nas` is required. It reports six stages (`pdn-connectivity-request`,
+`esm-information-exchange`, `default-bearer-activation-request`,
+`default-bearer-activation-response`, `s1-erab-setup`,
+`supporting-gtpv2-session-control`), each with one of `OBSERVED`, `NOT_OBSERVED`,
+`UNAVAILABLE_PROTECTED`, `AMBIGUOUS` or `INSUFFICIENT_EVIDENCE`.
+
+An ESM rejection becomes a typed, frame-anchored deviation carrying the reviewed
+ESM cause code and name. A protected NAS message whose inner ESM cannot be read
+produces `UNAVAILABLE_PROTECTED` and `PROTECTED_ESM_UNAVAILABLE`, never an absent
+stage.
+
+Identity links are classified `ESTABLISHED`, `SUPPORTED`, `AMBIGUOUS` or
+`NOT_ESTABLISHED`. The only cross-interface tunnel basis is exact equality of the
+S1-U transport layer address and GTP-TEID with a reviewed S1-U interface type, and
+such a link is `SUPPORTED` rather than `ESTABLISHED` because an E-RAB identity is
+never equated with an EPS bearer identity. S11 to S5/S8 and Attach to session
+links stay `NOT_ESTABLISHED`.
+
+The capability publishes `not_confirmed` explicitly and keeps
+`boundary_selection_status` at `NOT_EVALUATED`. See `references/default-bearer.md`
+and `references/identity-linking.md`.
+
 ## Failure Behavior
 
 | Condition | Behavior |

@@ -29,7 +29,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN
 from pathlib import Path
-from typing import Iterable, Iterator
+from typing import Any, Iterable, Iterator
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import s1ap_erab
 
 EXIT_TOOL_UNAVAILABLE = 3
 EXIT_TSHARK_FAILURE = 4
@@ -507,19 +510,16 @@ def observed_cause(record: dict[str, object]) -> dict[str, object] | None:
     return None
 
 
-def erab_items(record: dict[str, object]) -> list[dict[str, object]] | None:
-    """Bounded E-RAB item evidence for the Initial Context Setup subset."""
-    items: list[dict[str, object]] = []
-    for field, (operation, role) in E_RAB_LIST_FIELDS.items():
-        if first_token(record.get(field)) is None:
-            continue
-        identifiers = repeated_ints(record.get("s1ap.e_RAB_ID"))
-        if not identifiers:
-            items.append({"operation": operation, "list_role": role, "erab_id": None})
-            continue
-        for identifier in identifiers:
-            items.append({"operation": operation, "list_role": role, "erab_id": identifier})
-    return items or None
+def erab_items(
+    record: dict[str, object], capture_file: str, frame_number: int
+) -> list[dict[str, object]]:
+    """Bounded E-RAB item evidence for the Initial Context Setup subset.
+
+    Flat field input cannot prove an E-RAB item boundary, so the item list stays
+    identity-only and every tunnel field stays unset. A capture is dissected to
+    PDML separately and supplies the item-scoped evidence.
+    """
+    return s1ap_erab.flat_erab_items(record, capture_file, frame_number)
 
 
 def context_key(capture: str, association: str, enb_id: int | None, mme_id: int | None) -> str:
@@ -544,7 +544,12 @@ def association_key(event: dict[str, object]) -> tuple[str, str]:
     return capture, f"endpoint-pair-{pair}"
 
 
-def normalize_record(record: object, capture_file: str) -> dict[str, object]:
+def normalize_record(
+    record: object,
+    capture_file: str,
+    erab_index: dict[int, list[dict[str, Any]]] | None = None,
+    nas_frames: set[int] | None = None,
+) -> dict[str, object]:
     """Project one structured S1AP observation into the detailed event."""
     if not isinstance(record, dict):
         raise InputError("structured S1AP record must be a JSON object")
@@ -607,6 +612,13 @@ def normalize_record(record: object, capture_file: str) -> dict[str, object]:
         "cause": observed_cause(record),
         "nas_pdu_present": nas_length is not None,
         "nas_pdu_length": nas_length,
+        # An Initial Context Setup Request carries its NAS-PDU inside the E-RAB
+        # item, so a message-level NAS-PDU field is absent even though the
+        # message does carry NAS. The two facts are published separately.
+        "nas_pdu_embedded": (frame_number in nas_frames) if nas_frames is not None else None,
+        "nas_pdu_embedded_basis": (
+            "pdml_nested_nas_layer" if nas_frames is not None else "unavailable"
+        ),
         "tac": tac,
         "plmn_identity_present": first_token(record.get("s1ap.PLMNidentity")) is not None,
         "eutran_cgi_present": first_token(record.get("s1ap.EUTRAN_CGI_element")) is not None,
@@ -614,9 +626,25 @@ def normalize_record(record: object, capture_file: str) -> dict[str, object]:
         "evidence": {"level": "OBSERVED", "source": source_ref},
         "derivations": list(identity["derivations"]),
     }
-    items = erab_items(record)
-    if items is not None:
-        event["erab_items"] = items
+    if erab_index is not None:
+        items = [dict(item) for item in erab_index.get(frame_number, [])]
+        if items:
+            event["erab_items"] = items
+        else:
+            unbound = s1ap_erab.unbound_erab_evidence(record)
+            if unbound is not None:
+                unbound["reason"] = (
+                    "the dissector tree exposed no E-RAB item node for this message, so the "
+                    "E-RAB list presence is published without item-scoped evidence"
+                )
+                event["unbound_erab_evidence"] = unbound
+    else:
+        items = erab_items(record, capture_file, frame_number)
+        if items:
+            event["erab_items"] = items
+        unbound = s1ap_erab.unbound_erab_evidence(record)
+        if unbound is not None:
+            event["unbound_erab_evidence"] = unbound
     message_name = identity.get("message_type")
     if isinstance(message_name, str) and message_name in DECODER_LIMITATIONS:
         event["extraction_limitations"] = list(DECODER_LIMITATIONS[message_name])
@@ -979,6 +1007,41 @@ def tshark_records(capture: Path) -> Iterator[dict[str, object]]:
     return_code = process.wait()
     if return_code != 0:
         raise TsharkError(f"tshark capture parsing failed: {stderr or f'exit {return_code}'}")
+
+
+def pdml_dissection(capture: Path) -> str:
+    """Run a PDML dissection so E-RAB item boundaries stay provable."""
+    exe = resolve_tshark_executable()
+    command = [
+        exe,
+        "-n",
+        "-r",
+        str(capture),
+        "-T",
+        "pdml",
+        "-Y",
+        resolve_filter(FILTER_CANDIDATES, get_available_protocols(exe)),
+    ]
+    try:
+        completed = subprocess.run(
+            command, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False
+        )
+    except FileNotFoundError as exc:
+        raise ToolUnavailable("tshark is unavailable; install Wireshark/tshark manually and retry") from exc
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or "unknown tshark failure"
+        raise TsharkError(f"tshark PDML dissection failed: {detail}")
+    return completed.stdout
+
+
+def erab_index_for_capture(
+    capture: Path,
+) -> tuple[dict[int, list[dict[str, Any]]], set[int]]:
+    """E-RAB items per frame and nested-NAS frames, from the dissector tree."""
+    try:
+        return s1ap_erab.pdml_erab_dissection(pdml_dissection(capture), safe_capture_name(capture))
+    except ValueError as exc:
+        raise TsharkError(f"tshark PDML dissection is unreadable: {exc}") from exc
 
 
 def input_kind(path: Path, requested: str) -> str:

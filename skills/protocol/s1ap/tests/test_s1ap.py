@@ -329,3 +329,134 @@ class ModelTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ErabItemTests(unittest.TestCase):
+    """Item-scoped E-RAB evidence: grouping, tunnel endpoints and unbound input."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        import s1ap_erab
+
+        cls.erab = s1ap_erab
+        cls.items, cls.nas_frames = s1ap_erab.pdml_erab_dissection(
+            (EXAMPLES / "pdml" / "erab-items.pdml").read_text(encoding="utf-8"),
+            "erab-items.pdml",
+        )
+
+    # S01 -----------------------------------------------------------------
+    def test_initial_context_setup_request_preserves_erab_items(self) -> None:
+        items = self.items[23]
+        self.assertEqual(len(items), 2)
+        first = items[0]
+        self.assertEqual(first["operation"], "INITIAL_CONTEXT_SETUP")
+        self.assertEqual(first["list_role"], "REQUEST")
+        self.assertEqual(first["erab_id"], 5)
+        self.assertEqual(first["qci"], 9)
+        self.assertTrue(first["arp_present"])
+        self.assertEqual(first["binding_basis"], "pdml_grouped_ie")
+        self.assertEqual(first["endpoint_role"], "enodeb_s1u")
+
+    # S02 -----------------------------------------------------------------
+    def test_initial_context_setup_response_preserves_erab_items(self) -> None:
+        items = self.items[24]
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["list_role"], "SUCCESS")
+        self.assertEqual(items[0]["erab_id"], 5)
+        self.assertEqual(items[0]["gtp_teid"], 3355633680)
+        self.assertEqual(items[0]["transport_layer_address"], "127.0.0.5")
+
+    # S03 -----------------------------------------------------------------
+    def test_multiple_erab_items_stay_distinct(self) -> None:
+        items = self.items[23]
+        self.assertEqual([item["item_index"] for item in items], [0, 1])
+        self.assertEqual([item["erab_id"] for item in items], [5, 6])
+        self.assertEqual([item["qci"] for item in items], [9, 7])
+
+    # S04 -----------------------------------------------------------------
+    def test_gtp_teid_is_bound_to_its_own_item(self) -> None:
+        items = self.items[23]
+        self.assertEqual([item["gtp_teid"] for item in items], [49676, 49677])
+        self.assertEqual([item["gtp_teid_hex"] for item in items], ["0000c20c", "0000c20d"])
+        self.assertEqual(len({item["gtp_teid"] for item in items}), 2)
+
+    # S05 -----------------------------------------------------------------
+    def test_transport_layer_address_is_bound_to_its_own_item(self) -> None:
+        items = self.items[23]
+        self.assertEqual(
+            [item["transport_layer_address"] for item in items],
+            ["192.168.64.128", "192.168.64.129"],
+        )
+        self.assertEqual(
+            [item["transport_layer_address_family"] for item in items], ["IPv4", "IPv4"]
+        )
+
+    # S06 -----------------------------------------------------------------
+    def test_flat_field_input_stays_explicitly_unbound(self) -> None:
+        record = {
+            "frame.number": "23",
+            "frame.time_epoch": "1792857019.284002358",
+            "s1ap.procedureCode": "9",
+            "s1ap.initiatingMessage_element": "InitialContextSetupRequest",
+            "s1ap.ENB_UE_S1AP_ID": "1",
+            "s1ap.MME_UE_S1AP_ID": "9",
+            "s1ap.E_RABToBeSetupListCtxtSUReq": "1",
+            "s1ap.e_RAB_ID": "5,6",
+            "s1ap.transportLayerAddress": "c0a84080,c0a84081",
+            "s1ap.gTP_TEID": "0000c20c,0000c20d",
+        }
+        event = model.normalize_record(record, "flat.jsonl")
+        self.assertEqual(event["nas_pdu_embedded"], None)
+        self.assertEqual(event["nas_pdu_embedded_basis"], "unavailable")
+        for item in event["erab_items"]:
+            self.assertIsNone(item["gtp_teid"])
+            self.assertIsNone(item["transport_layer_address"])
+            self.assertEqual(item["binding_basis"], "flat_fields")
+        evidence = event["unbound_erab_evidence"]
+        self.assertEqual(evidence["erab_ids"], [5, 6])
+        self.assertEqual(evidence["binding_basis"], "flat_fields")
+
+    # S07 -----------------------------------------------------------------
+    def test_erab_identifier_is_not_a_ue_identity(self) -> None:
+        context = model.context_key("capture.pcap", "sctp-assoc-0", 1, 9)
+        self.assertNotIn("erab", context)
+        self.assertTrue(context.endswith(":e1:m9"))
+        record = {
+            "frame.number": "23",
+            "frame.time_epoch": "1792857019.284002358",
+            "s1ap.procedureCode": "9",
+            "s1ap.initiatingMessage_element": "InitialContextSetupRequest",
+            "s1ap.ENB_UE_S1AP_ID": "1",
+            "s1ap.MME_UE_S1AP_ID": "9",
+            "s1ap.E_RABToBeSetupListCtxtSUReq": "1",
+            "s1ap.e_RAB_ID": "5",
+        }
+        event = model.normalize_record(record, "flat.jsonl")
+        self.assertTrue(event["context_key"].endswith(":e1:m9"))
+        self.assertNotIn("erab", event["context_key"])
+
+    # S08 -----------------------------------------------------------------
+    def test_ue_association_and_nested_nas_are_published(self) -> None:
+        self.assertEqual(sorted(self.nas_frames), [23])
+        record = {
+            "frame.number": "23",
+            "frame.time_epoch": "1792857019.284002358",
+            "s1ap.procedureCode": "9",
+            "s1ap.initiatingMessage_element": "InitialContextSetupRequest",
+            "s1ap.ENB_UE_S1AP_ID": "1",
+            "s1ap.MME_UE_S1AP_ID": "9",
+            "s1ap.E_RABToBeSetupListCtxtSUReq": "1",
+            "s1ap.e_RAB_ID": "5",
+        }
+        event = model.normalize_record(record, "flat.jsonl", None, self.nas_frames)
+        self.assertTrue(event["nas_pdu_embedded"])
+        self.assertEqual(event["nas_pdu_embedded_basis"], "pdml_nested_nas_layer")
+        self.assertFalse(event["nas_pdu_present"])
+        self.assertEqual(event["enb_ue_s1ap_id"], 1)
+        self.assertEqual(event["mme_ue_s1ap_id"], 9)
+        self.assertEqual(event["sender_role"], "mme")
+
+    def test_item_projection_never_carries_nas_payload(self) -> None:
+        payload = json.dumps(self.items)
+        for forbidden in ("nAS_PDU", "nAS-PDU", "27b93f", "apn"):
+            self.assertNotIn(forbidden, payload)

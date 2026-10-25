@@ -26,6 +26,8 @@ from nas_eps_model import (
     InputError,
     TsharkError,
     ToolUnavailable,
+    esm_index_for_capture,
+    input_kind,
     normalize_record,
     project_trace_event,
     records_for_input,
@@ -72,7 +74,11 @@ def _write_jsonl(destination: Path, rows: list[dict[str, object]]) -> None:
 def collect_events(input_path: Path, input_format: str) -> list[dict[str, object]]:
     records, _version = records_for_input(input_path, input_format)
     capture_file = safe_capture_name(input_path)
-    events = [normalize_record(record, capture_file) for record in records]
+    # A capture is dissected to PDML as well, because only the dissector tree
+    # proves which ESM message belongs to which ESM container. Structured field
+    # input keeps ESM evidence explicitly unbound instead.
+    esm_index = esm_index_for_capture(input_path) if input_kind(input_path, input_format) == "capture" else None
+    events = [normalize_record(record, capture_file, esm_index) for record in records]
     if not events:
         raise InputError("input contains no NAS-EPS records")
     return events

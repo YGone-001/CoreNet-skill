@@ -61,6 +61,26 @@ It never links S11 to S5/S8, never links an Attach UE to a GTPv2-C session, and
 never claims PDN, bearer or user-plane success. See
 `references/session-control.md`.
 
+## Default bearer
+
+```bash
+python3 scripts/analyze_epc_default_bearer.py \
+  --nas nas-eps-events.jsonl \
+  --s1ap s1ap-events.jsonl \
+  --attach epc-attach-analysis.json \
+  --session epc-session-analysis.json \
+  --gtpv2 gtpv2-events.jsonl \
+  --output epc-default-bearer-analysis.json
+python3 scripts/epc_default_bearer_timeline.py epc-default-bearer-analysis.json
+```
+
+The default-bearer path consumes already-extracted ESM, E-RAB and GTPv2-C
+tunnel-endpoint evidence. It reports staged PDN connectivity and default bearer
+activation with explicit `UNAVAILABLE_PROTECTED` handling, typed ESM negative
+deviations, and identity links classified `ESTABLISHED` / `SUPPORTED` /
+`AMBIGUOUS` / `NOT_ESTABLISHED`. It never claims that a bearer carries user
+traffic and never equates an E-RAB identity with an EPS bearer identity.
+
 ## What it reports
 
 | Evidence | Detail |

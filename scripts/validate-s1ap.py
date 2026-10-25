@@ -24,12 +24,14 @@ REQUIRED = (
     "references/correlation.md",
     "references/failure-cases.md",
     "scripts/s1ap_model.py",
+    "scripts/s1ap_erab.py",
     "scripts/extract-s1ap.py",
     "scripts/s1ap_timeline.py",
     "schemas/s1ap-event.schema.json",
     "schemas/trace-event.schema.json",
     "filters/wireshark.txt",
     "tests/test_s1ap.py",
+    "examples/pdml/erab-items.pdml",
 )
 
 FIXTURES = {
@@ -65,6 +67,16 @@ FORBIDDEN_EVENT_KEYS = {
 LIFECYCLE_MARKER = re.compile(r"(?i)\bphase\s*[0-9]+\b|\bmilestone\s*[a-z]?[0-9]+\b")
 HEX_BLOB = re.compile(r"\b[0-9a-fA-F]{64,}\b")
 LONG_DIGITS = re.compile(r"\d{14,}")
+
+
+def load_erab_model():
+    path = ROOT / "skills" / "protocol" / "s1ap" / "scripts" / "s1ap_erab.py"
+    spec = importlib.util.spec_from_file_location("s1ap_erab_under_test", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def load_model():
@@ -142,6 +154,38 @@ def validate(root: Path = ROOT) -> list[str]:
             continue
         if LIFECYCLE_MARKER.search(text):
             fail(f"lifecycle marker in {path.relative_to(root)}")
+
+    erab = load_erab_model()
+    try:
+        items, nas_frames = erab.pdml_erab_dissection(
+            (skill / "examples" / "pdml" / "erab-items.pdml").read_text(encoding="utf-8"),
+            "erab-items.pdml",
+        )
+    except ValueError as exc:
+        fail(f"erab-items.pdml: {exc}")
+        items, nas_frames = {}, set()
+    if tuple(sorted(items)) != (23, 24):
+        fail("erab-items.pdml: E-RAB frames do not match the reviewed fixture")
+    if sorted(nas_frames) != [23]:
+        fail("erab-items.pdml: the nested NAS layer is not detected")
+    if len(items.get(23, [])) != 2:
+        fail("erab-items.pdml: the two E-RAB items are not kept separate")
+    else:
+        first, second = items[23]
+        if first["gtp_teid"] == second["gtp_teid"]:
+            fail("erab-items.pdml: two E-RAB items share one GTP-TEID")
+        if first["transport_layer_address"] == second["transport_layer_address"]:
+            fail("erab-items.pdml: two E-RAB items share one transport layer address")
+        if [first["erab_id"], second["erab_id"]] != [5, 6]:
+            fail("erab-items.pdml: the E-RAB identities are not item-scoped")
+        for item in (first, second):
+            if item["binding_basis"] != "pdml_grouped_ie":
+                fail("erab-items.pdml: an E-RAB item lost its dissector binding")
+            if item["endpoint_role"] != "enodeb_s1u":
+                fail("erab-items.pdml: the S1-U endpoint role is not message-derived")
+            serialised = json.dumps(item)
+            if "nAS_PDU" in serialised or "27b93f" in serialised:
+                fail("erab-items.pdml: an E-RAB item republishes the NAS payload")
 
     for script in (skill / "scripts").glob("*.py"):
         try:

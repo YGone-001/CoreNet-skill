@@ -1,5 +1,5 @@
 name: nas-eps
-version: 0.1.0
+version: 0.2.0
 category: protocol
 description: >
   Bounded EPS NAS semantic extraction: message identity for the EPS attach,

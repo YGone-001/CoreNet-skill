@@ -321,14 +321,20 @@ python3 skills/protocol/nas-eps/scripts/nas_eps_timeline.py nas-eps-events.jsonl
 ```
 
 `--domains epc` runs the bounded chain — S1AP extraction, NAS-EPS extraction,
-GTPv2-C extraction, GTPv2-C transaction correlation, EPS Attach analysis and EPC
-session-control analysis — and `--domains auto` selects it when EPC access signaling
-is confirmed. A capture that carries only GTPv2-C still produces a usable EPC result;
+GTPv2-C extraction, GTPv2-C transaction correlation, EPS Attach analysis, EPC
+session-control analysis and EPS default-bearer analysis — and `--domains auto`
+selects it when EPC access signaling is confirmed. A capture that carries only GTPv2-C still produces a usable EPC result;
 a capture that carries only S1AP/NAS-EPS keeps the accepted Attach result.
 
 The EPC result reports procedure instances, per-stage observations, procedure-local
-deviations with exact frames, and session-control subjects whose `subject_type` is
-`EPS_ATTACH` or `EPC_SESSION_CONTROL`. The `epc-failure-boundary` Orchestration Skill
+deviations with exact frames, and diagnostic subjects whose `subject_type` is
+`EPS_ATTACH`, `EPC_SESSION_CONTROL` or `EPS_DEFAULT_BEARER`. A default-bearer subject
+reports its ESM stages (`OBSERVED`, `NOT_OBSERVED`, `UNAVAILABLE_PROTECTED`,
+`AMBIGUOUS`, `INSUFFICIENT_EVIDENCE`), the item-scoped S1-U E-RAB endpoints, and its
+`attach_association` and `cross_interface_association` status; a tunnel link is
+`SUPPORTED` only on exact S1-U transport-layer-address and GTP-TEID equality and is
+never `ESTABLISHED`, because an E-RAB identity is never equated with an EPS bearer
+identity. The `epc-failure-boundary` Orchestration Skill
 then selects, per subject, the earliest supported abnormal observation with its
 exact frame and protocol evidence; the domain-level `boundary_selection_status`
 becomes `EVALUATED_PER_SUBJECT`, the domain-level `first_abnormal_boundary` stays
@@ -338,8 +344,9 @@ carry item-scoped bearer evidence, and state `cross_interface_association` and
 `attach_association` as `NOT_ESTABLISHED`. The result never reports a bearer, PDN or
 service verdict, and it never selects a global first-abnormal boundary: EPC boundary
 selection is reported as `NOT_EVALUATED` until an EPC Analysis Orchestration Skill
-exists. Diameter EPC, complete ESM semantics, cross-interface session association and
-user-plane verification remain outside the implemented scope.
+exists. Diameter EPC, complete ESM semantics, dedicated-bearer and PDN-disconnect
+lifecycle, cross-interface session association and user-plane verification remain
+outside the implemented scope.
 
 ## 11. Roadmap for EPC and IMS
 

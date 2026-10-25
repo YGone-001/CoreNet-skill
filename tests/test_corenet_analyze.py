@@ -1804,5 +1804,361 @@ class EpcBoundaryAdapterTests(WorkflowTestCase):
         self.assertIn("boundary_selection_status", five)
 
 
+
+
+def default_bearer_analysis(instances: int = 1, *, links: bool = True, deviations: int = 0) -> dict:
+    """A shaped EPC default-bearer analysis artifact used as adapter input."""
+    payloads = []
+    for index in range(instances):
+        deviations_payload = [
+            {
+                "deviation_type": "DEFAULT_BEARER_ACTIVATION_REJECT_OBSERVED",
+                "instance_reference": f"epc-default-bearer-{index:010x}",
+                "protocol": "NAS-EPS",
+                "message_type": "Activate default EPS bearer context reject",
+                "frame_number": 60 + index,
+                "esm_cause_code": 26,
+                "esm_cause_name": "Insufficient resources",
+                "eps_bearer_identity": 5,
+                "evidence_level": "OBSERVED",
+                "evidence_refs": [
+                    {"protocol": "NAS-EPS", "frame_number": 60 + index, "message_type": "reject",
+                     "evidence_level": "OBSERVED"}
+                ],
+                "observation_window": {"start_frame": 10, "end_frame": 70},
+                "limitations": [],
+            }
+            for _ in range(deviations)
+        ]
+        payloads.append(
+            {
+                "instance_reference": f"epc-default-bearer-{index:010x}",
+                "procedure": "eps-default-bearer",
+                "ue_context": {
+                    "capture_file": "fixture.pcap",
+                    "sctp_association": "sctp-assoc-1",
+                    "enb_ue_s1ap_id": 1 + index,
+                    "mme_ue_s1ap_id": 9 + index,
+                },
+                "association_basis": "observed_identifier_pair:STRONG",
+                "association_strength": "STRONG",
+                "attach_link": {
+                    "status": "ESTABLISHED",
+                    "target_subject_reference": f"epc-attach-{index:010x}",
+                    "link_basis": "same_capture_same_sctp_association_same_s1ap_ue_identifiers",
+                    "supporting_identifiers": [{"identifier": "enb_ue_s1ap_id", "value": 1 + index}],
+                    "limitations": [],
+                },
+                "stages": [
+                    {
+                        "stage_id": "pdn-connectivity-request",
+                        "stage_label": "PDN connectivity request",
+                        "status": "OBSERVED",
+                        "conditional": False,
+                        "message_count": 1,
+                        "first_frame": 9,
+                        "last_frame": 9,
+                        "messages": [
+                            {"protocol": "NAS-EPS", "frame_number": 9,
+                             "message_type": "PDN connectivity request", "result": "REQUEST"}
+                        ],
+                        "limitations": [],
+                    },
+                    {
+                        "stage_id": "default-bearer-activation-request",
+                        "stage_label": "Default bearer activation request",
+                        "status": "OBSERVED",
+                        "conditional": False,
+                        "message_count": 1,
+                        "first_frame": 23,
+                        "last_frame": 23,
+                        "messages": [
+                            {"protocol": "NAS-EPS", "frame_number": 23,
+                             "message_type": "Activate default EPS bearer context request", "result": "REQUEST"}
+                        ],
+                        "limitations": [],
+                    },
+                    {
+                        "stage_id": "default-bearer-activation-response",
+                        "stage_label": "Default bearer activation response",
+                        "status": "OBSERVED",
+                        "conditional": False,
+                        "message_count": 1,
+                        "first_frame": 26,
+                        "last_frame": 26,
+                        "messages": [
+                            {"protocol": "NAS-EPS", "frame_number": 26,
+                             "message_type": "Activate default EPS bearer context accept", "result": "ACCEPT"}
+                        ],
+                        "limitations": [],
+                    },
+                ],
+                "outcomes": [
+                    "PDN_CONNECTIVITY_REQUEST_OBSERVED",
+                    "DEFAULT_BEARER_ACTIVATION_REQUEST_OBSERVED",
+                    "DEFAULT_BEARER_ACTIVATION_ACCEPT_OBSERVED",
+                ],
+                "bearer_context": {
+                    "eps_bearer_identity": 5,
+                    "eps_bearer_identity_basis": "decoded_activate_default_bearer_context_header",
+                    "pdn_type": "IPv4",
+                    "apn_present": True,
+                    "apn_length": 8,
+                    "pdn_address_present": True,
+                    "pdn_address_family": "IPv4",
+                    "qos_present": True,
+                    "pco_present": False,
+                },
+                "erab_items": [
+                    {
+                        "operation": "INITIAL_CONTEXT_SETUP",
+                        "list_role": "REQUEST",
+                        "item_index": 0,
+                        "erab_id": 5,
+                        "qci": 9,
+                        "arp_present": True,
+                        "transport_layer_address": "192.168.64.128",
+                        "transport_layer_address_family": "IPv4",
+                        "gtp_teid": 49676,
+                        "gtp_teid_hex": "0000c20c",
+                        "endpoint_role": "enodeb_s1u",
+                        "endpoint_role_basis": "message_identity",
+                        "binding_basis": "pdml_grouped_ie",
+                        "frame_number": 23,
+                        "capture_file": "fixture.pcap",
+                        "limitations": [],
+                    }
+                ],
+                "esm_message_count": 3,
+                "deviations": deviations_payload,
+                "observation_window": {"start_frame": 9, "end_frame": 26},
+                "evidence_refs": [
+                    {"protocol": "NAS-EPS", "frame_number": 9, "message_type": "PDN connectivity request",
+                     "evidence_level": "OBSERVED"}
+                ],
+                "limitations": ["only APN presence and length are published"],
+                "additional_evidence_needed": [],
+                "tunnel_links": [
+                    {
+                        "link_type": "s1ap_erab_to_gtpv2_bearer",
+                        "status": "SUPPORTED",
+                        "source_subject_reference": f"epc-default-bearer-{index:010x}",
+                        "target_subject_reference": "gtpv2-frame:22",
+                        "target_frame": 22,
+                        "target_message_type": "Create Session Response",
+                        "target_eps_bearer_identity": 5,
+                        "source_frame": 23,
+                        "s1u_transport_layer_address": "192.168.64.128",
+                        "s1u_gtp_teid": 49676,
+                        "link_basis": "exact_s1u_endpoint_equality_with_reviewed_interface_type",
+                        "evidence_refs": [
+                            {"protocol": "S1AP", "frame_number": 23, "message_type": None,
+                             "evidence_level": "OBSERVED"},
+                            {"protocol": "GTPv2-C", "frame_number": 22, "message_type": "Create Session Response",
+                             "evidence_level": "OBSERVED"},
+                        ],
+                        "association_strength": "SUPPORTED",
+                        "ordering": "gtpv2_precedes_s1ap",
+                        "limitations": [],
+                    }
+                ]
+                if links
+                else [],
+            }
+        )
+    return {
+        "domain": "epc-procedures",
+        "domain_version": "0.3.0",
+        "analysis_name": "eps-default-bearer",
+        "instance_count": len(payloads),
+        "default_bearer_instances": payloads,
+        "esm_observations": [],
+        "esm_observation_count": 3 * len(payloads),
+        "s1_erab_observations": [],
+        "s1_erab_observation_count": len(payloads),
+        "gtpv2_supporting_evidence": [],
+        "gtpv2_supporting_evidence_count": 1,
+        "established_links": [],
+        "ambiguous_links": [],
+        "unbound_evidence": [],
+        "procedure_local_deviations": [
+            item for payload in payloads for item in payload["deviations"]
+        ],
+        "procedure_local_deviation_count": deviations * len(payloads),
+        "procedure_local_deviations_omitted": 0,
+        "evidence_limitations": ["no reviewed identity bridge links this UE context to a session-control subject"],
+        "additional_evidence_needed": [],
+        "not_confirmed": ["an accepted ESM response is protocol-level evidence only"],
+        "boundary_selection_status": "NOT_EVALUATED",
+        "first_abnormal_boundary": None,
+    }
+
+
+def epc_payload_with_default_bearer(instances: int = 1, *, attach: int = 1, session: bool = True,
+                                    links: bool = True, deviations: int = 0) -> dict:
+    payload = epc_payload_with_session(instances=attach, gtpv2_events=12 if session else 0)
+    payload["default_bearer_analysis"] = default_bearer_analysis(
+        instances, links=links, deviations=deviations
+    )
+    payload["default_bearer_error"] = None
+    return payload
+
+
+class EpcDefaultBearerAdapterTests(WorkflowTestCase):
+    """Unified EPC adapter behaviour for the default-bearer Domain."""
+
+    def use_payload(self, payload: dict) -> None:
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+
+    def epc_result(self) -> dict:
+        return self.domain_result()
+
+    def default_bearer_subjects(self) -> list[dict]:
+        return [
+            subject
+            for subject in self.epc_result()["diagnostic_subjects"]
+            if subject["subject_type"] == "EPS_DEFAULT_BEARER"
+        ]
+
+    def test_default_bearer_subject_is_published(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "s1ap", "nas-eps", "gtpv2"])
+        self.use_payload(epc_payload_with_default_bearer())
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        subjects = self.default_bearer_subjects()
+        self.assertEqual(len(subjects), 1)
+        subject = subjects[0]
+        self.assertEqual(subject["procedure_families"], ["eps-default-bearer"])
+        self.assertEqual(subject["association_strength"], "STRONG")
+        self.assertEqual(subject["attach_association"], "ESTABLISHED")
+        self.assertEqual(subject["cross_interface_association"], "SUPPORTED")
+        self.assertEqual(subject["request_frame"], 23)
+        self.assertEqual(subject["response_frame"], 26)
+        self.assertEqual(subject["bearer_contexts"][0]["ebi"], 5)
+        self.assertEqual(subject["bearer_contexts"][0]["scope"], "bearer")
+
+    def test_default_bearer_evidence_carries_exact_frames(self) -> None:
+        self.use_payload(epc_payload_with_default_bearer())
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        subject = self.default_bearer_subjects()[0]
+        self.assertEqual(subject["f_teid_evidence"][0]["teid"], 49676)
+        self.assertEqual(subject["f_teid_evidence"][0]["frame_number"], 23)
+        self.assertEqual(subject["f_teid_evidence"][0]["interface_type"], 1)
+        self.assertEqual(subject["observation_window"], {"start_frame": 9, "end_frame": 26})
+        stages = {stage["stage_id"]: stage for stage in subject["procedure_stages"]}
+        self.assertEqual(stages["default-bearer-activation-request"]["status"], "OBSERVED")
+        self.assertEqual(stages["default-bearer-activation-request"]["first_frame"], 23)
+
+    def test_default_bearer_summary_is_published(self) -> None:
+        self.use_payload(epc_payload_with_default_bearer())
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        summaries = {item["procedure"]: item for item in self.epc_result()["procedure_summaries"]}
+        self.assertEqual(summaries["eps-default-bearer"]["execution_status"], "EXECUTED")
+        self.assertEqual(summaries["eps-default-bearer"]["instance_count"], 1)
+        self.assertEqual(summaries["eps-default-bearer"]["established_link_count"], 1)
+
+    def test_protected_limitations_reach_the_report(self) -> None:
+        payload = epc_payload_with_default_bearer(links=False)
+        payload["default_bearer_analysis"]["evidence_limitations"].append(
+            "the enclosing NAS message is security protected and no decoded ESM message is visible"
+        )
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        self.assertIn(
+            "the enclosing NAS message is security protected and no decoded ESM message is visible",
+            self.epc_result()["evidence_limitations"],
+        )
+
+    def test_no_default_bearer_subject_degrades_without_failing(self) -> None:
+        payload = epc_payload_with_default_bearer(instances=0)
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "COMPLETED")
+        self.assertEqual(self.default_bearer_subjects(), [])
+        self.assertTrue(
+            any("no EPS default-bearer subject" in item for item in result["degradation"])
+        )
+
+    def test_default_bearer_failure_is_surfaced(self) -> None:
+        payload = epc_payload_with_default_bearer()
+        payload["default_bearer_analysis"] = None
+        payload["default_bearer_error"] = {
+            "code": "DEFAULT_BEARER_FAILED",
+            "message": "EPC default-bearer analysis exited with 5",
+        }
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertEqual(result["failure_code"], "DEFAULT_BEARER_FAILED")
+        self.assertTrue(any("DEFAULT_BEARER_FAILED" in item for item in result["degradation"]))
+        self.assertEqual(result["diagnostic_subject_count"], 5)
+
+    def test_old_epc_boundaries_are_unchanged(self) -> None:
+        payload = epc_payload_with_default_bearer()
+        payload["boundary_analysis"] = epc_boundary_payload(attach_count=1)["boundary_analysis"]
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        attach = [s for s in self.epc_result()["diagnostic_subjects"] if s["subject_type"] == "EPS_ATTACH"]
+        self.assertEqual(attach[0]["first_abnormal_boundary"]["frame_number"], 47)
+        self.assertEqual(attach[0]["boundary_selection_status"], "SELECTED")
+
+    def test_default_bearer_boundary_stays_not_evaluated(self) -> None:
+        payload = epc_payload_with_default_bearer(deviations=1)
+        # Orchestration runs over the Attach subject only; the default-bearer
+        # subject is not a reviewed orchestration input in this phase.
+        payload["boundary_analysis"] = epc_boundary_payload(attach_count=1)["boundary_analysis"]
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        subject = self.default_bearer_subjects()[0]
+        self.assertEqual(subject["boundary_selection_status"], "NOT_EVALUATED")
+        self.assertIsNone(subject["first_abnormal_boundary"])
+        self.assertEqual(subject["candidate_boundary_count"], 0)
+        self.assertEqual(subject["procedure_deviations"][0]["frame_number"], 60)
+        result = self.epc_result()
+        self.assertEqual(result["boundary_selection_status"], "EVALUATED_PER_SUBJECT")
+        self.assertIsNone(result["first_abnormal_boundary"])
+
+    def test_text_report_names_the_default_bearer_scope(self) -> None:
+        self.use_payload(epc_payload_with_default_bearer())
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        text = self.read_text()
+        self.assertIn("EPS_DEFAULT_BEARER", text)
+        self.assertIn("default bearer: interfaces S1-MME, S1-U", text)
+        self.assertIn("DEFAULT_BEARER_ACTIVATION_ACCEPT_OBSERVED", text)
+
+    def test_default_bearer_report_is_deterministic(self) -> None:
+        self.use_payload(epc_payload_with_default_bearer())
+        first, second = self.base / "db-a", self.base / "db-b"
+        self.output = first
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        self.output = second
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        for name in ("analysis.json", "report.txt"):
+            self.assertEqual((first / name).read_bytes(), (second / name).read_bytes(), name)
+
+    def test_default_bearer_publication_is_privacy_safe(self) -> None:
+        self.use_payload(epc_payload_with_default_bearer())
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        published = (self.output / "analysis.json").read_text(encoding="utf-8") + self.read_text()
+        for forbidden in ("460020000000001", "1122334455667788", "919000001", "10.45.0.7", "internet"):
+            self.assertNotIn(forbidden, published)
+
+    def test_no_attach_to_session_fusion(self) -> None:
+        self.use_payload(epc_payload_with_default_bearer())
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        references = [
+            subject["diagnostic_group_reference"] for subject in self.epc_result()["diagnostic_subjects"]
+        ]
+        self.assertEqual(len(references), len(set(references)))
+        session_references = {
+            subject["diagnostic_group_reference"]
+            for subject in self.epc_result()["diagnostic_subjects"]
+            if subject["subject_type"] == "EPC_SESSION_CONTROL"
+        }
+        for subject in self.default_bearer_subjects():
+            self.assertNotIn(subject["diagnostic_group_reference"], session_references)
+
+
 if __name__ == "__main__":
     unittest.main()

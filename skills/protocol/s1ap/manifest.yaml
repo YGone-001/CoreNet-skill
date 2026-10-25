@@ -1,5 +1,5 @@
 name: s1ap
-version: 0.1.0
+version: 0.2.0
 category: protocol
 description: >
   Bounded S1AP semantic extraction for the S1-MME interface: PDU category,

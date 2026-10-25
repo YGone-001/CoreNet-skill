@@ -37,6 +37,20 @@ REQUIRED = (
     "examples/gtpv2/events.jsonl",
     "examples/gtpv2/transactions.json",
     "examples/gtpv2/expected-session-analysis.json",
+    "references/default-bearer.md",
+    "references/identity-linking.md",
+    "rules/epc-default-bearer-model.json",
+    "schemas/epc-default-bearer-analysis.schema.json",
+    "scripts/epc_default_bearer_model.py",
+    "scripts/analyze_epc_default_bearer.py",
+    "scripts/epc_default_bearer_timeline.py",
+    "tests/test_epc_default_bearer.py",
+    "examples/default-bearer/nas-eps-events.jsonl",
+    "examples/default-bearer/s1ap-events.jsonl",
+    "examples/default-bearer/gtpv2-events.jsonl",
+    "examples/default-bearer/attach-analysis.json",
+    "examples/default-bearer/session-analysis.json",
+    "examples/default-bearer/expected-analysis.json",
 )
 
 SESSION_OUTCOMES = (
@@ -216,6 +230,7 @@ def validate(root: Path = ROOT) -> list[str]:
             fail(f"{case}: produced analysis does not match the committed expected result")
 
     errors.extend(_validate_session_control(skill, root))
+    errors.extend(_validate_default_bearer(skill, root))
 
     malformed = skill / "examples" / "extracted" / "malformed-nas.jsonl"
     if not malformed.is_file():
@@ -332,6 +347,152 @@ def _validate_session_control(skill: Path, root: Path) -> list[str]:
             fail(f"session-control analysis publishes forbidden claim '{claim}'")
     if LONG_DIGITS.search(serialized):
         fail("session-control analysis publishes a long digit run that may be an identifier")
+
+    return errors
+
+
+def load_default_bearer_model(root: Path):
+    path = root / "skills" / "domain" / "epc-procedures" / "scripts" / "epc_default_bearer_model.py"
+    spec = importlib.util.spec_from_file_location("epc_default_bearer_under_test", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _validate_default_bearer(skill: Path, root: Path) -> list[str]:
+    """Validate the bounded EPS default-bearer capability."""
+    errors: list[str] = []
+
+    def fail(message: str) -> None:
+        errors.append(message)
+
+    try:
+        schema = json.loads(
+            (skill / "schemas" / "epc-default-bearer-analysis.schema.json").read_text(encoding="utf-8")
+        )
+    except json.JSONDecodeError as exc:
+        return [f"invalid default-bearer schema: {exc}"]
+    for field in (
+        "analysis_scope",
+        "default_bearer_instances",
+        "esm_observations",
+        "s1_erab_observations",
+        "gtpv2_supporting_evidence",
+        "established_links",
+        "ambiguous_links",
+        "unbound_evidence",
+        "procedure_local_deviations",
+        "evidence_limitations",
+        "additional_evidence_needed",
+        "not_confirmed",
+    ):
+        if field not in schema.get("required", []):
+            fail(f"default-bearer schema does not require '{field}'")
+
+    try:
+        rules = json.loads((skill / "rules" / "epc-default-bearer-model.json").read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f"invalid default-bearer rules model: {exc}"]
+
+    model = load_default_bearer_model(root)
+    if set(rules.get("stages", {})) != set(model.STAGE_ORDER):
+        fail("default-bearer rules stages do not match the implemented stages")
+    if list(rules.get("stage_status_vocabulary", ())) != list(model.STAGE_STATUSES):
+        fail("default-bearer rules stage statuses do not match the implemented set")
+    if list(rules.get("outcome_vocabulary", ())) != list(model.OUTCOMES):
+        fail("default-bearer rules outcomes do not match the implemented set")
+    if list(rules.get("link_status_vocabulary", ())) != list(model.LINK_STATUSES):
+        fail("default-bearer rules link statuses do not match the implemented set")
+    if set(rules.get("negative_deviation_types", ())) != set(model.NEGATIVE_DEVIATIONS):
+        fail("default-bearer rules negative deviations do not match the implemented set")
+    if set(rules.get("limitation_deviation_types", ())) | set(model.NEGATIVE_DEVIATIONS) != set(
+        model.DEVIATION_TYPES
+    ):
+        fail("default-bearer rules deviation vocabulary does not match the implemented set")
+    if set(rules.get("identity_rules", {}).get("s1u_interface_types", ())) != set(
+        model.S1U_INTERFACE_TYPES
+    ):
+        fail("default-bearer rules S1-U interface types do not match the implemented set")
+    if tuple(rules.get("not_confirmed", ())) != tuple(model.NOT_CONFIRMED):
+        fail("default-bearer rules not_confirmed list does not match the implemented list")
+    if rules.get("identity_rules", {}).get("s11_to_s5s8_link") != "NOT_ESTABLISHED":
+        fail("default-bearer rules must keep the S11 to S5/S8 link NOT_ESTABLISHED")
+
+    base = skill / "examples" / "default-bearer"
+    try:
+        produced = model.analyze(
+            model.read_jsonl(base / "nas-eps-events.jsonl"),
+            model.read_jsonl(base / "s1ap-events.jsonl"),
+            attach_analysis=model.read_json(base / "attach-analysis.json"),
+            session_analysis=model.read_json(base / "session-analysis.json"),
+            gtpv2_events=model.read_jsonl(base / "gtpv2-events.jsonl"),
+        )
+        expected = json.loads((base / "expected-analysis.json").read_text(encoding="utf-8"))
+    except (ValueError, OSError, json.JSONDecodeError, model.InputError) as exc:
+        return errors + [f"default-bearer fixture: {exc}"]
+
+    produced.pop("input_provenance", None)
+    expected_without_provenance = dict(expected)
+    expected_without_provenance.pop("input_provenance", None)
+    if produced != expected_without_provenance:
+        fail("default-bearer analysis does not reproduce the committed expected result")
+
+    if expected.get("boundary_selection_status") != "NOT_EVALUATED":
+        fail("default-bearer analysis must keep boundary selection NOT_EVALUATED")
+    if expected.get("first_abnormal_boundary") is not None:
+        fail("default-bearer analysis must never select a first abnormal boundary")
+    if not expected.get("not_confirmed"):
+        fail("default-bearer analysis must publish what it does not confirm")
+
+    instances = expected.get("default_bearer_instances") or []
+    if not instances:
+        fail("default-bearer fixture must produce at least one instance")
+    for instance in instances:
+        if instance.get("association_strength") not in ("STRONG", "SUPPORTED", "AMBIGUOUS", "UNBOUND"):
+            fail(f"unexpected association strength: {instance.get('association_strength')}")
+        stages = {stage.get("stage_id"): stage for stage in instance.get("stages") or []}
+        if set(stages) != set(model.STAGE_ORDER):
+            fail("a default-bearer instance must publish every stage")
+        for stage in stages.values():
+            if stage.get("status") not in model.STAGE_STATUSES:
+                fail(f"unexpected stage status: {stage.get('status')}")
+        for outcome in instance.get("outcomes") or []:
+            if outcome not in model.OUTCOMES:
+                fail(f"unexpected outcome: {outcome}")
+        forbidden = SESSION_FORBIDDEN_KEYS & set(instance)
+        if forbidden:
+            fail(f"default-bearer instance publishes forbidden field(s) {sorted(forbidden)}")
+        bearer = instance.get("bearer_context") or {}
+        if "apn_name" in bearer or "pdn_address" in bearer:
+            fail("default-bearer instance publishes a subscriber-level value")
+
+    for link in (expected.get("established_links") or []) + (expected.get("ambiguous_links") or []):
+        if link.get("status") not in model.LINK_STATUSES:
+            fail(f"unexpected link status: {link.get('status')}")
+        if link.get("link_type") == "s1ap_erab_to_gtpv2_bearer" and link.get("status") == "ESTABLISHED":
+            fail("an S1AP to GTPv2 tunnel link must never be published as ESTABLISHED")
+        if "s11" in str(link.get("link_type", "")).lower():
+            fail("an S11 to S5/S8 link must never be published")
+
+    for deviation in expected.get("procedure_local_deviations") or []:
+        if deviation.get("deviation_type") not in model.DEVIATION_TYPES:
+            fail(f"unexpected deviation type: {deviation.get('deviation_type')}")
+        if deviation.get("evidence_level") != "OBSERVED":
+            fail("a default-bearer deviation must stay at the OBSERVED evidence level")
+        if deviation.get("frame_number") is None:
+            fail("a default-bearer deviation must carry an exact frame anchor")
+
+    serialized = json.dumps(expected)
+    for claim in FORBIDDEN_CLAIMS:
+        if claim in serialized:
+            fail(f"default-bearer analysis publishes forbidden claim '{claim}'")
+    if LONG_DIGITS.search(serialized):
+        fail("default-bearer analysis publishes a long digit run that may be an identifier")
+    for forbidden in ("internet", "10.45.0."):
+        if forbidden in serialized:
+            fail(f"default-bearer analysis publishes forbidden value '{forbidden}'")
 
     return errors
 

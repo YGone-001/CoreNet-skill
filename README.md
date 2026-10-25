@@ -69,9 +69,10 @@ a single command-line entry point. The bounded `s1ap` S1-MME Protocol Skill, the
 `nas-eps` EPS NAS Protocol Skill and the bounded `gtpv2` GTPv2-C session-control
 Protocol Skill extract EPC access-signaling, NAS message and session-control
 evidence from LTE captures, and the bounded `epc-procedures` Domain Skill analyzes
-observed EPS Attach procedure stages and bounded GTPv2-C session-control
-transactions with procedure-local deviations, item-scoped bearer evidence and no
-bearer, PDN or service verdict. The bounded `epc-failure-boundary` Orchestration
+observed EPS Attach procedure stages, bounded GTPv2-C session-control transactions
+and bounded EPS default-bearer signalling with procedure-local deviations,
+item-scoped E-RAB and bearer evidence, evidence-safe cross-interface identity
+links, and no bearer, PDN or service verdict. The bounded `epc-failure-boundary` Orchestration
 Skill selects, per diagnostic subject, the earliest supported abnormal observation
 with exact frame evidence and explicit ambiguity, and never merges independent
 Attach, S11 and S5/S8 subjects into one EPC failure point. The extensions provide investigation context only.

@@ -32,6 +32,14 @@ python3 scripts/extract-s1ap.py examples/extracted/ue-context-flow.jsonl \
 python3 scripts/s1ap_timeline.py s1ap-events.jsonl --format text
 ```
 
+## E-RAB tunnel evidence
+
+Initial Context Setup messages publish item-scoped `erab_items` read from a PDML
+dissection: E-RAB identity, QCI, ARP presence, transport layer address and
+GTP-TEID, bound to their own item. Flat field input publishes
+`unbound_erab_evidence` instead, because a repeated flat list cannot prove which
+tunnel endpoint belongs to which E-RAB.
+
 ## What it extracts
 
 | Evidence | Detail |

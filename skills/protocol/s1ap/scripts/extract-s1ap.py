@@ -26,6 +26,8 @@ from s1ap_model import (
     TsharkError,
     ToolUnavailable,
     build_correlation,
+    erab_index_for_capture,
+    input_kind,
     normalize_record,
     project_trace_event,
     records_for_input,
@@ -89,7 +91,13 @@ def _write_json(destination: Path, payload: object) -> None:
 def collect_events(input_path: Path, input_format: str) -> list[dict[str, object]]:
     records, _version = records_for_input(input_path, input_format)
     capture_file = safe_capture_name(input_path)
-    events = [normalize_record(record, capture_file) for record in records]
+    # A capture is dissected to PDML as well, because only the dissector tree
+    # proves which E-RAB identity, QoS value and tunnel endpoint form one item.
+    if input_kind(input_path, input_format) == "capture":
+        erab_index, nas_frames = erab_index_for_capture(input_path)
+    else:
+        erab_index, nas_frames = None, None
+    events = [normalize_record(record, capture_file, erab_index, nas_frames) for record in records]
     if not events:
         raise InputError("input contains no S1AP records")
     return events
