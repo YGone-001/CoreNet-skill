@@ -142,6 +142,13 @@ def read_jsonl(path: Path) -> list[dict]:
     return records
 
 
+def manifest_version(text):
+    for line in text.splitlines():
+        if line.startswith("version:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
 def validate(root: Path = ROOT) -> list[str]:
     errors: list[str] = []
     skill = root / "skills" / "domain" / "epc-procedures"
@@ -229,6 +236,7 @@ def validate(root: Path = ROOT) -> list[str]:
         if produced != expected:
             fail(f"{case}: produced analysis does not match the committed expected result")
 
+    errors.extend(_validate_published_contracts(skill, root))
     errors.extend(_validate_session_control(skill, root))
     errors.extend(_validate_default_bearer(skill, root))
 
@@ -347,6 +355,51 @@ def _validate_session_control(skill: Path, root: Path) -> list[str]:
             fail(f"session-control analysis publishes forbidden claim '{claim}'")
     if LONG_DIGITS.search(serialized):
         fail("session-control analysis publishes a long digit run that may be an identifier")
+
+    return errors
+
+
+def _validate_published_contracts(skill: Path, root: Path) -> list[str]:
+    """The published capability inventory must match the implemented one."""
+    errors: list[str] = []
+
+    def fail(message: str) -> None:
+        errors.append(message)
+
+    manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
+    version = manifest_version(manifest)
+    if version is None:
+        fail("manifest version must be a semantic version")
+
+    skill_md = (skill / "SKILL.md").read_text(encoding="utf-8")
+    readme = (skill / "README.md").read_text(encoding="utf-8")
+    for name, text in (("SKILL.md", skill_md), ("README.md", readme)):
+        if version is not None and version not in text:
+            fail(f"{name} does not state the manifest version {version}")
+        for script in (
+            "analyze_epc_attach.py",
+            "analyze_epc_session.py",
+            "analyze_epc_default_bearer.py",
+        ):
+            if script not in text:
+                fail(f"{name} does not document the {script} capability")
+    if "three independently executable capabilities" not in skill_md:
+        fail("SKILL.md must state that the package has three capabilities")
+    if "two independently executable capabilities" in skill_md:
+        fail("SKILL.md still describes only two capabilities")
+
+    # The correction phase added no orchestration of default-bearer subjects.
+    orchestration = root / "skills" / "orchestration" / "epc-failure-boundary" / "manifest.yaml"
+    if orchestration.is_file():
+        orchestration_text = orchestration.read_text(encoding="utf-8")
+        if "EPS Attach procedure instance or" not in orchestration_text:
+            fail("the EPC orchestration manifest no longer states its supported subject families")
+        for unsupported in ("EPS_DEFAULT_BEARER", "default-bearer", "default bearer"):
+            if unsupported in orchestration_text:
+                fail(
+                    "the EPC orchestration manifest must not advertise default-bearer subjects "
+                    "before that capability is authorized"
+                )
 
     return errors
 

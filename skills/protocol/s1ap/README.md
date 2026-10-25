@@ -77,4 +77,4 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 ## Version
 
-0.1.0
+0.2.0

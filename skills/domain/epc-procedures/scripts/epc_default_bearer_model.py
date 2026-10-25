@@ -927,138 +927,297 @@ def _gtpv2_endpoint_index(gtpv2_events: list[dict[str, Any]]) -> list[dict[str, 
     return entries
 
 
+def _endpoint_key(capture: Any, address: Any, teid: Any) -> tuple[str, str, int] | None:
+    if not address or teid is None:
+        return None
+    try:
+        value = int(teid)
+    except (TypeError, ValueError):
+        return None
+    return str(capture), str(address), value
+
+
+def _endpoint_requests(
+    instances: list[dict[str, Any]], entries: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Every S1AP E-RAB item that asks for a tunnel relationship, with its matches."""
+    requests: list[dict[str, Any]] = []
+    for instance in instances:
+        capture = instance.get("ue_context", {}).get("capture_file")
+        for item in instance.get("erab_items") or []:
+            key = _endpoint_key(capture, item.get("transport_layer_address"), item.get("gtp_teid"))
+            if key is None:
+                continue
+            candidates = [
+                entry
+                for entry in entries
+                if entry["capture_file"] == key[0]
+                and entry["interface_type"] in S1U_INTERFACE_TYPES
+                and entry["ipv4"] == key[1]
+                and entry["teid"] == key[2]
+                and entry["procedure_family"] in REVIEWED_GTPV2_FAMILIES
+            ]
+            requests.append(
+                {
+                    "instance": instance,
+                    "item": item,
+                    "key": key,
+                    "candidates": candidates,
+                }
+            )
+    return requests
+
+
+def _candidate_identity(entry: dict[str, Any]) -> tuple[Any, Any, Any]:
+    """A GTPv2-C F-TEID evidence record, independent of list position."""
+    return (
+        entry["event"].get("frame_number"),
+        entry.get("scope"),
+        entry.get("ebi"),
+    )
+
+
 def tunnel_links(
     instances: list[dict[str, Any]], gtpv2_events: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """Relate S1AP E-RAB tunnel endpoints to GTPv2-C S1-U F-TEID evidence.
 
-    The only accepted basis is exact equality of the S1-U transport layer address
-    and the S1-U GTP-TEID with a reviewed S1-U interface type, inside one capture.
-    No E-RAB identity is ever equated with an EPS bearer identity, and no
-    transport address alone establishes a relationship.
+    The only accepted equality basis is the S1-U transport layer address plus the
+    S1-U GTP-TEID with a reviewed S1-U interface type, inside one capture. That
+    equality is an observation. Whether it identifies one bearer owner is a
+    separate question, so the candidate set is evaluated on both sides: one S1AP
+    item matching several GTPv2-C records, and one GTPv2-C record matched by
+    several UE contexts, are both ambiguous. A single GTPv2-C record is never
+    used as independent identity proof for two competing UE contexts, and a
+    reused endpoint value is never treated as a new bearer generation.
+
+    No E-RAB identity is equated with an EPS bearer identity, and no transport
+    address alone establishes a relationship.
     """
     entries = _gtpv2_endpoint_index(gtpv2_events)
+    requests = _endpoint_requests(instances, entries)
+
+    # Competing source subjects per endpoint, computed before any link is built so
+    # that iteration order can never decide ownership.
+    subjects_by_endpoint: dict[tuple[str, str, int], list[str]] = {}
+    for request in requests:
+        owners = subjects_by_endpoint.setdefault(request["key"], [])
+        reference = str(request["instance"].get("instance_reference"))
+        if reference not in owners:
+            owners.append(reference)
+
     links: list[dict[str, Any]] = []
-    for instance in instances:
-        capture = instance.get("ue_context", {}).get("capture_file")
-        for item in instance.get("erab_items") or []:
-            address = item.get("transport_layer_address")
-            teid = item.get("gtp_teid")
-            if not address or teid is None:
-                continue
-            candidates = [
-                entry
-                for entry in entries
-                if entry["capture_file"] == str(capture)
-                and entry["interface_type"] in S1U_INTERFACE_TYPES
-                and entry["ipv4"] == address
-                and entry["teid"] == teid
-                and entry["procedure_family"] in REVIEWED_GTPV2_FAMILIES
-            ]
-            base = {
-                "link_type": "s1ap_erab_to_gtpv2_bearer",
-                "source_subject_reference": instance.get("instance_reference"),
-                "source_frame": item.get("frame_number"),
-                "s1ap_message_type": None,
-                "s1u_transport_layer_address": address,
-                "s1u_gtp_teid": teid,
-                "supporting_identifiers": [
-                    {"identifier": "s1u_transport_layer_address", "value": address},
-                    {"identifier": "s1u_gtp_teid", "value": teid},
-                    {"identifier": "f_teid_interface_type", "value": sorted(S1U_INTERFACE_TYPES)},
-                ],
-            }
-            if not candidates:
-                links.append(
-                    {
-                        **base,
-                        "status": "NOT_ESTABLISHED",
-                        "target_subject_reference": None,
-                        "link_basis": "no_gtpv2_s1u_f_teid_matches_this_endpoint",
-                        "evidence_refs": [
-                            _evidence_ref("S1AP", item.get("frame_number"), None),
-                        ],
-                        "association_strength": "NOT_ESTABLISHED",
-                        "limitations": [
-                            "no observed GTPv2-C S1-U F-TEID carries this transport layer address "
-                            "and GTP-TEID in this capture"
-                        ],
-                    }
-                )
-                continue
-            if len(candidates) > 1:
-                links.append(
-                    {
-                        **base,
-                        "status": "AMBIGUOUS",
-                        "target_subject_reference": None,
-                        "link_basis": "several_gtpv2_s1u_f_teids_match_this_endpoint",
-                        "evidence_refs": [
-                            _evidence_ref("S1AP", item.get("frame_number"), None)
-                        ]
-                        + [
-                            _evidence_ref("GTPv2-C", entry["event"].get("frame_number"), entry["event"].get("message_type"))
-                            for entry in candidates[:MAX_EVIDENCE_REFERENCES]
-                        ],
-                        "association_strength": "AMBIGUOUS",
-                        "limitations": [
-                            "more than one observed GTPv2-C message publishes this S1-U endpoint, so "
-                            "no single transaction is selected"
-                        ],
-                    }
-                )
-                continue
-            entry = candidates[0]
-            event = entry["event"]
+    for request in requests:
+        instance = request["instance"]
+        item = request["item"]
+        _capture, address, teid = request["key"]
+        candidates = request["candidates"]
+        candidate_identities = sorted({_candidate_identity(entry) for entry in candidates}, key=str)
+        owners = subjects_by_endpoint[request["key"]]
+        competing_subjects = [owner for owner in owners if owner != str(instance.get("instance_reference"))]
+
+        base: dict[str, Any] = {
+            "link_type": "s1ap_erab_to_gtpv2_bearer",
+            "source_subject_reference": instance.get("instance_reference"),
+            "source_frame": item.get("frame_number"),
+            "source_erab_id": item.get("erab_id"),
+            "s1ap_message_type": None,
+            "s1u_transport_layer_address": address,
+            "s1u_gtp_teid": teid,
+            "supporting_identifiers": [
+                {"identifier": "s1u_transport_layer_address", "value": address},
+                {"identifier": "s1u_gtp_teid", "value": teid},
+                {"identifier": "f_teid_interface_type", "value": sorted(S1U_INTERFACE_TYPES)},
+            ],
+            "s1ap_owner_item_count": len(owners),
+            "endpoint_equality_observed": bool(candidates),
+            "endpoint_reuse_across_subjects": len(owners) > 1,
+            "competing_source_subjects": competing_subjects,
+        }
+
+        if not candidates:
             links.append(
                 {
                     **base,
-                    "status": "SUPPORTED",
-                    "target_subject_reference": f"gtpv2-frame:{event.get('frame_number')}",
-                    "target_frame": event.get("frame_number"),
-                    "target_message_type": event.get("message_type"),
-                    "target_eps_bearer_identity": entry.get("ebi"),
-                    "target_scope": entry.get("scope"),
-                    "link_basis": "exact_s1u_endpoint_equality_with_reviewed_interface_type",
-                    "evidence_refs": [
-                        _evidence_ref("S1AP", item.get("frame_number"), None),
-                        _evidence_ref("GTPv2-C", event.get("frame_number"), event.get("message_type")),
+                    "status": "NOT_ESTABLISHED",
+                    "bearer_association_status": "NOT_ESTABLISHED",
+                    "target_subject_reference": None,
+                    "candidate_target_frames": [],
+                    "link_basis": "no_gtpv2_s1u_f_teid_matches_this_endpoint",
+                    "evidence_refs": [_evidence_ref("S1AP", item.get("frame_number"), None)],
+                    "association_strength": "NOT_ESTABLISHED",
+                    "limitations": [
+                        "no observed GTPv2-C S1-U F-TEID carries this transport layer address "
+                        "and GTP-TEID in this capture"
                     ],
-                    "association_strength": "SUPPORTED",
+                }
+            )
+            continue
+
+        target_frames = [identity[0] for identity in candidate_identities]
+        if len(candidate_identities) > 1:
+            links.append(
+                {
+                    **base,
+                    "status": "AMBIGUOUS",
+                    "bearer_association_status": "AMBIGUOUS",
+                    "target_subject_reference": None,
+                    "candidate_target_frames": target_frames,
+                    "link_basis": "several_gtpv2_s1u_f_teids_match_this_endpoint",
+                    "evidence_refs": [_evidence_ref("S1AP", item.get("frame_number"), None)]
+                    + [
+                        _evidence_ref(
+                            "GTPv2-C", entry["event"].get("frame_number"), entry["event"].get("message_type")
+                        )
+                        for entry in candidates[:MAX_EVIDENCE_REFERENCES]
+                    ],
+                    "association_strength": "AMBIGUOUS",
+                    "limitations": [
+                        "more than one observed GTPv2-C record publishes this S1-U endpoint, so no "
+                        "single bearer allocation is selected"
+                    ],
+                }
+            )
+            continue
+
+        entry = candidates[0]
+        event = entry["event"]
+        if competing_subjects:
+            # The endpoint value is observed once, but more than one UE context
+            # claims it. Without a reviewed generation bridge neither context may
+            # own it, so the equality stays visible and the association does not.
+            links.append(
+                {
+                    **base,
+                    "status": "AMBIGUOUS",
+                    "bearer_association_status": "AMBIGUOUS",
+                    "target_subject_reference": None,
+                    "candidate_target_frames": target_frames,
+                    "link_basis": "one_gtpv2_s1u_f_teid_matched_by_several_ue_contexts",
+                    "evidence_refs": [_evidence_ref("S1AP", item.get("frame_number"), None)]
+                    + [
+                        _evidence_ref(
+                            "GTPv2-C", event.get("frame_number"), event.get("message_type")
+                        )
+                    ],
+                    "association_strength": "AMBIGUOUS",
                     "ordering": (
                         "gtpv2_precedes_s1ap"
                         if int(event.get("frame_number") or 0) < int(item.get("frame_number") or 0)
                         else "s1ap_precedes_gtpv2"
                     ),
                     "limitations": [
-                        "the E-RAB identity and the EPS bearer identity are different identifiers and "
-                        "are never equated",
-                        "endpoint equality is control-plane provisioning evidence, not proof that a "
-                        "GTP-U tunnel forwards traffic",
+                        "the S1-U endpoint value is observed in more than one UE context "
+                        f"({', '.join(sorted(competing_subjects))}), so this GTPv2-C record is not "
+                        "independent identity proof for either context",
+                        "no reviewed lifecycle or generation bridge distinguishes a genuine reuse "
+                        "from a shared value",
                     ],
                 }
             )
+            continue
+
+        links.append(
+            {
+                **base,
+                "status": "SUPPORTED",
+                "bearer_association_status": "SUPPORTED",
+                "target_subject_reference": f"gtpv2-frame:{event.get('frame_number')}",
+                "target_frame": event.get("frame_number"),
+                "target_message_type": event.get("message_type"),
+                "target_eps_bearer_identity": entry.get("ebi"),
+                "target_scope": entry.get("scope"),
+                "candidate_target_frames": target_frames,
+                "link_basis": "unique_exact_s1u_endpoint_equality_with_reviewed_interface_type",
+                "evidence_refs": [
+                    _evidence_ref("S1AP", item.get("frame_number"), None),
+                    _evidence_ref("GTPv2-C", event.get("frame_number"), event.get("message_type")),
+                ],
+                "association_strength": "SUPPORTED",
+                "ordering": (
+                    "gtpv2_precedes_s1ap"
+                    if int(event.get("frame_number") or 0) < int(item.get("frame_number") or 0)
+                    else "s1ap_precedes_gtpv2"
+                ),
+                "limitations": [
+                    "the E-RAB identity and the EPS bearer identity are different identifiers and "
+                    "are never equated",
+                    "endpoint equality is control-plane provisioning evidence, not proof that a "
+                    "GTP-U tunnel forwards traffic",
+                ],
+            }
+        )
     return links
 
 
+def s1ap_context_reference(context: dict[str, Any]) -> str:
+    """Deterministic pseudonymous reference for one S1AP UE context.
+
+    The reference is scoped by capture identity, SCTP association and both S1AP UE
+    identifiers, so the same eNB-UE-S1AP-ID in a different capture, association or
+    MME context can never collide with this one.
+    """
+    material = "|".join(
+        str(context.get(key))
+        for key in ("capture_file", "sctp_association", "enb_ue_s1ap_id", "mme_ue_s1ap_id")
+    )
+    return f"s1ap-ue-context-{hashlib.sha256(material.encode('utf-8')).hexdigest()[:10]}"
+
+
+def context_completeness(context: dict[str, Any]) -> str:
+    """Whether both S1AP UE identifiers are known for this context."""
+    if context.get("enb_ue_s1ap_id") is not None and context.get("mme_ue_s1ap_id") is not None:
+        return "COMPLETE"
+    if context.get("enb_ue_s1ap_id") is not None:
+        return "PARTIAL"
+    return "UNRESOLVED"
+
+
 def _link_esm_to_context(instance: dict[str, Any]) -> dict[str, Any]:
+    context = instance.get("ue_context") or {}
+    completeness = context_completeness(context)
+    strength = instance.get("association_strength")
+    if strength == "AMBIGUOUS":
+        status = "AMBIGUOUS"
+    elif completeness == "COMPLETE":
+        status = "ESTABLISHED"
+    elif completeness == "PARTIAL":
+        status = "SUPPORTED"
+    else:
+        status = "NOT_ESTABLISHED"
+    limitations = [
+        "the binding uses capture identity, frame number and S1AP NAS-PDU presence only; "
+        "timestamp proximity is never used"
+    ]
+    if completeness == "PARTIAL":
+        limitations.append(
+            "only the eNB-UE-S1AP-ID is known, so this context reference is scoped to a partial "
+            "identifier set and the association is not published as ESTABLISHED"
+        )
+    if completeness == "UNRESOLVED":
+        limitations.append("no S1AP UE identifier is known for this context")
     return {
         "link_type": "esm_to_s1ap_ue_context",
-        "status": "ESTABLISHED" if instance.get("association_strength") in ("STRONG", "SUPPORTED") else "AMBIGUOUS",
+        "status": status,
         "source_subject_reference": instance.get("instance_reference"),
-        "target_subject_reference": "s1ap-ue-context:" + str(instance.get("ue_context", {}).get("enb_ue_s1ap_id")),
+        "target_subject_reference": s1ap_context_reference(context),
         "link_basis": "same_capture_same_frame_s1ap_nas_pdu",
+        "context_scope": {
+            "capture_file": context.get("capture_file"),
+            "sctp_association": context.get("sctp_association"),
+            "enb_ue_s1ap_id": context.get("enb_ue_s1ap_id"),
+            "mme_ue_s1ap_id": context.get("mme_ue_s1ap_id"),
+        },
+        "context_completeness": completeness,
         "supporting_identifiers": [
-            {"identifier": "enb_ue_s1ap_id", "value": instance.get("ue_context", {}).get("enb_ue_s1ap_id")},
-            {"identifier": "mme_ue_s1ap_id", "value": instance.get("ue_context", {}).get("mme_ue_s1ap_id")},
-            {"identifier": "sctp_association", "value": instance.get("ue_context", {}).get("sctp_association")},
+            {"identifier": "enb_ue_s1ap_id", "value": context.get("enb_ue_s1ap_id")},
+            {"identifier": "mme_ue_s1ap_id", "value": context.get("mme_ue_s1ap_id")},
+            {"identifier": "sctp_association", "value": context.get("sctp_association")},
+            {"identifier": "capture_file", "value": context.get("capture_file")},
         ],
         "evidence_refs": instance.get("evidence_refs") or [],
-        "association_strength": instance.get("association_strength"),
-        "limitations": [
-            "the binding uses capture identity, frame number and S1AP NAS-PDU presence only; "
-            "timestamp proximity is never used"
-        ],
+        "association_strength": strength,
+        "limitations": limitations,
     }
 
 

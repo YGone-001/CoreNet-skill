@@ -51,12 +51,14 @@ publishes `binding_basis: flat_fields` and never claims a container.
 | EMM cause | Value and reviewed name |
 | Attach type | Value and reviewed name |
 | Identity type | Numeric value only; the identity value itself is never read |
-| ESM container | Presence and length only |
+| ESM container | Presence and length |
+| ESM messages | Bounded identity, EBI, PTI, ESM cause, PDN type, request type, APN presence/length, PDN address presence/family, QoS/PCO presence |
 | Direction | `uplink` / `downlink` when the enclosing S1AP message exposes it |
 
 ## What it does not do
 
-No ESM decoding, no bearer state, no attach verdict, no boundary selection, no root
+No complete ESM state machine, no dedicated bearer or PDN disconnect lifecycle, no
+bearer state, no attach verdict, no boundary selection, no root
 cause, and no subscriber or authentication material of any kind. See `SKILL.md`.
 
 ## Exit codes
@@ -78,4 +80,4 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 ## Version
 
-0.1.0
+0.2.0

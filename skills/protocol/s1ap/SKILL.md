@@ -130,4 +130,4 @@ zero-filled at their original length, so fixtures carry no NAS content.
 Original CoreNet Protocol-layer package. No upstream material imported. Normative
 references are 3GPP TS 36.413 (S1AP) and 3GPP TS 23.401 (EPC architecture context
 only); field names were verified against the TShark 4.7.1 dissector rather than
-assumed. Version 0.1.0.
+assumed. Version 0.2.0.

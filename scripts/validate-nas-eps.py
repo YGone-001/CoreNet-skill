@@ -119,6 +119,13 @@ def read_jsonl(path: Path) -> list[dict]:
     return records
 
 
+def manifest_version(text):
+    for line in text.splitlines():
+        if line.startswith("version:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
 def validate(root: Path = ROOT) -> list[str]:
     errors: list[str] = []
     skill = root / "skills" / "protocol" / "nas-eps"
@@ -154,6 +161,36 @@ def validate(root: Path = ROOT) -> list[str]:
             for field in ("frame_number", "message_type", "support_status", "protection", "evidence"):
                 if field not in required:
                     fail(f"event schema does not require '{field}'")
+
+    # The published contract must describe the bounded ESM capability that the
+    # code actually implements, and must not still exclude it.
+    includes_block = manifest.split("scope:", 1)[-1].split("excludes:", 1)[0]
+    excludes_block = manifest.split("excludes:", 1)[-1]
+    if "bounded ESM message identity" not in includes_block:
+        fail("manifest scope must include bounded ESM message identity")
+    for required in ("eps bearer identity", "esm cause", "apn presence"):
+        if required not in includes_block.lower():
+            fail(f"manifest scope must include the reviewed ESM evidence '{required}'")
+    for stale in ("no ESM decoding", "ESM message semantics"):
+        if stale.lower() in excludes_block.lower():
+            fail(f"manifest must not exclude the implemented bounded ESM evidence: '{stale}'")
+    if "complete ESM state machine" not in excludes_block:
+        fail("manifest must keep the complete ESM state machine out of scope")
+
+    skill_text = (skill / "SKILL.md").read_text(encoding="utf-8")
+    readme_text = (skill / "README.md").read_text(encoding="utf-8")
+    for name, text in (("SKILL.md", skill_text), ("README.md", readme_text)):
+        if "No ESM decoding" in text or "ESM container is reported by presence and length only" in text:
+            fail(f"{name} still claims that ESM is not decoded")
+        if "bounded ESM" not in text.lower() and "ESM message" not in text:
+            fail(f"{name} does not describe the bounded ESM capability")
+    if "complete ESM state machine" not in skill_text:
+        fail("SKILL.md must state that the complete ESM state machine stays out of scope")
+    declared_version = manifest_version(manifest)
+    if declared_version is None or declared_version not in skill_text:
+        fail("SKILL.md does not state the manifest version")
+    if declared_version is not None and declared_version not in readme_text:
+        fail("README.md does not state the manifest version")
 
     skill_md = (skill / "SKILL.md").read_text(encoding="utf-8")
     for section in ("## Scope", "## Non-Goals", "## Inputs", "## Outputs"):

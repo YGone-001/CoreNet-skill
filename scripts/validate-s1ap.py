@@ -104,6 +104,13 @@ def read_jsonl(path: Path) -> list[dict]:
     return records
 
 
+def manifest_version(text):
+    for line in text.splitlines():
+        if line.startswith("version:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
 def validate(root: Path = ROOT) -> list[str]:
     errors: list[str] = []
     skill = root / "skills" / "protocol" / "s1ap"
@@ -127,6 +134,14 @@ def validate(root: Path = ROOT) -> list[str]:
         fail("manifest category must be protocol")
     if not re.search(r"(?m)^version:\s*\d+\.\d+\.\d+\s*$", manifest):
         fail("manifest version must be a semantic version")
+
+    version = manifest_version(manifest)
+    if version is None:
+        fail("manifest version must be a semantic version")
+    else:
+        for name in ("SKILL.md", "README.md"):
+            if version not in (skill / name).read_text(encoding="utf-8"):
+                fail(f"{name} does not state the manifest version {version}")
 
     for schema_name in ("schemas/s1ap-event.schema.json", "schemas/trace-event.schema.json"):
         try:

@@ -5,25 +5,36 @@ description: >
   Bounded EPS NAS semantic extraction: message identity for the EPS attach,
   identity, authentication and NAS security mode control subset, security header
   type and protection state, EMM cause preservation, bounded attach and identity
-  type metadata, ESM container presence and length only, protected-inner-message
-  classification, detailed NAS-EPS events, and normalized trace-event projection.
+  type metadata, ESM container presence and length, bounded ESM message evidence
+  for PDN connectivity, default bearer activation and the ESM information
+  exchange, protected-inner-message classification, detailed NAS-EPS events, and
+  normalized trace-event projection.
 scope:
   includes:
     - EPS NAS message identity for the bounded attach/identity/authentication/security-mode subset
     - security header type and derived protection state
     - EMM cause value and reviewed name preservation
     - bounded attach type and identity type value metadata (never the identity value)
-    - ESM container presence and length only (no ESM decoding)
+    - ESM container presence and length
+    - bounded ESM message identity for PDN connectivity request/reject, activate default EPS bearer context request/accept/reject, ESM information request/response and ESM status
+    - EPS bearer identity and procedure transaction identity kept as separate fields
+    - reviewed ESM cause value and name preservation
+    - APN presence and length only, PDN address presence and family only, QoS and PCO presence only
+    - ESM container association proven from a PDML dissection, with flat field input published as explicitly unbound
     - protected inner message classification without fabricating inner semantics
     - direction when the enclosing S1AP message exposes it, with the basis recorded
     - detailed NAS-EPS event JSONL and shared trace-event projection
     - tshark-assisted capture extraction and deterministic structured offline input
   excludes:
-    - ESM message semantics, EPS bearer or PDN connection state
+    - the complete ESM state machine, dedicated EPS bearer procedures and PDN disconnect lifecycle
+    - EPS bearer or PDN connection state reconstruction
     - LTE Attach procedure state or end-to-end attach verdicts
     - first-abnormal-boundary selection, severity ranking, or root-cause output
     - subscriber identity values (IMSI, IMEI, IMEISV, GUTI, TMSI)
     - authentication parameters (RAND, AUTN, RES, XRES) and key material
+    - NAS decryption or any cryptographic bypass; a ciphered inner message stays unavailable
+    - APN names, assigned PDN addresses and ESM container bytes
+    - user-plane or bearer-service success determination
     - MME implementation, vendor configuration, or source-code mapping
     - S1AP message semantics (handoff to s1ap)
 dependencies:

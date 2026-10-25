@@ -7,10 +7,11 @@ UE contexts ran an Attach attempt, which conditional stages were observed, which
 explicit protocol rejection or failure the network or the UE emitted, and which
 evidence is missing or protected.
 
-This is a Domain-layer Skill with two independently executable capabilities. The
+This is a Domain-layer Skill with three independently executable capabilities. The
 EPS Attach capability consumes already-extracted S1AP and NAS-EPS events. The EPC
 session-control capability consumes already-extracted GTPv2-C events and
-transactions. Both produce procedure-local evidence and explicit limitations. The
+transactions. The EPS default-bearer capability consumes already-extracted NAS-EPS
+ESM evidence, S1AP E-RAB items and GTPv2-C tunnel endpoints. Both produce procedure-local evidence and explicit limitations. The
 Skill never decodes protocols, never reads subscriber identity, and never produces a
 verdict about bearer, PDN or service success.
 
@@ -194,4 +195,4 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Original CoreNet Domain-layer package. No upstream material imported. Normative
 references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the accepted
-`s1ap` and `nas-eps` Protocol Skill contracts. Version 0.1.0.
+`s1ap`, `nas-eps` and `gtpv2` Protocol Skill contracts. Version 0.3.0.

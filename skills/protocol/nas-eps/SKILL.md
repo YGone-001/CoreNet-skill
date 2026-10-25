@@ -29,7 +29,7 @@ mode control message set of 3GPP TS 24.301, as implemented by the Wireshark/TSha
   recorded; otherwise leave it null.
 - Support both a live capture input and a structured fields JSONL input.
 
-### ESM session management (bounded)
+## ESM session management (bounded)
 
 - Decode the reviewed ESM subset: PDN connectivity request/reject, activate
   default EPS bearer context request/accept/reject, ESM information
@@ -55,8 +55,14 @@ complete, Security mode reject.
 
 ## Non-Goals
 
-- No ESM decoding. The ESM container is reported by presence and length only.
-- No EPS bearer or PDN connection state, and no default bearer analysis.
+- No complete ESM state machine: the bounded ESM subset is decoded, and every
+  other ESM identity is named but reported as `UNSUPPORTED`.
+- No dedicated EPS bearer procedures, no PDN disconnect lifecycle and no EPS
+  bearer or PDN connection state reconstruction.
+- No NAS decryption and no cryptographic bypass; a ciphered inner message stays
+  `PROTECTED_INNER_MESSAGE_UNAVAILABLE`.
+- No APN name, assigned PDN address or ESM container byte is ever published, and
+  no user-plane or bearer-service success is determined.
 - No LTE Attach procedure state machine, no first-abnormal-boundary selection, no
   root cause.
 - No subscriber identity: IMSI, IMEI, IMEISV, GUTI and TMSI values are never read.
@@ -127,4 +133,4 @@ material.
 Original CoreNet Protocol-layer package. No upstream material imported. Normative
 references are 3GPP TS 24.301 (EPS NAS) and 3GPP TS 23.401 (procedure context only);
 field names were verified against the TShark 4.7.1 dissector rather than assumed.
-Version 0.1.0.
+Version 0.2.0.

@@ -429,10 +429,31 @@ class SyntheticTests(unittest.TestCase):
         self.assertEqual(analysis["instance_count"], 2)
         references = {instance["instance_reference"] for instance in analysis["default_bearer_instances"]}
         self.assertEqual(len(references), 2)
-        links = [item for item in analysis["established_links"] if item["link_type"] == "s1ap_erab_to_gtpv2_bearer"]
-        self.assertEqual(len(links), 2)
-        self.assertEqual(len({link["source_subject_reference"] for link in links}), 2)
-        self.assertEqual(links[0]["target_frame"], links[1]["target_frame"])
+        # The two UE contexts stay separate, and neither may claim the single
+        # GTPv2-C record as its own bearer allocation.
+        tunnel = [
+            link
+            for link in analysis["established_links"] + analysis["ambiguous_links"]
+            if link.get("link_type") == "s1ap_erab_to_gtpv2_bearer"
+        ]
+        self.assertEqual(len(tunnel), 2)
+        self.assertFalse([link for link in tunnel if link["status"] == "SUPPORTED"])
+        for link in tunnel:
+            self.assertEqual(link["status"], "AMBIGUOUS")
+            self.assertEqual(link["bearer_association_status"], "AMBIGUOUS")
+            self.assertEqual(
+                link["link_basis"], "one_gtpv2_s1u_f_teid_matched_by_several_ue_contexts"
+            )
+            self.assertTrue(link["endpoint_equality_observed"])
+            self.assertTrue(link["endpoint_reuse_across_subjects"])
+            self.assertEqual(link["candidate_target_frames"], [8])
+            self.assertIsNone(link["target_subject_reference"])
+            self.assertEqual(len(link["competing_source_subjects"]), 1)
+            self.assertNotIn(link["source_subject_reference"], link["competing_source_subjects"])
+        self.assertEqual(
+            {link["source_subject_reference"] for link in tunnel},
+            {link["competing_source_subjects"][0] for link in tunnel},
+        )
 
     # D11 -----------------------------------------------------------------
     def test_session_analysis_is_provenance_only(self) -> None:
@@ -556,6 +577,430 @@ class CliContractTests(unittest.TestCase):
         payload = (EXAMPLES / "expected-analysis.json").read_text(encoding="utf-8")
         for forbidden in ("internet", "10.45.0.", "460020000000001", "1122334455667788", "919000001"):
             self.assertNotIn(forbidden, payload)
+
+
+
+
+def _tunnel_event(
+    frame: int,
+    *,
+    address: str = "198.51.100.10",
+    teid: int = 4242,
+    capture: str = "fixture.pcap",
+    interface_type: int = 1,
+    scope: str = "bearer",
+    ebi: int | None = 5,
+    message: str = "Create Session Response",
+    family: str = "create-session",
+) -> dict:
+    fteid = {"scope": scope, "interface_type": interface_type, "teid": teid, "ipv4": address}
+    event = {
+        "capture_file": capture,
+        "frame_number": frame,
+        "message_type": message,
+        "procedure_family": family,
+        "f_teids": [fteid] if scope == "message" else [],
+        "bearer_contexts": (
+            [
+                {
+                    "item_index": 0,
+                    "ebi": ebi,
+                    "cause": {"cause_code": 16, "cause_name": "Request accepted", "scope": "bearer"},
+                    "f_teids": [fteid],
+                }
+            ]
+            if scope == "bearer"
+            else []
+        ),
+    }
+    return event
+
+
+def _erab_item(
+    identifier: int,
+    address: str | None,
+    teid: int | None,
+    *,
+    frame: int,
+    binding: str = "pdml_grouped_ie",
+    capture: str = "fixture.pcap",
+) -> dict:
+    return {
+        "operation": "INITIAL_CONTEXT_SETUP",
+        "list_role": "REQUEST",
+        "item_index": 0,
+        "erab_id": identifier,
+        "qci": 9,
+        "arp_present": True,
+        "transport_layer_address": address,
+        "transport_layer_address_family": "IPv4" if address else None,
+        "gtp_teid": teid,
+        "gtp_teid_hex": f"{teid:08x}" if teid is not None else None,
+        "endpoint_role": "enodeb_s1u" if teid is not None else None,
+        "endpoint_role_basis": "message_identity" if teid is not None else "unavailable",
+        "binding_basis": binding,
+        "frame_number": frame,
+        "capture_file": capture,
+        "limitations": [],
+    }
+
+
+def _activation(frame: int, *, capture: str = "fixture.pcap", association: int = 1) -> dict:
+    return nas_event(
+        frame,
+        [esm_message(193, "Activate default EPS bearer context request", frame=frame, ebi=5, capture=capture)],
+        capture=capture,
+        association=association,
+    )
+
+
+def _setup(
+    frame: int,
+    *,
+    enb: int = 1,
+    mme: int | None = 9,
+    capture: str = "fixture.pcap",
+    association: int = 1,
+    items: list[dict] | None = None,
+) -> dict:
+    return s1ap_event(
+        frame,
+        enb=enb,
+        mme=mme,
+        capture=capture,
+        association=association,
+        message="InitialContextSetupRequest",
+        nas_pdu=False,
+        nas_embedded=True,
+        erab_items=items,
+    )
+
+
+class TunnelAssociationSafetyTests(unittest.TestCase):
+    """Bidirectional candidate uniqueness for S1AP E-RAB to GTPv2-C links."""
+
+    def analyze(self, nas: list[dict], s1ap: list[dict], gtpv2: list[dict]) -> dict:
+        return model.analyze(nas, s1ap, gtpv2_events=gtpv2)
+
+    def tunnel_links(self, analysis: dict) -> list[dict]:
+        return [
+            link
+            for link in analysis["established_links"]
+            + analysis["ambiguous_links"]
+            + analysis["unbound_evidence"]
+            if isinstance(link, dict) and link.get("link_type") == "s1ap_erab_to_gtpv2_bearer"
+        ]
+
+    # T01 -----------------------------------------------------------------
+    def test_unique_endpoint_on_both_sides_stays_supported(self) -> None:
+        analysis = self.analyze(
+            [_activation(10)],
+            [_setup(10, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)])],
+            [_tunnel_event(8)],
+        )
+        links = self.tunnel_links(analysis)
+        self.assertEqual(len(links), 1)
+        link = links[0]
+        self.assertEqual(link["status"], "SUPPORTED")
+        self.assertEqual(link["bearer_association_status"], "SUPPORTED")
+        self.assertTrue(link["endpoint_equality_observed"])
+        self.assertFalse(link["endpoint_reuse_across_subjects"])
+        self.assertEqual(link["target_frame"], 8)
+        self.assertEqual(link["target_subject_reference"], "gtpv2-frame:8")
+        self.assertEqual(link["s1ap_owner_item_count"], 1)
+        self.assertEqual(link["competing_source_subjects"], [])
+
+    # T02 -----------------------------------------------------------------
+    def test_one_gtpv2_record_matched_by_two_ue_contexts_is_ambiguous(self) -> None:
+        analysis = self.analyze(
+            [_activation(10), _activation(40, association=2)],
+            [
+                _setup(10, enb=1, mme=9, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)]),
+                _setup(40, enb=2, mme=11, association=2,
+                       items=[_erab_item(5, "198.51.100.10", 4242, frame=40)]),
+            ],
+            [_tunnel_event(8)],
+        )
+        links = self.tunnel_links(analysis)
+        self.assertEqual(len(links), 2)
+        self.assertFalse([link for link in links if link["status"] == "SUPPORTED"])
+        for link in links:
+            self.assertEqual(link["status"], "AMBIGUOUS")
+            self.assertEqual(
+                link["link_basis"], "one_gtpv2_s1u_f_teid_matched_by_several_ue_contexts"
+            )
+            self.assertEqual(link["candidate_target_frames"], [8])
+            self.assertIsNone(link["target_subject_reference"])
+            self.assertTrue(link["limitations"])
+
+    # T03 -----------------------------------------------------------------
+    def test_one_erab_item_matching_two_gtpv2_records_is_ambiguous(self) -> None:
+        analysis = self.analyze(
+            [_activation(10)],
+            [_setup(10, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)])],
+            [_tunnel_event(8), _tunnel_event(9, message="Modify Bearer Request", family="modify-bearer")],
+        )
+        links = self.tunnel_links(analysis)
+        self.assertEqual(len(links), 1)
+        link = links[0]
+        self.assertEqual(link["status"], "AMBIGUOUS")
+        self.assertEqual(link["link_basis"], "several_gtpv2_s1u_f_teids_match_this_endpoint")
+        self.assertEqual(link["candidate_target_frames"], [8, 9])
+        self.assertIsNone(link["target_subject_reference"])
+        self.assertEqual(len(link["evidence_refs"]), 3)
+
+    # T04 -----------------------------------------------------------------
+    def test_reused_endpoint_value_is_not_a_new_generation(self) -> None:
+        analysis = self.analyze(
+            [_activation(10), _activation(90, association=2)],
+            [
+                _setup(10, enb=1, mme=9, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)]),
+                _setup(90, enb=7, mme=21, association=2,
+                       items=[_erab_item(5, "198.51.100.10", 4242, frame=90)]),
+            ],
+            [_tunnel_event(8)],
+        )
+        links = self.tunnel_links(analysis)
+        for link in links:
+            self.assertTrue(link["endpoint_reuse_across_subjects"])
+            self.assertEqual(link["status"], "AMBIGUOUS")
+            self.assertTrue(
+                any("generation" in item for item in link["limitations"]),
+                "an unproven reuse must record the missing generation evidence",
+            )
+
+    # T05 -----------------------------------------------------------------
+    def test_capture_provenance_isolates_candidate_sets(self) -> None:
+        analysis = self.analyze(
+            [_activation(10, capture="b.pcap")],
+            [_setup(10, capture="b.pcap", items=[_erab_item(5, "198.51.100.10", 4242, frame=10, capture="b.pcap")])],
+            [_tunnel_event(8, capture="a.pcap")],
+        )
+        links = self.tunnel_links(analysis)
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0]["status"], "NOT_ESTABLISHED")
+        self.assertFalse(links[0]["endpoint_equality_observed"])
+
+    # T06 -----------------------------------------------------------------
+    def test_interface_type_mismatch_does_not_create_a_link(self) -> None:
+        for interface_type in (0, 4, 5, 6, 7, 10, 11):
+            with self.subTest(interface_type=interface_type):
+                analysis = self.analyze(
+                    [_activation(10)],
+                    [_setup(10, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)])],
+                    [_tunnel_event(8, interface_type=interface_type)],
+                )
+                links = self.tunnel_links(analysis)
+                self.assertEqual(links[0]["status"], "NOT_ESTABLISHED")
+
+    # T07 -----------------------------------------------------------------
+    def test_message_scope_and_bearer_scope_stay_distinguished(self) -> None:
+        message_scope = self.analyze(
+            [_activation(10)],
+            [_setup(10, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)])],
+            [_tunnel_event(8, scope="message")],
+        )
+        link = self.tunnel_links(message_scope)[0]
+        self.assertEqual(link["status"], "SUPPORTED")
+        self.assertEqual(link["target_scope"], "message")
+        self.assertIsNone(link["target_eps_bearer_identity"])
+
+        bearer_scope = self.analyze(
+            [_activation(10)],
+            [_setup(10, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)])],
+            [_tunnel_event(8, scope="bearer", ebi=5)],
+        )
+        link = self.tunnel_links(bearer_scope)[0]
+        self.assertEqual(link["target_scope"], "bearer")
+        self.assertEqual(link["target_eps_bearer_identity"], 5)
+
+        both_scopes = self.analyze(
+            [_activation(10)],
+            [_setup(10, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)])],
+            [_tunnel_event(8, scope="message"), _tunnel_event(8, scope="bearer")],
+        )
+        self.assertEqual(self.tunnel_links(both_scopes)[0]["status"], "AMBIGUOUS")
+
+    # T08 -----------------------------------------------------------------
+    def test_flat_erab_evidence_cannot_manufacture_bearer_ownership(self) -> None:
+        analysis = self.analyze(
+            [_activation(10)],
+            [_setup(10, items=[_erab_item(5, None, None, frame=10, binding="flat_fields")])],
+            [_tunnel_event(8)],
+        )
+        self.assertEqual(self.tunnel_links(analysis), [])
+        self.assertEqual(analysis["gtpv2_supporting_evidence_count"], 1)
+
+    # T09 -----------------------------------------------------------------
+    def test_input_ordering_does_not_change_selection(self) -> None:
+        nas = [_activation(10), _activation(40, association=2)]
+        s1ap = [
+            _setup(10, enb=1, mme=9, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)]),
+            _setup(40, enb=2, mme=11, association=2,
+                   items=[_erab_item(5, "198.51.100.10", 4242, frame=40)]),
+        ]
+        gtpv2 = [_tunnel_event(8), _tunnel_event(9, message="Modify Bearer Request", family="modify-bearer")]
+        forward = self.analyze(nas, s1ap, gtpv2)
+        reverse = self.analyze(list(reversed(nas)), list(reversed(s1ap)), list(reversed(gtpv2)))
+        forward_links = sorted(
+            (link["source_frame"], link["status"], tuple(link["candidate_target_frames"]))
+            for link in self.tunnel_links(forward)
+        )
+        reverse_links = sorted(
+            (link["source_frame"], link["status"], tuple(link["candidate_target_frames"]))
+            for link in self.tunnel_links(reverse)
+        )
+        self.assertEqual(forward_links, reverse_links)
+
+    # T10 -----------------------------------------------------------------
+    def test_missing_endpoint_evidence_stays_unbound(self) -> None:
+        analysis = self.analyze(
+            [_activation(10)],
+            [_setup(10, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)])],
+            [],
+        )
+        links = self.tunnel_links(analysis)
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0]["status"], "NOT_ESTABLISHED")
+        self.assertEqual(links[0]["link_basis"], "no_gtpv2_s1u_f_teid_matches_this_endpoint")
+        self.assertEqual(links[0]["candidate_target_frames"], [])
+
+    # T11 -----------------------------------------------------------------
+    def test_real_capture_relationship_remains_supported(self) -> None:
+        base = EXAMPLES
+        analysis = model.analyze(
+            load_jsonl(base / "nas-eps-events.jsonl"),
+            load_jsonl(base / "s1ap-events.jsonl"),
+            attach_analysis=load_json(base / "attach-analysis.json"),
+            session_analysis=load_json(base / "session-analysis.json"),
+            gtpv2_events=load_jsonl(base / "gtpv2-events.jsonl"),
+        )
+        supported = [
+            link
+            for link in analysis["established_links"]
+            if link.get("link_type") == "s1ap_erab_to_gtpv2_bearer"
+        ]
+        self.assertEqual(len(supported), 1)
+        link = supported[0]
+        self.assertEqual(link["status"], "SUPPORTED")
+        self.assertEqual(link["s1u_transport_layer_address"], "192.168.64.128")
+        self.assertEqual(link["s1u_gtp_teid"], 49676)
+        self.assertEqual(link["source_frame"], 23)
+        self.assertEqual(link["target_frame"], 22)
+        self.assertFalse(link["endpoint_reuse_across_subjects"])
+        unbound = [
+            item
+            for item in analysis["unbound_evidence"]
+            if isinstance(item, dict) and item.get("link_type") == "s1ap_erab_to_gtpv2_bearer"
+        ]
+        self.assertEqual(len(unbound), 1)
+        self.assertEqual(unbound[0]["source_frame"], 24)
+        self.assertEqual(unbound[0]["status"], "NOT_ESTABLISHED")
+
+    # T12 -----------------------------------------------------------------
+    def test_evidence_references_keep_exact_frames(self) -> None:
+        supported = self.analyze(
+            [_activation(10)],
+            [_setup(10, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)])],
+            [_tunnel_event(8)],
+        )
+        link = self.tunnel_links(supported)[0]
+        self.assertEqual(
+            [(ref["protocol"], ref["frame_number"]) for ref in link["evidence_refs"]],
+            [("S1AP", 10), ("GTPv2-C", 8)],
+        )
+        ambiguous = self.analyze(
+            [_activation(10), _activation(40, association=2)],
+            [
+                _setup(10, enb=1, mme=9, items=[_erab_item(5, "198.51.100.10", 4242, frame=10)]),
+                _setup(40, enb=2, mme=11, association=2,
+                       items=[_erab_item(5, "198.51.100.10", 4242, frame=40)]),
+            ],
+            [_tunnel_event(8)],
+        )
+        for link in self.tunnel_links(ambiguous):
+            self.assertIn(
+                ("GTPv2-C", 8),
+                [(ref["protocol"], ref["frame_number"]) for ref in link["evidence_refs"]],
+            )
+            self.assertIn(
+                ("S1AP", link["source_frame"]),
+                [(ref["protocol"], ref["frame_number"]) for ref in link["evidence_refs"]],
+            )
+
+
+class UeContextReferenceTests(unittest.TestCase):
+    """Scoped, deterministic S1AP UE-context references."""
+
+    def context_link(self, analysis: dict) -> dict:
+        return [
+            link
+            for link in analysis["established_links"] + analysis["ambiguous_links"]
+            if isinstance(link, dict) and link.get("link_type") == "esm_to_s1ap_ue_context"
+        ][0]
+
+    def analyze(self, s1ap: list[dict], nas: list[dict] | None = None) -> dict:
+        return model.analyze(nas or [_activation(10, capture=s1ap[0]["capture_file"])], s1ap)
+
+    # C01 -----------------------------------------------------------------
+    def test_same_enb_identifier_in_different_captures_is_distinct(self) -> None:
+        first = self.context_link(self.analyze([_setup(10, enb=1, mme=9, capture="a.pcap")]))
+        second = self.context_link(self.analyze([_setup(10, enb=1, mme=9, capture="b.pcap")]))
+        self.assertNotEqual(first["target_subject_reference"], second["target_subject_reference"])
+        self.assertEqual(first["context_scope"]["capture_file"], "a.pcap")
+        self.assertEqual(second["context_scope"]["capture_file"], "b.pcap")
+
+    # C02 -----------------------------------------------------------------
+    def test_same_enb_identifier_in_different_associations_is_distinct(self) -> None:
+        first = self.context_link(self.analyze([_setup(10, enb=1, mme=9, association=1)]))
+        second = self.context_link(self.analyze([_setup(10, enb=1, mme=9, association=2)]))
+        self.assertNotEqual(first["target_subject_reference"], second["target_subject_reference"])
+
+    # C03 -----------------------------------------------------------------
+    def test_different_mme_identifiers_remain_distinct(self) -> None:
+        first = self.context_link(self.analyze([_setup(10, enb=1, mme=9)]))
+        second = self.context_link(self.analyze([_setup(10, enb=1, mme=12)]))
+        self.assertNotEqual(first["target_subject_reference"], second["target_subject_reference"])
+        self.assertEqual(second["context_scope"]["mme_ue_s1ap_id"], 12)
+
+    # C04 -----------------------------------------------------------------
+    def test_incomplete_context_is_not_published_as_established(self) -> None:
+        analysis = self.analyze([_setup(10, enb=1, mme=None)])
+        link = self.context_link(analysis)
+        self.assertEqual(link["context_completeness"], "PARTIAL")
+        self.assertEqual(link["status"], "SUPPORTED")
+        self.assertIsNone(link["context_scope"]["mme_ue_s1ap_id"])
+        self.assertIn("partial", " ".join(link["limitations"]).lower())
+        instance = analysis["default_bearer_instances"][0]
+        self.assertEqual(instance["association_strength"], "SUPPORTED")
+
+    # C05 -----------------------------------------------------------------
+    def test_complete_context_link_is_deterministic(self) -> None:
+        first = self.context_link(self.analyze([_setup(10, enb=1, mme=9)]))
+        second = self.context_link(self.analyze([_setup(10, enb=1, mme=9)]))
+        self.assertEqual(first, second)
+        self.assertEqual(first["context_completeness"], "COMPLETE")
+        self.assertEqual(first["status"], "ESTABLISHED")
+
+    # C06 -----------------------------------------------------------------
+    def test_reference_is_pseudonymous_and_scoped(self) -> None:
+        link = self.context_link(self.analyze([_setup(10, enb=1, mme=9)]))
+        reference = link["target_subject_reference"]
+        self.assertRegex(reference, r"^s1ap-ue-context-[0-9a-f]{10}$")
+        payload = json.dumps(link)
+        for forbidden in ("imsi", "msisdn", "imei", "guti", "tmsi"):
+            self.assertNotIn(forbidden, payload.lower())
+        self.assertEqual(
+            reference,
+            model.s1ap_context_reference(
+                {
+                    "capture_file": "fixture.pcap",
+                    "sctp_association": "sctp-assoc-1",
+                    "enb_ue_s1ap_id": 1,
+                    "mme_ue_s1ap_id": 9,
+                }
+            ),
+        )
 
 
 if __name__ == "__main__":

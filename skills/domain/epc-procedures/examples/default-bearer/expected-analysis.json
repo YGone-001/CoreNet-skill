@@ -470,6 +470,13 @@
       "tunnel_links": [
         {
           "association_strength": "SUPPORTED",
+          "bearer_association_status": "SUPPORTED",
+          "candidate_target_frames": [
+            22
+          ],
+          "competing_source_subjects": [],
+          "endpoint_equality_observed": true,
+          "endpoint_reuse_across_subjects": false,
           "evidence_refs": [
             {
               "evidence_level": "OBSERVED",
@@ -488,12 +495,14 @@
             "the E-RAB identity and the EPS bearer identity are different identifiers and are never equated",
             "endpoint equality is control-plane provisioning evidence, not proof that a GTP-U tunnel forwards traffic"
           ],
-          "link_basis": "exact_s1u_endpoint_equality_with_reviewed_interface_type",
+          "link_basis": "unique_exact_s1u_endpoint_equality_with_reviewed_interface_type",
           "link_type": "s1ap_erab_to_gtpv2_bearer",
           "ordering": "gtpv2_precedes_s1ap",
           "s1ap_message_type": null,
+          "s1ap_owner_item_count": 1,
           "s1u_gtp_teid": 49676,
           "s1u_transport_layer_address": "192.168.64.128",
+          "source_erab_id": 5,
           "source_frame": 23,
           "source_subject_reference": "epc-default-bearer-04eb0b032d",
           "status": "SUPPORTED",
@@ -521,6 +530,11 @@
         },
         {
           "association_strength": "NOT_ESTABLISHED",
+          "bearer_association_status": "NOT_ESTABLISHED",
+          "candidate_target_frames": [],
+          "competing_source_subjects": [],
+          "endpoint_equality_observed": false,
+          "endpoint_reuse_across_subjects": false,
           "evidence_refs": [
             {
               "evidence_level": "OBSERVED",
@@ -535,8 +549,10 @@
           "link_basis": "no_gtpv2_s1u_f_teid_matches_this_endpoint",
           "link_type": "s1ap_erab_to_gtpv2_bearer",
           "s1ap_message_type": null,
+          "s1ap_owner_item_count": 1,
           "s1u_gtp_teid": 3355633680,
           "s1u_transport_layer_address": "127.0.0.5",
+          "source_erab_id": 5,
           "source_frame": 24,
           "source_subject_reference": "epc-default-bearer-04eb0b032d",
           "status": "NOT_ESTABLISHED",
@@ -703,6 +719,13 @@
   "established_links": [
     {
       "association_strength": "SUPPORTED",
+      "context_completeness": "COMPLETE",
+      "context_scope": {
+        "capture_file": "corenet-epc-integrated.pcap",
+        "enb_ue_s1ap_id": 1,
+        "mme_ue_s1ap_id": 9,
+        "sctp_association": "sctp-assoc-65535"
+      },
       "evidence_refs": [
         {
           "evidence_level": "OBSERVED",
@@ -742,9 +765,13 @@
         {
           "identifier": "sctp_association",
           "value": "sctp-assoc-65535"
+        },
+        {
+          "identifier": "capture_file",
+          "value": "corenet-epc-integrated.pcap"
         }
       ],
-      "target_subject_reference": "s1ap-ue-context:1"
+      "target_subject_reference": "s1ap-ue-context-04eb0b032d"
     },
     {
       "association_strength": "ESTABLISHED",
@@ -793,6 +820,13 @@
     },
     {
       "association_strength": "SUPPORTED",
+      "bearer_association_status": "SUPPORTED",
+      "candidate_target_frames": [
+        22
+      ],
+      "competing_source_subjects": [],
+      "endpoint_equality_observed": true,
+      "endpoint_reuse_across_subjects": false,
       "evidence_refs": [
         {
           "evidence_level": "OBSERVED",
@@ -811,12 +845,14 @@
         "the E-RAB identity and the EPS bearer identity are different identifiers and are never equated",
         "endpoint equality is control-plane provisioning evidence, not proof that a GTP-U tunnel forwards traffic"
       ],
-      "link_basis": "exact_s1u_endpoint_equality_with_reviewed_interface_type",
+      "link_basis": "unique_exact_s1u_endpoint_equality_with_reviewed_interface_type",
       "link_type": "s1ap_erab_to_gtpv2_bearer",
       "ordering": "gtpv2_precedes_s1ap",
       "s1ap_message_type": null,
+      "s1ap_owner_item_count": 1,
       "s1u_gtp_teid": 49676,
       "s1u_transport_layer_address": "192.168.64.128",
+      "source_erab_id": 5,
       "source_frame": 23,
       "source_subject_reference": "epc-default-bearer-04eb0b032d",
       "status": "SUPPORTED",
@@ -961,6 +997,11 @@
   "unbound_evidence": [
     {
       "association_strength": "NOT_ESTABLISHED",
+      "bearer_association_status": "NOT_ESTABLISHED",
+      "candidate_target_frames": [],
+      "competing_source_subjects": [],
+      "endpoint_equality_observed": false,
+      "endpoint_reuse_across_subjects": false,
       "evidence_refs": [
         {
           "evidence_level": "OBSERVED",
@@ -975,8 +1016,10 @@
       "link_basis": "no_gtpv2_s1u_f_teid_matches_this_endpoint",
       "link_type": "s1ap_erab_to_gtpv2_bearer",
       "s1ap_message_type": null,
+      "s1ap_owner_item_count": 1,
       "s1u_gtp_teid": 3355633680,
       "s1u_transport_layer_address": "127.0.0.5",
+      "source_erab_id": 5,
       "source_frame": 24,
       "source_subject_reference": "epc-default-bearer-04eb0b032d",
       "status": "NOT_ESTABLISHED",

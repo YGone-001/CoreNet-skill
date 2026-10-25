@@ -35,12 +35,24 @@
     "boundary_note"
   ],
   "properties": {
-    "domain": { "const": "epc-procedures" },
-    "domain_version": { "type": "string" },
-    "analysis_name": { "const": "eps-default-bearer" },
-    "analysis_version": { "type": "string" },
-    "procedure": { "const": "eps-default-bearer" },
-    "procedure_label": { "type": "string" },
+    "domain": {
+      "const": "epc-procedures"
+    },
+    "domain_version": {
+      "type": "string"
+    },
+    "analysis_name": {
+      "const": "eps-default-bearer"
+    },
+    "analysis_version": {
+      "type": "string"
+    },
+    "procedure": {
+      "const": "eps-default-bearer"
+    },
+    "procedure_label": {
+      "type": "string"
+    },
     "analysis_scope": {
       "type": "object",
       "additionalProperties": false,
@@ -55,52 +67,169 @@
         "excluded"
       ],
       "properties": {
-        "capability": { "type": "string" },
+        "capability": {
+          "type": "string"
+        },
         "stages": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["stage_id", "stage_label", "conditional"],
+            "required": [
+              "stage_id",
+              "stage_label",
+              "conditional"
+            ],
             "properties": {
-              "stage_id": { "type": "string" },
-              "stage_label": { "type": "string" },
-              "conditional": { "type": "boolean" }
+              "stage_id": {
+                "type": "string"
+              },
+              "stage_label": {
+                "type": "string"
+              },
+              "conditional": {
+                "type": "boolean"
+              }
             }
           }
         },
-        "stage_status_vocabulary": { "type": "array", "items": { "type": "string" } },
-        "outcome_vocabulary": { "type": "array", "items": { "type": "string" } },
-        "link_status_vocabulary": { "type": "array", "items": { "type": "string" } },
-        "supported_esm_messages": { "type": "array", "items": { "type": "integer" } },
-        "input_contract": { "type": "string" },
-        "excluded": { "type": "array", "items": { "type": "string" } }
+        "stage_status_vocabulary": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outcome_vocabulary": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "link_status_vocabulary": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "supported_esm_messages": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "input_contract": {
+          "type": "string"
+        },
+        "excluded": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
-    "input_provenance": { "type": "object" },
-    "instance_count": { "type": "integer", "minimum": 0 },
+    "input_provenance": {
+      "type": "object"
+    },
+    "instance_count": {
+      "type": "integer",
+      "minimum": 0
+    },
     "default_bearer_instances": {
       "type": "array",
-      "items": { "$ref": "#/$defs/instance" }
+      "items": {
+        "$ref": "#/$defs/instance"
+      }
     },
-    "esm_observations": { "type": "array", "items": { "type": "object" } },
-    "esm_observation_count": { "type": "integer", "minimum": 0 },
-    "s1_erab_observations": { "type": "array", "items": { "type": "object" } },
-    "s1_erab_observation_count": { "type": "integer", "minimum": 0 },
-    "gtpv2_supporting_evidence": { "type": "array", "items": { "type": "object" } },
-    "gtpv2_supporting_evidence_count": { "type": "integer", "minimum": 0 },
-    "established_links": { "type": "array", "items": { "$ref": "#/$defs/link" } },
-    "ambiguous_links": { "type": "array", "items": { "$ref": "#/$defs/link" } },
-    "unbound_evidence": { "type": "array", "items": { "type": "object" } },
-    "procedure_local_deviations": { "type": "array", "items": { "$ref": "#/$defs/deviation" } },
-    "procedure_local_deviation_count": { "type": "integer", "minimum": 0 },
-    "procedure_local_deviations_omitted": { "type": "integer", "minimum": 0 },
-    "evidence_limitations": { "type": "array", "items": { "type": "string" } },
-    "additional_evidence_needed": { "type": "array", "items": { "type": "string" } },
-    "not_confirmed": { "type": "array", "items": { "type": "string" } },
-    "boundary_selection_status": { "const": "NOT_EVALUATED" },
-    "first_abnormal_boundary": { "type": "null" },
-    "boundary_note": { "type": "string" }
+    "esm_observations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "esm_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "s1_erab_observations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "s1_erab_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "gtpv2_supporting_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "gtpv2_supporting_evidence_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "established_links": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/link"
+      }
+    },
+    "ambiguous_links": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/link"
+      }
+    },
+    "unbound_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "procedure_local_deviations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/deviation"
+      }
+    },
+    "procedure_local_deviation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "procedure_local_deviations_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence_limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "additional_evidence_needed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "not_confirmed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "boundary_selection_status": {
+      "const": "NOT_EVALUATED"
+    },
+    "first_abnormal_boundary": {
+      "type": "null"
+    },
+    "boundary_note": {
+      "type": "string"
+    }
   },
   "$defs": {
     "stage": {
@@ -128,7 +257,9 @@
             "supporting-gtpv2-session-control"
           ]
         },
-        "stage_label": { "type": "string" },
+        "stage_label": {
+          "type": "string"
+        },
         "status": {
           "enum": [
             "OBSERVED",
@@ -138,12 +269,37 @@
             "INSUFFICIENT_EVIDENCE"
           ]
         },
-        "conditional": { "type": "boolean" },
-        "message_count": { "type": "integer", "minimum": 0 },
-        "first_frame": { "type": ["integer", "null"] },
-        "last_frame": { "type": ["integer", "null"] },
-        "messages": { "type": "array", "items": { "type": "object" } },
-        "limitations": { "type": "array", "items": { "type": "string" } }
+        "conditional": {
+          "type": "boolean"
+        },
+        "message_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "first_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "last_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "instance": {
@@ -168,8 +324,13 @@
         "additional_evidence_needed"
       ],
       "properties": {
-        "instance_reference": { "type": "string", "pattern": "^epc-default-bearer-[0-9a-f]{10}$" },
-        "procedure": { "const": "eps-default-bearer" },
+        "instance_reference": {
+          "type": "string",
+          "pattern": "^epc-default-bearer-[0-9a-f]{10}$"
+        },
+        "procedure": {
+          "const": "eps-default-bearer"
+        },
         "ue_context": {
           "type": "object",
           "additionalProperties": false,
@@ -180,17 +341,58 @@
             "mme_ue_s1ap_id"
           ],
           "properties": {
-            "capture_file": { "type": ["string", "null"] },
-            "sctp_association": { "type": ["string", "null"] },
-            "enb_ue_s1ap_id": { "type": ["integer", "null"] },
-            "mme_ue_s1ap_id": { "type": ["integer", "null"] }
+            "capture_file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sctp_association": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "enb_ue_s1ap_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "mme_ue_s1ap_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
           }
         },
-        "association_basis": { "type": "string" },
-        "association_strength": { "enum": ["STRONG", "SUPPORTED", "AMBIGUOUS", "UNBOUND"] },
-        "attach_link": { "$ref": "#/$defs/link" },
-        "stages": { "type": "array", "items": { "$ref": "#/$defs/stage" } },
-        "outcomes": { "type": "array", "items": { "type": "string" } },
+        "association_basis": {
+          "type": "string"
+        },
+        "association_strength": {
+          "enum": [
+            "STRONG",
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "UNBOUND"
+          ]
+        },
+        "attach_link": {
+          "$ref": "#/$defs/link"
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stage"
+          }
+        },
+        "outcomes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "bearer_context": {
           "type": "object",
           "additionalProperties": false,
@@ -206,43 +408,251 @@
             "pco_present"
           ],
           "properties": {
-            "eps_bearer_identity": { "type": ["integer", "null"] },
-            "eps_bearer_identity_basis": { "type": ["string", "null"] },
-            "pdn_type": { "type": ["string", "null"] },
-            "apn_present": { "type": ["boolean", "null"] },
-            "apn_length": { "type": ["integer", "null"] },
-            "pdn_address_present": { "type": ["boolean", "null"] },
-            "pdn_address_family": { "type": ["string", "null"] },
-            "qos_present": { "type": ["boolean", "null"] },
-            "pco_present": { "type": ["boolean", "null"] }
+            "eps_bearer_identity": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "eps_bearer_identity_basis": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pdn_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "apn_present": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "apn_length": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "pdn_address_present": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "pdn_address_family": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "qos_present": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "pco_present": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
           }
         },
-        "erab_items": { "type": "array", "items": { "type": "object" } },
-        "esm_message_count": { "type": "integer", "minimum": 0 },
-        "deviations": { "type": "array", "items": { "$ref": "#/$defs/deviation" } },
-        "observation_window": { "$ref": "#/$defs/window" },
-        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/evidence_ref" } },
-        "limitations": { "type": "array", "items": { "type": "string" } },
-        "additional_evidence_needed": { "type": "array", "items": { "type": "string" } },
-        "tunnel_links": { "type": "array", "items": { "$ref": "#/$defs/link" } }
+        "erab_items": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "esm_message_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deviations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deviation"
+          }
+        },
+        "observation_window": {
+          "$ref": "#/$defs/window"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "additional_evidence_needed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tunnel_links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/link"
+          }
+        }
       }
     },
     "link": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["link_type", "status"],
+      "required": [
+        "link_type",
+        "status"
+      ],
       "properties": {
         "link_type": {
-          "enum": ["esm_to_s1ap_ue_context", "esm_to_eps_attach", "s1ap_erab_to_gtpv2_bearer"]
+          "enum": [
+            "esm_to_s1ap_ue_context",
+            "esm_to_eps_attach",
+            "s1ap_erab_to_gtpv2_bearer"
+          ]
         },
-        "status": { "enum": ["ESTABLISHED", "SUPPORTED", "AMBIGUOUS", "NOT_ESTABLISHED"] },
-        "source_subject_reference": { "type": ["string", "null"] },
-        "target_subject_reference": { "type": ["string", "null"] },
-        "link_basis": { "type": "string" },
-        "supporting_identifiers": { "type": "array", "items": { "type": "object" } },
-        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/evidence_ref" } },
-        "association_strength": { "type": ["string", "null"] },
-        "limitations": { "type": "array", "items": { "type": "string" } }
+        "status": {
+          "enum": [
+            "ESTABLISHED",
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "NOT_ESTABLISHED"
+          ]
+        },
+        "source_subject_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target_subject_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "link_basis": {
+          "type": "string"
+        },
+        "supporting_identifiers": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "association_strength": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bearer_association_status": {
+          "enum": [
+            "ESTABLISHED",
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "NOT_ESTABLISHED"
+          ]
+        },
+        "endpoint_equality_observed": {
+          "type": "boolean"
+        },
+        "endpoint_reuse_across_subjects": {
+          "type": "boolean"
+        },
+        "competing_source_subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_target_frames": {
+          "type": "array",
+          "items": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "s1ap_owner_item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_erab_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "context_completeness": {
+          "enum": [
+            "COMPLETE",
+            "PARTIAL",
+            "UNRESOLVED"
+          ]
+        },
+        "context_scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "capture_file",
+            "sctp_association",
+            "enb_ue_s1ap_id",
+            "mme_ue_s1ap_id"
+          ],
+          "properties": {
+            "capture_file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sctp_association": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "enb_ue_s1ap_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "mme_ue_s1ap_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        }
       }
     },
     "deviation": {
@@ -274,37 +684,112 @@
             "ESM_EVIDENCE_UNBOUND"
           ]
         },
-        "instance_reference": { "type": ["string", "null"] },
-        "protocol": { "type": "string" },
-        "message_type": { "type": ["string", "null"] },
-        "frame_number": { "type": ["integer", "null"] },
-        "esm_cause_code": { "type": ["integer", "null"] },
-        "esm_cause_name": { "type": ["string", "null"] },
-        "eps_bearer_identity": { "type": ["integer", "null"] },
-        "evidence_level": { "const": "OBSERVED" },
-        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/evidence_ref" } },
-        "observation_window": { "$ref": "#/$defs/window" },
-        "limitations": { "type": "array", "items": { "type": "string" } }
+        "instance_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "protocol": {
+          "type": "string"
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "esm_cause_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "esm_cause_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "eps_bearer_identity": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "evidence_level": {
+          "const": "OBSERVED"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "observation_window": {
+          "$ref": "#/$defs/window"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "evidence_ref": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["protocol", "frame_number", "message_type", "evidence_level"],
+      "required": [
+        "protocol",
+        "frame_number",
+        "message_type",
+        "evidence_level"
+      ],
       "properties": {
-        "protocol": { "type": "string" },
-        "frame_number": { "type": ["integer", "null"] },
-        "message_type": { "type": ["string", "null"] },
-        "evidence_level": { "type": "string" }
+        "protocol": {
+          "type": "string"
+        },
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_level": {
+          "type": "string"
+        }
       }
     },
     "window": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "additionalProperties": false,
-      "required": ["start_frame", "end_frame"],
+      "required": [
+        "start_frame",
+        "end_frame"
+      ],
       "properties": {
-        "start_frame": { "type": "integer" },
-        "end_frame": { "type": "integer" }
+        "start_frame": {
+          "type": "integer"
+        },
+        "end_frame": {
+          "type": "integer"
+        }
       }
     }
   }
