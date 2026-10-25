@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 ANALYSIS_NAME = "epc-failure-boundary"
-ANALYSIS_VERSION = "0.1.0"
+ANALYSIS_VERSION = "0.2.0"
 
 EXIT_MALFORMED_INPUT = 5
 EXIT_NO_INPUT = 6
@@ -41,12 +41,29 @@ EXIT_OUTPUT_FAILURE = 7
 DOMAIN = "epc-procedures"
 ATTACH_PROCEDURE = "eps-attach"
 SESSION_SCOPE = "epc-session-control"
+DEFAULT_BEARER_PROCEDURE = "eps-default-bearer"
 
 ATTACH_VERSION_FLOOR = (0, 1, 0)
 SESSION_VERSION_FLOOR = (0, 2, 0)
+DEFAULT_BEARER_VERSION_FLOOR = (0, 3, 0)
 
 SUBJECT_ATTACH = "EPS_ATTACH"
 SUBJECT_SESSION = "EPC_SESSION_CONTROL"
+SUBJECT_DEFAULT_BEARER = "EPS_DEFAULT_BEARER"
+
+# ESM message identities that are explicit rejections in TS 24.301 §9.3. The
+# Domain emits ESM_REJECTION_OBSERVED only for these, and the candidate guard
+# below re-checks the message identity so a cause-bearing non-reject can never
+# become a selectable negative outcome.
+ESM_REJECT_MESSAGE_TYPES = (
+    "activate dedicated eps bearer context reject",
+    "activate default eps bearer context reject",
+    "modify eps bearer context reject",
+    "pdn connectivity reject",
+    "pdn disconnect reject",
+    "bearer resource allocation reject",
+    "bearer resource modification reject",
+)
 
 # Explicit negative protocol outcomes that may become a selected boundary.
 ELIGIBLE_ATTACH = frozenset({
@@ -62,6 +79,14 @@ ELIGIBLE_SESSION = frozenset({
     "DELETE_SESSION_REJECTED_OBSERVED",
     "BEARER_CONTEXT_REJECTED_OBSERVED",
 })
+# Reviewed ESM negative outcomes. PDN connectivity and default-bearer activation
+# rejection are the primary selectable outcomes; a generic ESM rejection is
+# selectable only when its message identity is a reviewed reject type.
+ELIGIBLE_DEFAULT_BEARER = frozenset({
+    "PDN_CONNECTIVITY_REJECT_OBSERVED",
+    "DEFAULT_BEARER_ACTIVATION_REJECT_OBSERVED",
+    "ESM_REJECTION_OBSERVED",
+})
 
 # Evidence-quality deviations. They never become a negative network outcome,
 # but they can block or weaken a selection.
@@ -75,6 +100,11 @@ NONSELECTABLE = frozenset({
     "BEARER_CONTEXT_BINDING_UNAVAILABLE",
     "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
     "INSUFFICIENT_TERMINAL_EVIDENCE",
+    # Default-bearer evidence-quality deviations.
+    "PROTECTED_ESM_UNAVAILABLE",
+    "ERAB_ITEM_EVIDENCE_UNAVAILABLE",
+    "TUNNEL_ENDPOINT_LINK_AMBIGUOUS",
+    "ESM_EVIDENCE_UNBOUND",
 })
 
 STATUS_SELECTED = "SELECTED"
@@ -341,13 +371,98 @@ def load_session_subjects(document: dict[str, Any], file_name: str) -> list[Subj
     return subjects
 
 
+def load_default_bearer_subjects(document: dict[str, Any], file_name: str) -> list[Subject]:
+    """Load EPS default-bearer instances as independent diagnostic subjects.
+
+    Each instance stays independently addressable. An instance that publishes an
+    established Attach link keeps that reference as related evidence; it is never
+    merged into the Attach group.
+    """
+    if document.get("domain") != DOMAIN:
+        raise InputError(f"{file_name} is not an {DOMAIN} analysis")
+    if document.get("procedure") != DEFAULT_BEARER_PROCEDURE:
+        raise InputError(f"{file_name} is not an EPS default-bearer analysis")
+    _enforce_version(document, DEFAULT_BEARER_VERSION_FLOOR, file_name)
+
+    # Only a top-level omission count is published. When it is non-zero the
+    # missing records cannot be attributed to one instance, so every instance is
+    # treated as potentially incomplete.
+    global_omitted = document.get("procedure_local_deviations_omitted")
+    global_omitted = (
+        max(0, global_omitted) if isinstance(global_omitted, int) and not isinstance(global_omitted, bool) else 0
+    )
+
+    subjects: list[Subject] = []
+    for index, instance in enumerate(
+        _require_list(document.get("default_bearer_instances"), f"{file_name} default_bearer_instances")
+    ):
+        instance = _require_mapping(instance, f"{file_name} default_bearer_instances[{index}]")
+        reference = instance.get("instance_reference")
+        if not isinstance(reference, str) or not reference:
+            raise InputError(f"{file_name} default-bearer instance {index} lacks instance_reference")
+        deviations = [item for item in instance.get("deviations") or [] if isinstance(item, dict)]
+        limitations = [
+            _limitation_entry("DOMAIN_LIMITATION", str(text))
+            for text in instance.get("limitations") or []
+            if isinstance(text, str) and text
+        ]
+        additional = [
+            {"requirement": str(text), "reason": "reported by the EPS default-bearer analysis"}
+            for text in instance.get("additional_evidence_needed") or []
+            if isinstance(text, str) and text
+        ]
+        attach_link = instance.get("attach_link") if isinstance(instance.get("attach_link"), dict) else {}
+        related_attach = (
+            attach_link.get("target_subject_reference")
+            if attach_link.get("status") == "ESTABLISHED"
+            and isinstance(attach_link.get("target_subject_reference"), str)
+            else None
+        )
+        context = instance.get("ue_context") if isinstance(instance.get("ue_context"), dict) else {}
+        subjects.append(
+            Subject(
+                subject_type=SUBJECT_DEFAULT_BEARER,
+                reference=reference,
+                capture_file=context.get("capture_file") if isinstance(context.get("capture_file"), str) else None,
+                association_strength=str(instance.get("association_strength") or "UNBOUND"),
+                association_basis=str(instance.get("association_basis") or "unavailable"),
+                deviations=deviations,
+                deviations_omitted=global_omitted,
+                limitations=limitations,
+                additional_evidence=additional,
+                window=_window_of(instance.get("observation_window")),
+                source_file=file_name,
+                detail={
+                    "related_attach_reference": related_attach,
+                    "interface": "N1/S1-MME",
+                    "stages": [
+                        {
+                            "stage_id": stage.get("stage_id"),
+                            "first_frame": stage.get("first_frame"),
+                        }
+                        for stage in instance.get("stages") or []
+                        if isinstance(stage, dict)
+                    ],
+                },
+            )
+        )
+    return subjects
+
+
 # ---------------------------------------------------------------------------
 # Candidate construction
 # ---------------------------------------------------------------------------
 
 
+_ELIGIBLE_BY_SUBJECT = {
+    SUBJECT_ATTACH: ELIGIBLE_ATTACH,
+    SUBJECT_SESSION: ELIGIBLE_SESSION,
+    SUBJECT_DEFAULT_BEARER: ELIGIBLE_DEFAULT_BEARER,
+}
+
+
 def _eligible_types(subject_type: str) -> frozenset[str]:
-    return ELIGIBLE_ATTACH if subject_type == SUBJECT_ATTACH else ELIGIBLE_SESSION
+    return _ELIGIBLE_BY_SUBJECT.get(subject_type, frozenset())
 
 
 def candidate_reference(subject: Subject, deviation: dict[str, Any], ordinal: int) -> str:
@@ -376,7 +491,14 @@ def _eligibility(
     limitation: str | None = None
 
     if deviation_type in _eligible_types(subject.subject_type):
-        pass
+        if deviation_type == "ESM_REJECTION_OBSERVED":
+            message_type = deviation.get("message_type")
+            if not isinstance(message_type, str) or message_type.strip().lower() not in ESM_REJECT_MESSAGE_TYPES:
+                return (
+                    ELIGIBILITY_INELIGIBLE,
+                    ["the ESM message identity is not a reviewed rejection"],
+                    "UNSUPPORTED_ESM_REJECTION_IDENTITY",
+                )
     elif deviation_type in NONSELECTABLE:
         return ELIGIBILITY_INELIGIBLE, ["deviation_type is an evidence-quality observation, not a negative network outcome"], None
     else:
@@ -441,7 +563,15 @@ def build_candidate(subject: Subject, deviation: dict[str, Any], ordinal: int) -
     }
     if refs_omitted:
         candidate["evidence_refs_omitted"] = refs_omitted
-    for field_name in ("transaction_reference", "cause_code", "cause_scope", "bearer_item_index"):
+    for field_name in (
+        "transaction_reference",
+        "cause_code",
+        "cause_scope",
+        "bearer_item_index",
+        "esm_cause_code",
+        "esm_cause_name",
+        "eps_bearer_identity",
+    ):
         value = deviation.get(field_name)
         if value is not None:
             candidate[field_name] = value
@@ -623,7 +753,16 @@ def analyze_subject(subject: Subject, index: int) -> dict[str, Any]:
             "observation_window": selected["observation_window"],
             "ordering_basis": ordering_basis,
         }
-        for field_name in ("transaction_reference", "cause_code", "cause_scope", "bearer_item_index", "procedure_family_or_stage"):
+        for field_name in (
+            "transaction_reference",
+            "cause_code",
+            "cause_scope",
+            "bearer_item_index",
+            "procedure_family_or_stage",
+            "esm_cause_code",
+            "esm_cause_name",
+            "eps_bearer_identity",
+        ):
             if selected.get(field_name) is not None:
                 boundary[field_name] = selected[field_name]
         if selected.get("evidence_refs_omitted"):
@@ -693,9 +832,11 @@ def analyze_subject(subject: Subject, index: int) -> dict[str, Any]:
             }
         )
 
-    return {
+    group: dict[str, Any] = {
         "diagnostic_group_reference": subject.reference,
         "subject_type": subject.subject_type,
+        "source_instance_reference": subject.reference,
+        "related_attach_reference": subject.detail.get("related_attach_reference"),
         "source_domain_instances": [
             {
                 "source_domain": subject.source_domain,
@@ -728,6 +869,7 @@ def analyze_subject(subject: Subject, index: int) -> dict[str, Any]:
         "not_confirmed": list(NOT_CONFIRMED),
         "group_index": index,
     }
+    return group
 
 
 # ---------------------------------------------------------------------------
@@ -738,9 +880,11 @@ def analyze_subject(subject: Subject, index: int) -> dict[str, Any]:
 def analyze(
     attach_paths: list[Path],
     session_paths: list[Path],
+    default_bearer_paths: list[Path] | None = None,
 ) -> dict[str, Any]:
     """Run bounded per-subject EPC failure-boundary orchestration."""
-    if not attach_paths and not session_paths:
+    default_bearer_paths = default_bearer_paths or []
+    if not attach_paths and not session_paths and not default_bearer_paths:
         raise InputError("no EPC Domain analysis input supplied")
 
     subjects: list[Subject] = []
@@ -770,6 +914,21 @@ def analyze(
             {
                 "source_domain": DOMAIN,
                 "analysis_kind": SESSION_SCOPE,
+                "source_file": safe_name(path),
+                "subject_count": len(loaded),
+                "domain_version": document.get("domain_version"),
+            }
+        )
+        subjects.extend(loaded)
+
+    for path in default_bearer_paths:
+        document = _load_json(path, "EPS default-bearer analysis")
+        loaded = load_default_bearer_subjects(document, safe_name(path))
+        versions.add(str(document.get("domain_version")))
+        provenance.append(
+            {
+                "source_domain": DOMAIN,
+                "analysis_kind": DEFAULT_BEARER_PROCEDURE,
                 "source_file": safe_name(path),
                 "subject_count": len(loaded),
                 "domain_version": document.get("domain_version"),
@@ -811,8 +970,9 @@ def analyze(
         )
     if len({group["subject_type"] for group in groups}) > 1:
         limitations.append(
-            "EPS Attach and EPC session-control subjects are reported as independent diagnostic "
-            "groups; no Attach-to-session association is asserted."
+            "EPS Attach, EPC session-control and EPS default-bearer subjects are reported as "
+            "independent diagnostic groups; no Attach-to-session, Attach-to-bearer or "
+            "session-to-bearer association is asserted."
         )
 
     summary = {

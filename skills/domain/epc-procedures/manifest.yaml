@@ -1,5 +1,5 @@
 name: epc-procedures
-version: 0.3.0
+version: 0.4.0
 category: domain
 description: >
   Bounded EPS Attach procedure analysis over already-extracted S1AP and NAS-EPS
@@ -16,9 +16,12 @@ description: >
   S1AP E-RAB and GTPv2-C tunnel-endpoint evidence: staged PDN connectivity, ESM
   information exchange, default bearer activation and S1 E-RAB setup with
   explicit protected-ESM handling, typed and frame-anchored ESM negative
-  deviations, and evidence-safe cross-interface identity links. No protocol
-  decoding, no bearer or PDN success claim, no global failure-boundary
-  selection, no root cause.
+  deviations, and evidence-safe cross-interface identity links, plus bounded
+  EPC S1-U GTP-U packet observation over already-extracted GTP-U events and
+  stream summaries: directed stream evidence, receiving-endpoint matching,
+  supported/ambiguous/unbound association and bounded packet and byte counts. No
+  protocol decoding, no bearer or PDN success claim, no delivery verdict, no
+  global failure-boundary selection, no root cause.
 scope:
   includes:
     - EPS Attach procedure instance formation scoped by capture, SCTP association and S1AP UE identifiers
@@ -35,11 +38,15 @@ scope:
     - item-scoped S1AP E-RAB tunnel endpoint evidence and exact S1-U endpoint comparison
     - default-bearer stage model with OBSERVED, NOT_OBSERVED, UNAVAILABLE_PROTECTED, AMBIGUOUS and INSUFFICIENT_EVIDENCE
     - evidence-safe identity links classified ESTABLISHED, SUPPORTED, AMBIGUOUS or NOT_ESTABLISHED
+    - bounded S1-U GTP-U stream observation with receiving-endpoint matching and packet/byte counts
+    - S1-U association classified SUPPORTED, AMBIGUOUS or NOT_ESTABLISHED with explicit unbound streams
   excludes:
     - Diameter, S6a or Gx/Gy signalling
     - cross-interface S11 to S5/S8 session association without a reviewed identity bridge
     - Attach UE to GTPv2-C session association without a reviewed identity bridge
     - full EPS bearer lifecycle and user-plane delivery verdicts
+    - GTP-U sequence-gap packet-loss inference, UE delivery confirmation or application reachability
+    - inner packet content publication
     - dedicated EPS bearer procedures, PDN disconnect lifecycle and the complete ESM state machine
     - S1-U user-plane validation
     - success, failure or root-cause verdicts and network-function blame
@@ -66,7 +73,9 @@ outputs:
   - session-control procedure timeline JSON Lines
   - EPS default-bearer analysis JSON (schemas/epc-default-bearer-analysis.schema.json)
   - default-bearer procedure timeline JSON Lines and text
-protocols: [S1AP, NAS-EPS, GTPv2-C]
+  - S1-U observation JSON (schemas/epc-s1u-observation.schema.json)
+  - S1-U stream timeline JSON Lines and text
+protocols: [S1AP, NAS-EPS, GTPv2-C, GTP-U]
 interfaces: [S1-MME, N1, S11, S5/S8, S1-U]
 network_functions: []
 evidence_levels:

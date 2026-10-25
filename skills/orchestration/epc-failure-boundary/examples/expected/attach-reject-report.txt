@@ -1,4 +1,4 @@
-EPC Failure Boundary Orchestration (v0.1.0)
+EPC Failure Boundary Orchestration (v0.2.0)
 
 Diagnostic subjects: 4
 

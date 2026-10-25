@@ -69,6 +69,8 @@ jobs:
         run: python -m unittest discover -s skills/protocol/nas-eps/tests -p 'test_*.py' -v
       - name: Run gtpv2 unit tests
         run: python -m unittest discover -s skills/protocol/gtpv2/tests -p 'test_*.py' -v
+      - name: Run gtpu unit tests
+        run: python -m unittest discover -s skills/protocol/gtpu/tests -p 'test_*.py' -v
       - name: Run epc-procedures unit tests
         run: python -m unittest discover -s skills/domain/epc-procedures/tests -p 'test_*.py' -v
       - name: Run epc-failure-boundary unit tests

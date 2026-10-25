@@ -51,7 +51,25 @@ REQUIRED = (
     "examples/default-bearer/attach-analysis.json",
     "examples/default-bearer/session-analysis.json",
     "examples/default-bearer/expected-analysis.json",
+    "references/s1u-observation.md",
+    "rules/epc-s1u-model.json",
+    "schemas/epc-s1u-observation.schema.json",
+    "scripts/epc_s1u_model.py",
+    "scripts/analyze_epc_s1u.py",
+    "scripts/epc_s1u_timeline.py",
+    "tests/test_epc_s1u.py",
+    "examples/s1u/gtpu-fields.jsonl",
+    "examples/s1u/gtpu-events.jsonl",
+    "examples/s1u/gtpu-streams.json",
+    "examples/s1u/default-bearer.json",
+    "examples/s1u/gtpv2-endpoints.jsonl",
+    "examples/s1u/expected-observation.json",
 )
+
+S1U_FORBIDDEN_KEYS = {
+    "inner_packet", "inner_source_address", "inner_destination_address",
+    "inner_source_port", "inner_destination_port", "payload", "raw_bytes",
+}
 
 SESSION_OUTCOMES = (
     "RESPONSE_ACCEPTED_OBSERVED",
@@ -239,6 +257,7 @@ def validate(root: Path = ROOT) -> list[str]:
     errors.extend(_validate_published_contracts(skill, root))
     errors.extend(_validate_session_control(skill, root))
     errors.extend(_validate_default_bearer(skill, root))
+    errors.extend(_validate_s1u(skill, root))
 
     malformed = skill / "examples" / "extracted" / "malformed-nas.jsonl"
     if not malformed.is_file():
@@ -380,11 +399,12 @@ def _validate_published_contracts(skill: Path, root: Path) -> list[str]:
             "analyze_epc_attach.py",
             "analyze_epc_session.py",
             "analyze_epc_default_bearer.py",
+            "analyze_epc_s1u.py",
         ):
             if script not in text:
                 fail(f"{name} does not document the {script} capability")
-    if "three independently executable capabilities" not in skill_md:
-        fail("SKILL.md must state that the package has three capabilities")
+    if "four independently executable capabilities" not in skill_md:
+        fail("SKILL.md must state that the package has four capabilities")
     if "two independently executable capabilities" in skill_md:
         fail("SKILL.md still describes only two capabilities")
 
@@ -392,14 +412,122 @@ def _validate_published_contracts(skill: Path, root: Path) -> list[str]:
     orchestration = root / "skills" / "orchestration" / "epc-failure-boundary" / "manifest.yaml"
     if orchestration.is_file():
         orchestration_text = orchestration.read_text(encoding="utf-8")
-        if "EPS Attach procedure instance or" not in orchestration_text:
+        if "EPS Attach procedure instance" not in orchestration_text:
             fail("the EPC orchestration manifest no longer states its supported subject families")
-        for unsupported in ("EPS_DEFAULT_BEARER", "default-bearer", "default bearer"):
-            if unsupported in orchestration_text:
-                fail(
-                    "the EPC orchestration manifest must not advertise default-bearer subjects "
-                    "before that capability is authorized"
-                )
+        if "default-bearer" not in orchestration_text:
+            fail("the EPC orchestration manifest must declare the default-bearer subject family")
+        if "S1-U" in orchestration_text or "s1u" in orchestration_text:
+            fail("S1-U packet observation must not be advertised as an orchestration subject")
+
+    return errors
+
+
+def load_s1u_model(root: Path):
+    path = root / "skills" / "domain" / "epc-procedures" / "scripts" / "epc_s1u_model.py"
+    spec = importlib.util.spec_from_file_location("epc_s1u_under_test", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _validate_s1u(skill: Path, root: Path) -> list[str]:
+    """Validate the bounded EPC S1-U GTP-U observation capability."""
+    errors: list[str] = []
+
+    def fail(message: str) -> None:
+        errors.append(message)
+
+    try:
+        schema = json.loads(
+            (skill / "schemas" / "epc-s1u-observation.schema.json").read_text(encoding="utf-8")
+        )
+    except json.JSONDecodeError as exc:
+        return [f"invalid S1-U schema: {exc}"]
+    for field in (
+        "stream_observations",
+        "supported_stream_count",
+        "ambiguous_stream_count",
+        "unbound_stream_count",
+        "observed_g_pdu_packet_count",
+        "observed_payload_byte_count",
+        "procedure_local_deviations",
+        "evidence_limitations",
+        "not_confirmed",
+    ):
+        if field not in schema.get("required", []):
+            fail(f"S1-U schema does not require '{field}'")
+
+    try:
+        rules = json.loads((skill / "rules" / "epc-s1u-model.json").read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f"invalid S1-U rules model: {exc}"]
+
+    model = load_s1u_model(root)
+    if list(rules.get("association_statuses", ())) != list(model.ASSOCIATION_STATUSES):
+        fail("S1-U rules association statuses do not match the implemented set")
+    if list(rules.get("outcome_vocabulary", ())) != list(model.OUTCOMES):
+        fail("S1-U rules outcomes do not match the implemented set")
+    if list(rules.get("deviation_vocabulary", ())) != list(model.DEVIATION_TYPES):
+        fail("S1-U rules deviations do not match the implemented set")
+    if tuple(rules.get("not_confirmed", ())) != tuple(model.NOT_CONFIRMED):
+        fail("S1-U rules not_confirmed list does not match the implemented list")
+    if rules.get("s1u_interface_type") != model.S1U_INTERFACE_TYPE:
+        fail("S1-U rules interface type does not match the implemented value")
+    required_equal = set((rules.get("matching_rule") or {}).get("required_equal") or ())
+    if required_equal != {"outer_destination_address", "gtpu_header_teid"}:
+        fail("S1-U matching rule must require destination address and header TEID equality")
+
+    base = skill / "examples" / "s1u"
+    try:
+        produced = model.analyze(
+            model.read_jsonl(base / "gtpu-events.jsonl"),
+            model.read_json(base / "gtpu-streams.json"),
+            default_bearer=model.read_json(base / "default-bearer.json"),
+            gtpv2_events=model.read_jsonl(base / "gtpv2-endpoints.jsonl"),
+        )
+        expected = json.loads((base / "expected-observation.json").read_text(encoding="utf-8"))
+    except (ValueError, OSError, json.JSONDecodeError, model.InputError) as exc:
+        return errors + [f"S1-U fixture: {exc}"]
+
+    produced.pop("input_provenance", None)
+    expected_without = dict(expected)
+    expected_without.pop("input_provenance", None)
+    if produced != expected_without:
+        fail("S1-U observation does not reproduce the committed expected result")
+
+    if expected.get("boundary_selection_status") != "NOT_APPLICABLE":
+        fail("S1-U observation must not claim a boundary selection")
+    if expected.get("first_abnormal_boundary") is not None:
+        fail("S1-U observation must never select a first abnormal boundary")
+    if not expected.get("stream_observations"):
+        fail("S1-U fixture must produce at least one stream observation")
+
+    for stream in expected.get("stream_observations") or []:
+        if stream.get("association_status") not in model.ASSOCIATION_STATUSES:
+            fail(f"unexpected stream association status: {stream.get('association_status')}")
+        if stream.get("direction") not in ("DOWNLINK", "UPLINK", "UNKNOWN"):
+            fail(f"unexpected stream direction: {stream.get('direction')}")
+        if stream.get("user_plane_interface") not in (model.INTERFACE_S1U, model.INTERFACE_UNKNOWN):
+            fail(f"unexpected user-plane interface: {stream.get('user_plane_interface')}")
+        forbidden = S1U_FORBIDDEN_KEYS & set(stream)
+        if forbidden:
+            fail(f"S1-U stream publishes forbidden field(s) {sorted(forbidden)}")
+
+    serialized = json.dumps(expected)
+    for claim in (
+        "USER_RECEIVED_PACKET",
+        "BEARER_DELIVERY_CONFIRMED",
+        "PDN_CONNECTIVITY_SUCCESS_CONFIRMED",
+        "S1U_FORWARDING_HEALTHY",
+        "APPLICATION_REACHABLE",
+    ):
+        if claim in serialized:
+            fail(f"S1-U observation publishes forbidden claim '{claim}'")
+    for claim in FORBIDDEN_CLAIMS:
+        if claim in serialized:
+            fail(f"S1-U observation publishes forbidden claim '{claim}'")
 
     return errors
 

@@ -617,5 +617,415 @@ class ModelUnitTests(unittest.TestCase):
         self.assertEqual(summary["selected_count"], 0)
 
 
+
+
+def default_bearer_instance(
+    reference: str,
+    deviations: list[dict],
+    *,
+    capture: str = "capture.pcap",
+    strength: str = "STRONG",
+    attach_reference: str | None = None,
+    stages: list[dict] | None = None,
+    first: int = 1,
+    last: int = 300,
+) -> dict:
+    return {
+        "instance_reference": reference,
+        "procedure": "eps-default-bearer",
+        "ue_context": {
+            "capture_file": capture,
+            "sctp_association": "sctp-assoc-0",
+            "enb_ue_s1ap_id": 1,
+            "mme_ue_s1ap_id": 9,
+        },
+        "association_basis": "observed_identifier_pair:STRONG",
+        "association_strength": strength,
+        "attach_link": {
+            "status": "ESTABLISHED" if attach_reference else "NOT_ESTABLISHED",
+            "target_subject_reference": attach_reference,
+            "link_basis": "same_capture_same_sctp_association_same_s1ap_ue_identifiers",
+            "supporting_identifiers": [],
+            "limitations": [],
+        },
+        "stages": stages or [],
+        "outcomes": [],
+        "bearer_context": {
+            "eps_bearer_identity": 5,
+            "eps_bearer_identity_basis": "decoded_activate_default_bearer_context_header",
+            "pdn_type": "IPv4",
+            "apn_present": True,
+            "apn_length": 8,
+            "pdn_address_present": True,
+            "pdn_address_family": "IPv4",
+            "qos_present": True,
+            "pco_present": False,
+        },
+        "erab_items": [],
+        "esm_message_count": 3,
+        "deviations": deviations,
+        "observation_window": {"start_frame": first, "end_frame": last},
+        "evidence_refs": [],
+        "limitations": [],
+        "additional_evidence_needed": [],
+    }
+
+
+def default_bearer_document(instances: list[dict], *, omitted: int = 0, version: str = "0.3.0") -> dict:
+    return {
+        "domain": "epc-procedures",
+        "domain_version": version,
+        "analysis_name": "eps-default-bearer",
+        "procedure": "eps-default-bearer",
+        "instance_count": len(instances),
+        "default_bearer_instances": instances,
+        "procedure_local_deviations": [],
+        "procedure_local_deviation_count": 0,
+        "procedure_local_deviations_omitted": omitted,
+        "evidence_limitations": [],
+        "additional_evidence_needed": [],
+        "not_confirmed": [],
+    }
+
+
+def esm_deviation(
+    deviation_type: str,
+    frame: int,
+    *,
+    cause: int | None = 27,
+    cause_name: str | None = "Missing or unknown APN",
+    message_type: str = "PDN connectivity reject",
+    ebi: int | None = 0,
+    refs: list[int] | None = None,
+    window: tuple[int, int] = (1, 300),
+    level: str = "OBSERVED",
+) -> dict:
+    return {
+        "deviation_type": deviation_type,
+        "instance_reference": "epc-default-bearer-0000000001",
+        "protocol": "NAS-EPS",
+        "message_type": message_type,
+        "frame_number": frame,
+        "esm_cause_code": cause,
+        "esm_cause_name": cause_name,
+        "eps_bearer_identity": ebi,
+        "evidence_level": level,
+        "evidence_refs": [
+            {
+                "protocol": "NAS-EPS",
+                "frame_number": number,
+                "message_type": message_type,
+                "evidence_level": level,
+            }
+            for number in (refs if refs is not None else [frame])
+        ],
+        "observation_window": {"start_frame": window[0], "end_frame": window[1]},
+        "limitations": [],
+    }
+
+
+class DefaultBearerWorkspace(Workspace):
+    def analyze_default_bearer(self, document: dict) -> dict:
+        path = self.directory / f"bearer-{len(list(self.directory.glob('bearer-*.json')))}.json"
+        path.write_text(json.dumps(document), encoding="utf-8")
+        return model.analyze([], [], [path])
+
+
+class DefaultBearerOrchestrationTests(DefaultBearerWorkspace):
+    """A01-A14: EPS default-bearer negative-outcome orchestration."""
+
+    # A01 / A02 -----------------------------------------------------------
+    def test_pdn_connectivity_reject_is_selectable_at_its_own_frame(self) -> None:
+        instance = default_bearer_instance(
+            "epc-default-bearer-0000000001",
+            [esm_deviation("PDN_CONNECTIVITY_REJECT_OBSERVED", 106, refs=[100, 106])],
+        )
+        analysis = self.analyze_default_bearer(default_bearer_document([instance]))
+        group = self.group(analysis)
+        self.assertEqual(group["subject_type"], "EPS_DEFAULT_BEARER")
+        self.assertEqual(group["boundary_selection_status"], "SELECTED")
+        boundary = group["first_abnormal_boundary"]
+        self.assertEqual(boundary["frame_number"], 106)
+        self.assertEqual(boundary["deviation_type"], "PDN_CONNECTIVITY_REJECT_OBSERVED")
+        self.assertEqual(boundary["protocol"], "NAS-EPS")
+        self.assertEqual(boundary["esm_cause_code"], 27)
+        self.assertEqual(boundary["esm_cause_name"], "Missing or unknown APN")
+        self.assertEqual(boundary["eps_bearer_identity"], 0)
+
+    # A03 -----------------------------------------------------------------
+    def test_activation_reject_is_selectable(self) -> None:
+        instance = default_bearer_instance(
+            "epc-default-bearer-0000000001",
+            [
+                esm_deviation(
+                    "DEFAULT_BEARER_ACTIVATION_REJECT_OBSERVED",
+                    205,
+                    cause=26,
+                    cause_name="Insufficient resources",
+                    message_type="Activate default EPS bearer context reject",
+                    ebi=5,
+                )
+            ],
+        )
+        analysis = self.analyze_default_bearer(default_bearer_document([instance]))
+        boundary = self.group(analysis)["first_abnormal_boundary"]
+        self.assertEqual(boundary["frame_number"], 205)
+        self.assertEqual(boundary["deviation_type"], "DEFAULT_BEARER_ACTIVATION_REJECT_OBSERVED")
+        self.assertEqual(boundary["esm_cause_code"], 26)
+        self.assertEqual(boundary["eps_bearer_identity"], 5)
+
+    # A04 / A05 -----------------------------------------------------------
+    def test_accepted_default_bearer_response_is_not_a_boundary(self) -> None:
+        instance = default_bearer_instance(
+            "epc-default-bearer-0000000001",
+            [],
+            stages=[{"stage_id": "default-bearer-activation-response", "first_frame": 26, "status": "OBSERVED"}],
+        )
+        analysis = self.analyze_default_bearer(default_bearer_document([instance]))
+        group = self.group(analysis)
+        self.assertEqual(group["boundary_selection_status"], "NO_ABNORMAL_BOUNDARY_OBSERVED")
+        self.assertIsNone(group["first_abnormal_boundary"])
+        self.assertTrue(
+            any("absence of a supported boundary is not evidence of success" in item["reason"]
+                for item in group["additional_evidence_needed"])
+        )
+
+    def test_protected_esm_stays_unavailable_not_negative(self) -> None:
+        instance = default_bearer_instance(
+            "epc-default-bearer-0000000001",
+            [
+                {
+                    "deviation_type": "PROTECTED_ESM_UNAVAILABLE",
+                    "instance_reference": "epc-default-bearer-0000000001",
+                    "protocol": "NAS-EPS",
+                    "message_type": "Attach accept",
+                    "frame_number": 23,
+                    "esm_cause_code": None,
+                    "esm_cause_name": None,
+                    "eps_bearer_identity": None,
+                    "evidence_level": "OBSERVED",
+                    "evidence_refs": [
+                        {"protocol": "NAS-EPS", "frame_number": 23, "message_type": "Attach accept",
+                         "evidence_level": "OBSERVED"}
+                    ],
+                    "observation_window": {"start_frame": 1, "end_frame": 300},
+                    "limitations": [],
+                }
+            ],
+        )
+        analysis = self.analyze_default_bearer(default_bearer_document([instance]))
+        group = self.group(analysis)
+        self.assertEqual(group["boundary_selection_status"], "NO_ABNORMAL_BOUNDARY_OBSERVED")
+        candidate = group["boundary_candidates"][0]
+        self.assertEqual(candidate["selection_eligibility"], "INELIGIBLE")
+        self.assertEqual(
+            candidate["eligibility_reasons"],
+            ["deviation_type is an evidence-quality observation, not a negative network outcome"],
+        )
+
+    # A06 / A07 -----------------------------------------------------------
+    def test_unknown_deviation_type_is_not_promoted(self) -> None:
+        instance = default_bearer_instance(
+            "epc-default-bearer-0000000001",
+            [esm_deviation("SOME_NEW_ESM_OUTCOME", 90)],
+        )
+        analysis = self.analyze_default_bearer(default_bearer_document([instance]))
+        group = self.group(analysis)
+        self.assertEqual(group["boundary_selection_status"], "NO_ABNORMAL_BOUNDARY_OBSERVED")
+        self.assertEqual(group["boundary_candidates"][0]["limitation_type"], "UNKNOWN_DEVIATION_TYPE")
+
+    def test_generic_esm_rejection_requires_a_reviewed_reject_identity(self) -> None:
+        eligible = default_bearer_instance(
+            "epc-default-bearer-0000000001",
+            [
+                esm_deviation(
+                    "ESM_REJECTION_OBSERVED",
+                    150,
+                    message_type="Activate dedicated EPS bearer context reject",
+                )
+            ],
+        )
+        analysis = self.analyze_default_bearer(default_bearer_document([eligible]))
+        self.assertEqual(self.group(analysis)["boundary_selection_status"], "SELECTED")
+
+        ineligible = default_bearer_instance(
+            "epc-default-bearer-0000000002",
+            [
+                esm_deviation(
+                    "ESM_REJECTION_OBSERVED",
+                    150,
+                    message_type="ESM status",
+                )
+            ],
+        )
+        analysis = self.analyze_default_bearer(default_bearer_document([ineligible]))
+        group = self.group(analysis)
+        self.assertEqual(group["boundary_selection_status"], "NO_ABNORMAL_BOUNDARY_OBSERVED")
+        self.assertEqual(
+            group["boundary_candidates"][0]["limitation_type"], "UNSUPPORTED_ESM_REJECTION_IDENTITY"
+        )
+
+    # A08 / A09 -----------------------------------------------------------
+    def test_attach_and_default_bearer_subjects_are_evaluated_independently(self) -> None:
+        attach = attach_document(
+            [
+                attach_instance(
+                    "epc-attach-0000000001",
+                    [
+                        {
+                            "deviation_type": "ATTACH_REJECT_OBSERVED",
+                            "frame_number": 47,
+                            "protocol": "NAS-EPS",
+                            "message_type": "Attach reject",
+                            "evidence_level": "OBSERVED",
+                            "evidence_refs": [
+                                {"frame_number": 47, "protocol": "NAS-EPS", "message_type": "Attach reject",
+                                 "evidence_level": "OBSERVED"}
+                            ],
+                            "observation_window": {"start_frame": 1, "end_frame": 300},
+                            "limitations": [],
+                        }
+                    ],
+                )
+            ]
+        )
+        bearer = default_bearer_document(
+            [
+                default_bearer_instance(
+                    "epc-default-bearer-0000000001",
+                    [esm_deviation("PDN_CONNECTIVITY_REJECT_OBSERVED", 47)],
+                    attach_reference="epc-attach-0000000001",
+                )
+            ]
+        )
+        attach_path = self.directory / "attach.json"
+        bearer_path = self.directory / "bearer.json"
+        attach_path.write_text(json.dumps(attach), encoding="utf-8")
+        bearer_path.write_text(json.dumps(bearer), encoding="utf-8")
+        analysis = model.analyze([attach_path], [], [bearer_path])
+        self.assertEqual(len(analysis["diagnostic_groups"]), 2)
+        groups = {group["subject_type"]: group for group in analysis["diagnostic_groups"]}
+        self.assertEqual(groups["EPS_ATTACH"]["first_abnormal_boundary"]["frame_number"], 47)
+        self.assertEqual(groups["EPS_DEFAULT_BEARER"]["first_abnormal_boundary"]["frame_number"], 47)
+        self.assertEqual(
+            groups["EPS_DEFAULT_BEARER"]["related_attach_reference"], "epc-attach-0000000001"
+        )
+        # A related reference is evidence, not a merged subject.
+        self.assertEqual(
+            groups["EPS_DEFAULT_BEARER"]["subject_link"]["cross_subject_link"], "NOT_ESTABLISHED"
+        )
+
+    def test_matching_ebi_does_not_merge_two_default_bearer_subjects(self) -> None:
+        first = default_bearer_instance(
+            "epc-default-bearer-0000000001",
+            [esm_deviation("PDN_CONNECTIVITY_REJECT_OBSERVED", 47)],
+        )
+        second = default_bearer_instance(
+            "epc-default-bearer-0000000002",
+            [esm_deviation("PDN_CONNECTIVITY_REJECT_OBSERVED", 75)],
+        )
+        analysis = self.analyze_default_bearer(default_bearer_document([first, second]))
+        self.assertEqual(len(analysis["diagnostic_groups"]), 2)
+        self.assertEqual(
+            [group["first_abnormal_boundary"]["frame_number"] for group in analysis["diagnostic_groups"]],
+            [47, 75],
+        )
+
+    # A10 / A11 -----------------------------------------------------------
+    def test_truncated_deviations_block_an_earliest_claim(self) -> None:
+        instance = default_bearer_instance(
+            "epc-default-bearer-0000000001",
+            [esm_deviation("PDN_CONNECTIVITY_REJECT_OBSERVED", 106)],
+        )
+        analysis = self.analyze_default_bearer(default_bearer_document([instance], omitted=2))
+        group = self.group(analysis)
+        self.assertEqual(group["boundary_selection_status"], "INSUFFICIENT_COMPARABLE_EVIDENCE")
+        self.assertIsNone(group["first_abnormal_boundary"])
+        self.assertEqual(group["boundary_candidates_omitted"], 2)
+
+    def test_same_frame_competing_candidates_remain_ambiguous(self) -> None:
+        instance = default_bearer_instance(
+            "epc-default-bearer-0000000001",
+            [
+                esm_deviation("PDN_CONNECTIVITY_REJECT_OBSERVED", 106),
+                esm_deviation(
+                    "DEFAULT_BEARER_ACTIVATION_REJECT_OBSERVED",
+                    106,
+                    message_type="Activate default EPS bearer context reject",
+                    ebi=5,
+                ),
+            ],
+        )
+        analysis = self.analyze_default_bearer(default_bearer_document([instance]))
+        group = self.group(analysis)
+        self.assertEqual(group["boundary_selection_status"], "AMBIGUOUS_FIRST_BOUNDARY")
+        self.assertIsNone(group["first_abnormal_boundary"])
+
+    # A13 / A14 -----------------------------------------------------------
+    def test_existing_attach_only_input_remains_compatible(self) -> None:
+        attach = attach_document(
+            [
+                attach_instance(
+                    "epc-attach-0000000001",
+                    [
+                        {
+                            "deviation_type": "ATTACH_REJECT_OBSERVED",
+                            "frame_number": 47,
+                            "protocol": "NAS-EPS",
+                            "message_type": "Attach reject",
+                            "evidence_level": "OBSERVED",
+                            "evidence_refs": [
+                                {"frame_number": 47, "protocol": "NAS-EPS", "message_type": "Attach reject",
+                                 "evidence_level": "OBSERVED"}
+                            ],
+                            "observation_window": {"start_frame": 1, "end_frame": 300},
+                            "limitations": [],
+                        }
+                    ],
+                )
+            ]
+        )
+        analysis = self.analyze_docs(attach=attach)
+        self.assertEqual(len(analysis["diagnostic_groups"]), 1)
+        self.assertEqual(analysis["diagnostic_groups"][0]["boundary_selection_status"], "SELECTED")
+        self.assertIsNone(analysis["diagnostic_groups"][0]["related_attach_reference"])
+
+    def test_default_bearer_version_floor_is_enforced(self) -> None:
+        instance = default_bearer_instance("epc-default-bearer-0000000001", [])
+        path = self.directory / "old.json"
+        path.write_text(json.dumps(default_bearer_document([instance], version="0.2.0")), encoding="utf-8")
+        with self.assertRaises(model.InputError):
+            model.analyze([], [], [path])
+
+    def test_malformed_default_bearer_document_fails_visibly(self) -> None:
+        path = self.directory / "broken.json"
+        path.write_text(json.dumps({"domain": "epc-procedures", "procedure": "eps-attach"}), encoding="utf-8")
+        with self.assertRaises(model.InputError):
+            model.analyze([], [], [path])
+
+    def test_standalone_cli_accepts_default_bearer_only(self) -> None:
+        instance = default_bearer_instance(
+            "epc-default-bearer-0000000001",
+            [esm_deviation("PDN_CONNECTIVITY_REJECT_OBSERVED", 106)],
+        )
+        document = self.directory / "bearer.json"
+        document.write_text(json.dumps(default_bearer_document([instance])), encoding="utf-8")
+        output = self.directory / "boundary.json"
+        report = self.directory / "boundary.txt"
+        completed = run_cli(
+            "--default-bearer", str(document), "--output", str(output), "--report", str(report)
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = load_json(output)
+        self.assertEqual(payload["diagnostic_groups"][0]["boundary_selection_status"], "SELECTED")
+        text = report.read_text(encoding="utf-8")
+        self.assertIn("EPS_DEFAULT_BEARER", text)
+        self.assertIn("PDN_CONNECTIVITY_REJECT_OBSERVED", text)
+
+    def test_cli_requires_at_least_one_input_family(self) -> None:
+        completed = run_cli("--output", str(self.directory / "out.json"))
+        self.assertEqual(completed.returncode, model.EXIT_NO_INPUT)
+
+
 if __name__ == "__main__":
     unittest.main()

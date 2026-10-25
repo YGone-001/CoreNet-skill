@@ -1,0 +1,1037 @@
+{
+  "additional_evidence_needed": [],
+  "ambiguous_links": [],
+  "analysis_name": "eps-default-bearer",
+  "analysis_scope": {
+    "capability": "bounded EPS default-bearer signalling evidence",
+    "excluded": [
+      "dedicated EPS bearers",
+      "PDN disconnect lifecycle",
+      "full ESM semantics and the ESM state machine",
+      "user-plane delivery verification",
+      "root-cause attribution",
+      "S11 to S5/S8 session association",
+      "Attach UE to GTPv2-C session association without a reviewed identity bridge"
+    ],
+    "input_contract": "already-extracted NAS-EPS events, already-extracted S1AP events, the accepted EPS Attach analysis, the accepted EPC session-control analysis, and GTPv2-C events for exact S1-U endpoint identity only",
+    "link_status_vocabulary": [
+      "ESTABLISHED",
+      "SUPPORTED",
+      "AMBIGUOUS",
+      "NOT_ESTABLISHED"
+    ],
+    "outcome_vocabulary": [
+      "PDN_CONNECTIVITY_REQUEST_OBSERVED",
+      "PDN_CONNECTIVITY_REJECT_OBSERVED",
+      "DEFAULT_BEARER_ACTIVATION_REQUEST_OBSERVED",
+      "DEFAULT_BEARER_ACTIVATION_ACCEPT_OBSERVED",
+      "DEFAULT_BEARER_ACTIVATION_REJECT_OBSERVED",
+      "S1_ERAB_SETUP_REQUEST_OBSERVED",
+      "S1_ERAB_SETUP_RESPONSE_OBSERVED",
+      "DEFAULT_BEARER_SIGNALING_INCOMPLETE",
+      "PROTECTED_ESM_UNAVAILABLE"
+    ],
+    "stage_status_vocabulary": [
+      "OBSERVED",
+      "NOT_OBSERVED",
+      "UNAVAILABLE_PROTECTED",
+      "AMBIGUOUS",
+      "INSUFFICIENT_EVIDENCE"
+    ],
+    "stages": [
+      {
+        "conditional": false,
+        "stage_id": "pdn-connectivity-request",
+        "stage_label": "PDN connectivity request"
+      },
+      {
+        "conditional": true,
+        "stage_id": "esm-information-exchange",
+        "stage_label": "ESM information exchange"
+      },
+      {
+        "conditional": false,
+        "stage_id": "default-bearer-activation-request",
+        "stage_label": "Default bearer activation request"
+      },
+      {
+        "conditional": false,
+        "stage_id": "default-bearer-activation-response",
+        "stage_label": "Default bearer activation response"
+      },
+      {
+        "conditional": true,
+        "stage_id": "s1-erab-setup",
+        "stage_label": "S1 E-RAB setup"
+      },
+      {
+        "conditional": true,
+        "stage_id": "supporting-gtpv2-session-control",
+        "stage_label": "Supporting GTPv2-C session control"
+      }
+    ],
+    "supported_esm_messages": [
+      193,
+      194,
+      195,
+      208,
+      209,
+      217,
+      218,
+      232
+    ]
+  },
+  "analysis_version": "1.0.0",
+  "boundary_note": "This analysis keeps boundary selection NOT_EVALUATED. Per-subject EPC abnormal-boundary selection belongs to the epc-failure-boundary Orchestration Skill.",
+  "boundary_selection_status": "NOT_EVALUATED",
+  "default_bearer_instances": [
+    {
+      "additional_evidence_needed": [],
+      "association_basis": "pre_assignment_extension_unique_mme_identifier:SUPPORTED",
+      "association_strength": "SUPPORTED",
+      "attach_link": {
+        "limitations": [
+          "the Attach instance and this default-bearer instance share one S1AP UE context; no subscriber identity is compared"
+        ],
+        "link_basis": "same_capture_same_sctp_association_same_s1ap_ue_identifiers",
+        "status": "ESTABLISHED",
+        "supporting_identifiers": [
+          {
+            "identifier": "enb_ue_s1ap_id",
+            "value": 1
+          },
+          {
+            "identifier": "mme_ue_s1ap_id",
+            "value": 9
+          },
+          {
+            "identifier": "sctp_association",
+            "value": "sctp-assoc-65535"
+          }
+        ],
+        "target_subject_reference": "epc-attach-b6188d3ca5"
+      },
+      "bearer_context": {
+        "apn_length": 8,
+        "apn_present": true,
+        "eps_bearer_identity": 5,
+        "eps_bearer_identity_basis": "decoded_activate_default_bearer_context_header",
+        "pco_present": false,
+        "pdn_address_family": "IPv4",
+        "pdn_address_present": true,
+        "pdn_type": "IPv4",
+        "qos_present": true
+      },
+      "deviations": [],
+      "erab_items": [
+        {
+          "arp_present": true,
+          "binding_basis": "pdml_grouped_ie",
+          "capture_file": "gtpu-fields.jsonl",
+          "endpoint_role": "enodeb_s1u",
+          "endpoint_role_basis": "message_identity",
+          "erab_id": 5,
+          "frame_number": 23,
+          "gtp_teid": 49676,
+          "gtp_teid_hex": "0000c20c",
+          "item_index": 0,
+          "limitations": [],
+          "list_role": "REQUEST",
+          "operation": "INITIAL_CONTEXT_SETUP",
+          "qci": 9,
+          "transport_layer_address": "192.168.64.128",
+          "transport_layer_address_family": "IPv4"
+        },
+        {
+          "arp_present": false,
+          "binding_basis": "pdml_grouped_ie",
+          "capture_file": "gtpu-fields.jsonl",
+          "endpoint_role": "enodeb_s1u",
+          "endpoint_role_basis": "message_identity",
+          "erab_id": 5,
+          "frame_number": 24,
+          "gtp_teid": 3355633680,
+          "gtp_teid_hex": "c802e810",
+          "item_index": 0,
+          "limitations": [],
+          "list_role": "SUCCESS",
+          "operation": "INITIAL_CONTEXT_SETUP",
+          "qci": null,
+          "transport_layer_address": "127.0.0.5",
+          "transport_layer_address_family": "IPv4"
+        }
+      ],
+      "esm_message_count": 3,
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 9,
+          "message_type": "PDN connectivity request",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 23,
+          "message_type": "Activate default EPS bearer context request",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 26,
+          "message_type": "Activate default EPS bearer context accept",
+          "protocol": "NAS-EPS"
+        }
+      ],
+      "instance_reference": "epc-default-bearer-04eb0b032d",
+      "limitations": [
+        "the S1AP UE context is resolved without a complete identifier pair; the association strength reflects that",
+        "only APN presence and length are published; the APN name is never retained",
+        "only PDN address presence and family are published; the assigned address is never retained",
+        "the observed ESM accept is protocol-level evidence; it does not prove that the default bearer carries user traffic"
+      ],
+      "observation_window": {
+        "end_frame": 26,
+        "start_frame": 9
+      },
+      "outcomes": [
+        "PDN_CONNECTIVITY_REQUEST_OBSERVED",
+        "DEFAULT_BEARER_ACTIVATION_REQUEST_OBSERVED",
+        "DEFAULT_BEARER_ACTIVATION_ACCEPT_OBSERVED",
+        "S1_ERAB_SETUP_REQUEST_OBSERVED",
+        "S1_ERAB_SETUP_RESPONSE_OBSERVED"
+      ],
+      "procedure": "eps-default-bearer",
+      "stages": [
+        {
+          "conditional": false,
+          "first_frame": 9,
+          "last_frame": 9,
+          "limitations": [],
+          "message_count": 1,
+          "messages": [
+            {
+              "apn_length": 8,
+              "apn_present": true,
+              "binding_basis": "pdml_grouped_ie",
+              "container": {
+                "basis": "pdml_esm_container_ie",
+                "enclosing_emm_message_type": "Attach request",
+                "enclosing_emm_message_type_code": 65,
+                "frame_number": 9,
+                "kind": "esm_message_container"
+              },
+              "direction": "uplink",
+              "eps_bearer_identity": 0,
+              "esm_cause": null,
+              "evidence": {
+                "level": "OBSERVED",
+                "source": "capture:corenet-epc-integrated.pcap#frame=9; esm-occurrence=0"
+              },
+              "frame_number": 9,
+              "limitations": [
+                "only APN presence and length are published; the APN name is never retained"
+              ],
+              "message_type": "PDN connectivity request",
+              "message_type_code": 208,
+              "occurrence_index": 0,
+              "pco_present": false,
+              "pdn_address_family": null,
+              "pdn_address_present": false,
+              "pdn_type": {
+                "name": "IPv4",
+                "value": 1
+              },
+              "procedure": "pdn-connectivity",
+              "procedure_transaction_identity": 1,
+              "protection_state": "PLAIN",
+              "protocol": "NAS-EPS",
+              "qos_present": false,
+              "request_type": {
+                "name": "initial request",
+                "value": 1
+              },
+              "result": "REQUEST",
+              "support_status": "SUPPORTED"
+            }
+          ],
+          "stage_id": "pdn-connectivity-request",
+          "stage_label": "PDN connectivity request",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": true,
+          "first_frame": null,
+          "last_frame": null,
+          "limitations": [],
+          "message_count": 0,
+          "messages": [],
+          "stage_id": "esm-information-exchange",
+          "stage_label": "ESM information exchange",
+          "status": "NOT_OBSERVED"
+        },
+        {
+          "conditional": false,
+          "first_frame": 23,
+          "last_frame": 23,
+          "limitations": [],
+          "message_count": 1,
+          "messages": [
+            {
+              "apn_length": 8,
+              "apn_present": true,
+              "binding_basis": "pdml_grouped_ie",
+              "container": {
+                "basis": "pdml_esm_container_ie",
+                "enclosing_emm_message_type": "Attach accept",
+                "enclosing_emm_message_type_code": 66,
+                "frame_number": 23,
+                "kind": "esm_message_container"
+              },
+              "direction": "downlink",
+              "eps_bearer_identity": 5,
+              "esm_cause": null,
+              "evidence": {
+                "level": "OBSERVED",
+                "source": "capture:corenet-epc-integrated.pcap#frame=23; esm-occurrence=0"
+              },
+              "frame_number": 23,
+              "limitations": [
+                "only APN presence and length are published; the APN name is never retained",
+                "only PDN address presence and family are published; the assigned address is never retained"
+              ],
+              "message_type": "Activate default EPS bearer context request",
+              "message_type_code": 193,
+              "occurrence_index": 0,
+              "pco_present": false,
+              "pdn_address_family": "IPv4",
+              "pdn_address_present": true,
+              "pdn_type": {
+                "name": "IPv4",
+                "value": 1
+              },
+              "procedure": "default-bearer-activation",
+              "procedure_transaction_identity": 1,
+              "protection_state": "INTEGRITY_AND_CIPHERED",
+              "protocol": "NAS-EPS",
+              "qos_present": true,
+              "request_type": null,
+              "result": "REQUEST",
+              "support_status": "SUPPORTED"
+            }
+          ],
+          "stage_id": "default-bearer-activation-request",
+          "stage_label": "Default bearer activation request",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": false,
+          "first_frame": 26,
+          "last_frame": 26,
+          "limitations": [],
+          "message_count": 1,
+          "messages": [
+            {
+              "apn_length": null,
+              "apn_present": false,
+              "binding_basis": "pdml_grouped_ie",
+              "container": {
+                "basis": "pdml_esm_container_ie",
+                "enclosing_emm_message_type": "Attach complete",
+                "enclosing_emm_message_type_code": 67,
+                "frame_number": 26,
+                "kind": "esm_message_container"
+              },
+              "direction": "uplink",
+              "eps_bearer_identity": 5,
+              "esm_cause": null,
+              "evidence": {
+                "level": "OBSERVED",
+                "source": "capture:corenet-epc-integrated.pcap#frame=26; esm-occurrence=0"
+              },
+              "frame_number": 26,
+              "limitations": [],
+              "message_type": "Activate default EPS bearer context accept",
+              "message_type_code": 194,
+              "occurrence_index": 0,
+              "pco_present": false,
+              "pdn_address_family": null,
+              "pdn_address_present": false,
+              "pdn_type": null,
+              "procedure": "default-bearer-activation",
+              "procedure_transaction_identity": 1,
+              "protection_state": "INTEGRITY_AND_CIPHERED",
+              "protocol": "NAS-EPS",
+              "qos_present": false,
+              "request_type": null,
+              "result": "ACCEPT",
+              "support_status": "SUPPORTED"
+            }
+          ],
+          "stage_id": "default-bearer-activation-response",
+          "stage_label": "Default bearer activation response",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": true,
+          "first_frame": 23,
+          "last_frame": 24,
+          "limitations": [],
+          "message_count": 2,
+          "messages": [
+            {
+              "erab_items": [
+                {
+                  "arp_present": true,
+                  "binding_basis": "pdml_grouped_ie",
+                  "capture_file": "corenet-epc-integrated.pcap",
+                  "endpoint_role": "enodeb_s1u",
+                  "endpoint_role_basis": "message_identity",
+                  "erab_id": 5,
+                  "frame_number": 23,
+                  "gtp_teid": 49676,
+                  "gtp_teid_hex": "0000c20c",
+                  "item_index": 0,
+                  "limitations": [],
+                  "list_role": "REQUEST",
+                  "operation": "INITIAL_CONTEXT_SETUP",
+                  "qci": 9,
+                  "transport_layer_address": "192.168.64.128",
+                  "transport_layer_address_family": "IPv4"
+                }
+              ],
+              "evidence": {
+                "level": "OBSERVED",
+                "source": "capture:corenet-epc-integrated.pcap#frame=23; procedure-code=9; tshark-info=SACK (Ack=3, Arwnd=106496) , InitialContextSetupRequest, Attach accept, Activate default EPS bearer context request"
+              },
+              "frame_number": 23,
+              "message_type": "InitialContextSetupRequest",
+              "protocol": "S1AP",
+              "result": "REQUEST",
+              "unbound_erab_evidence": null
+            },
+            {
+              "erab_items": [
+                {
+                  "arp_present": false,
+                  "binding_basis": "pdml_grouped_ie",
+                  "capture_file": "corenet-epc-integrated.pcap",
+                  "endpoint_role": "enodeb_s1u",
+                  "endpoint_role_basis": "message_identity",
+                  "erab_id": 5,
+                  "frame_number": 24,
+                  "gtp_teid": 3355633680,
+                  "gtp_teid_hex": "c802e810",
+                  "item_index": 0,
+                  "limitations": [],
+                  "list_role": "SUCCESS",
+                  "operation": "INITIAL_CONTEXT_SETUP",
+                  "qci": null,
+                  "transport_layer_address": "127.0.0.5",
+                  "transport_layer_address_family": "IPv4"
+                }
+              ],
+              "evidence": {
+                "level": "OBSERVED",
+                "source": "capture:corenet-epc-integrated.pcap#frame=24; procedure-code=9; tshark-info=SACK (Ack=3, Arwnd=106496) , InitialContextSetupResponse"
+              },
+              "frame_number": 24,
+              "message_type": "InitialContextSetupResponse",
+              "protocol": "S1AP",
+              "result": "RESPONSE",
+              "unbound_erab_evidence": null
+            }
+          ],
+          "stage_id": "s1-erab-setup",
+          "stage_label": "S1 E-RAB setup",
+          "status": "OBSERVED"
+        },
+        {
+          "conditional": true,
+          "first_frame": 22,
+          "last_frame": 22,
+          "limitations": [
+            "the S1-U endpoint equality links the S1AP E-RAB item to a GTPv2-C message; it does not link the UE context to a session-control subject"
+          ],
+          "message_count": 1,
+          "messages": [
+            {
+              "eps_bearer_identity": 5,
+              "frame_number": 22,
+              "link_status": "SUPPORTED",
+              "message_type": "Create Session Response",
+              "protocol": "GTPv2-C"
+            }
+          ],
+          "stage_id": "supporting-gtpv2-session-control",
+          "stage_label": "Supporting GTPv2-C session control",
+          "status": "OBSERVED"
+        }
+      ],
+      "tunnel_links": [
+        {
+          "association_strength": "SUPPORTED",
+          "bearer_association_status": "SUPPORTED",
+          "candidate_target_frames": [
+            22
+          ],
+          "competing_source_subjects": [],
+          "endpoint_equality_observed": true,
+          "endpoint_reuse_across_subjects": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 23,
+              "message_type": null,
+              "protocol": "S1AP"
+            },
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 22,
+              "message_type": "Create Session Response",
+              "protocol": "GTPv2-C"
+            }
+          ],
+          "limitations": [
+            "the E-RAB identity and the EPS bearer identity are different identifiers and are never equated",
+            "endpoint equality is control-plane provisioning evidence, not proof that a GTP-U tunnel forwards traffic"
+          ],
+          "link_basis": "unique_exact_s1u_endpoint_equality_with_reviewed_interface_type",
+          "link_type": "s1ap_erab_to_gtpv2_bearer",
+          "ordering": "gtpv2_precedes_s1ap",
+          "s1ap_message_type": null,
+          "s1ap_owner_item_count": 1,
+          "s1u_gtp_teid": 49676,
+          "s1u_transport_layer_address": "192.168.64.128",
+          "source_erab_id": 5,
+          "source_frame": 23,
+          "source_subject_reference": "epc-default-bearer-04eb0b032d",
+          "status": "SUPPORTED",
+          "supporting_identifiers": [
+            {
+              "identifier": "s1u_transport_layer_address",
+              "value": "192.168.64.128"
+            },
+            {
+              "identifier": "s1u_gtp_teid",
+              "value": 49676
+            },
+            {
+              "identifier": "f_teid_interface_type",
+              "value": [
+                1
+              ]
+            }
+          ],
+          "target_eps_bearer_identity": 5,
+          "target_frame": 22,
+          "target_message_type": "Create Session Response",
+          "target_scope": "bearer",
+          "target_subject_reference": "gtpv2-frame:22"
+        },
+        {
+          "association_strength": "NOT_ESTABLISHED",
+          "bearer_association_status": "NOT_ESTABLISHED",
+          "candidate_target_frames": [],
+          "competing_source_subjects": [],
+          "endpoint_equality_observed": false,
+          "endpoint_reuse_across_subjects": false,
+          "evidence_refs": [
+            {
+              "evidence_level": "OBSERVED",
+              "frame_number": 24,
+              "message_type": null,
+              "protocol": "S1AP"
+            }
+          ],
+          "limitations": [
+            "no observed GTPv2-C S1-U F-TEID carries this transport layer address and GTP-TEID in this capture"
+          ],
+          "link_basis": "no_gtpv2_s1u_f_teid_matches_this_endpoint",
+          "link_type": "s1ap_erab_to_gtpv2_bearer",
+          "s1ap_message_type": null,
+          "s1ap_owner_item_count": 1,
+          "s1u_gtp_teid": 3355633680,
+          "s1u_transport_layer_address": "127.0.0.5",
+          "source_erab_id": 5,
+          "source_frame": 24,
+          "source_subject_reference": "epc-default-bearer-04eb0b032d",
+          "status": "NOT_ESTABLISHED",
+          "supporting_identifiers": [
+            {
+              "identifier": "s1u_transport_layer_address",
+              "value": "127.0.0.5"
+            },
+            {
+              "identifier": "s1u_gtp_teid",
+              "value": 3355633680
+            },
+            {
+              "identifier": "f_teid_interface_type",
+              "value": [
+                1
+              ]
+            }
+          ],
+          "target_subject_reference": null
+        }
+      ],
+      "ue_context": {
+        "capture_file": "gtpu-fields.jsonl",
+        "enb_ue_s1ap_id": 1,
+        "mme_ue_s1ap_id": 9,
+        "sctp_association": "sctp-assoc-65535"
+      }
+    }
+  ],
+  "domain": "epc-procedures",
+  "domain_version": "0.3.0",
+  "esm_observation_count": 3,
+  "esm_observations": [
+    {
+      "apn_length": 8,
+      "apn_present": true,
+      "binding_basis": "pdml_grouped_ie",
+      "container": {
+        "basis": "pdml_esm_container_ie",
+        "enclosing_emm_message_type": "Attach request",
+        "enclosing_emm_message_type_code": 65,
+        "frame_number": 9,
+        "kind": "esm_message_container"
+      },
+      "direction": "uplink",
+      "eps_bearer_identity": 0,
+      "esm_cause": null,
+      "evidence": {
+        "level": "OBSERVED",
+        "source": "capture:corenet-epc-integrated.pcap#frame=9; esm-occurrence=0"
+      },
+      "frame_number": 9,
+      "instance_reference": "epc-default-bearer-04eb0b032d",
+      "limitations": [
+        "only APN presence and length are published; the APN name is never retained"
+      ],
+      "message_type": "PDN connectivity request",
+      "message_type_code": 208,
+      "occurrence_index": 0,
+      "pco_present": false,
+      "pdn_address_family": null,
+      "pdn_address_present": false,
+      "pdn_type": {
+        "name": "IPv4",
+        "value": 1
+      },
+      "procedure": "pdn-connectivity",
+      "procedure_transaction_identity": 1,
+      "protection_state": "PLAIN",
+      "protocol": "NAS-EPS",
+      "qos_present": false,
+      "request_type": {
+        "name": "initial request",
+        "value": 1
+      },
+      "result": "REQUEST",
+      "stage_id": "pdn-connectivity-request",
+      "support_status": "SUPPORTED"
+    },
+    {
+      "apn_length": 8,
+      "apn_present": true,
+      "binding_basis": "pdml_grouped_ie",
+      "container": {
+        "basis": "pdml_esm_container_ie",
+        "enclosing_emm_message_type": "Attach accept",
+        "enclosing_emm_message_type_code": 66,
+        "frame_number": 23,
+        "kind": "esm_message_container"
+      },
+      "direction": "downlink",
+      "eps_bearer_identity": 5,
+      "esm_cause": null,
+      "evidence": {
+        "level": "OBSERVED",
+        "source": "capture:corenet-epc-integrated.pcap#frame=23; esm-occurrence=0"
+      },
+      "frame_number": 23,
+      "instance_reference": "epc-default-bearer-04eb0b032d",
+      "limitations": [
+        "only APN presence and length are published; the APN name is never retained",
+        "only PDN address presence and family are published; the assigned address is never retained"
+      ],
+      "message_type": "Activate default EPS bearer context request",
+      "message_type_code": 193,
+      "occurrence_index": 0,
+      "pco_present": false,
+      "pdn_address_family": "IPv4",
+      "pdn_address_present": true,
+      "pdn_type": {
+        "name": "IPv4",
+        "value": 1
+      },
+      "procedure": "default-bearer-activation",
+      "procedure_transaction_identity": 1,
+      "protection_state": "INTEGRITY_AND_CIPHERED",
+      "protocol": "NAS-EPS",
+      "qos_present": true,
+      "request_type": null,
+      "result": "REQUEST",
+      "stage_id": "default-bearer-activation-request",
+      "support_status": "SUPPORTED"
+    },
+    {
+      "apn_length": null,
+      "apn_present": false,
+      "binding_basis": "pdml_grouped_ie",
+      "container": {
+        "basis": "pdml_esm_container_ie",
+        "enclosing_emm_message_type": "Attach complete",
+        "enclosing_emm_message_type_code": 67,
+        "frame_number": 26,
+        "kind": "esm_message_container"
+      },
+      "direction": "uplink",
+      "eps_bearer_identity": 5,
+      "esm_cause": null,
+      "evidence": {
+        "level": "OBSERVED",
+        "source": "capture:corenet-epc-integrated.pcap#frame=26; esm-occurrence=0"
+      },
+      "frame_number": 26,
+      "instance_reference": "epc-default-bearer-04eb0b032d",
+      "limitations": [],
+      "message_type": "Activate default EPS bearer context accept",
+      "message_type_code": 194,
+      "occurrence_index": 0,
+      "pco_present": false,
+      "pdn_address_family": null,
+      "pdn_address_present": false,
+      "pdn_type": null,
+      "procedure": "default-bearer-activation",
+      "procedure_transaction_identity": 1,
+      "protection_state": "INTEGRITY_AND_CIPHERED",
+      "protocol": "NAS-EPS",
+      "qos_present": false,
+      "request_type": null,
+      "result": "ACCEPT",
+      "stage_id": "default-bearer-activation-response",
+      "support_status": "SUPPORTED"
+    }
+  ],
+  "established_links": [
+    {
+      "association_strength": "SUPPORTED",
+      "context_completeness": "COMPLETE",
+      "context_scope": {
+        "capture_file": "corenet-epc-integrated.pcap",
+        "enb_ue_s1ap_id": 1,
+        "mme_ue_s1ap_id": 9,
+        "sctp_association": "sctp-assoc-65535"
+      },
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 9,
+          "message_type": "PDN connectivity request",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 23,
+          "message_type": "Activate default EPS bearer context request",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 26,
+          "message_type": "Activate default EPS bearer context accept",
+          "protocol": "NAS-EPS"
+        }
+      ],
+      "limitations": [
+        "the binding uses capture identity, frame number and S1AP NAS-PDU presence only; timestamp proximity is never used"
+      ],
+      "link_basis": "same_capture_same_frame_s1ap_nas_pdu",
+      "link_type": "esm_to_s1ap_ue_context",
+      "source_subject_reference": "epc-default-bearer-04eb0b032d",
+      "status": "ESTABLISHED",
+      "supporting_identifiers": [
+        {
+          "identifier": "enb_ue_s1ap_id",
+          "value": 1
+        },
+        {
+          "identifier": "mme_ue_s1ap_id",
+          "value": 9
+        },
+        {
+          "identifier": "sctp_association",
+          "value": "sctp-assoc-65535"
+        },
+        {
+          "identifier": "capture_file",
+          "value": "corenet-epc-integrated.pcap"
+        }
+      ],
+      "target_subject_reference": "s1ap-ue-context-04eb0b032d"
+    },
+    {
+      "association_strength": "ESTABLISHED",
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 9,
+          "message_type": "PDN connectivity request",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 23,
+          "message_type": "Activate default EPS bearer context request",
+          "protocol": "NAS-EPS"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 26,
+          "message_type": "Activate default EPS bearer context accept",
+          "protocol": "NAS-EPS"
+        }
+      ],
+      "limitations": [
+        "the Attach instance and this default-bearer instance share one S1AP UE context; no subscriber identity is compared"
+      ],
+      "link_basis": "same_capture_same_sctp_association_same_s1ap_ue_identifiers",
+      "link_type": "esm_to_eps_attach",
+      "source_subject_reference": "epc-default-bearer-04eb0b032d",
+      "status": "ESTABLISHED",
+      "supporting_identifiers": [
+        {
+          "identifier": "enb_ue_s1ap_id",
+          "value": 1
+        },
+        {
+          "identifier": "mme_ue_s1ap_id",
+          "value": 9
+        },
+        {
+          "identifier": "sctp_association",
+          "value": "sctp-assoc-65535"
+        }
+      ],
+      "target_subject_reference": "epc-attach-b6188d3ca5"
+    },
+    {
+      "association_strength": "SUPPORTED",
+      "bearer_association_status": "SUPPORTED",
+      "candidate_target_frames": [
+        22
+      ],
+      "competing_source_subjects": [],
+      "endpoint_equality_observed": true,
+      "endpoint_reuse_across_subjects": false,
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 23,
+          "message_type": null,
+          "protocol": "S1AP"
+        },
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 22,
+          "message_type": "Create Session Response",
+          "protocol": "GTPv2-C"
+        }
+      ],
+      "limitations": [
+        "the E-RAB identity and the EPS bearer identity are different identifiers and are never equated",
+        "endpoint equality is control-plane provisioning evidence, not proof that a GTP-U tunnel forwards traffic"
+      ],
+      "link_basis": "unique_exact_s1u_endpoint_equality_with_reviewed_interface_type",
+      "link_type": "s1ap_erab_to_gtpv2_bearer",
+      "ordering": "gtpv2_precedes_s1ap",
+      "s1ap_message_type": null,
+      "s1ap_owner_item_count": 1,
+      "s1u_gtp_teid": 49676,
+      "s1u_transport_layer_address": "192.168.64.128",
+      "source_erab_id": 5,
+      "source_frame": 23,
+      "source_subject_reference": "epc-default-bearer-04eb0b032d",
+      "status": "SUPPORTED",
+      "supporting_identifiers": [
+        {
+          "identifier": "s1u_transport_layer_address",
+          "value": "192.168.64.128"
+        },
+        {
+          "identifier": "s1u_gtp_teid",
+          "value": 49676
+        },
+        {
+          "identifier": "f_teid_interface_type",
+          "value": [
+            1
+          ]
+        }
+      ],
+      "target_eps_bearer_identity": 5,
+      "target_frame": 22,
+      "target_message_type": "Create Session Response",
+      "target_scope": "bearer",
+      "target_subject_reference": "gtpv2-frame:22"
+    }
+  ],
+  "evidence_limitations": [
+    "the EPC session-control subjects are recorded as provenance only; no reviewed identity bridge links this UE context to a session-control subject",
+    "only APN presence and length are published; the APN name is never retained",
+    "S1AP E-RAB and GTPv2-C S1-U endpoints are related by exact endpoint equality; no E-RAB identity is equated with an EPS bearer identity"
+  ],
+  "first_abnormal_boundary": null,
+  "gtpv2_supporting_evidence": [
+    {
+      "eps_bearer_identity": 5,
+      "frame_number": 22,
+      "interface_type": 1,
+      "message_type": "Create Session Response",
+      "procedure_family": "create-session",
+      "protocol": "GTPv2-C",
+      "scope": "bearer",
+      "teid": 49676,
+      "transport_layer_address": "192.168.64.128"
+    }
+  ],
+  "gtpv2_supporting_evidence_count": 1,
+  "input_provenance": {
+    "nas_eps_events": "gtpu-fields.jsonl",
+    "note": "derived from the accepted default-bearer example with the capture identity renamed to the S1-U structured fixture; the endpoint values are the accepted laboratory values"
+  },
+  "instance_count": 1,
+  "not_confirmed": [
+    "an accepted ESM response is protocol-level evidence only; it does not prove that the default bearer carries user traffic",
+    "an E-RAB GTP-TEID is control-plane provisioning evidence only; it does not prove that a GTP-U tunnel forwards packets",
+    "the UE context of this analysis is not equated with any GTPv2-C session subject without a reviewed identity bridge",
+    "no S11 to S5/S8 session association is asserted",
+    "no root cause, network-function blame or subscriber service quality verdict is produced",
+    "the absence of an observed stage does not prove that the stage did not happen"
+  ],
+  "procedure": "eps-default-bearer",
+  "procedure_label": "EPS default bearer",
+  "procedure_local_deviation_count": 0,
+  "procedure_local_deviations": [],
+  "procedure_local_deviations_omitted": 0,
+  "s1_erab_observation_count": 2,
+  "s1_erab_observations": [
+    {
+      "enb_ue_s1ap_id": 1,
+      "erab_items": [
+        {
+          "arp_present": true,
+          "binding_basis": "pdml_grouped_ie",
+          "capture_file": "corenet-epc-integrated.pcap",
+          "endpoint_role": "enodeb_s1u",
+          "endpoint_role_basis": "message_identity",
+          "erab_id": 5,
+          "frame_number": 23,
+          "gtp_teid": 49676,
+          "gtp_teid_hex": "0000c20c",
+          "item_index": 0,
+          "limitations": [],
+          "list_role": "REQUEST",
+          "operation": "INITIAL_CONTEXT_SETUP",
+          "qci": 9,
+          "transport_layer_address": "192.168.64.128",
+          "transport_layer_address_family": "IPv4"
+        }
+      ],
+      "evidence": {
+        "level": "OBSERVED",
+        "source": "capture:corenet-epc-integrated.pcap#frame=23; procedure-code=9; tshark-info=SACK (Ack=3, Arwnd=106496) , InitialContextSetupRequest, Attach accept, Activate default EPS bearer context request"
+      },
+      "frame_number": 23,
+      "message_type": "InitialContextSetupRequest",
+      "mme_ue_s1ap_id": 9,
+      "protocol": "S1AP",
+      "result": "REQUEST",
+      "unbound_erab_evidence": null
+    },
+    {
+      "enb_ue_s1ap_id": 1,
+      "erab_items": [
+        {
+          "arp_present": false,
+          "binding_basis": "pdml_grouped_ie",
+          "capture_file": "corenet-epc-integrated.pcap",
+          "endpoint_role": "enodeb_s1u",
+          "endpoint_role_basis": "message_identity",
+          "erab_id": 5,
+          "frame_number": 24,
+          "gtp_teid": 3355633680,
+          "gtp_teid_hex": "c802e810",
+          "item_index": 0,
+          "limitations": [],
+          "list_role": "SUCCESS",
+          "operation": "INITIAL_CONTEXT_SETUP",
+          "qci": null,
+          "transport_layer_address": "127.0.0.5",
+          "transport_layer_address_family": "IPv4"
+        }
+      ],
+      "evidence": {
+        "level": "OBSERVED",
+        "source": "capture:corenet-epc-integrated.pcap#frame=24; procedure-code=9; tshark-info=SACK (Ack=3, Arwnd=106496) , InitialContextSetupResponse"
+      },
+      "frame_number": 24,
+      "message_type": "InitialContextSetupResponse",
+      "mme_ue_s1ap_id": 9,
+      "protocol": "S1AP",
+      "result": "RESPONSE",
+      "unbound_erab_evidence": null
+    }
+  ],
+  "unbound_evidence": [
+    {
+      "association_strength": "NOT_ESTABLISHED",
+      "bearer_association_status": "NOT_ESTABLISHED",
+      "candidate_target_frames": [],
+      "competing_source_subjects": [],
+      "endpoint_equality_observed": false,
+      "endpoint_reuse_across_subjects": false,
+      "evidence_refs": [
+        {
+          "evidence_level": "OBSERVED",
+          "frame_number": 24,
+          "message_type": null,
+          "protocol": "S1AP"
+        }
+      ],
+      "limitations": [
+        "no observed GTPv2-C S1-U F-TEID carries this transport layer address and GTP-TEID in this capture"
+      ],
+      "link_basis": "no_gtpv2_s1u_f_teid_matches_this_endpoint",
+      "link_type": "s1ap_erab_to_gtpv2_bearer",
+      "s1ap_message_type": null,
+      "s1ap_owner_item_count": 1,
+      "s1u_gtp_teid": 3355633680,
+      "s1u_transport_layer_address": "127.0.0.5",
+      "source_erab_id": 5,
+      "source_frame": 24,
+      "source_subject_reference": "epc-default-bearer-04eb0b032d",
+      "status": "NOT_ESTABLISHED",
+      "supporting_identifiers": [
+        {
+          "identifier": "s1u_transport_layer_address",
+          "value": "127.0.0.5"
+        },
+        {
+          "identifier": "s1u_gtp_teid",
+          "value": 3355633680
+        },
+        {
+          "identifier": "f_teid_interface_type",
+          "value": [
+            1
+          ]
+        }
+      ],
+      "target_subject_reference": null
+    }
+  ]
+}

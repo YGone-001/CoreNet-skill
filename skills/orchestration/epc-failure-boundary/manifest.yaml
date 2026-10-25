@@ -1,10 +1,10 @@
 name: epc-failure-boundary
-version: 0.1.0
+version: 0.2.0
 category: orchestration
 description: >
   Bounded EPC failure-boundary orchestration over already-produced Domain
-  evidence: one diagnostic subject per accepted EPS Attach procedure instance or
-  EPC session-control subject, machine-readable boundary candidates built only
+  evidence: one diagnostic subject per accepted EPS Attach procedure instance, EPC
+  session-control subject or EPS default-bearer instance, machine-readable boundary candidates built only
   from explicit negative Domain deviations, exact-frame ordering, per-subject
   selection of the earliest supported abnormal observation, explicit ambiguity
   and insufficiency, downstream observations that are never attributed as

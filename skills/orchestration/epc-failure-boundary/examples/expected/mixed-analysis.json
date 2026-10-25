@@ -11,7 +11,7 @@
   ],
   "ambiguities": [],
   "analysis_name": "epc-failure-boundary",
-  "analysis_version": "0.1.0",
+  "analysis_version": "0.2.0",
   "diagnostic_groups": [
     {
       "additional_evidence_needed": [
@@ -153,6 +153,7 @@
         "end_frame": 53,
         "start_frame": 33
       },
+      "related_attach_reference": null,
       "source_domain_instances": [
         {
           "attempt_index": 1,
@@ -165,6 +166,7 @@
           "transaction_references": []
         }
       ],
+      "source_instance_reference": "epc-attach-44f18aebfc",
       "subject_link": {
         "basis": "pre_assignment_extension_unique_mme_identifier",
         "cross_subject_link": "NOT_ESTABLISHED",
@@ -312,6 +314,7 @@
         "end_frame": 81,
         "start_frame": 61
       },
+      "related_attach_reference": null,
       "source_domain_instances": [
         {
           "attempt_index": 1,
@@ -324,6 +327,7 @@
           "transaction_references": []
         }
       ],
+      "source_instance_reference": "epc-attach-bae7c7576f",
       "subject_link": {
         "basis": "pre_assignment_extension_unique_mme_identifier",
         "cross_subject_link": "NOT_ESTABLISHED",
@@ -471,6 +475,7 @@
         "end_frame": 117,
         "start_frame": 97
       },
+      "related_attach_reference": null,
       "source_domain_instances": [
         {
           "attempt_index": 1,
@@ -483,6 +488,7 @@
           "transaction_references": []
         }
       ],
+      "source_instance_reference": "epc-attach-21db6602e4",
       "subject_link": {
         "basis": "pre_assignment_extension_unique_mme_identifier",
         "cross_subject_link": "NOT_ESTABLISHED",
@@ -630,6 +636,7 @@
         "end_frame": 145,
         "start_frame": 125
       },
+      "related_attach_reference": null,
       "source_domain_instances": [
         {
           "attempt_index": 1,
@@ -642,6 +649,7 @@
           "transaction_references": []
         }
       ],
+      "source_instance_reference": "epc-attach-8cdcaa8b18",
       "subject_link": {
         "basis": "pre_assignment_extension_unique_mme_identifier",
         "cross_subject_link": "NOT_ESTABLISHED",
@@ -739,6 +747,7 @@
         "end_frame": 106,
         "start_frame": 100
       },
+      "related_attach_reference": null,
       "source_domain_instances": [
         {
           "attempt_index": null,
@@ -753,6 +762,7 @@
           ]
         }
       ],
+      "source_instance_reference": "epc-session-s11-e24ed89d",
       "subject_link": {
         "basis": "control_plane_f_teid_in_message",
         "cross_subject_link": "NOT_ESTABLISHED",
@@ -781,7 +791,7 @@
     "Boundary selection is per diagnostic subject; the analysis never merges independent EPS Attach, S11 and S5/S8 subjects into one EPC failure point.",
     "Selection ordering uses exact frame provenance only; severity, cause magnitude, message labels and list order never order candidates.",
     "A selected boundary is the earliest supported abnormal observation, not a causal claim.",
-    "EPS Attach and EPC session-control subjects are reported as independent diagnostic groups; no Attach-to-session association is asserted."
+    "EPS Attach, EPC session-control and EPS default-bearer subjects are reported as independent diagnostic groups; no Attach-to-session, Attach-to-bearer or session-to-bearer association is asserted."
   ],
   "not_confirmed": [
     "the selected boundary is a first observed abnormality, not a root cause",

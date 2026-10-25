@@ -7,11 +7,12 @@ UE contexts ran an Attach attempt, which conditional stages were observed, which
 explicit protocol rejection or failure the network or the UE emitted, and which
 evidence is missing or protected.
 
-This is a Domain-layer Skill with three independently executable capabilities. The
+This is a Domain-layer Skill with four independently executable capabilities. The
 EPS Attach capability consumes already-extracted S1AP and NAS-EPS events. The EPC
 session-control capability consumes already-extracted GTPv2-C events and
 transactions. The EPS default-bearer capability consumes already-extracted NAS-EPS
-ESM evidence, S1AP E-RAB items and GTPv2-C tunnel endpoints. Both produce procedure-local evidence and explicit limitations. The
+ESM evidence, S1AP E-RAB items and GTPv2-C tunnel endpoints. The S1-U observation
+capability consumes already-extracted GTP-U events and stream summaries. Both produce procedure-local evidence and explicit limitations. The
 Skill never decodes protocols, never reads subscriber identity, and never produces a
 verdict about bearer, PDN or service success.
 
@@ -163,6 +164,34 @@ The capability publishes `not_confirmed` explicitly and keeps
 `boundary_selection_status` at `NOT_EVALUATED`. See `references/default-bearer.md`
 and `references/identity-linking.md`.
 
+## S1-U Observation
+
+Version 0.4.0 adds a fourth, independently executable capability:
+`scripts/analyze_epc_s1u.py`. It consumes the accepted GTP-U events and directed
+stream summary plus, optionally, the EPS default-bearer analysis and the GTPv2-C
+events that advertise the SGW-U S1-U endpoint.
+
+```bash
+python3 scripts/analyze_epc_s1u.py \
+  --gtpu gtpu-events.jsonl \
+  --streams gtpu-streams.json \
+  --default-bearer epc-default-bearer-analysis.json \
+  --gtpv2 gtpv2-events.jsonl \
+  --output epc-s1u-observation.json
+```
+
+Only `--gtpu` and `--streams` are required. A stream is related to a bearer only
+when its outer destination address and header TEID equal an advertised S1-U
+receiving endpoint inside the same capture; an outer source address, a UDP port or
+a TEID value alone never establishes ownership. The association is `SUPPORTED`,
+`AMBIGUOUS` or `NOT_ESTABLISHED`, and unbound streams stay observable.
+
+The capability reports observed G-PDU counts and bounded payload-octet counts with
+their documented definition. It never claims UE delivery, bearer service success,
+application reachability or packet loss, never republishes inner packet content,
+and keeps `boundary_selection_status` at `NOT_APPLICABLE`. See
+`references/s1u-observation.md`.
+
 ## Failure Behavior
 
 | Condition | Behavior |
@@ -195,4 +224,4 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Original CoreNet Domain-layer package. No upstream material imported. Normative
 references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the accepted
-`s1ap`, `nas-eps` and `gtpv2` Protocol Skill contracts. Version 0.3.0.
+`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.4.0.

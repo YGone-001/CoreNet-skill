@@ -44,8 +44,11 @@ class GtpuValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/protocol/gtpu/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.1.1", "version: 0.2.0"), encoding="utf-8")
-            self.assertTrue(any("manifest version must be 0.1.1" in error for error in VALIDATOR.validate(root)))
+            manifest.write_text(
+                manifest.read_text(encoding="utf-8").replace("version: 0.2.0", "version: 0.3.0"),
+                encoding="utf-8",
+            )
+            self.assertTrue(any("manifest version must be 0.2.0" in error for error in VALIDATOR.validate(root)))
 
     def test_missing_field_spec_is_detected(self):
         temporary, root = self.fixture()
@@ -61,12 +64,36 @@ class GtpuValidatorTests(unittest.TestCase):
             manifest.write_text(manifest.read_text(encoding="utf-8").replace("category: protocol", "category: domain"), encoding="utf-8")
             self.assertTrue(any("manifest category must be protocol" in error for error in VALIDATOR.validate(root)))
 
-    def test_unauthorized_n9_interface_is_detected(self):
+    def test_missing_s1u_applicability_is_detected(self):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/protocol/gtpu/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("interfaces: [N3]", "interfaces: [N3, N9]"), encoding="utf-8")
-            self.assertTrue(any("interface ownership must be N3 only" in error for error in VALIDATOR.validate(root)))
+            manifest.write_text(
+                manifest.read_text(encoding="utf-8").replace(
+                    "interfaces: [N3, S1-U, S5/S8-U, N9]", "interfaces: [N3]"
+                ),
+                encoding="utf-8",
+            )
+            self.assertTrue(
+                any(
+                    "interface ownership must declare the bounded S1-U applicability" in error
+                    for error in VALIDATOR.validate(root)
+                )
+            )
+
+    def test_missing_n3_ownership_is_detected(self):
+        temporary, root = self.fixture()
+        with temporary:
+            manifest = root / "skills/protocol/gtpu/manifest.yaml"
+            manifest.write_text(
+                manifest.read_text(encoding="utf-8").replace(
+                    "interfaces: [N3, S1-U, S5/S8-U, N9]", "interfaces: [S1-U]"
+                ),
+                encoding="utf-8",
+            )
+            self.assertTrue(
+                any("interface ownership must still include N3" in error for error in VALIDATOR.validate(root))
+            )
 
     def test_network_function_ownership_is_detected(self):
         temporary, root = self.fixture()

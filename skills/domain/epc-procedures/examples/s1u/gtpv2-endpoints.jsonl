@@ -1,0 +1,1 @@
+{"bearer_contexts": [{"cause": {"cause_code": 16, "cause_name": "Request accepted", "scope": "bearer"}, "ebi": 5, "f_teids": [{"interface_type": 1, "ipv4": "127.0.0.5", "scope": "bearer", "teid": 3355633680}], "item_index": 0}], "capture_file": "s1u-fixture.pcap", "f_teids": [], "frame_number": 22, "message_type": "Create Session Response", "procedure_family": "create-session"}

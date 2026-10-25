@@ -65,10 +65,10 @@ class GtpuContractTests(unittest.TestCase):
     def test_manifest_contract(self):
         manifest = (PACKAGE / "manifest.yaml").read_text(encoding="utf-8")
         self.assertIn("name: gtpu", manifest)
-        self.assertIn("version: 0.1.1", manifest)
+        self.assertIn("version: 0.2.0", manifest)
         self.assertIn("category: protocol", manifest)
         self.assertIn("protocols: [GTP-U]", manifest)
-        self.assertIn("interfaces: [N3]", manifest)
+        self.assertIn("interfaces: [N3, S1-U, S5/S8-U, N9]", manifest)
         self.assertIn("network_functions: []", manifest)
         self.assertIn("required: []", manifest)
 

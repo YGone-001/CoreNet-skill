@@ -50,7 +50,18 @@ EXIT_OUTPUT_FAILURE = 7
 SCHEMA_NAME = "gtpu-event"
 
 PROTOCOL_NAME = "GTP-U"
+# Default trace-event interface label. GTP-U packet decoding is not exclusive to
+# N3: the label is declared by the caller, never inferred from a UDP port, and an
+# unresolved capture uses UNKNOWN_INTERFACE_NAME.
 INTERFACE_NAME = "N3"
+UNKNOWN_INTERFACE_NAME = "UNKNOWN_USER_PLANE_INTERFACE"
+INTERFACE_LABELS = {
+    "n3": "N3",
+    "s1u": "S1-U",
+    "s5s8u": "S5/S8-U",
+    "n9": "N9",
+    "unknown": UNKNOWN_INTERFACE_NAME,
+}
 
 FIELDS = (
     "frame.number",
@@ -647,7 +658,16 @@ def normalize_record(record: object, capture_file: str) -> dict[str, object]:
     return event
 
 
-def project_trace_event(event: dict[str, object]) -> dict[str, object]:
+def resolve_interface_label(value: str | None) -> str:
+    """Map a declared user-plane interface selector to its trace-event label."""
+    if value is None:
+        return INTERFACE_NAME
+    return INTERFACE_LABELS.get(value, UNKNOWN_INTERFACE_NAME)
+
+
+def project_trace_event(
+    event: dict[str, object], interface_label: str | None = None
+) -> dict[str, object]:
     """Project a detailed GTP-U event into the shared trace-event contract.
 
     The generic TEID is populated only from a G-PDU or End Marker header TEID
@@ -661,7 +681,7 @@ def project_trace_event(event: dict[str, object]) -> dict[str, object]:
     projected: dict[str, object] = {
         "timestamp": event["timestamp"],
         "protocol": PROTOCOL_NAME,
-        "interface": INTERFACE_NAME,
+        "interface": interface_label or INTERFACE_NAME,
         "procedure": header.get("message_type"),
         "message_type": header.get("message_type"),
         "packet": {"frame_number": event["frame_number"], "capture_file": event["capture_file"]},

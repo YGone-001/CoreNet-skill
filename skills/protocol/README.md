@@ -77,7 +77,7 @@ raw PFCP bytes, does not inspect GTP-U traffic, does not interpret SBI,
 does not map a PFCP SEID to a NAS or NGAP PDU Session ID, and does not
 determine PDU session or user-plane success.
 
-Implemented: `gtpu`, the N3 user-plane observation Protocol Skill. Version
+Implemented: `gtpu`, the user-plane observation Protocol Skill. Version
 0.1.0 supports a bounded GTP-U subset of TS 29.281 (Release 19) with the
 PDU Session Container content reviewed against TS 38.415 (Release 19):
 G-PDU, Echo Request, Echo Response, Error Indication, End Marker and

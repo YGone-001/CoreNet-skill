@@ -13,6 +13,21 @@
       "analysis_kind": "epc-session-control",
       "version_floor": "0.2.0",
       "subject_type": "EPC_SESSION_CONTROL"
+    },
+    {
+      "domain": "epc-procedures",
+      "analysis_kind": "eps-attach",
+      "version_floor": "0.1.0"
+    },
+    {
+      "domain": "epc-procedures",
+      "analysis_kind": "epc-session-control",
+      "version_floor": "0.2.0"
+    },
+    {
+      "domain": "epc-procedures",
+      "analysis_kind": "eps-default-bearer",
+      "version_floor": "0.3.0"
     }
   ],
   "selectable_attach_deviations": [
@@ -37,7 +52,11 @@
     "CONTEXT_REUSE_AFTER_DELETION",
     "BEARER_CONTEXT_BINDING_UNAVAILABLE",
     "PROTECTED_INNER_MESSAGE_UNAVAILABLE",
-    "INSUFFICIENT_TERMINAL_EVIDENCE"
+    "INSUFFICIENT_TERMINAL_EVIDENCE",
+    "PROTECTED_ESM_UNAVAILABLE",
+    "ERAB_ITEM_EVIDENCE_UNAVAILABLE",
+    "TUNNEL_ENDPOINT_LINK_AMBIGUOUS",
+    "ESM_EVIDENCE_UNBOUND"
   ],
   "selection_statuses": [
     "SELECTED",
@@ -45,7 +64,11 @@
     "AMBIGUOUS_FIRST_BOUNDARY",
     "INSUFFICIENT_COMPARABLE_EVIDENCE"
   ],
-  "confidence_levels": ["HIGH", "MEDIUM", "LOW"],
+  "confidence_levels": [
+    "HIGH",
+    "MEDIUM",
+    "LOW"
+  ],
   "confidence_rule": {
     "HIGH": "complete candidate list, OBSERVED evidence level, exact frame, STRONG or SUPPORTED subject link",
     "MEDIUM": "complete candidate list, OBSERVED evidence level, exact frame, weaker subject link",
@@ -70,5 +93,19 @@
     "procedure or service success is not established by the absence of a boundary",
     "user-plane forwarding is not established by any control-plane boundary",
     "subscriber, subscription or implementation behaviour is not assessed"
+  ],
+  "selectable_default_bearer_deviations": [
+    "PDN_CONNECTIVITY_REJECT_OBSERVED",
+    "DEFAULT_BEARER_ACTIVATION_REJECT_OBSERVED",
+    "ESM_REJECTION_OBSERVED"
+  ],
+  "esm_reject_message_types": [
+    "activate dedicated eps bearer context reject",
+    "activate default eps bearer context reject",
+    "modify eps bearer context reject",
+    "pdn connectivity reject",
+    "pdn disconnect reject",
+    "bearer resource allocation reject",
+    "bearer resource modification reject"
   ]
 }

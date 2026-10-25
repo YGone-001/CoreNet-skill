@@ -321,14 +321,20 @@ python3 skills/protocol/nas-eps/scripts/nas_eps_timeline.py nas-eps-events.jsonl
 ```
 
 `--domains epc` runs the bounded chain — S1AP extraction, NAS-EPS extraction,
-GTPv2-C extraction, GTPv2-C transaction correlation, EPS Attach analysis, EPC
-session-control analysis and EPS default-bearer analysis — and `--domains auto`
-selects it when EPC access signaling is confirmed. A capture that carries only GTPv2-C still produces a usable EPC result;
-a capture that carries only S1AP/NAS-EPS keeps the accepted Attach result.
+GTPv2-C extraction, GTPv2-C transaction correlation, GTP-U extraction, GTP-U stream
+summarisation, EPS Attach analysis, EPC session-control analysis, EPS default-bearer
+analysis, S1-U GTP-U observation and the EPC failure-boundary orchestration — and
+`--domains auto` selects it when EPC access signaling is confirmed. A capture that
+carries only GTPv2-C still produces a usable EPC result; a capture that carries only
+S1AP/NAS-EPS keeps the accepted Attach result; a capture without GTP-U reports
+`NOT_OBSERVED_IN_CAPTURE` for the user plane and infers no delivery.
 
 The EPC result reports procedure instances, per-stage observations, procedure-local
 deviations with exact frames, and diagnostic subjects whose `subject_type` is
-`EPS_ATTACH`, `EPC_SESSION_CONTROL` or `EPS_DEFAULT_BEARER`. A default-bearer subject
+`EPS_ATTACH`, `EPC_SESSION_CONTROL`, `EPS_DEFAULT_BEARER` or `EPC_S1U_OBSERVATION`.
+An S1-U observation subject reports one directed GTP-U stream with its observed G-PDU
+and payload-octet counts and its `SUPPORTED`/`AMBIGUOUS`/`NOT_ESTABLISHED`
+association; it never claims UE delivery or application reachability. A default-bearer subject
 reports its ESM stages (`OBSERVED`, `NOT_OBSERVED`, `UNAVAILABLE_PROTECTED`,
 `AMBIGUOUS`, `INSUFFICIENT_EVIDENCE`), the item-scoped S1-U E-RAB endpoints, and its
 `attach_association` and `cross_interface_association` status; a tunnel link is

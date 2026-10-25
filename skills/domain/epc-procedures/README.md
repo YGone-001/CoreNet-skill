@@ -81,6 +81,25 @@ deviations, and identity links classified `ESTABLISHED` / `SUPPORTED` /
 `AMBIGUOUS` / `NOT_ESTABLISHED`. It never claims that a bearer carries user
 traffic and never equates an E-RAB identity with an EPS bearer identity.
 
+## S1-U observation
+
+```bash
+python3 scripts/analyze_epc_s1u.py \
+  --gtpu gtpu-events.jsonl \
+  --streams gtpu-streams.json \
+  --default-bearer epc-default-bearer-analysis.json \
+  --gtpv2 gtpv2-events.jsonl \
+  --output epc-s1u-observation.json
+python3 scripts/epc_s1u_timeline.py epc-s1u-observation.json
+```
+
+The S1-U path consumes already-extracted GTP-U evidence. It reports directed
+streams with observed G-PDU and payload-octet counts and relates a stream to a
+bearer only on receiving-endpoint equality (outer destination address plus header
+TEID against an advertised S1-U F-TEID). It never claims UE delivery, service
+success or application reachability, and it never republishes inner packet
+content. See `references/s1u-observation.md`.
+
 ## What it reports
 
 | Evidence | Detail |
@@ -107,4 +126,4 @@ global failure boundary, no subscriber identity. See `SKILL.md`.
 
 ## Version
 
-0.3.0
+0.4.0

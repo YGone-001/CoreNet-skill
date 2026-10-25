@@ -1,0 +1,153 @@
+{
+  "capture_file": "gtpu-fields.jsonl",
+  "limitations": [
+    "counts describe packets observed at this capture point only; they are not end-to-end delivery counts"
+  ],
+  "streams": [
+    {
+      "byte_count_definition": "sum of the GTP-U Length field (payload octets following the mandatory header part)",
+      "capture_file": "gtpu-fields.jsonl",
+      "duplicate_observation_candidates": [],
+      "end_marker_frames": [],
+      "error_indication_refs": [],
+      "first_frame": 40,
+      "first_timestamp": "2026-10-24T15:51:40.000040Z",
+      "last_frame": 40,
+      "last_timestamp": "2026-10-24T15:51:40.000040Z",
+      "limitations": [
+        "no G-PDU observed in this directed context inside the capture window"
+      ],
+      "observed_g_pdu_packet_count": 0,
+      "observed_payload_byte_count": 0,
+      "outer_destination": "192.168.64.128",
+      "outer_source": "127.0.0.37",
+      "qfi_values": [],
+      "sequence_discontinuity_candidate": null,
+      "sequence_numbers": [],
+      "stream_key": "gtpu-path:gtpu-fields.jsonl:127.0.0.37:2152:192.168.64.128:2152:teid0",
+      "teid": 0,
+      "udp_destination_port": 2152,
+      "udp_source_port": 2152
+    },
+    {
+      "byte_count_definition": "sum of the GTP-U Length field (payload octets following the mandatory header part)",
+      "capture_file": "gtpu-fields.jsonl",
+      "duplicate_observation_candidates": [],
+      "end_marker_frames": [
+        43
+      ],
+      "error_indication_refs": [
+        42
+      ],
+      "first_frame": 30,
+      "first_timestamp": "2026-10-24T15:51:40.000030Z",
+      "last_frame": 43,
+      "last_timestamp": "2026-10-24T15:51:40.000043Z",
+      "limitations": [
+        "sequence numbers are optional in GTP-U; gaps are not a packet-loss conclusion"
+      ],
+      "observed_g_pdu_packet_count": 6,
+      "observed_payload_byte_count": 615,
+      "outer_destination": "192.168.64.128",
+      "outer_source": "127.0.0.37",
+      "qfi_values": [],
+      "sequence_discontinuity_candidate": false,
+      "sequence_numbers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "stream_key": "gtpu-path:gtpu-fields.jsonl:127.0.0.37:2152:192.168.64.128:2152:teid49676",
+      "teid": 49676,
+      "udp_destination_port": 2152,
+      "udp_source_port": 2152
+    },
+    {
+      "byte_count_definition": "sum of the GTP-U Length field (payload octets following the mandatory header part)",
+      "capture_file": "gtpu-fields.jsonl",
+      "duplicate_observation_candidates": [],
+      "end_marker_frames": [],
+      "error_indication_refs": [],
+      "first_frame": 44,
+      "first_timestamp": "2026-10-24T15:51:40.000044Z",
+      "last_frame": 45,
+      "last_timestamp": "2026-10-24T15:51:40.000045Z",
+      "limitations": [
+        "sequence numbers are optional in GTP-U; gaps are not a packet-loss conclusion"
+      ],
+      "observed_g_pdu_packet_count": 2,
+      "observed_payload_byte_count": 241,
+      "outer_destination": "203.0.113.9",
+      "outer_source": "127.0.0.37",
+      "qfi_values": [],
+      "sequence_discontinuity_candidate": false,
+      "sequence_numbers": [
+        0,
+        1
+      ],
+      "stream_key": "gtpu-path:gtpu-fields.jsonl:127.0.0.37:2152:203.0.113.9:2152:teid9999",
+      "teid": 9999,
+      "udp_destination_port": 2152,
+      "udp_source_port": 2152
+    },
+    {
+      "byte_count_definition": "sum of the GTP-U Length field (payload octets following the mandatory header part)",
+      "capture_file": "gtpu-fields.jsonl",
+      "duplicate_observation_candidates": [],
+      "end_marker_frames": [],
+      "error_indication_refs": [],
+      "first_frame": 41,
+      "first_timestamp": "2026-10-24T15:51:40.000041Z",
+      "last_frame": 41,
+      "last_timestamp": "2026-10-24T15:51:40.000041Z",
+      "limitations": [
+        "no G-PDU observed in this directed context inside the capture window"
+      ],
+      "observed_g_pdu_packet_count": 0,
+      "observed_payload_byte_count": 0,
+      "outer_destination": "127.0.0.37",
+      "outer_source": "192.168.64.128",
+      "qfi_values": [],
+      "sequence_discontinuity_candidate": null,
+      "sequence_numbers": [],
+      "stream_key": "gtpu-path:gtpu-fields.jsonl:192.168.64.128:2152:127.0.0.37:2152:teid0",
+      "teid": 0,
+      "udp_destination_port": 2152,
+      "udp_source_port": 2152
+    },
+    {
+      "byte_count_definition": "sum of the GTP-U Length field (payload octets following the mandatory header part)",
+      "capture_file": "gtpu-fields.jsonl",
+      "duplicate_observation_candidates": [],
+      "end_marker_frames": [],
+      "error_indication_refs": [],
+      "first_frame": 36,
+      "first_timestamp": "2026-10-24T15:51:40.000036Z",
+      "last_frame": 39,
+      "last_timestamp": "2026-10-24T15:51:40.000039Z",
+      "limitations": [
+        "sequence numbers are optional in GTP-U; gaps are not a packet-loss conclusion"
+      ],
+      "observed_g_pdu_packet_count": 4,
+      "observed_payload_byte_count": 366,
+      "outer_destination": "127.0.0.5",
+      "outer_source": "192.168.64.128",
+      "qfi_values": [],
+      "sequence_discontinuity_candidate": false,
+      "sequence_numbers": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "stream_key": "gtpu-path:gtpu-fields.jsonl:192.168.64.128:2152:127.0.0.5:2152:teid3355633680",
+      "teid": 3355633680,
+      "udp_destination_port": 2152,
+      "udp_source_port": 2152
+    }
+  ],
+  "unbound_events": []
+}

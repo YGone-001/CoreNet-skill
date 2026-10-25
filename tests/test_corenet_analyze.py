@@ -1170,7 +1170,8 @@ class EpcDomainTests(WorkflowTestCase):
         self.assertEqual(deviations[0]["frame_number"], 47)
         self.assertIn("EMM cause 19", deviations[0]["explanation"])
         self.assertEqual(
-            [p["protocol"] for p in result["protocol_evidence"]], ["S1AP", "NAS-EPS", "GTPv2-C"]
+            [p["protocol"] for p in result["protocol_evidence"]],
+            ["S1AP", "NAS-EPS", "GTPv2-C", "GTP-U"],
         )
 
     def test_epc_report_states_no_global_boundary(self) -> None:
@@ -2158,6 +2159,227 @@ class EpcDefaultBearerAdapterTests(WorkflowTestCase):
         }
         for subject in self.default_bearer_subjects():
             self.assertNotIn(subject["diagnostic_group_reference"], session_references)
+
+
+
+
+def s1u_analysis(streams: int = 1, *, supported: bool = True) -> dict:
+    observations = []
+    for index in range(streams):
+        observations.append(
+            {
+                "stream_reference": f"epc-s1u-stream-{index:010x}",
+                "stream_key": f"gtpu-path:fixture.pcap:127.0.0.37:2152:192.168.64.128:2152:teid49676",
+                "capture_file": "fixture.pcap",
+                "outer_source": "127.0.0.37",
+                "outer_destination": "192.168.64.128",
+                "udp_source_port": 2152,
+                "udp_destination_port": 2152,
+                "teid": 49676,
+                "first_frame": 30 + index,
+                "last_frame": 35 + index,
+                "observed_g_pdu_packet_count": 6,
+                "observed_payload_byte_count": 615,
+                "byte_count_definition": "sum of the GTP-U Length field",
+                "message_types": ["G-PDU"],
+                "echo_observed": False,
+                "end_marker_frames": [],
+                "error_indication_frames": [],
+                "user_plane_interface": "S1_U_CANDIDATE" if supported else "UNKNOWN_USER_PLANE_INTERFACE",
+                "interface_basis": (
+                    "matched_advertised_s1u_receiving_endpoint" if supported else "no_s1u_endpoint_evidence"
+                ),
+                "direction": "DOWNLINK" if supported else "UNKNOWN",
+                "association_status": "SUPPORTED" if supported else "NOT_ESTABLISHED",
+                "association_basis": (
+                    "receiving_endpoint_equality_with_advertised_s1u_f_teid"
+                    if supported
+                    else "no_advertised_s1u_receiving_endpoint_matches_this_stream"
+                ),
+                "matched_subject_reference": "epc-default-bearer-0000000000" if supported else None,
+                "matched_endpoint_role": "enodeb_s1u" if supported else None,
+                "matched_endpoint_frames": [23] if supported else [],
+                "competing_subject_references": [],
+                "outcomes": ["G_PDU_OBSERVED", "DIRECTED_TUNNEL_TRAFFIC_OBSERVED"],
+                "deviation_types": [] if supported else ["STREAM_BEARER_ASSOCIATION_UNBOUND"],
+                "evidence_refs": [
+                    {"protocol": "GTP-U", "frame_number": 30 + index, "message_type": "G-PDU",
+                     "evidence_level": "OBSERVED"}
+                ],
+                "observation_window": {"start_frame": 30 + index, "end_frame": 35 + index},
+                "limitations": [],
+            }
+        )
+    return {
+        "domain": "epc-procedures",
+        "domain_version": "0.4.0",
+        "analysis_name": "epc-s1u-observation",
+        "procedure": "eps-s1u-observation",
+        "stream_count": len(observations),
+        "stream_observations": observations,
+        "streams_omitted": 0,
+        "supported_stream_count": len(observations) if supported else 0,
+        "ambiguous_stream_count": 0,
+        "unbound_stream_count": 0 if supported else len(observations),
+        "observed_g_pdu_packet_count": 6 * len(observations),
+        "observed_payload_byte_count": 615 * len(observations),
+        "procedure_local_deviations": [],
+        "procedure_local_deviation_count": 0,
+        "procedure_local_deviations_omitted": 0,
+        "evidence_limitations": ["packet counts are observations at the capture point"],
+        "additional_evidence_needed": [],
+        "not_confirmed": ["an observed G-PDU establishes packet visibility at the capture point only"],
+        "boundary_selection_status": "NOT_APPLICABLE",
+        "first_abnormal_boundary": None,
+    }
+
+
+def epc_payload_with_s1u(streams: int = 1, *, supported: bool = True, default_bearer: bool = True) -> dict:
+    payload = epc_payload_with_default_bearer(instances=1 if default_bearer else 0)
+    payload["s1u_analysis"] = s1u_analysis(streams, supported=supported)
+    payload["s1u_error"] = None
+    payload["gtpu_event_count"] = 16 if streams else 0
+    payload["gtpu_stream_count"] = streams
+    return payload
+
+
+class EpcS1uAdapterTests(WorkflowTestCase):
+    """Unified EPC adapter behaviour for S1-U GTP-U observation."""
+
+    def use_payload(self, payload: dict) -> None:
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+
+    def epc_result(self) -> dict:
+        return self.domain_result()
+
+    def subjects(self, subject_type: str) -> list[dict]:
+        return [
+            subject
+            for subject in self.epc_result()["diagnostic_subjects"]
+            if subject["subject_type"] == subject_type
+        ]
+
+    def test_s1u_stream_becomes_a_diagnostic_subject(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "gtpu", "gtpv2", "s1ap"])
+        self.use_payload(epc_payload_with_s1u())
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        subjects = self.subjects("EPC_S1U_OBSERVATION")
+        self.assertEqual(len(subjects), 1)
+        subject = subjects[0]
+        self.assertEqual(subject["association_strength"], "SUPPORTED")
+        self.assertEqual(subject["direction"], "DOWNLINK")
+        self.assertEqual(subject["observed_g_pdu_packet_count"], 6)
+        self.assertEqual(subject["observed_payload_byte_count"], 615)
+        self.assertEqual(subject["boundary_selection_status"], "NOT_APPLICABLE")
+        self.assertIsNone(subject["first_abnormal_boundary"])
+        self.assertEqual(subject["interface_evidence"]["interfaces"], ["S1_U_CANDIDATE"])
+
+    def test_supported_stream_is_attached_to_its_bearer_subject(self) -> None:
+        self.use_payload(epc_payload_with_s1u())
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        bearer = self.subjects("EPS_DEFAULT_BEARER")[0]
+        self.assertIn("s1u_stream_references", bearer)
+        self.assertEqual(len(bearer["s1u_stream_references"]), 1)
+
+    def test_unbound_stream_is_not_attached(self) -> None:
+        self.use_payload(epc_payload_with_s1u(supported=False))
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        bearer = self.subjects("EPS_DEFAULT_BEARER")[0]
+        self.assertNotIn("s1u_stream_references", bearer)
+        stream = self.subjects("EPC_S1U_OBSERVATION")[0]
+        self.assertEqual(stream["association_strength"], "NOT_ESTABLISHED")
+        self.assertEqual(stream["interface_evidence"]["interfaces"], ["UNKNOWN_USER_PLANE_INTERFACE"])
+
+    def test_missing_gtpu_is_not_a_failure(self) -> None:
+        payload = epc_payload_with_default_bearer()
+        payload["s1u_analysis"] = None
+        payload["s1u_error"] = None
+        payload["gtpu_event_count"] = 0
+        payload["gtpu_stream_count"] = 0
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "COMPLETED")
+        self.assertEqual(self.subjects("EPC_S1U_OBSERVATION"), [])
+        statuses = {item["protocol"]: item["extraction_status"] for item in result["protocol_evidence"]}
+        self.assertEqual(statuses["GTP-U"], "NOT_OBSERVED_IN_CAPTURE")
+        self.assertTrue(
+            any("no S1-U GTP-U stream was observed" in item for item in result["degradation"])
+        )
+
+    def test_s1u_domain_failure_is_surfaced(self) -> None:
+        payload = epc_payload_with_default_bearer()
+        payload["s1u_analysis"] = None
+        payload["s1u_error"] = {
+            "code": "S1U_OBSERVATION_FAILED",
+            "message": "EPC S1-U observation exited with 5",
+        }
+        payload["gtpu_event_count"] = 16
+        payload["gtpu_stream_count"] = 5
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertEqual(result["failure_code"], "S1U_OBSERVATION_FAILED")
+        self.assertTrue(any("S1U_OBSERVATION_FAILED" in item for item in result["degradation"]))
+        self.assertEqual(len(self.subjects("EPS_DEFAULT_BEARER")), 1)
+
+    def test_s1u_summary_is_published(self) -> None:
+        self.use_payload(epc_payload_with_s1u())
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        summaries = {item["procedure"]: item for item in self.epc_result()["procedure_summaries"]}
+        self.assertEqual(summaries["eps-s1u-observation"]["execution_status"], "EXECUTED")
+        self.assertEqual(summaries["eps-s1u-observation"]["stream_count"], 1)
+        self.assertEqual(summaries["eps-s1u-observation"]["observed_g_pdu_packet_count"], 6)
+
+    def test_default_bearer_boundary_reaches_the_report(self) -> None:
+        payload = epc_payload_with_default_bearer(deviations=1)
+        payload["boundary_analysis"] = epc_boundary_payload(attach_count=0)["boundary_analysis"]
+        group = boundary_group(
+            "epc-default-bearer-0000000000",
+            "EPS_DEFAULT_BEARER",
+            106,
+            "PDN_CONNECTIVITY_REJECT_OBSERVED",
+            "NAS-EPS",
+            "PDN connectivity reject",
+        )
+        group["first_abnormal_boundary"]["esm_cause_code"] = 27
+        group["first_abnormal_boundary"]["esm_cause_name"] = "Missing or unknown APN"
+        group["related_attach_reference"] = "epc-attach-0000000000"
+        payload["boundary_analysis"]["diagnostic_groups"].append(group)
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        bearer = self.subjects("EPS_DEFAULT_BEARER")[0]
+        self.assertEqual(bearer["boundary_selection_status"], "SELECTED")
+        self.assertEqual(bearer["first_abnormal_boundary"]["frame_number"], 106)
+        self.assertEqual(bearer["first_abnormal_boundary"]["deviation_type"], "PDN_CONNECTIVITY_REJECT_OBSERVED")
+
+    def test_text_report_names_the_s1u_scope(self) -> None:
+        self.use_payload(epc_payload_with_s1u())
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        text = self.read_text()
+        self.assertIn("EPC_S1U_OBSERVATION", text)
+        self.assertIn("S1-U stream: DOWNLINK", text)
+        self.assertIn("6 G-PDU", text)
+
+    def test_s1u_output_is_deterministic(self) -> None:
+        self.use_payload(epc_payload_with_s1u())
+        first, second = self.base / "s1u-a", self.base / "s1u-b"
+        self.output = first
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        self.output = second
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        for name in ("analysis.json", "report.txt"):
+            self.assertEqual((first / name).read_bytes(), (second / name).read_bytes(), name)
+
+    def test_s1u_publication_is_privacy_safe(self) -> None:
+        self.use_payload(epc_payload_with_s1u())
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        published = (self.output / "analysis.json").read_text(encoding="utf-8") + self.read_text()
+        for forbidden in ("460020000000001", "1122334455667788", "919000001", "10.45.0.7", "internet"):
+            self.assertNotIn(forbidden, published)
+        for claim in ("USER_RECEIVED_PACKET", "BEARER_DELIVERY_CONFIRMED", "APPLICATION_REACHABLE"):
+            self.assertNotIn(claim, published)
 
 
 if __name__ == "__main__":

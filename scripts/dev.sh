@@ -767,6 +767,7 @@ cmd_validate() {
   run_unittests "unit tests: s1ap" "skills/protocol/s1ap/tests" "test_*.py"
   run_unittests "unit tests: nas-eps" "skills/protocol/nas-eps/tests" "test_*.py"
   run_unittests "unit tests: gtpv2" "skills/protocol/gtpv2/tests" "test_*.py"
+  run_unittests "unit tests: gtpu" "skills/protocol/gtpu/tests" "test_*.py"
   run_unittests "unit tests: epc-procedures" "skills/domain/epc-procedures/tests" "test_*.py"
   run_unittests "unit tests: epc-failure-boundary" "skills/orchestration/epc-failure-boundary/tests" "test_*.py"
   run_unittests "unit tests: golden captures" "benchmarks/golden-captures/tests" "test_*.py"

@@ -1,0 +1,61 @@
+{
+  "model": "epc-s1u-observation",
+  "model_version": "1.0.0",
+  "reviewed_against": [
+    "3GPP TS 29.281 GTP-U header and TEID semantics",
+    "3GPP TS 23.401 §5.3.2 S1-U tunnel establishment",
+    "3GPP TS 36.413 §9.1.4 E-RAB transport layer address and GTP-TEID",
+    "3GPP TS 29.274 §8.22 Fully Qualified TEID"
+  ],
+  "matching_rule": {
+    "required_equal": [
+      "outer_destination_address",
+      "gtpu_header_teid"
+    ],
+    "required_context": [
+      "same_capture",
+      "reviewed_s1u_receiving_endpoint_role",
+      "unique_candidate_on_both_sides"
+    ],
+    "never_sufficient_alone": [
+      "outer_source_address",
+      "udp_port",
+      "teid_value",
+      "inner_ue_address"
+    ]
+  },
+  "s1u_interface_type": 1,
+  "endpoint_roles": {
+    "enodeb_s1u": { "direction": "DOWNLINK", "source": "s1ap_erab_item" },
+    "sgw_u_s1u": { "direction": "UPLINK", "source": "gtpv2_bearer_f_teid" }
+  },
+  "association_statuses": ["SUPPORTED", "AMBIGUOUS", "NOT_ESTABLISHED"],
+  "outcome_vocabulary": [
+    "G_PDU_OBSERVED",
+    "DIRECTED_TUNNEL_TRAFFIC_OBSERVED",
+    "OBSERVED_PACKET_COUNT",
+    "OBSERVED_BYTE_COUNT"
+  ],
+  "deviation_vocabulary": [
+    "LIFECYCLE_ASSOCIATION_AMBIGUOUS",
+    "COMPETING_BEARER_CANDIDATES",
+    "S1U_ENDPOINT_EVIDENCE_UNAVAILABLE",
+    "STREAM_BEARER_ASSOCIATION_UNBOUND",
+    "ERROR_INDICATION_OBSERVED"
+  ],
+  "forbidden_claims": [
+    "USER_RECEIVED_PACKET",
+    "BEARER_DELIVERY_CONFIRMED",
+    "PDN_CONNECTIVITY_SUCCESS_CONFIRMED",
+    "S1U_FORWARDING_HEALTHY",
+    "APPLICATION_REACHABLE"
+  ],
+  "not_confirmed": [
+    "an observed G-PDU establishes packet visibility at the capture point only; it does not prove that the UE received the packet",
+    "a stream association means the receiving endpoint evidence supports the tunnel relationship; it does not establish bearer service delivery",
+    "an Echo Response is not evidence that a particular bearer is delivering data",
+    "an End Marker is not evidence that a PDN session has ended",
+    "no packet loss is inferred from frame gaps, sequence values or a missing reverse direction",
+    "no application reachability, PDN connectivity success or network-function blame is produced"
+  ]
+}

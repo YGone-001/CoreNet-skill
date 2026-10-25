@@ -1,8 +1,8 @@
 name: gtpu
-version: 0.1.1
+version: 0.2.0
 category: protocol
 description: >
-  Bounded GTP-U semantic extraction for N3 user-plane evidence: message
+  Bounded GTP-U semantic extraction for user-plane evidence: message
   identification, GTP-U header preservation, TEID evidence scoped by
   directed outer endpoints, bounded PDU Session Container / QFI evidence,
   extension header arrays, Error Indication and End Marker evidence, bounded
@@ -10,7 +10,8 @@ description: >
   GTP-U events, and normalized trace-event projection.
 scope:
   includes:
-    - GTP-U message identity for the bounded N3 subset (G-PDU, Echo Request/Response, Error Indication, End Marker, Supported Extension Headers Notification)
+    - GTP-U message identity for the bounded subset (G-PDU, Echo Request/Response, Error Indication, End Marker, Supported Extension Headers Notification)
+    - caller-declared user-plane interface applicability (N3, S1-U, S5/S8-U, N9) that is never inferred from a UDP port
     - GTP-U header fields (version, PT, E/S/PN flags, message type, length, TEID, sequence number, N-PDU number, next extension header)
     - TEID evidence scoped by capture, outer source endpoint, outer destination endpoint and direction
     - bounded PDU Session Container evidence (PDU type, QFI, RQI, PPI)
@@ -26,7 +27,8 @@ scope:
     - delivery or end-to-end user-plane success determination
     - application protocol decoding or application payload persistence
     - radio delivery verification
-    - GTP-U on N9, S1-U or S5/S8-U
+    - inferring the user-plane interface from a UDP port or an address
+    - mandatory 5GC QFI semantics applied to a non-N3 interface
     - complete PDU session Domain state
     - vendor implementation or source-code mapping
     - end-to-end root cause determination
@@ -47,7 +49,7 @@ outputs:
   - directed stream observation summary JSON (schemas/gtpu-stream.schema.json)
   - protocol-local GTP-U timeline (text or JSON)
 protocols: [GTP-U]
-interfaces: [N3]
+interfaces: [N3, S1-U, S5/S8-U, N9]
 network_functions: []
 evidence_levels:
   - OBSERVED

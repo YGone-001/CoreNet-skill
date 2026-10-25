@@ -28,6 +28,7 @@ from gtpu_model import (
     ToolUnavailable,
     normalize_record,
     project_trace_event,
+    resolve_interface_label,
     records_for_input,
     safe_capture_name,
 )
@@ -39,6 +40,15 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--input-format", choices=("auto", "capture", "fields-jsonl"), default="auto")
     result.add_argument("--output", type=Path, help="detailed GTP-U event JSONL destination")
     result.add_argument("--trace-output", type=Path, help="shared trace-event JSONL projection destination")
+    result.add_argument(
+        "--user-plane-interface",
+        choices=("n3", "s1u", "s5s8u", "n9", "unknown"),
+        default="n3",
+        help=(
+            "declared user-plane interface for the trace-event projection; the value is never "
+            "inferred from a UDP port (default: n3)"
+        ),
+    )
     result.add_argument("--force", action="store_true", help="explicitly replace existing output files")
     return result
 
@@ -71,7 +81,9 @@ def write_events(input_path: Path, input_format: str, output: Path, force: bool)
             Path(temporary_name).unlink(missing_ok=True)
 
 
-def write_projection(events_path: Path, output: Path, force: bool) -> int:
+def write_projection(
+    events_path: Path, output: Path, force: bool, interface_label: str | None = None
+) -> int:
     if events_path.resolve() == output.resolve():
         raise OSError("trace output must not replace the detailed event file")
     if output.exists() and not force:
@@ -89,7 +101,14 @@ def write_projection(events_path: Path, output: Path, force: bool) -> int:
                 event = json.loads(line)
                 if not isinstance(event, dict):
                     raise InputError("detailed GTP-U event line is not an object")
-                temporary.write(json.dumps(project_trace_event(event), sort_keys=True, separators=(",", ":")) + "\n")
+                temporary.write(
+                    json.dumps(
+                        project_trace_event(event, interface_label),
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                    + "\n"
+                )
                 count += 1
         if count == 0:
             raise InputError("detailed GTP-U event file is empty")
@@ -115,9 +134,19 @@ def main(argv: list[str] | None = None) -> int:
                 with tempfile.TemporaryDirectory() as directory:
                     staged = Path(directory) / "gtpu-events.jsonl"
                     write_events(args.input, args.input_format, staged, False)
-                    projected = write_projection(staged, args.trace_output, args.force)
+                    projected = write_projection(
+                        staged,
+                        args.trace_output,
+                        args.force,
+                        resolve_interface_label(args.user_plane_interface),
+                    )
             else:
-                projected = write_projection(args.output, args.trace_output, args.force)
+                projected = write_projection(
+                    args.output,
+                    args.trace_output,
+                    args.force,
+                    resolve_interface_label(args.user_plane_interface),
+                )
             print(f"wrote {projected} trace-event projection(s) to {args.trace_output.name}")
     except ToolUnavailable as exc:
         print(f"tool unavailable: {exc}", file=sys.stderr)

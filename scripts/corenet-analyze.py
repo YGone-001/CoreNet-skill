@@ -58,6 +58,9 @@ EPC_SESSION_ANALYZE_SCRIPT = (
 )
 GTPV2_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "gtpv2" / "scripts" / "extract-gtpv2.py"
 GTPV2_CORRELATE_SCRIPT = ROOT / "skills" / "protocol" / "gtpv2" / "scripts" / "correlate-gtpv2.py"
+GTPU_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "gtpu" / "scripts" / "extract-gtpu.py"
+GTPU_SUMMARIZE_SCRIPT = ROOT / "skills" / "protocol" / "gtpu" / "scripts" / "summarize-gtpu.py"
+EPC_S1U_ANALYZE_SCRIPT = ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_s1u.py"
 EPC_DEFAULT_BEARER_ANALYZE_SCRIPT = (
     ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_default_bearer.py"
 )
@@ -1381,6 +1384,22 @@ def render_text_report(report: dict[str, Any]) -> str:
                     f"({_value(link.get('context_count'))} context(s), "
                     f"reference {_value(link.get('subject_reference'))})"
                 )
+            if subject.get("subject_type") == "EPC_S1U_OBSERVATION":
+                evidence = subject.get("interface_evidence") or {}
+                lines.append(
+                    f"      S1-U stream: {_value(subject.get('direction'))} "
+                    f"({_value((evidence.get('interfaces') or [None])[0])}, "
+                    f"basis {_value(evidence.get('basis'))}), "
+                    f"association {_value(subject.get('association_strength'))}"
+                )
+                lines.append(
+                    f"      packets: {_value(subject.get('observed_g_pdu_packet_count'))} G-PDU, "
+                    f"{_value(subject.get('observed_payload_byte_count'))} payload octets "
+                    f"(frames {_value(subject.get('request_frame'))}-{_value(subject.get('response_frame'))})"
+                )
+                bearer = (subject.get("subject_link") or {}).get("bearer_subject_reference")
+                if bearer:
+                    lines.append(f"      bearer subject: {bearer}")
             if subject.get("subject_type") == "EPS_DEFAULT_BEARER":
                 evidence = subject.get("interface_evidence") or {}
                 lines.append(
@@ -1859,6 +1878,43 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                     "PIPELINE_OUTPUT_UNREADABLE", "EPC session-control analysis is not an object"
                 )
 
+    gtpu_events = run_dir / "gtpu-events.jsonl"
+    gtpu_streams = run_dir / "gtpu-streams.json"
+    gtpu_present = _run_component(
+        [
+            sys.executable,
+            str(GTPU_EXTRACT_SCRIPT),
+            str(capture),
+            "--output",
+            str(gtpu_events),
+            "--force",
+        ],
+        "GTP-U extraction",
+        allow_empty=True,
+    )
+    gtpu_event_count = _count_lines(gtpu_events) if gtpu_present else 0
+    gtpu_stream_count = 0
+    if gtpu_event_count:
+        _run_component(
+            [
+                sys.executable,
+                str(GTPU_SUMMARIZE_SCRIPT),
+                str(gtpu_events),
+                "--output",
+                str(gtpu_streams),
+                "--force",
+            ],
+            "GTP-U stream summarization",
+        )
+        try:
+            stream_document = json.loads(gtpu_streams.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_UNREADABLE", f"GTP-U stream summary is unreadable: {exc}"
+            ) from exc
+        streams = stream_document.get("streams") if isinstance(stream_document, dict) else None
+        gtpu_stream_count = len(streams) if isinstance(streams, list) else 0
+
     default_bearer_analysis: dict[str, Any] | None = None
     default_bearer_error: dict[str, Any] | None = None
     default_bearer_path = run_dir / "epc-default-bearer-analysis.json"
@@ -1898,6 +1954,37 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                 "message": scrub_free_text(str(exc)),
             }
 
+    s1u_analysis: dict[str, Any] | None = None
+    s1u_error: dict[str, Any] | None = None
+    if gtpu_stream_count:
+        s1u_path = run_dir / "epc-s1u-observation.json"
+        s1u_command = [
+            sys.executable,
+            str(EPC_S1U_ANALYZE_SCRIPT),
+            "--gtpu",
+            str(gtpu_events),
+            "--streams",
+            str(gtpu_streams),
+            "--output",
+            str(s1u_path),
+            "--force",
+        ]
+        if default_bearer_path.is_file():
+            s1u_command.extend(["--default-bearer", str(default_bearer_path)])
+        if gtpv2_event_count:
+            s1u_command.extend(["--gtpv2", str(gtpv2_events)])
+        try:
+            _run_component(s1u_command, "EPC S1-U observation", allow_empty=True)
+            if s1u_path.is_file():
+                s1u_analysis = json.loads(s1u_path.read_text(encoding="utf-8"))
+                if not isinstance(s1u_analysis, dict):
+                    raise AnalysisError(
+                        "PIPELINE_OUTPUT_UNREADABLE", "EPC S1-U observation is not an object"
+                    )
+        except (AnalysisError, OSError, json.JSONDecodeError) as exc:
+            s1u_analysis = None
+            s1u_error = {"code": "S1U_OBSERVATION_FAILED", "message": scrub_free_text(str(exc))}
+
     boundary_analysis: dict[str, Any] | None = None
     boundary_error: dict[str, Any] | None = None
     has_subjects = (
@@ -1918,6 +2005,8 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
             boundary_command.extend(["--attach", str(analysis_path)])
         if (session_analysis or {}).get("control_plane_subjects"):
             boundary_command.extend(["--session", str(session_path)])
+        if (default_bearer_analysis or {}).get("default_bearer_instances"):
+            boundary_command.extend(["--default-bearer", str(default_bearer_path)])
         try:
             _run_component(boundary_command, "EPC failure-boundary orchestration")
             boundary_analysis = json.loads(boundary_path.read_text(encoding="utf-8"))
@@ -1939,6 +2028,10 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
         "session_analysis": session_analysis,
         "default_bearer_analysis": default_bearer_analysis,
         "default_bearer_error": default_bearer_error,
+        "s1u_analysis": s1u_analysis,
+        "s1u_error": s1u_error,
+        "gtpu_event_count": gtpu_event_count,
+        "gtpu_stream_count": gtpu_stream_count,
         "boundary_analysis": boundary_analysis,
         "boundary_error": boundary_error,
         "s1ap_event_count": _count_lines(s1ap_events),
@@ -2282,7 +2375,9 @@ def _project_epc_session_subject(
     return entry
 
 
-def _project_default_bearer_subject(instance: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
+def _project_default_bearer_subject(
+    instance: dict[str, Any], analysis: dict[str, Any], group: Any = None
+) -> dict[str, Any]:
     """Publish one EPS default-bearer instance as a diagnostic subject."""
     reference = instance.get("instance_reference")
     stages = instance.get("stages") or []
@@ -2329,10 +2424,7 @@ def _project_default_bearer_subject(instance: dict[str, Any], analysis: dict[str
     entry: dict[str, Any] = {
         "diagnostic_group_reference": reference,
         "subject_type": "EPS_DEFAULT_BEARER",
-        "boundary_selection_status": "NOT_EVALUATED",
-        "boundary_confidence": None,
-        "first_abnormal_boundary": None,
-        "candidate_boundary_count": 0,
+        **_boundary_fields(group),
         "source_domain_instances": [
             {
                 "source_domain": "epc-procedures",
@@ -2437,6 +2529,86 @@ def _project_default_bearer_subject(instance: dict[str, Any], analysis: dict[str
     return entry
 
 
+def _project_s1u_subject(stream: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
+    """Publish one directed S1-U GTP-U stream as a diagnostic subject."""
+    reference = stream.get("stream_reference")
+    evidence_refs, references_omitted = _bounded_evidence_refs(stream.get("evidence_refs"))
+    limitations, limitations_omitted = _bounded_limitations(stream.get("limitations"))
+    entry: dict[str, Any] = {
+        "diagnostic_group_reference": reference,
+        "subject_type": "EPC_S1U_OBSERVATION",
+        "boundary_selection_status": "NOT_APPLICABLE",
+        "boundary_confidence": None,
+        "first_abnormal_boundary": None,
+        "candidate_boundary_count": 0,
+        "source_domain_instances": [
+            {
+                "source_domain": "epc-procedures",
+                "capture_file": stream.get("capture_file"),
+                "instance_reference": reference,
+            }
+        ],
+        "subject_link": {
+            "basis": stream.get("association_basis"),
+            "context_count": 1,
+            "subject_reference": reference,
+            "bearer_subject_reference": stream.get("matched_subject_reference"),
+        },
+        "attempt_index": None,
+        "association_strength": stream.get("association_status"),
+        "procedure_families": ["eps-s1u-observation"],
+        "transaction_references": [],
+        "primary_transaction": None,
+        "interface_evidence": {
+            "interfaces": [stream.get("user_plane_interface")],
+            "basis": stream.get("interface_basis"),
+            "evidence_message": None,
+        },
+        "direction": stream.get("direction"),
+        "procedure_stages": [],
+        "procedure_deviations": [],
+        "request_frame": stream.get("first_frame"),
+        "response_frame": stream.get("last_frame"),
+        "message_cause": None,
+        "bearer_contexts": [],
+        "f_teid_evidence": [
+            {
+                "scope": "bearer",
+                "interface_type": 1,
+                "interface_type_name": "S1-U eNodeB GTP-U",
+                "teid": stream.get("teid"),
+                "transport_layer_address": stream.get("outer_destination"),
+                "endpoint_role": stream.get("matched_endpoint_role"),
+                "frame_number": stream.get("matched_endpoint_frames")[0]
+                if stream.get("matched_endpoint_frames")
+                else None,
+                "binding_basis": "gtpu_receiving_endpoint",
+            }
+        ]
+        if stream.get("association_status") == "SUPPORTED"
+        else [],
+        "outcomes": [item for item in stream.get("outcomes") or [] if isinstance(item, str)],
+        "observed_g_pdu_packet_count": stream.get("observed_g_pdu_packet_count"),
+        "observed_payload_byte_count": stream.get("observed_payload_byte_count"),
+        "byte_count_definition": stream.get("byte_count_definition"),
+        "message_types": [item for item in stream.get("message_types") or [] if isinstance(item, str)],
+        "error_indication_frames": stream.get("error_indication_frames") or [],
+        "end_marker_frames": stream.get("end_marker_frames") or [],
+        "cross_interface_association": stream.get("association_status"),
+        "attach_association": "NOT_ESTABLISHED",
+        "observations": [item for item in stream.get("outcomes") or [] if isinstance(item, str)],
+        "evidence_refs": evidence_refs,
+        "observation_window": _bounded_observation_window(stream.get("observation_window")),
+        "evidence_limitations": limitations,
+        "additional_evidence_needed": [],
+    }
+    if references_omitted:
+        entry["evidence_refs_omitted"] = references_omitted
+    if limitations_omitted:
+        entry["limitations_omitted"] = limitations_omitted
+    return entry
+
+
 def execute_epc_domain(
     capture: Path,
     work_dir: Path,
@@ -2453,6 +2625,11 @@ def execute_epc_domain(
     default_bearer = payload.get("default_bearer_analysis")
     default_bearer_error = payload.get("default_bearer_error")
     default_bearer_instances = (default_bearer or {}).get("default_bearer_instances") or []
+    s1u = payload.get("s1u_analysis")
+    s1u_error = payload.get("s1u_error")
+    s1u_streams = (s1u or {}).get("stream_observations") or []
+    gtpu_event_count = payload.get("gtpu_event_count", 0) or 0
+    gtpu_stream_count = payload.get("gtpu_stream_count", 0) or 0
     boundary = payload.get("boundary_analysis")
     boundary_error = payload.get("boundary_error")
     groups_by_reference: dict[str, Any] = {}
@@ -2477,15 +2654,38 @@ def execute_epc_domain(
         for subject in session_subjects
     )
     subjects.extend(
-        _project_default_bearer_subject(instance, default_bearer or {})
+        _project_default_bearer_subject(
+            instance,
+            default_bearer or {},
+            groups_by_reference.get(instance.get("instance_reference")),
+        )
         for instance in default_bearer_instances
     )
+    s1u_subjects = [_project_s1u_subject(stream, s1u or {}) for stream in s1u_streams]
+    # A stream is attached to a default-bearer subject only when the corrected
+    # receiving-endpoint contract publishes a supported association.
+    stream_refs_by_subject: dict[str, list[str]] = {}
+    for subject in s1u_subjects:
+        bearer = (subject.get("subject_link") or {}).get("bearer_subject_reference")
+        if isinstance(bearer, str) and subject.get("association_strength") == "SUPPORTED":
+            stream_refs_by_subject.setdefault(bearer, []).append(
+                subject["diagnostic_group_reference"]
+            )
+    for subject in subjects:
+        if subject.get("subject_type") != "EPS_DEFAULT_BEARER":
+            continue
+        references = stream_refs_by_subject.get(subject["diagnostic_group_reference"])
+        if references:
+            subject["s1u_stream_references"] = references[:MAX_LIST_ITEMS]
+    subjects.extend(s1u_subjects)
     omitted_subjects = max(0, len(subjects) - MAX_DIAGNOSTIC_SUBJECTS)
     subjects = subjects[:MAX_DIAGNOSTIC_SUBJECTS]
 
-    if (boundary_error or default_bearer_error) and (instances or session_subjects or default_bearer_instances):
+    if (boundary_error or default_bearer_error or s1u_error) and (
+        instances or session_subjects or default_bearer_instances or s1u_subjects
+    ):
         status = STATUS_PARTIAL
-    elif instances or session_subjects or default_bearer_instances:
+    elif instances or session_subjects or default_bearer_instances or s1u_subjects:
         status = STATUS_COMPLETED
     else:
         status = STATUS_INSUFFICIENT_EVIDENCE
@@ -2508,6 +2708,9 @@ def execute_epc_domain(
     if isinstance(default_bearer, dict):
         limitations.extend(default_bearer.get("evidence_limitations") or [])
         additional.extend(default_bearer.get("additional_evidence_needed") or [])
+    if isinstance(s1u, dict):
+        limitations.extend(s1u.get("evidence_limitations") or [])
+        additional.extend(s1u.get("additional_evidence_needed") or [])
     bounded_limitations, _ = _bounded_limitations(list(dict.fromkeys(limitations)))
     bounded_additional, _ = _bounded_limitations(list(dict.fromkeys(additional)))
 
@@ -2537,6 +2740,13 @@ def execute_epc_domain(
                 "observed_in_capture": gtpv2_event_count > 0,
                 "event_count": gtpv2_event_count,
                 "transaction_count": gtpv2_transaction_count,
+            },
+            {
+                "protocol": "GTP-U",
+                "extraction_status": EXTRACTION_SUCCESS if gtpu_event_count else EXTRACTION_NOT_OBSERVED,
+                "observed_in_capture": gtpu_event_count > 0,
+                "event_count": gtpu_event_count,
+                "stream_count": gtpu_stream_count,
             },
         ],
         "procedure_summaries": [
@@ -2569,6 +2779,17 @@ def execute_epc_domain(
                     if isinstance(link, dict) and link.get("status") == "SUPPORTED"
                 ),
                 "deviation_count": default_bearer_deviations,
+            },
+            {
+                "procedure_domain": "epc-procedures",
+                "procedure": "eps-s1u-observation",
+                "execution_status": "EXECUTED" if s1u_subjects else "NO_SUBJECT",
+                "instance_count": len(s1u_subjects),
+                "stream_count": gtpu_stream_count,
+                "supported_stream_count": (s1u or {}).get("supported_stream_count", 0),
+                "ambiguous_stream_count": (s1u or {}).get("ambiguous_stream_count", 0),
+                "unbound_stream_count": (s1u or {}).get("unbound_stream_count", 0),
+                "observed_g_pdu_packet_count": (s1u or {}).get("observed_g_pdu_packet_count", 0),
             },
         ],
         "diagnostic_groups": None,
@@ -2604,9 +2825,19 @@ def execute_epc_domain(
         degradation.append(
             "no EPS default-bearer subject was reconstructed from the observed evidence"
         )
+    if not s1u_subjects:
+        degradation.append(
+            "no S1-U GTP-U stream was observed in the capture; user-plane packets are not inferred"
+        )
     if omitted_subjects:
         degradation.append(
             f"{omitted_subjects} diagnostic subject(s) were omitted by the publication cap"
+        )
+    if s1u_error:
+        result["failure_code"] = "S1U_OBSERVATION_FAILED"
+        degradation.append(
+            "EPC S1-U observation failed: "
+            f"{s1u_error.get('code')} {s1u_error.get('message')}".strip()
         )
     if default_bearer_error:
         result["failure_code"] = "DEFAULT_BEARER_FAILED"

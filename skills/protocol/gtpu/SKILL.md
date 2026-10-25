@@ -31,6 +31,13 @@ version 19.1.0 Release 19.
   number, L4 ports, length, opacity) without reading application payload.
 - Summarize observed G-PDU packet and byte counts per directed context, with
   one documented byte-count definition.
+- Declare the user-plane interface explicitly with `--user-plane-interface`
+  (`n3`, `s1u`, `s5s8u`, `n9`, `unknown`). The label is caller-declared and is
+  never inferred from a UDP port, a transport address or a QFI. The default stays
+  `n3`, and `unknown` publishes `UNKNOWN_USER_PLANE_INTERFACE`.
+- Apply the same bounded decoding to an S1-U capture. GTP-U packet decoding is not
+  exclusive to N3; a TEID stays scoped to its directed outer endpoints, and a
+  PDU Session Container is reported only when it is actually present.
 
 ## Non-Goals
 

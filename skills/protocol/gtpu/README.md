@@ -60,6 +60,19 @@ Inputs are validated before extraction; existing outputs are refused unless
 `--force` is given; outputs are deterministic (identical input, identical
 bytes).
 
+## User-plane interface
+
+GTP-U decoding is not exclusive to N3. Declare the interface explicitly:
+
+```bash
+python3 scripts/extract-gtpu.py capture.pcapng --output gtpu-events.jsonl \
+  --trace-output gtpu-trace.jsonl --user-plane-interface s1u
+```
+
+The label is caller-declared and never inferred from a UDP port, a transport
+address or a QFI. The default stays `n3`; `unknown` publishes
+`UNKNOWN_USER_PLANE_INTERFACE`.
+
 ## TEID and directed context
 
 A TEID identifies a tunnel endpoint at one peer, so the same numeric TEID

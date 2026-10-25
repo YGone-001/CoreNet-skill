@@ -11,7 +11,7 @@
   ],
   "ambiguities": [],
   "analysis_name": "epc-failure-boundary",
-  "analysis_version": "0.1.0",
+  "analysis_version": "0.2.0",
   "diagnostic_groups": [
     {
       "additional_evidence_needed": [],
@@ -105,6 +105,7 @@
         "end_frame": 205,
         "start_frame": 200
       },
+      "related_attach_reference": null,
       "source_domain_instances": [
         {
           "attempt_index": null,
@@ -119,6 +120,7 @@
           ]
         }
       ],
+      "source_instance_reference": "epc-session-s11-288a265c",
       "subject_link": {
         "basis": "control_plane_f_teid_in_message",
         "cross_subject_link": "NOT_ESTABLISHED",

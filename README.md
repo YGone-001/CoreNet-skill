@@ -72,7 +72,8 @@ evidence from LTE captures, and the bounded `epc-procedures` Domain Skill analyz
 observed EPS Attach procedure stages, bounded GTPv2-C session-control transactions
 and bounded EPS default-bearer signalling with procedure-local deviations,
 item-scoped E-RAB and bearer evidence, evidence-safe cross-interface identity
-links, and no bearer, PDN or service verdict. The bounded `epc-failure-boundary` Orchestration
+links, and bounded S1-U GTP-U stream observation, with no bearer, PDN, delivery or
+service verdict. The bounded `epc-failure-boundary` Orchestration
 Skill selects, per diagnostic subject, the earliest supported abnormal observation
 with exact frame evidence and explicit ambiguity, and never merges independent
 Attach, S11 and S5/S8 subjects into one EPC failure point. The extensions provide investigation context only.

@@ -1,4 +1,4 @@
-EPC Failure Boundary Orchestration (v0.1.0)
+EPC Failure Boundary Orchestration (v0.2.0)
 
 Diagnostic subjects: 5
 
@@ -155,7 +155,7 @@ Analysis limitations:
   Boundary selection is per diagnostic subject; the analysis never merges independent EPS Attach, S11 and S5/S8 subjects into one EPC failure point.
   Selection ordering uses exact frame provenance only; severity, cause magnitude, message labels and list order never order candidates.
   A selected boundary is the earliest supported abnormal observation, not a causal claim.
-  EPS Attach and EPC session-control subjects are reported as independent diagnostic groups; no Attach-to-session association is asserted.
+  EPS Attach, EPC session-control and EPS default-bearer subjects are reported as independent diagnostic groups; no Attach-to-session, Attach-to-bearer or session-to-bearer association is asserted.
 
 Not confirmed:
   the selected boundary is a first observed abnormality, not a root cause

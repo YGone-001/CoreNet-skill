@@ -127,7 +127,7 @@ def validate(root: Path) -> list[str]:
         return errors
 
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "gtpu"), ("version", "0.1.1"), ("category", "protocol")):
+    for key, expected in (("name", "gtpu"), ("version", "0.2.0"), ("category", "protocol")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
     if not re.search(r"(?m)^\s*required:\s*\[\]\s*$", manifest):
@@ -136,8 +136,16 @@ def validate(root: Path) -> list[str]:
     if "GTP-U" not in protocols:
         errors.append("manifest protocols must include GTP-U")
     interfaces = manifest_list(manifest, "interfaces")
-    if interfaces and interfaces != ["N3"]:
-        errors.append("manifest interface ownership must be N3 only")
+    # GTP-U decoding is not exclusive to N3: the manifest must declare the bounded
+    # S1-U applicability without dropping N3, and the trace-event label must stay
+    # caller-declared rather than inferred from a UDP port.
+    if interfaces and "N3" not in interfaces:
+        errors.append("manifest interface ownership must still include N3")
+    if interfaces and "S1-U" not in interfaces:
+        errors.append("manifest interface ownership must declare the bounded S1-U applicability")
+    for label in ("n3", "s1u", "unknown"):
+        if label not in (skill / "SKILL.md").read_text(encoding="utf-8").lower():
+            errors.append(f"SKILL.md does not document the '{label}' interface selector")
     if manifest_value(manifest, "network_functions") not in (None, "[]"):
         errors.append("manifest network_functions must stay empty for a Protocol Skill")
 

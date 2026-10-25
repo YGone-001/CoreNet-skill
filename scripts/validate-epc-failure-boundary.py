@@ -136,6 +136,12 @@ def validate(root: Path = ROOT) -> list[str]:
         fail("rules Attach selectable set does not match the implemented set")
     if set(rules.get("selectable_session_deviations", ())) != set(model.ELIGIBLE_SESSION):
         fail("rules session selectable set does not match the implemented set")
+    if set(rules.get("selectable_default_bearer_deviations", ())) != set(model.ELIGIBLE_DEFAULT_BEARER):
+        fail("rules default-bearer selectable set does not match the implemented set")
+    if tuple(rules.get("esm_reject_message_types", ())) != tuple(model.ESM_REJECT_MESSAGE_TYPES):
+        fail("rules ESM reject identities do not match the reviewed set")
+    if "EPS_DEFAULT_BEARER" not in str(schema.get("$defs", {}).get("group", {}).get("properties", {}).get("subject_type")):
+        fail("group schema does not declare the EPS_DEFAULT_BEARER subject type")
     if set(rules.get("nonselectable_deviations", ())) != set(model.NONSELECTABLE):
         fail("rules non-selectable set does not match the implemented set")
     if set(rules.get("selection_statuses", ())) != set(model.SELECTION_STATUSES):
