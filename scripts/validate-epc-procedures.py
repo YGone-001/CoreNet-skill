@@ -66,6 +66,14 @@ REQUIRED = (
     "scripts/analyze_epc_session_identity.py",
     "scripts/epc_session_identity_report.py",
     "tests/test_epc_session_identity.py",
+    "references/release-narrative.md",
+    "references/release-temporal-evidence.md",
+    "rules/epc-release-narrative-model.json",
+    "schemas/epc-release-narrative-analysis.schema.json",
+    "scripts/epc_release_narrative_model.py",
+    "scripts/analyze_epc_release_narrative.py",
+    "scripts/epc_release_narrative_report.py",
+    "tests/test_epc_release_narrative.py",
     "examples/s1u/gtpu-fields.jsonl",
     "examples/s1u/gtpu-events.jsonl",
     "examples/s1u/gtpu-streams.json",
@@ -280,6 +288,7 @@ def validate(root: Path = ROOT) -> list[str]:
     errors.extend(_validate_s1u(skill, root))
     errors.extend(_validate_lifecycle(skill, root))
     errors.extend(_validate_session_identity(skill, root))
+    errors.extend(_validate_release_narrative(skill, root))
 
     malformed = skill / "examples" / "extracted" / "malformed-nas.jsonl"
     if not malformed.is_file():
@@ -422,13 +431,22 @@ def _validate_published_contracts(skill: Path, root: Path) -> list[str]:
             "analyze_epc_session.py",
             "analyze_epc_default_bearer.py",
             "analyze_epc_s1u.py",
+            "analyze_epc_bearer_lifecycle.py",
+            "analyze_epc_session_identity.py",
+            "analyze_epc_release_narrative.py",
         ):
             if script not in text:
                 fail(f"{name} does not document the {script} capability")
-    if "four independently executable capabilities" not in skill_md:
-        fail("SKILL.md must state that the package has four capabilities")
-    if "two independently executable capabilities" in skill_md:
-        fail("SKILL.md still describes only two capabilities")
+    if "seven independently executable capabilities" not in skill_md:
+        fail("SKILL.md must state that the package has seven capabilities")
+    for stale in (
+        "two independently executable capabilities",
+        "four independently executable capabilities",
+        "five independently executable capabilities",
+        "six independently executable capabilities",
+    ):
+        if stale in skill_md:
+            fail(f"SKILL.md still describes a stale capability count: {stale}")
 
     # The correction phase added no orchestration of default-bearer subjects.
     orchestration = root / "skills" / "orchestration" / "epc-failure-boundary" / "manifest.yaml"
@@ -1418,6 +1436,577 @@ def _check_analysis(analysis: dict, case: str, fail) -> None:
         for stage in instance.get("stages") or []:
             if stage.get("status") not in ("OBSERVED", "INCOMPLETE", "NOT_OBSERVED", "UNAVAILABLE_PROTECTED"):
                 fail(f"{case}: unexpected stage status {stage.get('status')}")
+
+
+def load_release_narrative_model(root: Path):
+    path = (
+        root
+        / "skills"
+        / "domain"
+        / "epc-procedures"
+        / "scripts"
+        / "epc_release_narrative_model.py"
+    )
+    sys.path.insert(0, str(path.parent))
+    spec = importlib.util.spec_from_file_location(
+        "epc_release_narrative_model_under_test", path
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _narrative_evidence(frame, message):
+    return {
+        "protocol": "GTPv2-C",
+        "frame_number": frame,
+        "message_type": message,
+        "evidence_level": "OBSERVED",
+    }
+
+
+def _narrative_context(reference, *, capture="validator.pcap", interface_class="S11", frames=(100, 103)):
+    return {
+        "relationship_type": "HOP_LOCAL_SESSION_CONTEXT",
+        "session_context_reference": reference,
+        "capture_file": capture,
+        "interface_class": interface_class,
+        "association_status": "ESTABLISHED",
+        "association_basis": "proved_allocation_transaction_with_unique_hop_local_control_plane_fteids",
+        "allocation_transaction_reference": "tx-create-1",
+        "allocation_outcome_status": "ACCEPTED",
+        "member_transaction_references": ["tx-create-1"],
+        "member_transactions": [],
+        "control_plane_fteids": [],
+        "bearer_user_plane_fteids": [],
+        "transaction_correlation_proved": True,
+        "observation_window": {"start_frame": frames[0], "end_frame": frames[1]},
+        "evidence_refs": [
+            _narrative_evidence(frames[0], "Create Session Request"),
+            _narrative_evidence(frames[1], "Create Session Response"),
+        ],
+        "limitations": [],
+    }
+
+
+def _narrative_binding(
+    transaction, context_reference, *, capture="validator.pcap", outcome="ACCEPTED",
+    status="ESTABLISHED", frames=(200, 205),
+):
+    return {
+        "relationship_type": "RELEASE_TO_SESSION_CONTEXT",
+        "capture_file": capture,
+        "source_subject_reference": transaction,
+        "target_subject_reference": context_reference,
+        "association_status": status,
+        "association_basis": "request_addresses_one_hop_local_control_plane_fteid_with_its_path_peer",
+        "reviewed_identifiers": [],
+        "source_transaction_references": [transaction],
+        "source_frames": list(frames),
+        "evidence_refs": [
+            _narrative_evidence(frames[0], "Delete Session Request"),
+            _narrative_evidence(frames[1], "Delete Session Response"),
+        ],
+        "observation_window": {"start_frame": frames[0], "end_frame": frames[1]},
+        "competing_candidates": [],
+        "release_outcome_status": outcome,
+        "release_outcome_basis": "accepted_cause_in_correlated_response",
+        "limitations": [],
+    }
+
+
+def _narrative_generation_link(reference, context_reference, *, capture="validator.pcap", teid=56):
+    return {
+        "relationship_type": "SESSION_CONTEXT_TO_BEARER_GENERATION",
+        "capture_file": capture,
+        "source_subject_reference": context_reference,
+        "target_subject_reference": reference,
+        "association_status": "ESTABLISHED",
+        "association_basis": "endpoint_advertised_by_a_member_transaction_of_one_established_context",
+        "reviewed_identifiers": [],
+        "source_transaction_references": [],
+        "source_frames": [103],
+        "evidence_refs": [_narrative_evidence(103, None)],
+        "observation_window": {"start_frame": 103, "end_frame": 103},
+        "competing_candidates": [],
+        "bearer_endpoint": {
+            "role": "sgw_s1u",
+            "address": "10.0.0.20",
+            "teid": teid,
+            "interface_type": 1,
+            "eps_bearer_identities": [5],
+            "generation_references": [],
+        },
+        "limitations": [],
+        "bridge_mediated": False,
+    }
+
+
+def _narrative_candidate(reference, context_reference, transaction, endpoint_reference, *, capture="validator.pcap"):
+    return {
+        "generation_closure_candidate_reference": reference,
+        "capture_file": capture,
+        "session_context_reference": context_reference,
+        "release_transaction_reference": transaction,
+        "bearer_endpoint_reference": endpoint_reference,
+        "bearer_endpoint": {
+            "role": "sgw_s1u",
+            "address": "10.0.0.20",
+            "teid": 56,
+            "interface_type": 1,
+            "eps_bearer_identities": [5],
+            "generation_references": [],
+        },
+        "association_status": "ESTABLISHED",
+        "association_basis": (
+            "accepted_release_bound_to_one_established_context_with_one_established_"
+            "session_to_generation_link"
+        ),
+        "chain": [],
+        "item_identities": {"release_bearer_identities": [5]},
+        "release_request_frame": 200,
+        "release_confirmation_frame": 205,
+        "limitations": [],
+    }
+
+
+def _narrative_identity_document(*, contexts, bindings, links=None, correspondences=None,
+                                 generation_links=None, candidates=None, counts=None):
+    contexts = list(contexts)
+    links = list(links or [])
+    correspondences = list(correspondences or [])
+    bindings = list(bindings)
+    generation_links = list(generation_links or [])
+    candidates = list(candidates or [])
+    document = {
+        "domain": "epc-procedures",
+        "analysis_name": "epc-session-identity",
+        "analysis_version": "1.0.0",
+        "hop_local_contexts": contexts,
+        "hop_local_context_count": len(contexts),
+        "established_hop_local_context_count": len(contexts),
+        "endpoint_correspondence_links": correspondences,
+        "endpoint_correspondence_count": len(correspondences),
+        "session_identity_links": links,
+        "session_identity_count": len(links),
+        "release_session_bindings": bindings,
+        "release_session_binding_count": len(bindings),
+        "release_session_bindings_omitted": 0,
+        "session_to_generation_links": generation_links,
+        "session_to_generation_count": len(generation_links),
+        "session_to_generation_omitted": 0,
+        "generation_closure_candidates": candidates,
+        "generation_closure_candidate_count": len(candidates),
+        "generation_closure_candidates_omitted": 0,
+        "established_closure_candidate_count": len(candidates),
+        "ambiguous_associations": [],
+        "unbound_evidence": [],
+        "evidence_limitations": [],
+        "additional_evidence_needed": [],
+        "not_confirmed": [],
+        "boundary_selection_status": "NOT_APPLICABLE",
+        "first_abnormal_boundary": None,
+        "boundary_note": "",
+    }
+    for key, value in (counts or {}).items():
+        document[key] = value
+    return document
+
+
+def _narrative_lifecycle_document(*, subjects, boundaries):
+    subjects = list(subjects)
+    boundaries = list(boundaries)
+    return {
+        "domain": "epc-procedures",
+        "analysis_name": "epc-bearer-lifecycle",
+        "analysis_version": "1.0.0",
+        "lifecycle_subjects": subjects,
+        "lifecycle_subject_count": len(subjects),
+        "lifecycle_subjects_omitted": 0,
+        "advertisement_families": [],
+        "advertisement_family_count": 0,
+        "advertisement_families_omitted": 0,
+        "generation_boundary_evidence": boundaries,
+        "generation_boundary_count": len(boundaries),
+        "ambiguous_associations": [],
+        "unbound_evidence": [],
+        "evidence_limitations": [],
+        "additional_evidence_needed": [],
+        "not_confirmed": [],
+        "boundary_selection_status": "NOT_APPLICABLE",
+        "first_abnormal_boundary": None,
+        "boundary_note": "",
+    }
+
+
+def _narrative_subject(reference, *, transaction="tx-del-1", capture="validator.pcap"):
+    return {
+        "generation_reference": reference,
+        "capture_file": capture,
+        "receiving_endpoint_role": "sgw_s1u",
+        "receiving_endpoint_address": "10.0.0.20",
+        "receiving_endpoint_teid": 56,
+        "reviewed_interface_type": 1,
+        "generation_state": "CLOSED_BY_ACCEPTED_RELEASE",
+        "generation_boundary": {
+            "basis": "accepted_release_response_bound_by_reviewed_session_context",
+            "frame_number": 205,
+            "release_confirmation_frame": 205,
+            "release_request_frame": 200,
+            "release_effective_frame_proven": False,
+            "transaction_reference": transaction,
+        },
+        "observations": [],
+        "advertisement_family_references": [],
+        "observation_window": {"start_frame": 103, "end_frame": 205},
+        "evidence_refs": [],
+        "limitations": [],
+    }
+
+
+def _narrative_boundary(transaction, *, capture="validator.pcap"):
+    return {
+        "capture_file": capture,
+        "transaction_reference": transaction,
+        "request_frame": 200,
+        "response_frame": 205,
+        "request_message_type": "Delete Session Request",
+        "response_message_type": "Delete Session Response",
+        "release_outcome": "ACCEPTED",
+        "release_outcome_basis": "accepted_cause_in_correlated_response",
+        "correlation_status": "MATCHED",
+        "correlation_strength": "STRONG",
+        "control_plane_context": {"basis": "correlated_response_header_teid", "session_teid": 1},
+        "released_endpoints": [],
+        "bearer_identity_scope": [],
+        "evidence_refs": [],
+        "limitations": [],
+    }
+
+
+def _narrative_s1u_document(*, streams):
+    streams = list(streams)
+    return {
+        "domain": "epc-procedures",
+        "analysis_name": "epc-s1u-observation",
+        "analysis_version": "1.0.0",
+        "stream_observations": streams,
+        "stream_count": len(streams),
+        "streams_omitted": 0,
+        "supported_stream_count": len(streams),
+        "ambiguous_stream_count": 0,
+        "unbound_stream_count": 0,
+        "observed_g_pdu_packet_count": sum(item["observed_g_pdu_packet_count"] for item in streams),
+        "observed_payload_byte_count": sum(item["observed_payload_byte_count"] for item in streams),
+        "evidence_limitations": [],
+        "additional_evidence_needed": [],
+        "not_confirmed": [],
+        "boundary_selection_status": "NOT_APPLICABLE",
+        "first_abnormal_boundary": None,
+        "boundary_note": "",
+    }
+
+
+def _narrative_stream(*, packets, octets, capture="validator.pcap"):
+    return {
+        "stream_reference": "epc-s1u-stream-0000000001",
+        "stream_key": f"gtpu-path:{capture}:10.0.0.40:2152:10.0.0.20:2152:teid56",
+        "capture_file": capture,
+        "outer_source": "10.0.0.40",
+        "outer_destination": "10.0.0.20",
+        "teid": 56,
+        "direction": "UPLINK",
+        "matched_endpoint_role": "sgw_s1u",
+        "association_status": "SUPPORTED",
+        "observed_g_pdu_packet_count": packets,
+        "observed_payload_byte_count": octets,
+        "first_frame": 10,
+        "last_frame": 300,
+        "evidence_refs": [],
+        "limitations": [],
+    }
+
+
+def _narrative_gtpu(frame, *, length=100, capture="validator.pcap"):
+    return {
+        "capture_file": capture,
+        "frame_number": frame,
+        "header": {"teid": 56, "message_type": "G-PDU", "message_length": length},
+        "outer": {
+            "source_address": "10.0.0.40",
+            "destination_address": "10.0.0.20",
+            "source_port": 2152,
+            "destination_port": 2152,
+        },
+    }
+
+
+def _narrative_gtpv2(frame, message, *, capture="validator.pcap"):
+    return {"capture_file": capture, "frame_number": frame, "message_type": message}
+
+
+def _validate_release_narrative(skill: Path, root: Path) -> list[str]:
+    """Validate the bounded EPC release narrative capability."""
+    errors: list[str] = []
+
+    def fail(message: str) -> None:
+        errors.append(message)
+
+    schema_path = skill / "schemas" / "epc-release-narrative-analysis.schema.json"
+    rules_path = skill / "rules" / "epc-release-narrative-model.json"
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"invalid release-narrative schema: {exc}"]
+    try:
+        rules = json.loads(rules_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"invalid release-narrative rules: {exc}"]
+
+    for field in (
+        "narrative_subjects",
+        "release_narratives",
+        "temporal_observations",
+        "temporal_accounting",
+        "source_completeness",
+        "ambiguous_associations",
+        "unbound_evidence",
+        "boundary_selection_status",
+        "first_abnormal_boundary",
+    ):
+        if field not in schema.get("required", []):
+            fail(f"release-narrative schema does not require '{field}'")
+    if schema.get("properties", {}).get("first_abnormal_boundary") != {"type": "null"}:
+        fail("release-narrative schema must forbid a selected first abnormal boundary")
+    if schema.get("properties", {}).get("boundary_selection_status", {}).get("const") != (
+        "NOT_APPLICABLE"
+    ):
+        fail("release-narrative schema must fix boundary_selection_status to NOT_APPLICABLE")
+    stage_enum = set(schema.get("$defs", {}).get("stage_label", {}).get("enum") or [])
+    for stage in (
+        "RELEASE_OUTCOME_ACCEPTED",
+        "RELEASE_OUTCOME_REJECTED_OBSERVED",
+        "RELEASE_OUTCOME_UNRESOLVED",
+        "RELEASE_SESSION_BINDING_ESTABLISHED",
+        "GENERATION_CLOSURE_ESTABLISHED",
+        "GENERATION_CLOSURE_NOT_ESTABLISHED",
+        "RELEASE_EFFECTIVE_INSTANT_UNPROVED",
+    ):
+        if stage not in stage_enum:
+            fail(f"release-narrative schema is missing stage '{stage}'")
+    temporal = rules.get("narrative_rules", {}).get("temporal_rules") or {}
+    if "never" not in str(temporal.get("partition_exclusivity", "")).lower() and (
+        "at most one" not in str(temporal.get("partition_exclusivity", "")).lower()
+    ):
+        fail("release-narrative rules must forbid counting one frame in two partitions")
+    if "aggregate" not in str(temporal.get("aggregate_fallback", "")).lower():
+        fail("release-narrative rules must forbid dividing an aggregate stream count")
+    tokens = set(rules.get("narrative_rules", {}).get("completeness_tokens") or [])
+    if "SOURCE_CANDIDATES_TRUNCATED" not in tokens:
+        fail("release-narrative rules must publish the truncation token")
+    if "SOURCE_CANDIDATES_METADATA_INVALID" not in tokens:
+        fail("release-narrative rules must publish the metadata-invalid token")
+
+    model = load_release_narrative_model(root)
+    capture_a = "validator-a.pcap"
+    capture_b = "validator-b.pcap"
+
+    def base(capture=capture_a, *, outcome="ACCEPTED", closure=True):
+        identity = _narrative_identity_document(
+            contexts=[_narrative_context("ctx-1", capture=capture)],
+            bindings=[
+                _narrative_binding("tx-del-1", "ctx-1", capture=capture, outcome=outcome)
+            ],
+            generation_links=(
+                [_narrative_generation_link("endpoint-1", "ctx-1", capture=capture)]
+                if closure
+                else []
+            ),
+            candidates=(
+                [_narrative_candidate("closure-1", "ctx-1", "tx-del-1", "endpoint-1", capture=capture)]
+                if closure
+                else []
+            ),
+        )
+        lifecycle = _narrative_lifecycle_document(
+            subjects=(
+                [_narrative_subject("generation-1", capture=capture)] if closure else []
+            ),
+            boundaries=([_narrative_boundary("tx-del-1", capture=capture)] if closure else []),
+        )
+        return identity, lifecycle
+
+    # A — outcome, binding and closure stay three separate facts.
+    identity, lifecycle = base(closure=False)
+    analysis = model.analyze(identity, lifecycle)
+    narrative = analysis["release_narratives"][0]
+    if narrative["release_outcome_status"] != "ACCEPTED":
+        fail("an accepted release outcome must stay ACCEPTED without a generation closure")
+    if narrative["release_session_binding_status"] != "ESTABLISHED":
+        fail("an accepted release must keep its established session binding")
+    if narrative["generation_closure_status"] != "NOT_ESTABLISHED":
+        fail("a release without a proved generation must publish NOT_ESTABLISHED closure")
+    if narrative["release_effective_frame_proven"]:
+        fail("a release narrative must never prove the forwarding-stop instant")
+
+    identity, lifecycle = base()
+    analysis = model.analyze(identity, lifecycle)
+    narrative = analysis["release_narratives"][0]
+    if narrative["generation_closure_status"] != "ESTABLISHED":
+        fail("a fully proved generation must publish an established closure")
+    if not narrative["proved_generations"]:
+        fail("an established closure must name the proved generation")
+
+    # A rejected outcome must not become a closure.
+    identity, lifecycle = base(outcome="REJECTED_OBSERVED")
+    analysis = model.analyze(identity, lifecycle)
+    narrative = analysis["release_narratives"][0]
+    if narrative["release_outcome_status"] != "REJECTED_OBSERVED":
+        fail("a rejected release response must stay REJECTED_OBSERVED")
+    if narrative["generation_closure_status"] == "ESTABLISHED":
+        fail("a rejected release outcome must not establish a generation closure")
+
+    # B — capture isolation: an equal TEID across captures never merges contexts.
+    identity, lifecycle = base()
+    identity["hop_local_contexts"].append(
+        _narrative_context("ctx-b", capture=capture_b, frames=(300, 303))
+    )
+    identity["hop_local_context_count"] = 2
+    identity["established_hop_local_context_count"] = 2
+    identity["session_identity_links"] = [
+        {
+            "reference": "link-cross",
+            "relationship_type": "CROSS_INTERFACE_SESSION_IDENTITY",
+            "capture_file": capture_a,
+            "source_subject_reference": "ctx-1",
+            "target_subject_reference": "ctx-b",
+            "association_status": "ESTABLISHED",
+            "association_basis": "relayed_pgw_s5s8_control_plane_fteid_equal_and_unique_on_both_hops",
+            "reviewed_identifiers": [],
+            "source_transaction_references": [],
+            "source_frames": [103, 102],
+            "evidence_refs": [],
+            "observation_window": {"start_frame": 103, "end_frame": 102},
+            "competing_candidates": [],
+            "limitations": [],
+        }
+    ]
+    identity["session_identity_count"] = 1
+    analysis = model.analyze(identity, lifecycle)
+    groups_by_capture: dict[str, set] = {}
+    for subject in analysis["narrative_subjects"]:
+        groups_by_capture.setdefault(subject["capture_file"], set()).add(
+            subject["narrative_group_reference"]
+        )
+    if set(groups_by_capture) != {capture_a, capture_b}:
+        fail("a release narrative must keep both capture scopes")
+    for capture, groups in groups_by_capture.items():
+        if len(groups) != 1:
+            fail(f"a cross-capture identity link must not merge contexts in {capture}")
+    if groups_by_capture.get(capture_a) == groups_by_capture.get(capture_b):
+        fail("equal endpoint values in two captures must not produce one narrative group")
+
+    # C — an endpoint correspondence is never a session identity bridge.
+    identity, lifecycle = base()
+    identity["hop_local_contexts"].append(
+        _narrative_context("ctx-2", interface_class="S5/S8", frames=(101, 102))
+    )
+    identity["hop_local_context_count"] = 2
+    identity["established_hop_local_context_count"] = 2
+    identity["endpoint_correspondence_links"] = [
+        {
+            "reference": "corr-1",
+            "relationship_type": "CROSS_INTERFACE_ENDPOINT_CORRESPONDENCE",
+            "capture_file": capture_a,
+            "source_subject_reference": "ctx-1",
+            "target_subject_reference": "ctx-2",
+            "association_status": "SUPPORTED",
+            "association_basis": "receiving_endpoint_equality_with_advertised_s1u_f_teid",
+            "reviewed_identifiers": [],
+            "source_transaction_references": [],
+            "source_frames": [103],
+            "evidence_refs": [],
+            "observation_window": {"start_frame": 103, "end_frame": 103},
+            "competing_candidates": [],
+            "limitations": [],
+        }
+    ]
+    identity["endpoint_correspondence_count"] = 1
+    analysis = model.analyze(identity, lifecycle)
+    if len(
+        {subject["narrative_group_reference"] for subject in analysis["narrative_subjects"]}
+    ) != 2:
+        fail("an endpoint correspondence must not create a narrative group")
+
+    # D — truncated source collections refuse exhaustive coverage.
+    identity, lifecycle = base()
+    identity["release_session_binding_count"] = 300
+    analysis = model.analyze(identity, lifecycle)
+    if analysis["source_completeness"]["status"] != "SOURCE_CANDIDATES_TRUNCATED":
+        fail("a truncated release binding collection must publish SOURCE_CANDIDATES_TRUNCATED")
+    if analysis["source_completeness"]["exhaustive_coverage_proven"]:
+        fail("a truncated source collection must not prove exhaustive coverage")
+    identity, lifecycle = base()
+    identity.pop("generation_closure_candidate_count")
+    analysis = model.analyze(identity, lifecycle)
+    if analysis["source_completeness"]["status"] != "SOURCE_CANDIDATES_METADATA_INVALID":
+        fail("a missing candidate count must publish SOURCE_CANDIDATES_METADATA_INVALID")
+
+    # E — an aggregate stream is never divided across the release window.
+    identity, lifecycle = base()
+    s1u = _narrative_s1u_document(streams=[_narrative_stream(packets=100, octets=10000)])
+    analysis = model.analyze(identity, lifecycle, s1u=s1u)
+    observation = analysis["temporal_observations"][0]
+    if observation["temporal_placement_status"] != "TEMPORAL_PLACEMENT_NOT_ESTABLISHED":
+        fail("an aggregate-only stream must stay TEMPORAL_PLACEMENT_NOT_ESTABLISHED")
+    if observation["partitions"] is not None:
+        fail("an aggregate-only stream must not publish time-window packet counts")
+    if observation["observed_g_pdu_count"] != 100:
+        fail("an aggregate-only stream must publish its whole observed count")
+
+    # F — frame-level partitions are exclusive, conserved and conservative.
+    identity, lifecycle = base()
+    s1u = _narrative_s1u_document(streams=[_narrative_stream(packets=5, octets=500)])
+    events = [_narrative_gtpu(frame) for frame in (10, 20, 200, 205, 300)]
+    analysis = model.analyze(identity, lifecycle, s1u=s1u, gtpu_events=events)
+    observation = analysis["temporal_observations"][0]
+    partitions = observation["partitions"] or {}
+    if observation["temporal_placement_status"] != "ESTABLISHED":
+        fail("frame-level GTP-U events must establish a temporal placement")
+    if (partitions.get("before_release") or {}).get("g_pdu_count") != 2:
+        fail("traffic before the release request must be placed before_release")
+    if (partitions.get("pending_release") or {}).get("g_pdu_count") != 2:
+        fail("traffic inside the request/confirmation window must be placed pending_release")
+    if (partitions.get("after_confirmation") or {}).get("g_pdu_count") != 1:
+        fail("traffic after the confirmation must be placed after_confirmation")
+    total = sum((partitions.get(name) or {}).get("g_pdu_count", 0) for name in model.PARTITIONS)
+    if total != observation["observed_g_pdu_count"]:
+        fail("frame-level partitions must conserve the observed G-PDU count")
+    if not observation["partition_conserved"]:
+        fail("a conserved frame-level partition must publish partition_conserved")
+    if analysis["temporal_accounting"]["duplicate_assignment_count"] != 0:
+        fail("one G-PDU frame must not be assigned to two release narratives")
+    if analysis["release_narratives"][0]["release_effective_frame_proven"]:
+        fail("post-confirmation traffic must not prove the forwarding-stop instant")
+
+    # G — a source anchor that the supplied capture does not reproduce is published.
+    identity, lifecycle = base()
+    events = [_narrative_gtpv2(200, "Delete Session Request")]
+    analysis = model.analyze(identity, lifecycle, gtpv2_events=events)
+    narrative = analysis["release_narratives"][0]
+    if narrative["provenance_status"] != "INCONSISTENT":
+        fail("a frame anchor missing from the supplied capture must publish INCONSISTENT")
+    if not any(
+        item.get("kind") == "source_reference_not_observed_in_supplied_capture"
+        for item in analysis["unbound_evidence"]
+    ):
+        fail("an unreproducible source anchor must be published as unbound evidence")
+    if narrative["release_outcome_status"] != "ACCEPTED":
+        fail("the narrative must keep the source claim visible beside the inconsistency")
+
+    return errors
 
 
 def main() -> int:

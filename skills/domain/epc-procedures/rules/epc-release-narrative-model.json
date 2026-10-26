@@ -1,0 +1,143 @@
+{
+  "model": "epc-release-narrative",
+  "model_version": "1.0.0",
+  "reviewed_against": [
+    "3GPP TS 23.401 sec 4.7.2 EPS bearer architecture and the S1/S5 bearer chain",
+    "3GPP TS 23.401 sec 5.3.2 initial attach and default bearer establishment",
+    "3GPP TS 23.401 sec 5.3.5 detach and bearer release",
+    "3GPP TS 23.401 sec 5.4 bearer modification",
+    "3GPP TS 29.274 sec 7.1 GTP-C tunnel identity: TEID, address and path peer",
+    "3GPP TS 29.274 sec 7.2 GTPv2-C tunnel management messages including Delete Session",
+    "3GPP TS 29.274 sec 8.4 Cause values",
+    "3GPP TS 29.274 sec 8.8 EPS Bearer ID (EBI) information element",
+    "3GPP TS 29.274 sec 8.21 F-TEID",
+    "3GPP TS 29.274 sec 8.22 F-TEID interface types",
+    "3GPP TS 29.281 sec 4.4 GTP-U TEID and receiving endpoint",
+    "3GPP TS 24.007 sec 11.2.3.1.5 EPS bearer identity coding",
+    "3GPP TS 24.301 sec 9.3.2 EPS bearer identity",
+    "3GPP TS 36.413 sec 9.1.4 E-RABToBeSetupItemCtxtSUReq",
+    "3GPP TS 36.413 sec 9.1.5 E-RABSetupItemCtxtSURes"
+  ],
+  "stage_labels": [
+    "ALLOCATION_OBSERVED",
+    "ALLOCATION_ACCEPTED",
+    "SESSION_CONTEXT_ESTABLISHED",
+    "BEARER_ASSOCIATION_ESTABLISHED",
+    "RELEASE_REQUEST_OBSERVED",
+    "RELEASE_OUTCOME_ACCEPTED",
+    "RELEASE_OUTCOME_REJECTED_OBSERVED",
+    "RELEASE_OUTCOME_UNRESOLVED",
+    "RELEASE_SESSION_BINDING_ESTABLISHED",
+    "RELEASE_SESSION_BINDING_NOT_ESTABLISHED",
+    "GENERATION_CLOSURE_ESTABLISHED",
+    "GENERATION_CLOSURE_NOT_ESTABLISHED",
+    "RELEASE_EFFECTIVE_INSTANT_UNPROVED"
+  ],
+  "evidence_statuses": [
+    "OBSERVED",
+    "ACCEPTED",
+    "REJECTED_OBSERVED",
+    "UNRESOLVED",
+    "ESTABLISHED",
+    "NOT_ESTABLISHED",
+    "AMBIGUOUS",
+    "INSUFFICIENT_EVIDENCE",
+    "NOT_APPLICABLE"
+  ],
+  "narrative_rules": {
+    "narrative_subject_requires": [
+      "a published hop-local session context from the accepted session-identity analysis",
+      "the capture scope and interface class of that context",
+      "the allocation transaction reference and its accepted outcome",
+      "the member transaction references published for the context",
+      "no inferred global UE, subscriber or PDN-session identity"
+    ],
+    "narrative_group_requires": [
+      "an ESTABLISHED CROSS_INTERFACE_SESSION_IDENTITY link from the accepted identity analysis",
+      "both member contexts published in the same capture",
+      "a deterministic group reference derived from the capture and the sorted member context references",
+      "the group is a reporting label only and is never a global PDN session"
+    ],
+    "narrative_group_forbidden_keys": [
+      "imsi",
+      "msisdn",
+      "imei",
+      "apn",
+      "assigned_pdn_address",
+      "inner_ue_ip",
+      "subscriber_address",
+      "event_proximity",
+      "timestamp_proximity"
+    ],
+    "release_narrative_requires": [
+      "a release transaction reference published by the accepted identity or lifecycle analysis",
+      "the release outcome classified from the correlated response only",
+      "the release-to-session binding status kept separate from the outcome",
+      "the generation-closure status kept separate from both",
+      "exact request and confirmation frame anchors when published, null otherwise"
+    ],
+    "generation_admission_requires": [
+      "matching capture",
+      "a lifecycle subject carrying a proved generation boundary naming this release transaction",
+      "an ESTABLISHED generation-closure candidate in the accepted identity analysis for the same session context and release transaction",
+      "exact equality of receiving endpoint role, address, TEID and reviewed interface type between the candidate and the lifecycle subject",
+      "generation_state CLOSED_BY_ACCEPTED_RELEASE",
+      "exactly one candidate for the endpoint; several candidates stay AMBIGUOUS"
+    ],
+    "generation_forbidden_evidence": [
+      "an equal S1-U TEID alone",
+      "an equal EPS bearer identity alone",
+      "a repeated advertisement interpreted as a new generation",
+      "a bridge-mediated relationship treated as a direct bearer closure",
+      "an S5/S8 Delete Session treated as closing an S1-U bearer without explicit source proof"
+    ],
+    "temporal_rules": {
+      "partition_basis": "FRAME_LEVEL_EVENTS only when detailed GTP-U events resolve every counted packet",
+      "aggregate_fallback": "an aggregate stream count is published whole with temporal_placement_status TEMPORAL_PLACEMENT_NOT_ESTABLISHED and is never divided across windows",
+      "partition_exclusivity": "a G-PDU frame is counted in at most one partition of one release narrative",
+      "pending_release_interval": "an observation window between the request and confirmation frames; never evidence that forwarding stopped",
+      "confirmation_frame": "a control-plane confirmation anchor; never the forwarding-stop instant",
+      "post_confirmation_traffic": "an observation requiring interpretation; never packet loss, never delivery, never root cause",
+      "frame_order_scope": "frame ordering is valid only inside one capture file",
+      "timestamp_use": "observed metadata only; timestamp proximity never establishes identity"
+    },
+    "source_reference_validation": [
+      "a published release frame anchor is re-checked against the supplied capture when detailed GTPv2-C events are provided",
+      "a missing or conflicting anchor publishes provenance_status INCONSISTENT and an unbound record",
+      "the source claim stays visible; the narrative never repairs the producer document",
+      "without detailed GTPv2-C events the provenance stays NOT_VALIDATED and a limitation is published"
+    ],
+    "candidate_completeness_requires": [
+      "for every material source collection: a present nonnegative declared count",
+      "the declared count equal to the published record array length",
+      "a present, valid and zero omitted count where the source publishes one",
+      "no exhaustive release or generation coverage while any collection is truncated or its metadata is invalid",
+      "no uniqueness inferred from the visible subset"
+    ],
+    "completeness_tokens": [
+      "SOURCE_CANDIDATES_TRUNCATED",
+      "SOURCE_CANDIDATES_METADATA_INVALID"
+    ]
+  },
+  "forbidden_conclusions": [
+    "a single SUCCESS or FAILURE verdict for a release",
+    "an accepted release response treated as the forwarding-stop instant",
+    "an observed G-PDU treated as proof of UE receipt or application reachability",
+    "an unresolved stream treated as packet loss or tunnel failure",
+    "a hop-local context merged into a global PDN session",
+    "an endpoint correspondence promoted to session identity",
+    "a first abnormal boundary or root cause selected by this capability",
+    "a network-function liability assigned from a release narrative"
+  ],
+  "not_confirmed": [
+    "a narrative subject is a hop-local control-plane grouping, not a subscriber or a PDN session",
+    "an accepted release outcome does not prove that user-plane forwarding stopped",
+    "a proved bearer-generation boundary does not forbid a later observed G-PDU",
+    "an observed G-PDU never proves UE delivery",
+    "an aggregate stream count carries no temporal placement",
+    "an unresolved stream is not packet loss and not a tunnel failure",
+    "the exact instant user-plane forwarding stopped is never proven by a release response",
+    "no subscriber identity, APN name or assigned PDN address is read or published",
+    "no first abnormal boundary, root cause or network-function blame is produced"
+  ]
+}

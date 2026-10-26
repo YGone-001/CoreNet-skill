@@ -1,0 +1,1369 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "epc-release-narrative-analysis.schema.json",
+  "title": "EPC release narrative and temporal evidence analysis",
+  "description": "Bounded EPC session-level release narrative over accepted session-identity, bearer-lifecycle and S1-U evidence. Publishes hop-local narrative subjects, per-release stage narratives, frame-aware temporal partitions and the explicit refusals of the accepted evidence model. A release outcome, a release-to-session binding and a bearer-generation closure are separate facts; the release confirmation frame is never the forwarding-stop instant; an aggregate stream count is never divided across time windows. Never publishes subscriber identity and never selects an abnormal boundary.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "domain",
+    "domain_version",
+    "analysis_name",
+    "analysis_version",
+    "input_provenance",
+    "analysis_scope",
+    "source_completeness",
+    "narrative_subjects",
+    "narrative_subject_count",
+    "narrative_subjects_omitted",
+    "release_narratives",
+    "release_narrative_count",
+    "release_narratives_omitted",
+    "temporal_observations",
+    "temporal_observation_count",
+    "temporal_observations_omitted",
+    "temporal_accounting",
+    "ambiguous_associations",
+    "ambiguous_association_count",
+    "unbound_evidence",
+    "unbound_evidence_count",
+    "evidence_limitations",
+    "additional_evidence_needed",
+    "not_confirmed",
+    "boundary_selection_status",
+    "first_abnormal_boundary",
+    "boundary_note"
+  ],
+  "properties": {
+    "domain": {
+      "type": "string",
+      "const": "epc-procedures"
+    },
+    "domain_version": {
+      "type": "string"
+    },
+    "analysis_name": {
+      "type": "string",
+      "const": "epc-release-narrative"
+    },
+    "analysis_version": {
+      "type": "string"
+    },
+    "input_provenance": {
+      "type": "object"
+    },
+    "analysis_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "stage_labels",
+        "evidence_statuses",
+        "subject_rule",
+        "release_rule",
+        "generation_rule",
+        "temporal_rule",
+        "completeness_rule"
+      ],
+      "properties": {
+        "capability": {
+          "type": "string"
+        },
+        "stage_labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stage_label"
+          }
+        },
+        "evidence_statuses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_status"
+          }
+        },
+        "subject_rule": {
+          "type": "string"
+        },
+        "release_rule": {
+          "type": "string"
+        },
+        "generation_rule": {
+          "type": "string"
+        },
+        "temporal_rule": {
+          "type": "string"
+        },
+        "completeness_rule": {
+          "type": "string"
+        }
+      }
+    },
+    "source_completeness": {
+      "$ref": "#/$defs/source_completeness"
+    },
+    "narrative_subjects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/narrative_subject"
+      }
+    },
+    "narrative_subject_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "narrative_subjects_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "release_narratives": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/release_narrative"
+      }
+    },
+    "release_narrative_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "release_narratives_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "temporal_observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/temporal_observation"
+      }
+    },
+    "temporal_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "temporal_observations_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "temporal_accounting": {
+      "$ref": "#/$defs/temporal_accounting"
+    },
+    "ambiguous_associations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ambiguous_record"
+      }
+    },
+    "ambiguous_association_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unbound_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/unbound_record"
+      }
+    },
+    "unbound_evidence_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence_limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "additional_evidence_needed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "not_confirmed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "boundary_selection_status": {
+      "type": "string",
+      "const": "NOT_APPLICABLE"
+    },
+    "first_abnormal_boundary": {
+      "type": "null"
+    },
+    "boundary_note": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "stage_label": {
+      "type": "string",
+      "enum": [
+        "ALLOCATION_OBSERVED",
+        "ALLOCATION_ACCEPTED",
+        "SESSION_CONTEXT_ESTABLISHED",
+        "BEARER_ASSOCIATION_ESTABLISHED",
+        "RELEASE_REQUEST_OBSERVED",
+        "RELEASE_OUTCOME_ACCEPTED",
+        "RELEASE_OUTCOME_REJECTED_OBSERVED",
+        "RELEASE_OUTCOME_UNRESOLVED",
+        "RELEASE_SESSION_BINDING_ESTABLISHED",
+        "RELEASE_SESSION_BINDING_NOT_ESTABLISHED",
+        "GENERATION_CLOSURE_ESTABLISHED",
+        "GENERATION_CLOSURE_NOT_ESTABLISHED",
+        "RELEASE_EFFECTIVE_INSTANT_UNPROVED"
+      ]
+    },
+    "evidence_status": {
+      "type": "string",
+      "enum": [
+        "OBSERVED",
+        "ACCEPTED",
+        "REJECTED_OBSERVED",
+        "UNRESOLVED",
+        "ESTABLISHED",
+        "NOT_ESTABLISHED",
+        "AMBIGUOUS",
+        "INSUFFICIENT_EVIDENCE",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "release_outcome_status": {
+      "type": "string",
+      "enum": [
+        "ACCEPTED",
+        "REJECTED_OBSERVED",
+        "UNRESOLVED"
+      ]
+    },
+    "binding_status": {
+      "type": "string",
+      "enum": [
+        "ESTABLISHED",
+        "NOT_ESTABLISHED",
+        "AMBIGUOUS",
+        "INSUFFICIENT_EVIDENCE"
+      ]
+    },
+    "closure_status": {
+      "type": "string",
+      "enum": [
+        "ESTABLISHED",
+        "NOT_ESTABLISHED",
+        "AMBIGUOUS"
+      ]
+    },
+    "completeness_status": {
+      "type": "string",
+      "enum": [
+        "COMPLETE",
+        "SOURCE_CANDIDATES_TRUNCATED",
+        "SOURCE_CANDIDATES_METADATA_INVALID",
+        "NOT_SUPPLIED"
+      ]
+    },
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "frame_number",
+        "message_type",
+        "evidence_level"
+      ],
+      "properties": {
+        "protocol": {
+          "type": "string"
+        },
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_level": {
+          "type": "string"
+        }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_frame",
+        "end_frame"
+      ],
+      "properties": {
+        "start_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "end_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "completeness_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document",
+        "collection",
+        "declared_count",
+        "published_count",
+        "omitted_count",
+        "status"
+      ],
+      "properties": {
+        "document": {
+          "type": "string"
+        },
+        "collection": {
+          "type": "string"
+        },
+        "declared_count": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "published_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted_count": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/completeness_status"
+        }
+      }
+    },
+    "source_completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "exhaustive_coverage_proven",
+        "limitation",
+        "collections"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/completeness_status"
+        },
+        "exhaustive_coverage_proven": {
+          "type": "boolean"
+        },
+        "limitation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "collections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/completeness_entry"
+          }
+        }
+      }
+    },
+    "stage_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "evidence_status",
+        "source_analysis",
+        "source_subject_reference",
+        "transaction_reference",
+        "capture_file",
+        "frame_number",
+        "message_type",
+        "evidence_refs",
+        "association_basis",
+        "limitations"
+      ],
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/stage_label"
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidence_status"
+        },
+        "source_analysis": {
+          "type": "string"
+        },
+        "source_subject_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transaction_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "capture_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "message_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "association_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "session_identity_link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "peer_session_context_reference",
+        "association_status",
+        "association_basis",
+        "source_frames",
+        "limitations"
+      ],
+      "properties": {
+        "reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "peer_session_context_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "association_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "association_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_frames": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "bearer_endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bearer_endpoint_reference",
+        "role",
+        "address",
+        "teid",
+        "interface_type",
+        "eps_bearer_identities",
+        "association_status",
+        "association_basis",
+        "bridge_mediated",
+        "generation_references",
+        "source_frames"
+      ],
+      "properties": {
+        "bearer_endpoint_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "teid": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "interface_type": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "eps_bearer_identities": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "association_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "association_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bridge_mediated": {
+          "type": "boolean"
+        },
+        "generation_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_frames": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "narrative_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "narrative_subject_reference",
+        "capture_file",
+        "interface_class",
+        "session_context_reference",
+        "session_context_status",
+        "session_context_basis",
+        "allocation_transaction_reference",
+        "allocation_outcome_status",
+        "member_transaction_references",
+        "observation_window",
+        "source_evidence_refs",
+        "narrative_group_reference",
+        "narrative_group_basis",
+        "narrative_group_members",
+        "narrative_group_bridge_references",
+        "session_identity_links",
+        "endpoint_correspondence_references",
+        "bearer_endpoints",
+        "release_narrative_references",
+        "temporal_limitations",
+        "source_analysis",
+        "limitations"
+      ],
+      "properties": {
+        "narrative_subject_reference": {
+          "type": "string"
+        },
+        "capture_file": {
+          "type": "string"
+        },
+        "interface_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "session_context_reference": {
+          "type": "string"
+        },
+        "session_context_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "session_context_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "allocation_transaction_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "allocation_outcome_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "member_transaction_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "observation_window": {
+          "$ref": "#/$defs/window"
+        },
+        "source_evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          }
+        },
+        "narrative_group_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "narrative_group_basis": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "single_hop_local_context",
+            "proved_cross_interface_session_identity",
+            null
+          ]
+        },
+        "narrative_group_members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "narrative_group_bridge_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "session_identity_links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/session_identity_link"
+          }
+        },
+        "endpoint_correspondence_references": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "bearer_endpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bearer_endpoint"
+          }
+        },
+        "release_narrative_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "temporal_limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "session_identity",
+            "lifecycle"
+          ],
+          "properties": {
+            "session_identity": {
+              "type": "string"
+            },
+            "lifecycle": {
+              "type": "string"
+            }
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "proved_generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generation_reference",
+        "receiving_endpoint_role",
+        "receiving_endpoint_address",
+        "receiving_endpoint_teid",
+        "reviewed_interface_type",
+        "generation_state",
+        "generation_boundary_basis",
+        "release_request_frame",
+        "release_confirmation_frame",
+        "release_effective_frame_proven",
+        "closure_candidate_reference",
+        "closure_candidate_basis"
+      ],
+      "properties": {
+        "generation_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receiving_endpoint_role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receiving_endpoint_address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receiving_endpoint_teid": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "reviewed_interface_type": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "generation_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "generation_boundary_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "release_request_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "release_confirmation_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "release_effective_frame_proven": {
+          "type": "boolean",
+          "const": false
+        },
+        "closure_candidate_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "closure_candidate_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "competing_generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generation_reference",
+        "receiving_endpoint_role",
+        "candidate_references"
+      ],
+      "properties": {
+        "generation_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receiving_endpoint_role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "candidate_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "release_narrative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release_narrative_reference",
+        "capture_file",
+        "narrative_subject_reference",
+        "session_context_reference",
+        "interface_class",
+        "narrative_group_reference",
+        "release_transaction_reference",
+        "release_request_frame",
+        "release_confirmation_frame",
+        "release_outcome_status",
+        "release_outcome_basis",
+        "release_session_binding_status",
+        "release_session_binding_basis",
+        "generation_closure_status",
+        "generation_closure_basis",
+        "release_effective_frame_proven",
+        "stages",
+        "proved_generations",
+        "competing_generations",
+        "temporal_observation_references",
+        "provenance_status",
+        "limitations"
+      ],
+      "properties": {
+        "release_narrative_reference": {
+          "type": "string"
+        },
+        "capture_file": {
+          "type": "string"
+        },
+        "narrative_subject_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "session_context_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "interface_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "narrative_group_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "release_transaction_reference": {
+          "type": "string"
+        },
+        "release_request_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "release_confirmation_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "release_outcome_status": {
+          "$ref": "#/$defs/release_outcome_status"
+        },
+        "release_outcome_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "release_session_binding_status": {
+          "$ref": "#/$defs/binding_status"
+        },
+        "release_session_binding_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "generation_closure_status": {
+          "$ref": "#/$defs/closure_status"
+        },
+        "generation_closure_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "release_effective_frame_proven": {
+          "type": "boolean",
+          "const": false
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stage_record"
+          }
+        },
+        "proved_generations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/proved_generation"
+          }
+        },
+        "competing_generations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/competing_generation"
+          }
+        },
+        "temporal_observation_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "provenance_status": {
+          "type": "string",
+          "enum": [
+            "VALIDATED",
+            "NOT_VALIDATED",
+            "INCONSISTENT"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "partition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "g_pdu_count",
+        "payload_octets",
+        "first_frame",
+        "last_frame"
+      ],
+      "properties": {
+        "g_pdu_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "payload_octets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "first_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "last_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "partitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "before_release",
+        "pending_release",
+        "after_confirmation"
+      ],
+      "properties": {
+        "before_release": {
+          "$ref": "#/$defs/partition"
+        },
+        "pending_release": {
+          "$ref": "#/$defs/partition"
+        },
+        "after_confirmation": {
+          "$ref": "#/$defs/partition"
+        }
+      }
+    },
+    "temporal_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temporal_observation_reference",
+        "release_narrative_reference",
+        "capture_file",
+        "stream_reference",
+        "generation_reference",
+        "receiving_endpoint_role",
+        "direction",
+        "association_status",
+        "observed_g_pdu_count",
+        "observed_payload_octets",
+        "first_observed_frame",
+        "last_observed_frame",
+        "release_request_frame",
+        "release_confirmation_frame",
+        "partitions",
+        "partition_basis",
+        "temporal_placement_status",
+        "partition_conserved",
+        "limitations"
+      ],
+      "properties": {
+        "temporal_observation_reference": {
+          "type": "string"
+        },
+        "release_narrative_reference": {
+          "type": "string"
+        },
+        "capture_file": {
+          "type": "string"
+        },
+        "stream_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "generation_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receiving_endpoint_role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "direction": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "association_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observed_g_pdu_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_payload_octets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "first_observed_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "last_observed_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "release_request_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "release_confirmation_frame": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "partitions": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/partitions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "partition_basis": {
+          "type": "string",
+          "enum": [
+            "FRAME_LEVEL_EVENTS",
+            "AGGREGATE_STREAM_ONLY"
+          ]
+        },
+        "temporal_placement_status": {
+          "type": "string",
+          "enum": [
+            "ESTABLISHED",
+            "TEMPORAL_PLACEMENT_NOT_ESTABLISHED"
+          ]
+        },
+        "partition_conserved": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "temporal_placement_status": {
+                "const": "ESTABLISHED"
+              }
+            },
+            "required": [
+              "temporal_placement_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "partitions": {
+                "$ref": "#/$defs/partitions"
+              },
+              "partition_basis": {
+                "const": "FRAME_LEVEL_EVENTS"
+              },
+              "partition_conserved": {
+                "type": "boolean"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "partitions": {
+                "type": "null"
+              },
+              "partition_basis": {
+                "const": "AGGREGATE_STREAM_ONLY"
+              },
+              "partition_conserved": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "temporal_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frame_level_evidence_supplied",
+        "observed_g_pdu_event_count",
+        "assigned_to_release_window_count",
+        "unassigned_g_pdu_event_count",
+        "duplicate_assignment_count",
+        "conserved"
+      ],
+      "properties": {
+        "frame_level_evidence_supplied": {
+          "type": "boolean"
+        },
+        "observed_g_pdu_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "assigned_to_release_window_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unassigned_g_pdu_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_assignment_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "conserved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ambiguous_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_analysis",
+        "relationship_type",
+        "association_basis",
+        "competing_candidates"
+      ],
+      "properties": {
+        "source_analysis": {
+          "type": "string"
+        },
+        "relationship_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "association_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "competing_candidates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "unbound_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "capture_file",
+        "transaction_reference",
+        "limitations"
+      ],
+      "properties": {
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "capture_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transaction_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "session_context_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

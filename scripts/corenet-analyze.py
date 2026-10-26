@@ -70,6 +70,9 @@ EPC_SESSION_IDENTITY_ANALYZE_SCRIPT = (
 EPC_DEFAULT_BEARER_ANALYZE_SCRIPT = (
     ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_default_bearer.py"
 )
+EPC_RELEASE_NARRATIVE_ANALYZE_SCRIPT = (
+    ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_release_narrative.py"
+)
 EPC_BOUNDARY_SCRIPT = (
     ROOT / "skills" / "orchestration" / "epc-failure-boundary" / "scripts" / "analyze_epc_failure_boundary.py"
 )
@@ -1528,6 +1531,45 @@ def render_text_report(report: dict[str, Any]) -> str:
             "(a lifecycle generation boundary is not an abnormal failure boundary)"
         )
 
+    narrative_blocks = [
+        (result, result.get("release_narrative"))
+        for result in results
+        if isinstance(result.get("release_narrative"), dict)
+    ]
+    if narrative_blocks:
+        _section(lines, "Release Narrative and Temporal Evidence")
+    for result, block in narrative_blocks:
+        accounting = block.get("temporal_accounting") or {}
+        lines.append(
+            f"  {result['domain']}: {_value(block.get('release_narrative_count'))} release "
+            f"narrative(s), {_value(block.get('narrative_subject_count'))} subject(s), "
+            f"{_value(len(block.get('narrative_groups') or []))} narrative group(s), "
+            f"source completeness {_value(block.get('source_completeness_status'))}"
+        )
+        for narrative in block.get("release_narratives") or []:
+            lines.append(
+                f"    {narrative.get('release_transaction_reference')} frames "
+                f"{_value(narrative.get('release_request_frame'))}->"
+                f"{_value(narrative.get('release_confirmation_frame'))}: "
+                f"outcome {_value(narrative.get('release_outcome_status'))}, "
+                f"binding {_value(narrative.get('release_session_binding_status'))}, "
+                f"generation closure {_value(narrative.get('generation_closure_status'))}, "
+                f"effective instant proved "
+                f"{_value(narrative.get('release_effective_frame_proven'))}"
+            )
+        lines.append(
+            f"    temporal: frame-level evidence "
+            f"{_value(accounting.get('frame_level_evidence_supplied'))}, "
+            f"{_value(accounting.get('assigned_to_release_window_count'))} of "
+            f"{_value(accounting.get('observed_g_pdu_event_count'))} G-PDU event(s) assigned, "
+            f"duplicates {_value(accounting.get('duplicate_assignment_count'))}, "
+            f"conserved {_value(accounting.get('conserved'))}"
+        )
+        lines.append(
+            "    boundary selection: NOT_APPLICABLE "
+            "(a release narrative is not an abnormal failure boundary)"
+        )
+
     _section(lines, "First Abnormal Boundary per Subject")
     boundary_any = False
     for result in results:
@@ -2016,8 +2058,10 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
 
     s1u_analysis: dict[str, Any] | None = None
     s1u_error: dict[str, Any] | None = None
+    # The artifact path is defined for every capture: a GTPv2-C capture without
+    # GTP-U must still be able to reference a non-existent S1-U observation.
+    s1u_path = run_dir / "epc-s1u-observation.json"
     if gtpu_stream_count:
-        s1u_path = run_dir / "epc-s1u-observation.json"
         s1u_command = [
             sys.executable,
             str(EPC_S1U_ANALYZE_SCRIPT),
@@ -2125,6 +2169,45 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                 "message": scrub_free_text(str(exc)),
             }
 
+    narrative_analysis: dict[str, Any] | None = None
+    narrative_error: dict[str, Any] | None = None
+    narrative_path = run_dir / "epc-release-narrative-analysis.json"
+    if identity_path.is_file() and lifecycle_path.is_file():
+        narrative_command = [
+            sys.executable,
+            str(EPC_RELEASE_NARRATIVE_ANALYZE_SCRIPT),
+            "--session-identity",
+            str(identity_path),
+            "--lifecycle",
+            str(lifecycle_path),
+            "--output",
+            str(narrative_path),
+            "--force",
+        ]
+        if s1u_path.is_file():
+            narrative_command.extend(["--s1u", str(s1u_path)])
+        if gtpv2_event_count:
+            narrative_command.extend(["--gtpv2", str(gtpv2_events)])
+        if gtpu_event_count:
+            narrative_command.extend(["--gtpu", str(gtpu_events)])
+        try:
+            _run_component(narrative_command, "EPC release narrative", allow_empty=True)
+            if narrative_path.is_file():
+                narrative_analysis = json.loads(narrative_path.read_text(encoding="utf-8"))
+                if not isinstance(narrative_analysis, dict):
+                    raise AnalysisError(
+                        "PIPELINE_OUTPUT_UNREADABLE",
+                        "EPC release narrative analysis is not an object",
+                    )
+        except (AnalysisError, OSError, json.JSONDecodeError) as exc:
+            # Every earlier EPC artifact is preserved. A narrative failure is a
+            # component-level limitation and never an EPC protocol failure.
+            narrative_analysis = None
+            narrative_error = {
+                "code": "RELEASE_NARRATIVE_FAILED",
+                "message": scrub_free_text(str(exc)),
+            }
+
     boundary_analysis: dict[str, Any] | None = None
     boundary_error: dict[str, Any] | None = None
     has_subjects = (
@@ -2179,6 +2262,8 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
         "lifecycle_error": lifecycle_error,
         "identity_analysis": identity_analysis,
         "identity_error": identity_error,
+        "release_narrative_analysis": narrative_analysis,
+        "release_narrative_error": narrative_error,
         "s1ap_event_count": _count_lines(s1ap_events),
         "nas_eps_event_count": _count_lines(nas_events),
         "gtpv2_event_count": gtpv2_event_count,
@@ -2832,6 +2917,66 @@ def _project_bearer_lifecycle(lifecycle: Any) -> dict[str, Any] | None:
     }
 
 
+def _project_release_narrative(narrative: Any) -> dict[str, Any] | None:
+    """Bounded release-narrative evidence, projected without new subjects."""
+    if not isinstance(narrative, dict):
+        return None
+    completeness = narrative.get("source_completeness") or {}
+    accounting = narrative.get("temporal_accounting") or {}
+    narratives = narrative.get("release_narratives") or []
+    return {
+        "analysis_name": narrative.get("analysis_name"),
+        "analysis_version": narrative.get("analysis_version"),
+        "source_completeness_status": completeness.get("status"),
+        "exhaustive_coverage_proven": completeness.get("exhaustive_coverage_proven"),
+        "narrative_subject_count": narrative.get("narrative_subject_count", 0),
+        "narrative_groups": sorted(
+            {
+                item.get("narrative_group_reference")
+                for item in narrative.get("narrative_subjects") or []
+                if isinstance(item, dict) and item.get("narrative_group_reference")
+            }
+        )[:MAX_LIST_ITEMS],
+        "release_narrative_count": narrative.get("release_narrative_count", 0),
+        "release_narratives": [
+            {
+                "release_narrative_reference": item.get("release_narrative_reference"),
+                "capture_file": item.get("capture_file"),
+                "release_transaction_reference": item.get("release_transaction_reference"),
+                "release_request_frame": item.get("release_request_frame"),
+                "release_confirmation_frame": item.get("release_confirmation_frame"),
+                "release_outcome_status": item.get("release_outcome_status"),
+                "release_session_binding_status": item.get(
+                    "release_session_binding_status"
+                ),
+                "generation_closure_status": item.get("generation_closure_status"),
+                "release_effective_frame_proven": item.get("release_effective_frame_proven"),
+                "proved_generation_references": [
+                    generation.get("generation_reference")
+                    for generation in item.get("proved_generations") or []
+                    if isinstance(generation, dict)
+                ],
+                "provenance_status": item.get("provenance_status"),
+            }
+            for item in narratives[:MAX_LIST_ITEMS]
+            if isinstance(item, dict)
+        ],
+        "temporal_observation_count": narrative.get("temporal_observation_count", 0),
+        "temporal_accounting": {
+            "frame_level_evidence_supplied": accounting.get("frame_level_evidence_supplied"),
+            "observed_g_pdu_event_count": accounting.get("observed_g_pdu_event_count"),
+            "assigned_to_release_window_count": accounting.get(
+                "assigned_to_release_window_count"
+            ),
+            "unassigned_g_pdu_event_count": accounting.get("unassigned_g_pdu_event_count"),
+            "duplicate_assignment_count": accounting.get("duplicate_assignment_count"),
+            "conserved": accounting.get("conserved"),
+        },
+        "boundary_selection_status": narrative.get("boundary_selection_status"),
+        "not_confirmed": (narrative.get("not_confirmed") or [])[:MAX_LIST_ITEMS],
+    }
+
+
 def execute_epc_domain(
     capture: Path,
     work_dir: Path,
@@ -2859,6 +3004,8 @@ def execute_epc_domain(
     lifecycle_error = payload.get("lifecycle_error")
     identity = payload.get("identity_analysis")
     identity_error = payload.get("identity_error")
+    narrative = payload.get("release_narrative_analysis")
+    narrative_error = payload.get("release_narrative_error")
     groups_by_reference: dict[str, Any] = {}
     if isinstance(boundary, dict):
         for group in boundary.get("diagnostic_groups") or []:
@@ -2914,6 +3061,7 @@ def execute_epc_domain(
         or s1u_error
         or lifecycle_error
         or identity_error
+        or narrative_error
     ) and (
         instances or session_subjects or default_bearer_instances or s1u_subjects
     ):
@@ -2947,6 +3095,9 @@ def execute_epc_domain(
     if isinstance(lifecycle, dict):
         limitations.extend(lifecycle.get("evidence_limitations") or [])
         additional.extend(lifecycle.get("additional_evidence_needed") or [])
+    if isinstance(narrative, dict):
+        limitations.extend(narrative.get("evidence_limitations") or [])
+        additional.extend(narrative.get("additional_evidence_needed") or [])
     bounded_limitations, _ = _bounded_limitations(list(dict.fromkeys(limitations)))
     bounded_additional, _ = _bounded_limitations(list(dict.fromkeys(additional)))
 
@@ -3052,6 +3203,37 @@ def execute_epc_domain(
             },
             {
                 "procedure_domain": "epc-procedures",
+                "procedure": "epc-release-narrative",
+                "execution_status": (
+                    "EXECUTED"
+                    if isinstance(narrative, dict) and narrative.get("release_narrative_count")
+                    else "NO_SUBJECT"
+                ),
+                "instance_count": (narrative or {}).get("release_narrative_count", 0),
+                "narrative_subject_count": (narrative or {}).get("narrative_subject_count", 0),
+                "temporal_observation_count": (narrative or {}).get(
+                    "temporal_observation_count", 0
+                ),
+                "accepted_release_count": sum(
+                    1
+                    for item in (narrative or {}).get("release_narratives") or []
+                    if isinstance(item, dict)
+                    and item.get("release_outcome_status") == "ACCEPTED"
+                ),
+                "established_binding_count": sum(
+                    1
+                    for item in (narrative or {}).get("release_narratives") or []
+                    if isinstance(item, dict)
+                    and item.get("release_session_binding_status") == "ESTABLISHED"
+                ),
+                "proved_generation_closure_count": sum(
+                    len(item.get("proved_generations") or [])
+                    for item in (narrative or {}).get("release_narratives") or []
+                    if isinstance(item, dict)
+                ),
+            },
+            {
+                "procedure_domain": "epc-procedures",
                 "procedure": "eps-bearer-lifecycle",
                 "execution_status": (
                     "EXECUTED"
@@ -3089,6 +3271,7 @@ def execute_epc_domain(
             else None
         ),
         "bearer_lifecycle": _project_bearer_lifecycle(lifecycle),
+        "release_narrative": _project_release_narrative(narrative),
         "evidence_limitations": bounded_limitations,
         "additional_evidence_needed": bounded_additional,
         "degradation": [],
@@ -3144,6 +3327,13 @@ def execute_epc_domain(
         degradation.append(
             "EPC bearer lifecycle analysis failed: "
             f"{lifecycle_error.get('code')} {lifecycle_error.get('message')}".strip()
+        )
+    if narrative_error:
+        result["failure_code"] = "RELEASE_NARRATIVE_FAILED"
+        degradation.append(
+            "EPC release narrative failed: "
+            f"{narrative_error.get('code')} {narrative_error.get('message')}".strip()
+            + "; earlier EPC evidence is preserved and no EPC protocol failure is asserted"
         )
     result["degradation"] = degradation
     return result

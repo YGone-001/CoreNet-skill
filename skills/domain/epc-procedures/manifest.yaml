@@ -1,5 +1,5 @@
 name: epc-procedures
-version: 0.6.3
+version: 0.7.0
 category: domain
 description: >
   Bounded EPS Attach procedure analysis over already-extracted S1AP and NAS-EPS
@@ -64,6 +64,8 @@ scope:
     - bearer association established only by a valid assigned item-scoped EPS Bearer Identity, with zero and out-of-domain values retained as diagnostic evidence that establish nothing
     - release-to-session bindings whose outcomes stay separately classified
     - reviewed session-context generation closure consumed by the lifecycle capability through a documented input contract
+    - per-release narrative over accepted session-identity, bearer-lifecycle and S1-U evidence with separate release outcome, session-binding and generation-closure statuses
+    - frame-aware temporal placement of observed G-PDUs before, inside and after a release window, with an explicit TEMPORAL_PLACEMENT_NOT_ESTABLISHED result when only aggregate stream evidence exists
   excludes:
     - Diameter, S6a or Gx/Gy signalling
     - cross-interface S11 to S5/S8 session association without a reviewed identity bridge
@@ -106,6 +108,8 @@ outputs:
   - bearer generation timeline JSON Lines
   - EPC session-identity analysis JSON (schemas/epc-session-identity-analysis.schema.json)
   - session-identity text report
+  - EPC release-narrative analysis JSON (schemas/epc-release-narrative-analysis.schema.json)
+  - release-narrative text report
 protocols: [S1AP, NAS-EPS, GTPv2-C, GTP-U]
 interfaces: [S1-MME, N1, S11, S5/S8, S1-U]
 network_functions: []

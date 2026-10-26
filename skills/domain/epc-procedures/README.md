@@ -10,7 +10,10 @@ skills/domain/epc-procedures/
 ├── references/     Procedure model, stage map, evidence rules, limitations
 ├── rules/          Stage vocabulary and deviation catalogue
 ├── schemas/        Analysis JSON Schema
-├── scripts/        analyze_epc_attach.py, epc_attach_timeline.py, epc_attach_model.py
+├── scripts/        analyze_epc_attach.py, analyze_epc_session.py,
+│                   analyze_epc_default_bearer.py, analyze_epc_s1u.py,
+│                   analyze_epc_bearer_lifecycle.py, analyze_epc_session_identity.py,
+│                   analyze_epc_release_narrative.py, and their models and reports
 ├── examples/       Event fixtures and expected analysis
 └── tests/          Standalone unit tests
 ```
@@ -149,6 +152,28 @@ global failure boundary, no subscriber identity. See `SKILL.md`.
 | 6 | Analysis written but no Attach procedure instance formed |
 | 7 | Output failure, including a refused overwrite |
 
+## Release narrative
+
+`scripts/analyze_epc_release_narrative.py` turns the accepted session-identity,
+bearer-lifecycle and S1-U evidence into one deterministic narrative per reviewed
+hop-local session context. It keeps the release outcome, the release-to-session
+binding and the bearer-generation closure as three separate facts, publishes the
+thirteen reporting stages with a closed evidence vocabulary, and places observed
+G-PDUs before, inside or after the release window only when frame-level GTP-U
+events resolve them.
+
+```bash
+python3 scripts/analyze_epc_release_narrative.py \
+  --session-identity epc-session-identity-analysis.json \
+  --lifecycle epc-bearer-lifecycle-analysis.json \
+  --s1u epc-s1u-observation.json \
+  --gtpv2 gtpv2-events.jsonl --gtpu gtpu-events.jsonl \
+  --output epc-release-narrative-analysis.json --report epc-release-narrative.txt
+```
+
+Exit codes: `0` narrative written, `5` malformed or missing required input, `6` no
+release narrative, `7` output failure.
+
 ## Version
 
-0.6.3
+0.7.0

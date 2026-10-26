@@ -7,14 +7,17 @@ UE contexts ran an Attach attempt, which conditional stages were observed, which
 explicit protocol rejection or failure the network or the UE emitted, and which
 evidence is missing or protected.
 
-This is a Domain-layer Skill with four independently executable capabilities. The
+This is a Domain-layer Skill with seven independently executable capabilities. The
 EPS Attach capability consumes already-extracted S1AP and NAS-EPS events. The EPC
 session-control capability consumes already-extracted GTPv2-C events and
 transactions. The EPS default-bearer capability consumes already-extracted NAS-EPS
 ESM evidence, S1AP E-RAB items and GTPv2-C tunnel endpoints. The S1-U observation
-capability consumes already-extracted GTP-U events and stream summaries. Both produce procedure-local evidence and explicit limitations. The
-Skill never decodes protocols, never reads subscriber identity, and never produces a
-verdict about bearer, PDN or service success.
+capability consumes already-extracted GTP-U events and stream summaries. The
+session-identity, bearer-lifecycle and release-narrative capabilities consume the
+accepted documents those capabilities publish, never a capture. Each produces
+procedure-local evidence and explicit limitations. The Skill never decodes
+protocols, never reads subscriber identity, and never produces a verdict about
+bearer, PDN or service success.
 
 ## Scope
 
@@ -332,6 +335,50 @@ three strictly separated kinds of relationship:
 
 See `references/session-identity-bridge.md` and `references/release-binding.md`.
 
+## Release Narrative
+
+Version 0.7.0 adds a seventh, independently executable capability:
+`scripts/analyze_epc_release_narrative.py`. It consumes the accepted
+session-identity and bearer-lifecycle documents plus, optionally, the accepted
+S1-U observation, the detailed GTPv2-C events and the detailed GTP-U events, and
+publishes a deterministic release narrative per reviewed hop-local session
+context.
+
+It answers, per release: which allocation and bearer relationships were actually
+established, which Delete Session Request was observed and which response
+confirmed it, whether the release bound to a session context, which bearer
+generations were independently proved closed, and what user-plane traffic was
+observed before, inside and after the release window.
+
+Three facts are never collapsed:
+
+```text
+release_outcome_status         ACCEPTED | REJECTED_OBSERVED | UNRESOLVED
+release_session_binding_status ESTABLISHED | NOT_ESTABLISHED | AMBIGUOUS | INSUFFICIENT_EVIDENCE
+generation_closure_status      ESTABLISHED | NOT_ESTABLISHED | AMBIGUOUS
+```
+
+A hop-local context is never merged into a global PDN session: two contexts join
+one narrative group only through an already `ESTABLISHED`
+`CROSS_INTERFACE_SESSION_IDENTITY` link in the same capture, and the group is a
+reporting label with the source context references preserved. A generation enters
+the narrative only when the lifecycle publishes a proved boundary naming the same
+release transaction and the identity analysis publishes an `ESTABLISHED` closure
+candidate for the same context, release and bearer endpoint.
+
+Temporal evidence is frame-aware and conservative. The pending-release interval is
+an observation window, the confirmation frame is never the forwarding-stop
+instant, and an aggregate stream count is never divided across windows: without
+frame-level GTP-U events the observation publishes
+`TEMPORAL_PLACEMENT_NOT_ESTABLISHED`. A G-PDU frame is counted in at most one
+partition of one narrative.
+
+`release_effective_frame_proven` is always `false`, `boundary_selection_status` is
+`NOT_APPLICABLE` and `first_abnormal_boundary` is `null`: a release narrative is
+not an abnormal failure boundary and never produces a root cause.
+
+See `references/release-narrative.md` and `references/release-temporal-evidence.md`.
+
 ## Failure Behavior
 
 | Condition | Behavior |
@@ -364,4 +411,4 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Original CoreNet Domain-layer package. No upstream material imported. Normative
 references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the accepted
-`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.6.3.
+`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.7.0.

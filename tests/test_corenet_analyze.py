@@ -2715,5 +2715,236 @@ class EpcLifecycleIntegrationTests(WorkflowTestCase):
         self.assertIsNone(result["bearer_lifecycle"])
 
 
+def release_narrative_analysis(
+    *,
+    subjects: int = 2,
+    narratives: int = 2,
+    groups: int = 1,
+    accepted: int = 2,
+    closures: int = 1,
+    completeness: str = "COMPLETE",
+) -> dict:
+    """A bounded release-narrative document shaped like the published one."""
+    records: list[dict] = []
+    for index in range(narratives):
+        proved = index < closures
+        records.append(
+            {
+                "release_narrative_reference": f"epc-release-narrative-{index:010x}",
+                "capture_file": "fixture.pcap",
+                "narrative_subject_reference": f"epc-release-subject-{index:010x}",
+                "session_context_reference": f"epc-session-context-{index:010x}",
+                "interface_class": "S11" if index % 2 == 0 else "S5/S8",
+                "narrative_group_reference": f"epc-release-group-{index % max(groups, 1):010x}",
+                "release_transaction_reference": f"gtpv2-delete-session-{100 + index}-{index}",
+                "release_request_frame": 200 + index,
+                "release_confirmation_frame": 205 + index,
+                "release_outcome_status": "ACCEPTED" if index < accepted else "UNRESOLVED",
+                "release_outcome_basis": "accepted_cause_in_correlated_response",
+                "release_session_binding_status": "ESTABLISHED",
+                "release_session_binding_basis": (
+                    "request_addresses_one_hop_local_control_plane_fteid_with_its_path_peer"
+                ),
+                "generation_closure_status": "ESTABLISHED" if proved else "NOT_ESTABLISHED",
+                "generation_closure_basis": (
+                    "accepted_release_response_bound_by_reviewed_session_context"
+                    if proved
+                    else "no_independently_proved_bearer_generation_closure"
+                ),
+                "release_effective_frame_proven": False,
+                "proved_generations": (
+                    [
+                        {
+                            "generation_reference": f"epc-bearer-generation-{index:010x}",
+                            "receiving_endpoint_role": "sgw_s1u",
+                        }
+                    ]
+                    if proved
+                    else []
+                ),
+                "provenance_status": "VALIDATED",
+            }
+        )
+    return {
+        "domain": "epc-procedures",
+        "analysis_name": "epc-release-narrative",
+        "analysis_version": "1.0.0",
+        "source_completeness": {
+            "status": completeness,
+            "exhaustive_coverage_proven": completeness == "COMPLETE",
+            "limitation": None if completeness == "COMPLETE" else "truncated",
+            "collections": [],
+        },
+        "narrative_subject_count": subjects,
+        "narrative_subjects": [
+            {
+                "narrative_subject_reference": f"epc-release-subject-{index:010x}",
+                "narrative_group_reference": f"epc-release-group-{index % max(groups, 1):010x}",
+            }
+            for index in range(subjects)
+        ],
+        "release_narrative_count": narratives,
+        "release_narratives": records,
+        "temporal_observation_count": narratives,
+        "temporal_accounting": {
+            "frame_level_evidence_supplied": True,
+            "observed_g_pdu_event_count": 10,
+            "assigned_to_release_window_count": 6,
+            "unassigned_g_pdu_event_count": 4,
+            "duplicate_assignment_count": 0,
+            "conserved": True,
+        },
+        "evidence_limitations": [
+            "a release narrative is not an abnormal failure boundary",
+        ],
+        "additional_evidence_needed": [],
+        "not_confirmed": [
+            "an accepted release outcome does not prove that user-plane forwarding stopped",
+        ],
+        "boundary_selection_status": "NOT_APPLICABLE",
+        "first_abnormal_boundary": None,
+    }
+
+
+class EpcReleaseNarrativeIntegrationTests(WorkflowTestCase):
+    """The unified EPC adapter publishes bounded release-narrative evidence."""
+
+    def use_payload(self, payload: dict) -> None:
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+
+    def epc_result(self) -> dict:
+        return self.domain_result()
+
+    def summary(self, procedure: str) -> dict:
+        entries = [
+            item
+            for item in self.epc_result()["procedure_summaries"]
+            if item.get("procedure") == procedure
+        ]
+        self.assertEqual(len(entries), 1)
+        return entries[0]
+
+    def test_release_narrative_script_is_registered(self) -> None:
+        script = MODULE.EPC_RELEASE_NARRATIVE_ANALYZE_SCRIPT
+        self.assertTrue(script.is_file(), f"missing narrative CLI: {script}")
+
+    def test_release_narrative_is_published_without_new_subjects(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["identity_analysis"] = session_identity_analysis()
+        payload["identity_error"] = None
+        payload["lifecycle_analysis"] = lifecycle_analysis()
+        payload["lifecycle_error"] = None
+        payload["release_narrative_analysis"] = release_narrative_analysis()
+        payload["release_narrative_error"] = None
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        block = result["release_narrative"]
+        self.assertIsNotNone(block)
+        self.assertEqual(block["release_narrative_count"], 2)
+        self.assertEqual(block["narrative_subject_count"], 2)
+        self.assertEqual(len(block["narrative_groups"]), 1)
+        self.assertEqual(block["source_completeness_status"], "COMPLETE")
+        self.assertTrue(block["exhaustive_coverage_proven"])
+        self.assertTrue(block["temporal_accounting"]["conserved"])
+        self.assertEqual(block["boundary_selection_status"], "NOT_APPLICABLE")
+        # The three release facts stay separate in the projection.
+        first, second = block["release_narratives"]
+        self.assertEqual(first["release_outcome_status"], "ACCEPTED")
+        self.assertEqual(first["release_session_binding_status"], "ESTABLISHED")
+        self.assertEqual(first["generation_closure_status"], "ESTABLISHED")
+        self.assertFalse(first["release_effective_frame_proven"])
+        self.assertEqual(second["generation_closure_status"], "NOT_ESTABLISHED")
+        self.assertEqual(second["proved_generation_references"], [])
+        subject_types = {subject["subject_type"] for subject in result["diagnostic_subjects"]}
+        self.assertEqual(
+            subject_types,
+            {"EPS_ATTACH", "EPC_SESSION_CONTROL", "EPS_DEFAULT_BEARER", "EPC_S1U_OBSERVATION"},
+            "release narrative evidence must not create an artificial diagnostic subject",
+        )
+        summary = self.summary("epc-release-narrative")
+        self.assertEqual(summary["execution_status"], "EXECUTED")
+        self.assertEqual(summary["instance_count"], 2)
+        self.assertEqual(summary["accepted_release_count"], 2)
+        self.assertEqual(summary["established_binding_count"], 2)
+        self.assertEqual(summary["proved_generation_closure_count"], 1)
+        self.assertEqual(result["degradation"], [])
+
+    def test_release_narrative_failure_degrades_without_protocol_failure(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["identity_analysis"] = session_identity_analysis()
+        payload["identity_error"] = None
+        payload["lifecycle_analysis"] = lifecycle_analysis()
+        payload["lifecycle_error"] = None
+        payload["release_narrative_analysis"] = None
+        payload["release_narrative_error"] = {
+            "code": "RELEASE_NARRATIVE_FAILED",
+            "message": "narrative input error",
+        }
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertIsNone(result["release_narrative"])
+        # Earlier EPC evidence survives the narrative failure.
+        self.assertIsNotNone(result["bearer_lifecycle"])
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertEqual(result["failure_code"], "RELEASE_NARRATIVE_FAILED")
+        self.assertTrue(
+            any("release narrative failed" in item for item in result["degradation"])
+        )
+        self.assertTrue(
+            any(
+                "no EPC protocol failure is asserted" in item
+                for item in result["degradation"]
+            )
+        )
+
+    def test_absent_release_narrative_leaves_no_block(self) -> None:
+        payload = epc_payload_with_s1u()
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertIsNone(result["release_narrative"])
+        self.assertEqual(result["degradation"], [])
+        summary = self.summary("epc-release-narrative")
+        self.assertEqual(summary["execution_status"], "NO_SUBJECT")
+
+    def test_text_report_states_the_release_separation(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["identity_analysis"] = session_identity_analysis()
+        payload["identity_error"] = None
+        payload["lifecycle_analysis"] = lifecycle_analysis()
+        payload["lifecycle_error"] = None
+        payload["release_narrative_analysis"] = release_narrative_analysis()
+        payload["release_narrative_error"] = None
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        text = self.read_text()
+        self.assertIn("Release Narrative and Temporal Evidence", text)
+        self.assertIn("effective instant proved False", text)
+        self.assertIn("generation closure NOT_ESTABLISHED", text)
+        self.assertIn(
+            "boundary selection: NOT_APPLICABLE "
+            "(a release narrative is not an abnormal failure boundary)",
+            text,
+        )
+
+    def test_truncated_narrative_never_claims_exhaustive_coverage(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["identity_analysis"] = session_identity_analysis()
+        payload["identity_error"] = None
+        payload["lifecycle_analysis"] = lifecycle_analysis()
+        payload["lifecycle_error"] = None
+        payload["release_narrative_analysis"] = release_narrative_analysis(
+            completeness="SOURCE_CANDIDATES_TRUNCATED"
+        )
+        payload["release_narrative_error"] = None
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        block = self.epc_result()["release_narrative"]
+        self.assertEqual(block["source_completeness_status"], "SOURCE_CANDIDATES_TRUNCATED")
+        self.assertFalse(block["exhaustive_coverage_proven"])
+
+
 if __name__ == "__main__":
     unittest.main()
