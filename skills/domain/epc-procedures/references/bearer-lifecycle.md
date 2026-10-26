@@ -217,8 +217,16 @@ input contract the lifecycle capability may close a generation through the
 
 The lifecycle also never closes a generation whose owning session context lacks an
 accepted allocation outcome, or whose endpoint carries a rejected or unresolved
-grouped bearer item, or which shares its endpoint value with a second item-scoped
-bearer identity.
+grouped bearer item, or which shares its endpoint value with a second assigned
+item-scoped bearer identity.
+
+It additionally re-verifies the identity of a candidate's bearer endpoint instead
+of trusting the published candidate status. A candidate whose endpoint carries no
+valid assigned EBI is never indexed for closure, because zero is the explicit
+"no EPS bearer identity assigned" code and a value outside the four-bit encoded
+domain is no identity at all. An analysis produced by an older or doctored
+implementation therefore cannot close a generation through an unassigned value,
+and the generation simply stays open.
 
 Such a boundary publishes the basis
 `accepted_release_response_bound_by_reviewed_session_context` and keeps

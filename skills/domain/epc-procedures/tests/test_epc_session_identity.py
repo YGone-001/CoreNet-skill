@@ -3316,5 +3316,404 @@ class CompletenessMetadataTests(SessionIdentityTestCase):
             )
 
 
+# ---------------------------------------------------------------------------
+# P1-C-I-C-R2 — C3: EPS Bearer Identity value validity (assigned vs unassigned)
+# ---------------------------------------------------------------------------
+UNASSIGNED_OR_INVALID = "grouped_bearer_item_identity_unassigned_or_invalid"
+ENDPOINT_UNASSIGNED_OR_INVALID = "endpoint_bearer_identity_unassigned_or_invalid"
+
+
+def grouped_identity_document(
+    ebi,
+    *,
+    release_ebi: int | None = 5,
+    bearer_cause: int | None = None,
+    contexts: list[dict] | None = None,
+    message_scope_duplicate: bool = False,
+) -> tuple[list[dict], dict]:
+    """One reviewed session whose S1-U grouped bearer item carries ``ebi``.
+
+    Everything else is the established fixture: a MATCHED/STRONG Create Session
+    pair whose response carries an accepted message-scope Cause 16, plus
+    correlated accepted Delete Sessions. Only the grouped bearer-item identity
+    varies, so every failing assertion is attributable to that identity.
+    """
+    events, transactions = base_document()
+    for item in events:
+        if item["frame_number"] == 103:
+            item["bearer_contexts"] = (
+                contexts
+                if contexts is not None
+                else [bearer_context(ebi, [bearer_fteid(1, 56, SGW_S1U)], cause=bearer_cause)]
+            )
+            if message_scope_duplicate:
+                item["f_teids"] = item["f_teids"] + [fteid(1, 56, SGW_S1U)]
+        if item["message_type"] == "Delete Session Request":
+            item["unbound_ie_metadata"] = (
+                []
+                if release_ebi is None
+                else {"binding_basis": "test", "ebi_values": [release_ebi], "limitations": []}
+            )
+    return events, transactions
+
+
+class BearerIdentityValidityTests(SessionIdentityTestCase):
+    """C3: a readable EBI value is not an assigned EPS bearer identity."""
+
+    def link_for(self, result: dict, role: str) -> dict:
+        return next(
+            item
+            for item in result["session_to_generation_links"]
+            if item["bearer_endpoint"]["role"] == role
+        )
+
+    def candidate_for(self, result: dict, reference: str) -> dict:
+        return next(
+            item
+            for item in result["generation_closure_candidates"]
+            if item["bearer_endpoint_reference"] == reference
+        )
+
+    # --- 1. EBI zero in an otherwise accepted grouped bearer item -----------
+    def test_c3_1_ebi_zero_cannot_establish_a_bearer_association(self) -> None:
+        events, transactions = grouped_identity_document(0)
+        result = self.analyze(events, transactions)
+        link = self.link_for(result, "sgw_s1u")
+        self.assertEqual(link["association_status"], NOT_ESTABLISHED)
+        self.assertEqual(link["association_basis"], UNASSIGNED_OR_INVALID)
+        # The observed value stays published as diagnostic evidence; only its
+        # proof status is refused.
+        self.assertEqual(link["bearer_endpoint"]["eps_bearer_identities"], [0])
+        self.assertEqual(link["reviewed_identifiers"][0]["eps_bearer_identity"], 0)
+        self.assertTrue(any("EPS Bearer Identity 0" in item for item in link["limitations"]))
+        # The sibling receiving role is unaffected.
+        self.assertEqual(self.link_for(result, "enodeb_s1u")["association_status"], ESTABLISHED)
+        candidate = self.candidate_for(result, link["target_subject_reference"])
+        self.assertEqual(candidate["association_status"], NOT_ESTABLISHED)
+        self.assertEqual(
+            candidate["association_basis"], "session_to_generation_link_not_established"
+        )
+        self.assertEqual(result["established_closure_candidate_count"], 1)
+
+    # --- 2. EBI zero with an accepted message-level Cause 16 -----------------
+    def test_c3_2_accepted_message_cause_never_manufactures_an_identity(self) -> None:
+        events, transactions = grouped_identity_document(0)
+        response = next(item for item in events if item["frame_number"] == 103)
+        self.assertEqual(
+            response["message_cause"],
+            {"cause_code": 16, "cause_name": "Request accepted", "scope": "message"},
+        )
+        result = self.analyze(events, transactions)
+        link = self.link_for(result, "sgw_s1u")
+        self.assertEqual(link["association_status"], NOT_ESTABLISHED)
+        self.assertEqual(link["association_basis"], UNASSIGNED_OR_INVALID)
+        self.assertEqual(link["bearer_endpoint"]["eps_bearer_identities"], [0])
+        # The accepted allocation outcome stays observable and unchanged.
+        context = next(
+            item for item in result["hop_local_contexts"] if item["interface_class"] == "S11"
+        )
+        self.assertEqual(context["allocation_outcome_status"], "ACCEPTED")
+        self.assertEqual(context["association_status"], ESTABLISHED)
+
+    # --- 3. EBI zero with an accepted Delete Session naming Linked EBI zero --
+    def test_c3_3_accepted_release_naming_ebi_zero_closes_nothing(self) -> None:
+        events, transactions = grouped_identity_document(0, release_ebi=0)
+        result = self.analyze(events, transactions)
+        binding = next(
+            item
+            for item in result["release_session_bindings"]
+            if item["source_subject_reference"] == "s11-delete-a"
+        )
+        # The release is genuinely accepted and genuinely bound; only the
+        # bearer-generation identity is unproved.
+        self.assertEqual(binding["association_status"], ESTABLISHED)
+        self.assertEqual(binding["release_outcome_status"], "ACCEPTED")
+        self.assertEqual(result["established_closure_candidate_count"], 0)
+        for candidate in result["generation_closure_candidates"]:
+            self.assertEqual(candidate["association_status"], NOT_ESTABLISHED)
+
+    # --- 4. EBI zero with no readable Linked EBI in the release request -----
+    def test_c3_4_absent_linked_ebi_does_not_close_an_unassigned_generation(self) -> None:
+        events, transactions = grouped_identity_document(0, release_ebi=None)
+        result = self.analyze(events, transactions)
+        binding = next(
+            item
+            for item in result["release_session_bindings"]
+            if item["source_subject_reference"] == "s11-delete-a"
+        )
+        self.assertEqual(binding["association_status"], ESTABLISHED)
+        self.assertEqual(binding["release_outcome_status"], "ACCEPTED")
+        link = self.link_for(result, "sgw_s1u")
+        self.assertEqual(link["association_status"], NOT_ESTABLISHED)
+        self.assertEqual(link["association_basis"], UNASSIGNED_OR_INVALID)
+        candidate = self.candidate_for(result, link["target_subject_reference"])
+        self.assertEqual(candidate["association_status"], NOT_ESTABLISHED)
+        # Only the independently proved EBI-5 endpoint keeps a candidate.
+        self.assertEqual(result["established_closure_candidate_count"], 1)
+
+    # --- 5. Invalid out-of-domain grouped EBI -------------------------------
+    def test_c3_5_out_of_domain_ebi_cannot_establish_identity(self) -> None:
+        for invalid in (16, 99, -1, -15):
+            events, transactions = grouped_identity_document(invalid)
+            result = self.analyze(events, transactions)
+            link = self.link_for(result, "sgw_s1u")
+            self.assertEqual(link["association_status"], NOT_ESTABLISHED, repr(invalid))
+            self.assertEqual(link["association_basis"], UNASSIGNED_OR_INVALID, repr(invalid))
+            self.assertEqual(
+                link["bearer_endpoint"]["eps_bearer_identities"], [invalid], repr(invalid)
+            )
+            self.assertEqual(result["established_closure_candidate_count"], 1, repr(invalid))
+
+    # --- 6. Valid grouped EBI 5 with Cause 16 -------------------------------
+    def test_c3_6_assigned_ebi_five_with_cause_16_still_establishes(self) -> None:
+        events, transactions = grouped_identity_document(5, bearer_cause=16)
+        result = self.analyze(events, transactions)
+        link = self.link_for(result, "sgw_s1u")
+        self.assertEqual(link["association_status"], ESTABLISHED)
+        self.assertEqual(link["association_basis"], model.BASIS_ENDPOINT_LINK)
+        self.assertEqual(link["bearer_endpoint"]["eps_bearer_identities"], [5])
+        self.assertEqual(result["established_closure_candidate_count"], 2)
+
+    # --- 7. Two distinct valid grouped EBIs sharing one endpoint ------------
+    def test_c3_7_two_assigned_identities_on_one_endpoint_stay_ambiguous(self) -> None:
+        events, transactions = grouped_identity_document(
+            None,
+            contexts=[
+                bearer_context(5, [bearer_fteid(1, 56, SGW_S1U)]),
+                bearer_context(6, [bearer_fteid(1, 56, SGW_S1U)]),
+            ],
+        )
+        result = self.analyze(events, transactions)
+        link = self.link_for(result, "sgw_s1u")
+        self.assertEqual(link["association_status"], AMBIGUOUS)
+        self.assertEqual(
+            link["association_basis"], "distinct_bearer_identities_share_one_endpoint"
+        )
+
+    # --- 8. Valid grouped EBI 5 plus duplicate message-scope F-TEID ---------
+    def test_c3_8_duplicate_message_scope_advertisement_keeps_a_valid_grouped_item(self) -> None:
+        events, transactions = grouped_identity_document(5, message_scope_duplicate=True)
+        result = self.analyze(events, transactions)
+        link = self.link_for(result, "sgw_s1u")
+        self.assertEqual(link["association_status"], ESTABLISHED)
+        self.assertEqual(link["association_basis"], model.BASIS_ENDPOINT_LINK)
+        self.assertEqual(link["bearer_endpoint"]["eps_bearer_identities"], [5])
+
+    # --- 9. Missing EBI keeps its own fail-closed basis ---------------------
+    def test_c3_9_missing_ebi_keeps_its_own_fail_closed_basis(self) -> None:
+        events, transactions = grouped_identity_document(None)
+        result = self.analyze(events, transactions)
+        link = self.link_for(result, "sgw_s1u")
+        self.assertEqual(link["association_status"], NOT_ESTABLISHED)
+        self.assertEqual(link["association_basis"], "grouped_bearer_item_identity_missing")
+        self.assertEqual(link["bearer_endpoint"]["eps_bearer_identities"], [])
+
+    # --- 10. End-to-end lifecycle refusal (standalone CLI) ------------------
+    def test_c3_10_lifecycle_refuses_the_unassigned_identity_generation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            events, transactions = grouped_identity_document(0, release_ebi=0)
+            events_path, transactions_path = self.write_inputs(tmp_path, events, transactions)
+            identity = self.run_identity(tmp_path, events_path, transactions_path)
+            code, analysis = self.run_lifecycle(
+                tmp_path, events_path, transactions_path, identity
+            )
+            self.assertEqual(code, 0)
+            self.assertIsNotNone(analysis)
+            self.assertEqual(analysis["generation_boundary_count"], 0)
+            self.assertEqual(
+                {item["generation_state"] for item in analysis["lifecycle_subjects"]},
+                {"OPEN_AT_CAPTURE_END"},
+            )
+            # An identity deficiency is never transformed into a release failure.
+            self.assertEqual(
+                sum(
+                    1
+                    for item in analysis["generation_boundary_evidence"]
+                    if item["release_outcome"] == "ACCEPTED"
+                ),
+                2,
+            )
+
+    # --- 11. A valid complete identity document preserves closure ----------
+    def test_c3_11_valid_identity_document_preserves_legitimate_closure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            events, transactions = self.base()
+            events_path, transactions_path = self.write_inputs(tmp_path, events, transactions)
+            identity = self.run_identity(tmp_path, events_path, transactions_path)
+            document = json.loads(identity.read_text(encoding="utf-8"))
+            self.assertEqual(document["established_closure_candidate_count"], 2)
+            code, analysis = self.run_lifecycle(
+                tmp_path, events_path, transactions_path, identity
+            )
+            self.assertEqual(code, 0)
+            self.assertIsNotNone(analysis)
+            self.assertEqual(analysis["generation_boundary_count"], 2)
+            for subject in analysis["lifecycle_subjects"]:
+                self.assertEqual(subject["generation_state"], "CLOSED_BY_ACCEPTED_RELEASE")
+                self.assertEqual(
+                    subject["generation_boundary"]["basis"],
+                    "accepted_release_response_bound_by_reviewed_session_context",
+                )
+
+    # --- 12. Existing C2 incomplete-document behavior stays unchanged ------
+    def test_c3_12_completeness_gate_still_fails_closed_on_an_unassigned_document(self) -> None:
+        events, transactions = grouped_identity_document(0)
+        document = json.loads(json.dumps(self.analyze(events, transactions)))
+        complete = lifecycle_model._session_identity_closure_index(document)
+        self.assertTrue(complete.get("complete"))
+        self.assertIsNone(complete.get("limitation"))
+        document.pop("generation_closure_candidate_count")
+        broken = lifecycle_model._session_identity_closure_index(document)
+        self.assertFalse(broken.get("complete"))
+        self.assertIn("SOURCE_CANDIDATES_METADATA_INVALID", broken.get("limitation"))
+        # Published candidates stay observable, but an incomplete document
+        # closes nothing: completeness is an affirmative proof requirement.
+        index = lifecycle_model.transaction_index(transactions, events)
+        boundaries = lifecycle_model.release_boundaries(events, index)
+        records = lifecycle_model.endpoint_records(events)
+        conflicts = lifecycle_model.transaction_endpoint_values(transactions, events, index)
+        families = lifecycle_model.build_advertisement_families(
+            records, index, conflicts, boundaries
+        )
+        generations, _ = lifecycle_model.build_generations(families, boundaries, broken)
+        self.assertFalse(
+            any(
+                generation["generation_state"] == "CLOSED_BY_ACCEPTED_RELEASE"
+                for generation in generations
+            )
+        )
+
+    # --- Extra: a mixed endpoint never discards conflicting evidence -------
+    def test_c3_13_mixed_assigned_and_unassigned_identity_fails_closed(self) -> None:
+        for mixed in (0, 99):
+            events, transactions = grouped_identity_document(
+                None,
+                contexts=[
+                    bearer_context(5, [bearer_fteid(1, 56, SGW_S1U)]),
+                    bearer_context(mixed, [bearer_fteid(1, 56, SGW_S1U)]),
+                ],
+            )
+            result = self.analyze(events, transactions)
+            link = self.link_for(result, "sgw_s1u")
+            self.assertEqual(link["association_status"], NOT_ESTABLISHED, repr(mixed))
+            self.assertEqual(link["association_basis"], UNASSIGNED_OR_INVALID, repr(mixed))
+            self.assertTrue(any("mixes assigned" in item for item in link["limitations"]))
+            self.assertEqual(result["established_closure_candidate_count"], 1, repr(mixed))
+
+    # --- Extra: the lifecycle re-verifies the candidate independently ------
+    def test_c3_14_lifecycle_rejects_a_doctored_established_zero_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            events, transactions = grouped_identity_document(0)
+            events_path, transactions_path = self.write_inputs(tmp_path, events, transactions)
+            document = json.loads(json.dumps(self.analyze(events, transactions)))
+            link = next(
+                item
+                for item in document["session_to_generation_links"]
+                if item["bearer_endpoint"]["role"] == "sgw_s1u"
+            )
+            # Promote the unassigned chain exactly as a pre-correction document
+            # would have published it.
+            link["association_status"] = ESTABLISHED
+            candidate = next(
+                item
+                for item in document["generation_closure_candidates"]
+                if item["bearer_endpoint_reference"] == link["target_subject_reference"]
+            )
+            candidate["association_status"] = ESTABLISHED
+            candidate["association_basis"] = (
+                "accepted_release_bound_to_one_established_context_with_one_established_"
+                "session_to_generation_link"
+            )
+            candidate["bearer_endpoint"] = json.loads(json.dumps(link["bearer_endpoint"]))
+            candidate["bearer_endpoint"]["eps_bearer_identities"] = [0]
+            document["established_closure_candidate_count"] = 2
+            doctored = tmp_path / "identity-doctored.json"
+            doctored.write_text(json.dumps(document, sort_keys=True), encoding="utf-8")
+
+            index = lifecycle_model._session_identity_closure_index(document)
+            self.assertTrue(index.get("complete"))
+            self.assertNotIn(
+                (
+                    candidate["session_context_reference"],
+                    candidate["release_transaction_reference"],
+                    candidate["bearer_endpoint_reference"],
+                ),
+                index["candidates"],
+            )
+            code, analysis = self.run_lifecycle(
+                tmp_path, events_path, transactions_path, doctored
+            )
+            self.assertEqual(code, 0)
+            self.assertIsNotNone(analysis)
+            # Only the independently proved EBI-5 generation closes.
+            self.assertEqual(analysis["generation_boundary_count"], 1)
+            closed = [
+                item["receiving_endpoint_role"]
+                for item in analysis["lifecycle_subjects"]
+                if item["generation_boundary"]
+            ]
+            self.assertEqual(closed, ["enodeb_s1u"])
+
+    # --- Extra: the classification vocabulary itself ------------------------
+    def test_c3_15_identity_value_classification_vocabulary(self) -> None:
+        cases = [
+            (0, lifecycle_model.ITEM_IDENTITY_UNASSIGNED),
+            (1, lifecycle_model.ITEM_IDENTITY_ASSIGNED),
+            (4, lifecycle_model.ITEM_IDENTITY_ASSIGNED),
+            (5, lifecycle_model.ITEM_IDENTITY_ASSIGNED),
+            (15, lifecycle_model.ITEM_IDENTITY_ASSIGNED),
+            (16, lifecycle_model.ITEM_IDENTITY_INVALID),
+            (99, lifecycle_model.ITEM_IDENTITY_INVALID),
+            (-1, lifecycle_model.ITEM_IDENTITY_INVALID),
+            (None, lifecycle_model.ITEM_IDENTITY_UNRESOLVED),
+            (True, lifecycle_model.ITEM_IDENTITY_INVALID),
+            (False, lifecycle_model.ITEM_IDENTITY_INVALID),
+            ("5", lifecycle_model.ITEM_IDENTITY_INVALID),
+            (5.0, lifecycle_model.ITEM_IDENTITY_INVALID),
+        ]
+        for value, expected in cases:
+            self.assertEqual(
+                lifecycle_model.classify_eps_bearer_identity(value), expected, repr(value)
+            )
+        self.assertTrue(
+            lifecycle_model.eps_bearer_identity_is_readable(
+                lifecycle_model.ITEM_IDENTITY_UNASSIGNED
+            )
+        )
+        self.assertTrue(
+            lifecycle_model.eps_bearer_identity_is_readable(
+                lifecycle_model.ITEM_IDENTITY_ASSIGNED
+            )
+        )
+        self.assertFalse(
+            lifecycle_model.eps_bearer_identity_is_readable(
+                lifecycle_model.ITEM_IDENTITY_INVALID
+            )
+        )
+        self.assertFalse(
+            lifecycle_model.eps_bearer_identity_is_readable(
+                lifecycle_model.ITEM_IDENTITY_UNRESOLVED
+            )
+        )
+        self.assertEqual(lifecycle_model.assigned_eps_bearer_identities([0, 5, 16, None]), {5})
+        self.assertEqual(lifecycle_model.assigned_eps_bearer_identities(None), set())
+        self.assertEqual(lifecycle_model.assigned_eps_bearer_identities("5"), set())
+
+    # --- Extra: no unconditional 5..15 rule ---------------------------------
+    def test_c3_16_low_assigned_identities_are_not_unconditionally_rejected(self) -> None:
+        for ebi in (1, 2, 3, 4, 15):
+            events, transactions = grouped_identity_document(ebi, release_ebi=ebi)
+            result = self.analyze(events, transactions)
+            link = self.link_for(result, "sgw_s1u")
+            self.assertEqual(link["association_status"], ESTABLISHED, repr(ebi))
+            self.assertEqual(link["association_basis"], model.BASIS_ENDPOINT_LINK, repr(ebi))
+            self.assertEqual(link["bearer_endpoint"]["eps_bearer_identities"], [ebi], repr(ebi))
+            candidate = self.candidate_for(result, link["target_subject_reference"])
+            self.assertEqual(candidate["association_status"], ESTABLISHED, repr(ebi))
+
+
 if __name__ == "__main__":
     unittest.main()

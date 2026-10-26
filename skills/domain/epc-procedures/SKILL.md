@@ -319,10 +319,16 @@ three strictly separated kinds of relationship:
   separate classification layers: a hop-local context is established only when its
   correlated allocation response carries an accepted message-scope Cause, a
   rejected or unresolved grouped bearer item blocks its endpoint's bearer
-  association, one endpoint carrying two distinct item-scoped bearer identities
-  stays ambiguous, and the lifecycle refuses session-context closure entirely when
-  the identity analysis publishes fewer records than its own counts
-  (`SOURCE_CANDIDATES_TRUNCATED`).
+  association, one endpoint carrying two distinct assigned item-scoped bearer
+  identities stays ambiguous, and the lifecycle refuses session-context closure
+  entirely when the identity analysis publishes fewer records than its own counts
+  (`SOURCE_CANDIDATES_TRUNCATED`). A readable item-scoped EBI is not an assigned
+  bearer identity: zero is the explicit "no EPS bearer identity assigned" code
+  (TS 24.007 sec 11.2.3.1.5, TS 24.301 sec 9.3.2, TS 29.274 sec 8.8) and a value
+  outside the four-bit encoded domain is no identity, so neither establishes a
+  bearer association, a closure candidate or a generation, and an endpoint mixing
+  assigned with unassigned evidence fails closed rather than discarding the
+  conflict.
 
 See `references/session-identity-bridge.md` and `references/release-binding.md`.
 
@@ -358,4 +364,4 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Original CoreNet Domain-layer package. No upstream material imported. Normative
 references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the accepted
-`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.6.2.
+`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.6.3.

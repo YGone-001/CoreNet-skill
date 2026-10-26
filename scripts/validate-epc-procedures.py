@@ -1925,6 +1925,110 @@ def _validate_session_identity(skill: Path, root: Path) -> list[str]:
     ) != 1:
         fail("the message-scope-only generation must stay open at the lifecycle")
 
+    # C3: a readable EPS Bearer Identity value is not an assigned bearer
+    # identity. Zero is the explicit "no EPS bearer identity assigned" code
+    # (3GPP TS 24.007 sec 11.2.3.1.5, TS 24.301 sec 9.3.2, TS 29.274 sec 8.8)
+    # and a value outside the 4-bit encoded domain is no identity at all, so
+    # neither may establish a bearer association, a closure candidate or a
+    # generation.
+    def _unassigned_scenario(value):
+        scenario_events, scenario_document = _session_identity_scenario()
+        for scenario_item in scenario_events:
+            if scenario_item["frame_number"] == 103:
+                scenario_item["bearer_contexts"] = [
+                    {
+                        "ebi": value,
+                        "cause": None,
+                        "f_teids": [
+                            {
+                                "scope": "bearer",
+                                "interface_type": 1,
+                                "teid": 56,
+                                "ipv4": "10.0.0.20",
+                            }
+                        ],
+                    }
+                ]
+        return scenario_events, scenario_document
+
+    for unassigned_value in (0, 16, 99, -1):
+        identity_events, identity_document = _unassigned_scenario(unassigned_value)
+        identity = model.analyze(identity_events, transactions=identity_document)
+        identity_links = {
+            item["bearer_endpoint"]["role"]: item
+            for item in identity["session_to_generation_links"]
+        }
+        unassigned_link = identity_links.get("sgw_s1u", {})
+        if unassigned_link.get("association_status") != "NOT_ESTABLISHED":
+            fail(
+                "an unassigned or out-of-domain grouped EBI "
+                f"({unassigned_value}) must not establish a bearer association"
+            )
+        if unassigned_link.get("association_basis") != (
+            "grouped_bearer_item_identity_unassigned_or_invalid"
+        ):
+            fail(
+                "an unassigned or out-of-domain grouped EBI "
+                f"({unassigned_value}) must publish its fail-closed basis"
+            )
+        if unassigned_link.get("bearer_endpoint", {}).get("eps_bearer_identities") != [
+            unassigned_value
+        ]:
+            fail("an unassigned or out-of-domain EBI must stay published as diagnostic evidence")
+        if identity_links.get("enodeb_s1u", {}).get("association_status") != "ESTABLISHED":
+            fail("an unassigned or out-of-domain EBI must not block another receiving role")
+        if identity["established_closure_candidate_count"] != 1:
+            fail("only the assigned-EBI endpoint may keep an established closure candidate")
+        unassigned_index = lifecycle.transaction_index(identity_document, identity_events)
+        unassigned_boundaries = lifecycle.release_boundaries(identity_events, unassigned_index)
+        unassigned_records = lifecycle.endpoint_records(identity_events)
+        unassigned_conflicts = lifecycle.transaction_endpoint_values(
+            identity_document, identity_events, unassigned_index
+        )
+        unassigned_families = lifecycle.build_advertisement_families(
+            unassigned_records, unassigned_index, unassigned_conflicts, unassigned_boundaries
+        )
+        unassigned_generations, _ = lifecycle.build_generations(
+            unassigned_families,
+            unassigned_boundaries,
+            lifecycle._session_identity_closure_index(identity),
+        )
+        if sum(
+            1
+            for generation in unassigned_generations
+            if generation["generation_state"] == "CLOSED_BY_ACCEPTED_RELEASE"
+        ) != 1:
+            fail("the unassigned-identity generation must stay open at the lifecycle")
+
+    # A published closure candidate is never trusted on its own status: a
+    # doctored ESTABLISHED candidate whose endpoint carries only EBI zero must
+    # still close nothing, because the lifecycle re-verifies the identity.
+    zero_events, zero_document = _unassigned_scenario(0)
+    zero_analysis = model.analyze(zero_events, transactions=zero_document)
+    doctored = json.loads(json.dumps(zero_analysis))
+    doctored_link = next(
+        item
+        for item in doctored["session_to_generation_links"]
+        if item["bearer_endpoint"]["role"] == "sgw_s1u"
+    )
+    doctored_link["association_status"] = "ESTABLISHED"
+    doctored_candidate = next(
+        item
+        for item in doctored["generation_closure_candidates"]
+        if item["bearer_endpoint_reference"] == doctored_link["target_subject_reference"]
+    )
+    doctored_candidate["association_status"] = "ESTABLISHED"
+    doctored_candidate["bearer_endpoint"] = json.loads(
+        json.dumps(doctored_link["bearer_endpoint"])
+    )
+    doctored_candidate["bearer_endpoint"]["eps_bearer_identities"] = [0]
+    if (
+        doctored_candidate["session_context_reference"],
+        doctored_candidate["release_transaction_reference"],
+        doctored_candidate["bearer_endpoint_reference"],
+    ) in lifecycle._session_identity_closure_index(doctored)["candidates"]:
+        fail("a closure candidate carrying only EBI zero must never be indexed for closure")
+
     # C2: missing completeness metadata, underdeclared counts and nonzero
     # omitted counts fail closed with their own precise limitation token; only
     # positive truncation keeps SOURCE_CANDIDATES_TRUNCATED.

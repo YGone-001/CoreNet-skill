@@ -88,18 +88,60 @@ Every S1-U endpoint keeps one item record per grouped bearer-context
 advertisement. A bearer-scope Cause decides its own item's outcome and is never
 overridden by the message-level Cause; an item without a grouped Cause falls back
 only to its own transaction's correlated response message Cause; flat unbound IE
-values are never assigned to any item by position. A rejected or unresolved item
-blocks that endpoint's bearer association, and one endpoint advertising more than
-one distinct item-scoped bearer identity stays `AMBIGUOUS` — both source records
-are preserved and no single bearer generation is isolated.
+values are never assigned to any item by position. The outcome of **every**
+grouped item of the endpoint is evaluated, so a rejected or unresolved item —
+including one that carries no readable identity — blocks that endpoint's bearer
+association and is never outweighed by a sibling item. One endpoint advertising
+more than one distinct assigned item-scoped bearer identity stays `AMBIGUOUS` —
+both source records are preserved and no single bearer generation is isolated.
 
-Bearer identity is an affirmative requirement: at least one grouped item must
-carry a readable item-scoped EBI before anything is established. An endpoint
-advertised only at message scope, or whose grouped items carry no readable EBI,
-fails closed on `grouped_bearer_item_identity_missing`; the message-scope
-advertisement remains observable diagnostic evidence that neither establishes nor
-blocks the association, and a duplicated message-scope record never disqualifies
-an otherwise independently proved grouped relationship.
+## EPS Bearer Identity value validity
+
+Bearer identity is an affirmative requirement, and it is a requirement on an
+**assigned** identity, not merely on a readable number. The field is a four-bit
+identity: 3GPP TS 24.007 sec 11.2.3.1.5, 3GPP TS 24.301 sec 9.3.2 and
+3GPP TS 29.274 sec 8.8 code zero as "no EPS bearer identity assigned", and
+1..15 as bearer identity values. Values 1..4 additionally depend on the
+participating nodes supporting fifteen EPS bearer contexts, which an observed
+message never proves either way, so this capability applies no unconditional
+5..15 rule and treats every value in 1..15 as potentially assigned.
+
+One observed grouped value is classified internally as one of:
+
+```text
+ITEM_IDENTITY_ASSIGNED     readable, inside 1..15   -> may isolate a bearer
+ITEM_IDENTITY_UNASSIGNED   readable, exactly 0      -> never isolates a bearer
+ITEM_IDENTITY_INVALID      outside the encoded domain, or not an integer
+ITEM_IDENTITY_UNRESOLVED   absent or unreadable
+ITEM_IDENTITY_READABLE     the union of ASSIGNED and UNASSIGNED
+```
+
+Only `ITEM_IDENTITY_ASSIGNED` satisfies the identity requirement. At least one
+grouped item must carry an assigned item-scoped EBI before anything is
+established; an endpoint whose grouped items carry only zero or an out-of-domain
+value fails closed on `grouped_bearer_item_identity_unassigned_or_invalid`, and
+an endpoint advertised only at message scope, or whose grouped items carry no
+readable EBI at all, fails closed on `grouped_bearer_item_identity_missing`.
+
+Two further consequences follow, and both are enforced rather than assumed:
+
+- **A mixed endpoint fails closed.** When one endpoint is advertised both by an
+  item with an assigned identity and by an item whose identity is zero or
+  out-of-domain, the assigned item's ownership of that endpoint is not
+  independently unique. The link fails closed on
+  `grouped_bearer_item_identity_unassigned_or_invalid`; the conflicting evidence
+  is never silently discarded to raise the established count.
+- **Reading is not proving.** An accepted message-scope Cause 16 decides only the
+  item's outcome. It never manufactures an assigned identity, and it never
+  rescues an item whose EBI is zero or out-of-domain.
+
+Observed values stay published. An unassigned or out-of-domain identity remains
+visible in `bearer_endpoint.eps_bearer_identities` and in the reviewed
+identifiers as diagnostic evidence; only its proof status is refused. The
+message-scope advertisement likewise remains observable diagnostic evidence that
+neither establishes nor blocks the association, and a duplicated message-scope
+record never disqualifies an otherwise independently proved grouped
+relationship.
 
 ## Hop classification
 

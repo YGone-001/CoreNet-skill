@@ -10,6 +10,9 @@
     "3GPP TS 29.274 sec 8.21 F-TEID",
     "3GPP TS 29.274 sec 8.22 F-TEID interface types",
     "3GPP TS 29.274 sec 8.4 Cause values",
+    "3GPP TS 29.274 sec 8.8 EPS Bearer ID (EBI) information element",
+    "3GPP TS 24.007 sec 11.2.3.1.5 EPS bearer identity coding",
+    "3GPP TS 24.301 sec 9.3.2 EPS bearer identity",
     "3GPP TS 36.413 sec 9.1.4 E-RABToBeSetupItemCtxtSUReq",
     "3GPP TS 36.413 sec 9.1.5 E-RABSetupItemCtxtSURes",
     "3GPP TS 29.281 sec 4.4 GTP-U TEID and receiving endpoint"
@@ -53,10 +56,21 @@
       "every grouped bearer item of the endpoint inside the owning context accepted",
       "an item without a grouped bearer Cause falls back only to its own transaction's correlated response message Cause",
       "flat unbound IE values are never assigned to any item by position",
-      "at least one grouped bearer-context item with a readable item-scoped bearer identity",
-      "at most one distinct item-scoped bearer identity per endpoint in the context",
+      "at least one grouped bearer-context item with a valid assigned item-scoped bearer identity (EBI 1..15)",
+      "an item-scoped identity of zero is the explicit no-EPS-bearer-identity-assigned code and never establishes a bearer association",
+      "an item-scoped identity outside the 4-bit encoded domain (0..15) is no identity and never establishes a bearer association",
+      "an endpoint mixing assigned with unassigned or out-of-domain item-scoped identities fails closed because the assigned item's ownership is not independently unique",
+      "at most one distinct assigned item-scoped bearer identity per endpoint in the context",
       "exactly one endpoint of the receiving role in the context"
     ],
+    "eps_bearer_identity_value_semantics": {
+      "encoding": "4-bit identity field; 0 = no EPS bearer identity assigned; 1..15 = EPS bearer identity value",
+      "zero": "never an assigned identity and never sufficient for any relationship",
+      "one_to_four": "potentially assigned; usable only where the participating nodes support fifteen EPS bearer contexts, which an observed message does not prove either way, so no unconditional 5..15 rule is applied",
+      "five_to_fifteen": "potentially assigned, subject to the same acceptance, uniqueness and release-compatibility gates",
+      "out_of_domain": "a value outside 0..15 is not an identity and establishes nothing",
+      "readability_is_not_assignment": "reading a numeric IE value never proves that a bearer was assigned"
+    },
     "hop_classification_requires": [
       "each classifying F-TEID corroborated by the publishing message's own source and destination addresses",
       "a relayed foreign-interface F-TEID alone yields INSUFFICIENT_HOP_EVIDENCE and never seeds a context",
@@ -121,6 +135,7 @@
       "no_invented_cross_interface_join",
       "exact_capture_and_transaction_provenance",
       "distinct_release_request_and_confirmation_frames",
+      "endpoint_item_scoped_identities_include_at_least_one_valid_assigned_ebi",
       "release_bearer_identities_compatible_with_endpoint_item_scoped_identities",
       "owning_context_allocation_outcome_accepted",
       "endpoint_bearer_items_accepted_with_one_isolated_item_scoped_identity",
@@ -160,6 +175,8 @@
     "a numerically equal TEID, EBI or sequence number is never an identity bridge",
     "a release bound to a control-plane context does not by itself close a bearer generation",
     "an accepted release outcome stays unchanged whatever the session binding resolves to",
+    "a readable EPS Bearer Identity value is not proof that an EPS bearer was assigned",
+    "an EPS Bearer Identity of zero never identifies an EPS bearer",
     "the exact instant user-plane forwarding stopped is never proven by a release response",
     "no subscriber identity, APN name or assigned PDN address is read or published",
     "no complete EPC session or bearer state machine is implemented"

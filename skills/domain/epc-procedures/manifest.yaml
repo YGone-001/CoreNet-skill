@@ -1,5 +1,5 @@
 name: epc-procedures
-version: 0.6.2
+version: 0.6.3
 category: domain
 description: >
   Bounded EPS Attach procedure analysis over already-extracted S1AP and NAS-EPS
@@ -61,6 +61,7 @@ scope:
     - hop-local S11 and S5/S8 session contexts joined only by receiver-scoped control-plane F-TEID addressing with its GTP-C path peer
     - cross-interface endpoint correspondence published separately from cross-interface session identity
     - session identity established only by a relayed PGW S5/S8 control-plane F-TEID that is equal and unique on both hops
+    - bearer association established only by a valid assigned item-scoped EPS Bearer Identity, with zero and out-of-domain values retained as diagnostic evidence that establish nothing
     - release-to-session bindings whose outcomes stay separately classified
     - reviewed session-context generation closure consumed by the lifecycle capability through a documented input contract
   excludes:

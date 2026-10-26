@@ -82,10 +82,25 @@ Required for a closure candidate:
 8. the release request and confirmation frames remain distinct;
 9. the release's message-scope bearer identities (Linked EPS Bearer ID) are
    compatible with the endpoint's item-scoped identities whenever both are
-   present.
+   present;
+10. the endpoint's item-scoped identities include at least one valid **assigned**
+    EBI (1..15). Zero is the explicit "no EPS bearer identity assigned" code and
+    an out-of-domain value is no identity at all, so an accepted Delete Session
+    naming EBI zero can never supply the missing bearer identity and never turns
+    that value into one.
+
+Gate 10 is re-verified inside the candidate builder rather than inherited from
+the upstream link status, so a document that publishes an `ESTABLISHED` link for
+an endpoint carrying only EBI zero still yields
+`endpoint_bearer_identity_unassigned_or_invalid` instead of an established
+candidate.
 
 If any required link is missing the result is
 `GENERATION_CLOSURE_NOT_ESTABLISHED` and the accepted release stays visible.
+An identity deficiency is never transformed into a fictitious release failure:
+`release_outcome_status` stays `ACCEPTED` while
+`session_to_generation_status`, `generation_closure_candidate_status` and
+`bearer_generation_closure_status` stay `NOT_ESTABLISHED`.
 
 ## Same-hop before cross-hop
 

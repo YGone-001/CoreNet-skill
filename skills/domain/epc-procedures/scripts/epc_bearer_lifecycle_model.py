@@ -143,6 +143,35 @@ RELEASE_OUTCOMES = (RELEASE_ACCEPTED, RELEASE_REJECTED, RELEASE_UNRESOLVED)
 
 ACCEPTED_CAUSE_CODES = frozenset({16, 17, 18})
 
+# EPS Bearer Identity value semantics. The field is a 4-bit identity in
+# 3GPP TS 24.007 sec 11.2.3.1.5, 3GPP TS 24.301 sec 9.3.2 and 3GPP TS 29.274
+# sec 8.8: value 0 is the explicit "no EPS bearer identity assigned" code and
+# 1..15 are bearer identity values. Values 1..4 additionally depend on the
+# 15-bearer capability of the participating nodes, which an observed message
+# never proves either way, so this model treats every value in 1..15 as a
+# potentially assigned identity and never imposes an unconditional 5..15 rule.
+# Reading a numeric value is not proof that a bearer was assigned: an identity
+# is accepted only after classification as an assigned value.
+EPS_BEARER_IDENTITY_UNASSIGNED_VALUE = 0
+EPS_BEARER_IDENTITY_MIN_ASSIGNED_VALUE = 1
+EPS_BEARER_IDENTITY_MAX_VALUE = 15
+
+# Item-scoped identity classifications. These are Domain classifications of one
+# observed grouped bearer-item identity value; they stay internal to the model
+# and are never published as protocol values.
+ITEM_IDENTITY_READABLE = "ITEM_IDENTITY_READABLE"
+ITEM_IDENTITY_ASSIGNED = "ITEM_IDENTITY_ASSIGNED"
+ITEM_IDENTITY_UNASSIGNED = "ITEM_IDENTITY_UNASSIGNED"
+ITEM_IDENTITY_INVALID = "ITEM_IDENTITY_INVALID"
+ITEM_IDENTITY_UNRESOLVED = "ITEM_IDENTITY_UNRESOLVED"
+ITEM_IDENTITY_CLASSIFICATIONS = (
+    ITEM_IDENTITY_READABLE,
+    ITEM_IDENTITY_ASSIGNED,
+    ITEM_IDENTITY_UNASSIGNED,
+    ITEM_IDENTITY_INVALID,
+    ITEM_IDENTITY_UNRESOLVED,
+)
+
 DELETE_FAMILIES = frozenset({"delete-session", "delete-bearer"})
 UPDATE_FAMILIES = frozenset({"modify-bearer"})
 ALLOCATION_FAMILIES = frozenset({"create-session"})
@@ -205,6 +234,45 @@ def _int(value: Any) -> int | None:
     if isinstance(value, bool) or not isinstance(value, int):
         return None
     return value
+
+
+def classify_eps_bearer_identity(value: Any) -> str:
+    """Classify one observed EPS Bearer Identity value.
+
+    A readable value is not proof of an assigned bearer. 3GPP TS 24.007
+    sec 11.2.3.1.5, 3GPP TS 24.301 sec 9.3.2 and 3GPP TS 29.274 sec 8.8 code
+    zero as "no EPS bearer identity assigned", and the field is four bits wide,
+    so a value outside 0..15 is not an identity at all.
+    """
+    if value is None:
+        return ITEM_IDENTITY_UNRESOLVED
+    if isinstance(value, bool) or not isinstance(value, int):
+        return ITEM_IDENTITY_INVALID
+    if value == EPS_BEARER_IDENTITY_UNASSIGNED_VALUE:
+        return ITEM_IDENTITY_UNASSIGNED
+    if EPS_BEARER_IDENTITY_MIN_ASSIGNED_VALUE <= value <= EPS_BEARER_IDENTITY_MAX_VALUE:
+        return ITEM_IDENTITY_ASSIGNED
+    return ITEM_IDENTITY_INVALID
+
+
+def eps_bearer_identity_is_readable(classification: str) -> bool:
+    """Whether one classification is readable inside the encoded domain.
+
+    Readability covers the assigned values and the explicit unassigned zero; it
+    never means that a bearer was assigned.
+    """
+    return classification in (ITEM_IDENTITY_ASSIGNED, ITEM_IDENTITY_UNASSIGNED)
+
+
+def assigned_eps_bearer_identities(values: Any) -> set[int]:
+    """The observed values that can denote an assigned EPS bearer identity."""
+    result: set[int] = set()
+    if not isinstance(values, (list, tuple, set, frozenset)):
+        return result
+    for value in values:
+        if classify_eps_bearer_identity(value) == ITEM_IDENTITY_ASSIGNED:
+            result.add(int(value))
+    return result
 
 
 def _window(frames: list[Any]) -> dict[str, int] | None:
@@ -1621,6 +1689,16 @@ def _session_identity_closure_index(session_identity: Any) -> dict[str, Any]:
         if not isinstance(candidate, dict):
             continue
         if candidate.get("association_status") != "ESTABLISHED":
+            continue
+        # Downstream identity safeguard. A published closure candidate is never
+        # trusted on its own status: it must independently name a bearer
+        # endpoint carrying at least one assigned EPS Bearer Identity, so an
+        # analysis produced by an older or doctored implementation cannot close
+        # a generation through an unassigned or out-of-domain value.
+        endpoint_record = candidate.get("bearer_endpoint")
+        if not isinstance(endpoint_record, dict):
+            continue
+        if not assigned_eps_bearer_identities(endpoint_record.get("eps_bearer_identities")):
             continue
         index["candidates"].add(
             (

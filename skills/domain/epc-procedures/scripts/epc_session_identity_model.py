@@ -43,6 +43,10 @@ from epc_bearer_lifecycle_model import (
     ACCEPTED_CAUSE_CODES,
     ALLOCATION_FAMILIES,
     DELETE_FAMILIES,
+    ITEM_IDENTITY_ASSIGNED,
+    ITEM_IDENTITY_INVALID,
+    ITEM_IDENTITY_UNASSIGNED,
+    ITEM_IDENTITY_UNRESOLVED,
     InputError,
     MAX_EVIDENCE_REFERENCES,
     MAX_LIST_ITEMS,
@@ -53,7 +57,10 @@ from epc_bearer_lifecycle_model import (
     _event_endpoint_records,
     _message_cause,
     _int,
+    assigned_eps_bearer_identities,
     binding_for_event,
+    classify_eps_bearer_identity,
+    eps_bearer_identity_is_readable,
     event_key,
     proof_strength,
     read_json,
@@ -124,6 +131,12 @@ BASIS_MEMBER_ALLOCATION = "member_of_the_context_through_its_allocation_transact
 BASIS_MEMBER_ADDRESSING = "member_of_the_context_through_receiver_scoped_addressing"
 BASIS_ENDPOINT_LINK = (
     "endpoint_advertised_by_a_member_transaction_of_one_established_context"
+)
+BASIS_GROUPED_IDENTITY_UNASSIGNED_OR_INVALID = (
+    "grouped_bearer_item_identity_unassigned_or_invalid"
+)
+BASIS_ENDPOINT_IDENTITY_UNASSIGNED_OR_INVALID = (
+    "endpoint_bearer_identity_unassigned_or_invalid"
 )
 
 NOT_CONFIRMED = [
@@ -1156,11 +1169,24 @@ def build_session_generation_links(
         grouped_items = [
             item for item in context_items if item.get("scope") == "bearer"
         ]
-        distinct_identities = {
-            item["eps_bearer_identity"]
-            for item in grouped_items
-            if item["eps_bearer_identity"] is not None
-        }
+        # Item-scoped identity classification. A readable grouped value is not
+        # an assigned bearer identity: zero is the explicit "no EPS bearer
+        # identity assigned" code and a value outside the 4-bit encoded domain
+        # is no identity at all, so neither can isolate a bearer generation.
+        assigned_identities: set[int] = set()
+        unassigned_items = 0
+        invalid_items = 0
+        unreadable_items = 0
+        for item in grouped_items:
+            classification = classify_eps_bearer_identity(item.get("eps_bearer_identity"))
+            if classification == ITEM_IDENTITY_ASSIGNED:
+                assigned_identities.add(int(item["eps_bearer_identity"]))
+            elif classification == ITEM_IDENTITY_UNRESOLVED:
+                unreadable_items += 1
+            elif eps_bearer_identity_is_readable(classification):
+                unassigned_items += 1
+            else:
+                invalid_items += 1
         item_outcomes = {_item_outcome(item) for item in grouped_items}
         limitations: list[str] = []
         if context["association_status"] != STATUS_ESTABLISHED:
@@ -1169,20 +1195,52 @@ def build_session_generation_links(
             limitations.append(
                 "the owning session context is not established, so the link cannot be established"
             )
-        elif not distinct_identities:
+        elif not assigned_identities and (unassigned_items or invalid_items):
+            status = STATUS_NOT_ESTABLISHED
+            basis = BASIS_GROUPED_IDENTITY_UNASSIGNED_OR_INVALID
+            detail = []
+            if unassigned_items:
+                detail.append(
+                    f"{unassigned_items} item(s) advertise EPS Bearer Identity 0, which means no "
+                    "EPS bearer identity was assigned"
+                )
+            if invalid_items:
+                detail.append(
+                    f"{invalid_items} item(s) advertise an identity outside the 4-bit encoded "
+                    "domain (0..15)"
+                )
+            limitations.append(
+                "no grouped bearer-context item of this endpoint carries a valid assigned "
+                "item-scoped EPS bearer identity: " + "; ".join(detail)
+            )
+        elif not assigned_identities:
             status = STATUS_NOT_ESTABLISHED
             basis = "grouped_bearer_item_identity_missing"
+            detail = (
+                f" ({unreadable_items} grouped item(s) carry no readable item-scoped identity)"
+                if unreadable_items
+                else ""
+            )
             limitations.append(
                 "no grouped bearer-context item of this endpoint carries a readable item-scoped "
                 "bearer identity, so the message-scope advertisement alone cannot establish a "
-                "bearer association"
+                "bearer association" + detail
             )
-        elif len(distinct_identities) > 1:
+        elif unassigned_items or invalid_items:
+            status = STATUS_NOT_ESTABLISHED
+            basis = BASIS_GROUPED_IDENTITY_UNASSIGNED_OR_INVALID
+            limitations.append(
+                "the endpoint mixes assigned with unassigned or out-of-domain item-scoped "
+                "identities, so the assigned item's ownership of this endpoint is not "
+                "independently unique and no conflicting evidence is discarded to raise the "
+                "established count"
+            )
+        elif len(assigned_identities) > 1:
             status = STATUS_AMBIGUOUS
             basis = "distinct_bearer_identities_share_one_endpoint"
             limitations.append(
-                "the endpoint advertises more than one item-scoped bearer identity "
-                f"({sorted(distinct_identities)}), so no single EPS bearer generation is isolated"
+                "the endpoint advertises more than one assigned item-scoped bearer identity "
+                f"({sorted(assigned_identities)}), so no single EPS bearer generation is isolated"
             )
         elif "REJECTED_OBSERVED" in item_outcomes:
             status = STATUS_NOT_ESTABLISHED
@@ -1609,6 +1667,11 @@ def build_closure_candidates(
                 release_bearer_identities.get(str(binding["source_subject_reference"]), [])
             )
             endpoint_identities = set(link["bearer_endpoint"]["eps_bearer_identities"] or [])
+            # Independent defense: the candidate builder re-verifies the
+            # endpoint's item-scoped identity instead of trusting the upstream
+            # link status. A readable value is not an assigned bearer, so a
+            # Delete Session naming EBI zero can never make zero an identity.
+            assigned_endpoint_identities = assigned_eps_bearer_identities(endpoint_identities)
             if not endpoint_identities:
                 candidates.append(
                     _candidate(
@@ -1619,6 +1682,22 @@ def build_closure_candidates(
                         [
                             "the linked endpoint carries no independently established item-scoped "
                             "bearer identity, so no closure candidate may rest on it"
+                        ],
+                    )
+                )
+                continue
+            if not assigned_endpoint_identities:
+                candidates.append(
+                    _candidate(
+                        binding,
+                        link,
+                        STATUS_NOT_ESTABLISHED,
+                        BASIS_ENDPOINT_IDENTITY_UNASSIGNED_OR_INVALID,
+                        [
+                            "the linked endpoint carries no valid assigned item-scoped EPS bearer "
+                            "identity: zero means no identity was assigned and a value outside the "
+                            "4-bit encoded domain is no identity at all, so no closure candidate "
+                            "may rest on it"
                         ],
                     )
                 )
@@ -1828,6 +1907,12 @@ def analyze(
             "release_rule": (
                 "the release outcome is classified from the correlated response only and is "
                 "published separately from the session binding"
+            ),
+            "identity_validity_rule": (
+                "an item-scoped EPS Bearer Identity establishes a bearer association only when it "
+                "is an assigned value: zero is the explicit no-EPS-bearer-identity-assigned code "
+                "and a value outside the 4-bit encoded domain is no identity, so neither can "
+                "isolate a bearer generation or support a closure candidate"
             ),
         },
         "hop_local_contexts": contexts[:MAX_SUBJECTS],
