@@ -125,7 +125,9 @@
       "partition_incomplete": "an unreconciled frame set keeps its observed subset positions with partition_scope OBSERVED_SUBSET and temporal_placement_status TEMPORAL_PLACEMENT_NOT_ESTABLISHED; the aggregate stays authoritative and no missing packet or octet is interpolated",
       "duplicate_ownership": "when two release narratives claim the same G-PDU frame, both publish duplicate_frame_ownership, neither publishes a partition, and the frame is assigned to no release window",
       "scoped_attribution_completeness": "no stream is attributed to a proved generation while the lifecycle generation-scoped S1-U collection is truncated or its count metadata is invalid; the aggregate stream counts stay visible and no packet is assigned",
-      "scoped_attribution_uniqueness": "a repeated lifecycle generation-scoped record for one capture, generation and stream is a contradiction that fails closed; no record is selected by order, position or status"
+      "scoped_attribution_uniqueness": "a repeated lifecycle generation-scoped record for one capture, generation and stream is a contradiction that fails closed; no record is selected by order, position or status",
+      "scoped_attribution_direction": "the scoped record's direction must map to a reviewed receiving role and agree with the accepted stream direction; UNKNOWN, missing or unmapped directions never establish ownership and are never reinterpreted",
+      "scoped_claimant_uniqueness": "a generation-scoped record whose generation cannot be placed in exactly one capture still competes for the stream reference it names, so uniqueness is never inferred from the remaining subset"
     },
     "source_reference_validation": [
       "a published release frame anchor is re-checked against the supplied capture when detailed GTPv2-C events are provided",
@@ -153,7 +155,12 @@
       "that record publishes a receiving endpoint role equal to both the proved generation's role and the reviewed S1-U stream's role",
       "that record publishes an accepted association status",
       "the named generation resolves to exactly one capture",
-      "exactly one proved generation claims the stream"
+      "exactly one proved generation claims the stream",
+      "the scoped record publishes a direction",
+      "the direction maps to a reviewed receiving role through the accepted UPLINK->sgw_s1u and DOWNLINK->enodeb_s1u mapping",
+      "that mapped role equals the scoped record's receiving endpoint role",
+      "the scoped direction equals the accepted S1-U stream direction",
+      "the scoped receiving role equals the proved generation's receiving endpoint role and the reviewed stream's matched endpoint role"
     ],
     "scoped_attribution_forbidden": [
       "selecting a record by input order",
@@ -162,7 +169,10 @@
       "inferring ownership from matching endpoint values",
       "treating a visible subset of the collection as the complete candidate set",
       "letting a missing receiving role bypass the role check",
-      "downgrading a control-plane release outcome or a proved generation closure because the optional user-plane attribution collection is incomplete"
+      "downgrading a control-plane release outcome or a proved generation closure because the optional user-plane attribution collection is incomplete",
+      "reinterpreting UNKNOWN as uplink or downlink",
+      "inferring a direction from TEID, destination address or endpoint role alone",
+      "accepting a missing direction because the role happens to match"
     ],
     "scoped_attribution_failure_vocabulary": [
       "capture_identity_mismatch",
@@ -178,7 +188,23 @@
       "conflicting_lifecycle_generation_scoped_attribution",
       "lifecycle_generation_scoped_attribution_publishes_no_receiving_endpoint_role",
       "lifecycle_generation_scoped_attribution_names_another_receiving_role_than_the_stream",
-      "lifecycle_generation_scope_is_not_unique"
+      "lifecycle_generation_scope_is_not_unique",
+      "lifecycle_generation_scoped_attribution_publishes_no_direction",
+      "lifecycle_generation_scoped_attribution_publishes_an_unmapped_direction",
+      "lifecycle_generation_scoped_attribution_direction_contradicts_its_receiving_role",
+      "lifecycle_generation_scoped_attribution_direction_contradicts_the_stream_direction",
+      "unpublished_generation_claims_this_stream",
+      "ambiguous_generation_scope_claims_this_stream"
+    ],
+    "scoped_claimant_requires": [
+      "every lifecycle generation-scoped record naming the reviewed stream reference must resolve to exactly one capture before uniqueness is claimed",
+      "a record whose generation is unpublished or resolves to several captures competes for its stream reference and fails the attribution closed",
+      "the unresolved claim stays visible as unbound evidence"
+    ],
+    "scoped_claimant_forbidden": [
+      "discarding an unresolved claim and inferring uniqueness from the remaining subset",
+      "inferring capture ownership for an unknown generation",
+      "invalidating unrelated stream references or unrelated captures"
     ]
   },
   "forbidden_conclusions": [

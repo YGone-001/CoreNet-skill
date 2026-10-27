@@ -111,6 +111,57 @@ lifecycle_generation_scoped_attribution_names_another_receiving_role_than_the_st
 lifecycle_generation_scope_is_not_unique
 ```
 
+### Direction agreement
+
+Direction is part of the ownership claim, not decoration. The accepted lifecycle
+derives the receiving role from the stream direction, and the accepted S1-U
+analysis derives the direction from the role, so both fix the same mapping:
+
+```text
+UPLINK   <-> sgw_s1u
+DOWNLINK <-> enodeb_s1u
+```
+
+A scoped record must therefore satisfy all of the following:
+
+```text
+its direction is present
+its direction maps to a reviewed receiving role
+that mapped role equals the record's own receiving endpoint role
+the record's direction equals the accepted S1-U stream direction
+the record's role equals the proved generation's role and the stream's role
+```
+
+A direction that fails any of these never establishes ownership:
+
+```text
+lifecycle_generation_scoped_attribution_publishes_no_direction
+lifecycle_generation_scoped_attribution_publishes_an_unmapped_direction
+lifecycle_generation_scoped_attribution_direction_contradicts_its_receiving_role
+lifecycle_generation_scoped_attribution_direction_contradicts_the_stream_direction
+```
+
+`UNKNOWN` is a published value, not an abbreviation for either direction: it is
+unmapped, so it refuses the attribution and is never reinterpreted. A direction is
+never inferred from a TEID, a destination address or a role alone.
+
+### Unresolved claimants
+
+A record whose generation cannot be placed in exactly one capture cannot establish
+ownership, but it still competes for the stream reference it names. Discarding it
+would let the remaining subset look unique, so it fails the attribution closed:
+
+```text
+unpublished_generation_claims_this_stream
+ambiguous_generation_scope_claims_this_stream
+```
+
+The refusal is scoped to the stream reference the record names. An unresolved claim
+on another stream, or in another capture, never invalidates a legitimate
+attribution, and capture ownership is never inferred for an unknown generation. The
+claim itself stays visible in `unbound_evidence` as
+`unresolved_generation_scoped_attribution_claim`.
+
 ### Refusal record
 
 When the gate fails, the record is still published as diagnostic traffic:

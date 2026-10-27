@@ -374,9 +374,10 @@ generation proved in another. A stream is attributed to a generation only when t
 S1-U analysis accepts its association, the lifecycle generation-scoped S1-U
 collection proves its own declared count, and exactly one internally consistent
 generation-scoped record names that generation and that stream with a matching
-receiving role; endpoint equality alone never establishes ownership, a truncated
-collection attributes nothing, and a repeated ownership claim fails closed in every
-input order. An incomplete user-plane attribution collection never downgrades a
+receiving role and a direction that maps to that role and matches the stream;
+endpoint equality alone never establishes ownership, a truncated collection
+attributes nothing, a repeated or unplaceable ownership claim fails closed in every
+input order, and an unmapped direction such as `UNKNOWN` is never reinterpreted. An incomplete user-plane attribution collection never downgrades a
 release outcome, a release-session binding or an independently proved generation
 closure. The pending-release interval
 is an observation window, the confirmation frame is never the forwarding-stop

@@ -185,6 +185,30 @@ ATTRIBUTION_FAILURE_SCOPED_STREAM_ROLE = (
     "lifecycle_generation_scoped_attribution_names_another_receiving_role_than_the_stream"
 )
 ATTRIBUTION_FAILURE_SCOPED_GENERATION_SCOPE = "lifecycle_generation_scope_is_not_unique"
+# Direction is a first-class part of the ownership claim: the accepted lifecycle
+# derives the receiving role from the stream direction, so a record whose
+# direction and role disagree describes no reviewed endpoint.
+ATTRIBUTION_FAILURE_SCOPED_DIRECTION_MISSING = (
+    "lifecycle_generation_scoped_attribution_publishes_no_direction"
+)
+ATTRIBUTION_FAILURE_SCOPED_DIRECTION_UNKNOWN = (
+    "lifecycle_generation_scoped_attribution_publishes_an_unmapped_direction"
+)
+ATTRIBUTION_FAILURE_SCOPED_DIRECTION_ROLE = (
+    "lifecycle_generation_scoped_attribution_direction_contradicts_its_receiving_role"
+)
+ATTRIBUTION_FAILURE_SCOPED_DIRECTION_STREAM = (
+    "lifecycle_generation_scoped_attribution_direction_contradicts_the_stream_direction"
+)
+# A claim that cannot be placed in a capture still competes for the same stream.
+ATTRIBUTION_FAILURE_UNRESOLVED_CLAIMANT = "unpublished_generation_claims_this_stream"
+ATTRIBUTION_FAILURE_AMBIGUOUS_CLAIMANT = (
+    "ambiguous_generation_scope_claims_this_stream"
+)
+
+# The accepted lifecycle and S1-U producers both fix this mapping; the narrative
+# never invents a direction from TEID, address or role alone.
+DIRECTION_ROLE = {"UPLINK": "sgw_s1u", "DOWNLINK": "enodeb_s1u"}
 
 SCOPED_COLLECTION_DOCUMENT = "epc-bearer-lifecycle"
 SCOPED_COLLECTION_NAME = "generation_scoped_s1u_observations"
@@ -205,6 +229,12 @@ ATTRIBUTION_FAILURE_VOCABULARY = (
     ATTRIBUTION_FAILURE_SCOPED_ROLE_MISSING,
     ATTRIBUTION_FAILURE_SCOPED_STREAM_ROLE,
     ATTRIBUTION_FAILURE_SCOPED_GENERATION_SCOPE,
+    ATTRIBUTION_FAILURE_SCOPED_DIRECTION_MISSING,
+    ATTRIBUTION_FAILURE_SCOPED_DIRECTION_UNKNOWN,
+    ATTRIBUTION_FAILURE_SCOPED_DIRECTION_ROLE,
+    ATTRIBUTION_FAILURE_SCOPED_DIRECTION_STREAM,
+    ATTRIBUTION_FAILURE_UNRESOLVED_CLAIMANT,
+    ATTRIBUTION_FAILURE_AMBIGUOUS_CLAIMANT,
 )
 
 # Collections whose completeness is a precondition for a unique closure claim.
@@ -518,6 +548,7 @@ def _scoped_attributions(
     dict[tuple[str, str, str], list[dict[str, Any]]],
     dict[tuple[str, str], list[str]],
     set[str],
+    dict[str, list[dict[str, Any]]],
 ]:
     """Lifecycle-published generation-scoped S1-U attributions, contradiction-aware.
 
@@ -531,9 +562,11 @@ def _scoped_attributions(
     earlier one. The accepted producer emits at most one record per accepted
     stream, so multiplicity is always a producer or artifact defect.
 
-    A generation reference that resolves to more than one capture has no unique
-    scope and cannot place a record in any capture; those references are returned
-    separately so the attribution gate can say so.
+    A record whose generation cannot be placed in exactly one capture cannot
+    establish ownership, but it still competes for its stream reference: discarding
+    it would let the remaining subset look unique. Those records are returned in
+    ``unresolved`` keyed by stream reference, so the gate can fail closed on the
+    exact stream they name without invalidating unrelated streams or captures.
     """
     captures_by_generation: dict[str, set[str]] = {}
     for subject in lifecycle.get("lifecycle_subjects") or []:
@@ -550,22 +583,30 @@ def _scoped_attributions(
     }
     index: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     claimants: dict[tuple[str, str], list[str]] = {}
+    unresolved: dict[str, list[dict[str, Any]]] = {}
     for record in lifecycle.get("generation_scoped_s1u_observations") or []:
         if not isinstance(record, dict):
             continue
         generation = record.get("generation_reference")
         stream = record.get("source_stream_reference")
-        if not isinstance(generation, str) or not isinstance(stream, str):
+        if not isinstance(stream, str):
+            # Without a stream reference the record names no reviewed stream and
+            # cannot compete for one.
             continue
-        captures = captures_by_generation.get(generation)
+        captures = (
+            captures_by_generation.get(generation)
+            if isinstance(generation, str)
+            else None
+        )
         if not captures or len(captures) != 1:
+            unresolved.setdefault(stream, []).append(record)
             continue
         capture = next(iter(captures))
         index.setdefault((capture, generation, stream), []).append(record)
         bucket = claimants.setdefault((capture, stream), [])
         if generation not in bucket:
             bucket.append(generation)
-    return index, claimants, ambiguous
+    return index, claimants, ambiguous, unresolved
 
 
 def _generation_attribution(
@@ -575,14 +616,16 @@ def _generation_attribution(
     scoped: dict[tuple[str, str, str], list[dict[str, Any]]],
     claimants: dict[tuple[str, str], list[str]],
     ambiguous_generations: set[str],
+    unresolved_claims: dict[str, list[dict[str, Any]]],
     scoped_completeness: tuple[bool, str | None],
 ) -> tuple[str, str, list[str]]:
     """Decide whether one S1-U stream may be attributed to one proved generation.
 
     Every condition must hold affirmatively: a complete scoped-attribution
     collection, the same capture, one proved generation owner, an accepted stream
-    association, and exactly one internally consistent lifecycle generation-scoped
-    observation that names this generation and this stream and no other role.
+    association, no unresolved competing claim on this stream reference, and
+    exactly one internally consistent lifecycle generation-scoped observation whose
+    role and direction agree with the generation, the stream and each other.
     """
     failures: list[str] = []
     scoped_complete, scoped_failure = scoped_completeness
@@ -624,8 +667,31 @@ def _generation_attribution(
                     failures.append(ATTRIBUTION_FAILURE_SCOPED_ROLE)
                 if role != str(stream.get("matched_endpoint_role")):
                     failures.append(ATTRIBUTION_FAILURE_SCOPED_STREAM_ROLE)
+            # Direction is part of the ownership claim: it must be published, map
+            # to a reviewed receiving role, and agree with the stream it claims to
+            # own. UNKNOWN is never reinterpreted as uplink or downlink.
+            direction = record.get("direction")
+            if not isinstance(direction, str) or not direction:
+                failures.append(ATTRIBUTION_FAILURE_SCOPED_DIRECTION_MISSING)
+            elif direction not in DIRECTION_ROLE:
+                failures.append(ATTRIBUTION_FAILURE_SCOPED_DIRECTION_UNKNOWN)
+            else:
+                if isinstance(role, str) and role and DIRECTION_ROLE[direction] != role:
+                    failures.append(ATTRIBUTION_FAILURE_SCOPED_DIRECTION_ROLE)
+                if str(stream.get("direction")) != direction:
+                    failures.append(ATTRIBUTION_FAILURE_SCOPED_DIRECTION_STREAM)
         if len(claimants.get((capture, reference), [])) > 1:
             failures.append(ATTRIBUTION_FAILURE_SEVERAL_CLAIMANTS)
+        # A record that cannot be placed in a capture still competes for this exact
+        # stream reference; dropping it would make the remaining subset look unique.
+        for claim in unresolved_claims.get(reference) or []:
+            claimant = claim.get("generation_reference")
+            if isinstance(claimant, str) and claimant in ambiguous_generations:
+                token = ATTRIBUTION_FAILURE_AMBIGUOUS_CLAIMANT
+            else:
+                token = ATTRIBUTION_FAILURE_UNRESOLVED_CLAIMANT
+            if token not in failures:
+                failures.append(token)
     if failures:
         return ATTRIBUTION_NOT_ESTABLISHED, ATTRIBUTION_BASIS_UNPROVED, failures
     return ATTRIBUTION_ESTABLISHED, ATTRIBUTION_BASIS_SCOPED, []
@@ -1732,7 +1798,9 @@ def build_temporal_observations(
         item for item in s1u.get("stream_observations") or [] if isinstance(item, dict)
     ]
     frame_index = _gtpu_index(gtpu_events)
-    scoped, claimants, ambiguous_generations = _scoped_attributions(lifecycle or {})
+    scoped, claimants, ambiguous_generations, unresolved_claims = _scoped_attributions(
+        lifecycle or {}
+    )
     scoped_gate = scoped_completeness or (
         False,
         ATTRIBUTION_FAILURE_SCOPED_COLLECTION_INVALID,
@@ -1740,6 +1808,36 @@ def build_temporal_observations(
     limitations: list[str] = []
     unbound: list[dict[str, Any]] = []
     seen_unbound: set[tuple[Any, ...]] = set()
+    # An unplaceable claim cannot establish ownership, but it still competes for
+    # the stream reference it names, so it is published as diagnostic evidence
+    # instead of disappearing.
+    for stream_reference in sorted(unresolved_claims):
+        claims = unresolved_claims[stream_reference]
+        claimants_named = sorted(
+            {
+                str(claim.get("generation_reference"))
+                for claim in claims
+                if isinstance(claim.get("generation_reference"), str)
+            }
+        )
+        unbound.append(
+            {
+                "kind": "unresolved_generation_scoped_attribution_claim",
+                "capture_file": None,
+                "transaction_reference": None,
+                "checks": [
+                    f"source_stream_reference={stream_reference}",
+                    "claimant_generation_references="
+                    + (",".join(claimants_named) if claimants_named else "none"),
+                ],
+                "limitations": [
+                    "a lifecycle generation-scoped record names this stream but its generation "
+                    "cannot be placed in exactly one capture, so it cannot establish ownership; "
+                    "it is published because it still competes for the same stream reference and "
+                    "no uniqueness may be inferred from the remaining subset"
+                ],
+            }
+        )
 
     # Endpoint indexes. The capture is part of every key: an endpoint value is
     # only meaningful inside the capture that observed it, so a generation in one
@@ -1854,6 +1952,7 @@ def build_temporal_observations(
                     scoped,
                     claimants,
                     ambiguous_generations,
+                    unresolved_claims,
                     scoped_gate,
                 )
             )
@@ -2340,6 +2439,12 @@ def analyze(
                 "generation-scoped S1-U collection; that collection must prove its own declared "
                 "count, and exactly one internally consistent record may name a capture, "
                 "generation and stream, so no record is selected by input order"
+            ),
+            "directional_attribution_rule": (
+                "the scoped record's direction must map to a reviewed receiving role and agree "
+                "with the accepted stream direction, an unmapped direction such as UNKNOWN is "
+                "never reinterpreted, and a record whose generation cannot be placed in exactly "
+                "one capture still competes for the stream reference it names"
             ),
             "completeness_rule": (
                 "no exhaustive release or generation coverage is claimed while a material source "

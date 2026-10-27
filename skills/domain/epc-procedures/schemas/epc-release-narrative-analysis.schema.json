@@ -1248,10 +1248,16 @@
               "conflicting_lifecycle_generation_scoped_attribution",
               "lifecycle_generation_scoped_attribution_publishes_no_receiving_endpoint_role",
               "lifecycle_generation_scoped_attribution_names_another_receiving_role_than_the_stream",
-              "lifecycle_generation_scope_is_not_unique"
+              "lifecycle_generation_scope_is_not_unique",
+              "lifecycle_generation_scoped_attribution_publishes_no_direction",
+              "lifecycle_generation_scoped_attribution_publishes_an_unmapped_direction",
+              "lifecycle_generation_scoped_attribution_direction_contradicts_its_receiving_role",
+              "lifecycle_generation_scoped_attribution_direction_contradicts_the_stream_direction",
+              "unpublished_generation_claims_this_stream",
+              "ambiguous_generation_scope_claims_this_stream"
             ]
           },
-          "description": "Closed-vocabulary reasons the attribution gate refused to attribute this stream. A complete, internally consistent lifecycle generation-scoped observation naming exactly one generation and one stream is required; an incomplete collection, a repeated ownership claim or a missing receiving role each fail closed."
+          "description": "Closed-vocabulary reasons the attribution gate refused to attribute this stream. A complete, internally consistent lifecycle generation-scoped observation naming exactly one generation and one stream is required, its direction must map to a reviewed receiving role and agree with the stream it claims, and no unplaceable claim may compete for the same stream reference."
         },
         "partition_scope": {
           "type": [

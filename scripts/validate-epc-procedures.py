@@ -1517,7 +1517,16 @@ def _narrative_binding(
     }
 
 
-def _narrative_generation_link(reference, context_reference, *, capture="validator.pcap", teid=56):
+def _narrative_generation_link(
+    reference,
+    context_reference,
+    *,
+    capture="validator.pcap",
+    teid=56,
+    role="sgw_s1u",
+    address="10.0.0.20",
+    interface_type=1,
+):
     return {
         "relationship_type": "SESSION_CONTEXT_TO_BEARER_GENERATION",
         "capture_file": capture,
@@ -1532,10 +1541,10 @@ def _narrative_generation_link(reference, context_reference, *, capture="validat
         "observation_window": {"start_frame": 103, "end_frame": 103},
         "competing_candidates": [],
         "bearer_endpoint": {
-            "role": "sgw_s1u",
-            "address": "10.0.0.20",
+            "role": role,
+            "address": address,
             "teid": teid,
-            "interface_type": 1,
+            "interface_type": interface_type,
             "eps_bearer_identities": [5],
             "generation_references": [],
         },
@@ -1544,7 +1553,18 @@ def _narrative_generation_link(reference, context_reference, *, capture="validat
     }
 
 
-def _narrative_candidate(reference, context_reference, transaction, endpoint_reference, *, capture="validator.pcap"):
+def _narrative_candidate(
+    reference,
+    context_reference,
+    transaction,
+    endpoint_reference,
+    *,
+    capture="validator.pcap",
+    role="sgw_s1u",
+    address="10.0.0.20",
+    teid=56,
+    interface_type=1,
+):
     return {
         "generation_closure_candidate_reference": reference,
         "capture_file": capture,
@@ -1552,10 +1572,10 @@ def _narrative_candidate(reference, context_reference, transaction, endpoint_ref
         "release_transaction_reference": transaction,
         "bearer_endpoint_reference": endpoint_reference,
         "bearer_endpoint": {
-            "role": "sgw_s1u",
-            "address": "10.0.0.20",
-            "teid": 56,
-            "interface_type": 1,
+            "role": role,
+            "address": address,
+            "teid": teid,
+            "interface_type": interface_type,
             "eps_bearer_identities": [5],
             "generation_references": [],
         },
@@ -1669,14 +1689,23 @@ def _narrative_lifecycle_document(*, subjects, boundaries, scoped=None):
     }
 
 
-def _narrative_subject(reference, *, transaction="tx-del-1", capture="validator.pcap"):
+def _narrative_subject(
+    reference,
+    *,
+    transaction="tx-del-1",
+    capture="validator.pcap",
+    role="sgw_s1u",
+    address="10.0.0.20",
+    teid=56,
+    interface_type=1,
+):
     return {
         "generation_reference": reference,
         "capture_file": capture,
-        "receiving_endpoint_role": "sgw_s1u",
-        "receiving_endpoint_address": "10.0.0.20",
-        "receiving_endpoint_teid": 56,
-        "reviewed_interface_type": 1,
+        "receiving_endpoint_role": role,
+        "receiving_endpoint_address": address,
+        "receiving_endpoint_teid": teid,
+        "reviewed_interface_type": interface_type,
         "generation_state": "CLOSED_BY_ACCEPTED_RELEASE",
         "generation_boundary": {
             "basis": "accepted_release_response_bound_by_reviewed_session_context",
@@ -1747,17 +1776,19 @@ def _narrative_stream(
     destination="10.0.0.20",
     teid=56,
     status="SUPPORTED",
+    source="10.0.0.40",
+    direction="UPLINK",
 ):
     return {
         "stream_reference": reference,
         "stream_key": (
-            f"gtpu-path:{capture}:10.0.0.40:2152:{destination}:2152:teid{teid}"
+            f"gtpu-path:{capture}:{source}:2152:{destination}:2152:teid{teid}"
         ),
         "capture_file": capture,
-        "outer_source": "10.0.0.40",
+        "outer_source": source,
         "outer_destination": destination,
         "teid": teid,
-        "direction": "UPLINK",
+        "direction": direction,
         "matched_endpoint_role": role,
         "association_status": status,
         "observed_g_pdu_packet_count": packets,
@@ -1770,14 +1801,20 @@ def _narrative_stream(
 
 
 def _narrative_gtpu(
-    frame, *, length=100, capture="validator-a.pcap", teid=56, destination="10.0.0.20"
+    frame,
+    *,
+    length=100,
+    capture="validator-a.pcap",
+    teid=56,
+    destination="10.0.0.20",
+    source="10.0.0.40",
 ):
     return {
         "capture_file": capture,
         "frame_number": frame,
         "header": {"teid": teid, "message_type": "G-PDU", "message_length": length},
         "outer": {
-            "source_address": "10.0.0.40",
+            "source_address": source,
             "destination_address": destination,
             "source_port": 2152,
             "destination_port": 2152,
@@ -2328,6 +2365,173 @@ def _validate_release_narrative(skill: Path, root: Path) -> list[str]:
         fail("a complete, consistent scoped attribution must establish ownership")
     if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 2:
         fail("a complete, consistent scoped attribution must assign its packets")
+
+    # T — a scoped direction that contradicts its own role must fail closed.
+    identity, lifecycle = base()
+    lifecycle["generation_scoped_s1u_observations"][0]["direction"] = "DOWNLINK"
+    analysis = scoped_analysis(lifecycle)
+    observation = analysis["temporal_observations"][0]
+    if observation["generation_attribution_status"] != "NOT_ESTABLISHED":
+        fail("a scoped direction contradicting its receiving role must not establish ownership")
+    if (
+        "lifecycle_generation_scoped_attribution_direction_contradicts_its_receiving_role"
+        not in observation["attribution_failures"]
+    ):
+        fail("a direction/role contradiction must publish its refusal reason")
+    if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 0:
+        fail("a direction/role contradiction must assign no packet")
+    if analysis["release_narratives"][0]["generation_closure_status"] != "ESTABLISHED":
+        fail("a direction contradiction must not erase a proved generation closure")
+
+    # U — a missing or unmapped direction must fail closed and never be reinterpreted.
+    for label, value in (("missing", None), ("unknown", "UNKNOWN"), ("empty", "")):
+        identity, lifecycle = base()
+        record = lifecycle["generation_scoped_s1u_observations"][0]
+        if value is None:
+            record.pop("direction")
+        else:
+            record["direction"] = value
+        analysis = scoped_analysis(lifecycle)
+        observation = analysis["temporal_observations"][0]
+        if observation["generation_attribution_status"] != "NOT_ESTABLISHED":
+            fail(f"a {label} scoped direction must not establish ownership")
+        expected = (
+            "lifecycle_generation_scoped_attribution_publishes_no_direction"
+            if value in (None, "")
+            else "lifecycle_generation_scoped_attribution_publishes_an_unmapped_direction"
+        )
+        if expected not in observation["attribution_failures"]:
+            fail(f"a {label} scoped direction must publish '{expected}'")
+
+    # V — a scoped direction contradicting the stream direction must fail closed.
+    identity, lifecycle = base()
+    analysis = model.analyze(
+        identity,
+        lifecycle,
+        s1u=_narrative_s1u_document(
+            streams=[_narrative_stream(packets=2, octets=200, direction="DOWNLINK")]
+        ),
+        gtpu_events=[_narrative_gtpu(10), _narrative_gtpu(20)],
+    )
+    observation = analysis["temporal_observations"][0]
+    if observation["generation_attribution_status"] != "NOT_ESTABLISHED":
+        fail("a scoped direction contradicting the stream direction must not establish ownership")
+    if (
+        "lifecycle_generation_scoped_attribution_direction_contradicts_the_stream_direction"
+        not in observation["attribution_failures"]
+    ):
+        fail("a direction/stream contradiction must publish its refusal reason")
+
+    # W — an unresolved claimant on the same stream refuses uniqueness.
+    identity, lifecycle = base()
+    lifecycle["generation_scoped_s1u_observations"].append(
+        _narrative_scoped("generation-ghost", NARRATIVE_STREAM_REFERENCE)
+    )
+    lifecycle["generation_scoped_observation_count"] = 2
+    analysis = scoped_analysis(lifecycle)
+    observation = analysis["temporal_observations"][0]
+    if observation["generation_attribution_status"] != "NOT_ESTABLISHED":
+        fail("an unresolved claimant on the same stream must not establish ownership")
+    if "unpublished_generation_claims_this_stream" not in observation["attribution_failures"]:
+        fail("an unresolved claimant must publish its refusal reason")
+    if "unresolved_generation_scoped_attribution_claim" not in {
+        item.get("kind") for item in analysis["unbound_evidence"]
+    }:
+        fail("an unresolved claimant must stay visible as unbound evidence")
+
+    # W2 — an ambiguous-scope claimant on the same stream refuses uniqueness.
+    identity, lifecycle = base()
+    # The ambiguous claimant must not also be a proved generation of this
+    # narrative, so it carries its own release transaction.
+    lifecycle["lifecycle_subjects"].extend(
+        [
+            _narrative_subject("generation-2", transaction="tx-del-b", capture=capture_b),
+            _narrative_subject("generation-2", transaction="tx-del-b", capture=capture_a),
+        ]
+    )
+    lifecycle["lifecycle_subject_count"] = 3
+    lifecycle["generation_scoped_s1u_observations"].append(
+        _narrative_scoped("generation-2", NARRATIVE_STREAM_REFERENCE)
+    )
+    lifecycle["generation_scoped_observation_count"] = 2
+    analysis = scoped_analysis(lifecycle)
+    observation = analysis["temporal_observations"][0]
+    if observation["generation_attribution_status"] != "NOT_ESTABLISHED":
+        fail("an ambiguous-scope claimant on the same stream must not establish ownership")
+    if (
+        "ambiguous_generation_scope_claims_this_stream"
+        not in observation["attribution_failures"]
+    ):
+        fail("an ambiguous-scope claimant must publish its refusal reason")
+
+    # W3 — an unresolved claimant on another stream must not invalidate this one.
+    identity, lifecycle = base()
+    lifecycle["generation_scoped_s1u_observations"].append(
+        _narrative_scoped("generation-ghost", "epc-s1u-stream-unrelated")
+    )
+    lifecycle["generation_scoped_observation_count"] = 2
+    analysis = scoped_analysis(lifecycle)
+    observation = analysis["temporal_observations"][0]
+    if observation["generation_attribution_status"] != "ESTABLISHED":
+        fail("an unrelated unresolved claimant must not invalidate a legitimate attribution")
+
+    # X — a correct downlink attribution still establishes ownership.
+    identity = _narrative_identity_document(
+        contexts=[_narrative_context("ctx-1", capture=capture_a)],
+        bindings=[
+            _narrative_binding("tx-del-1", "ctx-1", capture=capture_a, outcome="ACCEPTED")
+        ],
+        generation_links=[
+            _narrative_generation_link(
+                "endpoint-1", "ctx-1", capture=capture_a,
+                role="enodeb_s1u", address="10.0.0.40", teid=57, interface_type=0,
+            )
+        ],
+        candidates=[
+            _narrative_candidate(
+                "closure-1", "ctx-1", "tx-del-1", "endpoint-1", capture=capture_a,
+                role="enodeb_s1u", address="10.0.0.40", teid=57, interface_type=0,
+            )
+        ],
+    )
+    lifecycle = _narrative_lifecycle_document(
+        subjects=[
+            _narrative_subject(
+                "generation-1", capture=capture_a,
+                role="enodeb_s1u", address="10.0.0.40", teid=57, interface_type=0,
+            )
+        ],
+        boundaries=[_narrative_boundary("tx-del-1", capture=capture_a)],
+        scoped=[
+            _narrative_scoped(
+                "generation-1",
+                NARRATIVE_STREAM_REFERENCE,
+                receiving_endpoint_role="enodeb_s1u",
+                direction="DOWNLINK",
+            )
+        ],
+    )
+    analysis = model.analyze(
+        identity,
+        lifecycle,
+        s1u=_narrative_s1u_document(
+            streams=[
+                _narrative_stream(
+                    packets=2, octets=200, role="enodeb_s1u", direction="DOWNLINK",
+                    source="10.0.0.20", destination="10.0.0.40", teid=57,
+                )
+            ]
+        ),
+        gtpu_events=[
+            _narrative_gtpu(10, teid=57, source="10.0.0.20", destination="10.0.0.40"),
+            _narrative_gtpu(20, teid=57, source="10.0.0.20", destination="10.0.0.40"),
+        ],
+    )
+    observation = analysis["temporal_observations"][0]
+    if observation["generation_attribution_status"] != "ESTABLISHED":
+        fail("a correct downlink attribution must establish ownership")
+    if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 2:
+        fail("a correct downlink attribution must assign its packets")
 
     return errors
 

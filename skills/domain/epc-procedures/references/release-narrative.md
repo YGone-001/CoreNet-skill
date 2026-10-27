@@ -132,6 +132,14 @@ way, because it is the only accepted source of generation-level user-plane
 ownership. Its incompleteness blocks temporal attribution, not the closure: the
 two are separate evidence requirements and are never merged.
 
+Completeness alone is not enough. Each visible record must also agree with the
+accepted directional evidence — its direction must map to a reviewed receiving role
+and match the stream it claims — and no record whose generation cannot be placed in
+exactly one capture may compete for the same stream reference. A complete candidate
+set whose members contradict each other, or whose unplaceable members were dropped
+before uniqueness was evaluated, proves nothing. See
+`release-temporal-evidence.md` for the direction and claimant rules.
+
 The closure-critical collections — release session bindings, session-to-generation
 links, generation closure candidates and lifecycle subjects — are gated
 individually, not only through the aggregate status. A unique bearer-generation
