@@ -127,6 +127,11 @@ underdeclared or nonzero-omitted metadata publishes
 `source_completeness.exhaustive_coverage_proven` is `false`, and no uniqueness is
 inferred from the visible subset.
 
+The lifecycle generation-scoped S1-U attribution collection is assessed the same
+way, because it is the only accepted source of generation-level user-plane
+ownership. Its incompleteness blocks temporal attribution, not the closure: the
+two are separate evidence requirements and are never merged.
+
 The closure-critical collections — release session bindings, session-to-generation
 links, generation closure candidates and lifecycle subjects — are gated
 individually, not only through the aggregate status. A unique bearer-generation

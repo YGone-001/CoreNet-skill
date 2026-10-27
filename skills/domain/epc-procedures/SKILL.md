@@ -371,9 +371,14 @@ bearer endpoint, and an affirmatively complete closure-critical candidate set.
 Temporal evidence is frame-aware and conservative. Capture identity is part of the
 endpoint identity, so a stream observed in one capture is never attributed to a
 generation proved in another. A stream is attributed to a generation only when the
-S1-U analysis accepts its association and the lifecycle publishes a
-generation-scoped S1-U observation naming exactly that generation and stream;
-endpoint equality alone never establishes ownership. The pending-release interval
+S1-U analysis accepts its association, the lifecycle generation-scoped S1-U
+collection proves its own declared count, and exactly one internally consistent
+generation-scoped record names that generation and that stream with a matching
+receiving role; endpoint equality alone never establishes ownership, a truncated
+collection attributes nothing, and a repeated ownership claim fails closed in every
+input order. An incomplete user-plane attribution collection never downgrades a
+release outcome, a release-session binding or an independently proved generation
+closure. The pending-release interval
 is an observation window, the confirmation frame is never the forwarding-stop
 instant, and an aggregate stream count is never divided across windows: without
 frame-level GTP-U events the observation publishes

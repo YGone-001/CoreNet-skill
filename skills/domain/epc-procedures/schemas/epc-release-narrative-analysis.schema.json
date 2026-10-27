@@ -1233,9 +1233,25 @@
         "attribution_failures": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "capture_identity_mismatch",
+              "several_proved_generations_share_one_endpoint",
+              "stream_association_not_accepted",
+              "stream_reference_missing",
+              "lifecycle_publishes_no_generation_scoped_s1u_observation_for_this_stream",
+              "lifecycle_generation_scoped_attribution_not_accepted",
+              "lifecycle_generation_scoped_attribution_names_another_receiving_role",
+              "several_generations_claim_one_stream",
+              "lifecycle_generation_scoped_attribution_collection_truncated",
+              "lifecycle_generation_scoped_attribution_collection_invalid",
+              "conflicting_lifecycle_generation_scoped_attribution",
+              "lifecycle_generation_scoped_attribution_publishes_no_receiving_endpoint_role",
+              "lifecycle_generation_scoped_attribution_names_another_receiving_role_than_the_stream",
+              "lifecycle_generation_scope_is_not_unique"
+            ]
           },
-          "description": "Closed-vocabulary reasons the attribution gate refused to attribute this stream."
+          "description": "Closed-vocabulary reasons the attribution gate refused to attribute this stream. A complete, internally consistent lifecycle generation-scoped observation naming exactly one generation and one stream is required; an incomplete collection, a repeated ownership claim or a missing receiving role each fail closed."
         },
         "partition_scope": {
           "type": [

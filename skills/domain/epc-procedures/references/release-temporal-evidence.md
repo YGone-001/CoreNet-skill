@@ -54,9 +54,12 @@ the stream's capture equals the narrative capture
 exactly one proved generation of that narrative owns the endpoint
 the stream's association_status is SUPPORTED
 the stream publishes a stream_reference
-the lifecycle publishes a generation_scoped_s1u_observation for exactly this
-  generation and exactly this stream_reference, with association_status SUPPORTED
-  and a receiving_endpoint_role equal to the generation's role
+the lifecycle generation_scoped_s1u_observations collection proves its own declared
+  count: present, nonnegative, not boolean, equal to the published record array
+exactly one generation_scoped_s1u_observation names this capture, this generation
+  and this stream_reference, with association_status SUPPORTED and a
+  receiving_endpoint_role equal to both the generation's role and the stream's role
+the named generation resolves to exactly one capture
 no other proved generation claims the same stream
 ```
 
@@ -64,6 +67,51 @@ The lifecycle generation-scoped S1-U observation is the only accepted producer
 contract that establishes generation-level user-plane ownership: a `SUPPORTED`
 S1-U stream association names a default-bearer subject, never a bearer
 generation. The narrative therefore never equates the two.
+
+### Collection completeness
+
+The scoped-attribution collection is assessed on its own declared count
+(`generation_scoped_observation_count`), because the accepted producer truncates
+the published array at 256 records while publishing the full count. A visible
+subset is not a complete ownership candidate set:
+
+```text
+declared > published     SOURCE_CANDIDATES_TRUNCATED
+declared < published     SOURCE_CANDIDATES_METADATA_INVALID
+missing / null / boolean / negative / non-integer
+                         SOURCE_CANDIDATES_METADATA_INVALID
+```
+
+While the collection is incomplete, no stream is attributed and no packet is
+assigned, but the release outcome, the release-session binding and any
+independently proved generation closure are unaffected. Closure completeness and
+temporal-attribution completeness are distinct evidence requirements, and the
+scoped collection is deliberately not part of the closure gate.
+
+### One internally consistent record
+
+The accepted producer emits at most one scoped record per accepted stream, so a
+repeated `(capture, generation, stream)` key is always a contradiction. The
+narrative keeps every record and refuses the attribution:
+
+```text
+conflicting_lifecycle_generation_scoped_attribution
+```
+
+It never selects the first record, the last record or the record with the
+strongest-looking status, and the verdict is identical for every input ordering.
+
+A record must also publish the mandatory ownership fields. A missing
+`receiving_endpoint_role` does not bypass the role check:
+
+```text
+lifecycle_generation_scoped_attribution_publishes_no_receiving_endpoint_role
+lifecycle_generation_scoped_attribution_names_another_receiving_role
+lifecycle_generation_scoped_attribution_names_another_receiving_role_than_the_stream
+lifecycle_generation_scope_is_not_unique
+```
+
+### Refusal record
 
 When the gate fails, the record is still published as diagnostic traffic:
 

@@ -2338,5 +2338,403 @@ class ProvenanceAnchorTests(NarrativeTestCase):
             )
         )
 
+# ---------------------------------------------------------------------------
+# N — lifecycle scoped-attribution completeness and contradiction (J4)
+# ---------------------------------------------------------------------------
+class ScopedAttributionTests(NarrativeTestCase):
+    """Generation-level user-plane ownership needs a complete, consistent source."""
+
+    UNPROVED = "endpoint_equality_alone_is_not_generation_ownership"
+    PROVED = "accepted_stream_association_and_lifecycle_generation_scoped_s1u_observation"
+
+    def temporal(self, identity, lifecycle, *, packets=4, octets=400, frames=(10, 20, 30, 190)):
+        s1u = s1u_document(
+            streams=[
+                stream("stream-1", packets=packets, octets=octets, first=frames[0], last=frames[-1])
+            ]
+        )
+        events = [gtpu_event(frame, length=octets // len(frames)) for frame in frames]
+        return self.analyze(identity, lifecycle, s1u=s1u, gtpu_events=events)
+
+    def observation(self, result):
+        self.assertEqual(result["temporal_observation_count"], 1)
+        return result["temporal_observations"][0]
+
+    def scoped_status(self, result):
+        for entry in result["source_completeness"]["collections"]:
+            if entry["collection"] == "generation_scoped_s1u_observations":
+                return entry["status"]
+        self.fail("the scoped-attribution collection is not assessed")
+
+    def assert_refused(self, result, *, token):
+        observation = self.observation(result)
+        self.assertEqual(observation["generation_attribution_status"], "NOT_ESTABLISHED")
+        self.assertEqual(observation["generation_attribution_basis"], self.UNPROVED)
+        self.assertIn(token, observation["attribution_failures"])
+        self.assertEqual(
+            observation["temporal_placement_status"], "TEMPORAL_PLACEMENT_NOT_ESTABLISHED"
+        )
+        self.assertIsNone(observation["partitions"])
+        self.assertEqual(result["temporal_accounting"]["assigned_to_release_window_count"], 0)
+        return observation
+
+    def two_narratives_one_stream(self):
+        """Two proved generations in one capture, both scoped to the same stream."""
+        identity, lifecycle = simple_scenario()
+        identity["hop_local_contexts"].append(context("ctx-2", interface_class="S5/S8"))
+        identity["hop_local_context_count"] = 2
+        identity["release_session_bindings"].append(binding("tx-del-2", "ctx-2", frames=(300, 305)))
+        identity["release_session_binding_count"] = 2
+        identity["session_to_generation_links"].append(generation_link("endpoint-2", "ctx-2"))
+        identity["session_to_generation_count"] = 2
+        identity["generation_closure_candidates"].append(
+            candidate("closure-2", "ctx-2", "tx-del-2", "endpoint-2", frames=(300, 305))
+        )
+        identity["generation_closure_candidate_count"] = 2
+        lifecycle["lifecycle_subjects"].append(
+            lifecycle_subject(
+                "generation-2", boundary_transaction="tx-del-2", boundary_frames=(300, 305)
+            )
+        )
+        lifecycle["lifecycle_subject_count"] = 2
+        lifecycle["generation_boundary_evidence"].append(
+            boundary_evidence("tx-del-2", frames=(300, 305))
+        )
+        lifecycle["generation_scoped_s1u_observations"] = [
+            scoped_attribution("generation-1", "stream-1", packets=4, octets=400),
+            scoped_attribution("generation-2", "stream-1", packets=4, octets=400),
+        ]
+        lifecycle["generation_scoped_observation_count"] = 2
+        return identity, lifecycle
+
+    def test_n01_complete_collection_permits_ownership(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        result = self.temporal(identity, lifecycle)
+        self.assertEqual(result["source_completeness"]["status"], "COMPLETE")
+        self.assertTrue(result["source_completeness"]["exhaustive_coverage_proven"])
+        self.assertEqual(self.scoped_status(result), "COMPLETE")
+        observation = self.observation(result)
+        self.assertEqual(observation["generation_attribution_status"], "ESTABLISHED")
+        self.assertEqual(observation["generation_attribution_basis"], self.PROVED)
+        self.assertEqual(observation["attribution_failures"], [])
+        self.assertEqual(result["temporal_accounting"]["assigned_to_release_window_count"], 4)
+
+    def test_n02_declared_greater_than_published_refuses_ownership(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        lifecycle["generation_scoped_observation_count"] = 2
+        result = self.temporal(identity, lifecycle)
+        self.assertEqual(result["source_completeness"]["status"], "SOURCE_CANDIDATES_TRUNCATED")
+        self.assertFalse(result["source_completeness"]["exhaustive_coverage_proven"])
+        self.assertEqual(self.scoped_status(result), "SOURCE_CANDIDATES_TRUNCATED")
+        self.assert_refused(
+            result, token="lifecycle_generation_scoped_attribution_collection_truncated"
+        )
+        self.assertEqual(result["temporal_accounting"]["unassigned_g_pdu_event_count"], 4)
+
+    def test_n03_declared_smaller_than_published_refuses_ownership(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        lifecycle["generation_scoped_s1u_observations"].append(
+            scoped_attribution("generation-1", "stream-decoy", packets=0, octets=0)
+        )
+        lifecycle["generation_scoped_observation_count"] = 1
+        result = self.temporal(identity, lifecycle)
+        self.assertEqual(
+            result["source_completeness"]["status"], "SOURCE_CANDIDATES_METADATA_INVALID"
+        )
+        self.assertEqual(self.scoped_status(result), "SOURCE_CANDIDATES_METADATA_INVALID")
+        self.assert_refused(
+            result, token="lifecycle_generation_scoped_attribution_collection_invalid"
+        )
+
+    def test_n04_missing_count_refuses_ownership(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        del lifecycle["generation_scoped_observation_count"]
+        result = self.temporal(identity, lifecycle)
+        self.assertEqual(
+            result["source_completeness"]["status"], "SOURCE_CANDIDATES_METADATA_INVALID"
+        )
+        self.assert_refused(
+            result, token="lifecycle_generation_scoped_attribution_collection_invalid"
+        )
+
+    def test_n05_invalid_count_refuses_ownership(self) -> None:
+        for value in ("one", True, None, -1, 1.5):
+            with self.subTest(count=value):
+                identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+                lifecycle["generation_scoped_observation_count"] = value
+                result = self.temporal(identity, lifecycle)
+                self.assertEqual(
+                    result["source_completeness"]["status"],
+                    "SOURCE_CANDIDATES_METADATA_INVALID",
+                )
+                self.assert_refused(
+                    result,
+                    token="lifecycle_generation_scoped_attribution_collection_invalid",
+                )
+
+    def test_n06_257_of_256_truncation_refuses_exhaustive_ownership(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        record = lifecycle["generation_scoped_s1u_observations"][0]
+        decoys = [
+            dict(record, source_stream_reference=f"epc-s1u-stream-decoy-{index:04d}")
+            for index in range(255)
+        ]
+        lifecycle["generation_scoped_s1u_observations"] = [record] + decoys
+        lifecycle["generation_scoped_observation_count"] = 257
+        result = self.temporal(identity, lifecycle)
+        self.assertEqual(len(lifecycle["generation_scoped_s1u_observations"]), 256)
+        self.assertEqual(result["source_completeness"]["status"], "SOURCE_CANDIDATES_TRUNCATED")
+        self.assertFalse(result["source_completeness"]["exhaustive_coverage_proven"])
+        # The real record is inside the visible subset and still must not be used.
+        self.assert_refused(
+            result, token="lifecycle_generation_scoped_attribution_collection_truncated"
+        )
+
+    def test_n07_contradictory_records_fail_closed(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        original = lifecycle["generation_scoped_s1u_observations"][0]
+        contradictory = dict(original, receiving_endpoint_role="enodeb_s1u")
+        lifecycle["generation_scoped_s1u_observations"] = [original, contradictory]
+        lifecycle["generation_scoped_observation_count"] = 2
+        result = self.temporal(identity, lifecycle)
+        self.assertEqual(result["source_completeness"]["status"], "COMPLETE")
+        self.assert_refused(
+            result, token="conflicting_lifecycle_generation_scoped_attribution"
+        )
+        self.assertTrue(
+            any("contradiction is reported" in item for item in result["evidence_limitations"])
+        )
+
+    def test_n08_record_order_does_not_change_the_refusal(self) -> None:
+        documents = []
+        for order in ("original-first", "contradiction-first"):
+            identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+            original = lifecycle["generation_scoped_s1u_observations"][0]
+            contradictory = dict(original, receiving_endpoint_role="enodeb_s1u")
+            records = (
+                [original, contradictory]
+                if order == "original-first"
+                else [contradictory, original]
+            )
+            lifecycle["generation_scoped_s1u_observations"] = records
+            lifecycle["generation_scoped_observation_count"] = 2
+            documents.append(self.temporal(identity, lifecycle))
+        first, second = documents
+        self.assertEqual(
+            json.dumps(first["temporal_observations"], sort_keys=True),
+            json.dumps(second["temporal_observations"], sort_keys=True),
+        )
+        self.assertEqual(first["temporal_accounting"], second["temporal_accounting"])
+        self.assert_refused(
+            first, token="conflicting_lifecycle_generation_scoped_attribution"
+        )
+
+    def test_n08b_conflicting_direction_also_fails_closed(self) -> None:
+        for order in ("original-first", "contradiction-first"):
+            with self.subTest(order=order):
+                identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+                original = lifecycle["generation_scoped_s1u_observations"][0]
+                contradictory = dict(original, direction="DOWNLINK")
+                records = (
+                    [original, contradictory]
+                    if order == "original-first"
+                    else [contradictory, original]
+                )
+                lifecycle["generation_scoped_s1u_observations"] = records
+                lifecycle["generation_scoped_observation_count"] = 2
+                result = self.temporal(identity, lifecycle)
+                self.assert_refused(
+                    result, token="conflicting_lifecycle_generation_scoped_attribution"
+                )
+
+    def test_n09_missing_receiving_role_fails_closed(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        del lifecycle["generation_scoped_s1u_observations"][0]["receiving_endpoint_role"]
+        result = self.temporal(identity, lifecycle)
+        self.assert_refused(
+            result,
+            token=(
+                "lifecycle_generation_scoped_attribution_publishes_no_receiving_endpoint_role"
+            ),
+        )
+
+    def test_n10_another_receiving_role_fails_closed(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        lifecycle["generation_scoped_s1u_observations"][0][
+            "receiving_endpoint_role"
+        ] = "enodeb_s1u"
+        result = self.temporal(identity, lifecycle)
+        observation = self.assert_refused(
+            result, token="lifecycle_generation_scoped_attribution_names_another_receiving_role"
+        )
+        self.assertIn(
+            "lifecycle_generation_scoped_attribution_names_another_receiving_role_than_the_stream",
+            observation["attribution_failures"],
+        )
+
+    def test_n11_unknown_generation_cannot_establish_ownership(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        lifecycle["generation_scoped_s1u_observations"][0][
+            "generation_reference"
+        ] = "generation-ghost"
+        result = self.temporal(identity, lifecycle)
+        self.assert_refused(
+            result,
+            token="lifecycle_publishes_no_generation_scoped_s1u_observation_for_this_stream",
+        )
+
+    def test_n12_two_generations_claiming_one_stream_stay_ambiguous(self) -> None:
+        identity, lifecycle = self.two_narratives_one_stream()
+        result = self.temporal(identity, lifecycle)
+        self.assertEqual(result["temporal_observation_count"], 2)
+        for observation in result["temporal_observations"]:
+            self.assertEqual(observation["generation_attribution_status"], "NOT_ESTABLISHED")
+            self.assertIn(
+                "several_generations_claim_one_stream", observation["attribution_failures"]
+            )
+            self.assertIsNone(observation["partitions"])
+        self.assertEqual(result["temporal_accounting"]["assigned_to_release_window_count"], 0)
+
+    def test_n13_one_valid_record_retains_complete_placement(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        result = self.temporal(identity, lifecycle)
+        observation = self.observation(result)
+        self.assertEqual(observation["temporal_placement_status"], "ESTABLISHED")
+        self.assertEqual(observation["partition_scope"], "COMPLETE_STREAM")
+        self.assertTrue(observation["partition_conserved"])
+        self.assertFalse(observation["duplicate_frame_ownership"])
+        self.assertEqual(result["temporal_accounting"]["assigned_to_release_window_count"], 4)
+
+    def test_n14_incomplete_collection_keeps_the_accepted_outcome(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        lifecycle["generation_scoped_observation_count"] = 2
+        result = self.temporal(identity, lifecycle)
+        narrative = result["release_narratives"][0]
+        self.assertEqual(narrative["release_outcome_status"], "ACCEPTED")
+        self.assertEqual(narrative["release_session_binding_status"], "ESTABLISHED")
+        self.assert_refused(
+            result, token="lifecycle_generation_scoped_attribution_collection_truncated"
+        )
+
+    def test_n15_incomplete_collection_keeps_the_proved_closure(self) -> None:
+        # Closure completeness and temporal-attribution completeness are distinct
+        # evidence requirements: an optional user-plane collection must not erase a
+        # closure proved from the control-plane chain.
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        lifecycle["generation_scoped_observation_count"] = 2
+        result = self.temporal(identity, lifecycle)
+        narrative = result["release_narratives"][0]
+        self.assertEqual(narrative["generation_closure_status"], "ESTABLISHED")
+        self.assertEqual(len(narrative["proved_generations"]), 1)
+        self.assert_refused(
+            result, token="lifecycle_generation_scoped_attribution_collection_truncated"
+        )
+
+    def test_n16_reconciled_events_still_produce_a_complete_partition(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        result = self.temporal(identity, lifecycle, packets=6, octets=600, frames=(10, 20, 200, 203, 205, 300))
+        observation = self.observation(result)
+        self.assertEqual(observation["partition_basis"], "FRAME_LEVEL_EVENTS")
+        self.assertEqual(observation["partition_scope"], "COMPLETE_STREAM")
+        total = sum(
+            observation["partitions"][name]["g_pdu_count"] for name in model.PARTITIONS
+        )
+        self.assertEqual(total, 6)
+        self.assertEqual(result["temporal_accounting"]["assigned_to_release_window_count"], 6)
+
+    def test_n17_incomplete_events_still_produce_only_subset_evidence(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+        s1u = s1u_document(
+            streams=[stream("stream-1", packets=10, octets=1000, first=10, last=190)]
+        )
+        result = self.analyze(
+            identity,
+            lifecycle,
+            s1u=s1u,
+            gtpu_events=[gtpu_event(frame, length=100) for frame in (10, 20, 30)],
+        )
+        observation = self.observation(result)
+        self.assertEqual(observation["generation_attribution_status"], "ESTABLISHED")
+        self.assertEqual(observation["partition_basis"], "FRAME_LEVEL_EVENTS_INCOMPLETE")
+        self.assertEqual(observation["partition_scope"], "OBSERVED_SUBSET")
+        self.assertFalse(observation["partition_conserved"])
+        self.assertEqual(observation["observed_g_pdu_count"], 10)
+        self.assertEqual(result["temporal_accounting"]["assigned_to_release_window_count"], 0)
+
+    def test_n18_cross_capture_isolation_is_unchanged(self) -> None:
+        identity, lifecycle = simple_scenario(scoped_stream="stream-b")
+        s1u = s1u_document(
+            streams=[stream("stream-b", capture=CAPTURE_B, packets=3, octets=300)]
+        )
+        result = self.analyze(
+            identity,
+            lifecycle,
+            s1u=s1u,
+            gtpu_events=[
+                gtpu_event(frame, length=100, capture=CAPTURE_B) for frame in (10, 20, 190)
+            ],
+        )
+        self.assertEqual(result["temporal_observation_count"], 0)
+        self.assertEqual(result["temporal_accounting"]["assigned_to_release_window_count"], 0)
+        self.assertIn(
+            "stream_endpoint_matches_a_proved_generation_in_another_capture",
+            {item["kind"] for item in result["unbound_evidence"]},
+        )
+
+    def test_n19_truncated_scoped_collection_through_the_cli(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            identity, lifecycle = simple_scenario(scoped_stream="stream-1")
+            lifecycle["generation_scoped_observation_count"] = 2
+            identity_path = self.write(tmp_path, "identity.json", identity)
+            lifecycle_path = self.write(tmp_path, "lifecycle.json", lifecycle)
+            s1u_path = self.write(
+                tmp_path,
+                "s1u.json",
+                s1u_document(streams=[stream("stream-1", packets=4, octets=400)]),
+            )
+            gtpu_path = tmp_path / "gtpu.jsonl"
+            gtpu_path.write_text(
+                "".join(
+                    json.dumps(gtpu_event(frame, length=100), sort_keys=True) + "\n"
+                    for frame in (10, 20, 30, 190)
+                ),
+                encoding="utf-8",
+            )
+            output = tmp_path / "narrative.json"
+            report = tmp_path / "narrative.txt"
+            completed = self.run_cli(
+                tmp_path,
+                "--session-identity",
+                str(identity_path),
+                "--lifecycle",
+                str(lifecycle_path),
+                "--s1u",
+                str(s1u_path),
+                "--gtpu",
+                str(gtpu_path),
+                "--output",
+                str(output),
+                "--report",
+                str(report),
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            document = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(
+                document["source_completeness"]["status"], "SOURCE_CANDIDATES_TRUNCATED"
+            )
+            observation = document["temporal_observations"][0]
+            self.assertEqual(observation["generation_attribution_status"], "NOT_ESTABLISHED")
+            self.assertIn(
+                "lifecycle_generation_scoped_attribution_collection_truncated",
+                observation["attribution_failures"],
+            )
+            self.assertEqual(
+                document["temporal_accounting"]["assigned_to_release_window_count"], 0
+            )
+            text = report.read_text(encoding="utf-8")
+            self.assertIn("generation_scoped_s1u_observations", text)
+            self.assertIn("SOURCE_CANDIDATES_TRUNCATED", text)
+
 if __name__ == "__main__":
     unittest.main()

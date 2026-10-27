@@ -123,7 +123,9 @@
         "every counted frame owned by exactly one release narrative"
       ],
       "partition_incomplete": "an unreconciled frame set keeps its observed subset positions with partition_scope OBSERVED_SUBSET and temporal_placement_status TEMPORAL_PLACEMENT_NOT_ESTABLISHED; the aggregate stays authoritative and no missing packet or octet is interpolated",
-      "duplicate_ownership": "when two release narratives claim the same G-PDU frame, both publish duplicate_frame_ownership, neither publishes a partition, and the frame is assigned to no release window"
+      "duplicate_ownership": "when two release narratives claim the same G-PDU frame, both publish duplicate_frame_ownership, neither publishes a partition, and the frame is assigned to no release window",
+      "scoped_attribution_completeness": "no stream is attributed to a proved generation while the lifecycle generation-scoped S1-U collection is truncated or its count metadata is invalid; the aggregate stream counts stay visible and no packet is assigned",
+      "scoped_attribution_uniqueness": "a repeated lifecycle generation-scoped record for one capture, generation and stream is a contradiction that fails closed; no record is selected by order, position or status"
     },
     "source_reference_validation": [
       "a published release frame anchor is re-checked against the supplied capture when detailed GTPv2-C events are provided",
@@ -138,11 +140,45 @@
       "no exhaustive release or generation coverage while any collection is truncated or its metadata is invalid",
       "no uniqueness inferred from the visible subset",
       "the closure-critical collections (release session bindings, session-to-generation links, generation closure candidates, lifecycle subjects) are gated individually, not only through an aggregate status",
-      "no unique bearer-generation closure is promoted while a closure-critical collection is incomplete"
+      "no unique bearer-generation closure is promoted while a closure-critical collection is incomplete",
+      "the lifecycle generation-scoped S1-U attribution collection is assessed on its own declared count, because it is the only accepted source of generation-level user-plane ownership"
     ],
     "completeness_tokens": [
       "SOURCE_CANDIDATES_TRUNCATED",
       "SOURCE_CANDIDATES_METADATA_INVALID"
+    ],
+    "scoped_attribution_requires": [
+      "the lifecycle generation-scoped S1-U collection publishes a present, nonnegative, non-boolean declared count equal to its own published record array",
+      "exactly one lifecycle generation-scoped S1-U record names the capture, the generation and the stream",
+      "that record publishes a receiving endpoint role equal to both the proved generation's role and the reviewed S1-U stream's role",
+      "that record publishes an accepted association status",
+      "the named generation resolves to exactly one capture",
+      "exactly one proved generation claims the stream"
+    ],
+    "scoped_attribution_forbidden": [
+      "selecting a record by input order",
+      "selecting the first or the last record",
+      "selecting the record with the strongest-looking status",
+      "inferring ownership from matching endpoint values",
+      "treating a visible subset of the collection as the complete candidate set",
+      "letting a missing receiving role bypass the role check",
+      "downgrading a control-plane release outcome or a proved generation closure because the optional user-plane attribution collection is incomplete"
+    ],
+    "scoped_attribution_failure_vocabulary": [
+      "capture_identity_mismatch",
+      "several_proved_generations_share_one_endpoint",
+      "stream_association_not_accepted",
+      "stream_reference_missing",
+      "lifecycle_publishes_no_generation_scoped_s1u_observation_for_this_stream",
+      "lifecycle_generation_scoped_attribution_not_accepted",
+      "lifecycle_generation_scoped_attribution_names_another_receiving_role",
+      "several_generations_claim_one_stream",
+      "lifecycle_generation_scoped_attribution_collection_truncated",
+      "lifecycle_generation_scoped_attribution_collection_invalid",
+      "conflicting_lifecycle_generation_scoped_attribution",
+      "lifecycle_generation_scoped_attribution_publishes_no_receiving_endpoint_role",
+      "lifecycle_generation_scoped_attribution_names_another_receiving_role_than_the_stream",
+      "lifecycle_generation_scope_is_not_unique"
     ]
   },
   "forbidden_conclusions": [

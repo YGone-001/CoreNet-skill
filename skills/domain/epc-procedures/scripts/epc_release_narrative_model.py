@@ -166,6 +166,46 @@ ATTRIBUTION_FAILURE_SCOPED_ROLE = (
     "lifecycle_generation_scoped_attribution_names_another_receiving_role"
 )
 ATTRIBUTION_FAILURE_SEVERAL_CLAIMANTS = "several_generations_claim_one_stream"
+# The lifecycle generation-scoped S1-U collection is the only accepted source of
+# generation-level user-plane ownership, so its own completeness and internal
+# consistency are part of the attribution proof.
+ATTRIBUTION_FAILURE_SCOPED_COLLECTION_TRUNCATED = (
+    "lifecycle_generation_scoped_attribution_collection_truncated"
+)
+ATTRIBUTION_FAILURE_SCOPED_COLLECTION_INVALID = (
+    "lifecycle_generation_scoped_attribution_collection_invalid"
+)
+ATTRIBUTION_FAILURE_SCOPED_CONFLICT = (
+    "conflicting_lifecycle_generation_scoped_attribution"
+)
+ATTRIBUTION_FAILURE_SCOPED_ROLE_MISSING = (
+    "lifecycle_generation_scoped_attribution_publishes_no_receiving_endpoint_role"
+)
+ATTRIBUTION_FAILURE_SCOPED_STREAM_ROLE = (
+    "lifecycle_generation_scoped_attribution_names_another_receiving_role_than_the_stream"
+)
+ATTRIBUTION_FAILURE_SCOPED_GENERATION_SCOPE = "lifecycle_generation_scope_is_not_unique"
+
+SCOPED_COLLECTION_DOCUMENT = "epc-bearer-lifecycle"
+SCOPED_COLLECTION_NAME = "generation_scoped_s1u_observations"
+SCOPED_COLLECTION_COUNT = "generation_scoped_observation_count"
+
+ATTRIBUTION_FAILURE_VOCABULARY = (
+    ATTRIBUTION_FAILURE_CAPTURE,
+    ATTRIBUTION_FAILURE_SEVERAL_GENERATIONS,
+    ATTRIBUTION_FAILURE_STREAM_NOT_ACCEPTED,
+    ATTRIBUTION_FAILURE_STREAM_REFERENCE_MISSING,
+    ATTRIBUTION_FAILURE_NO_SCOPED,
+    ATTRIBUTION_FAILURE_SCOPED_NOT_ACCEPTED,
+    ATTRIBUTION_FAILURE_SCOPED_ROLE,
+    ATTRIBUTION_FAILURE_SEVERAL_CLAIMANTS,
+    ATTRIBUTION_FAILURE_SCOPED_COLLECTION_TRUNCATED,
+    ATTRIBUTION_FAILURE_SCOPED_COLLECTION_INVALID,
+    ATTRIBUTION_FAILURE_SCOPED_CONFLICT,
+    ATTRIBUTION_FAILURE_SCOPED_ROLE_MISSING,
+    ATTRIBUTION_FAILURE_SCOPED_STREAM_ROLE,
+    ATTRIBUTION_FAILURE_SCOPED_GENERATION_SCOPE,
+)
 
 # Collections whose completeness is a precondition for a unique closure claim.
 CLOSURE_CRITICAL_COLLECTIONS = (
@@ -365,6 +405,17 @@ def source_completeness(
             "advertisement_family_count",
             "advertisement_families_omitted",
         ),
+        # The generation-scoped S1-U collection is the only accepted source of
+        # generation-level user-plane ownership, so its own declared count is part
+        # of the completeness proof. The accepted producer publishes no omitted
+        # count for this collection, so none is invented here.
+        _completeness_entry(
+            SCOPED_COLLECTION_DOCUMENT,
+            lifecycle,
+            SCOPED_COLLECTION_NAME,
+            SCOPED_COLLECTION_COUNT,
+            None,
+        ),
     ]
     if s1u is not None:
         candidates.append(
@@ -434,26 +485,70 @@ def closure_completeness(
     return (not failures), failures
 
 
+def scoped_attribution_completeness(
+    completeness: dict[str, Any],
+) -> tuple[bool, str | None]:
+    """Affirmative proof that the scoped-attribution collection is complete.
+
+    A visible subset of the lifecycle generation-scoped S1-U collection is not a
+    complete ownership candidate set, so a unique attribution may only rest on it
+    when the declared count provably equals the published records.
+    """
+    for item in completeness.get("collections") or []:
+        if not isinstance(item, dict):
+            continue
+        if (item.get("document"), item.get("collection")) != (
+            SCOPED_COLLECTION_DOCUMENT,
+            SCOPED_COLLECTION_NAME,
+        ):
+            continue
+        status = item.get("status")
+        if status == COMPLETENESS_COMPLETE:
+            return True, None
+        if status == COMPLETENESS_TRUNCATED:
+            return False, ATTRIBUTION_FAILURE_SCOPED_COLLECTION_TRUNCATED
+        return False, ATTRIBUTION_FAILURE_SCOPED_COLLECTION_INVALID
+    # An unassessed collection is not a proved one.
+    return False, ATTRIBUTION_FAILURE_SCOPED_COLLECTION_INVALID
+
+
 def _scoped_attributions(
     lifecycle: dict[str, Any],
 ) -> tuple[
-    dict[tuple[str, str, str], dict[str, Any]],
+    dict[tuple[str, str, str], list[dict[str, Any]]],
     dict[tuple[str, str], list[str]],
+    set[str],
 ]:
-    """Lifecycle-published generation-scoped S1-U attributions.
+    """Lifecycle-published generation-scoped S1-U attributions, contradiction-aware.
 
     The accepted lifecycle publishes ``generation_scoped_s1u_observations`` that
-    name both the bearer generation and the S1-U stream that generation owns.
-    That record is the only producer contract establishing generation-level
-    user-plane ownership, so it is the strongest provenance available here.
+    name both the bearer generation and the S1-U stream that generation owns. That
+    record is the only producer contract establishing generation-level user-plane
+    ownership, so it is the strongest provenance available here.
+
+    Every record is kept: a repeated ``(capture, generation, stream)`` key is a
+    contradiction to be reported, never a later record silently replacing an
+    earlier one. The accepted producer emits at most one record per accepted
+    stream, so multiplicity is always a producer or artifact defect.
+
+    A generation reference that resolves to more than one capture has no unique
+    scope and cannot place a record in any capture; those references are returned
+    separately so the attribution gate can say so.
     """
-    capture_by_generation = {
-        str(subject.get("generation_reference")): str(subject.get("capture_file"))
-        for subject in lifecycle.get("lifecycle_subjects") or []
-        if isinstance(subject, dict)
-        and isinstance(subject.get("generation_reference"), str)
+    captures_by_generation: dict[str, set[str]] = {}
+    for subject in lifecycle.get("lifecycle_subjects") or []:
+        if not isinstance(subject, dict):
+            continue
+        reference = subject.get("generation_reference")
+        capture = subject.get("capture_file")
+        if isinstance(reference, str) and isinstance(capture, str):
+            captures_by_generation.setdefault(reference, set()).add(capture)
+    ambiguous = {
+        reference
+        for reference, captures in captures_by_generation.items()
+        if len(captures) != 1
     }
-    index: dict[tuple[str, str, str], dict[str, Any]] = {}
+    index: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     claimants: dict[tuple[str, str], list[str]] = {}
     for record in lifecycle.get("generation_scoped_s1u_observations") or []:
         if not isinstance(record, dict):
@@ -462,30 +557,39 @@ def _scoped_attributions(
         stream = record.get("source_stream_reference")
         if not isinstance(generation, str) or not isinstance(stream, str):
             continue
-        capture = capture_by_generation.get(generation)
-        if capture is None:
+        captures = captures_by_generation.get(generation)
+        if not captures or len(captures) != 1:
             continue
-        index[(capture, generation, stream)] = record
+        capture = next(iter(captures))
+        index.setdefault((capture, generation, stream), []).append(record)
         bucket = claimants.setdefault((capture, stream), [])
         if generation not in bucket:
             bucket.append(generation)
-    return index, claimants
+    return index, claimants, ambiguous
 
 
 def _generation_attribution(
     stream: dict[str, Any],
     generations: list[dict[str, Any]],
     capture: str,
-    scoped: dict[tuple[str, str, str], dict[str, Any]],
+    scoped: dict[tuple[str, str, str], list[dict[str, Any]]],
     claimants: dict[tuple[str, str], list[str]],
+    ambiguous_generations: set[str],
+    scoped_completeness: tuple[bool, str | None],
 ) -> tuple[str, str, list[str]]:
     """Decide whether one S1-U stream may be attributed to one proved generation.
 
-    Every condition must hold affirmatively: same capture, one proved generation
-    owner, an accepted stream association, and a lifecycle generation-scoped
-    observation that names exactly this generation and exactly this stream.
+    Every condition must hold affirmatively: a complete scoped-attribution
+    collection, the same capture, one proved generation owner, an accepted stream
+    association, and exactly one internally consistent lifecycle generation-scoped
+    observation that names this generation and this stream and no other role.
     """
     failures: list[str] = []
+    scoped_complete, scoped_failure = scoped_completeness
+    if not scoped_complete:
+        failures.append(
+            scoped_failure or ATTRIBUTION_FAILURE_SCOPED_COLLECTION_INVALID
+        )
     if str(stream.get("capture_file")) != capture:
         failures.append(ATTRIBUTION_FAILURE_CAPTURE)
     if len(generations) != 1:
@@ -498,17 +602,28 @@ def _generation_attribution(
     generation = generations[0] if len(generations) == 1 else None
     if isinstance(reference, str) and generation is not None:
         generation_reference = str(generation.get("generation_reference"))
-        record = scoped.get((capture, generation_reference, reference))
-        if record is None:
+        if generation_reference in ambiguous_generations:
+            failures.append(ATTRIBUTION_FAILURE_SCOPED_GENERATION_SCOPE)
+        records = scoped.get((capture, generation_reference, reference)) or []
+        if not records:
             failures.append(ATTRIBUTION_FAILURE_NO_SCOPED)
+        elif len(records) > 1:
+            # Last-writer-wins, first-writer-wins and strongest-status selection
+            # are all forbidden: a repeated ownership claim is a contradiction.
+            failures.append(ATTRIBUTION_FAILURE_SCOPED_CONFLICT)
         else:
+            record = records[0]
             if record.get("association_status") != STREAM_ASSOCIATION_SUPPORTED:
                 failures.append(ATTRIBUTION_FAILURE_SCOPED_NOT_ACCEPTED)
             role = record.get("receiving_endpoint_role")
-            if isinstance(role, str) and role != str(
-                generation.get("receiving_endpoint_role")
-            ):
-                failures.append(ATTRIBUTION_FAILURE_SCOPED_ROLE)
+            if not isinstance(role, str) or not role:
+                # A missing role must not bypass the role check.
+                failures.append(ATTRIBUTION_FAILURE_SCOPED_ROLE_MISSING)
+            else:
+                if role != str(generation.get("receiving_endpoint_role")):
+                    failures.append(ATTRIBUTION_FAILURE_SCOPED_ROLE)
+                if role != str(stream.get("matched_endpoint_role")):
+                    failures.append(ATTRIBUTION_FAILURE_SCOPED_STREAM_ROLE)
         if len(claimants.get((capture, reference), [])) > 1:
             failures.append(ATTRIBUTION_FAILURE_SEVERAL_CLAIMANTS)
     if failures:
@@ -1584,6 +1699,7 @@ def build_temporal_observations(
     s1u: dict[str, Any] | None,
     gtpu_events: list[dict[str, Any]] | None,
     lifecycle: dict[str, Any] | None = None,
+    scoped_completeness: tuple[bool, str | None] | None = None,
 ) -> tuple[
     list[dict[str, Any]], dict[str, Any], list[str], list[dict[str, Any]]
 ]:
@@ -1591,9 +1707,10 @@ def build_temporal_observations(
 
     Ownership is never inferred from endpoint equality. A stream is attributed to
     a proved generation only inside its own capture, only when its own association
-    is accepted, and only when the lifecycle's own generation-scoped S1-U
-    observation names exactly that generation and exactly that stream. A G-PDU
-    frame may appear in at most one established partition.
+    is accepted, only when the lifecycle's generation-scoped S1-U collection is
+    provably complete, and only when exactly one internally consistent scoped
+    observation names that generation and that stream. A G-PDU frame may appear in
+    at most one established partition.
     """
     if s1u is None:
         return (
@@ -1615,7 +1732,11 @@ def build_temporal_observations(
         item for item in s1u.get("stream_observations") or [] if isinstance(item, dict)
     ]
     frame_index = _gtpu_index(gtpu_events)
-    scoped, claimants = _scoped_attributions(lifecycle or {})
+    scoped, claimants, ambiguous_generations = _scoped_attributions(lifecycle or {})
+    scoped_gate = scoped_completeness or (
+        False,
+        ATTRIBUTION_FAILURE_SCOPED_COLLECTION_INVALID,
+    )
     limitations: list[str] = []
     unbound: list[dict[str, Any]] = []
     seen_unbound: set[tuple[Any, ...]] = set()
@@ -1726,7 +1847,15 @@ def build_temporal_observations(
                         )
                 continue
             attribution_status, attribution_basis, attribution_failures = (
-                _generation_attribution(stream, owners, capture, scoped, claimants)
+                _generation_attribution(
+                    stream,
+                    owners,
+                    capture,
+                    scoped,
+                    claimants,
+                    ambiguous_generations,
+                    scoped_gate,
+                )
             )
             reference = _reference(
                 "epc-release-temporal-",
@@ -1937,6 +2066,23 @@ def build_temporal_observations(
             "generation-level attribution; its aggregate counts stay visible and no packet is "
             "assigned to a release window"
         )
+    if not scoped_gate[0]:
+        limitations.append(
+            "no generation-level user-plane ownership is established while the lifecycle "
+            "generation-scoped S1-U attribution collection is incomplete: "
+            + str(scoped_gate[1])
+        )
+    conflicted_attributions = sum(
+        1
+        for plan in plans
+        if ATTRIBUTION_FAILURE_SCOPED_CONFLICT in plan["attribution_failures"]
+    )
+    if conflicted_attributions:
+        limitations.append(
+            f"{conflicted_attributions} stream attribution(s) carry more than one lifecycle "
+            "generation-scoped record for the same capture, generation and stream; the "
+            "contradiction is reported and no record is selected by input order"
+        )
     accounting = {
         "frame_level_evidence_supplied": bool(frame_index),
         "observed_g_pdu_event_count": total_events,
@@ -2018,6 +2164,7 @@ def analyze(
 
     completeness = source_completeness(identity_document, lifecycle_document, s1u_document)
     closure_complete, closure_failures = closure_completeness(completeness)
+    scoped_complete, scoped_failure = scoped_attribution_completeness(completeness)
     subjects = build_narrative_subjects(identity_document, lifecycle_document)
     narratives, binding_unbound = build_release_narratives(
         identity_document, lifecycle_document, subjects, completeness
@@ -2029,7 +2176,11 @@ def analyze(
         temporal_limitations,
         temporal_unbound,
     ) = build_temporal_observations(
-        narratives, s1u_document, gtpu_events, lifecycle_document
+        narratives,
+        s1u_document,
+        gtpu_events,
+        lifecycle_document,
+        (scoped_complete, scoped_failure),
     )
     ambiguous = _ambiguous_records(identity_document, lifecycle_document, narratives)
 
@@ -2061,6 +2212,14 @@ def analyze(
         limitations.append(
             "no unique bearer-generation closure is promoted while a closure-critical source "
             "collection is incomplete: " + ", ".join(closure_failures)
+        )
+    if not scoped_complete:
+        limitations.append(
+            "no generation-level user-plane ownership is established while the lifecycle "
+            "generation-scoped S1-U attribution collection is incomplete: "
+            + str(scoped_failure)
+            + "; the release outcome, the release-session binding and any independently proved "
+            "generation closure are unaffected"
         )
     if gtpv2_events is None:
         limitations.append(
@@ -2120,6 +2279,11 @@ def analyze(
             "complete closure-critical collections are required before a unique "
             "bearer-generation closure is promoted"
         )
+    if not scoped_complete:
+        additional.append(
+            "a complete lifecycle generation-scoped S1-U attribution collection is required "
+            "before any stream is attributed to a bearer generation"
+        )
     for narrative in narratives:
         if narrative.get("release_session_binding_status") != STATUS_ESTABLISHED:
             additional.append(
@@ -2170,6 +2334,12 @@ def analyze(
                 "a complete temporal placement is asserted only when the observed frame-level "
                 "events reproduce the accepted aggregate count and payload octets; an incomplete "
                 "or conflicting frame set keeps its observed subset and fails closed"
+            ),
+            "scoped_attribution_rule": (
+                "generation-level user-plane ownership rests on the lifecycle "
+                "generation-scoped S1-U collection; that collection must prove its own declared "
+                "count, and exactly one internally consistent record may name a capture, "
+                "generation and stream, so no record is selected by input order"
             ),
             "completeness_rule": (
                 "no exhaustive release or generation coverage is claimed while a material source "
@@ -2222,6 +2392,7 @@ __all__ = [
     "build_temporal_observations",
     "closure_completeness",
     "read_json",
+    "scoped_attribution_completeness",
     "read_jsonl",
     "safe_name",
     "source_completeness",

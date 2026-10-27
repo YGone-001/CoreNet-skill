@@ -2203,6 +2203,132 @@ def _validate_release_narrative(skill: Path, root: Path) -> list[str]:
     if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 0:
         fail("a frame claimed twice must be assigned to no release window")
 
+    # N — the lifecycle scoped-attribution collection must prove its own count.
+    def scoped_analysis(lifecycle):
+        return model.analyze(
+            identity,
+            lifecycle,
+            s1u=_narrative_s1u_document(
+                streams=[_narrative_stream(packets=2, octets=200)]
+            ),
+            gtpu_events=[_narrative_gtpu(10), _narrative_gtpu(20)],
+        )
+
+    identity, lifecycle = base()
+    lifecycle["generation_scoped_observation_count"] = 2
+    analysis = scoped_analysis(lifecycle)
+    if analysis["source_completeness"]["status"] != "SOURCE_CANDIDATES_TRUNCATED":
+        fail("a truncated scoped-attribution collection must publish SOURCE_CANDIDATES_TRUNCATED")
+    observation = analysis["temporal_observations"][0]
+    if observation["generation_attribution_status"] != "NOT_ESTABLISHED":
+        fail("a truncated scoped-attribution collection must not establish ownership")
+    if (
+        "lifecycle_generation_scoped_attribution_collection_truncated"
+        not in observation["attribution_failures"]
+    ):
+        fail("a truncated scoped-attribution collection must publish its refusal reason")
+    if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 0:
+        fail("a truncated scoped-attribution collection must assign no packet")
+    if analysis["release_narratives"][0]["generation_closure_status"] != "ESTABLISHED":
+        fail("an incomplete user-plane attribution collection must not erase a proved closure")
+    if analysis["release_narratives"][0]["release_outcome_status"] != "ACCEPTED":
+        fail("an incomplete user-plane attribution collection must not reclassify the outcome")
+
+    # O — missing, invalid or underdeclared scoped-count metadata fails closed.
+    scoped_count_mutations = (
+        ("missing", lambda document: document.pop("generation_scoped_observation_count")),
+        ("null", lambda document: document.__setitem__(
+            "generation_scoped_observation_count", None)),
+        ("non-numeric", lambda document: document.__setitem__(
+            "generation_scoped_observation_count", "one")),
+        ("boolean", lambda document: document.__setitem__(
+            "generation_scoped_observation_count", True)),
+        ("negative", lambda document: document.__setitem__(
+            "generation_scoped_observation_count", -1)),
+        ("underdeclared", lambda document: document.__setitem__(
+            "generation_scoped_observation_count", 0)),
+    )
+    for label, mutate in scoped_count_mutations:
+        identity, lifecycle = base()
+        mutate(lifecycle)
+        analysis = scoped_analysis(lifecycle)
+        if analysis["source_completeness"]["status"] != "SOURCE_CANDIDATES_METADATA_INVALID":
+            fail(f"a {label} scoped-attribution count must publish METADATA_INVALID")
+        observation = analysis["temporal_observations"][0]
+        if observation["generation_attribution_status"] != "NOT_ESTABLISHED":
+            fail(f"a {label} scoped-attribution count must not establish ownership")
+        if (
+            "lifecycle_generation_scoped_attribution_collection_invalid"
+            not in observation["attribution_failures"]
+        ):
+            fail(f"a {label} scoped-attribution count must publish its refusal reason")
+
+    # P — contradictory duplicate scoped records fail closed, in either order.
+    contradictory_observations = []
+    for order in ("original-first", "contradiction-first"):
+        identity, lifecycle = base()
+        original = lifecycle["generation_scoped_s1u_observations"][0]
+        contradictory = dict(original, receiving_endpoint_role="enodeb_s1u")
+        records = (
+            [original, contradictory] if order == "original-first" else [contradictory, original]
+        )
+        lifecycle["generation_scoped_s1u_observations"] = records
+        lifecycle["generation_scoped_observation_count"] = len(records)
+        analysis = scoped_analysis(lifecycle)
+        observation = analysis["temporal_observations"][0]
+        if observation["generation_attribution_status"] != "NOT_ESTABLISHED":
+            fail(f"contradictory scoped records ({order}) must not establish ownership")
+        if (
+            "conflicting_lifecycle_generation_scoped_attribution"
+            not in observation["attribution_failures"]
+        ):
+            fail(f"contradictory scoped records ({order}) must publish the conflict")
+        if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 0:
+            fail(f"contradictory scoped records ({order}) must assign no packet")
+        contradictory_observations.append(observation)
+    if (
+        contradictory_observations[0]["generation_attribution_status"]
+        != contradictory_observations[1]["generation_attribution_status"]
+        or contradictory_observations[0]["attribution_failures"]
+        != contradictory_observations[1]["attribution_failures"]
+    ):
+        fail("the scoped-attribution verdict must not depend on source record order")
+
+    # Q — a missing receiving role must not bypass the role check.
+    identity, lifecycle = base()
+    lifecycle["generation_scoped_s1u_observations"][0].pop("receiving_endpoint_role")
+    analysis = scoped_analysis(lifecycle)
+    observation = analysis["temporal_observations"][0]
+    if observation["generation_attribution_status"] != "NOT_ESTABLISHED":
+        fail("a scoped record without a receiving role must not establish ownership")
+    if (
+        "lifecycle_generation_scoped_attribution_publishes_no_receiving_endpoint_role"
+        not in observation["attribution_failures"]
+    ):
+        fail("a scoped record without a receiving role must publish its refusal reason")
+
+    # R — a scoped record naming another receiving role fails closed.
+    identity, lifecycle = base()
+    lifecycle["generation_scoped_s1u_observations"][0]["receiving_endpoint_role"] = "enodeb_s1u"
+    analysis = scoped_analysis(lifecycle)
+    observation = analysis["temporal_observations"][0]
+    if observation["generation_attribution_status"] != "NOT_ESTABLISHED":
+        fail("a scoped record naming another receiving role must not establish ownership")
+    if (
+        "lifecycle_generation_scoped_attribution_names_another_receiving_role"
+        not in observation["attribution_failures"]
+    ):
+        fail("a scoped record naming another receiving role must publish its refusal reason")
+
+    # S — the complete positive case still establishes ownership.
+    identity, lifecycle = base()
+    analysis = scoped_analysis(lifecycle)
+    observation = analysis["temporal_observations"][0]
+    if observation["generation_attribution_status"] != "ESTABLISHED":
+        fail("a complete, consistent scoped attribution must establish ownership")
+    if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 2:
+        fail("a complete, consistent scoped attribution must assign its packets")
+
     return errors
 
 
