@@ -132,6 +132,48 @@ PARTITIONS = (PARTITION_BEFORE, PARTITION_PENDING, PARTITION_AFTER)
 
 PARTITION_BASIS_FRAMES = "FRAME_LEVEL_EVENTS"
 PARTITION_BASIS_AGGREGATE = "AGGREGATE_STREAM_ONLY"
+PARTITION_BASIS_INCOMPLETE = "FRAME_LEVEL_EVENTS_INCOMPLETE"
+PARTITION_BASIS_CONFLICTED = "FRAME_LEVEL_EVENTS_CONFLICTED"
+PARTITION_BASIS_UNATTRIBUTED = "GENERATION_ATTRIBUTION_NOT_ESTABLISHED"
+
+PARTITION_SCOPE_COMPLETE = "COMPLETE_STREAM"
+PARTITION_SCOPE_SUBSET = "OBSERVED_SUBSET"
+
+# Generation-level user-plane ownership. A SUPPORTED S1-U stream association
+# names a default-bearer subject; only the lifecycle's own generation-scoped
+# observation names a bearer generation.
+STREAM_ASSOCIATION_SUPPORTED = "SUPPORTED"
+
+ATTRIBUTION_ESTABLISHED = "ESTABLISHED"
+ATTRIBUTION_NOT_ESTABLISHED = "NOT_ESTABLISHED"
+
+ATTRIBUTION_BASIS_SCOPED = (
+    "accepted_stream_association_and_lifecycle_generation_scoped_s1u_observation"
+)
+ATTRIBUTION_BASIS_UNPROVED = "endpoint_equality_alone_is_not_generation_ownership"
+
+ATTRIBUTION_FAILURE_CAPTURE = "capture_identity_mismatch"
+ATTRIBUTION_FAILURE_SEVERAL_GENERATIONS = "several_proved_generations_share_one_endpoint"
+ATTRIBUTION_FAILURE_STREAM_NOT_ACCEPTED = "stream_association_not_accepted"
+ATTRIBUTION_FAILURE_STREAM_REFERENCE_MISSING = "stream_reference_missing"
+ATTRIBUTION_FAILURE_NO_SCOPED = (
+    "lifecycle_publishes_no_generation_scoped_s1u_observation_for_this_stream"
+)
+ATTRIBUTION_FAILURE_SCOPED_NOT_ACCEPTED = (
+    "lifecycle_generation_scoped_attribution_not_accepted"
+)
+ATTRIBUTION_FAILURE_SCOPED_ROLE = (
+    "lifecycle_generation_scoped_attribution_names_another_receiving_role"
+)
+ATTRIBUTION_FAILURE_SEVERAL_CLAIMANTS = "several_generations_claim_one_stream"
+
+# Collections whose completeness is a precondition for a unique closure claim.
+CLOSURE_CRITICAL_COLLECTIONS = (
+    ("epc-session-identity", "release_session_bindings"),
+    ("epc-session-identity", "session_to_generation_links"),
+    ("epc-session-identity", "generation_closure_candidates"),
+    ("epc-bearer-lifecycle", "lifecycle_subjects"),
+)
 
 # Source-completeness classifications. Reused from the accepted lifecycle contract.
 COMPLETENESS_COMPLETE = "COMPLETE"
@@ -367,6 +409,111 @@ def source_completeness(
         "limitation": limitation,
         "collections": collections,
     }
+
+
+def closure_completeness(
+    completeness: dict[str, Any],
+) -> tuple[bool, list[str]]:
+    """Affirmative proof that every closure-critical collection is complete.
+
+    Unique generation closure is a uniqueness claim about a candidate set, so it
+    is only assertable when the published subset provably *is* the whole set. The
+    gate is evaluated per collection: an aggregate status is not enough, because
+    one truncated collection is sufficient to hide a competing candidate.
+    """
+    entries = {
+        (str(item.get("document")), str(item.get("collection"))): item
+        for item in completeness.get("collections") or []
+        if isinstance(item, dict)
+    }
+    failures: list[str] = []
+    for document, collection in CLOSURE_CRITICAL_COLLECTIONS:
+        entry = entries.get((document, collection))
+        if entry is None or entry.get("status") != COMPLETENESS_COMPLETE:
+            failures.append(f"{document}:{collection}")
+    return (not failures), failures
+
+
+def _scoped_attributions(
+    lifecycle: dict[str, Any],
+) -> tuple[
+    dict[tuple[str, str, str], dict[str, Any]],
+    dict[tuple[str, str], list[str]],
+]:
+    """Lifecycle-published generation-scoped S1-U attributions.
+
+    The accepted lifecycle publishes ``generation_scoped_s1u_observations`` that
+    name both the bearer generation and the S1-U stream that generation owns.
+    That record is the only producer contract establishing generation-level
+    user-plane ownership, so it is the strongest provenance available here.
+    """
+    capture_by_generation = {
+        str(subject.get("generation_reference")): str(subject.get("capture_file"))
+        for subject in lifecycle.get("lifecycle_subjects") or []
+        if isinstance(subject, dict)
+        and isinstance(subject.get("generation_reference"), str)
+    }
+    index: dict[tuple[str, str, str], dict[str, Any]] = {}
+    claimants: dict[tuple[str, str], list[str]] = {}
+    for record in lifecycle.get("generation_scoped_s1u_observations") or []:
+        if not isinstance(record, dict):
+            continue
+        generation = record.get("generation_reference")
+        stream = record.get("source_stream_reference")
+        if not isinstance(generation, str) or not isinstance(stream, str):
+            continue
+        capture = capture_by_generation.get(generation)
+        if capture is None:
+            continue
+        index[(capture, generation, stream)] = record
+        bucket = claimants.setdefault((capture, stream), [])
+        if generation not in bucket:
+            bucket.append(generation)
+    return index, claimants
+
+
+def _generation_attribution(
+    stream: dict[str, Any],
+    generations: list[dict[str, Any]],
+    capture: str,
+    scoped: dict[tuple[str, str, str], dict[str, Any]],
+    claimants: dict[tuple[str, str], list[str]],
+) -> tuple[str, str, list[str]]:
+    """Decide whether one S1-U stream may be attributed to one proved generation.
+
+    Every condition must hold affirmatively: same capture, one proved generation
+    owner, an accepted stream association, and a lifecycle generation-scoped
+    observation that names exactly this generation and exactly this stream.
+    """
+    failures: list[str] = []
+    if str(stream.get("capture_file")) != capture:
+        failures.append(ATTRIBUTION_FAILURE_CAPTURE)
+    if len(generations) != 1:
+        failures.append(ATTRIBUTION_FAILURE_SEVERAL_GENERATIONS)
+    if stream.get("association_status") != STREAM_ASSOCIATION_SUPPORTED:
+        failures.append(ATTRIBUTION_FAILURE_STREAM_NOT_ACCEPTED)
+    reference = stream.get("stream_reference")
+    if not isinstance(reference, str):
+        failures.append(ATTRIBUTION_FAILURE_STREAM_REFERENCE_MISSING)
+    generation = generations[0] if len(generations) == 1 else None
+    if isinstance(reference, str) and generation is not None:
+        generation_reference = str(generation.get("generation_reference"))
+        record = scoped.get((capture, generation_reference, reference))
+        if record is None:
+            failures.append(ATTRIBUTION_FAILURE_NO_SCOPED)
+        else:
+            if record.get("association_status") != STREAM_ASSOCIATION_SUPPORTED:
+                failures.append(ATTRIBUTION_FAILURE_SCOPED_NOT_ACCEPTED)
+            role = record.get("receiving_endpoint_role")
+            if isinstance(role, str) and role != str(
+                generation.get("receiving_endpoint_role")
+            ):
+                failures.append(ATTRIBUTION_FAILURE_SCOPED_ROLE)
+        if len(claimants.get((capture, reference), [])) > 1:
+            failures.append(ATTRIBUTION_FAILURE_SEVERAL_CLAIMANTS)
+    if failures:
+        return ATTRIBUTION_NOT_ESTABLISHED, ATTRIBUTION_BASIS_UNPROVED, failures
+    return ATTRIBUTION_ESTABLISHED, ATTRIBUTION_BASIS_SCOPED, []
 
 
 # ---------------------------------------------------------------------------
@@ -741,6 +888,27 @@ def _generations_by_boundary(
     return result
 
 
+def _session_generation_link_index(
+    identity: dict[str, Any],
+) -> dict[tuple[str, str, str], dict[str, Any]]:
+    """Established session-to-generation relationships, keyed by capture and endpoints.
+
+    The accepted identity analysis targets a *bearer endpoint* reference, not a
+    lifecycle generation reference, so the chain is resolved through the
+    candidate's own ``bearer_endpoint_reference``.
+    """
+    index: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for link in identity.get("session_to_generation_links") or []:
+        if not isinstance(link, dict):
+            continue
+        source = link.get("source_subject_reference")
+        target = link.get("target_subject_reference")
+        if not isinstance(source, str) or not isinstance(target, str):
+            continue
+        index[(str(link.get("capture_file")), source, target)] = link
+    return index
+
+
 def _established_candidates(identity: dict[str, Any]) -> list[dict[str, Any]]:
     """Every established closure candidate, keeping competing entries distinct."""
     return [
@@ -758,14 +926,20 @@ def _proved_generations(
     transaction_reference: str,
     capture: str,
     release_outcome: Any,
+    closure_complete: bool,
+    closure_failures: list[str],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
     """Generations proved closed for exactly this release and context.
 
-    A generation is admitted only when all of the following hold: the lifecycle
-    subject carries a proved boundary naming this release transaction in this
-    capture; the identity analysis publishes an ESTABLISHED closure candidate for
-    the same context, release and bearer endpoint; and the candidate's endpoint
-    identity matches the lifecycle subject's receiving endpoint exactly.
+    A generation is admitted only when the whole closure chain holds: the
+    release-to-session binding is established for this capture and release; the
+    lifecycle subject carries a proved boundary naming this release transaction
+    in this capture; the identity analysis publishes an ESTABLISHED closure
+    candidate for the same context, release and bearer endpoint; an ESTABLISHED
+    session-to-generation link joins that context to the candidate's bearer
+    endpoint; the candidate's endpoint identity matches the lifecycle subject's
+    receiving endpoint exactly; and every closure-critical source collection is
+    provably complete.
     """
     proved: list[dict[str, Any]] = []
     competing: list[dict[str, Any]] = []
@@ -780,6 +954,21 @@ def _proved_generations(
             "the release outcome is not accepted, so no bearer-generation closure is promoted "
             "even where the lifecycle publishes a generation boundary"
         ]
+    if not closure_complete:
+        # Unique closure is a uniqueness claim about a candidate set. While a
+        # closure-critical collection is truncated or its completeness metadata is
+        # invalid, the visible subset cannot establish that uniqueness.
+        return proved, competing, [
+            "no unique bearer-generation closure is promoted while a closure-critical source "
+            "collection is incomplete: " + ", ".join(closure_failures)
+        ]
+    binding = _binding_index(identity).get((capture, transaction_reference))
+    if binding is None or binding.get("association_status") != STATUS_ESTABLISHED:
+        return proved, competing, [
+            "the release-to-session binding is not established for this capture and release, so "
+            "no bearer-generation closure is promoted"
+        ]
+    links = _session_generation_link_index(identity)
     matching = [
         candidate
         for candidate in _established_candidates(identity)
@@ -811,6 +1000,15 @@ def _proved_generations(
             if candidate_key == endpoint_key:
                 owned.append(candidate)
         if len(owned) == 1 and subject.get("generation_state") == "CLOSED_BY_ACCEPTED_RELEASE":
+            endpoint_reference = owned[0].get("bearer_endpoint_reference")
+            link = links.get((capture, context_reference, str(endpoint_reference)))
+            if link is None or link.get("association_status") != STATUS_ESTABLISHED:
+                limitations.append(
+                    "the identity analysis publishes no established session-to-generation link "
+                    "from this context to the candidate's bearer endpoint, so the closure chain "
+                    "is incomplete and no generation is proved closed"
+                )
+                continue
             boundary = subject.get("generation_boundary") or {}
             proved.append(
                 {
@@ -860,8 +1058,15 @@ def build_release_narratives(
     identity: dict[str, Any],
     lifecycle: dict[str, Any],
     subjects: list[dict[str, Any]],
+    completeness: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """One narrative per release transaction, keyed by capture and transaction."""
+    """One narrative per release transaction, keyed by capture and transaction.
+
+    ``completeness`` is the affirmative source-completeness proof. It gates the
+    unique-closure claim: without it, an established-looking candidate from the
+    visible portion of a truncated collection must not be promoted.
+    """
+    closure_complete, closure_failures = closure_completeness(completeness or {})
     subject_by_context = {
         subject["session_context_reference"]: subject for subject in subjects
     }
@@ -923,7 +1128,14 @@ def build_release_narratives(
                 "only the lifecycle boundary evidence is available"
             )
         proved, competing, generation_limitations = _proved_generations(
-            identity, lifecycle, context_reference, transaction_reference, capture, outcome
+            identity,
+            lifecycle,
+            context_reference,
+            transaction_reference,
+            capture,
+            outcome,
+            closure_complete,
+            closure_failures,
         )
         closure_status = (
             STATUS_ESTABLISHED
@@ -1371,57 +1583,151 @@ def build_temporal_observations(
     narratives: list[dict[str, Any]],
     s1u: dict[str, Any] | None,
     gtpu_events: list[dict[str, Any]] | None,
-) -> tuple[list[dict[str, Any]], dict[str, Any], list[str]]:
-    """Frame-aware temporal evidence per release, without inventing placement."""
+    lifecycle: dict[str, Any] | None = None,
+) -> tuple[
+    list[dict[str, Any]], dict[str, Any], list[str], list[dict[str, Any]]
+]:
+    """Frame-aware temporal evidence per release, without inventing placement.
+
+    Ownership is never inferred from endpoint equality. A stream is attributed to
+    a proved generation only inside its own capture, only when its own association
+    is accepted, and only when the lifecycle's own generation-scoped S1-U
+    observation names exactly that generation and exactly that stream. A G-PDU
+    frame may appear in at most one established partition.
+    """
     if s1u is None:
-        return [], {
-            "frame_level_evidence_supplied": False,
-            "observed_g_pdu_event_count": 0,
-            "assigned_to_release_window_count": 0,
-            "unassigned_g_pdu_event_count": 0,
-            "duplicate_assignment_count": 0,
-            "conserved": True,
-        }, []
-    streams = [item for item in s1u.get("stream_observations") or [] if isinstance(item, dict)]
+        return (
+            [],
+            {
+                "frame_level_evidence_supplied": False,
+                "observed_g_pdu_event_count": 0,
+                "assigned_to_release_window_count": 0,
+                "unassigned_g_pdu_event_count": 0,
+                "duplicate_assignment_count": 0,
+                "attributed_observation_count": 0,
+                "unattributed_observation_count": 0,
+                "conserved": True,
+            },
+            [],
+            [],
+        )
+    streams = [
+        item for item in s1u.get("stream_observations") or [] if isinstance(item, dict)
+    ]
     frame_index = _gtpu_index(gtpu_events)
-    observations: list[dict[str, Any]] = []
+    scoped, claimants = _scoped_attributions(lifecycle or {})
     limitations: list[str] = []
-    assigned_frames: dict[tuple[str, int], str] = {}
-    duplicates = 0
-    total_events = sum(len(items) for items in frame_index.values())
+    unbound: list[dict[str, Any]] = []
+    seen_unbound: set[tuple[Any, ...]] = set()
+
+    # Endpoint indexes. The capture is part of every key: an endpoint value is
+    # only meaningful inside the capture that observed it, so a generation in one
+    # capture can never own traffic observed in another.
+    endpoints_by_capture: dict[
+        tuple[str, str, str, int], list[dict[str, Any]]
+    ] = {}
+    endpoints_any_capture: dict[tuple[str, str, int], list[str]] = {}
+    addresses_by_teid: dict[tuple[str, str, int], list[str]] = {}
     for narrative in narratives:
-        generations = narrative.get("proved_generations") or []
-        endpoints = {
-            (
-                str(item.get("receiving_endpoint_role")),
-                str(item.get("receiving_endpoint_address")),
-                _int(item.get("receiving_endpoint_teid")) or 0,
-            ): item
-            for item in generations
-        }
-        if not endpoints:
-            continue
-        request_frame = _int(narrative.get("release_request_frame"))
-        confirmation_frame = _int(narrative.get("release_confirmation_frame"))
+        capture = str(narrative.get("capture_file"))
+        for generation in narrative.get("proved_generations") or []:
+            role = str(generation.get("receiving_endpoint_role"))
+            address = str(generation.get("receiving_endpoint_address"))
+            teid = _int(generation.get("receiving_endpoint_teid")) or 0
+            endpoints_by_capture.setdefault(
+                (capture, role, address, teid), []
+            ).append(generation)
+            captures = endpoints_any_capture.setdefault((role, address, teid), [])
+            if capture not in captures:
+                captures.append(capture)
+            addresses = addresses_by_teid.setdefault((capture, role, teid), [])
+            if address not in addresses:
+                addresses.append(address)
+
+    # Pass 1 — resolve the candidate attribution of every stream, per narrative.
+    plans: list[dict[str, Any]] = []
+    for narrative in narratives:
+        capture = str(narrative.get("capture_file"))
+        transaction_reference = narrative.get("release_transaction_reference")
+        used_references: set[str] = set()
         for stream in streams:
-            role = stream.get("matched_endpoint_role")
-            key = (
-                str(role),
-                str(stream.get("outer_destination")),
-                _int(stream.get("teid")) or 0,
-            )
-            generation = endpoints.get(key)
-            if generation is None:
+            role = str(stream.get("matched_endpoint_role"))
+            address = str(stream.get("outer_destination"))
+            teid = _int(stream.get("teid")) or 0
+            owners = [
+                generation
+                for generation in narrative.get("proved_generations") or []
+                if str(generation.get("receiving_endpoint_role")) == role
+                and str(generation.get("receiving_endpoint_address")) == address
+                and (_int(generation.get("receiving_endpoint_teid")) or 0) == teid
+            ]
+            if str(stream.get("capture_file")) != capture:
+                # Capture identity is part of the endpoint identity. Traffic
+                # observed in one capture is never attributed to a generation
+                # proved in another, whatever the endpoint values say and whoever
+                # the lifecycle names.
+                if owners:
+                    key = ("cross_capture", capture, address, teid, role)
+                    if key not in seen_unbound:
+                        seen_unbound.add(key)
+                        unbound.append(
+                            {
+                                "kind": (
+                                    "stream_endpoint_matches_a_proved_generation_in_another_"
+                                    "capture"
+                                ),
+                                "capture_file": capture,
+                                "transaction_reference": transaction_reference,
+                                "checks": [
+                                    f"receiving_endpoint_role={role}",
+                                    f"receiving_endpoint_address={address}",
+                                    f"receiving_endpoint_teid={teid}",
+                                    f"stream_capture={stream.get('capture_file')}",
+                                ],
+                                "limitations": [
+                                    "this S1-U stream's receiving endpoint equals a proved "
+                                    "generation's endpoint, but the stream was observed in "
+                                    f"{stream.get('capture_file')} and the narrative belongs to "
+                                    f"{capture}; capture identity is part of the endpoint "
+                                    "identity, so no traffic is attributed across captures"
+                                ],
+                            }
+                        )
                 continue
-            stream_key = (
-                str(stream.get("capture_file")),
-                str(stream.get("outer_source")),
-                str(stream.get("outer_destination")),
-                _int(stream.get("teid")) or 0,
+            if not owners:
+                near = [
+                    other
+                    for other in addresses_by_teid.get((capture, role, teid), [])
+                    if other != address
+                ]
+                if near:
+                    key = ("teid_only", capture, address, teid, role)
+                    if key not in seen_unbound:
+                        seen_unbound.add(key)
+                        unbound.append(
+                            {
+                                "kind": (
+                                    "stream_shares_a_teid_with_a_proved_generation_without_"
+                                    "its_receiving_address"
+                                ),
+                                "capture_file": capture,
+                                "transaction_reference": transaction_reference,
+                                "checks": [
+                                    f"receiving_endpoint_role={role}",
+                                    f"receiving_endpoint_address={address}",
+                                    f"receiving_endpoint_teid={teid}",
+                                ],
+                                "limitations": [
+                                    "an equal receiving TEID is not a bearer identity; the "
+                                    "stream's receiving address differs from the proved "
+                                    "generation's, so no traffic is attributed"
+                                ],
+                            }
+                        )
+                continue
+            attribution_status, attribution_basis, attribution_failures = (
+                _generation_attribution(stream, owners, capture, scoped, claimants)
             )
-            aggregate_count = _int(stream.get("observed_g_pdu_packet_count")) or 0
-            aggregate_octets = _int(stream.get("observed_payload_byte_count")) or 0
-            events = frame_index.get(stream_key) or []
             reference = _reference(
                 "epc-release-temporal-",
                 [
@@ -1429,105 +1735,224 @@ def build_temporal_observations(
                     stream.get("stream_reference"),
                 ],
             )
-            record: dict[str, Any] = {
-                "temporal_observation_reference": reference,
-                "release_narrative_reference": narrative["release_narrative_reference"],
-                "capture_file": narrative["capture_file"],
-                "stream_reference": stream.get("stream_reference"),
-                "generation_reference": generation.get("generation_reference"),
-                "receiving_endpoint_role": role,
-                "direction": stream.get("direction"),
-                "association_status": stream.get("association_status"),
-                "observed_g_pdu_count": aggregate_count,
-                "observed_payload_octets": aggregate_octets,
-                "first_observed_frame": stream.get("first_frame"),
-                "last_observed_frame": stream.get("last_frame"),
-                "release_request_frame": request_frame,
-                "release_confirmation_frame": confirmation_frame,
-                "partitions": None,
-                "partition_basis": PARTITION_BASIS_AGGREGATE,
-                "temporal_placement_status": TEMPORAL_NOT_ESTABLISHED,
-                "partition_conserved": None,
-                "limitations": [],
-            }
-            if events and request_frame is not None and confirmation_frame is not None:
-                before: list[dict[str, Any]] = []
-                pending: list[dict[str, Any]] = []
-                after: list[dict[str, Any]] = []
-                for event in events:
-                    frame = event["frame_number"]
-                    if frame < request_frame:
-                        before.append(event)
-                    elif frame <= confirmation_frame:
-                        pending.append(event)
-                    else:
-                        after.append(event)
-                partitions = {
-                    PARTITION_BEFORE: _partition_totals(before),
-                    PARTITION_PENDING: _partition_totals(pending),
-                    PARTITION_AFTER: _partition_totals(after),
+            ordinal = 2
+            while reference in used_references:
+                reference = _reference(
+                    "epc-release-temporal-",
+                    [
+                        narrative["release_narrative_reference"],
+                        stream.get("stream_reference"),
+                        ordinal,
+                    ],
+                )
+                ordinal += 1
+            used_references.add(reference)
+            plans.append(
+                {
+                    "narrative": narrative,
+                    "capture": capture,
+                    "reference": reference,
+                    "stream": stream,
+                    "generation": owners[0] if len(owners) == 1 else None,
+                    "stream_key": (
+                        capture,
+                        str(stream.get("outer_source")),
+                        str(stream.get("outer_destination")),
+                        _int(stream.get("teid")) or 0,
+                    ),
+                    "attribution_status": attribution_status,
+                    "attribution_basis": attribution_basis,
+                    "attribution_failures": attribution_failures,
                 }
-                counted = sum(item["g_pdu_count"] for item in partitions.values())
-                octets = sum(item["payload_octets"] for item in partitions.values())
-                record["partitions"] = partitions
-                record["partition_basis"] = PARTITION_BASIS_FRAMES
-                record["temporal_placement_status"] = TEMPORAL_ESTABLISHED
-                record["partition_conserved"] = (
-                    counted == aggregate_count and octets == aggregate_octets
-                )
-                if not record["partition_conserved"]:
-                    record["limitations"].append(
-                        "frame-level G-PDU events do not reproduce the accepted aggregate stream "
-                        "count; the aggregate stays authoritative and the frame-level partition "
-                        "is published as a separate observation"
-                    )
-                for event in events:
-                    key = (str(stream.get("capture_file")), event["frame_number"])
-                    owner = assigned_frames.get(key)
-                    if owner is not None and owner != reference:
-                        duplicates += 1
-                        continue
-                    assigned_frames[key] = reference
-                record["limitations"].append(
-                    "the pending-release interval is an observation window, not evidence that "
-                    "forwarding stopped; the confirmation frame is not the traffic-stop frame"
-                )
-            else:
-                record["limitations"].append(
-                    "TEMPORAL_PLACEMENT_NOT_ESTABLISHED: only aggregate stream evidence is "
-                    "available, so no packet or octet count is divided across time windows"
-                )
-                if request_frame is None or confirmation_frame is None:
-                    record["limitations"].append(
-                        "the release request or its confirmation frame is unavailable, so no "
-                        "release window can be constructed"
-                    )
+            )
+
+    # Pass 2 — exclusive frame ownership across candidate narratives.
+    claims: dict[tuple[str, int], list[str]] = {}
+    for plan in plans:
+        if plan["attribution_status"] != ATTRIBUTION_ESTABLISHED:
+            continue
+        for event in frame_index.get(plan["stream_key"]) or []:
+            claims.setdefault((plan["capture"], event["frame_number"]), []).append(
+                plan["reference"]
+            )
+    conflicted = {key for key, owners in claims.items() if len(set(owners)) > 1}
+
+    # Pass 3 — publish one record per candidate attribution.
+    observations: list[dict[str, Any]] = []
+    assigned: set[tuple[str, int]] = set()
+    for plan in plans:
+        narrative = plan["narrative"]
+        stream = plan["stream"]
+        generation = plan["generation"]
+        reference = plan["reference"]
+        aggregate_count = _int(stream.get("observed_g_pdu_packet_count")) or 0
+        aggregate_octets = _int(stream.get("observed_payload_byte_count")) or 0
+        events = frame_index.get(plan["stream_key"]) or []
+        record: dict[str, Any] = {
+            "temporal_observation_reference": reference,
+            "release_narrative_reference": narrative["release_narrative_reference"],
+            "capture_file": plan["capture"],
+            "stream_reference": stream.get("stream_reference"),
+            "generation_reference": (
+                generation.get("generation_reference") if generation else None
+            ),
+            "receiving_endpoint_role": stream.get("matched_endpoint_role"),
+            "direction": stream.get("direction"),
+            "association_status": stream.get("association_status"),
+            "generation_attribution_status": plan["attribution_status"],
+            "generation_attribution_basis": plan["attribution_basis"],
+            "attribution_failures": list(plan["attribution_failures"]),
+            "observed_g_pdu_count": aggregate_count,
+            "observed_payload_octets": aggregate_octets,
+            "first_observed_frame": stream.get("first_frame"),
+            "last_observed_frame": stream.get("last_frame"),
+            "release_request_frame": _int(narrative.get("release_request_frame")),
+            "release_confirmation_frame": _int(
+                narrative.get("release_confirmation_frame")
+            ),
+            "partitions": None,
+            "partition_scope": None,
+            "partition_basis": PARTITION_BASIS_AGGREGATE,
+            "temporal_placement_status": TEMPORAL_NOT_ESTABLISHED,
+            "partition_conserved": None,
+            "duplicate_frame_ownership": False,
+            "limitations": [],
+        }
+        if plan["attribution_status"] != ATTRIBUTION_ESTABLISHED:
+            record["partition_basis"] = PARTITION_BASIS_UNATTRIBUTED
+            record["limitations"].append(
+                "GENERATION_ATTRIBUTION_NOT_ESTABLISHED: the stream's endpoint matches a proved "
+                "generation, but the accepted producers do not establish that the generation owns "
+                "this stream, so its traffic is published as diagnostic observation only and no "
+                "packet is assigned to the release window"
+            )
+            record["limitations"].extend(
+                f"attribution gate failed: {failure}"
+                for failure in plan["attribution_failures"]
+            )
             observations.append(record)
             narrative["temporal_observation_references"] = list(
                 narrative["temporal_observation_references"]
             ) + [reference]
+            continue
+        plan_keys = [(plan["capture"], event["frame_number"]) for event in events]
+        if any(key in conflicted for key in plan_keys):
+            # Two candidate narratives claim the same G-PDU frame. Publishing both
+            # partitions would count one packet twice, so both fail closed.
+            record["partition_basis"] = PARTITION_BASIS_CONFLICTED
+            record["duplicate_frame_ownership"] = True
+            record["limitations"].append(
+                "DUPLICATE_FRAME_OWNERSHIP: another release narrative claims at least one of these "
+                "G-PDU frames, so no temporal partition is established for this release"
+            )
+            observations.append(record)
+            narrative["temporal_observation_references"] = list(
+                narrative["temporal_observation_references"]
+            ) + [reference]
+            continue
+        request_frame = record["release_request_frame"]
+        confirmation_frame = record["release_confirmation_frame"]
+        if events and request_frame is not None and confirmation_frame is not None:
+            before: list[dict[str, Any]] = []
+            pending: list[dict[str, Any]] = []
+            after: list[dict[str, Any]] = []
+            for event in events:
+                frame = event["frame_number"]
+                if frame < request_frame:
+                    before.append(event)
+                elif frame <= confirmation_frame:
+                    pending.append(event)
+                else:
+                    after.append(event)
+            partitions = {
+                PARTITION_BEFORE: _partition_totals(before),
+                PARTITION_PENDING: _partition_totals(pending),
+                PARTITION_AFTER: _partition_totals(after),
+            }
+            counted = sum(item["g_pdu_count"] for item in partitions.values())
+            octets = sum(item["payload_octets"] for item in partitions.values())
+            conserved = counted == aggregate_count and octets == aggregate_octets
+            record["partitions"] = partitions
+            record["partition_conserved"] = conserved
+            if conserved:
+                record["partition_basis"] = PARTITION_BASIS_FRAMES
+                record["partition_scope"] = PARTITION_SCOPE_COMPLETE
+                record["temporal_placement_status"] = TEMPORAL_ESTABLISHED
+                assigned.update(plan_keys)
+            else:
+                # Individually observed frames keep a valid temporal position, but
+                # the published aggregate stream is not fully partitioned, so the
+                # complete placement stays unproved. Nothing is interpolated.
+                record["partition_basis"] = PARTITION_BASIS_INCOMPLETE
+                record["partition_scope"] = PARTITION_SCOPE_SUBSET
+                record["limitations"].append(
+                    "FRAME_LEVEL_EVENTS_INCOMPLETE: the observed G-PDU events do not reproduce the "
+                    "accepted aggregate stream count or its payload octets, so the frame-level "
+                    "subset keeps its own positions while the complete stream's temporal "
+                    "placement stays unestablished; the aggregate remains authoritative and no "
+                    "missing packet or octet is interpolated"
+                )
+            record["limitations"].append(
+                "the pending-release interval is an observation window, not evidence that "
+                "forwarding stopped; the confirmation frame is not the traffic-stop frame"
+            )
+        else:
+            record["limitations"].append(
+                "TEMPORAL_PLACEMENT_NOT_ESTABLISHED: only aggregate stream evidence is "
+                "available, so no packet or octet count is divided across time windows"
+            )
+            if request_frame is None or confirmation_frame is None:
+                record["limitations"].append(
+                    "the release request or its confirmation frame is unavailable, so no "
+                    "release window can be constructed"
+                )
+        observations.append(record)
+        narrative["temporal_observation_references"] = list(
+            narrative["temporal_observation_references"]
+        ) + [reference]
+
     observations.sort(
         key=lambda item: (
             item["capture_file"],
             item["release_request_frame"] or 0,
             str(item["receiving_endpoint_role"]),
             str(item["stream_reference"]),
+            str(item["temporal_observation_reference"]),
         )
     )
-    if duplicates:
+    total_events = sum(len(items) for items in frame_index.values())
+    duplicate_count = len(conflicted)
+    assigned_count = len(assigned)
+    unassigned_count = max(0, total_events - assigned_count - duplicate_count)
+    if duplicate_count:
         limitations.append(
-            "a G-PDU frame was claimed by more than one release narrative; the duplicate "
-            "assignment was not counted twice"
+            "a G-PDU frame was claimed by more than one release narrative; every conflicting "
+            "narrative fails closed and the frame is counted in no partition"
+        )
+    if any(
+        plan["attribution_status"] != ATTRIBUTION_ESTABLISHED for plan in plans
+    ):
+        limitations.append(
+            "at least one S1-U stream matches a proved generation's endpoint without an accepted "
+            "generation-level attribution; its aggregate counts stay visible and no packet is "
+            "assigned to a release window"
         )
     accounting = {
         "frame_level_evidence_supplied": bool(frame_index),
         "observed_g_pdu_event_count": total_events,
-        "assigned_to_release_window_count": len(assigned_frames),
-        "unassigned_g_pdu_event_count": max(0, total_events - len(assigned_frames)),
-        "duplicate_assignment_count": duplicates,
-        "conserved": duplicates == 0 and len(assigned_frames) <= total_events,
+        "assigned_to_release_window_count": assigned_count,
+        "unassigned_g_pdu_event_count": unassigned_count,
+        "duplicate_assignment_count": duplicate_count,
+        "attributed_observation_count": sum(
+            1 for plan in plans if plan["attribution_status"] == ATTRIBUTION_ESTABLISHED
+        ),
+        "unattributed_observation_count": sum(
+            1 for plan in plans if plan["attribution_status"] != ATTRIBUTION_ESTABLISHED
+        ),
+        "conserved": duplicate_count == 0
+        and assigned_count + duplicate_count + unassigned_count == total_events,
     }
-    return observations, accounting, limitations
+    return observations, accounting, limitations, unbound
 
 
 # ---------------------------------------------------------------------------
@@ -1592,17 +2017,25 @@ def analyze(
     assert identity_document is not None and lifecycle_document is not None
 
     completeness = source_completeness(identity_document, lifecycle_document, s1u_document)
+    closure_complete, closure_failures = closure_completeness(completeness)
     subjects = build_narrative_subjects(identity_document, lifecycle_document)
     narratives, binding_unbound = build_release_narratives(
-        identity_document, lifecycle_document, subjects
+        identity_document, lifecycle_document, subjects, completeness
     )
     narratives, reference_unbound = validate_source_references(narratives, gtpv2_events)
-    observations, temporal_accounting, temporal_limitations = build_temporal_observations(
-        narratives, s1u_document, gtpu_events
+    (
+        observations,
+        temporal_accounting,
+        temporal_limitations,
+        temporal_unbound,
+    ) = build_temporal_observations(
+        narratives, s1u_document, gtpu_events, lifecycle_document
     )
     ambiguous = _ambiguous_records(identity_document, lifecycle_document, narratives)
 
-    unbound: list[dict[str, Any]] = list(binding_unbound) + list(reference_unbound)
+    unbound: list[dict[str, Any]] = (
+        list(binding_unbound) + list(reference_unbound) + list(temporal_unbound)
+    )
     for item in identity_document.get("unbound_evidence") or []:
         if isinstance(item, dict):
             unbound.append(
@@ -1624,6 +2057,11 @@ def analyze(
     limitations: list[str] = []
     if completeness.get("limitation"):
         limitations.append(str(completeness["limitation"]))
+    if not closure_complete:
+        limitations.append(
+            "no unique bearer-generation closure is promoted while a closure-critical source "
+            "collection is incomplete: " + ", ".join(closure_failures)
+        )
     if gtpv2_events is None:
         limitations.append(
             "no detailed GTPv2-C events were supplied, so published frame anchors were not "
@@ -1677,6 +2115,11 @@ def analyze(
             "complete source candidate collections are required before any exhaustive release or "
             "generation coverage is claimed"
         )
+    if not closure_complete:
+        additional.append(
+            "complete closure-critical collections are required before a unique "
+            "bearer-generation closure is promoted"
+        )
     for narrative in narratives:
         if narrative.get("release_session_binding_status") != STATUS_ESTABLISHED:
             additional.append(
@@ -1716,6 +2159,17 @@ def analyze(
                 "the pending-release interval is an observation window, the confirmation frame is "
                 "not the forwarding-stop instant, an aggregate stream count is never divided "
                 "across windows, and a frame is counted in at most one partition"
+            ),
+            "temporal_ownership_rule": (
+                "an S1-U stream is attributed to a proved generation only inside its own capture, "
+                "only with an accepted stream association, and only when the lifecycle publishes a "
+                "generation-scoped S1-U observation naming exactly that generation and stream; "
+                "endpoint equality alone never establishes generation ownership"
+            ),
+            "temporal_completeness_rule": (
+                "a complete temporal placement is asserted only when the observed frame-level "
+                "events reproduce the accepted aggregate count and payload octets; an incomplete "
+                "or conflicting frame set keeps its observed subset and fails closed"
             ),
             "completeness_rule": (
                 "no exhaustive release or generation coverage is claimed while a material source "
@@ -1766,6 +2220,7 @@ __all__ = [
     "build_narrative_subjects",
     "build_release_narratives",
     "build_temporal_observations",
+    "closure_completeness",
     "read_json",
     "read_jsonl",
     "safe_name",

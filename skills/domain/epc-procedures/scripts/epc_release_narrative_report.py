@@ -113,6 +113,10 @@ def render_report(analysis: dict[str, Any]) -> str:
         f"duplicate assignments {_value(accounting.get('duplicate_assignment_count'))}; "
         f"conserved {_value(accounting.get('conserved'))}"
     )
+    out.append(
+        f"  attributed observations {_value(accounting.get('attributed_observation_count'))}; "
+        f"unattributed observations {_value(accounting.get('unattributed_observation_count'))}"
+    )
     for observation in (analysis.get("temporal_observations") or [])[:MAX_LIST_ITEMS]:
         out.append(
             f"  {observation.get('temporal_observation_reference')} "
@@ -122,10 +126,24 @@ def render_report(analysis: dict[str, Any]) -> str:
             f"{_value(observation.get('temporal_placement_status'))}"
         )
         out.append(
+            f"    generation attribution "
+            f"{_value(observation.get('generation_attribution_status'))} "
+            f"({_value(observation.get('generation_attribution_basis'))})"
+        )
+        for failure in observation.get("attribution_failures") or []:
+            out.append(f"      attribution gate failed: {failure}")
+        out.append(
             f"    observed {_value(observation.get('observed_g_pdu_count'))} G-PDU / "
             f"{_value(observation.get('observed_payload_octets'))} payload octets; "
             f"frames {_value(observation.get('first_observed_frame'))}-"
             f"{_value(observation.get('last_observed_frame'))}"
+        )
+        out.append(
+            f"    partition basis {_value(observation.get('partition_basis'))}; "
+            f"scope {_value(observation.get('partition_scope'))}; "
+            f"conserved {_value(observation.get('partition_conserved'))}; "
+            f"duplicate frame ownership "
+            f"{_value(observation.get('duplicate_frame_ownership'))}"
         )
         partitions = observation.get("partitions") or {}
         for name in ("before_release", "pending_release", "after_confirmation"):

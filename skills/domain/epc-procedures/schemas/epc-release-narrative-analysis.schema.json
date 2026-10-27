@@ -1096,7 +1096,12 @@
         "partition_basis",
         "temporal_placement_status",
         "partition_conserved",
-        "limitations"
+        "limitations",
+        "generation_attribution_status",
+        "generation_attribution_basis",
+        "attribution_failures",
+        "partition_scope",
+        "duplicate_frame_ownership"
       ],
       "properties": {
         "temporal_observation_reference": {
@@ -1184,8 +1189,12 @@
           "type": "string",
           "enum": [
             "FRAME_LEVEL_EVENTS",
-            "AGGREGATE_STREAM_ONLY"
-          ]
+            "AGGREGATE_STREAM_ONLY",
+            "FRAME_LEVEL_EVENTS_INCOMPLETE",
+            "FRAME_LEVEL_EVENTS_CONFLICTED",
+            "GENERATION_ATTRIBUTION_NOT_ESTABLISHED"
+          ],
+          "description": "How the partition was derived, or why no complete partition is asserted."
         },
         "temporal_placement_status": {
           "type": "string",
@@ -1205,6 +1214,44 @@
           "items": {
             "type": "string"
           }
+        },
+        "generation_attribution_status": {
+          "type": "string",
+          "enum": [
+            "ESTABLISHED",
+            "NOT_ESTABLISHED"
+          ],
+          "description": "Whether the accepted producers establish that this proved generation owns this S1-U stream. Endpoint equality alone never establishes ownership."
+        },
+        "generation_attribution_basis": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The provenance that establishes or refuses the generation-level attribution."
+        },
+        "attribution_failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Closed-vocabulary reasons the attribution gate refused to attribute this stream."
+        },
+        "partition_scope": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "COMPLETE_STREAM",
+            "OBSERVED_SUBSET",
+            null
+          ],
+          "description": "COMPLETE_STREAM only when the observed frames reproduce the accepted aggregate; OBSERVED_SUBSET when only the observed frames keep their own positions."
+        },
+        "duplicate_frame_ownership": {
+          "type": "boolean",
+          "description": "True when another release narrative claims at least one of these G-PDU frames; the record then publishes no partition."
         }
       },
       "allOf": [
@@ -1257,7 +1304,9 @@
         "assigned_to_release_window_count",
         "unassigned_g_pdu_event_count",
         "duplicate_assignment_count",
-        "conserved"
+        "conserved",
+        "attributed_observation_count",
+        "unattributed_observation_count"
       ],
       "properties": {
         "frame_level_evidence_supplied": {
@@ -1281,6 +1330,14 @@
         },
         "conserved": {
           "type": "boolean"
+        },
+        "attributed_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unattributed_observation_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },

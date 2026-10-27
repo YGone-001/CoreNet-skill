@@ -1615,9 +1615,35 @@ def _narrative_identity_document(*, contexts, bindings, links=None, corresponden
     return document
 
 
-def _narrative_lifecycle_document(*, subjects, boundaries):
+def _narrative_scoped(generation_reference, stream_reference, **overrides):
+    """One lifecycle generation-scoped S1-U attribution.
+
+    This record is the accepted producer contract that establishes generation-level
+    user-plane ownership of a stream.
+    """
+    record = {
+        "generation_reference": generation_reference,
+        "source_stream_reference": stream_reference,
+        "receiving_endpoint_role": "sgw_s1u",
+        "direction": "UPLINK",
+        "association_status": "SUPPORTED",
+        "observed_g_pdu_count": 0,
+        "observed_payload_octets": 0,
+        "first_observed_frame": 10,
+        "last_observed_frame": 300,
+        "allocation_evidence_refs": [],
+        "generation_boundary_refs": [],
+        "packet_evidence_refs": [],
+        "limitations": [],
+    }
+    record.update(overrides)
+    return record
+
+
+def _narrative_lifecycle_document(*, subjects, boundaries, scoped=None):
     subjects = list(subjects)
     boundaries = list(boundaries)
+    scoped = list(scoped or [])
     return {
         "domain": "epc-procedures",
         "analysis_name": "epc-bearer-lifecycle",
@@ -1630,6 +1656,8 @@ def _narrative_lifecycle_document(*, subjects, boundaries):
         "advertisement_families_omitted": 0,
         "generation_boundary_evidence": boundaries,
         "generation_boundary_count": len(boundaries),
+        "generation_scoped_s1u_observations": scoped,
+        "generation_scoped_observation_count": len(scoped),
         "ambiguous_associations": [],
         "unbound_evidence": [],
         "evidence_limitations": [],
@@ -1709,17 +1737,29 @@ def _narrative_s1u_document(*, streams):
     }
 
 
-def _narrative_stream(*, packets, octets, capture="validator.pcap"):
+def _narrative_stream(
+    *,
+    packets,
+    octets,
+    capture="validator-a.pcap",
+    reference="epc-s1u-stream-0000000001",
+    role="sgw_s1u",
+    destination="10.0.0.20",
+    teid=56,
+    status="SUPPORTED",
+):
     return {
-        "stream_reference": "epc-s1u-stream-0000000001",
-        "stream_key": f"gtpu-path:{capture}:10.0.0.40:2152:10.0.0.20:2152:teid56",
+        "stream_reference": reference,
+        "stream_key": (
+            f"gtpu-path:{capture}:10.0.0.40:2152:{destination}:2152:teid{teid}"
+        ),
         "capture_file": capture,
         "outer_source": "10.0.0.40",
-        "outer_destination": "10.0.0.20",
-        "teid": 56,
+        "outer_destination": destination,
+        "teid": teid,
         "direction": "UPLINK",
-        "matched_endpoint_role": "sgw_s1u",
-        "association_status": "SUPPORTED",
+        "matched_endpoint_role": role,
+        "association_status": status,
         "observed_g_pdu_packet_count": packets,
         "observed_payload_byte_count": octets,
         "first_frame": 10,
@@ -1729,14 +1769,16 @@ def _narrative_stream(*, packets, octets, capture="validator.pcap"):
     }
 
 
-def _narrative_gtpu(frame, *, length=100, capture="validator.pcap"):
+def _narrative_gtpu(
+    frame, *, length=100, capture="validator-a.pcap", teid=56, destination="10.0.0.20"
+):
     return {
         "capture_file": capture,
         "frame_number": frame,
-        "header": {"teid": 56, "message_type": "G-PDU", "message_length": length},
+        "header": {"teid": teid, "message_type": "G-PDU", "message_length": length},
         "outer": {
             "source_address": "10.0.0.40",
-            "destination_address": "10.0.0.20",
+            "destination_address": destination,
             "source_port": 2152,
             "destination_port": 2152,
         },
@@ -1812,6 +1854,7 @@ def _validate_release_narrative(skill: Path, root: Path) -> list[str]:
     model = load_release_narrative_model(root)
     capture_a = "validator-a.pcap"
     capture_b = "validator-b.pcap"
+    NARRATIVE_STREAM_REFERENCE = "epc-s1u-stream-0000000001"
 
     def base(capture=capture_a, *, outcome="ACCEPTED", closure=True):
         identity = _narrative_identity_document(
@@ -1835,6 +1878,11 @@ def _validate_release_narrative(skill: Path, root: Path) -> list[str]:
                 [_narrative_subject("generation-1", capture=capture)] if closure else []
             ),
             boundaries=([_narrative_boundary("tx-del-1", capture=capture)] if closure else []),
+            scoped=(
+                [_narrative_scoped("generation-1", NARRATIVE_STREAM_REFERENCE)]
+                if closure
+                else []
+            ),
         )
         return identity, lifecycle
 
@@ -1988,6 +2036,10 @@ def _validate_release_narrative(skill: Path, root: Path) -> list[str]:
         fail("a conserved frame-level partition must publish partition_conserved")
     if analysis["temporal_accounting"]["duplicate_assignment_count"] != 0:
         fail("one G-PDU frame must not be assigned to two release narratives")
+    if observation["generation_attribution_status"] != "ESTABLISHED":
+        fail("an accepted same-capture stream with a lifecycle attribution must attribute")
+    if observation["partition_scope"] != "COMPLETE_STREAM":
+        fail("a conserved frame-level partition must publish COMPLETE_STREAM scope")
     if analysis["release_narratives"][0]["release_effective_frame_proven"]:
         fail("post-confirmation traffic must not prove the forwarding-stop instant")
 
@@ -2005,6 +2057,151 @@ def _validate_release_narrative(skill: Path, root: Path) -> list[str]:
         fail("an unreproducible source anchor must be published as unbound evidence")
     if narrative["release_outcome_status"] != "ACCEPTED":
         fail("the narrative must keep the source claim visible beside the inconsistency")
+
+    # H — capture ownership: another capture's traffic is never attributed here.
+    identity, lifecycle = base()
+    s1u = _narrative_s1u_document(
+        streams=[_narrative_stream(packets=3, octets=300, capture=capture_b)]
+    )
+    events = [_narrative_gtpu(frame, capture=capture_b) for frame in (10, 200, 205)]
+    analysis = model.analyze(identity, lifecycle, s1u=s1u, gtpu_events=events)
+    if analysis["temporal_observation_count"] != 0:
+        fail("a stream from another capture must not attach to this release narrative")
+    if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 0:
+        fail("cross-capture traffic must not be assigned to a release window")
+    if "stream_endpoint_matches_a_proved_generation_in_another_capture" not in {
+        item.get("kind") for item in analysis["unbound_evidence"]
+    }:
+        fail("a cross-capture endpoint collision must be published as unbound evidence")
+
+    # I — unestablished or ambiguous stream association never attributes traffic.
+    for status in ("NOT_ESTABLISHED", "AMBIGUOUS"):
+        identity, lifecycle = base()
+        stream = _narrative_stream(packets=2, octets=200, status=status)
+        analysis = model.analyze(
+            identity,
+            lifecycle,
+            s1u=_narrative_s1u_document(streams=[stream]),
+            gtpu_events=[_narrative_gtpu(10), _narrative_gtpu(20)],
+        )
+        observation = analysis["temporal_observations"][0]
+        if observation["generation_attribution_status"] != "NOT_ESTABLISHED":
+            fail(f"a {status} stream must not establish generation attribution")
+        if observation["partitions"] is not None:
+            fail(f"a {status} stream must not publish a temporal partition")
+        if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 0:
+            fail(f"a {status} stream must not assign packets to a release window")
+
+    # J — endpoint equality without the lifecycle attribution is not ownership.
+    identity, lifecycle = base()
+    lifecycle["generation_scoped_s1u_observations"] = []
+    lifecycle["generation_scoped_observation_count"] = 0
+    analysis = model.analyze(
+        identity,
+        lifecycle,
+        s1u=_narrative_s1u_document(streams=[_narrative_stream(packets=2, octets=200)]),
+        gtpu_events=[_narrative_gtpu(10), _narrative_gtpu(20)],
+    )
+    observation = analysis["temporal_observations"][0]
+    if observation["generation_attribution_status"] != "NOT_ESTABLISHED":
+        fail("endpoint equality alone must not establish generation ownership")
+    if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 0:
+        fail("an unattributed stream must not assign packets to a release window")
+
+    # J2 — an equal TEID with another receiving address is not a bearer identity.
+    identity, lifecycle = base()
+    analysis = model.analyze(
+        identity,
+        lifecycle,
+        s1u=_narrative_s1u_document(
+            streams=[_narrative_stream(packets=2, octets=200, destination="10.0.0.99")]
+        ),
+        gtpu_events=[
+            _narrative_gtpu(10, destination="10.0.0.99"),
+            _narrative_gtpu(20, destination="10.0.0.99"),
+        ],
+    )
+    if analysis["temporal_observation_count"] != 0:
+        fail("an equal TEID with another receiving address must not attribute traffic")
+    if "stream_shares_a_teid_with_a_proved_generation_without_its_receiving_address" not in {
+        item.get("kind") for item in analysis["unbound_evidence"]
+    }:
+        fail("an equal-TEID near miss must be published as unbound evidence")
+
+    # K — a truncated closure-critical collection refuses a unique closure.
+    for field in (
+        "release_session_binding_count",
+        "session_to_generation_count",
+        "generation_closure_candidate_count",
+    ):
+        identity, lifecycle = base()
+        identity[field] = 300
+        analysis = model.analyze(identity, lifecycle)
+        narrative = analysis["release_narratives"][0]
+        if narrative["generation_closure_status"] == "ESTABLISHED":
+            fail(f"a truncated {field} must not establish a unique generation closure")
+        if narrative["proved_generations"]:
+            fail(f"a truncated {field} must not prove a bearer generation")
+        if narrative["release_outcome_status"] != "ACCEPTED":
+            fail("a closure refusal must never reclassify the release outcome")
+
+    # K2 — a release binding that is not established refuses the closure.
+    identity, lifecycle = base()
+    identity["release_session_bindings"][0]["association_status"] = "NOT_ESTABLISHED"
+    analysis = model.analyze(identity, lifecycle)
+    if analysis["release_narratives"][0]["generation_closure_status"] == "ESTABLISHED":
+        fail("an unestablished release binding must not establish a generation closure")
+
+    # L — an unreconciled frame set never proves a complete placement.
+    identity, lifecycle = base()
+    s1u = _narrative_s1u_document(streams=[_narrative_stream(packets=10, octets=1000)])
+    analysis = model.analyze(
+        identity,
+        lifecycle,
+        s1u=s1u,
+        gtpu_events=[_narrative_gtpu(10), _narrative_gtpu(20), _narrative_gtpu(30)],
+    )
+    observation = analysis["temporal_observations"][0]
+    if observation["partition_conserved"]:
+        fail("a frame-level shortfall must not be reported as conserved")
+    if observation["temporal_placement_status"] == "ESTABLISHED":
+        fail("an unreconciled frame set must not establish a complete temporal placement")
+    if observation["partition_scope"] != "OBSERVED_SUBSET":
+        fail("an unreconciled frame set must publish its observed subset scope")
+    if observation["observed_g_pdu_count"] != 10:
+        fail("an unreconciled frame set must keep the authoritative aggregate count")
+    if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 0:
+        fail("an unreconciled frame set must not assign packets to a release window")
+
+    # M — duplicate frame ownership never yields two established partitions.
+    identity, lifecycle = base()
+    lifecycle["generation_scoped_s1u_observations"] = [
+        _narrative_scoped("generation-1", NARRATIVE_STREAM_REFERENCE),
+        _narrative_scoped("generation-1", "epc-s1u-stream-0000000002"),
+    ]
+    lifecycle["generation_scoped_observation_count"] = 2
+    analysis = model.analyze(
+        identity,
+        lifecycle,
+        s1u=_narrative_s1u_document(
+            streams=[
+                _narrative_stream(packets=2, octets=200),
+                _narrative_stream(
+                    packets=2, octets=200, reference="epc-s1u-stream-0000000002"
+                ),
+            ]
+        ),
+        gtpu_events=[_narrative_gtpu(10), _narrative_gtpu(20)],
+    )
+    for observation in analysis["temporal_observations"]:
+        if not observation["duplicate_frame_ownership"]:
+            fail("duplicate frame ownership must be published on every conflicting record")
+        if observation["partitions"] is not None:
+            fail("a duplicate frame owner must not publish a temporal partition")
+        if observation["temporal_placement_status"] == "ESTABLISHED":
+            fail("duplicate frame ownership must fail closed")
+    if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 0:
+        fail("a frame claimed twice must be assigned to no release window")
 
     return errors
 

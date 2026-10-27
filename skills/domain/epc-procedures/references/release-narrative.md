@@ -93,17 +93,25 @@ A missing bridge keeps the contexts separate, and competing bridges stay
 
 ## Generation admission
 
-A generation enters a narrative only when all of the following hold:
+A generation enters a narrative only when the whole closure chain holds:
 
 1. the capture matches;
-2. a lifecycle subject carries a proved `generation_boundary` naming this release
+2. the release-to-session binding is `ESTABLISHED` for this capture and release;
+3. a lifecycle subject carries a proved `generation_boundary` naming this release
    transaction;
-3. the accepted identity analysis publishes an `ESTABLISHED` generation-closure
+4. the accepted identity analysis publishes an `ESTABLISHED` generation-closure
    candidate for the same session context and release transaction;
-4. the candidate's bearer endpoint equals the lifecycle subject's receiving
+5. an `ESTABLISHED` session-to-generation link joins that context to the
+   candidate's `bearer_endpoint_reference`;
+6. the candidate's bearer endpoint equals the lifecycle subject's receiving
    endpoint in role, address, TEID and reviewed interface type;
-5. the lifecycle subject's state is `CLOSED_BY_ACCEPTED_RELEASE`.
+7. the lifecycle subject's state is `CLOSED_BY_ACCEPTED_RELEASE`;
+8. the release outcome is `ACCEPTED`;
+9. every closure-critical source collection is provably complete.
 
+A published `ESTABLISHED` candidate status is never sufficient on its own: the
+narrative re-verifies the release binding and the session-to-generation link, so a
+doctored or internally contradictory producer document cannot promote a closure.
 Several candidates for one endpoint leave the closure `AMBIGUOUS` and publish the
 competitors. A generation is never inferred from a repeated advertisement, an
 equal S1-U TEID or an equal EBI.
@@ -118,6 +126,23 @@ underdeclared or nonzero-omitted metadata publishes
 `SOURCE_CANDIDATES_METADATA_INVALID`. In both cases
 `source_completeness.exhaustive_coverage_proven` is `false`, and no uniqueness is
 inferred from the visible subset.
+
+The closure-critical collections — release session bindings, session-to-generation
+links, generation closure candidates and lifecycle subjects — are gated
+individually, not only through the aggregate status. A unique bearer-generation
+closure is a uniqueness claim about a candidate set, so it is only asserted when
+the published subset provably *is* the whole set. While any of them is truncated or
+its metadata is invalid:
+
+```text
+generation_closure_status  NOT_ESTABLISHED
+proved_generations         []
+release_outcome_status     unchanged, still the source-reported outcome
+release_session_binding_status  unchanged, still the source-reported binding
+```
+
+A closure refusal never reclassifies the release outcome and never hides the
+source-reported binding. The limitation names the incomplete collections.
 
 ## What the capability refuses
 

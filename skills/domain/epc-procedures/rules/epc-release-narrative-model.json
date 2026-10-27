@@ -78,11 +78,14 @@
     ],
     "generation_admission_requires": [
       "matching capture",
+      "an ESTABLISHED release-to-session binding for the same capture and release transaction",
       "a lifecycle subject carrying a proved generation boundary naming this release transaction",
       "an ESTABLISHED generation-closure candidate in the accepted identity analysis for the same session context and release transaction",
+      "an ESTABLISHED session-to-generation link from that context to the candidate's bearer endpoint reference",
       "exact equality of receiving endpoint role, address, TEID and reviewed interface type between the candidate and the lifecycle subject",
       "generation_state CLOSED_BY_ACCEPTED_RELEASE",
-      "exactly one candidate for the endpoint; several candidates stay AMBIGUOUS"
+      "an accepted release outcome",
+      "an affirmatively complete closure-critical candidate set"
     ],
     "generation_forbidden_evidence": [
       "an equal S1-U TEID alone",
@@ -99,7 +102,28 @@
       "confirmation_frame": "a control-plane confirmation anchor; never the forwarding-stop instant",
       "post_confirmation_traffic": "an observation requiring interpretation; never packet loss, never delivery, never root cause",
       "frame_order_scope": "frame ordering is valid only inside one capture file",
-      "timestamp_use": "observed metadata only; timestamp proximity never establishes identity"
+      "timestamp_use": "observed metadata only; timestamp proximity never establishes identity",
+      "generation_attribution_requires": [
+        "the stream's own capture equal to the narrative capture",
+        "an accepted stream association from the S1-U analysis",
+        "exactly one proved generation owner of the receiving endpoint",
+        "a lifecycle generation-scoped S1-U observation naming exactly that generation and exactly that stream",
+        "no other proved generation claiming the same stream"
+      ],
+      "generation_attribution_forbidden": [
+        "an equal receiving endpoint alone",
+        "an equal receiving TEID alone",
+        "an equal EPS bearer identity alone",
+        "a SUPPORTED stream association treated as generation ownership without the lifecycle generation-scoped observation",
+        "attributing traffic observed in one capture to a generation proved in another"
+      ],
+      "partition_proof_requires": [
+        "the observed frame-level G-PDU count equal to the accepted aggregate count",
+        "the observed frame-level payload octets equal to the accepted aggregate payload octets",
+        "every counted frame owned by exactly one release narrative"
+      ],
+      "partition_incomplete": "an unreconciled frame set keeps its observed subset positions with partition_scope OBSERVED_SUBSET and temporal_placement_status TEMPORAL_PLACEMENT_NOT_ESTABLISHED; the aggregate stays authoritative and no missing packet or octet is interpolated",
+      "duplicate_ownership": "when two release narratives claim the same G-PDU frame, both publish duplicate_frame_ownership, neither publishes a partition, and the frame is assigned to no release window"
     },
     "source_reference_validation": [
       "a published release frame anchor is re-checked against the supplied capture when detailed GTPv2-C events are provided",
@@ -112,7 +136,9 @@
       "the declared count equal to the published record array length",
       "a present, valid and zero omitted count where the source publishes one",
       "no exhaustive release or generation coverage while any collection is truncated or its metadata is invalid",
-      "no uniqueness inferred from the visible subset"
+      "no uniqueness inferred from the visible subset",
+      "the closure-critical collections (release session bindings, session-to-generation links, generation closure candidates, lifecycle subjects) are gated individually, not only through an aggregate status",
+      "no unique bearer-generation closure is promoted while a closure-critical collection is incomplete"
     ],
     "completeness_tokens": [
       "SOURCE_CANDIDATES_TRUNCATED",

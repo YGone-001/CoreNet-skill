@@ -362,16 +362,25 @@ A hop-local context is never merged into a global PDN session: two contexts join
 one narrative group only through an already `ESTABLISHED`
 `CROSS_INTERFACE_SESSION_IDENTITY` link in the same capture, and the group is a
 reporting label with the source context references preserved. A generation enters
-the narrative only when the lifecycle publishes a proved boundary naming the same
-release transaction and the identity analysis publishes an `ESTABLISHED` closure
-candidate for the same context, release and bearer endpoint.
+the narrative only when the whole closure chain holds: an `ESTABLISHED`
+release-to-session binding, a lifecycle boundary naming the same release
+transaction, an `ESTABLISHED` closure candidate for the same context, release and
+bearer endpoint, an `ESTABLISHED` session-to-generation link to that candidate's
+bearer endpoint, and an affirmatively complete closure-critical candidate set.
 
-Temporal evidence is frame-aware and conservative. The pending-release interval is
-an observation window, the confirmation frame is never the forwarding-stop
+Temporal evidence is frame-aware and conservative. Capture identity is part of the
+endpoint identity, so a stream observed in one capture is never attributed to a
+generation proved in another. A stream is attributed to a generation only when the
+S1-U analysis accepts its association and the lifecycle publishes a
+generation-scoped S1-U observation naming exactly that generation and stream;
+endpoint equality alone never establishes ownership. The pending-release interval
+is an observation window, the confirmation frame is never the forwarding-stop
 instant, and an aggregate stream count is never divided across windows: without
 frame-level GTP-U events the observation publishes
-`TEMPORAL_PLACEMENT_NOT_ESTABLISHED`. A G-PDU frame is counted in at most one
-partition of one narrative.
+`TEMPORAL_PLACEMENT_NOT_ESTABLISHED`. A complete placement is only asserted when
+the observed frames reproduce the accepted aggregate count and payload octets; an
+unreconciled or doubly-claimed frame set keeps its observed subset and fails
+closed. A G-PDU frame is counted in at most one partition of one narrative.
 
 `release_effective_frame_proven` is always `false`, `boundary_selection_status` is
 `NOT_APPLICABLE` and `first_abnormal_boundary` is `null`: a release narrative is
