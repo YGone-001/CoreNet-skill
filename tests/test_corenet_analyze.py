@@ -2946,5 +2946,201 @@ class EpcReleaseNarrativeIntegrationTests(WorkflowTestCase):
         self.assertFalse(block["exhaustive_coverage_proven"])
 
 
+def evidence_audit_analysis(
+    *,
+    overall: str = "AUDIT_CONSISTENT",
+    inconsistent: int = 0,
+    findings: int = 0,
+) -> dict:
+    """A bounded evidence-audit ledger shaped like the published one."""
+    return {
+        "analysis_name": "epc-evidence-audit",
+        "analysis_version": "1.0.0",
+        "source_artifact_count": 6,
+        "audit_record_count": 47,
+        "audit_records_omitted": 0,
+        "unresolved_audit_finding_count": findings,
+        "audit_summary": {
+            "overall_status": overall,
+            "record_count": 47,
+            "status_counts": {
+                "VERIFIED_CONSISTENT": 47 - inconsistent,
+                "INCONSISTENT": inconsistent,
+            },
+            "category_counts": {"REFERENCE_INTEGRITY": 11},
+            "verified_count": 47 - inconsistent,
+            "inconsistent_count": inconsistent,
+            "ambiguous_count": 0,
+            "source_truncated_count": 0,
+            "source_metadata_invalid_count": 0,
+            "not_independently_verifiable_count": 0,
+            "not_applicable_count": 0,
+        },
+        "source_completeness": {
+            "status": "COMPLETE",
+            "exhaustive_coverage_proven": True,
+        },
+        "reference_integrity_summary": {
+            "references_checked": 11,
+            "references_resolved": 11,
+            "references_missing": 0,
+            "references_ambiguous": 0,
+            "references_contradictory": 0,
+            "references_not_independently_verifiable": 0,
+        },
+        "capture_scope_summary": {
+            "capture_count": 1,
+            "cross_capture_rejections": 0,
+            "cross_capture_value_collisions": 0,
+        },
+        "temporal_integrity_summary": {
+            "established_placement_count": 1,
+            "not_established_placement_count": 0,
+            "conflicted_partition_count": 0,
+            "audit_verified_placement_count": 1,
+            "missing_frame_evidence_count": 0,
+            "frame_level_evidence_supplied": True,
+        },
+        "accounting_integrity_summary": {
+            "audit_derived": {
+                "source_counts_unchanged": True,
+                "gtpu_event_g_pdu_count": 4,
+                "gtpu_event_payload_octets": 400,
+                "accounting_records_verified": 4,
+                "accounting_records_inconsistent": 0,
+            }
+        },
+        "unresolved_audit_findings": [
+            {
+                "audit_record_reference": f"epc-audit-record-{index:010x}",
+                "audit_category": "REFERENCE_INTEGRITY",
+                "audit_status": "INCONSISTENT",
+                "limitation": "a published reference does not resolve",
+            }
+            for index in range(findings)
+        ],
+        "evidence_limitations": ["an audit finding is not a network failure"],
+        "additional_evidence_needed": [],
+        "not_confirmed": ["reference consistency is not a new proof"],
+        "boundary_selection_status": "NOT_APPLICABLE",
+        "first_abnormal_boundary": None,
+    }
+
+
+class EpcEvidenceAuditIntegrationTests(WorkflowTestCase):
+    """The unified EPC adapter publishes the read-only audit without new subjects."""
+
+    def use_payload(self, payload: dict) -> None:
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+
+    def epc_result(self) -> dict:
+        return self.domain_result()
+
+    def summary(self, procedure: str) -> dict:
+        entries = [
+            item
+            for item in self.epc_result()["procedure_summaries"]
+            if item.get("procedure") == procedure
+        ]
+        self.assertEqual(len(entries), 1)
+        return entries[0]
+
+    def test_evidence_audit_script_is_registered(self) -> None:
+        script = MODULE.EPC_EVIDENCE_AUDIT_ANALYZE_SCRIPT
+        self.assertTrue(script.is_file(), f"missing audit CLI: {script}")
+
+    def test_evidence_audit_is_published_without_new_subjects(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["identity_analysis"] = session_identity_analysis()
+        payload["identity_error"] = None
+        payload["lifecycle_analysis"] = lifecycle_analysis()
+        payload["lifecycle_error"] = None
+        payload["release_narrative_analysis"] = release_narrative_analysis()
+        payload["release_narrative_error"] = None
+        payload["evidence_audit_analysis"] = evidence_audit_analysis()
+        payload["evidence_audit_error"] = None
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        block = result["evidence_audit"]
+        self.assertIsNotNone(block)
+        self.assertEqual(block["overall_status"], "AUDIT_CONSISTENT")
+        self.assertEqual(block["audit_record_count"], 47)
+        self.assertTrue(block["accounting_integrity"]["producer_counts_unchanged"])
+        self.assertEqual(block["boundary_selection_status"], "NOT_APPLICABLE")
+        subject_types = {subject["subject_type"] for subject in result["diagnostic_subjects"]}
+        self.assertEqual(
+            subject_types,
+            {"EPS_ATTACH", "EPC_SESSION_CONTROL", "EPS_DEFAULT_BEARER", "EPC_S1U_OBSERVATION"},
+            "audit evidence must not create an artificial diagnostic subject",
+        )
+        summary = self.summary("epc-evidence-audit")
+        self.assertEqual(summary["execution_status"], "EXECUTED")
+        self.assertEqual(summary["instance_count"], 47)
+        self.assertEqual(summary["overall_audit_status"], "AUDIT_CONSISTENT")
+        self.assertEqual(result["degradation"], [])
+        self.assertIsNone(result["first_abnormal_boundary"])
+
+    def test_evidence_audit_failure_is_not_a_protocol_failure(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["identity_analysis"] = session_identity_analysis()
+        payload["identity_error"] = None
+        payload["lifecycle_analysis"] = lifecycle_analysis()
+        payload["lifecycle_error"] = None
+        payload["release_narrative_analysis"] = release_narrative_analysis()
+        payload["release_narrative_error"] = None
+        payload["evidence_audit_analysis"] = None
+        payload["evidence_audit_error"] = {
+            "code": "EVIDENCE_AUDIT_FAILED",
+            "message": "audit input error",
+        }
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertIsNone(result["evidence_audit"])
+        self.assertIsNotNone(result["release_narrative"])
+        self.assertIsNotNone(result["bearer_lifecycle"])
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertEqual(result["failure_code"], "EVIDENCE_AUDIT_FAILED")
+        self.assertTrue(
+            any("evidence audit failed" in item for item in result["degradation"])
+        )
+        self.assertTrue(
+            any("not a network failure" in item for item in result["degradation"])
+        )
+        self.assertEqual(self.summary("epc-evidence-audit")["execution_status"], "NO_SUBJECT")
+
+    def test_absent_audit_leaves_no_block(self) -> None:
+        payload = epc_payload_with_s1u()
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertIsNone(result["evidence_audit"])
+        self.assertEqual(result["degradation"], [])
+
+    def test_text_report_states_the_audit_separation(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["identity_analysis"] = session_identity_analysis()
+        payload["identity_error"] = None
+        payload["lifecycle_analysis"] = lifecycle_analysis()
+        payload["lifecycle_error"] = None
+        payload["release_narrative_analysis"] = release_narrative_analysis()
+        payload["release_narrative_error"] = None
+        payload["evidence_audit_analysis"] = evidence_audit_analysis(
+            overall="AUDIT_LIMITED", findings=1
+        )
+        payload["evidence_audit_error"] = None
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        text = self.read_text()
+        self.assertIn("Evidence Audit Ledger", text)
+        self.assertIn("AUDIT_LIMITED", text)
+        self.assertIn(
+            "boundary selection: NOT_APPLICABLE "
+            "(an audit finding is not an abnormal failure boundary)",
+            text,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

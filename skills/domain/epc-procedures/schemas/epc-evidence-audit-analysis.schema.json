@@ -1,0 +1,602 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "epc-evidence-audit-analysis.schema.json",
+  "title": "EPC cross-artifact evidence-chain audit ledger",
+  "description": "Read-only audit of already-published EPC analysis artifacts. The ledger reports presence, consistency and proof sufficiency as independent dimensions, publishes an explicit status per audited relationship, discloses truncated or metadata-invalid collections, keeps optional absent artifacts as limitations rather than inconsistencies, never rewrites a source claim and never selects a first abnormal boundary.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "domain",
+    "domain_version",
+    "analysis_name",
+    "analysis_version",
+    "input_provenance",
+    "analysis_scope",
+    "source_artifacts",
+    "source_artifact_count",
+    "source_completeness",
+    "audit_records",
+    "audit_record_count",
+    "audit_records_omitted",
+    "audit_summary",
+    "reference_integrity_summary",
+    "capture_scope_summary",
+    "temporal_integrity_summary",
+    "accounting_integrity_summary",
+    "unresolved_audit_findings",
+    "unresolved_audit_finding_count",
+    "evidence_limitations",
+    "additional_evidence_needed",
+    "not_confirmed",
+    "boundary_selection_status",
+    "first_abnormal_boundary",
+    "boundary_note"
+  ],
+  "properties": {
+    "domain": {"type": "string", "const": "epc-procedures"},
+    "domain_version": {"type": "string"},
+    "analysis_name": {"type": "string", "const": "epc-evidence-audit"},
+    "analysis_version": {"type": "string"},
+    "input_provenance": {"type": "object"},
+    "analysis_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "audit_categories",
+        "audit_statuses",
+        "completeness_statuses",
+        "check_results",
+        "audit_dimensions",
+        "reference_namespaces",
+        "audit_rule",
+        "boundary_rule"
+      ],
+      "properties": {
+        "capability": {"type": "string"},
+        "audit_categories": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/audit_category"}
+        },
+        "audit_statuses": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/audit_status"}
+        },
+        "completeness_statuses": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/completeness_status"}
+        },
+        "check_results": {
+          "type": "array",
+          "items": {"type": "string", "enum": ["PASS", "FAIL", "NOT_EVALUATED"]}
+        },
+        "audit_dimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["presence", "consistency", "proof_sufficiency"],
+          "properties": {
+            "presence": {"type": "string"},
+            "consistency": {"type": "string"},
+            "proof_sufficiency": {"type": "string"}
+          }
+        },
+        "reference_namespaces": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "audit_rule": {"type": "string"},
+        "boundary_rule": {"type": "string"}
+      }
+    },
+    "source_artifacts": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/source_artifact"}
+    },
+    "source_artifact_count": {"type": "integer", "minimum": 0},
+    "source_completeness": {"$ref": "#/$defs/source_completeness"},
+    "audit_records": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/audit_record"}
+    },
+    "audit_record_count": {"type": "integer", "minimum": 0},
+    "audit_records_omitted": {"type": "integer", "minimum": 0},
+    "audit_summary": {"$ref": "#/$defs/audit_summary"},
+    "reference_integrity_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "references_checked",
+        "references_resolved",
+        "references_missing",
+        "references_ambiguous",
+        "references_contradictory",
+        "references_not_independently_verifiable",
+        "capture_scoped"
+      ],
+      "properties": {
+        "references_checked": {"type": "integer", "minimum": 0},
+        "references_resolved": {"type": "integer", "minimum": 0},
+        "references_missing": {"type": "integer", "minimum": 0},
+        "references_ambiguous": {"type": "integer", "minimum": 0},
+        "references_contradictory": {"type": "integer", "minimum": 0},
+        "references_not_independently_verifiable": {"type": "integer", "minimum": 0},
+        "capture_scoped": {"type": "boolean", "const": true}
+      }
+    },
+    "capture_scope_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "captures",
+        "capture_count",
+        "cross_capture_rejections",
+        "cross_capture_value_collisions",
+        "artifacts_with_reference_mismatch"
+      ],
+      "properties": {
+        "captures": {"type": "array", "items": {"type": "string"}},
+        "capture_count": {"type": "integer", "minimum": 0},
+        "cross_capture_rejections": {"type": "integer", "minimum": 0},
+        "cross_capture_value_collisions": {"type": "integer", "minimum": 0},
+        "artifacts_with_reference_mismatch": {"type": "integer", "minimum": 0}
+      }
+    },
+    "temporal_integrity_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temporal_observation_count",
+        "established_placement_count",
+        "not_established_placement_count",
+        "incomplete_partition_count",
+        "conflicted_partition_count",
+        "frame_level_evidence_supplied",
+        "audit_verified_placement_count",
+        "missing_frame_evidence_count",
+        "partition_duplicate_assignment_count"
+      ],
+      "properties": {
+        "temporal_observation_count": {"type": "integer", "minimum": 0},
+        "established_placement_count": {"type": "integer", "minimum": 0},
+        "not_established_placement_count": {"type": "integer", "minimum": 0},
+        "incomplete_partition_count": {"type": "integer", "minimum": 0},
+        "conflicted_partition_count": {"type": "integer", "minimum": 0},
+        "frame_level_evidence_supplied": {"type": "boolean"},
+        "audit_verified_placement_count": {"type": "integer", "minimum": 0},
+        "missing_frame_evidence_count": {"type": "integer", "minimum": 0},
+        "partition_duplicate_assignment_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "accounting_integrity_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "producer_lifecycle",
+        "producer_s1u",
+        "producer_temporal",
+        "audit_derived"
+      ],
+      "properties": {
+        "producer_lifecycle": {"$ref": "#/$defs/lifecycle_accounting"},
+        "producer_s1u": {
+          "anyOf": [
+            {"$ref": "#/$defs/s1u_accounting"},
+            {"type": "null"}
+          ]
+        },
+        "producer_temporal": {"$ref": "#/$defs/temporal_accounting"},
+        "audit_derived": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gtpu_event_g_pdu_count",
+            "gtpu_event_payload_octets",
+            "frames_available",
+            "source_counts_unchanged",
+            "lifecycle_packet_conserved",
+            "lifecycle_octets_conserved",
+            "accounting_records_verified",
+            "accounting_records_inconsistent"
+          ],
+          "properties": {
+            "gtpu_event_g_pdu_count": {"type": ["integer", "null"]},
+            "gtpu_event_payload_octets": {"type": ["integer", "null"]},
+            "frames_available": {"type": "boolean"},
+            "source_counts_unchanged": {"type": "boolean", "const": true},
+            "lifecycle_packet_conserved": {"type": "boolean"},
+            "lifecycle_octets_conserved": {"type": "boolean"},
+            "accounting_records_verified": {"type": "integer", "minimum": 0},
+            "accounting_records_inconsistent": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    },
+    "unresolved_audit_findings": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/unresolved_finding"}
+    },
+    "unresolved_audit_finding_count": {"type": "integer", "minimum": 0},
+    "evidence_limitations": {"type": "array", "items": {"type": "string"}},
+    "additional_evidence_needed": {"type": "array", "items": {"type": "string"}},
+    "not_confirmed": {"type": "array", "items": {"type": "string"}},
+    "boundary_selection_status": {"type": "string", "const": "NOT_APPLICABLE"},
+    "first_abnormal_boundary": {"type": "null"},
+    "boundary_note": {"type": "string"}
+  },
+  "$defs": {
+    "audit_category": {
+      "type": "string",
+      "enum": [
+        "SOURCE_ARTIFACT",
+        "REFERENCE_INTEGRITY",
+        "CAPTURE_SCOPE",
+        "TRANSACTION_ANCHOR",
+        "SESSION_CONTEXT_LINK",
+        "CROSS_INTERFACE_BRIDGE",
+        "RELEASE_SESSION_BINDING",
+        "SESSION_GENERATION_LINK",
+        "GENERATION_CLOSURE",
+        "GENERATION_STREAM_ATTRIBUTION",
+        "RELEASE_NARRATIVE_STAGE",
+        "TEMPORAL_FRAME_PARTITION",
+        "ACCOUNTING_CONSERVATION"
+      ]
+    },
+    "audit_status": {
+      "type": "string",
+      "enum": [
+        "VERIFIED_CONSISTENT",
+        "INCONSISTENT",
+        "AMBIGUOUS",
+        "SOURCE_TRUNCATED",
+        "SOURCE_METADATA_INVALID",
+        "NOT_INDEPENDENTLY_VERIFIABLE",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "completeness_status": {
+      "type": "string",
+      "enum": [
+        "COMPLETE",
+        "SOURCE_TRUNCATED",
+        "SOURCE_METADATA_INVALID",
+        "NOT_SUPPLIED",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "proof_sufficiency_status": {
+      "type": "string",
+      "enum": ["SUFFICIENT", "INSUFFICIENT", "NOT_APPLICABLE"]
+    },
+    "completeness_condition": {
+      "type": "string",
+      "enum": [
+        "COUNT_PRESENT_AND_MATCHES",
+        "COUNT_MISSING",
+        "COUNT_INVALID",
+        "COUNT_UNDERDECLARED",
+        "COUNT_TRUNCATED",
+        "OMITTED_COUNT_MISSING",
+        "OMITTED_COUNT_NONZERO",
+        "OMITTED_COUNT_ZERO",
+        "COLLECTION_MISSING",
+        "DOCUMENT_NOT_SUPPLIED"
+      ]
+    },
+    "check_token": {
+      "type": "string",
+      "enum": [
+        "referenced_record_present",
+        "capture_identity_agrees",
+        "relationship_type_agrees",
+        "endpoint_identity_agrees",
+        "release_transaction_agrees",
+        "session_context_present",
+        "bearer_endpoint_present",
+        "generation_present",
+        "stream_present",
+        "direction_role_mapping_agrees",
+        "direction_agrees_with_stream",
+        "candidate_collection_complete",
+        "unique_candidate_established",
+        "partition_counts_conserve_aggregate",
+        "partition_within_release_window",
+        "frame_ownership_exclusive",
+        "frame_present_in_supplied_events",
+        "producer_count_matches_records",
+        "producer_omitted_count_zero",
+        "accounting_conserved",
+        "stage_status_agrees_with_summary",
+        "group_membership_backed_by_established_bridge",
+        "group_preserves_hop_local_subjects",
+        "reference_is_unique_in_its_namespace",
+        "frame_number_is_capture_local"
+      ]
+    },
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "frame_number", "message_type", "evidence_level"],
+      "properties": {
+        "protocol": {"type": ["string", "null"]},
+        "frame_number": {"type": ["integer", "null"]},
+        "message_type": {"type": ["string", "null"]},
+        "evidence_level": {"type": ["string", "null"]}
+      }
+    },
+    "consistency_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check", "result"],
+      "properties": {
+        "check": {"$ref": "#/$defs/check_token"},
+        "result": {"type": "string", "enum": ["PASS", "FAIL", "NOT_EVALUATED"]}
+      }
+    },
+    "audit_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audit_record_reference",
+        "audit_category",
+        "audit_status",
+        "source_analysis",
+        "source_artifact_reference",
+        "source_subject_reference",
+        "target_analysis",
+        "target_artifact_reference",
+        "target_subject_reference",
+        "capture_file",
+        "relationship_type",
+        "source_evidence_refs",
+        "consistency_checks",
+        "candidate_completeness_status",
+        "proof_sufficiency_status",
+        "limitations",
+        "additional_evidence_needed"
+      ],
+      "properties": {
+        "audit_record_reference": {"type": "string", "pattern": "^epc-audit-record-[0-9a-f]{10}$"},
+        "audit_category": {"$ref": "#/$defs/audit_category"},
+        "audit_status": {"$ref": "#/$defs/audit_status"},
+        "source_analysis": {"type": ["string", "null"]},
+        "source_artifact_reference": {"type": ["string", "null"]},
+        "source_subject_reference": {"type": ["string", "null"]},
+        "target_analysis": {"type": ["string", "null"]},
+        "target_artifact_reference": {"type": ["string", "null"]},
+        "target_subject_reference": {"type": ["string", "null"]},
+        "capture_file": {"type": ["string", "null"]},
+        "relationship_type": {"type": ["string", "null"]},
+        "source_evidence_refs": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidence_ref"},
+          "maxItems": 32
+        },
+        "consistency_checks": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/consistency_check"}
+        },
+        "candidate_completeness_status": {"$ref": "#/$defs/completeness_status"},
+        "proof_sufficiency_status": {"$ref": "#/$defs/proof_sufficiency_status"},
+        "limitations": {"type": "array", "items": {"type": "string"}, "maxItems": 32},
+        "additional_evidence_needed": {
+          "type": "array",
+          "items": {"type": "string"},
+          "maxItems": 32
+        }
+      }
+    },
+    "source_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact",
+        "analysis_name",
+        "supplied",
+        "capture_files",
+        "record_count",
+        "declared_count",
+        "completeness_status",
+        "note"
+      ],
+      "properties": {
+        "artifact": {
+          "type": "string",
+          "enum": [
+            "epc-session-identity",
+            "epc-bearer-lifecycle",
+            "epc-release-narrative",
+            "epc-s1u-observation",
+            "gtpv2-c-events",
+            "gtp-u-events"
+          ]
+        },
+        "analysis_name": {"type": ["string", "null"]},
+        "supplied": {"type": "boolean"},
+        "capture_files": {"type": "array", "items": {"type": "string"}},
+        "record_count": {"type": "integer", "minimum": 0},
+        "declared_count": {"type": ["integer", "null"]},
+        "completeness_status": {"$ref": "#/$defs/completeness_status"},
+        "note": {"type": "string"}
+      }
+    },
+    "completeness_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document",
+        "collection",
+        "declared_count",
+        "published_count",
+        "omitted_count",
+        "status",
+        "condition"
+      ],
+      "properties": {
+        "document": {
+          "type": "string",
+          "enum": [
+            "epc-session-identity",
+            "epc-bearer-lifecycle",
+            "epc-release-narrative",
+            "epc-s1u-observation"
+          ]
+        },
+        "collection": {"type": "string"},
+        "declared_count": {"type": ["integer", "null"]},
+        "published_count": {"type": "integer", "minimum": 0},
+        "omitted_count": {"type": ["integer", "null"]},
+        "status": {"$ref": "#/$defs/completeness_status"},
+        "condition": {"$ref": "#/$defs/completeness_condition"}
+      }
+    },
+    "source_completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "exhaustive_coverage_proven",
+        "limitation",
+        "documents_supplied",
+        "documents_not_supplied",
+        "collections"
+      ],
+      "properties": {
+        "status": {"$ref": "#/$defs/completeness_status"},
+        "exhaustive_coverage_proven": {"type": "boolean"},
+        "limitation": {"type": ["string", "null"]},
+        "documents_supplied": {"type": "array", "items": {"type": "string"}},
+        "documents_not_supplied": {"type": "array", "items": {"type": "string"}},
+        "collections": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/completeness_entry"},
+          "maxItems": 256
+        }
+      }
+    },
+    "audit_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overall_status",
+        "record_count",
+        "status_counts",
+        "category_counts",
+        "verified_count",
+        "inconsistent_count",
+        "ambiguous_count",
+        "source_truncated_count",
+        "source_metadata_invalid_count",
+        "not_independently_verifiable_count",
+        "not_applicable_count"
+      ],
+      "properties": {
+        "overall_status": {
+          "type": "string",
+          "enum": [
+            "AUDIT_CONSISTENT",
+            "AUDIT_LIMITED",
+            "AUDIT_INCONSISTENT",
+            "AUDIT_EMPTY"
+          ]
+        },
+        "record_count": {"type": "integer", "minimum": 0},
+        "status_counts": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "category_counts": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "verified_count": {"type": "integer", "minimum": 0},
+        "inconsistent_count": {"type": "integer", "minimum": 0},
+        "ambiguous_count": {"type": "integer", "minimum": 0},
+        "source_truncated_count": {"type": "integer", "minimum": 0},
+        "source_metadata_invalid_count": {"type": "integer", "minimum": 0},
+        "not_independently_verifiable_count": {"type": "integer", "minimum": 0},
+        "not_applicable_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "lifecycle_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aggregate_g_pdu_count",
+        "attributed_g_pdu_count",
+        "unresolved_g_pdu_count",
+        "aggregate_payload_octets",
+        "attributed_payload_octets",
+        "unresolved_payload_octets",
+        "conserved_g_pdu",
+        "conserved_payload_octets"
+      ],
+      "properties": {
+        "aggregate_g_pdu_count": {"type": ["integer", "null"]},
+        "attributed_g_pdu_count": {"type": ["integer", "null"]},
+        "unresolved_g_pdu_count": {"type": ["integer", "null"]},
+        "aggregate_payload_octets": {"type": ["integer", "null"]},
+        "attributed_payload_octets": {"type": ["integer", "null"]},
+        "unresolved_payload_octets": {"type": ["integer", "null"]},
+        "conserved_g_pdu": {"type": ["boolean", "null"]},
+        "conserved_payload_octets": {"type": ["boolean", "null"]}
+      }
+    },
+    "s1u_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_g_pdu_packet_count",
+        "observed_payload_byte_count",
+        "stream_count"
+      ],
+      "properties": {
+        "observed_g_pdu_packet_count": {"type": ["integer", "null"]},
+        "observed_payload_byte_count": {"type": ["integer", "null"]},
+        "stream_count": {"type": ["integer", "null"]}
+      }
+    },
+    "temporal_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frame_level_evidence_supplied",
+        "observed_g_pdu_event_count",
+        "assigned_to_release_window_count",
+        "unassigned_g_pdu_event_count",
+        "duplicate_assignment_count",
+        "conserved"
+      ],
+      "properties": {
+        "frame_level_evidence_supplied": {"type": ["boolean", "null"]},
+        "observed_g_pdu_event_count": {"type": ["integer", "null"]},
+        "assigned_to_release_window_count": {"type": ["integer", "null"]},
+        "unassigned_g_pdu_event_count": {"type": ["integer", "null"]},
+        "duplicate_assignment_count": {"type": ["integer", "null"]},
+        "conserved": {"type": ["boolean", "null"]}
+      }
+    },
+    "unresolved_finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audit_record_reference",
+        "audit_category",
+        "audit_status",
+        "source_artifact_reference",
+        "capture_file",
+        "proof_sufficiency_status",
+        "limitation"
+      ],
+      "properties": {
+        "audit_record_reference": {"type": "string"},
+        "audit_category": {"$ref": "#/$defs/audit_category"},
+        "audit_status": {"$ref": "#/$defs/audit_status"},
+        "source_artifact_reference": {"type": ["string", "null"]},
+        "capture_file": {"type": ["string", "null"]},
+        "proof_sufficiency_status": {"$ref": "#/$defs/proof_sufficiency_status"},
+        "limitation": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

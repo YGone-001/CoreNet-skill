@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
 import importlib.util
 import json
 import py_compile
@@ -74,6 +76,13 @@ REQUIRED = (
     "scripts/analyze_epc_release_narrative.py",
     "scripts/epc_release_narrative_report.py",
     "tests/test_epc_release_narrative.py",
+    "references/evidence-chain-audit.md",
+    "rules/epc-evidence-audit-model.json",
+    "schemas/epc-evidence-audit-analysis.schema.json",
+    "scripts/epc_evidence_audit_model.py",
+    "scripts/analyze_epc_evidence_audit.py",
+    "scripts/epc_evidence_audit_report.py",
+    "tests/test_epc_evidence_audit.py",
     "examples/s1u/gtpu-fields.jsonl",
     "examples/s1u/gtpu-events.jsonl",
     "examples/s1u/gtpu-streams.json",
@@ -289,6 +298,7 @@ def validate(root: Path = ROOT) -> list[str]:
     errors.extend(_validate_lifecycle(skill, root))
     errors.extend(_validate_session_identity(skill, root))
     errors.extend(_validate_release_narrative(skill, root))
+    errors.extend(_validate_evidence_audit(skill, root))
 
     malformed = skill / "examples" / "extracted" / "malformed-nas.jsonl"
     if not malformed.is_file():
@@ -434,16 +444,18 @@ def _validate_published_contracts(skill: Path, root: Path) -> list[str]:
             "analyze_epc_bearer_lifecycle.py",
             "analyze_epc_session_identity.py",
             "analyze_epc_release_narrative.py",
+            "analyze_epc_evidence_audit.py",
         ):
             if script not in text:
                 fail(f"{name} does not document the {script} capability")
-    if "seven independently executable capabilities" not in skill_md:
-        fail("SKILL.md must state that the package has seven capabilities")
+    if "eight independently executable capabilities" not in skill_md:
+        fail("SKILL.md must state that the package has eight capabilities")
     for stale in (
         "two independently executable capabilities",
         "four independently executable capabilities",
         "five independently executable capabilities",
         "six independently executable capabilities",
+        "seven independently executable capabilities",
     ):
         if stale in skill_md:
             fail(f"SKILL.md still describes a stale capability count: {stale}")
@@ -2532,6 +2544,743 @@ def _validate_release_narrative(skill: Path, root: Path) -> list[str]:
         fail("a correct downlink attribution must establish ownership")
     if analysis["temporal_accounting"]["assigned_to_release_window_count"] != 2:
         fail("a correct downlink attribution must assign its packets")
+
+    return errors
+
+
+def load_evidence_audit_model(root: Path):
+    path = (
+        root
+        / "skills"
+        / "domain"
+        / "epc-procedures"
+        / "scripts"
+        / "epc_evidence_audit_model.py"
+    )
+    sys.path.insert(0, str(path.parent))
+    spec = importlib.util.spec_from_file_location(
+        "epc_evidence_audit_model_under_test", path
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+AUDIT_CAPTURE = "validator-a.pcap"
+AUDIT_CAPTURE_B = "validator-b.pcap"
+AUDIT_CONTEXT = "epc-session-context-va00000001"
+AUDIT_GENERATION = "epc-bearer-generation-vb00000001"
+AUDIT_STREAM = "epc-s1u-stream-0000000001"
+AUDIT_TX = "gtpv2-delete-session-validator"
+AUDIT_CANDIDATE = "epc-generation-closure-vc00000001"
+AUDIT_SUBJECT = "epc-release-subject-vd00000001"
+AUDIT_RELEASE = "epc-release-narrative-ve00000001"
+AUDIT_TEMPORAL = "epc-release-temporal-vf00000001"
+
+
+def _audit_endpoint(capture=AUDIT_CAPTURE):
+    return "epc-bearer-endpoint-" + hashlib.sha256(
+        "|".join(["bearer-endpoint", capture, "enodeb_s1u", "10.0.0.40", "77", "0"]).encode(
+            "utf-8"
+        )
+    ).hexdigest()[:10]
+
+
+def _audit_evidence(frame, message):
+    return {
+        "protocol": "GTPv2-C",
+        "frame_number": frame,
+        "message_type": message,
+        "evidence_level": "OBSERVED",
+    }
+
+
+def _audit_endpoint_record(capture=AUDIT_CAPTURE):
+    return {
+        "role": "enodeb_s1u",
+        "address": "10.0.0.40",
+        "teid": 77,
+        "interface_type": 0,
+        "eps_bearer_identities": [5],
+        "generation_references": [AUDIT_GENERATION],
+    }
+
+
+def _audit_scenario():
+    capture = AUDIT_CAPTURE
+    endpoint = _audit_endpoint(capture)
+    context = {
+        "capture_file": capture,
+        "session_context_reference": AUDIT_CONTEXT,
+        "interface_class": "S11",
+        "relationship_type": "HOP_LOCAL_SESSION_CONTEXT",
+        "association_status": "ESTABLISHED",
+        "association_basis": "reviewed",
+        "transaction_correlation_proved": True,
+        "allocation_outcome_status": "ACCEPTED",
+        "allocation_transaction_reference": "tx-create",
+        "member_transactions": [],
+        "member_transaction_references": ["tx-create"],
+        "control_plane_fteids": [],
+        "bearer_user_plane_fteids": [],
+        "observation_window": {"start_frame": 100, "end_frame": 103},
+        "evidence_refs": [_audit_evidence(100, "Create Session Request")],
+        "limitations": [],
+    }
+    binding = {
+        "capture_file": capture,
+        "relationship_type": "RELEASE_TO_SESSION_CONTEXT",
+        "source_subject_reference": AUDIT_TX,
+        "target_subject_reference": AUDIT_CONTEXT,
+        "association_status": "ESTABLISHED",
+        "association_basis": "reviewed",
+        "reviewed_identifiers": [],
+        "source_transaction_references": [AUDIT_TX],
+        "source_frames": [200, 205],
+        "evidence_refs": [
+            _audit_evidence(200, "Delete Session Request"),
+            _audit_evidence(205, "Delete Session Response"),
+        ],
+        "observation_window": {"start_frame": 200, "end_frame": 205},
+        "competing_candidates": [],
+        "release_outcome_status": "ACCEPTED",
+        "release_outcome_basis": "accepted cause",
+        "lifecycle_control_plane_context": {"session_teid": 9, "basis": "request_header_teid"},
+        "limitations": [],
+    }
+    link = {
+        "capture_file": capture,
+        "relationship_type": "SESSION_CONTEXT_TO_BEARER_GENERATION",
+        "source_subject_reference": AUDIT_CONTEXT,
+        "target_subject_reference": endpoint,
+        "association_status": "ESTABLISHED",
+        "association_basis": "reviewed",
+        "reviewed_identifiers": [],
+        "source_transaction_references": ["tx-create"],
+        "source_frames": [103],
+        "evidence_refs": [_audit_evidence(103, "Create Session Response")],
+        "observation_window": {"start_frame": 103, "end_frame": 103},
+        "competing_candidates": [],
+        "bearer_endpoint": _audit_endpoint_record(capture),
+        "bridge_mediated": False,
+        "limitations": [],
+    }
+    candidate = {
+        "capture_file": capture,
+        "generation_closure_candidate_reference": AUDIT_CANDIDATE,
+        "session_context_reference": AUDIT_CONTEXT,
+        "release_transaction_reference": AUDIT_TX,
+        "bearer_endpoint_reference": endpoint,
+        "bearer_endpoint": _audit_endpoint_record(capture),
+        "association_status": "ESTABLISHED",
+        "association_basis": "reviewed",
+        "chain": [
+            {
+                "relationship_type": "RELEASE_TO_SESSION_CONTEXT",
+                "subject_reference": AUDIT_TX,
+                "association_status": "ESTABLISHED",
+            }
+        ],
+        "item_identities": {
+            "release_bearer_identities": [5],
+            "endpoint_bearer_identities": [5],
+        },
+        "release_request_frame": 200,
+        "release_confirmation_frame": 205,
+        "limitations": [],
+    }
+    identity = {
+        "domain": "epc-procedures",
+        "analysis_name": "epc-session-identity",
+        "hop_local_contexts": [context],
+        "hop_local_context_count": 1,
+        "endpoint_correspondence_links": [],
+        "endpoint_correspondence_count": 0,
+        "session_identity_links": [],
+        "session_identity_count": 0,
+        "release_session_bindings": [binding],
+        "release_session_binding_count": 1,
+        "release_session_bindings_omitted": 0,
+        "session_to_generation_links": [link],
+        "session_to_generation_count": 1,
+        "session_to_generation_omitted": 0,
+        "generation_closure_candidates": [candidate],
+        "generation_closure_candidate_count": 1,
+        "generation_closure_candidates_omitted": 0,
+        "established_closure_candidate_count": 1,
+    }
+    subject_record = {
+        "generation_reference": AUDIT_GENERATION,
+        "capture_file": capture,
+        "receiving_endpoint_address": "10.0.0.40",
+        "receiving_endpoint_teid": 77,
+        "receiving_endpoint_role": "enodeb_s1u",
+        "reviewed_interface_type": 0,
+        "generation_state": "CLOSED_BY_ACCEPTED_RELEASE",
+        "generation_boundary": {
+            "release_request_frame": 200,
+            "release_confirmation_frame": 205,
+            "frame_number": 205,
+            "transaction_reference": AUDIT_TX,
+            "basis": "reviewed",
+            "release_effective_frame_proven": False,
+        },
+        "advertisement_family_references": [],
+        "observations": [],
+        "observation_window": {"start_frame": 103, "end_frame": 205},
+        "evidence_refs": [_audit_evidence(103, "Create Session Response")],
+        "limitations": [],
+    }
+    boundary = {
+        "capture_file": capture,
+        "transaction_reference": AUDIT_TX,
+        "request_frame": 200,
+        "request_message_type": "Delete Session Request",
+        "response_frame": 205,
+        "response_message_type": "Delete Session Response",
+        "correlation_status": "MATCHED",
+        "correlation_strength": "STRONG",
+        "release_outcome": "ACCEPTED",
+        "release_outcome_basis": "accepted cause",
+        "released_endpoints": [
+            {"address": "10.0.0.40", "teid": 77, "interface_type": 0, "role": "enodeb_s1u"}
+        ],
+        "control_plane_context": {
+            "session_teid": 9,
+            "basis": "correlated_response_header_teid",
+        },
+        "bearer_identity_scope": [5],
+        "evidence_refs": [
+            _audit_evidence(200, "Delete Session Request"),
+            _audit_evidence(205, "Delete Session Response"),
+        ],
+        "limitations": [],
+    }
+    scoped = {
+        "source_stream_reference": AUDIT_STREAM,
+        "generation_reference": AUDIT_GENERATION,
+        "receiving_endpoint_role": "enodeb_s1u",
+        "direction": "DOWNLINK",
+        "first_observed_frame": 100,
+        "last_observed_frame": 210,
+        "observed_g_pdu_count": 4,
+        "observed_payload_octets": 400,
+        "association_status": "SUPPORTED",
+        "allocation_evidence_refs": [],
+        "generation_boundary_refs": [],
+        "packet_evidence_refs": [],
+        "limitations": [],
+    }
+    lifecycle = {
+        "domain": "epc-procedures",
+        "analysis_name": "epc-bearer-lifecycle",
+        "lifecycle_subject_count": 1,
+        "lifecycle_subjects": [subject_record],
+        "lifecycle_subjects_omitted": 0,
+        "advertisement_family_count": 0,
+        "advertisement_families": [],
+        "advertisement_families_omitted": 0,
+        "generation_boundary_evidence": [boundary],
+        "generation_boundary_count": 1,
+        "generation_scoped_s1u_observations": [scoped],
+        "generation_scoped_observation_count": 1,
+        "unresolved_packet_observations": [],
+        "unresolved_packet_observation_count": 0,
+        "accounting": {
+            "aggregate_g_pdu_count": 4,
+            "attributed_g_pdu_count": 2,
+            "unresolved_g_pdu_count": 2,
+            "aggregate_payload_octets": 400,
+            "attributed_payload_octets": 200,
+            "unresolved_payload_octets": 200,
+            "conserved_g_pdu": True,
+            "conserved_payload_octets": True,
+        },
+    }
+    stages = []
+    for name, status in (
+        ("ALLOCATION_OBSERVED", "OBSERVED"),
+        ("ALLOCATION_ACCEPTED", "ACCEPTED"),
+        ("SESSION_CONTEXT_ESTABLISHED", "ESTABLISHED"),
+        ("BEARER_ASSOCIATION_ESTABLISHED", "ESTABLISHED"),
+        ("RELEASE_REQUEST_OBSERVED", "OBSERVED"),
+        ("RELEASE_OUTCOME_ACCEPTED", "ACCEPTED"),
+        ("RELEASE_SESSION_BINDING_ESTABLISHED", "ESTABLISHED"),
+        ("GENERATION_CLOSURE_ESTABLISHED", "ESTABLISHED"),
+        ("RELEASE_EFFECTIVE_INSTANT_UNPROVED", "NOT_ESTABLISHED"),
+    ):
+        stages.append(
+            {
+                "stage": name,
+                "evidence_status": status,
+                "source_analysis": "epc-release-narrative",
+                "source_subject_reference": None,
+                "transaction_reference": AUDIT_TX,
+                "capture_file": capture,
+                "frame_number": None,
+                "message_type": None,
+                "evidence_refs": [],
+                "association_basis": None,
+                "limitations": [],
+            }
+        )
+    observation = {
+        "temporal_observation_reference": AUDIT_TEMPORAL,
+        "release_narrative_reference": AUDIT_RELEASE,
+        "capture_file": capture,
+        "stream_reference": AUDIT_STREAM,
+        "generation_reference": AUDIT_GENERATION,
+        "receiving_endpoint_role": "enodeb_s1u",
+        "direction": "DOWNLINK",
+        "association_status": "SUPPORTED",
+        "observed_g_pdu_count": 4,
+        "observed_payload_octets": 400,
+        "first_observed_frame": 100,
+        "last_observed_frame": 210,
+        "release_request_frame": 200,
+        "release_confirmation_frame": 205,
+        "partitions": {
+            "before_release": {
+                "g_pdu_count": 2,
+                "payload_octets": 200,
+                "first_frame": 100,
+                "last_frame": 150,
+            },
+            "pending_release": {
+                "g_pdu_count": 1,
+                "payload_octets": 100,
+                "first_frame": 202,
+                "last_frame": 202,
+            },
+            "after_confirmation": {
+                "g_pdu_count": 1,
+                "payload_octets": 100,
+                "first_frame": 210,
+                "last_frame": 210,
+            },
+        },
+        "partition_basis": "FRAME_LEVEL_EVENTS",
+        "temporal_placement_status": "ESTABLISHED",
+        "partition_conserved": True,
+        "limitations": [],
+        "generation_attribution_status": "ESTABLISHED",
+        "generation_attribution_basis": "reviewed",
+        "attribution_failures": [],
+        "partition_scope": "COMPLETE_STREAM",
+        "duplicate_frame_ownership": False,
+    }
+    narrative = {
+        "domain": "epc-procedures",
+        "analysis_name": "epc-release-narrative",
+        "narrative_subject_count": 1,
+        "narrative_subjects": [
+            {
+                "narrative_subject_reference": AUDIT_SUBJECT,
+                "capture_file": capture,
+                "interface_class": "S11",
+                "session_context_reference": AUDIT_CONTEXT,
+                "session_context_status": "ESTABLISHED",
+                "narrative_group_reference": "epc-release-group-vg00000001",
+                "narrative_group_basis": "single_hop_local_context",
+                "narrative_group_members": [AUDIT_CONTEXT],
+                "narrative_group_bridge_references": [],
+                "endpoint_correspondence_references": [],
+                "release_narrative_references": [AUDIT_RELEASE],
+                "source_evidence_refs": [],
+                "limitations": [],
+            }
+        ],
+        "narrative_subjects_omitted": 0,
+        "release_narrative_count": 1,
+        "release_narratives": [
+            {
+                "release_narrative_reference": AUDIT_RELEASE,
+                "capture_file": capture,
+                "narrative_subject_reference": AUDIT_SUBJECT,
+                "session_context_reference": AUDIT_CONTEXT,
+                "interface_class": "S11",
+                "narrative_group_reference": "epc-release-group-vg00000001",
+                "release_transaction_reference": AUDIT_TX,
+                "release_request_frame": 200,
+                "release_confirmation_frame": 205,
+                "release_outcome_status": "ACCEPTED",
+                "release_outcome_basis": "accepted cause",
+                "release_session_binding_status": "ESTABLISHED",
+                "release_session_binding_basis": "reviewed",
+                "generation_closure_status": "ESTABLISHED",
+                "generation_closure_basis": "reviewed",
+                "release_effective_frame_proven": False,
+                "stages": stages,
+                "proved_generations": [
+                    {
+                        "generation_reference": AUDIT_GENERATION,
+                        "receiving_endpoint_role": "enodeb_s1u",
+                        "receiving_endpoint_address": "10.0.0.40",
+                        "receiving_endpoint_teid": 77,
+                        "reviewed_interface_type": 0,
+                        "generation_state": "CLOSED_BY_ACCEPTED_RELEASE",
+                        "generation_boundary_basis": "reviewed",
+                        "release_request_frame": 200,
+                        "release_confirmation_frame": 205,
+                        "release_effective_frame_proven": False,
+                        "closure_candidate_reference": AUDIT_CANDIDATE,
+                        "closure_candidate_basis": "reviewed",
+                    }
+                ],
+                "competing_generations": [],
+                "temporal_observation_references": [AUDIT_TEMPORAL],
+                "provenance_status": "VALIDATED",
+                "limitations": [],
+            }
+        ],
+        "release_narratives_omitted": 0,
+        "temporal_observation_count": 1,
+        "temporal_observations": [observation],
+        "temporal_observations_omitted": 0,
+        "temporal_accounting": {
+            "frame_level_evidence_supplied": True,
+            "observed_g_pdu_event_count": 4,
+            "assigned_to_release_window_count": 4,
+            "unassigned_g_pdu_event_count": 0,
+            "duplicate_assignment_count": 0,
+            "conserved": True,
+            "attributed_observation_count": 1,
+            "unattributed_observation_count": 0,
+        },
+    }
+    s1u = {
+        "domain": "epc-procedures",
+        "analysis_name": "epc-s1u-observation",
+        "stream_count": 1,
+        "streams_omitted": 0,
+        "stream_observations": [
+            {
+                "stream_reference": AUDIT_STREAM,
+                "capture_file": capture,
+                "outer_source": "10.0.0.20",
+                "outer_destination": "10.0.0.40",
+                "teid": 77,
+                "first_frame": 100,
+                "last_frame": 210,
+                "observed_g_pdu_packet_count": 4,
+                "observed_payload_byte_count": 400,
+                "direction": "DOWNLINK",
+                "association_status": "SUPPORTED",
+                "matched_endpoint_role": "enodeb_s1u",
+            }
+        ],
+        "observed_g_pdu_packet_count": 4,
+        "observed_payload_byte_count": 400,
+    }
+    gtpv2_events = [
+        {"capture_file": capture, "frame_number": 200, "message_type": "Delete Session Request"},
+        {"capture_file": capture, "frame_number": 205, "message_type": "Delete Session Response"},
+    ]
+    gtpu_events = [
+        {
+            "capture_file": capture,
+            "frame_number": frame,
+            "header": {"message_type": "G-PDU", "teid": 77, "message_length": 100},
+            "outer": {"source_address": "10.0.0.20", "destination_address": "10.0.0.40"},
+        }
+        for frame in (100, 150, 202, 210)
+    ]
+    return {
+        "identity": identity,
+        "lifecycle": lifecycle,
+        "narrative": narrative,
+        "s1u": s1u,
+        "gtpv2": gtpv2_events,
+        "gtpu": gtpu_events,
+    }
+
+
+def _audit_run(model, documents):
+    return model.analyze(
+        documents["identity"],
+        documents["lifecycle"],
+        documents["narrative"],
+        s1u=documents["s1u"],
+        gtpv2_events=documents["gtpv2"],
+        gtpu_events=documents["gtpu"],
+    )
+
+
+def _audit_of(result, category):
+    return [
+        record
+        for record in result["audit_records"]
+        if record["audit_category"] == category
+    ]
+
+
+def _audit_check(record, token):
+    for check in record.get("consistency_checks") or []:
+        if check.get("check") == token:
+            return check.get("result")
+    return None
+
+
+def _validate_evidence_audit(skill: Path, root: Path) -> list[str]:
+    """Validate the read-only EPC evidence-audit ledger with real behavior."""
+    errors: list[str] = []
+
+    def fail(message: str) -> None:
+        errors.append(message)
+
+    schema_path = skill / "schemas" / "epc-evidence-audit-analysis.schema.json"
+    rules_path = skill / "rules" / "epc-evidence-audit-model.json"
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"invalid evidence-audit schema: {exc}"]
+    try:
+        rules = json.loads(rules_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"invalid evidence-audit rules: {exc}"]
+
+    try:
+        model = load_evidence_audit_model(root)
+    except Exception as exc:  # noqa: BLE001 - reported as a contract error
+        return [f"cannot load evidence-audit model: {exc}"]
+
+    for field in (
+        "source_artifacts",
+        "source_completeness",
+        "audit_records",
+        "audit_summary",
+        "reference_integrity_summary",
+        "capture_scope_summary",
+        "temporal_integrity_summary",
+        "accounting_integrity_summary",
+        "unresolved_audit_findings",
+        "boundary_selection_status",
+        "first_abnormal_boundary",
+    ):
+        if field not in schema.get("required", []):
+            fail(f"evidence-audit schema does not require '{field}'")
+    if schema.get("properties", {}).get("first_abnormal_boundary") != {"type": "null"}:
+        fail("evidence-audit schema must forbid a selected first abnormal boundary")
+    if (
+        schema.get("properties", {}).get("boundary_selection_status", {}).get("const")
+        != "NOT_APPLICABLE"
+    ):
+        fail("evidence-audit schema must fix boundary_selection_status to NOT_APPLICABLE")
+    for definition, expected in (
+        ("audit_category", model.AUDIT_CATEGORIES),
+        ("audit_status", model.AUDIT_STATUSES),
+        ("completeness_status", model.COMPLETENESS_STATUSES),
+        ("proof_sufficiency_status", model.PROOF_STATUSES),
+        ("check_token", model.CHECK_TOKENS),
+    ):
+        enum = set(schema.get("$defs", {}).get(definition, {}).get("enum") or [])
+        if enum != set(expected):
+            fail(f"evidence-audit schema {definition} enum does not match the model")
+    for key, expected in (
+        ("audit_categories", model.AUDIT_CATEGORIES),
+        ("audit_statuses", model.AUDIT_STATUSES),
+        ("completeness_statuses", model.COMPLETENESS_STATUSES),
+        ("proof_sufficiency_statuses", model.PROOF_STATUSES),
+        ("check_tokens", model.CHECK_TOKENS),
+    ):
+        if set(rules.get(key) or ()) != set(expected):
+            fail(f"evidence-audit rules {key} does not match the model")
+    if tuple(rules.get("not_confirmed") or ()) != tuple(model.NOT_CONFIRMED):
+        fail("evidence-audit rules not_confirmed does not match the model")
+
+    documents = _audit_scenario()
+    positive = _audit_run(model, documents)
+    if positive["audit_summary"]["overall_status"] != "AUDIT_CONSISTENT":
+        fail("the positive evidence-audit chain is not consistent")
+    if positive["audit_summary"]["inconsistent_count"]:
+        fail("the positive evidence-audit chain reports a contradiction")
+    for category in model.AUDIT_CATEGORIES:
+        if not _audit_of(positive, category):
+            fail(f"the positive evidence-audit chain produced no {category} record")
+    if positive["boundary_selection_status"] != "NOT_APPLICABLE":
+        fail("evidence audit must never select a boundary")
+    if positive["first_abnormal_boundary"] is not None:
+        fail("evidence audit must never publish a first abnormal boundary")
+    if not positive["accounting_integrity_summary"]["audit_derived"]["source_counts_unchanged"]:
+        fail("evidence audit must leave producer counts unchanged")
+
+    # Cross-capture reference mismatch.
+    mismatch = copy.deepcopy(documents)
+    mismatch["narrative"]["narrative_subjects"][0]["capture_file"] = AUDIT_CAPTURE_B
+    mismatch["narrative"]["release_narratives"][0]["capture_file"] = AUDIT_CAPTURE_B
+    mismatch_result = _audit_run(model, mismatch)
+    if not any(
+        record["audit_status"] == "INCONSISTENT"
+        for record in _audit_of(mismatch_result, "REFERENCE_INTEGRITY")
+    ):
+        fail("evidence audit did not detect a cross-capture reference mismatch")
+
+    # Incomplete candidate collection.
+    truncated = copy.deepcopy(documents)
+    truncated["identity"]["release_session_binding_count"] = 2
+    truncated_result = _audit_run(model, truncated)
+    if (
+        truncated_result["source_completeness"]["status"] != "SOURCE_TRUNCATED"
+        or not any(
+            record["audit_status"] == "SOURCE_TRUNCATED"
+            for record in _audit_of(truncated_result, "RELEASE_SESSION_BINDING")
+        )
+    ):
+        fail("evidence audit did not detect an incomplete candidate collection")
+
+    # Missing lifecycle-scoped reference.
+    missing_scoped = copy.deepcopy(documents)
+    missing_scoped["lifecycle"]["generation_scoped_s1u_observations"] = []
+    missing_scoped["lifecycle"]["generation_scoped_observation_count"] = 0
+    missing_scoped["narrative"]["temporal_observations"][0][
+        "generation_attribution_status"
+    ] = "NOT_ESTABLISHED"
+    missing_result = _audit_run(model, missing_scoped)
+    attribution = [
+        record
+        for record in _audit_of(missing_result, "GENERATION_STREAM_ATTRIBUTION")
+        if record["audit_status"] != "VERIFIED_CONSISTENT"
+    ]
+    if not attribution:
+        fail("evidence audit did not detect a missing lifecycle-scoped reference")
+
+    # Contradictory scoped direction.
+    contradictory = copy.deepcopy(documents)
+    contradictory["lifecycle"]["generation_scoped_s1u_observations"][0][
+        "direction"
+    ] = "UPLINK"
+    contradictory_result = _audit_run(model, contradictory)
+    direction_record = next(
+        (
+            record
+            for record in _audit_of(
+                contradictory_result, "GENERATION_STREAM_ATTRIBUTION"
+            )
+            if _audit_check(record, "direction_role_mapping_agrees") == "FAIL"
+        ),
+        None,
+    )
+    if direction_record is None or direction_record["audit_status"] != "INCONSISTENT":
+        fail("evidence audit did not detect a contradictory scoped direction")
+
+    # Unresolved competing claimant.
+    claimant = copy.deepcopy(documents)
+    claimant["lifecycle"]["generation_scoped_s1u_observations"].append(
+        dict(
+            claimant["lifecycle"]["generation_scoped_s1u_observations"][0],
+            generation_reference="epc-bearer-generation-unpublished",
+        )
+    )
+    claimant["lifecycle"]["generation_scoped_observation_count"] = 2
+    claimant_result = _audit_run(model, claimant)
+    claimant_record = _audit_of(
+        claimant_result, "GENERATION_STREAM_ATTRIBUTION"
+    )[0]
+    if claimant_record["audit_status"] == "VERIFIED_CONSISTENT":
+        fail("evidence audit accepted an unresolved competing claimant")
+
+    # Mismatched release transaction in a closure candidate.
+    mismatched = copy.deepcopy(documents)
+    mismatched["identity"]["generation_closure_candidates"][0][
+        "release_transaction_reference"
+    ] = "gtpv2-delete-session-other"
+    mismatched_result = _audit_run(model, mismatched)
+    closure_record = _audit_of(mismatched_result, "GENERATION_CLOSURE")[0]
+    if closure_record["audit_status"] == "VERIFIED_CONSISTENT":
+        fail("evidence audit accepted a closure candidate for another release transaction")
+
+    # Incorrectly claimed complete temporal partition.
+    incomplete = copy.deepcopy(documents)
+    incomplete["narrative"]["temporal_observations"][0]["partitions"]["pending_release"][
+        "g_pdu_count"
+    ] = 0
+    incomplete_result = _audit_run(model, incomplete)
+    temporal_record = _audit_of(incomplete_result, "TEMPORAL_FRAME_PARTITION")[0]
+    if temporal_record["audit_status"] != "INCONSISTENT":
+        fail("evidence audit accepted an incomplete temporal partition as complete")
+
+    # Duplicate frame assignment.
+    duplicate = copy.deepcopy(documents)
+    duplicate["narrative"]["temporal_observations"][0][
+        "duplicate_frame_ownership"
+    ] = True
+    duplicate_result = _audit_run(model, duplicate)
+    duplicate_record = _audit_of(duplicate_result, "TEMPORAL_FRAME_PARTITION")[0]
+    if (
+        duplicate_record["audit_status"] != "INCONSISTENT"
+        or _audit_check(duplicate_record, "frame_ownership_exclusive") != "FAIL"
+    ):
+        fail("evidence audit resolved a duplicate frame assignment")
+
+    # Mutation check 1: disable the scoped direction gate.
+    original_direction = model.scoped_direction_agrees
+    try:
+        model.scoped_direction_agrees = lambda *_args, **_kwargs: True
+        mutated = _audit_run(model, contradictory)
+    finally:
+        model.scoped_direction_agrees = original_direction
+    mutated_direction = next(
+        (
+            record
+            for record in _audit_of(mutated, "GENERATION_STREAM_ATTRIBUTION")
+            if _audit_check(record, "direction_role_mapping_agrees") == "PASS"
+        ),
+        None,
+    )
+    if mutated_direction is None:
+        fail("mutation check failed: disabling the direction gate was not detected")
+    if direction_record["audit_status"] != "INCONSISTENT":
+        fail("mutation restore failed: the direction gate stayed disabled")
+
+    # Mutation check 2: disable the completeness gate.
+    original_status = model._status
+    try:
+        def weakened_status(checks, **_kwargs):
+            if any(check.get("result") == "FAIL" for check in checks):
+                return "INCONSISTENT"
+            return "VERIFIED_CONSISTENT"
+
+        model._status = weakened_status
+        mutated = _audit_run(model, truncated)
+    finally:
+        model._status = original_status
+    if any(
+        record["audit_status"] == "SOURCE_TRUNCATED"
+        for record in _audit_of(mutated, "RELEASE_SESSION_BINDING")
+    ):
+        fail("mutation check failed: disabling the completeness gate was not detected")
+    if _audit_run(model, truncated)["source_completeness"]["status"] != "SOURCE_TRUNCATED":
+        fail("mutation restore failed: the completeness gate stayed disabled")
+
+    # Mutation check 3: disable the frame-exclusivity gate.
+    original_check = model._check
+    try:
+        model._check = lambda token, passed: original_check(
+            token, True if token == "frame_ownership_exclusive" else passed
+        )
+        mutated = _audit_run(model, duplicate)
+    finally:
+        model._check = original_check
+    if (
+        _audit_of(mutated, "TEMPORAL_FRAME_PARTITION")[0]["audit_status"]
+        == "INCONSISTENT"
+    ):
+        fail("mutation check failed: disabling the frame-exclusivity gate was not detected")
+    if (
+        _audit_of(_audit_run(model, duplicate), "TEMPORAL_FRAME_PARTITION")[0][
+            "audit_status"
+        ]
+        != "INCONSISTENT"
+    ):
+        fail("mutation restore failed: the frame-exclusivity gate stayed disabled")
+
+    # Determinism.
+    if json.dumps(positive, sort_keys=True) != json.dumps(
+        _audit_run(model, _audit_scenario()), sort_keys=True
+    ):
+        fail("evidence audit is not deterministic for identical input")
 
     return errors
 

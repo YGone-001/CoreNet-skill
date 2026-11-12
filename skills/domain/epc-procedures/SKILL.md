@@ -7,17 +7,17 @@ UE contexts ran an Attach attempt, which conditional stages were observed, which
 explicit protocol rejection or failure the network or the UE emitted, and which
 evidence is missing or protected.
 
-This is a Domain-layer Skill with seven independently executable capabilities. The
+This is a Domain-layer Skill with eight independently executable capabilities. The
 EPS Attach capability consumes already-extracted S1AP and NAS-EPS events. The EPC
 session-control capability consumes already-extracted GTPv2-C events and
 transactions. The EPS default-bearer capability consumes already-extracted NAS-EPS
 ESM evidence, S1AP E-RAB items and GTPv2-C tunnel endpoints. The S1-U observation
 capability consumes already-extracted GTP-U events and stream summaries. The
-session-identity, bearer-lifecycle and release-narrative capabilities consume the
-accepted documents those capabilities publish, never a capture. Each produces
-procedure-local evidence and explicit limitations. The Skill never decodes
-protocols, never reads subscriber identity, and never produces a verdict about
-bearer, PDN or service success.
+session-identity, bearer-lifecycle, release-narrative and evidence-audit
+capabilities consume the accepted documents those capabilities publish, never a
+capture. Each produces procedure-local evidence and explicit limitations. The Skill
+never decodes protocols, never reads subscriber identity, and never produces a
+verdict about bearer, PDN or service success.
 
 ## Scope
 
@@ -394,6 +394,66 @@ not an abnormal failure boundary and never produces a root cause.
 
 See `references/release-narrative.md` and `references/release-temporal-evidence.md`.
 
+## Evidence Audit
+
+Version 0.8.0 adds an eighth, independently executable capability:
+`scripts/analyze_epc_evidence_audit.py`. It audits the accepted session-identity,
+bearer-lifecycle and release-narrative documents plus, optionally, the accepted
+S1-U observation and the detailed GTPv2-C and GTP-U events. It is read-only: it
+never decodes a capture, never rebuilds a correlation, never re-derives identity,
+never changes a packet or octet attribution and never rewrites a source claim.
+
+```bash
+python3 scripts/analyze_epc_evidence_audit.py \
+  --session-identity epc-session-identity-analysis.json \
+  --lifecycle epc-bearer-lifecycle-analysis.json \
+  --release-narrative epc-release-narrative-analysis.json \
+  --s1u epc-s1u-observation.json \
+  --gtpv2 gtpv2-events.jsonl --gtpu gtpu-events.jsonl \
+  --output epc-evidence-audit-analysis.json --report epc-evidence-audit.txt
+```
+
+Every audited relationship publishes three independent dimensions:
+
+```text
+presence             does the referenced record exist in the supplied artifact?
+consistency          does it agree about capture, type, endpoint, transaction,
+                     direction, identity and frame evidence?
+proof sufficiency    is the complete candidate set available to justify the
+                     published association or conclusion?
+```
+
+A record is `VERIFIED_CONSISTENT` only when the reference resolves, the records
+agree and the candidate set is complete. `INCONSISTENT` reports a visible
+contradiction or a published claim the visible chain does not support;
+`AMBIGUOUS` reports competing or unresolvable references; `SOURCE_TRUNCATED` and
+`SOURCE_METADATA_INVALID` report a collection whose declared count cannot support
+uniqueness; `NOT_INDEPENDENTLY_VERIFIABLE` reports a producer or optional-artifact
+gap and is never used as a finding of inconsistency. `VERIFIED_CONSISTENT` never
+means that bearer identity, packet delivery, network correctness or a
+forwarding-stop instant was independently proved.
+
+The audit resolves references inside their documented namespaces, with the
+capture as a mandatory component: hop-local context, release transaction, bearer
+endpoint, bearer generation, S1-U stream, closure candidate, narrative subject,
+release narrative and temporal observation. It never joins records on an equal
+TEID, EPS bearer identity, address, frame number or timestamp alone. An endpoint
+correspondence is never used as a session-identity bridge, an accepted release is
+audited separately from the binding and the generation closure, a closure candidate
+naming another release transaction never closes this release, and a generation
+ownership claim must be backed by exactly one internally consistent
+generation-scoped S1-U record with a direction that maps to its role and agrees with
+the stream. Frame partitions are audited for conservation, window boundaries,
+exclusive ownership and frame presence; no frame is interpolated and no aggregate
+count is divided. Producer accounting counts are re-stated unchanged, and any
+audit-derived total is labelled and never written back.
+
+Unresolved findings still produce a usable JSON ledger and a distinguishable audit
+status, so a finding is inspectable rather than aborting the run. The capability
+publishes `boundary_selection_status` as `NOT_APPLICABLE` and never selects a first
+abnormal boundary. An audit finding is not a network failure. See
+`references/evidence-chain-audit.md`.
+
 ## Failure Behavior
 
 | Condition | Behavior |
@@ -426,4 +486,4 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Original CoreNet Domain-layer package. No upstream material imported. Normative
 references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the accepted
-`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.7.0.
+`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.8.0.

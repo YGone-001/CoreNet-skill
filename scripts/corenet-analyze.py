@@ -73,6 +73,9 @@ EPC_DEFAULT_BEARER_ANALYZE_SCRIPT = (
 EPC_RELEASE_NARRATIVE_ANALYZE_SCRIPT = (
     ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_release_narrative.py"
 )
+EPC_EVIDENCE_AUDIT_ANALYZE_SCRIPT = (
+    ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_evidence_audit.py"
+)
 EPC_BOUNDARY_SCRIPT = (
     ROOT / "skills" / "orchestration" / "epc-failure-boundary" / "scripts" / "analyze_epc_failure_boundary.py"
 )
@@ -1570,6 +1573,57 @@ def render_text_report(report: dict[str, Any]) -> str:
             "(a release narrative is not an abnormal failure boundary)"
         )
 
+    audit_blocks = [
+        (result, result.get("evidence_audit"))
+        for result in results
+        if isinstance(result.get("evidence_audit"), dict)
+    ]
+    if audit_blocks:
+        _section(lines, "Evidence Audit Ledger")
+    for result, block in audit_blocks:
+        references = block.get("reference_integrity") or {}
+        temporal = block.get("temporal_integrity") or {}
+        accounting = block.get("accounting_integrity") or {}
+        lines.append(
+            f"  {result['domain']}: {_value(block.get('overall_status'))}, "
+            f"{_value(block.get('audit_record_count'))} audit record(s), source completeness "
+            f"{_value(block.get('source_completeness_status'))}, "
+            f"{_value(block.get('unresolved_audit_finding_count'))} unresolved finding(s)"
+        )
+        lines.append(
+            f"    references: {_value(references.get('references_checked'))} checked, "
+            f"{_value(references.get('references_resolved'))} resolved, "
+            f"{_value(references.get('references_missing'))} missing, "
+            f"{_value(references.get('references_ambiguous'))} ambiguous, "
+            f"{_value(references.get('references_contradictory'))} contradictory"
+        )
+        lines.append(
+            f"    captures cross-capture rejections "
+            f"{_value((block.get('capture_scope') or {}).get('cross_capture_rejections'))}, "
+            f"value collisions kept separate "
+            f"{_value((block.get('capture_scope') or {}).get('cross_capture_value_collisions'))}; "
+            f"temporal verified placements "
+            f"{_value(temporal.get('audit_verified_placement_count'))}, missing frame evidence "
+            f"{_value(temporal.get('missing_frame_evidence_count'))}"
+        )
+        lines.append(
+            f"    accounting: producer counts unchanged "
+            f"{_value(accounting.get('producer_counts_unchanged'))}, audit-derived "
+            f"{_value(accounting.get('audit_derived_g_pdu_count'))} G-PDU / "
+            f"{_value(accounting.get('audit_derived_payload_octets'))} payload octets, "
+            f"{_value(accounting.get('accounting_records_inconsistent'))} inconsistent record(s)"
+        )
+        for finding in (block.get("unresolved_audit_findings") or [])[:MAX_LIST_ITEMS]:
+            lines.append(
+                f"    finding {finding.get('audit_status')} "
+                f"{finding.get('audit_category')} {finding.get('audit_record_reference')}: "
+                f"{_value(finding.get('limitation'))}"
+            )
+        lines.append(
+            "    boundary selection: NOT_APPLICABLE "
+            "(an audit finding is not an abnormal failure boundary)"
+        )
+
     _section(lines, "First Abnormal Boundary per Subject")
     boundary_any = False
     for result in results:
@@ -2210,6 +2264,46 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
 
     boundary_analysis: dict[str, Any] | None = None
     boundary_error: dict[str, Any] | None = None
+    audit_analysis: dict[str, Any] | None = None
+    audit_error: dict[str, Any] | None = None
+    audit_path = run_dir / "epc-evidence-audit-analysis.json"
+    if identity_path.is_file() and lifecycle_path.is_file() and narrative_path.is_file():
+        audit_command = [
+            sys.executable,
+            str(EPC_EVIDENCE_AUDIT_ANALYZE_SCRIPT),
+            "--session-identity",
+            str(identity_path),
+            "--lifecycle",
+            str(lifecycle_path),
+            "--release-narrative",
+            str(narrative_path),
+            "--output",
+            str(audit_path),
+            "--force",
+        ]
+        if s1u_path.is_file():
+            audit_command.extend(["--s1u", str(s1u_path)])
+        if gtpv2_event_count:
+            audit_command.extend(["--gtpv2", str(gtpv2_events)])
+        if gtpu_event_count:
+            audit_command.extend(["--gtpu", str(gtpu_events)])
+        try:
+            _run_component(audit_command, "EPC evidence audit", allow_empty=True)
+            if audit_path.is_file():
+                audit_analysis = json.loads(audit_path.read_text(encoding="utf-8"))
+                if not isinstance(audit_analysis, dict):
+                    raise AnalysisError(
+                        "PIPELINE_OUTPUT_UNREADABLE",
+                        "EPC evidence audit analysis is not an object",
+                    )
+        except (AnalysisError, OSError, json.JSONDecodeError) as exc:
+            # Every accepted producer artifact is already on disk. An audit
+            # failure is a component-level limitation, never a protocol failure.
+            audit_analysis = None
+            audit_error = {
+                "code": "EVIDENCE_AUDIT_FAILED",
+                "message": scrub_free_text(str(exc)),
+            }
     has_subjects = (
         bool(analysis.get("procedure_instances"))
         or bool((session_analysis or {}).get("control_plane_subjects"))
@@ -2264,6 +2358,8 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
         "identity_error": identity_error,
         "release_narrative_analysis": narrative_analysis,
         "release_narrative_error": narrative_error,
+        "evidence_audit_analysis": audit_analysis,
+        "evidence_audit_error": audit_error,
         "s1ap_event_count": _count_lines(s1ap_events),
         "nas_eps_event_count": _count_lines(nas_events),
         "gtpv2_event_count": gtpv2_event_count,
@@ -2977,6 +3073,93 @@ def _project_release_narrative(narrative: Any) -> dict[str, Any] | None:
     }
 
 
+def _project_evidence_audit(audit: Any) -> dict[str, Any] | None:
+    """Bounded read-only evidence-audit summary, projected without new subjects."""
+    if not isinstance(audit, dict):
+        return None
+    summary = audit.get("audit_summary") or {}
+    completeness = audit.get("source_completeness") or {}
+    references = audit.get("reference_integrity_summary") or {}
+    captures = audit.get("capture_scope_summary") or {}
+    temporal = audit.get("temporal_integrity_summary") or {}
+    accounting = audit.get("accounting_integrity_summary") or {}
+    audit_derived = accounting.get("audit_derived") or {}
+    return {
+        "analysis_name": audit.get("analysis_name"),
+        "analysis_version": audit.get("analysis_version"),
+        "overall_status": summary.get("overall_status"),
+        "audit_record_count": audit.get("audit_record_count", 0),
+        "audit_records_omitted": audit.get("audit_records_omitted", 0),
+        "unresolved_audit_finding_count": audit.get("unresolved_audit_finding_count", 0),
+        "source_completeness_status": completeness.get("status"),
+        "exhaustive_coverage_proven": completeness.get("exhaustive_coverage_proven"),
+        "status_counts": {
+            key: value for key, value in (summary.get("status_counts") or {}).items()
+        },
+        "category_counts": {
+            key: value for key, value in (summary.get("category_counts") or {}).items()
+        },
+        "reference_integrity": {
+            "references_checked": references.get("references_checked"),
+            "references_resolved": references.get("references_resolved"),
+            "references_missing": references.get("references_missing"),
+            "references_ambiguous": references.get("references_ambiguous"),
+            "references_contradictory": references.get("references_contradictory"),
+            "references_not_independently_verifiable": references.get(
+                "references_not_independently_verifiable"
+            ),
+        },
+        "capture_scope": {
+            "capture_count": captures.get("capture_count"),
+            "cross_capture_rejections": captures.get("cross_capture_rejections"),
+            "cross_capture_value_collisions": captures.get(
+                "cross_capture_value_collisions"
+            ),
+        },
+        "temporal_integrity": {
+            "established_placement_count": temporal.get("established_placement_count"),
+            "not_established_placement_count": temporal.get(
+                "not_established_placement_count"
+            ),
+            "conflicted_partition_count": temporal.get("conflicted_partition_count"),
+            "audit_verified_placement_count": temporal.get(
+                "audit_verified_placement_count"
+            ),
+            "missing_frame_evidence_count": temporal.get("missing_frame_evidence_count"),
+            "frame_level_evidence_supplied": temporal.get("frame_level_evidence_supplied"),
+        },
+        "accounting_integrity": {
+            "producer_counts_unchanged": audit_derived.get("source_counts_unchanged"),
+            "audit_derived_g_pdu_count": audit_derived.get("gtpu_event_g_pdu_count"),
+            "audit_derived_payload_octets": audit_derived.get(
+                "gtpu_event_payload_octets"
+            ),
+            "accounting_records_verified": audit_derived.get(
+                "accounting_records_verified"
+            ),
+            "accounting_records_inconsistent": audit_derived.get(
+                "accounting_records_inconsistent"
+            ),
+        },
+        "unresolved_audit_findings": [
+            {
+                "audit_record_reference": item.get("audit_record_reference"),
+                "audit_category": item.get("audit_category"),
+                "audit_status": item.get("audit_status"),
+                "limitation": item.get("limitation"),
+            }
+            for item in (audit.get("unresolved_audit_findings") or [])[:MAX_LIST_ITEMS]
+            if isinstance(item, dict)
+        ],
+        "evidence_limitations": (audit.get("evidence_limitations") or [])[:MAX_LIST_ITEMS],
+        "additional_evidence_needed": (audit.get("additional_evidence_needed") or [])[
+            :MAX_LIST_ITEMS
+        ],
+        "boundary_selection_status": audit.get("boundary_selection_status"),
+        "not_confirmed": (audit.get("not_confirmed") or [])[:MAX_LIST_ITEMS],
+    }
+
+
 def execute_epc_domain(
     capture: Path,
     work_dir: Path,
@@ -3006,6 +3189,8 @@ def execute_epc_domain(
     identity_error = payload.get("identity_error")
     narrative = payload.get("release_narrative_analysis")
     narrative_error = payload.get("release_narrative_error")
+    audit = payload.get("evidence_audit_analysis")
+    audit_error = payload.get("evidence_audit_error")
     groups_by_reference: dict[str, Any] = {}
     if isinstance(boundary, dict):
         for group in boundary.get("diagnostic_groups") or []:
@@ -3062,6 +3247,7 @@ def execute_epc_domain(
         or lifecycle_error
         or identity_error
         or narrative_error
+        or audit_error
     ) and (
         instances or session_subjects or default_bearer_instances or s1u_subjects
     ):
@@ -3098,6 +3284,9 @@ def execute_epc_domain(
     if isinstance(narrative, dict):
         limitations.extend(narrative.get("evidence_limitations") or [])
         additional.extend(narrative.get("additional_evidence_needed") or [])
+    if isinstance(audit, dict):
+        limitations.extend(audit.get("evidence_limitations") or [])
+        additional.extend(audit.get("additional_evidence_needed") or [])
     bounded_limitations, _ = _bounded_limitations(list(dict.fromkeys(limitations)))
     bounded_additional, _ = _bounded_limitations(list(dict.fromkeys(additional)))
 
@@ -3234,6 +3423,31 @@ def execute_epc_domain(
             },
             {
                 "procedure_domain": "epc-procedures",
+                "procedure": "epc-evidence-audit",
+                "execution_status": (
+                    "EXECUTED"
+                    if isinstance(audit, dict) and audit.get("audit_record_count")
+                    else "NO_SUBJECT"
+                ),
+                "instance_count": (audit or {}).get("audit_record_count", 0),
+                "overall_audit_status": ((audit or {}).get("audit_summary") or {}).get(
+                    "overall_status"
+                ),
+                "inconsistent_count": ((audit or {}).get("audit_summary") or {}).get(
+                    "inconsistent_count", 0
+                ),
+                "ambiguous_count": ((audit or {}).get("audit_summary") or {}).get(
+                    "ambiguous_count", 0
+                ),
+                "unresolved_audit_finding_count": (audit or {}).get(
+                    "unresolved_audit_finding_count", 0
+                ),
+                "source_completeness_status": ((audit or {}).get("source_completeness") or {}).get(
+                    "status"
+                ),
+            },
+            {
+                "procedure_domain": "epc-procedures",
                 "procedure": "eps-bearer-lifecycle",
                 "execution_status": (
                     "EXECUTED"
@@ -3272,6 +3486,7 @@ def execute_epc_domain(
         ),
         "bearer_lifecycle": _project_bearer_lifecycle(lifecycle),
         "release_narrative": _project_release_narrative(narrative),
+        "evidence_audit": _project_evidence_audit(audit),
         "evidence_limitations": bounded_limitations,
         "additional_evidence_needed": bounded_additional,
         "degradation": [],
@@ -3334,6 +3549,14 @@ def execute_epc_domain(
             "EPC release narrative failed: "
             f"{narrative_error.get('code')} {narrative_error.get('message')}".strip()
             + "; earlier EPC evidence is preserved and no EPC protocol failure is asserted"
+        )
+    if audit_error:
+        result["failure_code"] = "EVIDENCE_AUDIT_FAILED"
+        degradation.append(
+            "EPC evidence audit failed: "
+            f"{audit_error.get('code')} {audit_error.get('message')}".strip()
+            + "; every producer artifact is preserved, no EPC protocol failure is asserted "
+            "and an audit failure is not a network failure"
         )
     result["degradation"] = degradation
     return result

@@ -1,5 +1,5 @@
 name: epc-procedures
-version: 0.7.0
+version: 0.8.0
 category: domain
 description: >
   Bounded EPS Attach procedure analysis over already-extracted S1AP and NAS-EPS
@@ -32,9 +32,15 @@ description: >
   identity, session identity established only by a unique relayed PGW S5/S8
   control-plane F-TEID, release-to-session bindings with separately classified
   release outcomes, and reviewed session-context generation closure consumed by the
-  lifecycle capability through a documented input contract. No protocol decoding, no
-  bearer or PDN success claim, no delivery verdict, no global failure-boundary
-  selection, no root cause.
+  lifecycle capability through a documented input contract, plus a read-only EPC
+  cross-artifact evidence-chain audit ledger over the accepted session-identity,
+  bearer-lifecycle and release-narrative documents: capture-scoped reference
+  resolution, presence/consistency/proof-sufficiency separation, affirmative
+  candidate-completeness gates, separate release-outcome/binding/closure audits,
+  conservative frame-level temporal and accounting checks, and explicit
+  NOT_INDEPENDENTLY_VERIFIABLE findings when optional evidence is absent. No
+  protocol decoding, no bearer or PDN success claim, no delivery verdict, no global
+  failure-boundary selection, no root cause.
 scope:
   includes:
     - EPS Attach procedure instance formation scoped by capture, SCTP association and S1AP UE identifiers
@@ -66,6 +72,12 @@ scope:
     - reviewed session-context generation closure consumed by the lifecycle capability through a documented input contract
     - per-release narrative over accepted session-identity, bearer-lifecycle and S1-U evidence with separate release outcome, session-binding and generation-closure statuses
     - frame-aware temporal placement of observed G-PDUs before, inside and after a release window, with an explicit TEMPORAL_PLACEMENT_NOT_ESTABLISHED result when only aggregate stream evidence exists
+    - read-only audit of the published cross-artifact evidence chain with capture-scoped reference resolution
+    - separate presence, consistency and proof-sufficiency audit dimensions per audited relationship
+    - affirmative source-completeness gates that distinguish truncated, metadata-invalid and absent collections
+    - separate audits of release outcome, release-to-session binding and bearer-generation closure
+    - conservative frame-level temporal partition and conservation audits that never interpolate or double-count
+    - audit-derived accounting checks that are labelled and never written back into a producer count
   excludes:
     - Diameter, S6a or Gx/Gy signalling
     - cross-interface S11 to S5/S8 session association without a reviewed identity bridge
@@ -78,6 +90,8 @@ scope:
     - S1-U user-plane validation
     - success, failure or root-cause verdicts and network-function blame
     - global EPC first-abnormal-boundary selection; per-subject selection belongs to the epc-failure-boundary Orchestration Skill
+    - audit-driven promotion, repair or rejection of a published source relationship
+    - a root-cause, packet-loss, delivery or network-failure verdict derived from an audit finding
     - subscriber identity handling of any kind
 dependencies:
   required: []
@@ -94,6 +108,8 @@ inputs:
   - GTPv2-C event JSONL for exact S1-U tunnel endpoint identity only
   - accepted EPC session-control, default-bearer and S1-U observation JSON for lifecycle evidence
   - detailed GTP-U event JSONL for frame-level generation attribution
+  - accepted EPC session-identity, bearer-lifecycle and release-narrative JSON for the read-only evidence audit
+  - optionally the accepted S1-U observation plus detailed GTPv2-C and GTP-U events to widen audit coverage
 outputs:
   - EPS Attach analysis JSON (schemas/epc-attach-analysis.schema.json)
   - stage timeline JSON Lines
@@ -110,6 +126,8 @@ outputs:
   - session-identity text report
   - EPC release-narrative analysis JSON (schemas/epc-release-narrative-analysis.schema.json)
   - release-narrative text report
+  - EPC evidence-audit ledger JSON (schemas/epc-evidence-audit-analysis.schema.json)
+  - evidence-audit text report
 protocols: [S1AP, NAS-EPS, GTPv2-C, GTP-U]
 interfaces: [S1-MME, N1, S11, S5/S8, S1-U]
 network_functions: []

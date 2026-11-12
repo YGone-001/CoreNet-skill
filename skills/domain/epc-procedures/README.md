@@ -13,7 +13,8 @@ skills/domain/epc-procedures/
 ├── scripts/        analyze_epc_attach.py, analyze_epc_session.py,
 │                   analyze_epc_default_bearer.py, analyze_epc_s1u.py,
 │                   analyze_epc_bearer_lifecycle.py, analyze_epc_session_identity.py,
-│                   analyze_epc_release_narrative.py, and their models and reports
+│                   analyze_epc_release_narrative.py, analyze_epc_evidence_audit.py,
+│                   and their models and reports
 ├── examples/       Event fixtures and expected analysis
 └── tests/          Standalone unit tests
 ```
@@ -174,6 +175,30 @@ python3 scripts/analyze_epc_release_narrative.py \
 Exit codes: `0` narrative written, `5` malformed or missing required input, `6` no
 release narrative, `7` output failure.
 
+## Evidence audit
+
+`scripts/analyze_epc_evidence_audit.py` audits the accepted session-identity,
+bearer-lifecycle and release-narrative documents and, optionally, the accepted
+S1-U observation and detailed GTPv2-C and GTP-U events. It is read-only: it
+resolves published references inside their capture-scoped namespaces, separates
+presence, consistency and proof sufficiency, and reports contradictions, competing
+references, truncated collections and missing optional evidence without ever
+rewriting a source claim.
+
+```bash
+python3 scripts/analyze_epc_evidence_audit.py \
+  --session-identity epc-session-identity-analysis.json \
+  --lifecycle epc-bearer-lifecycle-analysis.json \
+  --release-narrative epc-release-narrative-analysis.json \
+  --s1u epc-s1u-observation.json \
+  --gtpv2 gtpv2-events.jsonl --gtpu gtpu-events.jsonl \
+  --output epc-evidence-audit-analysis.json --report epc-evidence-audit.txt
+```
+
+Exit codes: `0` ledger written, `5` malformed or missing required input, `6` no
+published relationship could be audited, `7` output failure or a refused path
+alias. See `references/evidence-chain-audit.md`.
+
 ## Version
 
-0.7.0
+0.8.0

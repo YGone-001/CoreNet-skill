@@ -1,0 +1,244 @@
+{
+  "model": "epc-evidence-audit",
+  "model_version": "1.0.0",
+  "reviewed_against": [
+    "3GPP TS 23.401 sec 4.7.2 EPS bearer architecture and the S1/S5 bearer chain",
+    "3GPP TS 23.401 sec 5.3.5 detach and bearer release",
+    "3GPP TS 29.274 sec 7.1 GTP-C tunnel identity: TEID, address and path peer",
+    "3GPP TS 29.274 sec 7.2 GTPv2-C tunnel management messages including Delete Session",
+    "3GPP TS 29.274 sec 8.4 Cause values",
+    "3GPP TS 29.274 sec 8.21 F-TEID",
+    "3GPP TS 29.274 sec 8.22 F-TEID interface types",
+    "3GPP TS 29.281 sec 4.4 GTP-U TEID and receiving endpoint",
+    "3GPP TS 24.007 sec 11.2.3.1.5 EPS bearer identity coding",
+    "3GPP TS 24.301 sec 9.3.2 EPS bearer identity"
+  ],
+  "audit_categories": [
+    "SOURCE_ARTIFACT",
+    "REFERENCE_INTEGRITY",
+    "CAPTURE_SCOPE",
+    "TRANSACTION_ANCHOR",
+    "SESSION_CONTEXT_LINK",
+    "CROSS_INTERFACE_BRIDGE",
+    "RELEASE_SESSION_BINDING",
+    "SESSION_GENERATION_LINK",
+    "GENERATION_CLOSURE",
+    "GENERATION_STREAM_ATTRIBUTION",
+    "RELEASE_NARRATIVE_STAGE",
+    "TEMPORAL_FRAME_PARTITION",
+    "ACCOUNTING_CONSERVATION"
+  ],
+  "audit_statuses": [
+    "VERIFIED_CONSISTENT",
+    "INCONSISTENT",
+    "AMBIGUOUS",
+    "SOURCE_TRUNCATED",
+    "SOURCE_METADATA_INVALID",
+    "NOT_INDEPENDENTLY_VERIFIABLE",
+    "NOT_APPLICABLE"
+  ],
+  "completeness_statuses": [
+    "COMPLETE",
+    "SOURCE_TRUNCATED",
+    "SOURCE_METADATA_INVALID",
+    "NOT_SUPPLIED",
+    "NOT_APPLICABLE"
+  ],
+  "proof_sufficiency_statuses": [
+    "SUFFICIENT",
+    "INSUFFICIENT",
+    "NOT_APPLICABLE"
+  ],
+  "check_tokens": [
+    "referenced_record_present",
+    "capture_identity_agrees",
+    "relationship_type_agrees",
+    "endpoint_identity_agrees",
+    "release_transaction_agrees",
+    "session_context_present",
+    "bearer_endpoint_present",
+    "generation_present",
+    "stream_present",
+    "direction_role_mapping_agrees",
+    "direction_agrees_with_stream",
+    "candidate_collection_complete",
+    "unique_candidate_established",
+    "partition_counts_conserve_aggregate",
+    "partition_within_release_window",
+    "frame_ownership_exclusive",
+    "frame_present_in_supplied_events",
+    "producer_count_matches_records",
+    "producer_omitted_count_zero",
+    "accounting_conserved",
+    "stage_status_agrees_with_summary",
+    "group_membership_backed_by_established_bridge",
+    "group_preserves_hop_local_subjects",
+    "reference_is_unique_in_its_namespace",
+    "frame_number_is_capture_local"
+  ],
+  "audit_dimensions": {
+    "presence": "does the referenced record exist in the supplied artifact?",
+    "consistency": "does that record agree with the referring record about capture, relationship type, endpoint, transaction, direction, identity and applicable frame evidence?",
+    "proof_sufficiency": "are the complete candidate set and the required chain available to justify the published association or conclusion?"
+  },
+  "reference_namespaces": {
+    "hop_local_session_context": "capture + published session-context reference; a context reference is a hop-local grouping, never a global PDN session",
+    "release_transaction": "capture + correlated release transaction reference; a release frame anchor is re-observed only inside its own capture",
+    "bearer_endpoint": "capture + role + receiving address + TEID + reviewed interface type; the published bearer-endpoint reference is recomputed from these values",
+    "bearer_generation": "capture + lifecycle generation reference; a generation that resolves to more than one capture is ambiguous",
+    "s1u_stream": "capture + S1-U stream reference; a stream is meaningful only inside the capture that observed it",
+    "closure_candidate": "capture + generation-closure candidate reference; the candidate additionally names one context, one release transaction and one bearer endpoint",
+    "narrative_subject": "capture + narrative-subject reference; a narrative group is a reporting label that preserves its hop-local members",
+    "temporal_observation": "capture + temporal-observation reference; frame ordering and partition windows are valid only inside one capture"
+  },
+  "source_completeness_requires": [
+    "a present, nonnegative, non-boolean declared count for every supplied collection",
+    "the declared count equal to the number of published records",
+    "a present and zero omitted count where the producer publishes one",
+    "an explicit distinction between complete, truncated, missing count, invalid count, underdeclared count, nonzero omitted count and an absent optional artifact",
+    "no invented omitted-count requirement for a collection whose producer publishes none",
+    "no uniqueness conclusion from a visible subset of a truncated or metadata-invalid collection"
+  ],
+  "source_completeness_forbidden": [
+    "treating an absent optional artifact as an internally inconsistent artifact",
+    "inferring completeness from a collection that looks complete",
+    "counting the audit's own candidate set as the producer count",
+    "rewriting a declared or omitted count"
+  ],
+  "reference_integrity_requires": [
+    "the referenced source record exists inside its documented namespace",
+    "the capture identity of the referring and referenced records agrees",
+    "the published relationship type agrees with the relationship being audited",
+    "the referenced release transaction belongs to the expected capture",
+    "the referenced hop-local context, bearer endpoint, generation and stream exist when they are published",
+    "a source frame reference resolves to an actual supplied protocol event when detailed events are supplied",
+    "an event in another capture with the same frame number is never an acceptable substitute"
+  ],
+  "reference_integrity_forbidden": [
+    "fabricating a missing source record or source event",
+    "substituting an event from another capture that carries the same frame number",
+    "selecting one of several candidate references",
+    "repairing a source document so its references resolve",
+    "joining records on equal TEID, EPS bearer identity, IP address, timestamp proximity, adjacent frame numbers or endpoint correspondence alone"
+  ],
+  "cross_interface_rules": {
+    "identity_requires": "an already ESTABLISHED CROSS_INTERFACE_SESSION_IDENTITY link inside the same capture",
+    "correspondence_is": "endpoint correspondence only, never session identity",
+    "group_is": "a reporting label that preserves every hop-local context reference and never one global PDN session",
+    "forbidden": [
+      "promoting an endpoint correspondence to a session identity bridge",
+      "grouping two hop-local contexts without an established identity link",
+      "merging contexts observed in different captures"
+    ]
+  },
+  "release_chain_rules": {
+    "separate_facts": [
+      "release outcome",
+      "release-to-session binding",
+      "bearer-generation closure"
+    ],
+    "closure_requires": [
+      "an accepted release outcome for the same capture and release transaction",
+      "an ESTABLISHED release-to-session binding for the same capture and release transaction",
+      "an ESTABLISHED generation-closure candidate for the same context and release transaction",
+      "an ESTABLISHED session-to-generation link from that context to the candidate bearer endpoint",
+      "one lifecycle subject closed by the same release transaction with an exactly equal receiving endpoint",
+      "an affirmatively complete closure-critical candidate set"
+    ],
+    "forbidden": [
+      "treating an accepted Delete Session Response as sufficient proof of a bearer-generation closure",
+      "using a closure candidate that names another release transaction",
+      "collapsing the release outcome, the binding and the closure into one verdict",
+      "promoting a closure while a closure-critical collection is incomplete"
+    ]
+  },
+  "scoped_attribution_rules": {
+    "requires": [
+      "the lifecycle generation-scoped S1-U collection proves its own declared count",
+      "exactly one generation-scoped record names the capture, the generation and the stream",
+      "the record publishes a receiving role equal to the generation role and the stream role",
+      "the record publishes a direction that maps to that role through UPLINK to sgw_s1u and DOWNLINK to enodeb_s1u",
+      "the record direction equals the accepted stream direction",
+      "no unresolvable generation claim competes for the same stream reference",
+      "no second generation claims the same stream in the same capture"
+    ],
+    "forbidden": [
+      "re-deriving ownership from endpoint equality",
+      "selecting a record by input order or by the strongest-looking status",
+      "discarding an unresolved claimant so the remaining subset looks unique",
+      "reinterpreting UNKNOWN as uplink or downlink",
+      "inferring a direction from TEID, address or role alone"
+    ]
+  },
+  "temporal_rules": {
+    "partition_proof_requires": [
+      "partition G-PDU counts sum to the published observed count",
+      "partition payload octets sum to the published observed payload octets",
+      "each partition frame stays inside its own release-window boundary",
+      "no G-PDU frame belongs to two exclusive established partitions",
+      "a claimed frame is present in the supplied GTP-U events when they are provided"
+    ],
+    "not_established": "an aggregate stream count is published whole and never divided across windows; without detailed GTP-U events the placement stays NOT_INDEPENDENTLY_VERIFIABLE",
+    "duplicate_ownership": "a frame claimed by more than one release narrative is counted in no partition and no owner is selected",
+    "confirmation_frame": "a control-plane confirmation anchor; never the forwarding-stop instant",
+    "forbidden": [
+      "interpolating a missing frame",
+      "converting an aggregate stream count into a before, pending or after distribution",
+      "treating a confirmation frame as the forwarding-stop instant",
+      "treating post-confirmation traffic as packet loss, delivery or root cause"
+    ]
+  },
+  "accounting_rules": {
+    "requires": [
+      "aggregate G-PDU count equals attributed plus unresolved G-PDU count",
+      "aggregate payload octets equal attributed plus unresolved payload octets",
+      "each producer conservation flag agrees with the arithmetic it publishes",
+      "S1-U published totals equal the sum of its published stream records when the collection is complete",
+      "temporal observed events equal assigned plus unassigned plus duplicate assignments",
+      "audit-derived totals are labelled and never written back into a producer count"
+    ],
+    "forbidden": [
+      "changing a producer count",
+      "counting one stream twice because it belongs to a cross-interface narrative group",
+      "asserting independently verified accounting from a producer conservation flag alone"
+    ]
+  },
+  "privacy_rules": {
+    "forbidden_fields": [
+      "imsi",
+      "msisdn",
+      "imei",
+      "mei",
+      "subscriber_identifier",
+      "apn",
+      "assigned_pdn_address",
+      "inner_ue_address",
+      "user_plane_payload",
+      "application_payload"
+    ],
+    "source_filenames": "treated as untrusted; only a basename-like capture label is published and arbitrary source free text is never copied into the ledger"
+  },
+  "forbidden_conclusions": [
+    "a verified audit record treated as proof of bearer identity, packet delivery, network correctness or a forwarding-stop instant",
+    "an audit finding treated as a protocol failure, a network failure or a root cause",
+    "an absent optional artifact treated as an inconsistency or as a verification",
+    "a truncated collection's visible subset treated as the complete candidate set",
+    "a competing reference resolved by selection",
+    "a first abnormal boundary or root cause selected by this capability",
+    "a network-function liability assigned from an audit ledger"
+  ],
+  "not_confirmed": [
+    "reference consistency is a necessary audit condition, not a replacement for the accepted protocol and domain evidence gates",
+    "a verified audit record does not prove bearer identity, packet delivery, network correctness or a forwarding-stop instant",
+    "an audit record never establishes a session identity, a bearer generation or a release outcome that its source did not already publish",
+    "an absent optional artifact is a limitation, not an inconsistency and not a verification",
+    "a truncated or metadata-invalid source collection never yields a uniqueness conclusion from its visible subset",
+    "an equal TEID, EPS bearer identity, address, frame number or timestamp never joins two records across captures",
+    "an endpoint correspondence is not a cross-interface session identity",
+    "an accepted release outcome is audited separately from the release binding and the bearer-generation closure",
+    "a duplicate frame assignment is never resolved by choosing one owner",
+    "an aggregate stream count is never divided across time windows by the audit",
+    "an audit finding never rewrites the source artifact and never selects a first abnormal boundary or a root cause",
+    "no subscriber identity, APN name, assigned PDN address or user-plane payload is read or published"
+  ]
+}
