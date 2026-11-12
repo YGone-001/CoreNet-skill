@@ -96,9 +96,21 @@ def endpoint_key(event: dict[str, Any], role: str) -> str:
     return f"{endpoint.get('address')}:{endpoint.get('port')}"
 
 
+def observation_id(event: dict[str, Any]) -> tuple[str, int, int]:
+    try:
+        frame = int(event.get("frame_number"))
+    except (TypeError, ValueError):
+        frame = -1
+    try:
+        occurrence = int(event.get("message_occurrence") or 0)
+    except (TypeError, ValueError):
+        occurrence = 0
+    return (str(event.get("capture_file")), frame, occurrence)
+
+
 def reference(event: dict[str, Any]) -> dict[str, Any]:
     header = event.get("header") or {}
-    return {
+    payload = {
         "frame_number": event.get("frame_number"),
         "message_type": event.get("message_type"),
         "message_type_code": event.get("message_type_code"),
@@ -106,6 +118,10 @@ def reference(event: dict[str, Any]) -> dict[str, Any]:
         "header_teid": header.get("teid"),
         "header_teid_state": header.get("teid_state"),
     }
+    occurrence = int(event.get("message_occurrence") or 0)
+    if occurrence:
+        payload["message_occurrence"] = occurrence
+    return payload
 
 
 def teid_relation(request: dict[str, Any], response: dict[str, Any] | None) -> str:
@@ -151,21 +167,89 @@ def decoder_link(response: dict[str, Any] | None) -> int | None:
     return value if isinstance(value, int) else None
 
 
+def unique_response_ownership(
+    owners: dict[tuple[str, int, int], set[int]],
+    response: dict[str, Any],
+    group_index: int | None = None,
+    selected_by_response: dict[tuple[str, int, int], list[int]] | None = None,
+) -> bool:
+    response_id = observation_id(response)
+    if len(owners.get(response_id, set())) != 1:
+        return False
+    if selected_by_response is None:
+        return True
+    return len(selected_by_response.get(response_id, [])) == 1
+
+
 def transaction_id(event: dict[str, Any]) -> str:
     family = event.get("procedure_family") or "unknown"
     sequence = (event.get("header") or {}).get("sequence_number")
-    return f"gtpv2-{family}-{event.get('frame_number')}-{sequence}"
+    base = f"gtpv2-{family}-{event.get('frame_number')}-{sequence}"
+    identity = bearer_identity(event)
+    if identity is None:
+        return base
+    suffix = "-".join(str(value) for value in identity) or "none"
+    return f"{base}-ebi-{suffix}"
+
+
+def _eligible_candidates(
+    request: dict[str, Any],
+    expected: int | None,
+    responses: list[dict[str, Any]],
+    groups_by_link: dict[tuple[Any, ...], list[int]],
+    group_index: int,
+    group_frames: set[int],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
+    sequence = (request.get("header") or {}).get("sequence_number")
+    request_pair = (endpoint_key(request, "source"), endpoint_key(request, "destination"))
+    capture = request.get("capture_file")
+    candidates: list[dict[str, Any]] = []
+    linked: list[dict[str, Any]] = []
+    ambiguous_link = False
+    for response in responses:
+        if response.get("message_type_code") != expected:
+            continue
+        if response.get("capture_file") != capture:
+            continue
+        if (endpoint_key(response, "source"), endpoint_key(response, "destination")) != (
+            request_pair[1],
+            request_pair[0],
+        ):
+            continue
+        if (response.get("header") or {}).get("sequence_number") != sequence:
+            continue
+        link = decoder_link(response)
+        if link is not None and link not in group_frames:
+            # The decoder points at a frame outside this request group; this
+            # response is not evidence for the current group.
+            continue
+        candidates.append(response)
+        if link in group_frames:
+            eligible_groups = groups_by_link.get((capture, link, expected), [])
+            if len(eligible_groups) == 1 and eligible_groups[0] == group_index:
+                linked.append(response)
+            else:
+                ambiguous_link = True
+    return candidates, linked, ambiguous_link
 
 
 def correlate(events: list[dict[str, Any]]) -> dict[str, Any]:
     requests = [event for event in events if event.get("message_type_code") in REQUEST_CODES]
     responses = [event for event in events if event.get("message_type_code") in RESPONSE_CODES]
 
-    # Requests with an identical identity inside one capture cannot be separated
-    # by protocol evidence; the later copies are reported as retransmissions.
     groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
-    order: list[tuple[Any, ...]] = []
-    for request in sorted(requests, key=lambda item: item["frame_number"]):
+    for request in sorted(
+        requests,
+        key=lambda item: (
+            str(item.get("capture_file")),
+            item.get("frame_number"),
+            item.get("message_occurrence") or 0,
+            item.get("message_type_code"),
+            (item.get("header") or {}).get("sequence_number") or 0,
+            endpoint_key(item, "source"),
+            endpoint_key(item, "destination"),
+        ),
+    ):
         key = (
             request.get("capture_file"),
             request.get("message_type_code"),
@@ -174,72 +258,143 @@ def correlate(events: list[dict[str, Any]]) -> dict[str, Any]:
             endpoint_key(request, "destination"),
             bearer_identity(request),
         )
-        if key not in groups:
-            groups[key] = []
-            order.append(key)
-        groups[key].append(request)
+        groups.setdefault(key, []).append(request)
 
-    used_responses: set[int] = set()
-    transactions: list[dict[str, Any]] = []
-    retransmission_count = 0
+    ordered_groups = [
+        {"key": key, "requests": group, "request": group[0]}
+        for key, group in groups.items()
+    ]
+    ordered_groups.sort(
+        key=lambda group: (
+            str(group["request"].get("capture_file")),
+            group["request"].get("frame_number"),
+            group["request"].get("message_occurrence") or 0,
+            group["request"].get("message_type_code"),
+            (group["request"].get("header") or {}).get("sequence_number") or 0,
+            endpoint_key(group["request"], "source"),
+            endpoint_key(group["request"], "destination"),
+            bearer_identity(group["request"]) or (),
+        )
+    )
 
-    for key in order:
-        group = groups[key]
-        request = group[0]
-        duplicates = group[1:]
-        retransmission_count += len(duplicates)
+    groups_by_link: dict[tuple[Any, ...], list[int]] = {}
+    for index, group in enumerate(ordered_groups):
+        request = group["request"]
         expected = REQUEST_CODES.get(request.get("message_type_code"))
-        sequence = (request.get("header") or {}).get("sequence_number")
-        request_pair = (endpoint_key(request, "source"), endpoint_key(request, "destination"))
+        for frame in {item.get("frame_number") for item in group["requests"]}:
+            groups_by_link.setdefault(
+                (request.get("capture_file"), frame, expected),
+                [],
+            ).append(index)
 
-        candidates: list[dict[str, Any]] = []
-        for response in responses:
-            if response.get("message_type_code") != expected:
-                continue
-            if response.get("capture_file") != request.get("capture_file"):
-                continue
-            if (endpoint_key(response, "source"), endpoint_key(response, "destination")) != (
-                request_pair[1],
-                request_pair[0],
-            ):
-                continue
-            if (response.get("header") or {}).get("sequence_number") != sequence:
-                continue
-            candidates.append(response)
+    retransmission_count = sum(len(group["requests"]) - 1 for group in ordered_groups)
+    candidates_by_group: list[list[dict[str, Any]]] = []
+    linked_by_group: list[list[dict[str, Any]]] = []
+    ambiguous_link_by_group: list[bool] = []
+    owners: dict[tuple[str, int, int], set[int]] = {}
+    for index, group in enumerate(ordered_groups):
+        request = group["request"]
+        expected = REQUEST_CODES.get(request.get("message_type_code"))
+        candidates, linked, ambiguous_link = _eligible_candidates(
+            request,
+            expected,
+            responses,
+            groups_by_link,
+            index,
+            {item.get("frame_number") for item in group["requests"]},
+        )
+        candidates_by_group.append(candidates)
+        linked_by_group.append(linked)
+        ambiguous_link_by_group.append(ambiguous_link)
+        for candidate in candidates:
+            owners.setdefault(observation_id(candidate), set()).add(index)
 
+    selected: dict[int, dict[str, Any]] = {}
+    statuses: dict[int, str] = {}
+    basis_by_group: list[list[str]] = []
+    for index, group in enumerate(ordered_groups):
+        candidates = candidates_by_group[index]
+        linked = linked_by_group[index]
         basis = [
             "same capture provenance",
             "request/response message identity",
             "reversed endpoint tuple",
             "equal sequence number",
         ]
-
-        chosen: dict[str, Any] | None = None
-        status = OPEN_REQUEST
-        strength = NONE
-        if len(candidates) == 1:
-            chosen = candidates[0]
-            status = MATCHED
-        elif len(candidates) > 1:
-            linked = [item for item in candidates if decoder_link(item) == request.get("frame_number")]
-            if len(linked) == 1:
-                chosen = linked[0]
-                status = MATCHED
+        if not candidates:
+            statuses[index] = OPEN_REQUEST
+        elif len(linked) == 1:
+            selected[index] = linked[0]
+            statuses[index] = MATCHED
+            if len(candidates) > 1:
                 basis.append("decoder transaction link to the request frame")
-            else:
-                status = AMBIGUOUS
-        # Candidate responses belong to this transaction even when the pairing
-        # stays ambiguous; they are not response-only evidence.
-        used_responses.update(id(item) for item in candidates)
+        elif len(linked) > 1:
+            statuses[index] = AMBIGUOUS
+            basis.append("conflicting decoder transaction links do not select one response")
+        elif (
+            len(candidates) == 1
+            and not ambiguous_link_by_group[index]
+            and unique_response_ownership(owners, candidates[0])
+        ):
+            selected[index] = candidates[0]
+            statuses[index] = MATCHED
+        else:
+            statuses[index] = AMBIGUOUS
+            if ambiguous_link_by_group[index]:
+                basis.append(
+                    "the decoder transaction link does not uniquely identify one request occurrence"
+                )
+            if any(
+                len(owners[observation_id(candidate)]) > 1 for candidate in candidates
+            ):
+                basis.append(
+                    "the same response candidate is eligible for more than one request group"
+                )
+        basis_by_group.append(basis)
 
+    selected_owners: dict[tuple[str, int, int], list[int]] = {}
+    for index, response in selected.items():
+        selected_owners.setdefault(observation_id(response), []).append(index)
+    for response_id, indexes in selected_owners.items():
+        response = selected.get(indexes[0])
+        if response is None:
+            continue
+        if unique_response_ownership(owners, response, indexes[0], selected_owners):
+            continue
+        # Defense in depth: never publish one response as the completed response
+        # of more than one transaction, even if a future rule change slips through.
+        for index in indexes:
+            selected.pop(index, None)
+            statuses[index] = AMBIGUOUS
+            basis_by_group[index].append(
+                "response ownership conflict; the same observation was selected by multiple requests"
+            )
+
+    accounted: set[tuple[str, int, int]] = set()
+    for candidates in candidates_by_group:
+        accounted.update(observation_id(item) for item in candidates)
+    accounted.update(observation_id(item) for item in selected.values())
+
+    transactions: list[dict[str, Any]] = []
+    for index, group in enumerate(ordered_groups):
+        request = group["request"]
+        duplicates = group["requests"][1:]
+        chosen = selected.get(index)
+        status = statuses[index]
+        candidates = candidates_by_group[index]
+        basis = basis_by_group[index]
+        strength = NONE
         if chosen is not None:
-            used_responses.add(id(chosen))
             echo = teid_echo(request, chosen)
             link = decoder_link(chosen)
-            corroborated = echo is True or link == request.get("frame_number")
+            group_frames = {item.get("frame_number") for item in group["requests"]}
+            corroborated = echo is True or (
+                link in group_frames
+                and len(groups_by_link.get((request.get("capture_file"), link, REQUEST_CODES.get(request.get("message_type_code"))), [])) == 1
+            )
             if corroborated:
                 basis.append("TEID or decoder link corroboration")
-            if len(group) > 1:
+            if len(group["requests"]) > 1:
                 strength = SUPPORTED
                 basis.append("duplicate request identity limits attribution to the earliest frame")
             elif corroborated:
@@ -247,8 +402,7 @@ def correlate(events: list[dict[str, Any]]) -> dict[str, Any]:
             else:
                 strength = SUPPORTED
 
-        window_frames = [request["frame_number"]]
-        window_frames.extend(item["frame_number"] for item in duplicates)
+        window_frames = [item["frame_number"] for item in group["requests"]]
         if chosen is not None:
             window_frames.append(chosen["frame_number"])
 
@@ -259,6 +413,14 @@ def correlate(events: list[dict[str, Any]]) -> dict[str, Any]:
             )
         if status == AMBIGUOUS:
             limitations.append("several responses share the correlation keys; no response is selected")
+            if any(len(owners[observation_id(candidate)]) > 1 for candidate in candidates):
+                limitations.append(
+                    "the same response candidate is eligible for more than one request group; response ownership is not unique"
+                )
+            if ambiguous_link_by_group[index] and not linked_by_group[index]:
+                limitations.append(
+                    "the decoder transaction link is ambiguous across multiple request occurrences; it is not used to select a response"
+                )
         if duplicates:
             limitations.append(
                 "identical request identity inside one capture is reported as a retransmission and cannot be "
@@ -297,13 +459,24 @@ def correlate(events: list[dict[str, Any]]) -> dict[str, Any]:
             }
         )
 
-    # Responses that no request in this capture accounts for stay explicit.
-    for response in sorted(responses, key=lambda item: item["frame_number"]):
-        if id(response) in used_responses:
+    for response in sorted(
+        responses,
+        key=lambda item: (
+            str(item.get("capture_file")),
+            item.get("frame_number"),
+            item.get("message_occurrence") or 0,
+            item.get("message_type_code"),
+        ),
+    ):
+        if observation_id(response) in accounted:
             continue
+        occurrence = int(response.get("message_occurrence") or 0)
+        reference_id = f"gtpv2-response-only-{response['frame_number']}"
+        if occurrence:
+            reference_id += f"-occurrence-{occurrence}"
         transactions.append(
             {
-                "transaction_reference": f"gtpv2-response-only-{response['frame_number']}",
+                "transaction_reference": reference_id,
                 "procedure_family": response.get("procedure_family"),
                 "message_family": response.get("message_family"),
                 "request": None,
@@ -353,7 +526,6 @@ def correlate(events: list[dict[str, Any]]) -> dict[str, Any]:
             "sequence numbers and TEIDs are not globally unique; endpoint scoping is mandatory",
         ],
     }
-
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)

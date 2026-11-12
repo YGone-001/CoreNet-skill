@@ -55,6 +55,8 @@ CORRELATION_FIXTURES = {
     "examples/extracted/correlation-retransmission-events.jsonl": "examples/expected/correlation-retransmission-transactions.json",
     "examples/extracted/correlation-response-only-events.jsonl": "examples/expected/correlation-response-only-transactions.json",
     "examples/extracted/correlation-endpoints-events.jsonl": "examples/expected/correlation-endpoints-transactions.json",
+    "examples/extracted/bearer-ownership-positive-events.jsonl": "examples/expected/bearer-ownership-positive-transactions.json",
+    "examples/extracted/bearer-ownership-competing-events.jsonl": "examples/expected/bearer-ownership-competing-transactions.json",
 }
 
 ERROR_FIXTURES = (
@@ -423,6 +425,112 @@ def validate(root: Path = ROOT) -> list[str]:
         for item in restored_transactions["transactions"]
     ):
         fail("mutation restore failed: the 95->96 mapping stayed removed")
+
+    ownership_positive = json.loads(
+        (skill / "examples/expected/bearer-ownership-positive-transactions.json").read_text(encoding="utf-8")
+    )
+    if ownership_positive["matched_count"] != 2:
+        fail("two uniquely linked responses must support two independent matches")
+    positive_responses = [
+        item["response"] for item in ownership_positive["transactions"] if item["response"]
+    ]
+    if {item["frame_number"] for item in positive_responses} != {2, 4}:
+        fail("two independent matches must own distinct response observations")
+
+    ownership_competing = json.loads(
+        (skill / "examples/expected/bearer-ownership-competing-transactions.json").read_text(encoding="utf-8")
+    )
+    if ownership_competing["matched_count"] != 0 or ownership_competing["ambiguous_count"] != 2:
+        fail("competing requests with one response must stay unresolved and ambiguous")
+    if any(item["response"] is not None for item in ownership_competing["transactions"]):
+        fail("a shared response must not be selected by a competing request")
+    for item in ownership_competing["transactions"]:
+        if [candidate["frame_number"] for candidate in item["response_candidates"]] != [4]:
+            fail("competing requests must keep the shared response candidate visible")
+
+    ownership_events = read_jsonl(
+        skill / "examples/extracted/bearer-ownership-competing-events.jsonl"
+    )
+    ownership_transactions = correlate.correlate(ownership_events)
+    response_identities = [
+        (item["response"]["frame_number"], item["response"].get("message_occurrence", 0))
+        for item in ownership_transactions["transactions"]
+        if item["response"]
+    ]
+    if len(response_identities) != len(set(response_identities)):
+        fail("one response observation must not be owned by multiple transactions")
+
+    def ownership_event(frame, code, source, destination, sequence, ebi, link=None, capture="capture-a.pcap"):
+        record = {
+            "frame.number": str(frame),
+            "frame.time_epoch": str(1793100000 + frame / 10),
+            "ip.src": source,
+            "ip.dst": destination,
+            "udp.srcport": "2123",
+            "udp.dstport": "2123",
+            "gtpv2.version": "2",
+            "gtpv2.flags": "0x48",
+            "gtpv2.t": "1",
+            "gtpv2.p": "0",
+            "gtpv2.message_type": str(code),
+            "gtpv2.msg_length": "40",
+            "gtpv2.teid": "0x00000006",
+            "gtpv2.seq": str(sequence),
+            "gtpv2.ebi": str(ebi),
+        }
+        event = model.normalize_flat_record(record, capture, 0)
+        if link is not None:
+            event["decoder_link"] = {"response_to_frame": link}
+        return event
+
+    decoder_events = [
+        ownership_event(3, 95, "A", "B", 10, 6),
+        ownership_event(4, 96, "B", "A", 10, 6, link=1),
+    ]
+    decoder_baseline = correlate.correlate(decoder_events)
+    if decoder_baseline["matched_count"] != 0 or decoder_baseline["open_request_count"] != 1:
+        fail("a response linked to another request frame must not match the current request")
+
+    cross_capture_events = [
+        ownership_event(1, 95, "A", "B", 10, 5, capture="capture-a.pcap"),
+        ownership_event(1, 96, "B", "A", 10, 5, capture="capture-b.pcap"),
+    ]
+    if correlate.correlate(cross_capture_events)["matched_count"] != 0:
+        fail("equal frame and sequence values across captures must not match")
+
+    original_ownership = correlate.unique_response_ownership
+    try:
+        correlate.unique_response_ownership = lambda *_args, **_kwargs: True
+        mutated_ownership = correlate.correlate(ownership_events)
+    finally:
+        correlate.unique_response_ownership = original_ownership
+    if mutated_ownership["matched_count"] != 2:
+        fail("mutation check failed: response ownership uniqueness enforcement was not detected")
+    restored_ownership = correlate.correlate(ownership_events)
+    if restored_ownership["matched_count"] != 0:
+        fail("mutation restore failed: response ownership uniqueness stayed disabled")
+
+    original_decoder = correlate.decoder_link
+    try:
+        correlate.decoder_link = lambda _response: None
+        mutated_decoder = correlate.correlate(decoder_events)
+    finally:
+        correlate.decoder_link = original_decoder
+    if mutated_decoder["matched_count"] != 1:
+        fail("mutation check failed: ignoring a contradictory decoder link was not detected")
+    if correlate.correlate(decoder_events)["matched_count"] != 0:
+        fail("mutation restore failed: contradictory decoder links stayed ignored")
+
+    original_identity = correlate.bearer_identity
+    try:
+        correlate.bearer_identity = lambda _event: None
+        mutated_identity = correlate.correlate(ownership_events)
+    finally:
+        correlate.bearer_identity = original_identity
+    if mutated_identity["transaction_count"] != 1 or mutated_identity["retransmission_count"] != 1:
+        fail("mutation check failed: collapsing EBI-scoped request groups was not detected")
+    if correlate.correlate(ownership_events)["transaction_count"] != 2:
+        fail("mutation restore failed: EBI-scoped request groups stayed collapsed")
 
     for pdml_name in ("session-control.pdml", "bearer-control.pdml"):
         pdml_text = (skill / "examples/pdml" / pdml_name).read_text(encoding="utf-8")

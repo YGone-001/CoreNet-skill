@@ -1,5 +1,5 @@
 name: gtpv2
-version: 0.2.0
+version: 0.2.1
 category: protocol
 description: >
   Bounded GTPv2-C semantic extraction for the S11 and S5/S8 control plane:
@@ -72,6 +72,8 @@ testing:
     - examples/extracted/correlation-retransmission-events.jsonl
     - examples/extracted/correlation-response-only-events.jsonl
     - examples/extracted/correlation-endpoints-events.jsonl
+    - examples/extracted/bearer-ownership-positive-events.jsonl
+    - examples/extracted/bearer-ownership-competing-events.jsonl
     - examples/extracted/malformed.jsonl
     - examples/extracted/missing-required.jsonl
   expected_results:
@@ -90,3 +92,5 @@ testing:
     - examples/expected/correlation-retransmission-transactions.json
     - examples/expected/correlation-response-only-transactions.json
     - examples/expected/correlation-endpoints-transactions.json
+    - examples/expected/bearer-ownership-positive-transactions.json
+    - examples/expected/bearer-ownership-competing-transactions.json

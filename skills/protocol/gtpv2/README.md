@@ -91,6 +91,13 @@ the Create/Update/Delete Bearer families, the retransmission identity also
 includes the observed EBI set, so distinct bearer items reusing one sequence and
 endpoint pair are not collapsed into a retransmission.
 
+One observed Response occurrence is owned by at most one transaction, using
+`capture + frame_number + message_occurrence`. A decoder link that points at a
+different request frame excludes that Response from the current request group.
+When several Request groups compete for one Response without a unique decoder
+link, each stays `AMBIGUOUS` and no Response is selected. EBI-aware request
+grouping is supporting evidence, never permission to reuse a Response.
+
 ## Privacy
 
 Never published: IMSI, MSISDN, MEI, TMSI values; APN network name; PAA address;

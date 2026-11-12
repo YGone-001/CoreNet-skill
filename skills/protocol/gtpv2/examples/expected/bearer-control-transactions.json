@@ -102,7 +102,7 @@
           "sequence_number": 256
         }
       ],
-      "transaction_reference": "gtpv2-create-bearer-1-256"
+      "transaction_reference": "gtpv2-create-bearer-1-256-ebi-5-6"
     },
     {
       "correlation_basis": [
@@ -170,7 +170,7 @@
         }
       ],
       "retransmissions": [],
-      "transaction_reference": "gtpv2-update-bearer-3-257"
+      "transaction_reference": "gtpv2-update-bearer-3-257-ebi-5"
     },
     {
       "correlation_basis": [
@@ -238,7 +238,7 @@
         }
       ],
       "retransmissions": [],
-      "transaction_reference": "gtpv2-delete-bearer-5-258"
+      "transaction_reference": "gtpv2-delete-bearer-5-258-ebi-6"
     }
   ]
 }

@@ -39,7 +39,11 @@ dissector.
   structure.
 - Provide protocol-local request/response correlation with the explicit
   classifications `MATCHED`, `OPEN_REQUEST`, `RESPONSE_ONLY` and `AMBIGUOUS`,
-  and never assert session, PDN-connection or bearer lifecycle state.
+  and never assert session, PDN-connection or bearer lifecycle state. A single
+  observed Response occurrence is owned by at most one transaction, identified
+  by capture, frame number and message occurrence. A conflicting decoder link
+  excludes that Response from the current Request group; unresolved competing
+  groups stay `AMBIGUOUS`.
 - Support three input paths: a live PCAP/PCAPNG capture decoded through the
   installed TShark, a stored PDML dissection, and a flat fields JSONL file for
   deterministic offline runs.
@@ -153,4 +157,4 @@ Normative references are 3GPP TS 29.274 (GTPv2-C) and 3GPP TS 23.401 (EPC
 architecture context only). Message type codes, IE types, cause values and
 F-TEID interface types, Bearer QoS fields and TFT IE presence were verified
 against the installed TShark 4.2.2 value tables rather than assumed. Version
-0.2.0.
+0.2.1.

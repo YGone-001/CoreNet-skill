@@ -49,6 +49,9 @@ code is always preserved.
 - `95/96`, `97/98` and `99/100` are dedicated-bearer control messages. A matched
   pair is signaling evidence only; it is not a default-bearer or session
   lifecycle transition.
+- One Response occurrence cannot complete two transactions. A decoder link to a
+  different request frame excludes the Response from the current group, and
+  competing groups without a unique link stay `AMBIGUOUS`.
 - Downlink Data Notification is `176/177`. Codes `120/121/122` are not the DDN
   pair in this version of the specification.
 - F-TEID interface type `11` is `S11/S4 SGW GTP-C`, not `S10`. Interface type

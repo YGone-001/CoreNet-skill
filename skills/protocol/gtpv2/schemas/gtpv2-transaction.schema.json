@@ -40,7 +40,8 @@
         "message_type_code": {"type": ["integer", "null"]},
         "sequence_number": {"type": ["integer", "null"]},
         "header_teid": {"type": ["integer", "null"]},
-        "header_teid_state": {"type": ["string", "null"], "enum": ["ABSENT", "ZERO", "PRESENT", null]}
+        "header_teid_state": {"type": ["string", "null"], "enum": ["ABSENT", "ZERO", "PRESENT", null]},
+        "message_occurrence": {"type": "integer", "minimum": 1}
       }
     },
     "transaction": {

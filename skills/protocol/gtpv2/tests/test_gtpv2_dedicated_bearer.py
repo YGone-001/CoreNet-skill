@@ -489,5 +489,345 @@ class DedicatedBearerTests(unittest.TestCase):
         self.assertTrue(any("never asserts" in item for item in self.transactions["limitations"]))
 
 
+    def event(
+            self,
+            frame: int,
+            code: int,
+            source: str,
+            destination: str,
+            sequence: int,
+            *,
+            ebi: int | None = None,
+            link: int | None = None,
+            occurrence: int = 0,
+            capture: str = "capture-a.pcap",
+        ) -> dict:
+            record = {
+                "frame.number": str(frame),
+                "frame.time_epoch": str(1793000000 + frame / 10),
+                "ip.src": source,
+                "ip.dst": destination,
+                "udp.srcport": "2123",
+                "udp.dstport": "2123",
+                "gtpv2.version": "2",
+                "gtpv2.flags": "0x48",
+                "gtpv2.t": "1",
+                "gtpv2.p": "0",
+                "gtpv2.message_type": str(code),
+                "gtpv2.msg_length": "40",
+                "gtpv2.teid": "0x00000006",
+                "gtpv2.seq": str(sequence),
+            }
+            if ebi is not None:
+                record["gtpv2.ebi"] = str(ebi)
+            event = model.normalize_flat_record(record, capture, occurrence)
+            if link is not None:
+                event["decoder_link"] = {"response_to_frame": link}
+            return event
+
+    def responses(self, result: dict) -> list[dict]:
+        return [item["response"] for item in result["transactions"] if item["response"]]
+
+    def test_one_request_one_unique_response_matches(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5),
+                self.event(2, 96, "B", "A", 10, ebi=5),
+            ],
+            "m1-one-one",
+        )
+        self.assertEqual(result["matched_count"], 1)
+        self.assertEqual(result["transactions"][0]["response"]["frame_number"], 2)
+
+    def test_two_linked_responses_match_independently(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5),
+                self.event(2, 96, "B", "A", 10, ebi=5, link=1),
+                self.event(3, 97, "A", "B", 10, ebi=6),
+                self.event(4, 98, "B", "A", 10, ebi=6, link=3),
+            ],
+            "m1-two-linked",
+        )
+        self.assertEqual(result["matched_count"], 2)
+        self.assertEqual(
+            {item["response"]["frame_number"] for item in result["transactions"]},
+            {2, 4},
+        )
+
+    def test_exact_duplicate_request_remains_one_transaction(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5),
+                self.event(2, 95, "A", "B", 10, ebi=5),
+                self.event(3, 96, "B", "A", 10, ebi=5),
+            ],
+            "m1-retransmission",
+        )
+        self.assertEqual(result["transaction_count"], 1)
+        self.assertEqual(result["matched_count"], 1)
+        self.assertEqual(result["retransmission_count"], 1)
+
+    def test_valid_create_update_delete_transactions(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5),
+                self.event(2, 96, "B", "A", 10, ebi=5),
+                self.event(3, 97, "A", "B", 11, ebi=5),
+                self.event(4, 98, "B", "A", 11, ebi=5),
+                self.event(5, 99, "A", "B", 12, ebi=5),
+                self.event(6, 100, "B", "A", 12, ebi=5),
+            ],
+            "m1-three-pairs",
+        )
+        self.assertEqual(result["matched_count"], 3)
+        self.assertEqual(
+            [item["procedure_family"] for item in result["transactions"]],
+            ["create-bearer", "update-bearer", "delete-bearer"],
+        )
+
+    def test_different_captures_with_equal_sequence_do_not_match(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5, capture="capture-a.pcap"),
+                self.event(1, 96, "B", "A", 10, ebi=5, capture="capture-b.pcap"),
+            ],
+            "m1-cross-capture",
+        )
+        self.assertEqual(result["matched_count"], 0)
+        self.assertEqual(result["open_request_count"], 1)
+        self.assertEqual(result["response_only_count"], 1)
+
+    def test_different_endpoints_with_equal_sequence_do_not_match(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5),
+                self.event(2, 96, "C", "D", 10, ebi=5),
+            ],
+            "m1-different-endpoints",
+        )
+        self.assertEqual(result["matched_count"], 0)
+        self.assertEqual(result["open_request_count"], 1)
+        self.assertEqual(result["response_only_count"], 1)
+
+    def test_transaction_order_and_references_are_deterministic(self) -> None:
+        events = [
+            self.event(3, 95, "A", "B", 11, ebi=6),
+            self.event(1, 95, "A", "B", 10, ebi=5),
+            self.event(2, 96, "B", "A", 10, ebi=5, link=1),
+        ]
+        first = self.correlate_custom(events, "m1-order-a")
+        second = self.correlate_custom(list(reversed(events)), "m1-order-b")
+        self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
+        self.assertEqual(
+            [item["transaction_reference"] for item in first["transactions"]],
+            [item["transaction_reference"] for item in second["transactions"]],
+        )
+
+    def test_response_only_when_no_eligible_request_exists(self) -> None:
+        result = self.correlate_custom(
+            [self.event(5, 96, "B", "A", 10, ebi=5)],
+            "m1-response-only",
+        )
+        self.assertEqual(result["response_only_count"], 1)
+        self.assertEqual(result["matched_count"], 0)
+
+    def test_original_p1cm_fixture_still_produces_three_matches(self) -> None:
+        self.assertEqual(len(self.events), 7)
+        self.assertEqual(self.transactions["matched_count"], 3)
+        self.assertEqual(self.transactions["retransmission_count"], 1)
+
+    def test_two_competing_requests_one_response_stay_ambiguous(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5),
+                self.event(3, 95, "A", "B", 10, ebi=6),
+                self.event(4, 96, "B", "A", 10, ebi=5),
+            ],
+            "m1-competing-one",
+        )
+        self.assertEqual(result["matched_count"], 0)
+        self.assertEqual(result["ambiguous_count"], 2)
+        for item in result["transactions"]:
+            self.assertIsNone(item["response"])
+            self.assertEqual([candidate["frame_number"] for candidate in item["response_candidates"]], [4])
+
+    def test_decoder_link_to_other_request_prevents_reuse(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5),
+                self.event(3, 95, "A", "B", 10, ebi=6),
+                self.event(4, 96, "B", "A", 10, ebi=5, link=1),
+            ],
+            "m1-link-other",
+        )
+        linked = next(item for item in result["transactions"] if item["request"]["frame_number"] == 1)
+        other = next(item for item in result["transactions"] if item["request"]["frame_number"] == 3)
+        self.assertEqual(linked["correlation_status"], "MATCHED")
+        self.assertEqual(linked["response"]["frame_number"], 4)
+        self.assertEqual(other["correlation_status"], "OPEN_REQUEST")
+        self.assertEqual(other["response_candidates"], [])
+
+    def test_no_decoder_link_with_competing_requests_stays_ambiguous(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5),
+                self.event(3, 95, "A", "B", 10, ebi=6),
+                self.event(4, 96, "B", "A", 10, ebi=5),
+            ],
+            "m1-no-link",
+        )
+        self.assertEqual(result["ambiguous_count"], 2)
+        self.assertEqual(result["matched_count"], 0)
+
+    def test_duplicate_response_candidates_are_not_selected(self) -> None:
+        response = self.event(4, 96, "B", "A", 10, ebi=5)
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5),
+                response,
+                dict(response),
+            ],
+            "m1-duplicate-response",
+        )
+        self.assertEqual(result["matched_count"], 0)
+        self.assertEqual(result["ambiguous_count"], 1)
+
+    def test_conflicting_decoder_links_stay_ambiguous(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5),
+                self.event(3, 95, "A", "B", 10, ebi=6),
+                self.event(2, 96, "B", "A", 10, ebi=5, link=1),
+                self.event(4, 96, "B", "A", 10, ebi=6, link=1),
+            ],
+            "m1-conflicting-links",
+        )
+        self.assertEqual(result["matched_count"], 0)
+        self.assertEqual(result["ambiguous_count"], 1)
+        self.assertEqual(result["open_request_count"], 1)
+
+    def test_overlapping_ebi_sets_remain_distinct_groups(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5),
+                self.event(3, 95, "A", "B", 10, ebi=6),
+                self.event(4, 96, "B", "A", 10, ebi=5),
+            ],
+            "m1-overlap",
+        )
+        self.assertEqual(len(result["transactions"]), 2)
+        self.assertEqual(result["matched_count"], 0)
+
+    def test_one_request_with_multiple_contexts_stays_one_group(self) -> None:
+        result = self.correlate_custom(
+            [self.by_frame[1], self.by_frame[2]],
+            "m1-multi-context-request",
+        )
+        self.assertEqual(result["transaction_count"], 1)
+        self.assertEqual(result["matched_count"], 1)
+
+    def test_reordered_competing_requests_do_not_change_decisions(self) -> None:
+        events = [
+            self.event(1, 95, "A", "B", 10, ebi=5),
+            self.event(3, 95, "A", "B", 10, ebi=6),
+            self.event(4, 96, "B", "A", 10, ebi=5),
+        ]
+        first = self.correlate_custom(events, "m1-reorder-requests-a")
+        second = self.correlate_custom(list(reversed(events)), "m1-reorder-requests-b")
+        self.assertEqual(
+            [(item["correlation_status"], item["response"]) for item in first["transactions"]],
+            [(item["correlation_status"], item["response"]) for item in second["transactions"]],
+        )
+
+    def test_reordered_competing_responses_do_not_change_decisions(self) -> None:
+        events = [
+            self.event(1, 95, "A", "B", 10, ebi=5),
+            self.event(3, 95, "A", "B", 10, ebi=6),
+            self.event(4, 96, "B", "A", 10, ebi=5),
+        ]
+        first = self.correlate_custom(events, "m1-reorder-responses-a")
+        reordered = [events[0], events[2], events[1]]
+        second = self.correlate_custom(reordered, "m1-reorder-responses-b")
+        self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
+
+    def test_same_frame_in_different_captures_stays_isolated(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5, capture="capture-a.pcap"),
+                self.event(1, 96, "B", "A", 10, ebi=5, capture="capture-b.pcap"),
+            ],
+            "m1-same-frame-cross-capture",
+        )
+        self.assertEqual(result["matched_count"], 0)
+        self.assertEqual(result["response_only_count"], 1)
+
+    def test_two_message_occurrences_in_one_frame_are_distinct(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5),
+                self.event(3, 95, "A", "B", 10, ebi=6),
+                self.event(2, 96, "B", "A", 10, ebi=5, link=1, occurrence=0),
+                self.event(2, 96, "B", "A", 10, ebi=6, link=3, occurrence=1),
+            ],
+            "m1-occurrences",
+        )
+        self.assertEqual(result["matched_count"], 2)
+        responses = self.responses(result)
+        self.assertEqual([item["frame_number"] for item in responses], [2, 2])
+        self.assertEqual([item.get("message_occurrence", 0) for item in responses], [0, 1])
+
+    def test_wrong_response_type_or_endpoint_or_sequence_does_not_match(self) -> None:
+        cases = {
+            "wrong-type": self.event(2, 98, "B", "A", 10, ebi=5),
+            "wrong-endpoint": self.event(2, 96, "C", "D", 10, ebi=5),
+            "wrong-sequence": self.event(2, 96, "B", "A", 11, ebi=5),
+        }
+        for name, response in cases.items():
+            with self.subTest(name=name):
+                result = self.correlate_custom(
+                    [self.event(1, 95, "A", "B", 10, ebi=5), response],
+                    f"m1-{name}",
+                )
+                self.assertEqual(result["matched_count"], 0)
+                self.assertEqual(result["open_request_count"], 1)
+                self.assertEqual(result["response_only_count"], 1)
+
+    def test_older_family_retransmission_behavior_is_unchanged(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 32, "A", "B", 10),
+                self.event(2, 32, "A", "B", 10),
+                self.event(3, 33, "B", "A", 10),
+            ],
+            "m1-legacy-retransmission",
+        )
+        self.assertEqual(result["transaction_count"], 1)
+        self.assertEqual(result["matched_count"], 1)
+        self.assertEqual(result["retransmission_count"], 1)
+
+    def test_ambiguous_decoder_link_across_same_frame_requests(self) -> None:
+        result = self.correlate_custom(
+            [
+                self.event(1, 95, "A", "B", 10, ebi=5, occurrence=0),
+                self.event(1, 95, "A", "B", 10, ebi=6, occurrence=1),
+                self.event(2, 96, "B", "A", 10, ebi=5, link=1),
+            ],
+            "m1-ambiguous-same-frame",
+        )
+        self.assertEqual(result["matched_count"], 0)
+        self.assertEqual(result["ambiguous_count"], 2)
+        self.assertTrue(
+            any(
+                "ambiguous across multiple request occurrences" in limitation
+                for item in result["transactions"]
+                for limitation in item["limitations"]
+            )
+        )
+
+    def test_protocol_match_is_not_bearer_activation(self) -> None:
+        payload = json.dumps(self.correlate_custom(list(self.events), "m1-no-lifecycle")).lower()
+        for forbidden in ("bearer_activated", "bearer_established", "lifecycle_state", "resource_admitted"):
+            self.assertNotIn(forbidden, payload)
 if __name__ == "__main__":
     unittest.main()
