@@ -52,6 +52,10 @@ python3 ../../../scripts/epc-evidence-review.py \
   --output-dir /tmp/epc-review-pack
 ```
 
+Local replay uses a fresh invocation-scoped work directory; comparison mode returns
+success only for identical evidence and a documented nonzero status for missing,
+incompatible or unsupported comparisons.
+
 ## Session control
 
 ```bash

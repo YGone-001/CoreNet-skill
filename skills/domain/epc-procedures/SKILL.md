@@ -469,7 +469,10 @@ claim or unreconciled subset fails closed. Missing detailed events leave the sub
 preserved and explicitly not independently verifiable. No frame is interpolated
 and no aggregate count is divided. Duplicate-ownership summary counts derive from
 structured conflict evidence, not limitation text, and a conflict never crosses a
-capture boundary even when reference text is equal. Producer accounting counts are
+capture boundary even when reference text is equal. Audit Ledger truncation is
+disclosed independently from source collection completeness: a complete source set
+never implies an exhaustive audit ledger, and a bounded Review Pack display is
+reported separately. Producer accounting counts are
 re-stated unchanged, and any audit-derived total is labelled and never written back.
 
 Unresolved findings still produce a usable JSON ledger and a distinguishable audit

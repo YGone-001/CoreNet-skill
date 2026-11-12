@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -90,6 +91,7 @@ def validate() -> list[str]:
 
     review = load_module(ROOT / "scripts" / "epc_evidence_review.py", "epc_evidence_review_gate")
     review_cli = ROOT / "scripts" / "epc-evidence-review.py"
+    review_cli_module = load_module(review_cli, "epc_evidence_review_cli_gate")
     epc_validator = load_module(
         ROOT / "scripts" / "validate-epc-procedures.py", "epc_procedures_fixture_gate"
     )
@@ -404,6 +406,301 @@ def validate() -> list[str]:
         restored_compare = review.compare_runs(pack_a, pack_b)
         if restored_compare.get("overall_status") != "DIFFERENT":
             fail("mutation restore failed: comparison remained weakened")
+
+        replay_work = temporary_root / "replay-work"
+        stale_run = replay_work / "epc" / "runs" / "ffffffffffffffff"
+        stale_documents = copy.deepcopy(positive)
+        stale_documents["identity"]["hop_local_contexts"][0]["association_basis"] = "stale"
+        write_documents(
+            stale_run,
+            stale_documents,
+            epc_validator._audit_run(audit_model, stale_documents),
+        )
+        capture_path = temporary_root / epc_validator.AUDIT_CAPTURE
+        capture_path.write_bytes(b"validator-capture")
+
+        def fake_replay_run(command, **_kwargs):
+            invocation = Path(command[command.index("--work-dir") + 1])
+            current = invocation / "epc" / "runs" / "0000000000000000"
+            write_documents(current, positive, positive_audit)
+            cli_output = Path(command[command.index("--output-dir") + 1])
+            cli_output.mkdir(parents=True, exist_ok=True)
+            (cli_output / "analysis.json").write_text(
+                json.dumps({"overall_execution_status": "COMPLETED"}), encoding="utf-8"
+            )
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        with mock.patch.object(review.subprocess, "run", side_effect=fake_replay_run), mock.patch.object(
+            review.shutil, "which", return_value="/bin/tshark"
+        ):
+            replay_verification, replay_artifacts, replay_detail = review.run_local_replay(
+                capture_path, work_dir=replay_work
+            )
+        if (
+            replay_verification.get("overall_status") != "COMPLETED"
+            or replay_artifacts is None
+        ):
+            fail("current-invocation replay did not complete")
+        if replay_detail.get("run_dir") != "0000000000000000":
+            fail("replay selected a stale run directory")
+        replay_manifest = review.build_manifest(
+            replay_artifacts,
+            mode="LOCAL_PCAP_REPLAY",
+            local_pcap_replayed=True,
+            replay_status="COMPLETED",
+        )
+        if replay_manifest.get("capture_identities") != [epc_validator.AUDIT_CAPTURE]:
+            fail("replay consumed stale capture artifacts")
+        current_run = next(
+            replay_work.glob("epc-review-run-*/epc/runs/0000000000000000")
+        )
+        consumed = next(
+            source["sha256"]
+            for source in replay_manifest["source_artifacts"]
+            if source["artifact_type"] == "session_identity"
+        )
+        if consumed != review.sha256_file(
+            current_run / "epc-session-identity-analysis.json"
+        ):
+            fail("replay consumed an artifact outside the current invocation")
+        if review.sha256_file(
+            current_run / "epc-session-identity-analysis.json"
+        ) == review.sha256_file(stale_run / "epc-session-identity-analysis.json"):
+            fail("replay fixture did not distinguish current and stale artifacts")
+
+        original_select = review._select_current_run
+        try:
+            review._select_current_run = (
+                lambda candidates: sorted(candidates, key=lambda path: path.name)[-1]
+                if candidates
+                else None
+            )
+            mutated_selection = review._select_current_run([current_run, stale_run])
+        finally:
+            review._select_current_run = original_select
+        if mutated_selection != stale_run:
+            fail("mutation check failed: lexical stale-run selection was not detected")
+        if review._select_current_run([current_run, stale_run]) is not None:
+            fail("mutation restore failed: lexical stale-run selection stayed active")
+
+        empty_work = temporary_root / "replay-empty"
+        write_documents(empty_work / "epc" / "runs" / "ffffffffffffffff", positive, positive_audit)
+
+        def no_current_run(command, **_kwargs):
+            cli_output = Path(command[command.index("--output-dir") + 1])
+            cli_output.mkdir(parents=True, exist_ok=True)
+            (cli_output / "analysis.json").write_text(
+                json.dumps({"overall_execution_status": "PARTIAL"}), encoding="utf-8"
+            )
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        with mock.patch.object(review.subprocess, "run", side_effect=no_current_run), mock.patch.object(
+            review.shutil, "which", return_value="/bin/tshark"
+        ):
+            no_current_verification, no_current_artifacts, _detail = review.run_local_replay(
+                capture_path, work_dir=empty_work
+            )
+        if (
+            no_current_verification.get("overall_status") != "FAILED"
+            or no_current_artifacts is not None
+        ):
+            fail("replay fell back to stale artifacts when no current run existed")
+
+        def comparison_cli(first, second, label):
+            output = temporary_root / f"compare-{label}"
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(review_cli),
+                    "--compare-a",
+                    str(first),
+                    "--compare-b",
+                    str(second),
+                    "--output-dir",
+                    str(output),
+                    "--force",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            payload = (
+                json.loads((output / "replay-verification.json").read_text())
+                if (output / "replay-verification.json").is_file()
+                else {}
+            )
+            return completed.returncode, payload.get("overall_status")
+
+        pack_c = temporary_root / "pack-c"
+        review.write_pack(pack_c, files, artifacts_dir=positive_source, force=True)
+        for label, first, second, expected_code, expected_status in (
+            ("identical", pack_a, pack_c, 0, "IDENTICAL"),
+            ("different", pack_a, pack_b, 1, "DIFFERENT"),
+            ("missing", pack_a, temporary_root / "absent-compare", 5, "MISSING_OUTPUT"),
+        ):
+            actual_code, actual_status = comparison_cli(first, second, label)
+            if (actual_code, actual_status) != (expected_code, expected_status):
+                fail(
+                    f"comparison CLI returned {actual_code}/{actual_status} for {label}"
+                )
+
+        schema_pack = temporary_root / "schema-pack"
+        review.write_pack(schema_pack, files, artifacts_dir=positive_source, force=True)
+        schema_manifest = json.loads((schema_pack / "manifest.json").read_text())
+        schema_manifest["schema_version"] = "9.0"
+        (schema_pack / "manifest.json").write_text(
+            json.dumps(schema_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        schema_code, schema_status = comparison_cli(pack_a, schema_pack, "schema")
+        if (schema_code, schema_status) != (5, "SCHEMA_VERSION_MISMATCH"):
+            fail("schema mismatch comparison did not return the intended nonzero status")
+
+        capture_pack = temporary_root / "capture-pack"
+        review.write_pack(capture_pack, files, artifacts_dir=positive_source, force=True)
+        capture_manifest = json.loads((capture_pack / "manifest.json").read_text())
+        capture_manifest["capture_identities"] = ["other.pcap"]
+        (capture_pack / "manifest.json").write_text(
+            json.dumps(capture_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        capture_code, capture_status = comparison_cli(pack_a, capture_pack, "capture")
+        if (capture_code, capture_status) != (5, "INPUT_CAPTURE_MISMATCH"):
+            fail("capture mismatch comparison did not return the intended nonzero status")
+
+        original_exit = review_cli_module.review.comparison_exit_code
+        try:
+            review_cli_module.review.comparison_exit_code = (
+                lambda status: 0 if status != "DIFFERENT" else 1
+            )
+            mutated_exit = review_cli_module._main(
+                [
+                    "--compare-a",
+                    str(pack_a),
+                    "--compare-b",
+                    str(temporary_root / "absent-compare"),
+                    "--output-dir",
+                    str(temporary_root / "mutation-b"),
+                    "--force",
+                ]
+            )
+        finally:
+            review_cli_module.review.comparison_exit_code = original_exit
+        if mutated_exit != 0:
+            fail(
+                "mutation check failed: success exit for an incompatible comparison was not "
+                "detected"
+            )
+        restored_exit = review_cli_module._main(
+            [
+                "--compare-a",
+                str(pack_a),
+                "--compare-b",
+                str(temporary_root / "absent-compare"),
+                "--output-dir",
+                str(temporary_root / "mutation-b-restored"),
+                "--force",
+            ]
+        )
+        if restored_exit != 5:
+            fail("mutation restore failed: incompatible comparison stayed successful")
+
+        def ledger_audit(omitted, declared, record_count, exhaustive=True):
+            audit = copy.deepcopy(positive_audit)
+            audit["source_completeness"]["status"] = "COMPLETE"
+            audit["source_completeness"]["exhaustive_coverage_proven"] = exhaustive
+            for entry in audit["source_completeness"].get("collections", []):
+                entry["status"] = "COMPLETE"
+            base_records = audit["audit_records"]
+            records = []
+            for index in range(record_count):
+                record = copy.deepcopy(base_records[index % len(base_records)])
+                record["audit_record_reference"] = f"gate-record-{index:04d}"
+                records.append(record)
+            audit["audit_records"] = records
+            audit["audit_record_count"] = declared
+            audit["audit_records_omitted"] = omitted
+            return audit
+
+        omitted_audit = ledger_audit(44, 300, 256)
+        omitted_source = write_documents(
+            temporary_root / "ledger-truncated", positive, omitted_audit
+        )
+        omitted_artifacts = review.load_artifacts(omitted_source)
+        omitted_manifest = review.build_manifest(
+            omitted_artifacts,
+            mode="EXISTING_ARTIFACTS",
+            local_pcap_replayed=False,
+            replay_status="NOT_EXECUTED",
+        )
+        omitted_review = review.build_review(
+            omitted_artifacts["documents"],
+            review.build_index(omitted_artifacts["documents"]),
+        )
+        if (
+            not omitted_manifest.get("audit_results_truncated")
+            or not omitted_manifest.get("source_collections_complete")
+            or omitted_manifest.get("audit_ledger_complete")
+        ):
+            fail("omitted audit records were not disclosed while sources stayed complete")
+        if omitted_manifest.get("audit_records_omitted") != 44:
+            fail("omitted audit-record count was not published")
+        if not any(
+            item.get("collection") == "audit_records"
+            for item in omitted_review["sections"]["source_completeness_limitations"]
+        ):
+            fail("audit ledger truncation was not published in the review view")
+        if not any(
+            item.get("status") == "DISPLAY_TRUNCATED"
+            for item in omitted_review["sections"]["source_completeness_limitations"]
+        ):
+            fail("review display truncation was not independently disclosed")
+
+        false_exhaustive = ledger_audit(0, 256, 256, exhaustive=False)
+        false_source = write_documents(
+            temporary_root / "exhaustive-false", positive, false_exhaustive
+        )
+        false_manifest = review.build_manifest(
+            review.load_artifacts(false_source),
+            mode="EXISTING_ARTIFACTS",
+            local_pcap_replayed=False,
+            replay_status="NOT_EXECUTED",
+        )
+        if false_manifest.get("source_collections_complete"):
+            fail("false exhaustive-coverage flag appeared complete")
+
+        original_completeness = review._audit_completeness
+
+        def weakened_completeness(audit):
+            data = dict(original_completeness(audit))
+            data["audit_records_omitted"] = 0
+            data["audit_ledger_complete"] = True
+            data["audit_results_truncated"] = not data["source_collections_complete"]
+            return data
+
+        try:
+            review._audit_completeness = weakened_completeness
+            mutated_manifest = review.build_manifest(
+                omitted_artifacts,
+                mode="EXISTING_ARTIFACTS",
+                local_pcap_replayed=False,
+                replay_status="NOT_EXECUTED",
+            )
+        finally:
+            review._audit_completeness = original_completeness
+        if (
+            mutated_manifest.get("audit_results_truncated")
+            or not mutated_manifest.get("audit_ledger_complete")
+        ):
+            fail(
+                "mutation check failed: ignoring audit_records_omitted was not detected"
+            )
+        restored_manifest = review.build_manifest(
+            omitted_artifacts,
+            mode="EXISTING_ARTIFACTS",
+            local_pcap_replayed=False,
+            replay_status="NOT_EXECUTED",
+        )
+        if not restored_manifest.get("audit_results_truncated"):
+            fail("mutation restore failed: omitted audit records stayed ignored")
 
     return errors
 

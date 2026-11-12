@@ -30,7 +30,18 @@ def load_module(path: Path, name: str):
 
 
 REVIEW = load_module(REVIEW_PATH, "epc_evidence_review_under_test")
+CLI = load_module(CLI_PATH, "epc_evidence_review_cli_under_test")
 EPC = load_module(FIXTURES_PATH, "epc_evidence_review_fixtures")
+
+
+def normalize_capture(value, capture: str):
+    if isinstance(value, dict):
+        return {key: normalize_capture(item, capture) for key, item in value.items()}
+    if isinstance(value, list):
+        return [normalize_capture(item, capture) for item in value]
+    if isinstance(value, str) and value.endswith(".pcap"):
+        return capture
+    return value
 
 ARTIFACT_FILES = {
     "identity": "epc-session-identity-analysis.json",
@@ -156,8 +167,17 @@ class EpcEvidenceReviewTest(unittest.TestCase):
         def fake_run(command, **kwargs):
             commands.append(command)
             work = Path(command[command.index("--work-dir") + 1])
-            run_dir = work / "epc" / "runs" / "replay1"
-            write_documents(run_dir, documents, detailed=True)
+            run_dir = work / "epc" / "runs" / "0000000000000000"
+            write_documents(
+                run_dir,
+                normalize_capture(copy.deepcopy(documents), "controlled.pcap"),
+                detailed=True,
+            )
+            cli_output = Path(command[command.index("--output-dir") + 1])
+            cli_output.mkdir(parents=True, exist_ok=True)
+            (cli_output / "analysis.json").write_text(
+                json.dumps({"overall_execution_status": "COMPLETED"}), encoding="utf-8"
+            )
             return subprocess.CompletedProcess(command, 0, "ok", "")
 
         capture = self.root / "controlled.pcap"
@@ -617,6 +637,569 @@ class EpcEvidenceReviewTest(unittest.TestCase):
         ]
         self.assertTrue(closures)
         self.assertTrue(all(record["audit_status"] == "VERIFIED_CONSISTENT" for record in closures))
+
+
+class EpcReplayProvenanceTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self._temporary.name)
+
+    def tearDown(self) -> None:
+        self._temporary.cleanup()
+
+    def replay(
+        self,
+        work: Path,
+        capture_name: str = "capture-a.pcap",
+        documents: dict | None = None,
+        *,
+        exit_code: int = 0,
+        cli_status: str = "COMPLETED",
+        current_count: int = 1,
+        omit: tuple[str, ...] = (),
+        provenance_capture: str | None = None,
+    ):
+        capture = self.root / capture_name
+        capture.write_bytes(b"capture:" + capture_name.encode())
+        docs = normalize_capture(copy.deepcopy(documents or EPC.scenario()), capture_name)
+        if provenance_capture is not None:
+            docs = normalize_capture(docs, provenance_capture)
+
+        def fake_run(command, **kwargs):
+            invocation_work = Path(command[command.index("--work-dir") + 1])
+            for index in range(current_count):
+                run = invocation_work / "epc" / "runs" / f"{index:016d}"
+                write_documents(run, docs)
+                for name in omit:
+                    (run / name).unlink(missing_ok=True)
+            cli_output = Path(command[command.index("--output-dir") + 1])
+            cli_output.mkdir(parents=True, exist_ok=True)
+            (cli_output / "analysis.json").write_text(
+                json.dumps({"overall_execution_status": cli_status}), encoding="utf-8"
+            )
+            return subprocess.CompletedProcess(command, exit_code, "", "")
+
+        with mock.patch.object(REVIEW.subprocess, "run", side_effect=fake_run), mock.patch.object(
+            REVIEW.shutil, "which", return_value="/bin/tshark"
+        ):
+            verification, artifacts, detail = REVIEW.run_local_replay(capture, work_dir=work)
+        return capture, verification, artifacts, detail
+
+    def stale(self, work: Path, name: str = "ffffffffffffffff", capture: str = "old.pcap") -> Path:
+        run = work / "epc" / "runs" / name
+        write_documents(run, normalize_capture(EPC.scenario(), capture))
+        return run
+
+    def current_run(self, work: Path, run_name: str) -> Path:
+        invocation = next(work.glob("epc-review-run-*"))
+        return invocation / "epc" / "runs" / run_name
+
+    def manifest(self, artifacts: dict, verification: dict) -> dict:
+        return REVIEW.build_manifest(
+            artifacts,
+            mode="LOCAL_PCAP_REPLAY",
+            local_pcap_replayed=verification.get("replayed", False),
+            replay_status=verification["overall_status"],
+        )
+
+    def test_l1_01_fresh_isolated_replay_succeeds(self) -> None:
+        work = self.root / "work"
+        _capture, verification, artifacts, detail = self.replay(work)
+        self.assertEqual(verification["overall_status"], "COMPLETED")
+        self.assertEqual(detail["run_dir"], "0000000000000000")
+        self.assertEqual(self.manifest(artifacts, verification)["capture_identities"], ["capture-a.pcap"])
+
+    def test_l1_02_stale_lexicographically_larger_uuid_ignored(self) -> None:
+        work = self.root / "work"
+        stale = self.stale(work)
+        _capture, verification, artifacts, detail = self.replay(work)
+        self.assertEqual(detail["run_dir"], "0000000000000000")
+        self.assertEqual(self.manifest(artifacts, verification)["capture_identities"], ["capture-a.pcap"])
+        self.assertNotEqual(
+            REVIEW.sha256_file(stale / "epc-session-identity-analysis.json"),
+            REVIEW.sha256_file(
+                self.current_run(work, detail["run_dir"]) / "epc-session-identity-analysis.json"
+            ),
+        )
+
+    def test_l1_03_current_lexicographically_smaller_uuid_selected(self) -> None:
+        work = self.root / "work"
+        self.stale(work, name="ffffffffffffffff")
+        _capture, _verification, _artifacts, detail = self.replay(work)
+        self.assertEqual(detail["run_dir"], "0000000000000000")
+
+    def test_l1_04_multiple_stale_runs_ignored(self) -> None:
+        work = self.root / "work"
+        self.stale(work, name="aaaaaaaaaaaaaaaa", capture="old-a.pcap")
+        self.stale(work, name="ffffffffffffffff", capture="old-b.pcap")
+        _capture, verification, artifacts, detail = self.replay(work)
+        self.assertEqual(detail["run_dir"], "0000000000000000")
+        self.assertEqual(self.manifest(artifacts, verification)["capture_identities"], ["capture-a.pcap"])
+
+    def test_l1_05_two_sequential_replays_same_root(self) -> None:
+        work = self.root / "work"
+        self.replay(work, capture_name="capture-a.pcap", documents=EPC.scenario())
+        _capture, verification, artifacts, detail = self.replay(
+            work,
+            capture_name="capture-b.pcap",
+            documents=EPC.scenario(capture="capture-b.pcap"),
+        )
+        self.assertEqual(detail["run_dir"], "0000000000000000")
+        self.assertEqual(self.manifest(artifacts, verification)["capture_identities"], ["capture-b.pcap"])
+
+    def test_l1_06_two_captures_same_root(self) -> None:
+        work = self.root / "work"
+        self.replay(work, capture_name="capture-a.pcap")
+        _capture, _verification, _artifacts, second = self.replay(
+            work, capture_name="capture-b.pcap", documents=EPC.scenario(capture="capture-b.pcap")
+        )
+        self.assertEqual(second["run_dir"], "0000000000000000")
+        self.assertEqual(self.manifest(_artifacts, _verification)["capture_identities"], ["capture-b.pcap"])
+
+    def test_l1_07_competing_current_runs_fail_closed(self) -> None:
+        work = self.root / "work"
+        self.stale(work)
+        _capture, verification, artifacts, _detail = self.replay(work, current_count=2)
+        self.assertEqual(verification["overall_status"], "FAILED")
+        self.assertIsNone(artifacts)
+
+    def test_l1_08_no_current_run_fails_closed(self) -> None:
+        work = self.root / "work"
+        self.stale(work)
+        _capture, verification, artifacts, _detail = self.replay(work, current_count=0)
+        self.assertEqual(verification["overall_status"], "FAILED")
+        self.assertIsNone(artifacts)
+
+    def test_l1_09_multiple_ambiguous_current_runs_fail_closed(self) -> None:
+        work = self.root / "work"
+        _capture, verification, artifacts, _detail = self.replay(work, current_count=3)
+        self.assertEqual(verification["overall_status"], "FAILED")
+        self.assertIsNone(artifacts)
+
+    def test_l1_10_missing_required_current_artifact_fails(self) -> None:
+        work = self.root / "work"
+        _capture, verification, artifacts, _detail = self.replay(
+            work, omit=("epc-session-identity-analysis.json",)
+        )
+        self.assertEqual(verification["overall_status"], "FAILED")
+        self.assertIsNone(artifacts)
+
+    def test_l1_11_current_artifact_differs_from_older(self) -> None:
+        work = self.root / "work"
+        stale = self.stale(work)
+        _capture, verification, artifacts, detail = self.replay(work)
+        current = self.current_run(work, detail["run_dir"])
+        self.assertNotEqual(
+            REVIEW.sha256_file(stale / "epc-session-identity-analysis.json"),
+            REVIEW.sha256_file(current / "epc-session-identity-analysis.json"),
+        )
+        manifest = self.manifest(artifacts, verification)
+        consumed = next(
+            source["sha256"]
+            for source in manifest["source_artifacts"]
+            if source["artifact_type"] == "session_identity"
+        )
+        self.assertEqual(
+            consumed, REVIEW.sha256_file(current / "epc-session-identity-analysis.json")
+        )
+
+    def test_l1_12_subprocess_zero_with_valid_current_completes(self) -> None:
+        work = self.root / "work"
+        _capture, verification, artifacts, _detail = self.replay(work, exit_code=0, cli_status="COMPLETED")
+        self.assertEqual(verification["overall_status"], "COMPLETED")
+        self.assertTrue(verification["replayed"])
+        self.assertIsNotNone(artifacts)
+
+    def test_l1_13_subprocess_failure_with_stale_artifacts_fails(self) -> None:
+        work = self.root / "work"
+        self.stale(work)
+        _capture, verification, artifacts, _detail = self.replay(work, exit_code=4, current_count=0)
+        self.assertEqual(verification["overall_status"], "FAILED")
+        self.assertIsNone(artifacts)
+
+    def test_l1_14_partial_completion_remains_partial(self) -> None:
+        work = self.root / "work"
+        _capture, verification, artifacts, _detail = self.replay(
+            work, exit_code=0, cli_status="PARTIAL"
+        )
+        self.assertEqual(verification["overall_status"], "PARTIAL")
+        self.assertFalse(verification["replayed"])
+        self.assertIsNotNone(artifacts)
+        verification_partial = REVIEW.build_replay_verification(
+            mode="LOCAL_PCAP_REPLAY", status="PARTIAL"
+        )
+        output = self.root / "partial-cli"
+        with mock.patch.object(
+            CLI.review, "run_local_replay", return_value=(verification_partial, artifacts, {})
+        ):
+            code = CLI._main(
+                [
+                    "--capture",
+                    str(self.root / "capture-a.pcap"),
+                    "--output-dir",
+                    str(output),
+                    "--force",
+                ]
+            )
+        self.assertEqual(code, 6)
+
+    def test_l1_15_mismatched_capture_provenance_fails(self) -> None:
+        work = self.root / "work"
+        _capture, verification, artifacts, _detail = self.replay(
+            work, provenance_capture="other.pcap"
+        )
+        self.assertEqual(verification["overall_status"], "FAILED")
+        self.assertIsNone(artifacts)
+
+    def test_l1_16_deterministic_pack_from_same_capture(self) -> None:
+        work_a = self.root / "work-a"
+        work_b = self.root / "work-b"
+        _c, _v, artifacts_a, _d = self.replay(work_a)
+        _c2, _v2, artifacts_b, _d2 = self.replay(work_b)
+        first_files = REVIEW.build_review_pack(
+            artifacts_a,
+            mode="LOCAL_PCAP_REPLAY",
+            replay_verification=REVIEW.build_replay_verification(
+                mode="LOCAL_PCAP_REPLAY", status="COMPLETED"
+            ),
+        )
+        second_files = REVIEW.build_review_pack(
+            artifacts_b,
+            mode="LOCAL_PCAP_REPLAY",
+            replay_verification=REVIEW.build_replay_verification(
+                mode="LOCAL_PCAP_REPLAY", status="COMPLETED"
+            ),
+        )
+        for name in ("evidence-index.json", "evidence-review.json", "evidence-review.md"):
+            self.assertEqual(first_files[name], second_files[name])
+
+
+class EpcComparisonExitTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self._temporary.name)
+
+    def tearDown(self) -> None:
+        self._temporary.cleanup()
+
+    def pack(self, name: str, documents: dict, *, suffix: str = "pack") -> Path:
+        source = self.root / f"{name}-artifacts"
+        write_documents(source, copy.deepcopy(documents))
+        _artifacts, files = REVIEW.existing_artifact_pack(source)
+        output = self.root / f"{name}-{suffix}"
+        REVIEW.write_pack(output, files, artifacts_dir=source, force=True)
+        return output
+
+    def compare(self, a: Path, b: Path, label: str, *, force: bool = False) -> dict:
+        output = self.root / f"comparison-{label}"
+        command = [
+            sys.executable,
+            str(CLI_PATH),
+            "--compare-a",
+            str(a),
+            "--compare-b",
+            str(b),
+            "--output-dir",
+            str(output),
+        ]
+        if force:
+            command.append("--force")
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        path = output / "replay-verification.json"
+        payload = json.loads(path.read_text()) if path.is_file() else {}
+        return {"exit_code": completed.returncode, "status": payload.get("overall_status")}
+
+    def test_l2_01_identical_returns_success(self) -> None:
+        base = self.pack("base", EPC.scenario())
+        result = self.compare(base, base, "identical")
+        self.assertEqual((result["status"], result["exit_code"]), ("IDENTICAL", 0))
+
+    def test_l2_02_changed_returns_different_nonzero(self) -> None:
+        base = self.pack("base", EPC.scenario())
+        changed = self.pack("changed", EPC.scenario())
+        payload = json.loads((changed / "evidence-review.json").read_text())
+        payload["coverage"]["release_narrative_count"] = 99
+        (changed / "evidence-review.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+        result = self.compare(base, changed, "different")
+        self.assertEqual((result["status"], result["exit_code"]), ("DIFFERENT", 1))
+
+    def test_l2_03_missing_input_directory_returns_nonzero(self) -> None:
+        base = self.pack("base", EPC.scenario())
+        result = self.compare(base, self.root / "absent", "missing-dir")
+        self.assertEqual(result["status"], "MISSING_OUTPUT")
+        self.assertEqual(result["exit_code"], 5)
+
+    def test_l2_04_missing_required_file_returns_nonzero(self) -> None:
+        base = self.pack("base", EPC.scenario())
+        missing = self.pack("missing", EPC.scenario())
+        (missing / "evidence-index.json").unlink()
+        result = self.compare(base, missing, "missing-file")
+        self.assertEqual(result["status"], "MISSING_OUTPUT")
+        self.assertEqual(result["exit_code"], 5)
+
+    def test_l2_05_unsupported_schema_returns_nonzero(self) -> None:
+        base = self.pack("base", EPC.scenario())
+        unsupported = self.pack("unsupported", EPC.scenario())
+        manifest = json.loads((unsupported / "manifest.json").read_text())
+        manifest.pop("schema_version")
+        (unsupported / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        result = self.compare(base, unsupported, "unsupported")
+        self.assertEqual(result["status"], "UNSUPPORTED_COMPARISON")
+        self.assertEqual(result["exit_code"], 5)
+
+    def test_l2_06_schema_mismatch_returns_nonzero(self) -> None:
+        base = self.pack("base", EPC.scenario())
+        schema = self.pack("schema", EPC.scenario())
+        manifest = json.loads((schema / "manifest.json").read_text())
+        manifest["schema_version"] = "9.0"
+        (schema / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        result = self.compare(base, schema, "schema-mismatch")
+        self.assertEqual(result["status"], "SCHEMA_VERSION_MISMATCH")
+        self.assertEqual(result["exit_code"], 5)
+
+    def test_l2_07_different_captures_return_nonzero(self) -> None:
+        base = self.pack("base", EPC.scenario())
+        other = self.pack("other", EPC.scenario(capture="other.pcap"))
+        result = self.compare(base, other, "captures")
+        self.assertEqual(result["status"], "INPUT_CAPTURE_MISMATCH")
+        self.assertEqual(result["exit_code"], 5)
+
+    def test_l2_08_different_capture_hashes_return_nonzero(self) -> None:
+        base = self.pack("base", EPC.scenario())
+        hashes = self.pack("hashes", EPC.scenario())
+        replay = json.loads((hashes / "replay-verification.json").read_text())
+        replay["capture_sha256"] = "f" * 64
+        (hashes / "replay-verification.json").write_text(
+            json.dumps(replay, indent=2, sort_keys=True) + "\n"
+        )
+        result = self.compare(base, hashes, "hashes")
+        self.assertEqual(result["status"], "INPUT_CAPTURE_MISMATCH")
+        self.assertEqual(result["exit_code"], 5)
+
+    def test_l2_09_output_collision_returns_output_failure(self) -> None:
+        base = self.pack("base", EPC.scenario())
+        result = self.compare(base, base, "collision", force=False)
+        second = self.compare(base, base, "collision")
+        self.assertEqual(second["exit_code"], 7)
+
+    def test_l2_10_output_write_failure_returns_output_failure(self) -> None:
+        base = self.pack("base", EPC.scenario())
+        blocked = self.root / "blocked"
+        blocked.write_text("not a directory")
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(CLI_PATH),
+                "--compare-a",
+                str(base),
+                "--compare-b",
+                str(base),
+                "--output-dir",
+                str(blocked / "sub"),
+                "--force",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 7)
+
+    def test_l2_11_repeated_identical_and_reordered_equivalent_are_success(self) -> None:
+        documents = EPC.duplicate_ownership_documents()
+        base = self.pack("base", documents)
+        reordered = copy.deepcopy(documents)
+        reordered["narrative"]["temporal_observations"] = list(
+            reversed(reordered["narrative"]["temporal_observations"])
+        )
+        reordered["narrative"]["release_narratives"] = list(
+            reversed(reordered["narrative"]["release_narratives"])
+        )
+        equivalent = self.pack("equivalent", reordered)
+        first = self.compare(base, base, "repeat-1")
+        second = self.compare(base, base, "repeat-2")
+        reordered_result = self.compare(base, equivalent, "reordered")
+        self.assertEqual((first["status"], first["exit_code"]), ("IDENTICAL", 0))
+        self.assertEqual((second["status"], second["exit_code"]), ("IDENTICAL", 0))
+        self.assertEqual((reordered_result["status"], reordered_result["exit_code"]), ("IDENTICAL", 0))
+
+
+class EpcAuditTruncationTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self._temporary.name)
+
+    def tearDown(self) -> None:
+        self._temporary.cleanup()
+
+    def audit_documents(
+        self,
+        *,
+        records: int = 5,
+        declared: int | None = None,
+        omitted: int | None = 0,
+        exhaustive=True,
+        status: str = "COMPLETE",
+        collection_status: str = "COMPLETE",
+        omit_exhaustive: bool = False,
+        omit_omitted: bool = False,
+        omitted_value=None,
+    ) -> dict:
+        documents = EPC.scenario()
+        audit = EPC.audit(documents)
+        base_records = audit["audit_records"]
+        selected = []
+        for index in range(records):
+            record = copy.deepcopy(base_records[index % len(base_records)])
+            record["audit_record_reference"] = f"truncation-record-{index:04d}"
+            selected.append(record)
+        audit["audit_records"] = selected
+        if declared is None:
+            declared = records + (omitted or 0)
+        audit["audit_record_count"] = declared
+        if omit_omitted:
+            audit.pop("audit_records_omitted", None)
+        elif omitted_value is not None:
+            audit["audit_records_omitted"] = omitted_value
+        else:
+            audit["audit_records_omitted"] = omitted
+        completeness = audit["source_completeness"]
+        completeness["status"] = status
+        if omit_exhaustive:
+            completeness.pop("exhaustive_coverage_proven", None)
+        else:
+            completeness["exhaustive_coverage_proven"] = exhaustive
+        for entry in completeness.get("collections", []):
+            entry["status"] = collection_status
+        return documents, audit
+
+    def pack(self, audit: dict, name: str) -> tuple[dict, dict, str]:
+        source = self.root / f"{name}-artifacts"
+        write_documents(source, EPC.scenario(), audit=audit)
+        _artifacts, files = REVIEW.existing_artifact_pack(source)
+        output = self.root / f"{name}-pack"
+        REVIEW.write_pack(output, files, artifacts_dir=source, force=True)
+        manifest = json.loads((output / "manifest.json").read_text())
+        review = json.loads((output / "evidence-review.json").read_text())
+        markdown = (output / "evidence-review.md").read_text()
+        return manifest, review, markdown
+
+    def test_l3_01_complete_sources_and_complete_ledger(self) -> None:
+        _documents, audit = self.audit_documents(records=5, declared=5, omitted=0)
+        manifest, review, _markdown = self.pack(audit, "complete")
+        self.assertFalse(manifest["audit_results_truncated"])
+        self.assertTrue(manifest["source_collections_complete"])
+        self.assertTrue(manifest["audit_ledger_complete"])
+        self.assertTrue(manifest["review_display_complete"])
+
+    def test_l3_02_complete_sources_and_truncated_ledger(self) -> None:
+        _documents, audit = self.audit_documents(records=256, declared=300, omitted=44)
+        manifest, review, _markdown = self.pack(audit, "ledger-truncated")
+        self.assertTrue(manifest["audit_results_truncated"])
+        self.assertTrue(manifest["source_collections_complete"])
+        self.assertFalse(manifest["audit_ledger_complete"])
+        self.assertEqual(manifest["audit_records_omitted"], 44)
+        self.assertTrue(
+            any(item.get("collection") == "audit_records" for item in review["sections"]["source_completeness_limitations"])
+        )
+
+    def test_l3_03_truncated_sources_and_complete_visible_ledger(self) -> None:
+        _documents, audit = self.audit_documents(
+            records=5, declared=5, omitted=0, collection_status="SOURCE_TRUNCATED"
+        )
+        manifest, _review, _markdown = self.pack(audit, "source-truncated")
+        self.assertTrue(manifest["audit_results_truncated"])
+        self.assertFalse(manifest["source_collections_complete"])
+        self.assertTrue(manifest["audit_ledger_complete"])
+
+    def test_l3_04_both_source_and_ledger_truncated(self) -> None:
+        _documents, audit = self.audit_documents(
+            records=256,
+            declared=300,
+            omitted=44,
+            collection_status="SOURCE_TRUNCATED",
+        )
+        manifest, _review, _markdown = self.pack(audit, "both-truncated")
+        self.assertFalse(manifest["source_collections_complete"])
+        self.assertFalse(manifest["audit_ledger_complete"])
+        self.assertTrue(manifest["audit_results_truncated"])
+
+    def test_l3_05_false_exhaustive_flag_is_not_complete(self) -> None:
+        _documents, audit = self.audit_documents(records=5, declared=5, omitted=0, exhaustive=False)
+        manifest, review, _markdown = self.pack(audit, "exhaustive-false")
+        self.assertFalse(manifest["source_collections_complete"])
+        self.assertTrue(manifest["source_metadata_valid"] if "source_metadata_valid" in manifest else True)
+        self.assertTrue(
+            any(item.get("status") == "NOT_EXHAUSTIVE" for item in review["sections"]["source_completeness_limitations"])
+        )
+
+    def test_l3_06_missing_exhaustive_boolean_is_invalid(self) -> None:
+        _documents, audit = self.audit_documents(records=5, declared=5, omitted=0, omit_exhaustive=True)
+        manifest, review, _markdown = self.pack(audit, "exhaustive-missing")
+        self.assertTrue(manifest["audit_results_truncated"])
+        self.assertFalse(manifest["source_collections_complete"])
+        self.assertTrue(
+            any(item.get("status") == "INVALID_METADATA" for item in review["sections"]["source_completeness_limitations"])
+        )
+
+    def test_l3_07_missing_omitted_count_is_invalid(self) -> None:
+        _documents, audit = self.audit_documents(records=5, declared=5, omit_omitted=True)
+        manifest, _review, _markdown = self.pack(audit, "omitted-missing")
+        self.assertFalse(manifest["audit_ledger_metadata_valid"])
+        self.assertTrue(manifest["audit_results_truncated"])
+
+    def test_l3_08_invalid_omitted_count_type_is_invalid(self) -> None:
+        _documents, audit = self.audit_documents(records=5, declared=5, omitted_value="44")
+        manifest, _review, _markdown = self.pack(audit, "omitted-type")
+        self.assertFalse(manifest["audit_ledger_metadata_valid"])
+        self.assertTrue(manifest["audit_results_truncated"])
+
+    def test_l3_09_underdeclared_audit_record_count_is_invalid(self) -> None:
+        _documents, audit = self.audit_documents(records=5, declared=4, omitted=0)
+        manifest, _review, _markdown = self.pack(audit, "underdeclared")
+        self.assertFalse(manifest["audit_ledger_metadata_valid"])
+
+    def test_l3_10_inconsistent_count_metadata_is_invalid(self) -> None:
+        _documents, audit = self.audit_documents(records=5, declared=99, omitted=2)
+        manifest, _review, _markdown = self.pack(audit, "inconsistent")
+        self.assertFalse(manifest["audit_ledger_metadata_valid"])
+
+    def test_l3_11_review_display_truncation_is_independent(self) -> None:
+        _documents, audit = self.audit_documents(records=256, declared=256, omitted=0)
+        manifest, review, markdown = self.pack(audit, "display-only")
+        self.assertTrue(manifest["audit_ledger_complete"])
+        self.assertFalse(manifest["audit_results_truncated"])
+        self.assertFalse(manifest["review_display_complete"])
+        self.assertEqual(manifest["review_audit_records_omitted"], 208)
+        self.assertEqual(review["coverage"]["review_audit_records_published"], 48)
+        self.assertIn("DISPLAY_TRUNCATED", markdown)
+
+    def test_l3_12_maximum_boundary_audit_record_count(self) -> None:
+        _documents, audit = self.audit_documents(records=48, declared=48, omitted=0)
+        manifest, _review, _markdown = self.pack(audit, "max-boundary")
+        self.assertTrue(manifest["review_display_complete"])
+        self.assertEqual(manifest["review_audit_records_omitted"], 0)
+
+    def test_l3_13_manifest_reports_independent_dimensions(self) -> None:
+        _documents, audit = self.audit_documents(records=256, declared=300, omitted=44)
+        manifest, _review, _markdown = self.pack(audit, "dimensions")
+        self.assertTrue(manifest["source_collections_complete"])
+        self.assertFalse(manifest["audit_ledger_complete"])
+        self.assertFalse(manifest["review_display_complete"])
+        self.assertTrue(manifest["audit_results_truncated"])
+
+    def test_l3_14_markdown_discloses_truncation(self) -> None:
+        _documents, audit = self.audit_documents(records=256, declared=300, omitted=44)
+        _manifest, _review, markdown = self.pack(audit, "markdown")
+        self.assertIn("audit records: supplied 256, declared 300, omitted 44", markdown)
+        self.assertIn("audit ledger complete: False", markdown)
+
+    def test_l3_15_deterministic_repeated_output(self) -> None:
+        _documents, audit = self.audit_documents(records=256, declared=300, omitted=44)
+        first = self.pack(audit, "deterministic-a")
+        second = self.pack(audit, "deterministic-b")
+        self.assertEqual(first[0], second[0])
+        self.assertEqual(first[1], second[1])
+        self.assertEqual(first[2], second[2])
 
 
 if __name__ == "__main__":

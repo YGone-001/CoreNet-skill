@@ -25,6 +25,7 @@ EXIT_OK = 0
 EXIT_DIFFERENT = 1
 EXIT_INPUT = 5
 EXIT_REPLAY_FAILED = 6
+EXIT_REPLAY_PARTIAL = 6
 EXIT_OUTPUT = 7
 
 
@@ -67,7 +68,17 @@ def _failure_pack(
         "detailed_gtpu_supplied": False,
         "local_pcap_replayed": False,
         "replay_status": replay_verification.get("overall_status"),
+        "source_completeness_status": "UNKNOWN",
+        "exhaustive_coverage_proven": None,
         "source_collections_complete": False,
+        "audit_ledger_metadata_valid": False,
+        "audit_ledger_complete": False,
+        "audit_record_count_declared": None,
+        "audit_records_supplied": 0,
+        "audit_records_omitted": None,
+        "review_audit_records_published": 0,
+        "review_audit_records_omitted": 0,
+        "review_display_complete": True,
         "audit_results_truncated": True,
         "evidence_limitations": [review._text(message) or "replay failed"],
         "review_artifact_hashes": {},
@@ -130,11 +141,11 @@ def _main(argv: list[str] | None = None) -> int:
                 {"replay-verification.json": content},
                 force=args.force,
             )
-        except review.ReviewInputError as exc:
-            print(f"output error: {exc.message}", file=sys.stderr)
+        except (review.ReviewInputError, OSError) as exc:
+            print(f"output error: {getattr(exc, 'message', str(exc))}", file=sys.stderr)
             return EXIT_OUTPUT
         print(f"comparison: {comparison['overall_status']} -> {args.output_dir.name}")
-        return EXIT_OK if comparison["overall_status"] != review.COMPARE_DIFFERENT else EXIT_DIFFERENT
+        return review.comparison_exit_code(comparison["overall_status"])
 
     if args.capture is not None:
         replay_verification, artifacts, _detail = review.run_local_replay(
@@ -145,8 +156,8 @@ def _main(argv: list[str] | None = None) -> int:
             files = _failure_pack(replay_verification, message="local replay did not produce usable artifacts")
             try:
                 review.write_pack(args.output_dir, files, force=args.force)
-            except review.ReviewInputError as exc:
-                print(f"output error: {exc.message}", file=sys.stderr)
+            except (review.ReviewInputError, OSError) as exc:
+                print(f"output error: {getattr(exc, 'message', str(exc))}", file=sys.stderr)
                 return EXIT_OUTPUT
             print(
                 f"replay: {replay_verification.get('overall_status')} -> {args.output_dir.name}",
@@ -160,13 +171,17 @@ def _main(argv: list[str] | None = None) -> int:
         )
         try:
             review.write_pack(args.output_dir, files, force=args.force)
-        except review.ReviewInputError as exc:
-            print(f"output error: {exc.message}", file=sys.stderr)
+        except (review.ReviewInputError, OSError) as exc:
+            print(f"output error: {getattr(exc, 'message', str(exc))}", file=sys.stderr)
             return EXIT_OUTPUT
         print(
             f"review pack: {replay_verification.get('overall_status')} -> {args.output_dir.name}"
         )
-        return EXIT_OK
+        return (
+            EXIT_OK
+            if replay_verification.get("overall_status") == review.REPLAY_COMPLETED
+            else EXIT_REPLAY_PARTIAL
+        )
 
     assert args.artifacts_dir is not None
     try:
@@ -181,9 +196,11 @@ def _main(argv: list[str] | None = None) -> int:
             artifacts_dir=args.artifacts_dir,
             force=args.force,
         )
-    except review.ReviewInputError as exc:
-        print(f"input error: {exc.code}: {exc.message}", file=sys.stderr)
-        return EXIT_OUTPUT if exc.code in ("OUTPUT_EXISTS", "UNSAFE_OUTPUT_PATH") else EXIT_INPUT
+    except (review.ReviewInputError, OSError) as exc:
+        code = getattr(exc, "code", "OUTPUT_ERROR")
+        message = getattr(exc, "message", str(exc))
+        print(f"input error: {code}: {message}", file=sys.stderr)
+        return EXIT_OUTPUT if code in ("OUTPUT_EXISTS", "UNSAFE_OUTPUT_PATH", "OUTPUT_ERROR") else EXIT_INPUT
     print(f"review pack: EXISTING_ARTIFACTS -> {args.output_dir.name}")
     return EXIT_OK
 

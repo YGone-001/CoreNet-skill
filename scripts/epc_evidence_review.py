@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -70,6 +71,19 @@ COMPARE_MISSING = "MISSING_OUTPUT"
 COMPARE_SCHEMA = "SCHEMA_VERSION_MISMATCH"
 COMPARE_CAPTURE = "INPUT_CAPTURE_MISMATCH"
 COMPARE_UNSUPPORTED = "UNSUPPORTED_COMPARISON"
+
+COMPARISON_EXIT_CODES = {
+    COMPARE_IDENTICAL: 0,
+    COMPARE_DIFFERENT: 1,
+    COMPARE_MISSING: 5,
+    COMPARE_SCHEMA: 5,
+    COMPARE_CAPTURE: 5,
+    COMPARE_UNSUPPORTED: 5,
+}
+
+
+def comparison_exit_code(status: Any) -> int:
+    return COMPARISON_EXIT_CODES.get(status, 5)
 
 FORBIDDEN_TEXT_PATTERNS = (
     re.compile(r"\b\d{9,}\b"),
@@ -859,14 +873,54 @@ def _completeness_status(audit: dict[str, Any]) -> str:
     return str(_dict(audit.get("source_completeness")).get("status") or "UNKNOWN")
 
 
-def _audit_truncated(audit: dict[str, Any]) -> bool:
+def _strict_count(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if value >= 0 else None
+
+
+def _audit_completeness(audit: dict[str, Any]) -> dict[str, Any]:
     completeness = _dict(audit.get("source_completeness"))
-    if _int(completeness.get("exhaustive_coverage_proven")) is False:
-        return True
-    return any(
-        _dict(entry).get("status") not in (None, "COMPLETE")
-        for entry in _list(completeness.get("collections"))
+    status = completeness.get("status")
+    exhaustive = completeness.get("exhaustive_coverage_proven")
+    collections = [_dict(entry) for entry in _list(completeness.get("collections"))]
+    source_metadata_valid = isinstance(exhaustive, bool)
+    collections_complete = all(
+        entry.get("status") in (None, "COMPLETE") for entry in collections
     )
+    source_collections_complete = (
+        status == "COMPLETE" and exhaustive is True and collections_complete
+    )
+    supplied = _list(audit.get("audit_records"))
+    declared = _strict_count(audit.get("audit_record_count"))
+    omitted = _strict_count(audit.get("audit_records_omitted"))
+    ledger_metadata_valid = (
+        declared is not None
+        and omitted is not None
+        and declared == len(supplied) + omitted
+    )
+    ledger_complete = ledger_metadata_valid and omitted == 0
+    return {
+        "source_completeness_status": status if isinstance(status, str) else None,
+        "exhaustive_coverage_proven": exhaustive if isinstance(exhaustive, bool) else None,
+        "source_metadata_valid": source_metadata_valid,
+        "source_collections_complete": source_collections_complete,
+        "audit_record_count_declared": declared,
+        "audit_records_supplied": len(supplied),
+        "audit_records_omitted": omitted,
+        "audit_ledger_metadata_valid": ledger_metadata_valid,
+        "audit_ledger_complete": ledger_complete,
+        "audit_results_truncated": (
+            not source_metadata_valid
+            or not source_collections_complete
+            or not ledger_metadata_valid
+            or not ledger_complete
+        ),
+    }
+
+
+def _audit_truncated(audit: dict[str, Any]) -> bool:
+    return bool(_audit_completeness(audit)["audit_results_truncated"])
 
 
 def build_manifest(
@@ -897,6 +951,9 @@ def build_manifest(
         safe = _text(value)
         if safe:
             limitations.append(safe)
+    completeness = _audit_completeness(audit)
+    review_published = min(len(_list(audit.get("audit_records"))), MAX_FINDINGS)
+    review_omitted = max(0, len(_list(audit.get("audit_records"))) - MAX_FINDINGS)
     return {
         "schema_version": REVIEW_SCHEMA_VERSION,
         "review_name": REVIEW_NAME,
@@ -908,9 +965,18 @@ def build_manifest(
         "detailed_gtpu_supplied": bool(artifacts["detailed_gtpu_supplied"]),
         "local_pcap_replayed": bool(local_pcap_replayed),
         "replay_status": replay_status,
-        "source_collections_complete": _completeness_status(audit) == "COMPLETE"
-        and not _audit_truncated(audit),
-        "audit_results_truncated": _audit_truncated(audit),
+        "source_completeness_status": completeness["source_completeness_status"],
+        "exhaustive_coverage_proven": completeness["exhaustive_coverage_proven"],
+        "source_collections_complete": completeness["source_collections_complete"],
+        "audit_ledger_metadata_valid": completeness["audit_ledger_metadata_valid"],
+        "audit_ledger_complete": completeness["audit_ledger_complete"],
+        "audit_record_count_declared": completeness["audit_record_count_declared"],
+        "audit_records_supplied": completeness["audit_records_supplied"],
+        "audit_records_omitted": completeness["audit_records_omitted"],
+        "review_audit_records_published": review_published,
+        "review_audit_records_omitted": review_omitted,
+        "review_display_complete": review_omitted == 0,
+        "audit_results_truncated": completeness["audit_results_truncated"],
         "evidence_limitations": limitations[:MAX_REFERENCES],
         "review_artifact_hashes": review_artifact_hashes or {},
         "provenance": {
@@ -961,6 +1027,9 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
         [_dict(item) for item in _list(audit.get("audit_records"))],
         key=lambda item: str(item.get("audit_record_reference")),
     )
+    completeness = _audit_completeness(audit)
+    review_published = min(len(audit_records), MAX_FINDINGS)
+    review_omitted = max(0, len(audit_records) - MAX_FINDINGS)
 
     sections: dict[str, Any] = {}
     sections["capture_and_session_context_overview"] = [
@@ -1114,6 +1183,71 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
                     "source_references": [source.get("artifact")],
                 }
             )
+    if not completeness["source_metadata_valid"]:
+        completeness_entries.append(
+            {
+                "classification": CLASSIFICATION_AUDIT,
+                "document": "epc-evidence-audit",
+                "collection": "source_completeness.exhaustive_coverage_proven",
+                "status": "INVALID_METADATA",
+                "declared_count": None,
+                "published_count": None,
+                "omitted_count": None,
+                "source_references": ["source_completeness"],
+            }
+        )
+    elif completeness["exhaustive_coverage_proven"] is False:
+        completeness_entries.append(
+            {
+                "classification": CLASSIFICATION_AUDIT,
+                "document": "epc-evidence-audit",
+                "collection": "source_completeness.exhaustive_coverage_proven",
+                "status": "NOT_EXHAUSTIVE",
+                "declared_count": None,
+                "published_count": None,
+                "omitted_count": None,
+                "source_references": ["source_completeness"],
+            }
+        )
+    if not completeness["audit_ledger_metadata_valid"]:
+        completeness_entries.append(
+            {
+                "classification": CLASSIFICATION_AUDIT,
+                "document": "epc-evidence-audit",
+                "collection": "audit_ledger_count",
+                "status": "INVALID_METADATA",
+                "declared_count": completeness["audit_record_count_declared"],
+                "published_count": completeness["audit_records_supplied"],
+                "omitted_count": completeness["audit_records_omitted"],
+                "source_references": ["audit_record_count"],
+            }
+        )
+    elif (completeness["audit_records_omitted"] or 0) > 0:
+        completeness_entries.append(
+            {
+                "classification": CLASSIFICATION_AUDIT,
+                "document": "epc-evidence-audit",
+                "collection": "audit_records",
+                "status": "TRUNCATED",
+                "declared_count": completeness["audit_record_count_declared"],
+                "published_count": completeness["audit_records_supplied"],
+                "omitted_count": completeness["audit_records_omitted"],
+                "source_references": ["audit_records"],
+            }
+        )
+    if review_omitted:
+        completeness_entries.append(
+            {
+                "classification": CLASSIFICATION_UNRESOLVED,
+                "document": "epc-evidence-review",
+                "collection": "review_display",
+                "status": "DISPLAY_TRUNCATED",
+                "declared_count": len(audit_records),
+                "published_count": review_published,
+                "omitted_count": review_omitted,
+                "source_references": ["evidence_audit_findings"],
+            }
+        )
     sections["source_completeness_limitations"] = completeness_entries[:MAX_FINDINGS]
     sections["missing_cross_artifact_references"] = [
         {
@@ -1225,8 +1359,18 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
             "temporal_observations": max(0, len(observations) - MAX_OBSERVATIONS),
             "audit_findings": max(0, len(audit_records) - MAX_FINDINGS),
         },
-        "source_completeness_status": _completeness_status(audit),
-        "audit_results_truncated": _audit_truncated(audit),
+        "source_completeness_status": completeness["source_completeness_status"],
+        "exhaustive_coverage_proven": completeness["exhaustive_coverage_proven"],
+        "source_collections_complete": completeness["source_collections_complete"],
+        "audit_ledger_metadata_valid": completeness["audit_ledger_metadata_valid"],
+        "audit_ledger_complete": completeness["audit_ledger_complete"],
+        "audit_record_count_declared": completeness["audit_record_count_declared"],
+        "audit_records_supplied": completeness["audit_records_supplied"],
+        "audit_records_omitted": completeness["audit_records_omitted"],
+        "review_audit_records_published": review_published,
+        "review_audit_records_omitted": review_omitted,
+        "review_display_complete": review_omitted == 0,
+        "audit_results_truncated": completeness["audit_results_truncated"],
         "detailed_gtpv2_supplied": audit.get("source_artifact_count") is not None
         and any(
             _dict(source).get("artifact") == "gtpv2-c-events"
@@ -1334,6 +1478,24 @@ def render_markdown(
     ):
         lines.append(f"- {key}: {coverage.get(key)}")
     lines.append(f"- omitted: {json.dumps(coverage.get('omitted'), sort_keys=True)}")
+    lines.append(
+        f"- source collections complete: {coverage.get('source_collections_complete')}; "
+        f"exhaustive coverage proven: {coverage.get('exhaustive_coverage_proven')}"
+    )
+    lines.append(
+        f"- audit ledger complete: {coverage.get('audit_ledger_complete')}; metadata valid: "
+        f"{coverage.get('audit_ledger_metadata_valid')}"
+    )
+    lines.append(
+        f"- audit records: supplied {coverage.get('audit_records_supplied')}, declared "
+        f"{coverage.get('audit_record_count_declared')}, omitted "
+        f"{coverage.get('audit_records_omitted')}"
+    )
+    lines.append(
+        f"- review display: published {coverage.get('review_audit_records_published')}, "
+        f"omitted {coverage.get('review_audit_records_omitted')}, complete "
+        f"{coverage.get('review_display_complete')}"
+    )
     lines.append(f"- overall audit status: {coverage.get('overall_audit_status')}")
     lines.append("")
     sections = _dict(review.get("sections"))
@@ -1467,12 +1629,20 @@ def build_replay_verification(
     }
 
 
-def _find_run_dir(work_dir: Path) -> Path | None:
-    runs = work_dir / "epc" / "runs"
+def _current_run_candidates(invocation_root: Path) -> list[Path]:
+    runs = invocation_root / "epc" / "runs"
     if not runs.is_dir():
+        return []
+    return sorted(
+        (path for path in runs.iterdir() if path.is_dir()),
+        key=lambda path: path.name,
+    )
+
+
+def _select_current_run(candidates: list[Path]) -> Path | None:
+    if len(candidates) != 1:
         return None
-    candidates = [path for path in runs.iterdir() if path.is_dir()]
-    return sorted(candidates, key=lambda path: path.name)[-1] if candidates else None
+    return candidates[0]
 
 
 def run_local_replay(
@@ -1522,11 +1692,13 @@ def run_local_replay(
     temporary: tempfile.TemporaryDirectory[str] | None = None
     if work_dir is None:
         temporary = tempfile.TemporaryDirectory(prefix="epc-review-replay-")
-        work = Path(temporary.name)
+        work_root = Path(temporary.name)
     else:
-        work = work_dir
-        work.mkdir(parents=True, exist_ok=True)
-    cli_output = work / "cli-output"
+        work_root = work_dir
+        work_root.mkdir(parents=True, exist_ok=True)
+    invocation_root = work_root / f"epc-review-run-{uuid.uuid4().hex[:16]}"
+    invocation_root.mkdir(parents=True, exist_ok=False)
+    cli_output = invocation_root / "cli-output"
     command = [
         sys.executable,
         str(UNIFIED_CLI),
@@ -1535,7 +1707,7 @@ def run_local_replay(
         "--domains",
         "epc",
         "--work-dir",
-        str(work),
+        str(invocation_root),
         "--output-dir",
         str(cli_output),
         "--force",
@@ -1555,14 +1727,11 @@ def run_local_replay(
                 "detail": f"exit={completed.returncode}",
             }
         )
-        run_dir = _find_run_dir(work)
-        if run_dir is None:
-            steps.append({"step": "artifact_publication", "status": "FAILED", "detail": "no EPC run directory"})
-            status = REPLAY_FAILED
+        if completed.returncode not in (0, 3):
             return (
                 build_replay_verification(
                     mode="LOCAL_PCAP_REPLAY",
-                    status=status,
+                    status=REPLAY_FAILED,
                     steps=steps,
                     capture_name=capture_name,
                     capture_sha256=capture_hash,
@@ -1570,6 +1739,50 @@ def run_local_replay(
                 None,
                 {},
             )
+        cli_status: str | None = None
+        report_path = cli_output / "analysis.json"
+        if report_path.is_file():
+            try:
+                report_payload = json.loads(report_path.read_text(encoding="utf-8"))
+                if isinstance(report_payload, dict):
+                    cli_status = report_payload.get("overall_execution_status")
+            except (OSError, json.JSONDecodeError):
+                cli_status = None
+        steps.append(
+            {
+                "step": "unified_execution_status",
+                "status": "PASSED" if isinstance(cli_status, str) else "NOT_AVAILABLE",
+                "detail": cli_status,
+            }
+        )
+        candidates = _current_run_candidates(invocation_root)
+        run_dir = _select_current_run(candidates)
+        if run_dir is None:
+            steps.append(
+                {
+                    "step": "current_run_selection",
+                    "status": "FAILED",
+                    "detail": f"{len(candidates)} current-run directories; no unique current run",
+                }
+            )
+            return (
+                build_replay_verification(
+                    mode="LOCAL_PCAP_REPLAY",
+                    status=REPLAY_FAILED,
+                    steps=steps,
+                    capture_name=capture_name,
+                    capture_sha256=capture_hash,
+                ),
+                None,
+                {},
+            )
+        steps.append(
+            {
+                "step": "current_run_selection",
+                "status": "PASSED",
+                "detail": run_dir.name,
+            }
+        )
         required = {
             ARTIFACT_SESSION_IDENTITY: "epc-session-identity-analysis.json",
             ARTIFACT_BEARER_LIFECYCLE: "epc-bearer-lifecycle-analysis.json",
@@ -1619,6 +1832,42 @@ def run_local_replay(
                 None,
                 {},
             )
+        observed_captures = _capture_set(artifacts["documents"])
+        expected_capture = safe_capture(capture.name)
+        if not observed_captures or observed_captures != [expected_capture]:
+            steps.append(
+                {
+                    "step": "capture_provenance",
+                    "status": "FAILED",
+                    "detail": f"expected {expected_capture}; observed {observed_captures}",
+                }
+            )
+            return (
+                build_replay_verification(
+                    mode="LOCAL_PCAP_REPLAY",
+                    status=REPLAY_FAILED,
+                    steps=steps,
+                    capture_name=capture_name,
+                    capture_sha256=capture_hash,
+                ),
+                None,
+                {},
+            )
+        steps.append(
+            {
+                "step": "capture_provenance",
+                "status": "PASSED",
+                "detail": expected_capture,
+            }
+        )
+        steps.append(
+            {
+                "step": "capture_sha256",
+                "status": "PASSED",
+                "detail": capture_hash,
+                "published_by_pipeline": False,
+            }
+        )
         audit = _dict(artifacts["documents"].get(ARTIFACT_AUDIT))
         steps.append(
             {
@@ -1627,7 +1876,12 @@ def run_local_replay(
                 "detail": str(_dict(audit.get("audit_summary")).get("overall_status")),
             }
         )
-        status = REPLAY_COMPLETED if completed.returncode == 0 else REPLAY_PARTIAL
+        if completed.returncode == 3 or cli_status == "PARTIAL":
+            status = REPLAY_PARTIAL
+        elif completed.returncode == 0 and cli_status == "COMPLETED":
+            status = REPLAY_COMPLETED
+        else:
+            status = REPLAY_PARTIAL
         steps.append(
             {
                 "step": "review_pack",
@@ -1644,7 +1898,7 @@ def run_local_replay(
                 capture_sha256=capture_hash,
             ),
             artifacts,
-            {"capture_sha256": capture_hash},
+            {"capture_sha256": capture_hash, "run_dir": run_dir.name},
         )
     except subprocess.TimeoutExpired:
         steps.append({"step": "unified_pipeline", "status": "FAILED", "detail": "pipeline timed out"})
@@ -1699,6 +1953,32 @@ def compare_runs(run_a: Path, run_b: Path) -> dict[str, Any]:
 
     schema_a = first["manifest"].get("schema_version")
     schema_b = second["manifest"].get("schema_version")
+    if not isinstance(schema_a, str) or not isinstance(schema_b, str):
+        return {
+            "schema_version": REVIEW_SCHEMA_VERSION,
+            "mode": "COMPARISON",
+            "overall_status": COMPARE_UNSUPPORTED,
+            "schema_versions": [schema_a, schema_b],
+            "differences": ["a review manifest does not publish a string schema version"],
+        }
+    if not isinstance(first["index"].get("captures"), list) or not isinstance(
+        second["index"].get("captures"), list
+    ):
+        return {
+            "schema_version": REVIEW_SCHEMA_VERSION,
+            "mode": "COMPARISON",
+            "overall_status": COMPARE_UNSUPPORTED,
+            "differences": ["a review evidence index does not publish a capture list"],
+        }
+    if not isinstance(first["review"].get("sections"), dict) or not isinstance(
+        second["review"].get("sections"), dict
+    ):
+        return {
+            "schema_version": REVIEW_SCHEMA_VERSION,
+            "mode": "COMPARISON",
+            "overall_status": COMPARE_UNSUPPORTED,
+            "differences": ["a review document does not publish sections"],
+        }
     if schema_a != schema_b:
         return {
             "schema_version": REVIEW_SCHEMA_VERSION,
@@ -1706,6 +1986,14 @@ def compare_runs(run_a: Path, run_b: Path) -> dict[str, Any]:
             "overall_status": COMPARE_SCHEMA,
             "schema_versions": [schema_a, schema_b],
             "differences": ["review manifest schema versions differ"],
+        }
+    if schema_a.split(".", 1)[0] != "1":
+        return {
+            "schema_version": REVIEW_SCHEMA_VERSION,
+            "mode": "COMPARISON",
+            "overall_status": COMPARE_UNSUPPORTED,
+            "schema_versions": [schema_a, schema_b],
+            "differences": ["review manifest schema version is not supported"],
         }
     captures_a = sorted(_list(first["manifest"].get("capture_identities")))
     captures_b = sorted(_list(second["manifest"].get("capture_identities")))

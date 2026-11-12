@@ -235,7 +235,11 @@ observed temporal      = assigned + unassigned + duplicate assignments
 
 Any audit-derived total is labelled `audit-derived` and is never written back into a
 producer count. A stream is never double-counted because it belongs to a
-cross-interface narrative group. `partition_duplicate_assignment_count` counts
+cross-interface narrative group. Source collection completeness, Audit Ledger
+completeness and Review Pack display completeness are independent: a nonzero
+`audit_records_omitted`, inconsistent `audit_record_count` metadata, a false or
+missing `exhaustive_coverage_proven` flag, and a bounded review display are each
+disclosed separately. A visible subset never implies exhaustive audit coverage. `partition_duplicate_assignment_count` counts
 distinct capture-scoped frame identities claimed by more than one established
 temporal observation, and `conflicted_partition_count` counts the observations that
 actually claim those frames. Both derive from structured conflict evidence, never
