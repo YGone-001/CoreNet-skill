@@ -150,6 +150,8 @@
       "using a closure candidate that names another release transaction",
       "requiring exactly one closure candidate for the whole release transaction",
       "accepting a session-to-generation link from record existence alone",
+      "publishing sufficient relationship proof from reference resolution alone",
+      "publishing sufficient candidate-to-link proof while the candidate or link collection is incomplete",
       "collapsing the release outcome, the binding and the closure into one verdict",
       "promoting a closure while a closure-critical collection is incomplete"
     ]
@@ -178,10 +180,11 @@
       "partition payload octets sum to the published observed payload octets",
       "each partition frame stays inside its own release-window boundary",
       "no G-PDU frame belongs to two exclusive established partitions",
-      "a claimed frame is present in the supplied GTP-U events when they are provided"
+      "a claimed frame is present in the supplied GTP-U events when they are provided",
+      "an observed subset's per-partition G-PDU counts, payload octets, first frame and last frame equal the detailed GTP-U events for the same capture, directed S1-U stream, receiving endpoint and release window"
     ],
     "not_established": "an aggregate stream count is published whole and never divided across windows; without detailed GTP-U events the placement stays NOT_INDEPENDENTLY_VERIFIABLE",
-    "observed_subset": "a TEMPORAL_PLACEMENT_NOT_ESTABLISHED observation with OBSERVED_SUBSET scope, a non-conserved partition claim and partition counts not exceeding the aggregate is valid observed evidence; the audit preserves it, publishes insufficient complete-stream proof and never reports it as inconsistent",
+    "observed_subset": "a TEMPORAL_PLACEMENT_NOT_ESTABLISHED observation with OBSERVED_SUBSET scope, FRAME_LEVEL_EVENTS_INCOMPLETE basis, a non-conserved partition claim and partition totals not exceeding the aggregate is valid observed evidence; the audit preserves it, publishes insufficient complete-stream proof and never reports it as inconsistent, but reconciles each partition against detailed events when they are supplied and reports a mismatch as INCONSISTENT",
     "duplicate_ownership": "a frame claimed by more than one release narrative is counted in no partition and no owner is selected",
     "confirmation_frame": "a control-plane confirmation anchor; never the forwarding-stop instant",
     "forbidden": [
@@ -190,7 +193,8 @@
       "treating a confirmation frame as the forwarding-stop instant",
       "treating post-confirmation traffic as packet loss, delivery or root cause",
       "rejecting a valid observed subset merely because its partitions are non-null",
-      "claiming a complete-stream placement that the accepted aggregate does not support"
+      "claiming a complete-stream placement that the accepted aggregate does not support",
+      "verifying an observed subset without reconciling its claimed counts, octets and frames against the supplied detailed events"
     ]
   },
   "accounting_rules": {

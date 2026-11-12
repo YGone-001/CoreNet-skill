@@ -52,6 +52,15 @@ Candidate collection complete:              NO
 Established uniqueness independently audit: NO
 ```
 
+Reference integrity and relationship proof are separate dimensions.
+`REFERENCE_INTEGRITY` may report that a reference resolves while the relationship
+stays unproved. A session-to-generation or cross-interface identity relationship is
+proved only when the producer publishes `association_status = ESTABLISHED`, the
+link namespace, capture, source context and target endpoint agree, the link is
+unique, and both the candidate and link collections are complete. A resolvable
+reference with `NOT_ESTABLISHED`, `AMBIGUOUS`, a missing status or duplicate link
+records is reference-consistent but proof-insufficient.
+
 ## Audit Categories
 
 | Category | Audited relationship |
@@ -194,12 +203,21 @@ frame-level total, that the payload octets reconcile, that no G-PDU frame belong
 two exclusive partitions, that every claimed frame is present when detailed GTP-U
 events are supplied and that each partition stays inside its release boundaries.
 For a valid observed subset it requires the accepted
-`TEMPORAL_PLACEMENT_NOT_ESTABLISHED` / `OBSERVED_SUBSET` / non-conserved combination,
-verifies that the subset counts do not exceed the aggregate, keeps every frame
-inside its release window and publishes insufficient proof for the complete stream.
+`TEMPORAL_PLACEMENT_NOT_ESTABLISHED` / `OBSERVED_SUBSET` /
+`FRAME_LEVEL_EVENTS_INCOMPLETE` / non-conserved combination, verifies that the
+subset totals do not exceed the aggregate, keeps every frame inside its release
+window, and publishes insufficient proof for the complete stream. When detailed
+GTP-U events are supplied, it independently re-derives each partition from the
+events for the same capture, directed S1-U stream, receiving endpoint and release
+window, and compares the published count, payload octets, first frame and last
+frame. A claimed frame number in another capture, or an equal TEID on another
+directed stream, never satisfies the reconciliation. When detailed evidence is
+absent, the producer-published subset is preserved and independent verification is
+reported unavailable rather than fabricated as an inconsistency.
 The bounded subset is observed evidence, never corruption. A contradictory
 complete-stream or conserved claim, a subset exceeding the aggregate, a frame
-outside its window or duplicate frame ownership stays `INCONSISTENT`.
+outside its window, mismatched partition totals or duplicate frame ownership stays
+`INCONSISTENT`.
 It never interpolates a missing frame, never divides an aggregate stream count and
 never treats the confirmation frame as the forwarding-stop instant.
 

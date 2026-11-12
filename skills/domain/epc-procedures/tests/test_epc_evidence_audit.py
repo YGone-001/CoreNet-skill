@@ -24,6 +24,7 @@ CLI = SCRIPTS / "analyze_epc_evidence_audit.py"
 
 sys.path.insert(0, str(SCRIPTS))
 import epc_evidence_audit_model as model  # noqa: E402
+import epc_release_narrative_model as narrative_model  # noqa: E402
 
 CAPTURE_A = "capture-a.pcap"
 CAPTURE_B = "capture-b.pcap"
@@ -1082,41 +1083,15 @@ def closure_documents(
     }
 
 
-def observed_subset_documents(*, empty: bool = False) -> dict:
-    """A valid OBSERVED_SUBSET against the larger accepted aggregate."""
+def observed_subset_documents() -> dict:
+    """A producer-generated OBSERVED_SUBSET against the larger accepted aggregate.
+
+    The observation and temporal accounting are emitted by the accepted release
+    narrative producer, not hand-written here. For a non-conserved subset the
+    producer assigns no frame to a release window: assigned = 0 and
+    unassigned = the number of supplied frame events.
+    """
     documents = scenario()
-    observation_record = documents["narrative"]["temporal_observations"][0]
-    counts = (0, 0, 0) if empty else (1, 1, 1)
-    counts_by_partition = dict(
-        zip(("before_release", "pending_release", "after_confirmation"), counts)
-    )
-    frames = {
-        "before_release": (100, 100),
-        "pending_release": (202, 202),
-        "after_confirmation": (210, 210),
-    }
-    partitions = {}
-    for name, count in counts_by_partition.items():
-        first, last = frames[name]
-        partitions[name] = {
-            "g_pdu_count": count,
-            "payload_octets": count * 100,
-            "first_frame": first if count else None,
-            "last_frame": last if count else None,
-        }
-    observation_record.update(
-        {
-            "observed_g_pdu_count": 10,
-            "observed_payload_octets": 1000,
-            "temporal_placement_status": "TEMPORAL_PLACEMENT_NOT_ESTABLISHED",
-            "partition_basis": "FRAME_LEVEL_EVENTS_INCOMPLETE",
-            "partition_conserved": False,
-            "partition_scope": "OBSERVED_SUBSET",
-            "partitions": partitions,
-            "first_observed_frame": None if empty else 100,
-            "last_observed_frame": None if empty else 210,
-        }
-    )
     stream_record = documents["s1u"]["stream_observations"][0]
     stream_record["observed_g_pdu_packet_count"] = 10
     stream_record["observed_payload_byte_count"] = 1000
@@ -1135,21 +1110,22 @@ def observed_subset_documents(*, empty: bool = False) -> dict:
         "conserved_g_pdu": True,
         "conserved_payload_octets": True,
     }
-    documents["gtpu"] = (
-        []
-        if empty
-        else [gtpu_event(frame) for frame in (100, 202, 210)]
+    documents["gtpu"] = [gtpu_event(frame) for frame in (100, 202, 210)]
+    release = copy.deepcopy(documents["narrative"]["release_narratives"][0])
+    release["temporal_observation_references"] = []
+    observations, accounting, _limitations, _unbound = (
+        narrative_model.build_temporal_observations(
+            [release],
+            documents["s1u"],
+            documents["gtpu"],
+            documents["lifecycle"],
+            (True, None),
+        )
     )
-    documents["narrative"]["temporal_accounting"] = {
-        "frame_level_evidence_supplied": True,
-        "observed_g_pdu_event_count": 0 if empty else 3,
-        "assigned_to_release_window_count": 0 if empty else 3,
-        "unassigned_g_pdu_event_count": 0,
-        "duplicate_assignment_count": 0,
-        "conserved": True,
-        "attributed_observation_count": 1,
-        "unattributed_observation_count": 0,
-    }
+    documents["narrative"]["release_narratives"] = [release]
+    documents["narrative"]["temporal_observations"] = observations
+    documents["narrative"]["temporal_observation_count"] = len(observations)
+    documents["narrative"]["temporal_accounting"] = accounting
     return documents
 
 
@@ -2163,7 +2139,38 @@ class EvidenceAuditMultiGenerationClosureTest(unittest.TestCase):
 
 class EvidenceAuditObservedSubsetTest(unittest.TestCase):
     def temporal(self, result: dict) -> dict:
-        return record_for(result, "TEMPORAL_FRAME_PARTITION", TEMPORAL)
+        temporal_records = records(result, "TEMPORAL_FRAME_PARTITION")
+        self.assertEqual(len(temporal_records), 1)
+        return temporal_records[0]
+
+    def test_n19_producer_generated_subset_matches_published_accounting(self) -> None:
+        documents = observed_subset_documents()
+        observation = documents["narrative"]["temporal_observations"][0]
+        accounting = documents["narrative"]["temporal_accounting"]
+        release = copy.deepcopy(documents["narrative"]["release_narratives"][0])
+        release["temporal_observation_references"] = []
+        expected_observations, expected_accounting, _limitations, _unbound = (
+            narrative_model.build_temporal_observations(
+                [release],
+                documents["s1u"],
+                documents["gtpu"],
+                documents["lifecycle"],
+                (True, None),
+            )
+        )
+        self.assertEqual(observation, expected_observations[0])
+        self.assertEqual(accounting, expected_accounting)
+        self.assertEqual(observation["partition_basis"], "FRAME_LEVEL_EVENTS_INCOMPLETE")
+        self.assertEqual(observation["partition_scope"], "OBSERVED_SUBSET")
+        self.assertEqual(
+            observation["temporal_placement_status"],
+            "TEMPORAL_PLACEMENT_NOT_ESTABLISHED",
+        )
+        self.assertFalse(observation["partition_conserved"])
+        self.assertEqual(accounting["observed_g_pdu_event_count"], 3)
+        self.assertEqual(accounting["assigned_to_release_window_count"], 0)
+        self.assertEqual(accounting["unassigned_g_pdu_event_count"], 3)
+        self.assertTrue(accounting["conserved"])
 
     def test_n20_valid_observed_subset_is_not_an_inconsistency(self) -> None:
         result = audit(observed_subset_documents())
@@ -2179,12 +2186,20 @@ class EvidenceAuditObservedSubsetTest(unittest.TestCase):
             result["temporal_integrity_summary"]["incomplete_partition_count"], 1
         )
 
-    def test_n21_empty_observed_subset_stays_unproved(self) -> None:
-        result = audit(observed_subset_documents(empty=True))
+    def test_n21_missing_detailed_evidence_preserves_observed_subset(self) -> None:
+        documents = observed_subset_documents()
+        documents["gtpu"] = None
+        result = audit(documents)
         record = self.temporal(result)
-        self.assertEqual(record["audit_status"], "VERIFIED_CONSISTENT")
+        self.assertEqual(record["audit_status"], "NOT_INDEPENDENTLY_VERIFIABLE")
         self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
-        self.assertIn("counts no frame", limitations(result))
+        self.assertEqual(result["audit_summary"]["inconsistent_count"], 0)
+        self.assertIn(
+            "no detailed GTP-U events were supplied", " ".join(record["limitations"])
+        )
+        self.assertIsNotNone(
+            documents["narrative"]["temporal_observations"][0]["partitions"]
+        )
 
     def test_n22_aggregate_only_placement_keeps_proof_not_applicable(self) -> None:
         documents = scenario()
@@ -2266,6 +2281,319 @@ class EvidenceAuditObservedSubsetTest(unittest.TestCase):
         first = json.dumps(audit(documents), sort_keys=True)
         second = json.dumps(audit(documents), sort_keys=True)
         self.assertEqual(first, second)
+
+    def assert_subset_inconsistent(self, documents: dict) -> dict:
+        result = audit(documents)
+        record = self.temporal(result)
+        self.assertEqual(record["audit_status"], "INCONSISTENT")
+        self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
+        return record
+
+    def test_n50_invented_subset_packet_is_reconciled_against_events(self) -> None:
+        documents = observed_subset_documents()
+        documents["narrative"]["temporal_observations"][0]["partitions"][
+            "before_release"
+        ]["g_pdu_count"] += 1
+        record = self.assert_subset_inconsistent(documents)
+        self.assertEqual(
+            check_result(record, "partition_counts_conserve_aggregate"), "FAIL"
+        )
+
+    def test_n51_invented_subset_payload_octets_are_reconciled(self) -> None:
+        documents = observed_subset_documents()
+        documents["narrative"]["temporal_observations"][0]["partitions"][
+            "pending_release"
+        ]["payload_octets"] += 50
+        record = self.assert_subset_inconsistent(documents)
+        self.assertEqual(
+            check_result(record, "partition_counts_conserve_aggregate"), "FAIL"
+        )
+
+    def test_n52_moved_subset_packet_count_breaks_window_agreement(self) -> None:
+        documents = observed_subset_documents()
+        partitions = documents["narrative"]["temporal_observations"][0]["partitions"]
+        partitions["before_release"]["g_pdu_count"] -= 1
+        partitions["pending_release"]["g_pdu_count"] += 1
+        record = self.assert_subset_inconsistent(documents)
+        self.assertEqual(
+            check_result(record, "partition_counts_conserve_aggregate"), "FAIL"
+        )
+
+    def test_n53_unsupported_subset_basis_is_rejected(self) -> None:
+        documents = observed_subset_documents()
+        documents["narrative"]["temporal_observations"][0][
+            "partition_basis"
+        ] = "AGGREGATE_STREAM_ONLY"
+        self.assert_subset_inconsistent(documents)
+
+    def test_n54_removed_detailed_event_breaks_subset_reconciliation(self) -> None:
+        documents = observed_subset_documents()
+        documents["gtpu"] = [
+            event
+            for event in documents["gtpu"]
+            if event["frame_number"] != 202
+        ]
+        record = self.assert_subset_inconsistent(documents)
+        self.assertEqual(
+            check_result(record, "partition_counts_conserve_aggregate"), "FAIL"
+        )
+
+    def test_n55_cross_capture_frame_number_never_satisfies_a_subset(self) -> None:
+        documents = observed_subset_documents()
+        documents["gtpu"][1] = dict(
+            copy.deepcopy(documents["gtpu"][1]), capture_file=CAPTURE_B
+        )
+        self.assert_subset_inconsistent(documents)
+
+    def test_n56_equal_teid_on_another_stream_never_satisfies_a_subset(self) -> None:
+        documents = observed_subset_documents()
+        event = copy.deepcopy(documents["gtpu"][1])
+        event["outer"] = dict(event["outer"], source_address="10.0.0.30")
+        documents["gtpu"][1] = event
+        self.assert_subset_inconsistent(documents)
+
+    def test_n57_valid_complete_placement_stays_sufficient(self) -> None:
+        result = audit(scenario())
+        record = self.temporal(result)
+        self.assertEqual(record["audit_status"], "VERIFIED_CONSISTENT")
+        self.assertEqual(record["proof_sufficiency_status"], "SUFFICIENT")
+        self.assertEqual(result["audit_summary"]["inconsistent_count"], 0)
+
+
+class EvidenceAuditProofSufficiencyTest(unittest.TestCase):
+    def candidate_link(self, result: dict) -> dict:
+        return next(
+            record
+            for record in records(result, "SESSION_GENERATION_LINK")
+            if record["source_analysis"] == "epc-session-identity"
+        )
+
+    def narrative_link(self, result: dict) -> dict:
+        return next(
+            record
+            for record in records(result, "SESSION_GENERATION_LINK")
+            if record["source_analysis"] == "epc-release-narrative"
+        )
+
+    def reference_generation(self, result: dict) -> list[dict]:
+        return [
+            record
+            for record in records(result, "REFERENCE_INTEGRITY")
+            if record["relationship_type"] == "SESSION_CONTEXT_TO_BEARER_GENERATION"
+        ]
+
+    def reference_identity(self, result: dict) -> list[dict]:
+        return [
+            record
+            for record in records(result, "REFERENCE_INTEGRITY")
+            if record["relationship_type"] == "CROSS_INTERFACE_SESSION_IDENTITY"
+        ]
+
+    def test_c01_complete_candidate_and_link_collections_are_sufficient(self) -> None:
+        result = audit(closure_documents([{"generation_reference": GENERATION}]))
+        for record in (self.candidate_link(result), self.narrative_link(result)):
+            self.assertEqual(record["audit_status"], "VERIFIED_CONSISTENT")
+            self.assertEqual(record["candidate_completeness_status"], "COMPLETE")
+            self.assertEqual(record["proof_sufficiency_status"], "SUFFICIENT")
+        reference = self.reference_generation(result)[0]
+        self.assertEqual(reference["audit_status"], "VERIFIED_CONSISTENT")
+        self.assertEqual(reference["candidate_completeness_status"], "COMPLETE")
+        self.assertEqual(reference["proof_sufficiency_status"], "SUFFICIENT")
+        closure = record_for(result, "GENERATION_CLOSURE", GENERATION)
+        self.assertEqual(closure["proof_sufficiency_status"], "SUFFICIENT")
+
+    def test_c02_truncated_candidates_cannot_support_candidate_to_link_proof(self) -> None:
+        documents = closure_documents([{"generation_reference": GENERATION}])
+        documents["identity"]["generation_closure_candidate_count"] = 2
+        result = audit(documents)
+        for record in (self.candidate_link(result), self.narrative_link(result)):
+            self.assertEqual(record["audit_status"], "SOURCE_TRUNCATED")
+            self.assertEqual(record["candidate_completeness_status"], "SOURCE_TRUNCATED")
+            self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
+        self.assertEqual(
+            record_for(result, "GENERATION_CLOSURE", GENERATION)["audit_status"],
+            "SOURCE_TRUNCATED",
+        )
+        reference = self.reference_generation(result)
+        self.assertEqual(reference[0]["candidate_completeness_status"], "COMPLETE")
+        self.assertEqual(reference[0]["proof_sufficiency_status"], "SUFFICIENT")
+
+    def test_c03_truncated_links_cannot_support_link_proof(self) -> None:
+        documents = closure_documents([{"generation_reference": GENERATION}])
+        documents["identity"]["session_to_generation_count"] = 2
+        result = audit(documents)
+        for record in (self.candidate_link(result), self.narrative_link(result)):
+            self.assertEqual(record["audit_status"], "SOURCE_TRUNCATED")
+            self.assertEqual(record["candidate_completeness_status"], "SOURCE_TRUNCATED")
+            self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
+        reference = self.reference_generation(result)[0]
+        self.assertEqual(reference["audit_status"], "SOURCE_TRUNCATED")
+        self.assertEqual(reference["proof_sufficiency_status"], "INSUFFICIENT")
+        self.assertEqual(
+            record_for(result, "GENERATION_CLOSURE", GENERATION)["audit_status"],
+            "SOURCE_TRUNCATED",
+        )
+
+    def test_c04_both_collections_truncated_stay_insufficient(self) -> None:
+        documents = closure_documents([{"generation_reference": GENERATION}])
+        documents["identity"]["generation_closure_candidate_count"] = 2
+        documents["identity"]["session_to_generation_count"] = 2
+        result = audit(documents)
+        for record in (self.candidate_link(result), self.narrative_link(result)):
+            self.assertEqual(record["audit_status"], "SOURCE_TRUNCATED")
+            self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
+
+    def test_c05_invalid_candidate_count_metadata_stays_insufficient(self) -> None:
+        documents = closure_documents([{"generation_reference": GENERATION}])
+        documents["identity"]["generation_closure_candidate_count"] = None
+        result = audit(documents)
+        for record in (self.candidate_link(result), self.narrative_link(result)):
+            self.assertEqual(record["audit_status"], "SOURCE_METADATA_INVALID")
+            self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
+
+    def test_c06_invalid_link_count_metadata_stays_insufficient(self) -> None:
+        documents = closure_documents([{"generation_reference": GENERATION}])
+        documents["identity"]["session_to_generation_count"] = None
+        result = audit(documents)
+        for record in (self.candidate_link(result), self.narrative_link(result)):
+            self.assertEqual(record["audit_status"], "SOURCE_METADATA_INVALID")
+            self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
+
+    def test_c07_not_established_link_keeps_reference_consistency_but_not_proof(self) -> None:
+        result = audit(
+            closure_documents(
+                [{"generation_reference": GENERATION, "link_status": NOT_ESTABLISHED}]
+            )
+        )
+        reference = self.reference_generation(result)[0]
+        self.assertEqual(reference["audit_status"], "VERIFIED_CONSISTENT")
+        self.assertEqual(reference["proof_sufficiency_status"], "INSUFFICIENT")
+        self.assertIn("association_status=NOT_ESTABLISHED", limitations(result))
+        for record in (self.candidate_link(result), self.narrative_link(result)):
+            self.assertEqual(record["audit_status"], "INCONSISTENT")
+            self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
+        self.assertEqual(
+            record_for(result, "GENERATION_CLOSURE", GENERATION)["audit_status"],
+            "INCONSISTENT",
+        )
+
+    def test_c08_ambiguous_link_status_keeps_reference_consistency_but_not_proof(self) -> None:
+        result = audit(
+            closure_documents(
+                [{"generation_reference": GENERATION, "link_status": "AMBIGUOUS"}]
+            )
+        )
+        reference = self.reference_generation(result)[0]
+        self.assertEqual(reference["audit_status"], "VERIFIED_CONSISTENT")
+        self.assertEqual(reference["proof_sufficiency_status"], "INSUFFICIENT")
+        self.assertEqual(
+            self.candidate_link(result)["audit_status"], "INCONSISTENT"
+        )
+        self.assertEqual(
+            self.narrative_link(result)["audit_status"], "INCONSISTENT"
+        )
+
+    def test_c09_missing_link_status_is_never_sufficient(self) -> None:
+        documents = closure_documents([{"generation_reference": GENERATION}])
+        del documents["identity"]["session_to_generation_links"][0]["association_status"]
+        result = audit(documents)
+        reference = self.reference_generation(result)[0]
+        self.assertEqual(reference["audit_status"], "VERIFIED_CONSISTENT")
+        self.assertEqual(reference["proof_sufficiency_status"], "INSUFFICIENT")
+        for record in (self.candidate_link(result), self.narrative_link(result)):
+            self.assertEqual(record["audit_status"], "INCONSISTENT")
+            self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
+
+    def test_c10_duplicate_links_remain_ambiguous(self) -> None:
+        documents = closure_documents([{"generation_reference": GENERATION}])
+        documents["identity"]["session_to_generation_links"].append(generation_link())
+        documents["identity"]["session_to_generation_count"] = 2
+        result = audit(documents)
+        reference = self.reference_generation(result)[0]
+        self.assertEqual(reference["audit_status"], "AMBIGUOUS")
+        self.assertEqual(reference["proof_sufficiency_status"], "INSUFFICIENT")
+        for record in (self.candidate_link(result), self.narrative_link(result)):
+            self.assertEqual(record["audit_status"], "AMBIGUOUS")
+            self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
+        self.assertEqual(
+            record_for(result, "GENERATION_CLOSURE", GENERATION)["audit_status"],
+            "AMBIGUOUS",
+        )
+
+    def test_c11_reference_integrity_is_not_relationship_proof(self) -> None:
+        result = audit(
+            closure_documents(
+                [{"generation_reference": GENERATION, "link_status": NOT_ESTABLISHED}]
+            )
+        )
+        reference = self.reference_generation(result)[0]
+        self.assertEqual(reference["audit_status"], "VERIFIED_CONSISTENT")
+        self.assertEqual(reference["proof_sufficiency_status"], "INSUFFICIENT")
+        self.assertEqual(
+            reference["source_artifact_reference"],
+            "epc-session-identity:session_to_generation_links",
+        )
+
+    def test_c12_identity_and_generation_namespaces_stay_separate(self) -> None:
+        documents = closure_documents([{"generation_reference": GENERATION}])
+        documents["identity"]["hop_local_contexts"].append(
+            context(CONTEXT_B, interface_class="S5/S8")
+        )
+        documents["identity"]["hop_local_context_count"] = 2
+        documents["identity"]["session_identity_links"] = [identity_link()]
+        documents["identity"]["session_identity_count"] = 1
+        result = audit(documents)
+        identity = self.reference_identity(result)[0]
+        self.assertEqual(
+            identity["source_artifact_reference"],
+            "epc-session-identity:session_identity_links",
+        )
+        self.assertEqual(identity["proof_sufficiency_status"], "SUFFICIENT")
+        generation = self.reference_generation(result)[0]
+        self.assertEqual(
+            generation["source_artifact_reference"],
+            "epc-session-identity:session_to_generation_links",
+        )
+        self.assertEqual(generation["proof_sufficiency_status"], "SUFFICIENT")
+
+    def test_c13_two_generations_remain_sufficient_per_endpoint(self) -> None:
+        result = audit(
+            closure_documents(
+                [
+                    {"generation_reference": GENERATION},
+                    {
+                        "direction": "UPLINK",
+                        "generation_reference": UP_GENERATION,
+                        "candidate_reference": UP_CANDIDATE,
+                    },
+                ]
+            )
+        )
+        for reference in (GENERATION, UP_GENERATION):
+            closure = record_for(result, "GENERATION_CLOSURE", reference)
+            self.assertEqual(closure["audit_status"], "VERIFIED_CONSISTENT")
+            self.assertEqual(closure["candidate_completeness_status"], "COMPLETE")
+            self.assertEqual(closure["proof_sufficiency_status"], "SUFFICIENT")
+
+    def test_c14_status_vocabulary_and_order_are_deterministic(self) -> None:
+        documents = closure_documents([{"generation_reference": GENERATION}])
+        first = json.dumps(audit(documents), sort_keys=True)
+        second = json.dumps(audit(documents), sort_keys=True)
+        self.assertEqual(first, second)
+        result = json.loads(first)
+        allowed_status = {
+            "VERIFIED_CONSISTENT",
+            "INCONSISTENT",
+            "AMBIGUOUS",
+            "SOURCE_TRUNCATED",
+            "SOURCE_METADATA_INVALID",
+            "NOT_INDEPENDENTLY_VERIFIABLE",
+            "NOT_APPLICABLE",
+        }
+        allowed_proof = {"SUFFICIENT", "INSUFFICIENT", "NOT_APPLICABLE"}
+        for record in result["audit_records"]:
+            self.assertIn(record["audit_status"], allowed_status)
+            self.assertIn(record["proof_sufficiency_status"], allowed_proof)
 
 
 class EvidenceAuditGenerationLinkProofTest(unittest.TestCase):

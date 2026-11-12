@@ -239,6 +239,7 @@ PLACEMENT_ESTABLISHED = "ESTABLISHED"
 PLACEMENT_NOT_ESTABLISHED = "TEMPORAL_PLACEMENT_NOT_ESTABLISHED"
 SCOPE_COMPLETE = "COMPLETE_STREAM"
 SCOPE_SUBSET = "OBSERVED_SUBSET"
+PARTITION_BASIS_FRAME_SUBSET = "FRAME_LEVEL_EVENTS_INCOMPLETE"
 ATTRIBUTION_ESTABLISHED = "ESTABLISHED"
 ATTRIBUTION_NOT_ESTABLISHED = "NOT_ESTABLISHED"
 
@@ -1155,6 +1156,7 @@ def audit_reference_integrity(
         link = records[0]
         source_resolved = _one(index["contexts"], (capture, source))[0] is not None
         target_resolved = _one(index["contexts"], (capture, target))[0] is not None
+        association_established = link.get("association_status") == ESTABLISHED
         checks = [
             _check(CHECK_REFERENCE_UNIQUE, None if len(records) > 1 else True),
             _check(CHECK_CONTEXT_PRESENT, source_resolved),
@@ -1182,15 +1184,25 @@ def audit_reference_integrity(
                 PROOF_SUFFICIENT
                 if source_resolved
                 and target_resolved
+                and len(records) == 1
                 and identity_link_status == COMPLETE_COLLECTION
+                and association_established
+                and not _failed(checks)
                 else PROOF_INSUFFICIENT
             ),
             limitations=(
                 []
-                if source_resolved and target_resolved
+                if source_resolved and target_resolved and association_established
                 else [
                     "a published cross-interface session identity names a context that the "
                     "supplied artifacts do not publish"
+                ]
+                if not (source_resolved and target_resolved)
+                else [
+                    "the cross-interface session identity reference resolves, but the producer "
+                    "publishes association_status="
+                    f"{link.get('association_status')}; reference consistency is not proof that "
+                    "the identity relationship is established"
                 ]
             ),
         )
@@ -1201,6 +1213,7 @@ def audit_reference_integrity(
         endpoint = link.get("bearer_endpoint")
         recomputed = _bearer_endpoint_reference(endpoint, capture)
         target_resolved = recomputed == target
+        association_established = link.get("association_status") == ESTABLISHED
         checks = [
             _check(CHECK_REFERENCE_UNIQUE, None if len(records) > 1 else True),
             _check(CHECK_CONTEXT_PRESENT, source_resolved),
@@ -1228,15 +1241,25 @@ def audit_reference_integrity(
                 PROOF_SUFFICIENT
                 if source_resolved
                 and target_resolved
+                and len(records) == 1
                 and link_status == COMPLETE_COLLECTION
+                and association_established
+                and not _failed(checks)
                 else PROOF_INSUFFICIENT
             ),
             limitations=(
                 []
-                if target_resolved
+                if source_resolved and target_resolved and association_established
                 else [
                     "the published bearer endpoint reference does not recompute from the "
                     "endpoint it publishes, so the referenced record is not resolved"
+                ]
+                if not target_resolved
+                else [
+                    "the generation link reference resolves, but the producer publishes "
+                    f"association_status={link.get('association_status')}; reference "
+                    "consistency is not proof that the session-to-generation relationship is "
+                    "established"
                 ]
             ),
         )
@@ -1258,6 +1281,7 @@ def audit_reference_integrity(
         )
         recomputed = _bearer_endpoint_reference(candidate.get("bearer_endpoint"), capture)
         endpoint_resolved = recomputed is not None and recomputed == target
+        candidate_established = candidate.get("association_status") == ESTABLISHED
         checks = [
             _check(CHECK_REFERENCE_UNIQUE, len(records) == 1),
             _check(CHECK_CONTEXT_PRESENT, context_resolved),
@@ -1279,15 +1303,38 @@ def audit_reference_integrity(
             candidate_completeness_status=candidate_status,
             proof_sufficiency_status=(
                 PROOF_SUFFICIENT
-                if context_resolved and binding_resolved and endpoint_resolved
+                if context_resolved
+                and binding_resolved
+                and endpoint_resolved
+                and len(records) == 1
+                and candidate_status == COMPLETE_COLLECTION
+                and candidate_established
+                and not _failed(checks)
                 else PROOF_INSUFFICIENT
             ),
             limitations=(
                 []
-                if context_resolved and binding_resolved and endpoint_resolved
+                if context_resolved
+                and binding_resolved
+                and endpoint_resolved
+                and candidate_status == COMPLETE_COLLECTION
+                and candidate_established
                 else [
                     "a closure candidate names a context, release transaction or bearer endpoint "
                     "that the supplied artifacts do not publish"
+                ]
+                if not (context_resolved and binding_resolved and endpoint_resolved)
+                else [
+                    "the closure candidate reference resolves, but "
+                    + (
+                        "its candidate collection is incomplete: "
+                        f"{candidate_status}"
+                        if candidate_status != COMPLETE_COLLECTION
+                        else "the producer publishes association_status="
+                        f"{candidate.get('association_status')}"
+                    )
+                    + "; reference consistency is not proof that the closure candidate is "
+                    "established and unique"
                 ]
             ),
         )
@@ -2239,6 +2286,13 @@ def _closure_endpoint_candidates(
     ]
 
 
+def _relationship_completeness(
+    candidate_completeness: str, link_completeness: str
+) -> str:
+    """A relationship needs both its candidate set and its link set to be complete."""
+    return _worst_status([candidate_completeness, link_completeness])
+
+
 def audit_session_generation_links(
     ledger: Ledger,
     narrative: dict[str, Any],
@@ -2300,9 +2354,23 @@ def audit_session_generation_links(
                     "the identity analysis publishes an established closure candidate whose "
                     "context-to-endpoint relationship it does not publish"
                 )
-            status = _status(checks, ambiguous=ambiguous, completeness=link_completeness)
+            record_completeness = (
+                _relationship_completeness(
+                    candidate_completeness, link_completeness
+                )
+                if published
+                else link_completeness
+            )
+            status = _status(
+                checks, ambiguous=ambiguous, completeness=record_completeness
+            )
             if not published and status == STATUS_VERIFIED:
                 status = STATUS_NOT_APPLICABLE
+            if published and record_completeness != COMPLETE_COLLECTION:
+                limitations.append(
+                    "a unique candidate-to-link relationship cannot be proved while a required "
+                    f"collection is incomplete: {record_completeness}"
+                )
             ledger.add(
                 CATEGORY_SESSION_GENERATION_LINK,
                 status,
@@ -2317,11 +2385,7 @@ def audit_session_generation_links(
                 capture_file=capture,
                 relationship_type=REL_SESSION_GENERATION,
                 checks=checks,
-                candidate_completeness_status=(
-                    _worst_status([candidate_completeness, link_completeness])
-                    if published
-                    else link_completeness
-                ),
+                candidate_completeness_status=record_completeness,
                 proof_sufficiency_status=(
                     PROOF_SUFFICIENT if status == STATUS_VERIFIED else PROOF_INSUFFICIENT
                 ),
@@ -2363,6 +2427,9 @@ def audit_session_generation_links(
                     else len(owners) == 1 and link_ok,
                 ),
             ]
+            record_completeness = _relationship_completeness(
+                candidate_completeness, link_completeness
+            )
             generation_path_limitations = (
                 []
                 if not (_failed(checks) and not link_ambiguous)
@@ -2371,13 +2438,19 @@ def audit_session_generation_links(
                     "chain the supplied identity analysis does not publish"
                 ]
             )
+            if record_completeness != COMPLETE_COLLECTION:
+                generation_path_limitations.append(
+                    "a proved-generation relationship cannot be independently verified while a "
+                    f"required collection is incomplete: {record_completeness}"
+                )
+            status = _status(
+                checks,
+                ambiguous=len(owners) > 1 or link_ambiguous,
+                completeness=record_completeness,
+            )
             ledger.add(
                 CATEGORY_SESSION_GENERATION_LINK,
-                _status(
-                    checks,
-                    ambiguous=len(owners) > 1 or link_ambiguous,
-                    completeness=link_completeness,
-                ),
+                status,
                 source_analysis="epc-release-narrative",
                 source_artifact_reference="epc-release-narrative:release_narratives",
                 source_subject_reference=record.get("release_narrative_reference"),
@@ -2387,13 +2460,9 @@ def audit_session_generation_links(
                 capture_file=capture,
                 relationship_type=REL_SESSION_GENERATION,
                 checks=checks,
-                candidate_completeness_status=_worst_status(
-                    [candidate_completeness, link_completeness]
-                ),
+                candidate_completeness_status=record_completeness,
                 proof_sufficiency_status=(
-                    PROOF_SUFFICIENT
-                    if not _failed(checks) and not link_ambiguous
-                    else PROOF_INSUFFICIENT
+                    PROOF_SUFFICIENT if status == STATUS_VERIFIED else PROOF_INSUFFICIENT
                 ),
                 limitations=generation_path_limitations,
             )
@@ -3083,8 +3152,65 @@ def _observed_subset_form(observation: dict[str, Any]) -> bool:
     return (
         observation.get("temporal_placement_status") == PLACEMENT_NOT_ESTABLISHED
         and observation.get("partition_scope") == SCOPE_SUBSET
+        and observation.get("partition_basis") == PARTITION_BASIS_FRAME_SUBSET
         and observation.get("partition_conserved") is False
     )
+
+
+def _partition_from_events(
+    events: list[dict[str, int]],
+    request: int | None,
+    confirmation: int | None,
+) -> dict[str, dict[str, Any]]:
+    """Re-derive each release-window partition from supplied GTP-U events."""
+    buckets: dict[str, list[dict[str, int]]] = {name: [] for name in PARTITIONS}
+    if request is not None and confirmation is not None:
+        for event in events:
+            frame = event["frame_number"]
+            if frame < request:
+                buckets[PARTITION_BEFORE].append(event)
+            elif frame <= confirmation:
+                buckets[PARTITION_PENDING].append(event)
+            else:
+                buckets[PARTITION_AFTER].append(event)
+    result: dict[str, dict[str, Any]] = {}
+    for name in PARTITIONS:
+        items = buckets[name]
+        result[name] = {
+            "g_pdu_count": len(items),
+            "payload_octets": sum(int(item.get("payload_octets") or 0) for item in items),
+            "first_frame": min(
+                (item["frame_number"] for item in items), default=None
+            ),
+            "last_frame": max((item["frame_number"] for item in items), default=None),
+        }
+    return result
+
+
+def _subset_event_reconciliation(
+    partitions: Any,
+    counts: dict[str, int],
+    octets: dict[str, int],
+    events: list[dict[str, int]],
+    request: int | None,
+    confirmation: int | None,
+) -> tuple[bool, bool, bool]:
+    """Published subset totals must equal the detailed events in each window."""
+    derived = _partition_from_events(events, request, confirmation)
+    counts_match = all(
+        counts[name] == derived[name]["g_pdu_count"] for name in PARTITIONS
+    )
+    octets_match = all(
+        octets[name] == derived[name]["payload_octets"] for name in PARTITIONS
+    )
+    frames_match = all(
+        _int(_partition_values(partitions, name).get("first_frame"))
+        == derived[name]["first_frame"]
+        and _int(_partition_values(partitions, name).get("last_frame"))
+        == derived[name]["last_frame"]
+        for name in PARTITIONS
+    )
+    return counts_match, octets_match, frames_match
 
 
 def _partition_span_ok(
@@ -3156,6 +3282,7 @@ def audit_temporal_partitions(
                 None if temporal_completeness != COMPLETE_COLLECTION else True,
             ),
         ]
+        subset_form = partitions is not None and _observed_subset_form(observation)
         limitations: list[str] = []
         if placement == PLACEMENT_ESTABLISHED:
             checks.extend(
@@ -3196,7 +3323,6 @@ def audit_temporal_partitions(
                         "conserved partition claim"
                     )
             else:
-                subset_form = _observed_subset_form(observation)
                 checks.append(_check(CHECK_PARTITION_CONVERVES, subset_form))
                 if not subset_form:
                     limitations.append(
@@ -3273,6 +3399,38 @@ def audit_temporal_partitions(
                     "one or more G-PDU frames are claimed by more than one temporal partition; "
                     "the conflict stays visible and no frame is assigned twice"
                 )
+            if subset_form:
+                if key is None:
+                    checks.append(_check(CHECK_PARTITION_CONVERVES, False))
+                    limitations.append(
+                        "the observed subset cannot be reconciled because the published stream "
+                        "identity does not resolve in the supplied S1-U artifact"
+                    )
+                else:
+                    counts_match, octets_match, frames_match = (
+                        _subset_event_reconciliation(
+                            partitions,
+                            counts,
+                            octets,
+                            frame_index.get(key, []),
+                            request,
+                            confirmation,
+                        )
+                    )
+                    checks.extend(
+                        [
+                            _check(CHECK_PARTITION_CONVERVES, counts_match),
+                            _check(CHECK_PARTITION_CONVERVES, octets_match),
+                            _check(CHECK_PARTITION_WINDOW, frames_match),
+                        ]
+                    )
+                    if not (counts_match and octets_match and frames_match):
+                        limitations.append(
+                            "the published observed subset does not reconcile with the detailed "
+                            "GTP-U events for this capture, directed S1-U stream, receiving "
+                            "endpoint and release window; no frame, packet or octet is "
+                            "interpolated"
+                        )
         status = _status(checks, completeness=temporal_completeness)
         if gtpu_events is None and not _failed(checks):
             status = STATUS_NOT_VERIFIABLE

@@ -439,6 +439,13 @@ gap and is never used as a finding of inconsistency. `VERIFIED_CONSISTENT` never
 means that bearer identity, packet delivery, network correctness or a
 forwarding-stop instant was independently proved.
 
+Reference resolution is not relationship proof. A session-to-generation or
+cross-interface identity record is proved only when the producer publishes
+`association_status = ESTABLISHED`, the link is unique and namespaced correctly,
+and both the candidate and link collections are complete. A resolvable reference
+with `NOT_ESTABLISHED`, `AMBIGUOUS`, a missing status or duplicate link records is
+reference-consistent but proof-insufficient.
+
 The audit resolves references inside their documented namespaces, with the
 capture as a mandatory component: hop-local context, release transaction, bearer
 endpoint, bearer generation, S1-U stream, closure candidate, narrative subject,
@@ -452,10 +459,13 @@ closes this release, and a generation ownership claim must be backed by exactly 
 internally consistent generation-scoped S1-U record with a direction that maps to
 its role and agrees with the stream. Frame partitions are audited for conservation,
 window boundaries, exclusive ownership and frame presence; a valid observed subset
-is preserved with insufficient complete-stream proof, while an unsupported
-complete-stream claim fails closed. No frame is interpolated and no aggregate
-count is divided. Producer accounting counts are re-stated unchanged, and any
-audit-derived total is labelled and never written back.
+is preserved with insufficient complete-stream proof and is independently
+reconciled against detailed GTP-U events for the same capture, directed S1-U
+stream, receiving endpoint and release window, while an unsupported complete-stream
+claim or unreconciled subset fails closed. Missing detailed events leave the subset
+preserved and explicitly not independently verifiable. No frame is interpolated
+and no aggregate count is divided. Producer accounting counts are re-stated
+unchanged, and any audit-derived total is labelled and never written back.
 
 Unresolved findings still produce a usable JSON ledger and a distinguishable audit
 status, so a finding is inspectable rather than aborting the run. The capability

@@ -2568,6 +2568,26 @@ def load_evidence_audit_model(root: Path):
     return module
 
 
+def load_release_narrative_model(root: Path):
+    path = (
+        root
+        / "skills"
+        / "domain"
+        / "epc-procedures"
+        / "scripts"
+        / "epc_release_narrative_model.py"
+    )
+    sys.path.insert(0, str(path.parent))
+    spec = importlib.util.spec_from_file_location(
+        "epc_release_narrative_model_validator", path
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 AUDIT_CAPTURE = "validator-a.pcap"
 AUDIT_CAPTURE_B = "validator-b.pcap"
 AUDIT_CONTEXT = "epc-session-context-va00000001"
@@ -3069,39 +3089,8 @@ def _audit_two_generation_scenario():
 
 
 def _audit_subset_scenario():
-    """A valid OBSERVED_SUBSET against a larger accepted aggregate."""
+    """A producer-generated OBSERVED_SUBSET against the larger accepted aggregate."""
     documents = _audit_scenario()
-    observation = documents["narrative"]["temporal_observations"][0]
-    observation.update(
-        {
-            "observed_g_pdu_count": 10,
-            "observed_payload_octets": 1000,
-            "temporal_placement_status": "TEMPORAL_PLACEMENT_NOT_ESTABLISHED",
-            "partition_basis": "FRAME_LEVEL_EVENTS_INCOMPLETE",
-            "partition_conserved": False,
-            "partition_scope": "OBSERVED_SUBSET",
-            "partitions": {
-                "before_release": {
-                    "g_pdu_count": 1,
-                    "payload_octets": 100,
-                    "first_frame": 100,
-                    "last_frame": 100,
-                },
-                "pending_release": {
-                    "g_pdu_count": 1,
-                    "payload_octets": 100,
-                    "first_frame": 202,
-                    "last_frame": 202,
-                },
-                "after_confirmation": {
-                    "g_pdu_count": 1,
-                    "payload_octets": 100,
-                    "first_frame": 210,
-                    "last_frame": 210,
-                },
-            },
-        }
-    )
     stream = documents["s1u"]["stream_observations"][0]
     stream["observed_g_pdu_packet_count"] = 10
     stream["observed_payload_byte_count"] = 1000
@@ -3120,16 +3109,6 @@ def _audit_subset_scenario():
         "conserved_g_pdu": True,
         "conserved_payload_octets": True,
     }
-    documents["narrative"]["temporal_accounting"] = {
-        "frame_level_evidence_supplied": True,
-        "observed_g_pdu_event_count": 3,
-        "assigned_to_release_window_count": 3,
-        "unassigned_g_pdu_event_count": 0,
-        "duplicate_assignment_count": 0,
-        "conserved": True,
-        "attributed_observation_count": 1,
-        "unattributed_observation_count": 0,
-    }
     documents["gtpu"] = [
         {
             "capture_file": AUDIT_CAPTURE,
@@ -3139,6 +3118,22 @@ def _audit_subset_scenario():
         }
         for frame in (100, 202, 210)
     ]
+    narrative_model = load_release_narrative_model(ROOT)
+    release = copy.deepcopy(documents["narrative"]["release_narratives"][0])
+    release["temporal_observation_references"] = []
+    observations, accounting, _limitations, _unbound = (
+        narrative_model.build_temporal_observations(
+            [release],
+            documents["s1u"],
+            documents["gtpu"],
+            documents["lifecycle"],
+            (True, None),
+        )
+    )
+    documents["narrative"]["release_narratives"] = [release]
+    documents["narrative"]["temporal_observations"] = observations
+    documents["narrative"]["temporal_observation_count"] = len(observations)
+    documents["narrative"]["temporal_accounting"] = accounting
     return documents
 
 
@@ -3301,6 +3296,50 @@ def _validate_evidence_audit(skill: Path, root: Path) -> list[str]:
         fail("evidence audit claimed complete-stream proof for an observed subset")
     if subset_result["audit_summary"]["inconsistent_count"]:
         fail("valid observed-subset evidence produced an inconsistency")
+    if (
+        subset["narrative"]["temporal_accounting"]["assigned_to_release_window_count"]
+        != 0
+        or subset["narrative"]["temporal_accounting"]["unassigned_g_pdu_event_count"]
+        != 3
+    ):
+        fail("producer-generated observed-subset accounting is not preserved")
+
+    # A truncated candidate set cannot support a unique candidate-to-link proof.
+    truncated_candidates = copy.deepcopy(documents)
+    truncated_candidates["identity"]["generation_closure_candidate_count"] = 2
+    truncated_candidates_result = _audit_run(model, truncated_candidates)
+    for record in _audit_of(
+        truncated_candidates_result, "SESSION_GENERATION_LINK"
+    ):
+        if record["audit_status"] != "SOURCE_TRUNCATED":
+            fail("candidate truncation did not downgrade a relationship record")
+        if record["proof_sufficiency_status"] != "INSUFFICIENT":
+            fail("candidate truncation still advertised sufficient relationship proof")
+
+    # Manipulated subset counts, octets or window assignment are contradictions.
+    manipulated: dict[str, dict] = {}
+    documents_count = copy.deepcopy(subset)
+    documents_count["narrative"]["temporal_observations"][0]["partitions"][
+        "before_release"
+    ]["g_pdu_count"] += 1
+    manipulated["count"] = documents_count
+    documents_octets = copy.deepcopy(subset)
+    documents_octets["narrative"]["temporal_observations"][0]["partitions"][
+        "pending_release"
+    ]["payload_octets"] += 50
+    manipulated["octets"] = documents_octets
+    documents_window = copy.deepcopy(subset)
+    partitions = documents_window["narrative"]["temporal_observations"][0]["partitions"]
+    partitions["before_release"]["g_pdu_count"] -= 1
+    partitions["pending_release"]["g_pdu_count"] += 1
+    manipulated["window"] = documents_window
+    for label, manipulated_documents in manipulated.items():
+        result = _audit_run(model, manipulated_documents)
+        if (
+            _audit_of(result, "TEMPORAL_FRAME_PARTITION")[0]["audit_status"]
+            != "INCONSISTENT"
+        ):
+            fail(f"manipulated subset {label} was not independently reconciled")
 
     # An unsupported complete-stream claim stays rejected.
     wrong_scope = copy.deepcopy(subset)
@@ -3331,6 +3370,19 @@ def _validate_evidence_audit(skill: Path, root: Path) -> list[str]:
         if record["source_analysis"] == "epc-release-narrative"
     ):
         fail("evidence audit did not reject the unestablished link at the link record")
+    unestablished_reference = [
+        record
+        for record in _audit_of(unestablished_result, "REFERENCE_INTEGRITY")
+        if record["relationship_type"] == "SESSION_CONTEXT_TO_BEARER_GENERATION"
+    ]
+    if (
+        len(unestablished_reference) != 1
+        or unestablished_reference[0]["audit_status"] != "VERIFIED_CONSISTENT"
+        or unestablished_reference[0]["proof_sufficiency_status"] != "INSUFFICIENT"
+    ):
+        fail(
+            "reference consistency was not separated from established relationship proof"
+        )
 
     # A generation link in the wrong relationship namespace never closes a generation.
     wrong_namespace = copy.deepcopy(documents)
@@ -3600,6 +3652,89 @@ def _validate_evidence_audit(skill: Path, root: Path) -> list[str]:
     ):
         fail(
             "mutation restore failed: the record-existence-only link gate stayed active"
+        )
+
+    # Mutation check 7: remove candidate completeness from relationship proof.
+    original_relationship_completeness = model._relationship_completeness
+    try:
+        model._relationship_completeness = lambda _candidate, link: link
+        mutated = _audit_run(model, truncated_candidates)
+    finally:
+        model._relationship_completeness = original_relationship_completeness
+    mutated_link = next(
+        record
+        for record in _audit_of(mutated, "SESSION_GENERATION_LINK")
+        if record["source_analysis"] == "epc-session-identity"
+    )
+    if mutated_link["audit_status"] != "VERIFIED_CONSISTENT":
+        fail(
+            "mutation check failed: removing candidate completeness from relationship proof "
+            "was not detected"
+        )
+    restored_link = next(
+        record
+        for record in _audit_of(
+            _audit_run(model, truncated_candidates), "SESSION_GENERATION_LINK"
+        )
+        if record["source_analysis"] == "epc-session-identity"
+    )
+    if restored_link["audit_status"] != "SOURCE_TRUNCATED":
+        fail(
+            "mutation restore failed: candidate completeness stayed removed from relationship "
+            "proof"
+        )
+
+    # Mutation check 8: restore record-existence-only relationship proof.
+    original_relationship_gate = model._established_session_generation_link
+    try:
+        model._established_session_generation_link = (
+            lambda *_args, **_kwargs: ({}, False, True)
+        )
+        mutated = _audit_run(model, unestablished)
+    finally:
+        model._established_session_generation_link = original_relationship_gate
+    if (
+        _audit_closure_for(mutated, AUDIT_GENERATION)["audit_status"]
+        != "VERIFIED_CONSISTENT"
+    ):
+        fail(
+            "mutation check failed: record-existence-only relationship proof was not detected"
+        )
+    if (
+        _audit_closure_for(_audit_run(model, unestablished), AUDIT_GENERATION)[
+            "audit_status"
+        ]
+        != "INCONSISTENT"
+    ):
+        fail(
+            "mutation restore failed: record-existence-only relationship proof stayed active"
+        )
+
+    # Mutation check 9: remove detailed frame-event reconciliation for subsets.
+    original_reconciliation = model._subset_event_reconciliation
+    try:
+        model._subset_event_reconciliation = (
+            lambda *_args, **_kwargs: (True, True, True)
+        )
+        mutated = _audit_run(model, documents_count)
+    finally:
+        model._subset_event_reconciliation = original_reconciliation
+    if (
+        _audit_of(mutated, "TEMPORAL_FRAME_PARTITION")[0]["audit_status"]
+        != "VERIFIED_CONSISTENT"
+    ):
+        fail(
+            "mutation check failed: removing detailed frame-event reconciliation was not "
+            "detected"
+        )
+    if (
+        _audit_of(_audit_run(model, documents_count), "TEMPORAL_FRAME_PARTITION")[0][
+            "audit_status"
+        ]
+        != "INCONSISTENT"
+    ):
+        fail(
+            "mutation restore failed: detailed frame-event reconciliation stayed removed"
         )
 
     # Determinism.
