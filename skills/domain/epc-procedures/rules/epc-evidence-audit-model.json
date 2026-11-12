@@ -186,6 +186,8 @@
     "not_established": "an aggregate stream count is published whole and never divided across windows; without detailed GTP-U events the placement stays NOT_INDEPENDENTLY_VERIFIABLE",
     "observed_subset": "a TEMPORAL_PLACEMENT_NOT_ESTABLISHED observation with OBSERVED_SUBSET scope, FRAME_LEVEL_EVENTS_INCOMPLETE basis, a non-conserved partition claim and partition totals not exceeding the aggregate is valid observed evidence; the audit preserves it, publishes insufficient complete-stream proof and never reports it as inconsistent, but reconciles each partition against detailed events when they are supplied and reports a mismatch as INCONSISTENT",
     "duplicate_ownership": "a frame claimed by more than one release narrative is counted in no partition and no owner is selected; the conflict fails closed only on the temporal observations that actually claim the conflicting frame, never on an unrelated stream or capture",
+    "duplicate_assignment_count": "the number of distinct capture-scoped frame identities claimed by more than one established temporal observation; conflicted_partition_count counts the observations that actually claim those frames; both derive from structured conflict evidence, never from limitation-string counts",
+    "capture_scoped_reference": "an equal textual temporal observation reference in another capture is a different claimant and never inherits another capture's conflict",
     "confirmation_frame": "a control-plane confirmation anchor; never the forwarding-stop instant",
     "forbidden": [
       "interpolating a missing frame",

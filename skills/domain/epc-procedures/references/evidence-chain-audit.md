@@ -235,7 +235,12 @@ observed temporal      = assigned + unassigned + duplicate assignments
 
 Any audit-derived total is labelled `audit-derived` and is never written back into a
 producer count. A stream is never double-counted because it belongs to a
-cross-interface narrative group.
+cross-interface narrative group. `partition_duplicate_assignment_count` counts
+distinct capture-scoped frame identities claimed by more than one established
+temporal observation, and `conflicted_partition_count` counts the observations that
+actually claim those frames. Both derive from structured conflict evidence, never
+from limitation-text counts. Equal textual observation references in different
+captures remain isolated claimants and never inherit another capture's conflict.
 
 ## Determinism and Privacy
 

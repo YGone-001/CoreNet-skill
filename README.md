@@ -140,6 +140,25 @@ network health.
 See [docs/ANALYSIS-WORKFLOW.md](docs/ANALYSIS-WORKFLOW.md) for prerequisites, exit
 codes, the report contract, privacy rules and the EPC/IMS roadmap.
 
+## Review EPC evidence
+
+`scripts/epc-evidence-review.py` builds a bounded, reference-oriented Review Pack
+from already-published EPC analysis artifacts, or from an explicit local capture
+replay through the accepted unified EPC pipeline.
+
+```bash
+python3 scripts/epc-evidence-review.py \
+  --artifacts-dir /data/epc-artifacts \
+  --output-dir /tmp/epc-review-pack
+```
+
+It writes `manifest.json`, `evidence-review.json`, `evidence-review.md`,
+`evidence-index.json` and `replay-verification.json`. Unresolved references stay
+explicit, duplicate ownership stays scoped to actual claimants, and no producer
+count is rewritten. `--capture` enables local replay, while `--compare-a` and
+`--compare-b` compare two independently produced Review Packs without treating
+different evidence as equal.
+
 ## Repository structure
 
 ```text

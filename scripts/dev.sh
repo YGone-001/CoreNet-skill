@@ -55,6 +55,7 @@ VALIDATOR_SCRIPTS=(
   scripts/validate-nas-eps.py
   scripts/validate-gtpv2.py
   scripts/validate-epc-procedures.py
+  scripts/validate-epc-evidence-review.py
   scripts/validate-epc-failure-boundary.py
   scripts/validate-ngap.py
   scripts/validate-nas-5gs.py

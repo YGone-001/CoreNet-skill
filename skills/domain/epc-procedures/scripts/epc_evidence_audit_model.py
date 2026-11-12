@@ -3142,12 +3142,19 @@ def duplicate_frame_claims(
 
 def _observation_conflict_scope(
     conflicts: dict[tuple[str, int], list[str]],
+    capture: str,
     reference: Any,
 ) -> bool:
-    """A duplicate-frame conflict applies only to its actual observation claimants."""
+    """A duplicate-frame conflict applies only within its capture to actual claimants."""
     if not isinstance(reference, str):
         return False
-    return any(reference in owners for owners in conflicts.values())
+    return any(
+        isinstance(key, tuple)
+        and len(key) == 2
+        and key[0] == capture
+        and reference in owners
+        for key, owners in conflicts.items()
+    )
 
 
 def _partition_values(partitions: Any, name: str) -> dict[str, Any]:
@@ -3270,7 +3277,9 @@ def audit_temporal_partitions(
     for observation in observations:
         capture = str(observation.get("capture_file"))
         reference = observation.get("temporal_observation_reference")
-        participating_in_conflict = _observation_conflict_scope(conflicts, reference)
+        participating_in_conflict = _observation_conflict_scope(
+            conflicts, capture, reference
+        )
         duplicate_claim = (
             bool(observation.get("duplicate_frame_ownership")) or participating_in_conflict
         )
@@ -3467,6 +3476,7 @@ def audit_temporal_partitions(
                 ]
             ),
         )
+    return conflicts
 
 
 # ---------------------------------------------------------------------------
@@ -3834,6 +3844,7 @@ def build_temporal_integrity_summary(
     narrative: dict[str, Any],
     records: list[dict[str, Any]],
     gtpu_events: list[dict[str, Any]] | None,
+    conflicts: dict[tuple[str, int], list[str]],
 ) -> dict[str, Any]:
     observations = _records(narrative, "temporal_observations")
     temporal_records = [
@@ -3881,15 +3892,7 @@ def build_temporal_integrity_summary(
             for record in temporal_records
             if record.get("audit_status") == STATUS_NOT_VERIFIABLE
         ),
-        "partition_duplicate_assignment_count": sum(
-            len(record.get("limitations") or [])
-            for record in temporal_records
-            if any(
-                check.get("check") == CHECK_FRAME_EXCLUSIVE
-                and check.get("result") == CHECK_FAIL
-                for check in record.get("consistency_checks") or []
-            )
-        ),
+        "partition_duplicate_assignment_count": len(conflicts),
     }
 
 
@@ -4111,7 +4114,7 @@ def analyze(
     audit_generation_closure(ledger, narrative, index, completeness)
     audit_generation_stream_attribution(ledger, narrative, s1u, index, completeness)
     audit_narrative_stages(ledger, narrative)
-    audit_temporal_partitions(
+    temporal_conflicts = audit_temporal_partitions(
         ledger, narrative, s1u, index, completeness, gtpu_events
     )
     audit_accounting(ledger, lifecycle, narrative, s1u, completeness, gtpu_events)
@@ -4121,7 +4124,7 @@ def analyze(
     reference_summary = build_reference_integrity_summary(records)
     capture_summary = build_capture_scope_summary(records)
     temporal_summary = build_temporal_integrity_summary(
-        narrative, records, gtpu_events
+        narrative, records, gtpu_events, temporal_conflicts
     )
     accounting_summary = build_accounting_integrity_summary(
         lifecycle, narrative, s1u, records, gtpu_events

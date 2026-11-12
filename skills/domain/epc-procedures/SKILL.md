@@ -467,8 +467,10 @@ reconciled against detailed GTP-U events for the same capture, directed S1-U
 stream, receiving endpoint and release window, while an unsupported complete-stream
 claim or unreconciled subset fails closed. Missing detailed events leave the subset
 preserved and explicitly not independently verifiable. No frame is interpolated
-and no aggregate count is divided. Producer accounting counts are re-stated
-unchanged, and any audit-derived total is labelled and never written back.
+and no aggregate count is divided. Duplicate-ownership summary counts derive from
+structured conflict evidence, not limitation text, and a conflict never crosses a
+capture boundary even when reference text is equal. Producer accounting counts are
+re-stated unchanged, and any audit-derived total is labelled and never written back.
 
 Unresolved findings still produce a usable JSON ledger and a distinguishable audit
 status, so a finding is inspectable rather than aborting the run. The capability

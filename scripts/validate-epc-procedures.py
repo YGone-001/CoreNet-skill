@@ -3904,7 +3904,7 @@ def _validate_evidence_audit(skill: Path, root: Path) -> list[str]:
     original_conflict_scope = model._observation_conflict_scope
     try:
         model._observation_conflict_scope = (
-            lambda conflicts, _reference: bool(conflicts)
+            lambda conflicts, _capture, _reference: bool(conflicts)
         )
         mutated = _audit_run(model, conflict)
     finally:

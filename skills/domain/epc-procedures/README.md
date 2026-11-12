@@ -44,6 +44,14 @@ python3 scripts/corenet-analyze.py --capture capture.pcap --domains epc \
   --work-dir /tmp/corenet-work --output-dir /tmp/corenet-report
 ```
 
+Build an operator-facing Review Pack from the published EPC artifacts:
+
+```bash
+python3 ../../../scripts/epc-evidence-review.py \
+  --artifacts-dir /tmp/corenet-work/epc/runs/<run> \
+  --output-dir /tmp/epc-review-pack
+```
+
 ## Session control
 
 ```bash
