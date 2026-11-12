@@ -1171,6 +1171,125 @@ def two_capture_documents() -> dict:
     return first
 
 
+def temporal_conflict_partitions(
+    count: int, octets: int, first: int | None, last: int | None
+) -> dict:
+    return {
+        "before_release": {
+            "g_pdu_count": count,
+            "payload_octets": octets,
+            "first_frame": first,
+            "last_frame": last,
+        },
+        "pending_release": {
+            "g_pdu_count": 0,
+            "payload_octets": 0,
+            "first_frame": None,
+            "last_frame": None,
+        },
+        "after_confirmation": {
+            "g_pdu_count": 0,
+            "payload_octets": 0,
+            "first_frame": None,
+            "last_frame": None,
+        },
+    }
+
+
+def temporal_conflict_observation(
+    reference: str,
+    stream_reference: str,
+    frames: tuple[int, int],
+    *,
+    capture: str = CAPTURE_A,
+    direction: str = "DOWNLINK",
+) -> dict:
+    first, last = frames
+    return observation(
+        capture=capture,
+        direction=direction,
+        stream_reference=stream_reference,
+        observed_count=2,
+        observed_octets=200,
+        partitions=temporal_conflict_partitions(2, 200, first, last),
+        overrides={
+            "temporal_observation_reference": reference,
+            "first_observed_frame": first,
+            "last_observed_frame": last,
+            "release_request_frame": last + 1,
+            "release_confirmation_frame": last + 2,
+            "duplicate_frame_ownership": False,
+        },
+    )
+
+
+def temporal_conflict_release(reference: str, transaction: str, temporal: str) -> dict:
+    record = release(temporal_references=[temporal], transaction=transaction)
+    record["release_narrative_reference"] = reference
+    return record
+
+
+def duplicate_ownership_documents() -> dict:
+    """One capture, two directed streams, three complete temporal observations.
+
+    A1 and A2 claim the same Stream-A frames; B1 claims independent Stream-B
+    frames and must remain independently valid.
+    """
+    documents = scenario()
+    stream_a = s1u_stream(stream_reference="stream-a")
+    stream_a.update(
+        {
+            "first_frame": 100,
+            "last_frame": 101,
+            "observed_g_pdu_packet_count": 2,
+            "observed_payload_byte_count": 200,
+        }
+    )
+    stream_b = s1u_stream(stream_reference="stream-b")
+    stream_b.update(
+        {
+            "teid": 78,
+            "first_frame": 300,
+            "last_frame": 301,
+            "observed_g_pdu_packet_count": 2,
+            "observed_payload_byte_count": 200,
+        }
+    )
+    documents["s1u"]["stream_observations"] = [stream_a, stream_b]
+    documents["s1u"]["stream_count"] = 2
+    documents["s1u"]["observed_g_pdu_packet_count"] = 4
+    documents["s1u"]["observed_payload_byte_count"] = 400
+    documents["narrative"]["temporal_observations"] = [
+        temporal_conflict_observation("obs-a1", "stream-a", (100, 101)),
+        temporal_conflict_observation("obs-a2", "stream-a", (100, 101)),
+        temporal_conflict_observation("obs-b1", "stream-b", (300, 301)),
+    ]
+    documents["narrative"]["temporal_observation_count"] = 3
+    documents["narrative"]["release_narratives"] = [
+        temporal_conflict_release("rel-1", TX, "obs-a1"),
+        temporal_conflict_release("rel-2", TX_OTHER, "obs-a2"),
+        temporal_conflict_release("rel-3", "tx-3", "obs-b1"),
+    ]
+    documents["narrative"]["release_narrative_count"] = 3
+    documents["narrative"]["temporal_accounting"] = {
+        "frame_level_evidence_supplied": True,
+        "observed_g_pdu_event_count": 4,
+        "assigned_to_release_window_count": 0,
+        "unassigned_g_pdu_event_count": 4,
+        "duplicate_assignment_count": 0,
+        "conserved": True,
+        "attributed_observation_count": 3,
+        "unattributed_observation_count": 0,
+    }
+    documents["gtpu"] = [
+        gtpu_event(100),
+        gtpu_event(101),
+        gtpu_event(300, teid=78),
+        gtpu_event(301, teid=78),
+    ]
+    return documents
+
+
 def audit(documents: dict) -> dict:
     return model.analyze(
         documents["identity"],
@@ -2817,6 +2936,287 @@ class EvidenceAuditGenerationLinkProofTest(unittest.TestCase):
             )
         )
         self.assertEqual(self.closure(result)["audit_status"], "VERIFIED_CONSISTENT")
+
+
+class EvidenceAuditDuplicateOwnershipScopeTest(unittest.TestCase):
+    def observation_record(self, result: dict, reference: str) -> dict:
+        return record_for(result, "TEMPORAL_FRAME_PARTITION", reference)
+
+    def assert_conflicted(self, record: dict) -> None:
+        self.assertEqual(record["audit_status"], "INCONSISTENT")
+        self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
+        self.assertEqual(check_result(record, "frame_ownership_exclusive"), "FAIL")
+
+    def assert_verified(self, record: dict) -> None:
+        self.assertEqual(record["audit_status"], "VERIFIED_CONSISTENT")
+        self.assertEqual(record["proof_sufficiency_status"], "SUFFICIENT")
+        self.assertEqual(check_result(record, "frame_ownership_exclusive"), "PASS")
+
+    def decisions(self, result: dict) -> dict:
+        return {
+            reference: (
+                self.observation_record(result, reference)["audit_status"],
+                check_result(
+                    self.observation_record(result, reference),
+                    "frame_ownership_exclusive",
+                ),
+            )
+            for reference in ("obs-a1", "obs-a2", "obs-b1")
+        }
+
+    def test_k01_conflicting_claimants_fail_and_unrelated_stream_remains_valid(self) -> None:
+        result = audit(duplicate_ownership_documents())
+        self.assert_conflicted(self.observation_record(result, "obs-a1"))
+        self.assert_conflicted(self.observation_record(result, "obs-a2"))
+        self.assert_verified(self.observation_record(result, "obs-b1"))
+        summary = result["temporal_integrity_summary"]
+        self.assertEqual(summary["conflicted_partition_count"], 2)
+        self.assertEqual(summary["partition_duplicate_assignment_count"], 2)
+        self.assertEqual(summary["audit_verified_placement_count"], 1)
+        self.assertGreaterEqual(result["audit_summary"]["inconsistent_count"], 2)
+
+    def test_k02_reordering_conflict_claimants_preserves_decisions(self) -> None:
+        documents = duplicate_ownership_documents()
+        baseline = self.decisions(audit(documents))
+        documents["narrative"]["temporal_observations"] = [
+            documents["narrative"]["temporal_observations"][index]
+            for index in (2, 1, 0)
+        ]
+        documents["narrative"]["release_narratives"] = [
+            documents["narrative"]["release_narratives"][index]
+            for index in (2, 1, 0)
+        ]
+        self.assertEqual(self.decisions(audit(documents)), baseline)
+
+    def test_k03_reordering_source_records_preserves_decisions(self) -> None:
+        documents = duplicate_ownership_documents()
+        baseline = self.decisions(audit(documents))
+        documents["s1u"]["stream_observations"] = list(
+            reversed(documents["s1u"]["stream_observations"])
+        )
+        documents["gtpu"] = list(reversed(documents["gtpu"]))
+        self.assertEqual(self.decisions(audit(documents)), baseline)
+
+    def test_k04_cross_capture_frame_numbers_do_not_share_ownership(self) -> None:
+        documents = duplicate_ownership_documents()
+        stream_b = documents["s1u"]["stream_observations"][1]
+        stream_b.update(
+            {
+                "capture_file": CAPTURE_B,
+                "first_frame": 100,
+                "last_frame": 101,
+            }
+        )
+        observation_b = documents["narrative"]["temporal_observations"][2]
+        observation_b.update(
+            {
+                "capture_file": CAPTURE_B,
+                "first_observed_frame": 100,
+                "last_observed_frame": 101,
+                "release_request_frame": 102,
+                "release_confirmation_frame": 103,
+                "partitions": temporal_conflict_partitions(2, 200, 100, 101),
+            }
+        )
+        documents["gtpu"] = [
+            gtpu_event(100),
+            gtpu_event(101),
+            gtpu_event(100, capture=CAPTURE_B, teid=78),
+            gtpu_event(101, capture=CAPTURE_B, teid=78),
+        ]
+        result = audit(documents)
+        self.assert_conflicted(self.observation_record(result, "obs-a1"))
+        self.assert_conflicted(self.observation_record(result, "obs-a2"))
+        self.assert_verified(self.observation_record(result, "obs-b1"))
+
+    def test_k05_equal_teids_on_distinct_directed_streams_do_not_merge(self) -> None:
+        documents = duplicate_ownership_documents()
+        stream_b = documents["s1u"]["stream_observations"][1]
+        stream_b.update(
+            {
+                "direction": "UPLINK",
+                "teid": 77,
+                "outer_source": "10.0.0.40",
+                "outer_destination": "10.0.0.20",
+                "matched_endpoint_role": "sgw_s1u",
+            }
+        )
+        documents["narrative"]["temporal_observations"][2]["direction"] = "UPLINK"
+        documents["gtpu"] = [
+            gtpu_event(100),
+            gtpu_event(101),
+            gtpu_event(300, direction="UPLINK", teid=77),
+            gtpu_event(301, direction="UPLINK", teid=77),
+        ]
+        result = audit(documents)
+        self.assert_conflicted(self.observation_record(result, "obs-a1"))
+        self.assert_conflicted(self.observation_record(result, "obs-a2"))
+        self.assert_verified(self.observation_record(result, "obs-b1"))
+
+    def test_k06_same_stream_same_frames_are_still_detected(self) -> None:
+        result = audit(duplicate_ownership_documents())
+        for reference in ("obs-a1", "obs-a2"):
+            record = self.observation_record(result, reference)
+            self.assert_conflicted(record)
+            self.assertIn(
+                "another temporal observation",
+                " ".join(record.get("limitations") or []),
+            )
+
+    def test_k07_duplicate_ownership_is_never_silently_repaired(self) -> None:
+        documents = duplicate_ownership_documents()
+        result = audit(documents)
+        for reference in ("obs-a1", "obs-a2"):
+            self.assert_conflicted(self.observation_record(result, reference))
+        self.assertEqual(
+            result["temporal_integrity_summary"][
+                "partition_duplicate_assignment_count"
+            ],
+            2,
+        )
+        for observation_record in documents["narrative"]["temporal_observations"]:
+            self.assertEqual(
+                observation_record["partitions"]["before_release"]["first_frame"]
+                is not None,
+                True,
+            )
+
+    def test_k08_source_accounting_remains_unchanged(self) -> None:
+        documents = duplicate_ownership_documents()
+        lifecycle_before = copy.deepcopy(documents["lifecycle"]["accounting"])
+        temporal_before = copy.deepcopy(documents["narrative"]["temporal_accounting"])
+        result = audit(documents)
+        self.assertEqual(
+            result["accounting_integrity_summary"]["producer_lifecycle"],
+            lifecycle_before,
+        )
+        self.assertEqual(documents["lifecycle"]["accounting"], lifecycle_before)
+        self.assertEqual(
+            documents["narrative"]["temporal_accounting"], temporal_before
+        )
+
+    def test_k09_repeated_conflict_audit_is_byte_identical(self) -> None:
+        documents = duplicate_ownership_documents()
+        first = json.dumps(audit(documents), sort_keys=True)
+        second = json.dumps(audit(documents), sort_keys=True)
+        self.assertEqual(first, second)
+
+    def test_k10_observed_subset_beside_unrelated_conflict_stays_valid(self) -> None:
+        documents = duplicate_ownership_documents()
+        observation_b = documents["narrative"]["temporal_observations"][2]
+        observation_b.update(
+            {
+                "temporal_placement_status": model.PLACEMENT_NOT_ESTABLISHED,
+                "partition_scope": "OBSERVED_SUBSET",
+                "partition_basis": "FRAME_LEVEL_EVENTS_INCOMPLETE",
+                "partition_conserved": False,
+                "observed_g_pdu_count": 10,
+                "observed_payload_octets": 1000,
+                "partitions": temporal_conflict_partitions(2, 200, 300, 301),
+            }
+        )
+        result = audit(documents)
+        self.assert_conflicted(self.observation_record(result, "obs-a1"))
+        self.assert_conflicted(self.observation_record(result, "obs-a2"))
+        record = self.observation_record(result, "obs-b1")
+        self.assertEqual(record["audit_status"], "VERIFIED_CONSISTENT")
+        self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
+        self.assertEqual(check_result(record, "frame_ownership_exclusive"), "PASS")
+
+    def test_k11_no_duplicate_ownership_anywhere_is_verified(self) -> None:
+        documents = duplicate_ownership_documents()
+        documents["narrative"]["temporal_observations"] = [
+            documents["narrative"]["temporal_observations"][0],
+            documents["narrative"]["temporal_observations"][2],
+        ]
+        documents["narrative"]["temporal_observation_count"] = 2
+        documents["narrative"]["release_narratives"] = [
+            documents["narrative"]["release_narratives"][0],
+            documents["narrative"]["release_narratives"][2],
+        ]
+        documents["narrative"]["release_narrative_count"] = 2
+        result = audit(documents)
+        self.assert_verified(self.observation_record(result, "obs-a1"))
+        self.assert_verified(self.observation_record(result, "obs-b1"))
+        self.assertEqual(
+            result["temporal_integrity_summary"]["conflicted_partition_count"], 0
+        )
+
+    def test_k12_same_capture_distinct_frames_remain_independent(self) -> None:
+        documents = duplicate_ownership_documents()
+        documents["narrative"]["temporal_observations"] = [
+            documents["narrative"]["temporal_observations"][0],
+            documents["narrative"]["temporal_observations"][2],
+        ]
+        documents["narrative"]["temporal_observation_count"] = 2
+        documents["narrative"]["release_narratives"] = [
+            documents["narrative"]["release_narratives"][0],
+            documents["narrative"]["release_narratives"][2],
+        ]
+        documents["narrative"]["release_narrative_count"] = 2
+        result = audit(documents)
+        first = self.observation_record(result, "obs-a1")
+        second = self.observation_record(result, "obs-b1")
+        self.assert_verified(first)
+        self.assert_verified(second)
+
+    def test_k13_multiple_nonconflicting_observations_are_verified(self) -> None:
+        documents = duplicate_ownership_documents()
+        stream_c = s1u_stream(stream_reference="stream-c")
+        stream_c.update(
+            {
+                "teid": 79,
+                "first_frame": 500,
+                "last_frame": 501,
+                "observed_g_pdu_packet_count": 2,
+                "observed_payload_byte_count": 200,
+            }
+        )
+        documents["s1u"]["stream_observations"].append(stream_c)
+        documents["s1u"]["stream_count"] = 3
+        documents["s1u"]["observed_g_pdu_packet_count"] = 6
+        documents["s1u"]["observed_payload_byte_count"] = 600
+        documents["lifecycle"]["accounting"] = {
+            "aggregate_g_pdu_count": 6,
+            "attributed_g_pdu_count": 6,
+            "unresolved_g_pdu_count": 0,
+            "aggregate_payload_octets": 600,
+            "attributed_payload_octets": 600,
+            "unresolved_payload_octets": 0,
+            "conserved_g_pdu": True,
+            "conserved_payload_octets": True,
+        }
+        documents["narrative"]["temporal_observations"] = [
+            documents["narrative"]["temporal_observations"][0],
+            documents["narrative"]["temporal_observations"][2],
+            temporal_conflict_observation("obs-c1", "stream-c", (500, 501)),
+        ]
+        documents["narrative"]["temporal_observation_count"] = 3
+        documents["narrative"]["release_narratives"] = [
+            documents["narrative"]["release_narratives"][0],
+            documents["narrative"]["release_narratives"][2],
+            temporal_conflict_release("rel-4", "tx-4", "obs-c1"),
+        ]
+        documents["narrative"]["release_narrative_count"] = 3
+        documents["gtpu"] += [
+            gtpu_event(500, teid=79),
+            gtpu_event(501, teid=79),
+        ]
+        result = audit(documents)
+        for reference in ("obs-a1", "obs-b1", "obs-c1"):
+            self.assert_verified(self.observation_record(result, reference))
+        self.assertEqual(
+            result["temporal_integrity_summary"]["conflicted_partition_count"], 0
+        )
+
+    def test_k14_producer_conflict_flag_is_still_fail_closed(self) -> None:
+        documents = duplicate_ownership_documents()
+        documents["narrative"]["temporal_observations"][2][
+            "duplicate_frame_ownership"
+        ] = True
+        result = audit(documents)
+        self.assert_conflicted(self.observation_record(result, "obs-b1"))
+        self.assert_conflicted(self.observation_record(result, "obs-a1"))
 
 
 if __name__ == "__main__":

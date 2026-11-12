@@ -391,8 +391,11 @@ frame-level GTP-U events the observation publishes
 the observed frames reproduce the accepted aggregate count and payload octets; a
 bounded observed subset remains valid observed evidence with insufficient
 complete-stream proof, while a contradictory complete-stream claim or duplicate
-frame ownership fails closed. A G-PDU frame is counted in at most one partition of
-one narrative.
+frame ownership fails closed. A duplicate frame-ownership conflict fails closed only
+on the temporal observations that actually claim the conflicting frame; an
+independent observation on another directed stream or capture keeps its own
+verified consistency. A G-PDU frame is counted in at most one partition of one
+narrative.
 
 `release_effective_frame_proven` is always `false`, `boundary_selection_status` is
 `NOT_APPLICABLE` and `first_abnormal_boundary` is `null`: a release narrative is

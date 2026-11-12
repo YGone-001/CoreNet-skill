@@ -3137,6 +3137,122 @@ def _audit_subset_scenario():
     return documents
 
 
+AUDIT_STREAM_B = "epc-s1u-stream-vb00000002"
+AUDIT_TEMPORAL_1 = "epc-release-temporal-vb00000001"
+AUDIT_TEMPORAL_2 = "epc-release-temporal-vb00000002"
+AUDIT_TEMPORAL_3 = "epc-release-temporal-vb00000003"
+AUDIT_RELEASE_1 = "epc-release-narrative-vb00000001"
+AUDIT_RELEASE_2 = "epc-release-narrative-vb00000002"
+AUDIT_RELEASE_3 = "epc-release-narrative-vb00000003"
+
+
+def _audit_conflict_scenario():
+    """Same capture, two directed streams, three complete temporal observations."""
+    documents = _audit_scenario()
+    capture = AUDIT_CAPTURE
+    stream_a = documents["s1u"]["stream_observations"][0]
+    stream_a.update(
+        {
+            "first_frame": 100,
+            "last_frame": 101,
+            "observed_g_pdu_packet_count": 2,
+            "observed_payload_byte_count": 200,
+        }
+    )
+    stream_b = copy.deepcopy(stream_a)
+    stream_b.update(
+        {
+            "stream_reference": AUDIT_STREAM_B,
+            "teid": 78,
+            "first_frame": 300,
+            "last_frame": 301,
+            "observed_g_pdu_packet_count": 2,
+            "observed_payload_byte_count": 200,
+        }
+    )
+    documents["s1u"]["stream_observations"] = [stream_a, stream_b]
+    documents["s1u"]["stream_count"] = 2
+    documents["s1u"]["observed_g_pdu_packet_count"] = 4
+    documents["s1u"]["observed_payload_byte_count"] = 400
+
+    def temporal(reference, stream, first, last):
+        record = copy.deepcopy(documents["narrative"]["temporal_observations"][0])
+        record.update(
+            {
+                "temporal_observation_reference": reference,
+                "stream_reference": stream,
+                "observed_g_pdu_count": 2,
+                "observed_payload_octets": 200,
+                "first_observed_frame": first,
+                "last_observed_frame": last,
+                "release_request_frame": last + 1,
+                "release_confirmation_frame": last + 2,
+                "partitions": {
+                    "before_release": {
+                        "g_pdu_count": 2,
+                        "payload_octets": 200,
+                        "first_frame": first,
+                        "last_frame": last,
+                    },
+                    "pending_release": {
+                        "g_pdu_count": 0,
+                        "payload_octets": 0,
+                        "first_frame": None,
+                        "last_frame": None,
+                    },
+                    "after_confirmation": {
+                        "g_pdu_count": 0,
+                        "payload_octets": 0,
+                        "first_frame": None,
+                        "last_frame": None,
+                    },
+                },
+                "duplicate_frame_ownership": False,
+            }
+        )
+        return record
+
+    documents["narrative"]["temporal_observations"] = [
+        temporal(AUDIT_TEMPORAL_1, AUDIT_STREAM, 100, 101),
+        temporal(AUDIT_TEMPORAL_2, AUDIT_STREAM, 100, 101),
+        temporal(AUDIT_TEMPORAL_3, AUDIT_STREAM_B, 300, 301),
+    ]
+    documents["narrative"]["temporal_observation_count"] = 3
+
+    def release(reference, temporal_reference):
+        record = copy.deepcopy(documents["narrative"]["release_narratives"][0])
+        record["release_narrative_reference"] = reference
+        record["temporal_observation_references"] = [temporal_reference]
+        return record
+
+    documents["narrative"]["release_narratives"] = [
+        release(AUDIT_RELEASE_1, AUDIT_TEMPORAL_1),
+        release(AUDIT_RELEASE_2, AUDIT_TEMPORAL_2),
+        release(AUDIT_RELEASE_3, AUDIT_TEMPORAL_3),
+    ]
+    documents["narrative"]["release_narrative_count"] = 3
+    documents["narrative"]["temporal_accounting"] = {
+        "frame_level_evidence_supplied": True,
+        "observed_g_pdu_event_count": 4,
+        "assigned_to_release_window_count": 0,
+        "unassigned_g_pdu_event_count": 4,
+        "duplicate_assignment_count": 0,
+        "conserved": True,
+        "attributed_observation_count": 3,
+        "unattributed_observation_count": 0,
+    }
+    documents["gtpu"] = [
+        {
+            "capture_file": capture,
+            "frame_number": frame,
+            "header": {"message_type": "G-PDU", "teid": teid, "message_length": 100},
+            "outer": {"source_address": "10.0.0.20", "destination_address": "10.0.0.40"},
+        }
+        for frame, teid in ((100, 77), (101, 77), (300, 78), (301, 78))
+    ]
+    return documents
+
+
 def _audit_closure_for(result, reference):
     return next(
         record
@@ -3517,6 +3633,53 @@ def _validate_evidence_audit(skill: Path, root: Path) -> list[str]:
     ):
         fail("evidence audit resolved a duplicate frame assignment")
 
+    # K6: duplicate frame ownership is scoped to its actual claimants.
+    conflict = _audit_conflict_scenario()
+    conflict_result = _audit_run(model, conflict)
+    conflict_records = {
+        record["source_subject_reference"]: record
+        for record in _audit_of(conflict_result, "TEMPORAL_FRAME_PARTITION")
+    }
+    for reference in (AUDIT_TEMPORAL_1, AUDIT_TEMPORAL_2):
+        record = conflict_records.get(reference)
+        if (
+            record is None
+            or record["audit_status"] != "INCONSISTENT"
+            or _audit_check(record, "frame_ownership_exclusive") != "FAIL"
+            or record["proof_sufficiency_status"] != "INSUFFICIENT"
+        ):
+            fail("evidence audit did not fail closed on an actual duplicate frame claimant")
+    independent = conflict_records.get(AUDIT_TEMPORAL_3)
+    if (
+        independent is None
+        or independent["audit_status"] != "VERIFIED_CONSISTENT"
+        or _audit_check(independent, "frame_ownership_exclusive") != "PASS"
+        or independent["proof_sufficiency_status"] != "SUFFICIENT"
+    ):
+        fail("evidence audit downgraded an independent temporal observation")
+    if conflict_result["temporal_integrity_summary"]["conflicted_partition_count"] != 2:
+        fail("temporal summary did not disclose duplicate frame ownership")
+    reordered = copy.deepcopy(conflict)
+    reordered["narrative"]["temporal_observations"] = list(
+        reversed(reordered["narrative"]["temporal_observations"])
+    )
+    reordered["narrative"]["release_narratives"] = list(
+        reversed(reordered["narrative"]["release_narratives"])
+    )
+    reordered_result = _audit_run(model, reordered)
+    reordered_records = {
+        record["source_subject_reference"]: record
+        for record in _audit_of(reordered_result, "TEMPORAL_FRAME_PARTITION")
+    }
+    for reference in (AUDIT_TEMPORAL_1, AUDIT_TEMPORAL_2, AUDIT_TEMPORAL_3):
+        if (
+            reordered_records[reference]["audit_status"]
+            != conflict_records[reference]["audit_status"]
+            or _audit_check(reordered_records[reference], "frame_ownership_exclusive")
+            != _audit_check(conflict_records[reference], "frame_ownership_exclusive")
+        ):
+            fail("temporal conflict decisions depend on input order")
+
     # Mutation check 1: disable the scoped direction gate.
     original_direction = model.scoped_direction_agrees
     try:
@@ -3736,6 +3899,56 @@ def _validate_evidence_audit(skill: Path, root: Path) -> list[str]:
         fail(
             "mutation restore failed: detailed frame-event reconciliation stayed removed"
         )
+
+    # Mutation check 10: restore the global conflict scope.
+    original_conflict_scope = model._observation_conflict_scope
+    try:
+        model._observation_conflict_scope = (
+            lambda conflicts, _reference: bool(conflicts)
+        )
+        mutated = _audit_run(model, conflict)
+    finally:
+        model._observation_conflict_scope = original_conflict_scope
+    mutated_independent = next(
+        record
+        for record in _audit_of(mutated, "TEMPORAL_FRAME_PARTITION")
+        if record["source_subject_reference"] == AUDIT_TEMPORAL_3
+    )
+    if mutated_independent["audit_status"] != "INCONSISTENT":
+        fail("mutation check failed: the global conflict scope was not detected")
+    restored_independent = next(
+        record
+        for record in _audit_of(
+            _audit_run(model, conflict), "TEMPORAL_FRAME_PARTITION"
+        )
+        if record["source_subject_reference"] == AUDIT_TEMPORAL_3
+    )
+    if restored_independent["audit_status"] != "VERIFIED_CONSISTENT":
+        fail("mutation restore failed: the global conflict scope stayed active")
+
+    # Mutation check 11: disable conflict enforcement entirely.
+    try:
+        model._observation_conflict_scope = lambda *_args, **_kwargs: False
+        mutated = _audit_run(model, conflict)
+    finally:
+        model._observation_conflict_scope = original_conflict_scope
+    mutated_records = {
+        record["source_subject_reference"]: record
+        for record in _audit_of(mutated, "TEMPORAL_FRAME_PARTITION")
+    }
+    if not all(
+        mutated_records[reference]["audit_status"] == "VERIFIED_CONSISTENT"
+        for reference in (AUDIT_TEMPORAL_1, AUDIT_TEMPORAL_2)
+    ):
+        fail("mutation check failed: disabling conflict enforcement was not detected")
+    if any(
+        _audit_of(_audit_run(model, conflict), "TEMPORAL_FRAME_PARTITION")[index][
+            "audit_status"
+        ]
+        != "INCONSISTENT"
+        for index in (0, 1)
+    ):
+        fail("mutation restore failed: conflict enforcement stayed disabled")
 
     # Determinism.
     if json.dumps(positive, sort_keys=True) != json.dumps(

@@ -3140,6 +3140,16 @@ def duplicate_frame_claims(
     }
 
 
+def _observation_conflict_scope(
+    conflicts: dict[tuple[str, int], list[str]],
+    reference: Any,
+) -> bool:
+    """A duplicate-frame conflict applies only to its actual observation claimants."""
+    if not isinstance(reference, str):
+        return False
+    return any(reference in owners for owners in conflicts.values())
+
+
 def _partition_values(partitions: Any, name: str) -> dict[str, Any]:
     if not isinstance(partitions, dict):
         return {}
@@ -3260,6 +3270,10 @@ def audit_temporal_partitions(
     for observation in observations:
         capture = str(observation.get("capture_file"))
         reference = observation.get("temporal_observation_reference")
+        participating_in_conflict = _observation_conflict_scope(conflicts, reference)
+        duplicate_claim = (
+            bool(observation.get("duplicate_frame_ownership")) or participating_in_conflict
+        )
         placement = observation.get("temporal_placement_status")
         partitions = observation.get("partitions")
         aggregate_count = _int(observation.get("observed_g_pdu_count")) or 0
@@ -3290,7 +3304,6 @@ def audit_temporal_partitions(
                     _check(CHECK_PARTITION_CONVERVES, sum_count == aggregate_count),
                     _check(CHECK_PARTITION_CONVERVES, sum_octets == aggregate_octets),
                     _check(CHECK_PARTITION_WINDOW, _partition_span_ok(partitions, request, confirmation)),
-                    _check(CHECK_FRAME_EXCLUSIVE, not observation.get("duplicate_frame_ownership")),
                 ]
             )
             if sum_count != aggregate_count or sum_octets != aggregate_octets:
@@ -3343,12 +3356,6 @@ def audit_temporal_partitions(
                             _partition_span_ok(partitions, request, confirmation),
                         )
                     )
-                    checks.append(
-                        _check(
-                            CHECK_FRAME_EXCLUSIVE,
-                            not observation.get("duplicate_frame_ownership"),
-                        )
-                    )
                     limitations.append(
                         "the observed subset keeps only its own frame positions; the complete "
                         "stream placement is not established and stays unproved"
@@ -3358,11 +3365,12 @@ def audit_temporal_partitions(
                             "the observed subset counts no frame, so it proves no temporal "
                             "placement"
                         )
-        if observation.get("duplicate_frame_ownership"):
-            checks.append(_check(CHECK_FRAME_EXCLUSIVE, False))
+        checks.append(_check(CHECK_FRAME_EXCLUSIVE, not duplicate_claim))
+        if duplicate_claim:
             limitations.append(
-                "another release narrative claims at least one of these G-PDU frames; the frame "
-                "is counted in no partition and no owner is selected"
+                "this temporal observation claims at least one G-PDU frame that another "
+                "temporal observation also claims; the frame is counted in no partition and no "
+                "owner is selected, and the conflict stays visible within its actual claimants"
             )
         if gtpu_events is None:
             checks.append(_check(CHECK_FRAME_PRESENT, None))
@@ -3392,12 +3400,6 @@ def audit_temporal_partitions(
                 limitations.append(
                     "a published first or last observed frame is not present in the supplied "
                     "GTP-U events for this stream; no missing frame is fabricated or substituted"
-                )
-            if conflicts:
-                checks.append(_check(CHECK_FRAME_EXCLUSIVE, False))
-                limitations.append(
-                    "one or more G-PDU frames are claimed by more than one temporal partition; "
-                    "the conflict stays visible and no frame is assigned twice"
                 )
             if subset_form:
                 if key is None:
@@ -3862,7 +3864,13 @@ def build_temporal_integrity_summary(
             )
         ),
         "conflicted_partition_count": sum(
-            1 for observation in observations if observation.get("duplicate_frame_ownership")
+            1
+            for record in temporal_records
+            if any(
+                check.get("check") == CHECK_FRAME_EXCLUSIVE
+                and check.get("result") == CHECK_FAIL
+                for check in record.get("consistency_checks") or []
+            )
         ),
         "frame_level_evidence_supplied": gtpu_events is not None,
         "audit_verified_placement_count": sum(

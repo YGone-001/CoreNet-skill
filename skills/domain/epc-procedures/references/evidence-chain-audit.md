@@ -217,7 +217,10 @@ reported unavailable rather than fabricated as an inconsistency.
 The bounded subset is observed evidence, never corruption. A contradictory
 complete-stream or conserved claim, a subset exceeding the aggregate, a frame
 outside its window, mismatched partition totals or duplicate frame ownership stays
-`INCONSISTENT`.
+`INCONSISTENT`. A duplicate frame-ownership conflict is scoped to the temporal
+observations that actually claim the conflicting frame: it is never applied to an
+unrelated stream or capture, and an equal TEID on a distinct directed stream never
+merges ownership.
 It never interpolates a missing frame, never divides an aggregate stream count and
 never treats the confirmation frame as the forwarding-stop instant.
 
