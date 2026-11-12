@@ -2,16 +2,18 @@
 
 ## Purpose
 
-Answer WHAT an observed GTPv2-C session-control message and its information
-elements mean at the protocol layer: header semantics, message identity,
-message-scope and bearer-scope Cause, message-scope and item-scoped F-TEID
-evidence, EBI, APN presence and length, PDN/PAA metadata, RAT type, AMBR
-presence, and protocol-local request/response correlation.
+Answer WHAT an observed GTPv2-C session-control or dedicated-bearer control
+message and its information elements mean at the protocol layer: header
+semantics, message identity, message-scope and bearer-scope Cause, message-scope
+and item-scoped F-TEID evidence, EBI, APN presence and length, PDN/PAA metadata,
+RAT type, AMBR presence, decoder-proven Bearer QoS, bounded TFT presence, and
+protocol-local request/response correlation.
 
 This is a Protocol-layer Skill for the S11 and S5/S8 control-plane interfaces
 (GTPv2-C over UDP port 2123), bounded to the Echo, Create Session, Modify
-Bearer, Delete Session and Release Access Bearers message set of 3GPP
-TS 29.274, as decoded by the Wireshark/TShark GTPv2 dissector.
+Bearer, Delete Session, Release Access Bearers and Create/Update/Delete Bearer
+control message set of 3GPP TS 29.274, as decoded by the Wireshark/TShark GTPv2
+dissector.
 
 ## Scope
 
@@ -28,6 +30,13 @@ TS 29.274, as decoded by the Wireshark/TShark GTPv2 dissector.
   type, TEID and address family.
 - Preserve EBI, APN presence and length only, PDN type, PAA address family, RAT
   type, AMBR presence and values, and Charging ID presence.
+- Publish decoder-proven Bearer QoS values (QCI, priority level, pre-emption
+  bits, MBR and GBR in the decoder's kbps show values) and explicit ARP evidence
+  only when the decoder represents them. Never infer a missing QoS value from a
+  QCI or from another bearer item.
+- Publish Bearer TFT presence and bounded metadata only. Raw packet-filter
+  content is never published; the installed decoder does not expose filter
+  structure.
 - Provide protocol-local request/response correlation with the explicit
   classifications `MATCHED`, `OPEN_REQUEST`, `RESPONSE_ONLY` and `AMBIGUOUS`,
   and never assert session, PDN-connection or bearer lifecycle state.
@@ -38,17 +47,20 @@ TS 29.274, as decoded by the Wireshark/TShark GTPv2 dissector.
 Supported messages: Echo Request, Echo Response, Create Session Request,
 Create Session Response, Modify Bearer Request, Modify Bearer Response,
 Delete Session Request, Delete Session Response, Release Access Bearers
-Request, Release Access Bearers Response.
+Request, Release Access Bearers Response, Create Bearer Request, Create Bearer
+Response, Update Bearer Request, Update Bearer Response, Delete Bearer Request
+and Delete Bearer Response.
 
 Known but out of the bounded analysis scope (reported as `UNSUPPORTED` with
-their reviewed name): Version Not Supported Indication, Create/Update/Delete
-Bearer, Delete PDN Connection Set, Identification, Context, Detach
-Notification, Downlink Data Notification, PGW Restart Notification.
+their reviewed name): Version Not Supported Indication, Delete PDN Connection
+Set, Identification, Context, Detach Notification, Downlink Data Notification,
+PGW Restart Notification.
 
 ## Non-Goals
 
 - No GTPv1, GTP-U payload or user-plane semantics.
 - No session, PDN-connection or bearer lifecycle reconstruction.
+- No dedicated-bearer activation, QoS admission or TFT-installation inference.
 - No cross-interface S11/S5-C association and no SGW/PGW implementation mapping.
 - No first-abnormal-boundary selection, severity ranking or root-cause output.
 - No Diameter, NAS, S1AP or IMS semantics; those belong to other Protocol Skills.
@@ -87,7 +99,10 @@ observation.
 
 A `Request accepted (16)` Cause is protocol evidence that the peer accepted that
 message. It is never proof that a PDN connection, a bearer or an EPS bearer
-lifecycle completed, and it is never a statement about network health.
+lifecycle completed, and it is never a statement about network health. A matched
+Create/Update/Delete Bearer transaction is a correlated signaling exchange only;
+it does not prove dedicated-bearer activation, UE acceptance, TFT installation,
+GBR reservation or S1-U delivery.
 
 ## Failure Behavior
 
@@ -124,7 +139,10 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 authorized laboratory capture; unrelated protocol layers, raw IE byte values
 and subscriber identities were removed. `examples/pdml/multi-bearer-context.pdml`
 is a hand-authored dissection fixture for the multi-bearer and incomplete-hierarchy
-cases that the laboratory capture did not contain; it is not a capture. `examples/extracted/` holds flat fields
+cases that the laboratory capture did not contain; it is not a capture.
+`examples/pdml/bearer-control.pdml` is a synthetic dissection fixture for the
+Create/Update/Delete Bearer message families, grouped Bearer Contexts, Bearer QoS,
+TFT presence and protocol-local correlation; it is not a capture. `examples/extracted/` holds flat fields
 inputs and small hand-authored correlation inputs. Expected results are under
 `examples/expected/` and are regenerated only from the accepted implementation.
 
@@ -133,5 +151,6 @@ inputs and small hand-authored correlation inputs. Expected results are under
 Original CoreNet Protocol-layer package. No upstream material imported.
 Normative references are 3GPP TS 29.274 (GTPv2-C) and 3GPP TS 23.401 (EPC
 architecture context only). Message type codes, IE types, cause values and
-F-TEID interface types were verified against the TShark 4.7.1 value tables
-rather than assumed. Version 0.1.0.
+F-TEID interface types, Bearer QoS fields and TFT IE presence were verified
+against the installed TShark 4.2.2 value tables rather than assumed. Version
+0.2.0.

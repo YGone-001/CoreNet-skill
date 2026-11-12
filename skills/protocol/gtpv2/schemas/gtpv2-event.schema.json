@@ -152,6 +152,34 @@
         "ipv6_present": {"type": "boolean"}
       }
     },
+    "bearerQos": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ie"],
+      "description": "Only decoder-proven values are published. Bit-rate values use the decoder's kbps show values.",
+      "properties": {
+        "source_ie": {"type": "string"},
+        "arp_source_ie": {"type": "string"},
+        "qci": {"type": ["integer", "null"]},
+        "priority_level": {"type": ["integer", "null"]},
+        "preemption_capability": {"type": ["boolean", "null"]},
+        "preemption_vulnerability": {"type": ["boolean", "null"]},
+        "mbr_uplink_kbps": {"type": ["integer", "null"]},
+        "mbr_downlink_kbps": {"type": ["integer", "null"]},
+        "gbr_uplink_kbps": {"type": ["integer", "null"]},
+        "gbr_downlink_kbps": {"type": ["integer", "null"]}
+      }
+    },
+    "tft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ie", "present", "limitation"],
+      "properties": {
+        "source_ie": {"type": "string"},
+        "present": {"type": "boolean"},
+        "limitation": {"type": "string"}
+      }
+    },
     "bearerContext": {
       "type": "object",
       "additionalProperties": false,
@@ -159,10 +187,14 @@
       "properties": {
         "item_index": {"type": "integer", "minimum": 0},
         "ebi": {"type": ["integer", "null"]},
+        "ebi_values": {"type": "array", "items": {"type": "integer"}},
         "cause": {"anyOf": [{"$ref": "#/$defs/cause"}, {"type": "null"}]},
         "f_teids": {"type": "array", "items": {"$ref": "#/$defs/fteid"}},
         "charging_id_present": {"type": "boolean"},
         "binding_basis": {"type": "string"},
+        "qos": {"anyOf": [{"$ref": "#/$defs/bearerQos"}, {"type": "null"}]},
+        "tft": {"anyOf": [{"$ref": "#/$defs/tft"}, {"type": "null"}]},
+        "limitations": {"type": "array", "items": {"type": "string"}},
         "other_ie_names": {"type": "array", "items": {"type": "string"}}
       }
     },
@@ -175,7 +207,8 @@
         "limitations": {"type": "array", "items": {"type": "string"}},
         "additional_causes": {"type": "array", "items": {"$ref": "#/$defs/cause"}},
         "ebi_values": {"type": "array", "items": {"type": "integer"}},
-        "f_teid_values": {"type": "array", "items": {"type": "object"}}
+        "f_teid_values": {"type": "array", "items": {"type": "object"}},
+        "qos": {"anyOf": [{"$ref": "#/$defs/bearerQos"}, {"type": "null"}]}
       }
     },
     "ieSummary": {

@@ -15,6 +15,12 @@ the TShark 4.7.1 `gtpv2.message_type` value table.
 | 35 | Modify Bearer Response | `modify-bearer` | PGW-C → SGW-C, SGW-C → MME |
 | 36 | Delete Session Request | `delete-session` | MME → SGW-C, SGW-C → PGW-C |
 | 37 | Delete Session Response | `delete-session` | PGW-C → SGW-C, SGW-C → MME |
+| 95 | Create Bearer Request | `create-bearer` | MME → SGW-C, SGW-C → PGW-C |
+| 96 | Create Bearer Response | `create-bearer` | PGW-C → SGW-C, SGW-C → MME |
+| 97 | Update Bearer Request | `update-bearer` | MME → SGW-C, SGW-C → PGW-C |
+| 98 | Update Bearer Response | `update-bearer` | PGW-C → SGW-C, SGW-C → MME |
+| 99 | Delete Bearer Request | `delete-bearer` | MME → SGW-C, SGW-C → PGW-C |
+| 100 | Delete Bearer Response | `delete-bearer` | PGW-C → SGW-C, SGW-C → MME |
 | 170 | Release Access Bearers Request | `release-access-bearers` | MME → SGW-C |
 | 171 | Release Access Bearers Response | `release-access-bearers` | SGW-C → MME |
 
@@ -26,9 +32,6 @@ analysis is claimed for them.
 | Code | Message |
 | --- | --- |
 | 3 | Version Not Supported Indication |
-| 95 / 96 | Create Bearer Request / Response |
-| 97 / 98 | Update Bearer Request / Response |
-| 99 / 100 | Delete Bearer Request / Response |
 | 101 / 102 | Delete PDN Connection Set Request / Response |
 | 128 / 129 | Identification Request / Response |
 | 130 / 131 / 132 | Context Request / Response / Acknowledge |
@@ -43,6 +46,9 @@ code is always preserved.
 
 - `149` is Detach Notification, not Release Access Bearers. Release Access
   Bearers is `170/171`.
+- `95/96`, `97/98` and `99/100` are dedicated-bearer control messages. A matched
+  pair is signaling evidence only; it is not a default-bearer or session
+  lifecycle transition.
 - Downlink Data Notification is `176/177`. Codes `120/121/122` are not the DDN
   pair in this version of the specification.
 - F-TEID interface type `11` is `S11/S4 SGW GTP-C`, not `S10`. Interface type

@@ -43,6 +43,7 @@ from epc_bearer_lifecycle_model import (
     ACCEPTED_CAUSE_CODES,
     ALLOCATION_FAMILIES,
     DELETE_FAMILIES,
+    ADVERTISING_FAMILIES,
     ITEM_IDENTITY_ASSIGNED,
     ITEM_IDENTITY_INVALID,
     ITEM_IDENTITY_UNASSIGNED,
@@ -265,6 +266,12 @@ def _event_header_teid(event: Any) -> int | None:
     return _int(header.get("teid"))
 
 
+REVIEWED_GTPV2_FAMILIES = ADVERTISING_FAMILIES | DELETE_FAMILIES | {
+    "release-access-bearers",
+    "echo",
+}
+
+
 def _transaction_members(index: dict[str, Any], events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Accepted transactions with their capture-scoped request/response events.
 
@@ -287,6 +294,13 @@ def _transaction_members(index: dict[str, Any], events: list[dict[str, Any]]) ->
             candidate = binding.get("transaction")
             if isinstance(candidate, dict):
                 transaction = candidate
+        family = (
+            transaction.get("procedure_family")
+            or (request_event or {}).get("procedure_family")
+            or (response_event or {}).get("procedure_family")
+        )
+        if family is not None and family not in REVIEWED_GTPV2_FAMILIES:
+            continue
         members.append(
             {
                 "transaction_reference": reference,
@@ -647,7 +661,7 @@ def collect_bearer_fteids(
     for event in events:
         if not isinstance(event, dict):
             continue
-        if event.get("procedure_family") in DELETE_FAMILIES:
+        if event.get("procedure_family") not in REVIEWED_GTPV2_FAMILIES:
             continue
         binding = binding_for_event(index, event)
         transaction_reference = (

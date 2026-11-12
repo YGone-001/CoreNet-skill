@@ -172,9 +172,10 @@ ITEM_IDENTITY_CLASSIFICATIONS = (
     ITEM_IDENTITY_UNRESOLVED,
 )
 
-DELETE_FAMILIES = frozenset({"delete-session", "delete-bearer"})
+DELETE_FAMILIES = frozenset({"delete-session"})
 UPDATE_FAMILIES = frozenset({"modify-bearer"})
 ALLOCATION_FAMILIES = frozenset({"create-session"})
+ADVERTISING_FAMILIES = ALLOCATION_FAMILIES | UPDATE_FAMILIES
 
 NOT_CONFIRMED = (
     "an advertisement family is a group of protocol advertisements, not an EPS bearer",
@@ -635,7 +636,7 @@ def endpoint_records(gtpv2_events: list[dict[str, Any]]) -> list[dict[str, Any]]
     for event in gtpv2_events:
         if not isinstance(event, dict):
             continue
-        if event.get("procedure_family") in DELETE_FAMILIES:
+        if event.get("procedure_family") not in ADVERTISING_FAMILIES:
             continue
         records.extend(_event_endpoint_records(event))
     return records

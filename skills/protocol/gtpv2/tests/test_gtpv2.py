@@ -107,10 +107,10 @@ class ProtocolIdentityTests(ExtractionTestCase):
             self._extract_fixture("unsupported-messages.jsonl", "unsupported-events.jsonl")
         )
         request, response = events[1], events[2]
-        self.assertEqual(request["message_type"], "Create Bearer Request")
+        self.assertEqual(request["message_type"], "Delete PDN Connection Set Request")
         self.assertEqual(request["support_status"], "UNSUPPORTED")
         self.assertIsNone(request["procedure_family"])
-        self.assertEqual(response["message_type"], "Create Bearer Response")
+        self.assertEqual(response["message_type"], "Delete PDN Connection Set Response")
         self.assertEqual(response["message_cause"]["cause_code"], 16)
 
     def test_header_teid_states_stay_distinct(self) -> None:

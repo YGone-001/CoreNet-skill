@@ -92,6 +92,12 @@ PROCEDURES: dict[int, str] = {
     35: "modify-bearer",
     36: "delete-session",
     37: "delete-session",
+    95: "create-bearer",
+    96: "create-bearer",
+    97: "update-bearer",
+    98: "update-bearer",
+    99: "delete-bearer",
+    100: "delete-bearer",
     170: "release-access-bearers",
     171: "release-access-bearers",
 }
@@ -103,6 +109,9 @@ REQUEST_CODES: dict[int, int] = {
     32: 33,
     34: 35,
     36: 37,
+    95: 96,
+    97: 98,
+    99: 100,
     170: 171,
 }
 RESPONSE_CODES: dict[int, int] = {value: key for key, value in REQUEST_CODES.items()}
@@ -117,6 +126,12 @@ MESSAGE_FAMILY: dict[int, str] = {
     35: "modify-bearer",
     36: "delete-session",
     37: "delete-session",
+    95: "create-bearer",
+    96: "create-bearer",
+    97: "update-bearer",
+    98: "update-bearer",
+    99: "delete-bearer",
+    100: "delete-bearer",
     170: "release-access-bearers",
     171: "release-access-bearers",
 }
@@ -240,18 +255,23 @@ IE_TYPES: dict[int, str] = {
     78: "PCO",
     79: "PAA",
     80: "Bearer QoS",
+    81: "Flow QoS",
     82: "RAT Type",
+    84: "Bearer TFT",
+    85: "TAD",
     83: "Serving Network",
     86: "ULI",
     87: "F-TEID",
     88: "TMSI",
     93: "Bearer Context",
     94: "Charging ID",
+    97: "Bearer Flags",
     99: "PDN Type",
     114: "UE Time Zone",
     127: "APN Restriction",
     128: "Selection Mode",
     135: "Protocol Configuration Options",
+    155: "Allocation/Retention Priority",
 }
 
 BEARER_CONTEXT_IE = 93
@@ -264,6 +284,9 @@ PAA_IE = 79
 RAT_TYPE_IE = 82
 PDN_TYPE_IE = 99
 CHARGING_ID_IE = 94
+BEARER_QOS_IE = 80
+BEARER_TFT_IE = 84
+ARP_IE = 155
 
 # IE types whose values are subscriber identities. Only presence is published.
 IDENTITY_IE_TYPES = {
@@ -486,6 +509,24 @@ def _parse_ie(node: ElementTree.Element) -> dict[str, Any]:
         ie["fields"] = {"present": "True"}
     elif ie_type == CHARGING_ID_IE:
         ie["fields"] = {"present": "True"}
+    elif ie_type == BEARER_QOS_IE:
+        ie["fields"] = _ie_fields(
+            node,
+            (
+                "gtpv2.bearer_qos_pci",
+                "gtpv2.bearer_qos_pl",
+                "gtpv2.bearer_qos_pvi",
+                "gtpv2.bearer_qos_label_qci",
+                "gtpv2.bearer_qos_mbr_up",
+                "gtpv2.bearer_qos_mbr_down",
+                "gtpv2.bearer_qos_gbr_up",
+                "gtpv2.bearer_qos_gbr_down",
+            ),
+        )
+    elif ie_type == ARP_IE:
+        ie["fields"] = _ie_fields(node, ("gtpv2.arp_pci", "gtpv2.arp_pl", "gtpv2.arp_pvi"))
+    elif ie_type == BEARER_TFT_IE:
+        ie["fields"] = {"present": "True"}
     ie["children"] = [_parse_ie(child) for child in _ie_containers(node)]
     return ie
 
@@ -524,34 +565,119 @@ def _f_teid_from_ie(ie: dict[str, Any], scope: str) -> dict[str, Any]:
     }
 
 
+def _bool_show(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    return value.lower() == "true"
+
+
+def _qos_from_ie(ie: dict[str, Any]) -> dict[str, Any] | None:
+    fields = ie["fields"]
+    qos: dict[str, Any] = {"source_ie": "Bearer QoS"}
+    for source, name in (
+        ("gtpv2.bearer_qos_label_qci", "qci"),
+        ("gtpv2.bearer_qos_pl", "priority_level"),
+        ("gtpv2.bearer_qos_mbr_up", "mbr_uplink_kbps"),
+        ("gtpv2.bearer_qos_mbr_down", "mbr_downlink_kbps"),
+        ("gtpv2.bearer_qos_gbr_up", "gbr_uplink_kbps"),
+        ("gtpv2.bearer_qos_gbr_down", "gbr_downlink_kbps"),
+    ):
+        value = to_int(fields.get(source))
+        if value is not None:
+            qos[name] = value
+    for source, name in (
+        ("gtpv2.bearer_qos_pci", "preemption_capability"),
+        ("gtpv2.bearer_qos_pvi", "preemption_vulnerability"),
+    ):
+        value = _bool_show(fields.get(source))
+        if value is not None:
+            qos[name] = value
+    return qos if len(qos) > 1 else None
+
+
+def _arp_values(ie: dict[str, Any]) -> dict[str, Any]:
+    fields = ie["fields"]
+    values: dict[str, Any] = {"source_ie": "ARP"}
+    priority = to_int(fields.get("gtpv2.arp_pl"))
+    if priority is not None:
+        values["priority_level"] = priority
+    for source, name in (
+        ("gtpv2.arp_pci", "preemption_capability"),
+        ("gtpv2.arp_pvi", "preemption_vulnerability"),
+    ):
+        value = _bool_show(fields.get(source))
+        if value is not None:
+            values[name] = value
+    return values
+
+
+def _tft_from_ie(ie: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source_ie": "Bearer TFT",
+        "present": True,
+        "limitation": "the installed decoder exposes TFT IE presence only; packet filters are not published",
+    }
+
+
 def _bearer_context(ie: dict[str, Any], index: int) -> dict[str, Any]:
-    ebi = None
+    ebis: list[int] = []
     cause = None
     f_teids: list[dict[str, Any]] = []
     charging_present = False
+    qos: dict[str, Any] | None = None
+    arp: dict[str, Any] | None = None
+    tft: dict[str, Any] | None = None
     other_ies: list[str] = []
     for child in ie["children"]:
         child_type = child["ie_type"]
         if child_type == EBI_IE:
-            ebi = to_int(child["fields"].get("gtpv2.ebi"))
+            value = to_int(child["fields"].get("gtpv2.ebi"))
+            if value is not None:
+                ebis.append(value)
         elif child_type == CAUSE_IE:
             cause = _cause_from_ie(child, "bearer")
         elif child_type == F_TEID_IE:
             f_teids.append(_f_teid_from_ie(child, "bearer"))
         elif child_type == CHARGING_ID_IE:
             charging_present = True
+        elif child_type == BEARER_QOS_IE:
+            qos = _qos_from_ie(child)
+        elif child_type == ARP_IE:
+            arp = _arp_values(child)
+        elif child_type == BEARER_TFT_IE:
+            tft = _tft_from_ie(child)
         else:
             name = child["ie_name"]
             if name is not None and name not in other_ies:
                 other_ies.append(name)
+    if qos is None and arp is not None:
+        qos = {"source_ie": "ARP"}
+    if qos is not None and arp is not None:
+        for key in ("priority_level", "preemption_capability", "preemption_vulnerability"):
+            if key in arp:
+                qos[key] = arp[key]
+        qos["arp_source_ie"] = "ARP"
     context: dict[str, Any] = {
         "item_index": index,
-        "ebi": ebi,
+        "ebi": ebis[0] if ebis else None,
         "cause": cause,
         "f_teids": bounded(f_teids),
         "charging_id_present": charging_present,
         "binding_basis": HIERARCHY_PDML,
     }
+    if len(ebis) > 1:
+        context["ebi_values"] = bounded(sorted(set(ebis)))
+    limitations: list[str] = []
+    if len(ebis) > 1:
+        limitations.append(
+            "several EBI IEs are present inside one Bearer Context; no single item identity is selected"
+        )
+    if limitations:
+        context["limitations"] = bounded(limitations)
+    if qos is not None:
+        context["qos"] = qos
+    if tft is not None:
+        context["tft"] = tft
     if other_ies:
         context["other_ie_names"] = bounded(other_ies)
     return context
@@ -683,6 +809,15 @@ def layer_event(
     elements, identities = _information_elements(top_level)
 
     limitations: list[str] = []
+    context_ebis = [
+        context.get("ebi") for context in bearer_contexts if context.get("ebi") is not None
+    ]
+    duplicate_ebis = sorted({value for value in context_ebis if context_ebis.count(value) > 1})
+    if duplicate_ebis:
+        limitations.append(
+            "duplicate EBI values appear across Bearer Context items; each item stays separate and "
+            "no single bearer identity is selected"
+        )
     if len(causes) > 1:
         limitations.append(
             "several message-scope Cause IEs are present; the first is published as message_cause "
@@ -853,6 +988,17 @@ FLAT_FIELDS = (
     "gtpv2.f_teid_gre_key",
     "gtpv2.f_teid_ipv4",
     "gtpv2.f_teid_ipv6",
+    "gtpv2.bearer_qos_label_qci",
+    "gtpv2.bearer_qos_pl",
+    "gtpv2.bearer_qos_pci",
+    "gtpv2.bearer_qos_pvi",
+    "gtpv2.bearer_qos_mbr_up",
+    "gtpv2.bearer_qos_mbr_down",
+    "gtpv2.bearer_qos_gbr_up",
+    "gtpv2.bearer_qos_gbr_down",
+    "gtpv2.arp_pl",
+    "gtpv2.arp_pci",
+    "gtpv2.arp_pvi",
 )
 
 
@@ -958,6 +1104,10 @@ def normalize_flat_record(record: object, capture_file: str, occurrence: int = 0
     limitations = [
         "flat field input does not preserve grouped-IE item boundaries, so no bearer context is published"
     ]
+    if len(ebis) != len(set(ebis)):
+        limitations.append(
+            "duplicate EBI values are present in a flat field list; no single item identity is selected"
+        )
     unbound: dict[str, Any] = {
         "binding_basis": HIERARCHY_FLAT,
         "limitations": [
@@ -985,6 +1135,33 @@ def normalize_flat_record(record: object, capture_file: str, occurrence: int = 0
                 for item in f_teids
             ]
         )
+    flat_qos: dict[str, Any] = {}
+    for source, key in (
+        ("gtpv2.bearer_qos_label_qci", "qci"),
+        ("gtpv2.bearer_qos_pl", "priority_level"),
+        ("gtpv2.bearer_qos_mbr_up", "mbr_uplink_kbps"),
+        ("gtpv2.bearer_qos_mbr_down", "mbr_downlink_kbps"),
+        ("gtpv2.bearer_qos_gbr_up", "gbr_uplink_kbps"),
+        ("gtpv2.bearer_qos_gbr_down", "gbr_downlink_kbps"),
+        ("gtpv2.arp_pl", "priority_level"),
+    ):
+        values = repeated(record.get(source))
+        value = to_int(values[0]) if values else None
+        if value is not None:
+            flat_qos[key] = value
+    for source, key in (
+        ("gtpv2.bearer_qos_pci", "preemption_capability"),
+        ("gtpv2.bearer_qos_pvi", "preemption_vulnerability"),
+        ("gtpv2.arp_pci", "preemption_capability"),
+        ("gtpv2.arp_pvi", "preemption_vulnerability"),
+    ):
+        values = repeated(record.get(source))
+        value = _bool_show(values[0]) if values else None
+        if value is not None:
+            flat_qos[key] = value
+    if flat_qos:
+        flat_qos["source_ie"] = "Bearer QoS"
+        unbound["qos"] = flat_qos
 
     source_ref = f"capture:{capture_file}#frame={frame_number}"
     if occurrence:

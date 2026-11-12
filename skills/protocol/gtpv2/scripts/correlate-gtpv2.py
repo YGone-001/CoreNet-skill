@@ -38,6 +38,38 @@ STRONG = "STRONG"
 SUPPORTED = "SUPPORTED"
 NONE = "NONE"
 
+BEARER_FAMILIES = frozenset({"create-bearer", "update-bearer", "delete-bearer"})
+
+
+def bearer_identity(event: dict[str, Any]) -> tuple[int, ...] | None:
+    """Item-scoped EBI discriminator for dedicated-bearer request families.
+
+    Existing families keep their previous grouping key. Dedicated-bearer requests
+    that reuse a sequence number and endpoint pair for different bearer items are
+    separate operations, while exact duplicate requests remain retransmissions.
+    """
+    if event.get("procedure_family") not in BEARER_FAMILIES:
+        return None
+    values: set[int] = set()
+    for context in event.get("bearer_contexts") or []:
+        if not isinstance(context, dict):
+            continue
+        ebi = context.get("ebi")
+        if isinstance(ebi, int):
+            values.add(ebi)
+        for value in context.get("ebi_values") or []:
+            if isinstance(value, int):
+                values.add(value)
+    metadata = event.get("unbound_ie_metadata")
+    entries = metadata if isinstance(metadata, list) else [metadata]
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        for value in entry.get("ebi_values") or []:
+            if isinstance(value, int):
+                values.add(value)
+    return tuple(sorted(values))
+
 
 def read_events(path: Path) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
@@ -140,6 +172,7 @@ def correlate(events: list[dict[str, Any]]) -> dict[str, Any]:
             (request.get("header") or {}).get("sequence_number"),
             endpoint_key(request, "source"),
             endpoint_key(request, "destination"),
+            bearer_identity(request),
         )
         if key not in groups:
             groups[key] = []

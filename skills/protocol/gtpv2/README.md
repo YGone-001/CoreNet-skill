@@ -60,7 +60,10 @@ message with an explicit `message_occurrence`.
     "item_index": 0,
     "ebi": 5,
     "cause": {"cause_code": 16, "scope": "bearer"},
-    "f_teids": [{"scope": "bearer", "interface_type": 1, "teid": 34351}]
+    "f_teids": [{"scope": "bearer", "interface_type": 1, "teid": 34351}],
+    "qos": {"source_ie": "Bearer QoS", "qci": 9, "mbr_uplink_kbps": 100000},
+    "tft": {"source_ie": "Bearer TFT", "present": true,
+            "limitation": "the installed decoder exposes TFT IE presence only; packet filters are not published"}
   }]
 }
 ```
@@ -83,13 +86,17 @@ sequence number. A shared sequence number alone never links two messages.
 `correlation_strength` is `STRONG` when a TEID or decoder link corroborates the
 pairing, `SUPPORTED` when the keys alone do, and `NONE` when there is no
 pairing. Identical requests inside one capture are reported as
-`retransmissions` of the earliest frame instead of separate transactions.
+`retransmissions` of the earliest frame instead of separate transactions. For
+the Create/Update/Delete Bearer families, the retransmission identity also
+includes the observed EBI set, so distinct bearer items reusing one sequence and
+endpoint pair are not collapsed into a retransmission.
 
 ## Privacy
 
 Never published: IMSI, MSISDN, MEI, TMSI values; APN network name; PAA address;
-raw IE bytes; PDU payloads. Published instead: identity-IE presence booleans,
-APN length, PAA address family. The bundled PDML fixture is a reduced excerpt
+raw IE bytes; PDU payloads; raw TFT packet-filter content. Published instead:
+identity-IE presence booleans, APN length, PAA address family, decoder-proven
+Bearer QoS values and TFT presence only. The bundled PDML fixture is a reduced excerpt
 with those values removed.
 
 ## Exit codes

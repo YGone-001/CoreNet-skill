@@ -17,6 +17,7 @@ EXAMPLES = PACKAGE / "examples" / "lifecycle"
 
 sys.path.insert(0, str(SCRIPTS))
 import epc_bearer_lifecycle_model as model  # noqa: E402
+import epc_session_identity_model as session_model  # noqa: E402
 
 CAPTURE = "fixture.pcap"
 
@@ -31,6 +32,37 @@ def load_jsonl(path: Path) -> list[dict]:
 
 def load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+class DedicatedBearerProtocolBoundaryTests(unittest.TestCase):
+    def test_dedicated_bearer_families_are_not_default_bearer_release(self) -> None:
+        event = {
+            "capture_file": CAPTURE,
+            "frame_number": 1,
+            "message_occurrence": 0,
+            "timestamp": "2026-10-24T14:07:47.100000Z",
+            "protocol": "GTPv2-C",
+            "message_type": "Delete Bearer Request",
+            "message_type_code": 99,
+            "procedure_family": "delete-bearer",
+            "message_family": "delete-bearer",
+            "header": {"sequence_number": 1, "teid": None, "teid_state": "ABSENT"},
+            "message_cause": None,
+            "unbound_ie_metadata": {
+                "binding_basis": "pdml_grouped_ie",
+                "ebi_values": [6],
+                "limitations": [],
+            },
+            "evidence": {"level": "OBSERVED", "source": "capture:fixture.pcap#frame=1"},
+        }
+        self.assertEqual(model.release_boundaries([event], {}), [])
+        self.assertEqual(model.endpoint_records([event]), [])
+        endpoints, unbound = session_model.collect_bearer_fteids([event], {}, [])
+        self.assertEqual(endpoints, {})
+        self.assertEqual(unbound, [])
+        self.assertNotIn("delete-bearer", model.DELETE_FAMILIES)
+        self.assertNotIn("create-bearer", model.DELETE_FAMILIES)
+        self.assertNotIn("update-bearer", model.DELETE_FAMILIES)
 
 
 # ---------------------------------------------------------------------------

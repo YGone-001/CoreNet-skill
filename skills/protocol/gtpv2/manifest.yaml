@@ -1,21 +1,23 @@
 name: gtpv2
-version: 0.1.0
+version: 0.2.0
 category: protocol
 description: >
   Bounded GTPv2-C semantic extraction for the S11 and S5/S8 control plane:
   header and TEID-state semantics, message identification for the Echo,
-  Create Session, Modify Bearer, Delete Session and Release Access Bearers
-  set, message-scope and bearer-scope Cause preservation, message-scope and
-  item-scoped F-TEID evidence, EBI, APN presence and length only, PDN/PAA
-  metadata, RAT type, AMBR presence, protocol-local transaction correlation,
-  detailed GTPv2-C events, and normalized trace-event projection.
+  Create Session, Modify Bearer, Delete Session, Release Access Bearers and
+  Create/Update/Delete Bearer set, message-scope and bearer-scope Cause
+  preservation, message-scope and item-scoped F-TEID evidence, EBI, APN
+  presence and length only, PDN/PAA metadata, RAT type, AMBR presence,
+  decoder-proven Bearer QoS, bounded TFT presence, protocol-local transaction
+  correlation, detailed GTPv2-C events, and normalized trace-event projection.
 scope:
   includes:
     - GTPv2 header semantics and distinct ABSENT, ZERO and PRESENT header TEID states
-    - message type identification for the bounded session-control set
+    - message type identification for the bounded session-control and dedicated-bearer set
     - message-scope and bearer-scope Cause preservation with explicit scope
     - message-scope and item-scoped F-TEID evidence with interface type
     - EBI, APN presence and length only, PDN type, PAA address family, RAT type, AMBR presence
+    - decoder-proven Bearer QoS values and bounded TFT presence without raw packet filters
     - provable grouped Bearer Context binding from the dissector tree
     - deterministic protocol-local request/response correlation with explicit strength and ambiguity
     - detailed GTPv2-C event JSONL, transaction JSON and shared trace-event projection
@@ -62,6 +64,7 @@ testing:
   fixtures:
     - examples/pdml/session-control.pdml
     - examples/pdml/multi-bearer-context.pdml
+    - examples/pdml/bearer-control.pdml
     - examples/extracted/session-control-fields.jsonl
     - examples/extracted/teid-states.jsonl
     - examples/extracted/unsupported-messages.jsonl
@@ -74,6 +77,8 @@ testing:
   expected_results:
     - examples/expected/session-control-events.jsonl
     - examples/expected/multi-bearer-context-events.jsonl
+    - examples/expected/bearer-control-events.jsonl
+    - examples/expected/bearer-control-transactions.json
     - examples/expected/session-control-trace.jsonl
     - examples/expected/session-control-transactions.json
     - examples/expected/session-control-fields-events.jsonl

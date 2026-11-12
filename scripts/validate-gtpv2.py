@@ -32,12 +32,15 @@ REQUIRED = (
     "schemas/trace-event.schema.json",
     "filters/wireshark.txt",
     "tests/test_gtpv2.py",
+    "tests/test_gtpv2_dedicated_bearer.py",
     "examples/pdml/session-control.pdml",
+    "examples/pdml/bearer-control.pdml",
 )
 
 EXTRACTION_FIXTURES = {
     "examples/pdml/session-control.pdml": "examples/expected/session-control-events.jsonl",
     "examples/pdml/multi-bearer-context.pdml": "examples/expected/multi-bearer-context-events.jsonl",
+    "examples/pdml/bearer-control.pdml": "examples/expected/bearer-control-events.jsonl",
     "examples/extracted/session-control-fields.jsonl": "examples/expected/session-control-fields-events.jsonl",
     "examples/extracted/teid-states.jsonl": "examples/expected/teid-states-events.jsonl",
     "examples/extracted/unsupported-messages.jsonl": "examples/expected/unsupported-messages-events.jsonl",
@@ -47,6 +50,7 @@ CORRELATION_FIXTURES = {
     "examples/expected/session-control-events.jsonl": "examples/expected/session-control-transactions.json",
     "examples/expected/session-control-fields-events.jsonl": "examples/expected/session-control-fields-transactions.json",
     "examples/expected/teid-states-events.jsonl": "examples/expected/teid-states-transactions.json",
+    "examples/expected/bearer-control-events.jsonl": "examples/expected/bearer-control-transactions.json",
     "examples/extracted/correlation-ambiguous-events.jsonl": "examples/expected/correlation-ambiguous-transactions.json",
     "examples/extracted/correlation-retransmission-events.jsonl": "examples/expected/correlation-retransmission-transactions.json",
     "examples/extracted/correlation-response-only-events.jsonl": "examples/expected/correlation-response-only-transactions.json",
@@ -308,10 +312,123 @@ def validate(root: Path = ROOT) -> list[str]:
     if "UNSUPPORTED" not in statuses or "UNKNOWN" not in statuses:
         fail("unsupported and unknown message codes must both be reported explicitly")
 
-    pdml_text = (skill / "examples/pdml/session-control.pdml").read_text(encoding="utf-8")
-    for marker in ("460020000000001", "919000001", "1122334455667788"):
-        if marker in pdml_text:
-            fail("the PDML fixture still contains a subscriber identity value")
+    bearer_events = read_jsonl(skill / "examples/expected/bearer-control-events.jsonl")
+    expected_families = {
+        95: "create-bearer",
+        96: "create-bearer",
+        97: "update-bearer",
+        98: "update-bearer",
+        99: "delete-bearer",
+        100: "delete-bearer",
+    }
+    for code, family in expected_families.items():
+        name, status, procedure, message_family = model.resolve_message(code)
+        if name is None or status != "SUPPORTED" or procedure != family or message_family != family:
+            fail(f"message type {code} must be SUPPORTED in family '{family}'")
+    expected_pairs = [(95, 96), (97, 98), (99, 100)]
+    bearer_transactions = json.loads(
+        (skill / "examples/expected/bearer-control-transactions.json").read_text(encoding="utf-8")
+    )
+    actual_pairs = [
+        (item["request"]["message_type_code"], item["response"]["message_type_code"])
+        for item in bearer_transactions["transactions"]
+        if item.get("request") and item.get("response")
+    ]
+    if actual_pairs != expected_pairs:
+        fail("dedicated-bearer request/response pairs must be 95->96, 97->98 and 99->100")
+    if bearer_transactions["matched_count"] != 3 or bearer_transactions["retransmission_count"] != 1:
+        fail("dedicated-bearer transactions must match three pairs and group one retransmission")
+    request_contexts = bearer_events[0]["bearer_contexts"]
+    response_contexts = bearer_events[1]["bearer_contexts"]
+    if [item["item_index"] for item in request_contexts] != [0, 1]:
+        fail("grouped Bearer Context items must preserve item_index")
+    if [item["ebi"] for item in request_contexts] != [5, 6]:
+        fail("grouped Bearer Context items must preserve item-scoped EBI")
+    if [item["cause"]["cause_code"] for item in response_contexts] != [16, 73]:
+        fail("grouped Bearer Context items must preserve item-scoped Cause")
+    if any(item["cause"]["scope"] != "bearer" for item in response_contexts):
+        fail("bearer-level Cause must keep scope 'bearer'")
+    if bearer_events[1]["message_cause"]["cause_code"] != 16:
+        fail("message-level Cause must remain separate from bearer-level Cause")
+    if not request_contexts[0].get("qos") or not request_contexts[0].get("tft"):
+        fail("decoder-proven bearer QoS and TFT presence must be published")
+    if any(
+        item.get("other_ie_names") and "Bearer QoS" in item["other_ie_names"]
+        for item in request_contexts
+    ):
+        fail("Bearer QoS must not be published only as an unmodelled IE name")
+    for item in bearer_transactions["transactions"]:
+        if "lifecycle" in json.dumps(item).lower():
+            fail("a matched dedicated-bearer transaction must not publish lifecycle state")
+
+    original_layer_event = model.layer_event
+    try:
+        def flattened(layer, frame, capture_file, occurrence):
+            event = original_layer_event(layer, frame, capture_file, occurrence)
+            if event.get("bearer_contexts"):
+                event["bearer_contexts"] = [event["bearer_contexts"][0]]
+            return event
+
+        model.layer_event = flattened
+        with (skill / "examples/pdml/bearer-control.pdml").open("rb") as handle:
+            mutated_events = list(model.pdml_events(handle, "mutated.pdml"))
+    finally:
+        model.layer_event = original_layer_event
+    if len(mutated_events[0]["bearer_contexts"]) != 1:
+        fail("mutation check failed: flattening multiple Bearer Context items was not detected")
+    with (skill / "examples/pdml/bearer-control.pdml").open("rb") as handle:
+        restored_events = list(model.pdml_events(handle, "restored.pdml"))
+    if len(restored_events[0]["bearer_contexts"]) != 2:
+        fail("mutation restore failed: grouped Bearer Context items stayed flat")
+
+    try:
+        def promoted(layer, frame, capture_file, occurrence):
+            event = original_layer_event(layer, frame, capture_file, occurrence)
+            if event.get("message_type_code") == 96 and event.get("bearer_contexts"):
+                cause = event["bearer_contexts"][1]["cause"]
+                if cause is not None:
+                    event["message_cause"] = dict(cause, scope="message")
+            return event
+
+        model.layer_event = promoted
+        with (skill / "examples/pdml/bearer-control.pdml").open("rb") as handle:
+            promoted_events = list(model.pdml_events(handle, "promoted.pdml"))
+    finally:
+        model.layer_event = original_layer_event
+    if promoted_events[1]["message_cause"]["cause_code"] != 73:
+        fail("mutation check failed: bearer Cause promotion was not detected")
+    with (skill / "examples/pdml/bearer-control.pdml").open("rb") as handle:
+        restored_promoted = list(model.pdml_events(handle, "restored-promoted.pdml"))
+    if restored_promoted[1]["message_cause"]["cause_code"] != 16:
+        fail("mutation restore failed: message Cause stayed promoted")
+
+    original_request_codes = dict(correlate.REQUEST_CODES)
+    try:
+        correlate.REQUEST_CODES = {
+            code: response for code, response in original_request_codes.items() if code != 95
+        }
+        mutated_transactions = correlate.correlate(bearer_events)
+    finally:
+        correlate.REQUEST_CODES = original_request_codes
+    if any(
+        item.get("procedure_family") == "create-bearer"
+        and item.get("correlation_status") == "MATCHED"
+        for item in mutated_transactions["transactions"]
+    ):
+        fail("mutation check failed: removing the 95->96 mapping was not detected")
+    restored_transactions = correlate.correlate(bearer_events)
+    if not any(
+        item.get("procedure_family") == "create-bearer"
+        and item.get("correlation_status") == "MATCHED"
+        for item in restored_transactions["transactions"]
+    ):
+        fail("mutation restore failed: the 95->96 mapping stayed removed")
+
+    for pdml_name in ("session-control.pdml", "bearer-control.pdml"):
+        pdml_text = (skill / "examples/pdml" / pdml_name).read_text(encoding="utf-8")
+        for marker in ("460020000000001", "919000001", "1122334455667788"):
+            if marker in pdml_text:
+                fail(f"{pdml_name} still contains a subscriber identity value")
 
     return errors
 

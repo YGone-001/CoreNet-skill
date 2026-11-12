@@ -21,6 +21,14 @@
 # Bearer release triggered by an access change:
 #   gtpv2.message_type == 170 || gtpv2.message_type == 171
 #
+# Dedicated-bearer control family:
+#   gtpv2.message_type == 95 || gtpv2.message_type == 96
+#   gtpv2.message_type == 97 || gtpv2.message_type == 98
+#   gtpv2.message_type == 99 || gtpv2.message_type == 100
+#
+# Bearer QoS / TFT / ARP IE presence:
+#   gtpv2.ie_type == 80 || gtpv2.ie_type == 84 || gtpv2.ie_type == 155
+#
 # Echo keepalive:
 #   gtpv2.message_type == 1 || gtpv2.message_type == 2
 #
@@ -28,7 +36,7 @@
 #   gtpv2.ie_type == 93
 #
 # Initial requests that still use header TEID 0:
-#   gtpv2.teid == 0 && (gtpv2.message_type == 32 || gtpv2.message_type == 36)
+#   gtpv2.teid == 0 && (gtpv2.message_type == 32 || gtpv2.message_type == 36 || gtpv2.message_type == 95)
 #
 # Note: display filters cannot separate a message-scope Cause from a
 # bearer-scope Cause. Use the PDML tree (`-T pdml`) for scope-correct evidence.

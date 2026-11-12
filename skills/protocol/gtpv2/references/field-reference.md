@@ -1,6 +1,6 @@
 # Field reference
 
-Fields were verified against the TShark 4.7.1 GTPv2 dissector registry
+Fields were verified against the installed TShark 4.2.2 GTPv2 dissector registry
 (`tshark -G fields`, `tshark -G values`). Values in the "observed" column come
 from the bundled laboratory PDML excerpt; they are illustrative, not constants.
 
@@ -30,6 +30,14 @@ from the bundled laboratory PDML excerpt; they are illustrative, not constants.
 | `gtpv2.f_teid_gre_key` | F-TEID TEID/GRE key. | `0x000003c9` |
 | `gtpv2.f_teid_ipv4` / `.ipv6` | F-TEID address. | `127.0.0.3` |
 | `gtpv2.f_teid_v4` / `.v6` | Address-family presence bits. | `True` / `False` |
+| `gtpv2.bearer_qos_label_qci` | Bearer QoS QCI (IE 80). | `9` |
+| `gtpv2.bearer_qos_pl` | Bearer QoS priority level (IE 80). | `8` |
+| `gtpv2.bearer_qos_pci` | Bearer QoS pre-emption capability bit (IE 80). | `True` |
+| `gtpv2.bearer_qos_pvi` | Bearer QoS pre-emption vulnerability bit (IE 80). | `True` |
+| `gtpv2.bearer_qos_mbr_up` / `.mbr_down` | Bearer QoS MBR in decoder kbps show values. | `100000` |
+| `gtpv2.bearer_qos_gbr_up` / `.gbr_down` | Bearer QoS GBR in decoder kbps show values. | `0` |
+| `gtpv2.arp_pl` | Allocation/Retention Priority level (IE 155). | `2` |
+| `gtpv2.arp_pci` / `gtpv2.arp_pvi` | ARP pre-emption bits (IE 155). | `True` / `False` |
 | `gtpv2.apn` | APN network name. Read for length only; never published. | `internet` |
 | `gtpv2.pdn_type` | PDN type (IE 99, or inside PAA IE 79). | `1` |
 | `gtpv2.pdn_addr_and_prefix.ipv4` | PAA address. Read for family only. | `10.45.0.7` |
@@ -40,6 +48,11 @@ from the bundled laboratory PDML excerpt; they are illustrative, not constants.
 
 Identity-bearing fields (`gtpv2.imsi`, `gtpv2.msisdn`, `gtpv2.mei`,
 `gtpv2.tmsi`) are read only to record presence and are never emitted.
+
+`gtpv2.ie_type` values 80 (Bearer QoS), 84 (Bearer TFT), 81 (Flow QoS), 85
+(TAD), 97 (Bearer Flags) and 155 (ARP) are recognized. The installed decoder
+exposes TFT IE presence but not packet-filter structure; the extractor publishes
+`tft.present` and a limitation and never publishes raw filters.
 
 ## Flat fields JSONL input
 
@@ -54,7 +67,11 @@ gtpv2.msg_length, gtpv2.teid, gtpv2.seq, gtpv2.cause, gtpv2.ebi,
 gtpv2.apn, gtpv2.pdn_type, gtpv2.pdn_addr_and_prefix.ipv4,
 gtpv2.pdn_addr_and_prefix.ipv6, gtpv2.rat_type, gtpv2.ambr_up,
 gtpv2.ambr_down, gtpv2.f_teid_interface_type, gtpv2.f_teid_gre_key,
-gtpv2.f_teid_ipv4, gtpv2.f_teid_ipv6
+gtpv2.f_teid_ipv4, gtpv2.f_teid_ipv6, gtpv2.bearer_qos_label_qci,
+gtpv2.bearer_qos_pl, gtpv2.bearer_qos_pci, gtpv2.bearer_qos_pvi,
+gtpv2.bearer_qos_mbr_up, gtpv2.bearer_qos_mbr_down,
+gtpv2.bearer_qos_gbr_up, gtpv2.bearer_qos_gbr_down,
+gtpv2.arp_pl, gtpv2.arp_pci, gtpv2.arp_pvi
 ```
 
 `frame.number`, `frame.time_epoch` and `gtpv2.message_type` are required. A
@@ -72,6 +89,10 @@ record missing one of them is rejected with exit 5.
 - Cause PCE/BCE/CS bits are not part of the documented flat field set.
 - Identity-IE presence is only available if the producer included those fields,
   which the default field set does not.
+- Bearer QoS values stay in `unbound_ie_metadata.qos`; flat input cannot bind
+  them to an EBI or Bearer Context item.
+- TFT presence has no documented flat field and is therefore unavailable in
+  flat input.
 
 ## Value tables
 
