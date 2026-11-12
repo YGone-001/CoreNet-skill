@@ -140,14 +140,16 @@
     "closure_requires": [
       "an accepted release outcome for the same capture and release transaction",
       "an ESTABLISHED release-to-session binding for the same capture and release transaction",
-      "an ESTABLISHED generation-closure candidate for the same context and release transaction",
-      "an ESTABLISHED session-to-generation link from that context to the candidate bearer endpoint",
+      "exactly one ESTABLISHED generation-closure candidate for the same context, release transaction and reviewed bearer-generation endpoint; a release may close several independently proved generations",
+      "an ESTABLISHED session-to-generation link from that context to that generation's candidate bearer endpoint",
       "one lifecycle subject closed by the same release transaction with an exactly equal receiving endpoint",
       "an affirmatively complete closure-critical candidate set"
     ],
     "forbidden": [
       "treating an accepted Delete Session Response as sufficient proof of a bearer-generation closure",
       "using a closure candidate that names another release transaction",
+      "requiring exactly one closure candidate for the whole release transaction",
+      "accepting a session-to-generation link from record existence alone",
       "collapsing the release outcome, the binding and the closure into one verdict",
       "promoting a closure while a closure-critical collection is incomplete"
     ]
@@ -179,13 +181,16 @@
       "a claimed frame is present in the supplied GTP-U events when they are provided"
     ],
     "not_established": "an aggregate stream count is published whole and never divided across windows; without detailed GTP-U events the placement stays NOT_INDEPENDENTLY_VERIFIABLE",
+    "observed_subset": "a TEMPORAL_PLACEMENT_NOT_ESTABLISHED observation with OBSERVED_SUBSET scope, a non-conserved partition claim and partition counts not exceeding the aggregate is valid observed evidence; the audit preserves it, publishes insufficient complete-stream proof and never reports it as inconsistent",
     "duplicate_ownership": "a frame claimed by more than one release narrative is counted in no partition and no owner is selected",
     "confirmation_frame": "a control-plane confirmation anchor; never the forwarding-stop instant",
     "forbidden": [
       "interpolating a missing frame",
       "converting an aggregate stream count into a before, pending or after distribution",
       "treating a confirmation frame as the forwarding-stop instant",
-      "treating post-confirmation traffic as packet loss, delivery or root cause"
+      "treating post-confirmation traffic as packet loss, delivery or root cause",
+      "rejecting a valid observed subset merely because its partitions are non-null",
+      "claiming a complete-stream placement that the accepted aggregate does not support"
     ]
   },
   "accounting_rules": {

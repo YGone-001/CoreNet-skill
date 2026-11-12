@@ -156,7 +156,13 @@ publishes a consistency status or an explicit uncertainty.
 
 An accepted Delete Session Response is never sufficient by itself to prove a
 bearer-generation closure. A closure candidate that names another release
-transaction never justifies this release's closure.
+transaction never justifies this release's closure. Uniqueness is evaluated per
+reviewed bearer-generation endpoint, not per release transaction, so one accepted
+release may independently close several proved generations. Competing candidates
+for one endpoint stay ambiguous, and that ambiguity never demotes a generation that
+is independently proved at another endpoint. A session-to-generation link is proved
+only by an explicitly `ESTABLISHED` record; the mere presence of a link record or a
+matching target reference hash is never sufficient.
 
 ## Scoped S1-U Attribution
 
@@ -187,6 +193,13 @@ For a complete placement it verifies that the partition counts sum to the publis
 frame-level total, that the payload octets reconcile, that no G-PDU frame belongs to
 two exclusive partitions, that every claimed frame is present when detailed GTP-U
 events are supplied and that each partition stays inside its release boundaries.
+For a valid observed subset it requires the accepted
+`TEMPORAL_PLACEMENT_NOT_ESTABLISHED` / `OBSERVED_SUBSET` / non-conserved combination,
+verifies that the subset counts do not exceed the aggregate, keeps every frame
+inside its release window and publishes insufficient proof for the complete stream.
+The bounded subset is observed evidence, never corruption. A contradictory
+complete-stream or conserved claim, a subset exceeding the aggregate, a frame
+outside its window or duplicate frame ownership stays `INCONSISTENT`.
 It never interpolates a missing frame, never divides an aggregate stream count and
 never treats the confirmation frame as the forwarding-stop instant.
 

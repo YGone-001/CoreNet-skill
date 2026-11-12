@@ -19,7 +19,7 @@ A lower-level instruction must never silently override a higher-level one. Destr
 
 CoreNet Skill is a modular, evidence-first AI Skill repository for mobile core-network signaling analysis, troubleshooting, protocol reasoning, cross-protocol correlation, procedure-level diagnosis, failure-boundary localization, and future end-to-end fault isolation. It focuses on network signaling evidence analysis rather than implementation-specific source ownership.
 
-Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, six accepted Foundation Skills, the `core-network-pcap` capture normalization layer, bounded `ngap` and `nas-5gs` Protocol Skills, and the `cross-protocol-evidence` Correlation Skill. It does **not** yet implement Domain procedure logic, implementation-specific source-code mappings, or end-to-end troubleshooting. Planned functionality must never be presented as implemented functionality.
+Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, Foundation Skills, bounded Protocol Skills, the `cross-protocol-evidence` Correlation Skill, Domain and Procedure Skills for the EPC and 5GC procedure families, and boundedly scoped Analysis Orchestration for failure-boundary localization. It does **not** implement implementation-specific source-code mappings or end-to-end fault isolation. Planned functionality must never be presented as implemented functionality.
 
 ## Authoritative Documentation
 
@@ -266,3 +266,15 @@ Before claiming completion, run repository-level validation appropriate to the c
 Also run any Skill-specific tests introduced by the task. Never call a check PASS unless it ran. If a tool or dependency prevents a check, report NOT RUN and the exact reason. Tests for executable or rule-driven Skills should use small deterministic fixtures and cover normal behavior, malformed or missing input, boundary cases, evidence classification, correlation where applicable, and expected failure handling. Avoid large opaque packet captures unless justified.
 
 For non-trivial repository changes, the final report includes the inspected baseline, files changed, behavior added or changed, scope intentionally not implemented, tests and validation results, commit SHA if committed, push status if pushed, and blockers. Report failed validation; do not claim remote success without verification.
+
+## Local Final Report Delivery Policy
+
+Every completed development milestone must leave an actual UTF-8 Markdown Final Report inside the current project's root `reports/` directory, named `<PHASE-ID>-FINAL-REPORT.md`.
+
+- `reports/` is local-only. It must never be staged, committed, pushed, published as repository content, or included in CI artifacts. Do not place reports inside tracked documentation directories, and never write a report only to standard output.
+- Create `reports/` when absent and protect it through local Git metadata, preferring `.git/info/exclude` over modifying tracked `.gitignore`. Do not commit `.git/info/exclude`, and never use `git add -f` for reports.
+- Generate the report after the authorized commit, the normal push, and CI success on the exact final SHA. The report must cite that final SHA and the CI run for it. Never fabricate a CI result; record a failed or blocked gate explicitly.
+- Before each commit and push, verify that no report path is staged (`git diff --cached --name-only`) and that `reports/` remains ignored and untracked (`git check-ignore -v`, `git ls-files -- reports/`).
+- The report distinguishes verified-in-code, verified-in-CI, verified-by-real-capture-replay, not-executed, and not-independently-verified results. Real-capture replay is claimed only when the capture was actually replayed.
+- Fail closed: when required evidence or a gate is missing, the report records the actual blocked status rather than a speculative success.
+- Generating the local report never requires an additional commit, and no commit may be created solely to publish it.

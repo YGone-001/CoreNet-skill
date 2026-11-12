@@ -367,6 +367,10 @@ release-to-session binding, a lifecycle boundary naming the same release
 transaction, an `ESTABLISHED` closure candidate for the same context, release and
 bearer endpoint, an `ESTABLISHED` session-to-generation link to that candidate's
 bearer endpoint, and an affirmatively complete closure-critical candidate set.
+Closure uniqueness is evaluated per reviewed bearer-generation endpoint, so one
+release may independently close several proved generations; competing candidates
+for one endpoint stay ambiguous without demoting a generation proved at another
+endpoint.
 
 Temporal evidence is frame-aware and conservative. Capture identity is part of the
 endpoint identity, so a stream observed in one capture is never attributed to a
@@ -384,9 +388,11 @@ is an observation window, the confirmation frame is never the forwarding-stop
 instant, and an aggregate stream count is never divided across windows: without
 frame-level GTP-U events the observation publishes
 `TEMPORAL_PLACEMENT_NOT_ESTABLISHED`. A complete placement is only asserted when
-the observed frames reproduce the accepted aggregate count and payload octets; an
-unreconciled or doubly-claimed frame set keeps its observed subset and fails
-closed. A G-PDU frame is counted in at most one partition of one narrative.
+the observed frames reproduce the accepted aggregate count and payload octets; a
+bounded observed subset remains valid observed evidence with insufficient
+complete-stream proof, while a contradictory complete-stream claim or duplicate
+frame ownership fails closed. A G-PDU frame is counted in at most one partition of
+one narrative.
 
 `release_effective_frame_proven` is always `false`, `boundary_selection_status` is
 `NOT_APPLICABLE` and `first_abnormal_boundary` is `null`: a release narrative is
@@ -439,12 +445,15 @@ endpoint, bearer generation, S1-U stream, closure candidate, narrative subject,
 release narrative and temporal observation. It never joins records on an equal
 TEID, EPS bearer identity, address, frame number or timestamp alone. An endpoint
 correspondence is never used as a session-identity bridge, an accepted release is
-audited separately from the binding and the generation closure, a closure candidate
-naming another release transaction never closes this release, and a generation
-ownership claim must be backed by exactly one internally consistent
-generation-scoped S1-U record with a direction that maps to its role and agrees with
-the stream. Frame partitions are audited for conservation, window boundaries,
-exclusive ownership and frame presence; no frame is interpolated and no aggregate
+audited separately from the binding and the generation closure, a session-to-
+generation link is proved only by an explicitly established record inside its own
+relationship namespace, a closure candidate naming another release transaction never
+closes this release, and a generation ownership claim must be backed by exactly one
+internally consistent generation-scoped S1-U record with a direction that maps to
+its role and agrees with the stream. Frame partitions are audited for conservation,
+window boundaries, exclusive ownership and frame presence; a valid observed subset
+is preserved with insufficient complete-stream proof, while an unsupported
+complete-stream claim fails closed. No frame is interpolated and no aggregate
 count is divided. Producer accounting counts are re-stated unchanged, and any
 audit-derived total is labelled and never written back.
 

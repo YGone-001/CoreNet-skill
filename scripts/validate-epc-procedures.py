@@ -2997,6 +2997,159 @@ def _audit_scenario():
     }
 
 
+AUDIT_GENERATION_2 = "epc-bearer-generation-vb00000002"
+AUDIT_CANDIDATE_2 = "epc-generation-closure-vc00000002"
+AUDIT_CANDIDATE_3 = "epc-generation-closure-vc00000003"
+AUDIT_ENDPOINT_2_RECORD = {
+    "role": "sgw_s1u",
+    "address": "10.0.0.20",
+    "teid": 88,
+    "interface_type": 1,
+    "eps_bearer_identities": [5],
+    "generation_references": [AUDIT_GENERATION_2],
+}
+
+
+def _audit_endpoint_2(capture=AUDIT_CAPTURE):
+    return "epc-bearer-endpoint-" + hashlib.sha256(
+        "|".join(["bearer-endpoint", capture, "sgw_s1u", "10.0.0.20", "88", "1"]).encode(
+            "utf-8"
+        )
+    ).hexdigest()[:10]
+
+
+def _audit_two_generation_scenario():
+    """One accepted release that independently closes two bearer generations."""
+    documents = _audit_scenario()
+    identity = documents["identity"]
+    lifecycle = documents["lifecycle"]
+    endpoint_2 = _audit_endpoint_2()
+    identity["session_to_generation_links"].append(
+        dict(
+            identity["session_to_generation_links"][0],
+            target_subject_reference=endpoint_2,
+            bearer_endpoint=dict(AUDIT_ENDPOINT_2_RECORD),
+        )
+    )
+    identity["session_to_generation_count"] = 2
+    identity["generation_closure_candidates"].append(
+        dict(
+            identity["generation_closure_candidates"][0],
+            generation_closure_candidate_reference=AUDIT_CANDIDATE_2,
+            bearer_endpoint_reference=endpoint_2,
+            bearer_endpoint=dict(AUDIT_ENDPOINT_2_RECORD),
+        )
+    )
+    identity["generation_closure_candidate_count"] = 2
+    identity["established_closure_candidate_count"] = 2
+    lifecycle["lifecycle_subjects"].append(
+        dict(
+            lifecycle["lifecycle_subjects"][0],
+            generation_reference=AUDIT_GENERATION_2,
+            receiving_endpoint_address="10.0.0.20",
+            receiving_endpoint_teid=88,
+            receiving_endpoint_role="sgw_s1u",
+            reviewed_interface_type=1,
+        )
+    )
+    lifecycle["lifecycle_subject_count"] = 2
+    release = documents["narrative"]["release_narratives"][0]
+    release["proved_generations"].append(
+        dict(
+            release["proved_generations"][0],
+            generation_reference=AUDIT_GENERATION_2,
+            receiving_endpoint_role="sgw_s1u",
+            receiving_endpoint_address="10.0.0.20",
+            receiving_endpoint_teid=88,
+            reviewed_interface_type=1,
+            closure_candidate_reference=AUDIT_CANDIDATE_2,
+        )
+    )
+    return documents
+
+
+def _audit_subset_scenario():
+    """A valid OBSERVED_SUBSET against a larger accepted aggregate."""
+    documents = _audit_scenario()
+    observation = documents["narrative"]["temporal_observations"][0]
+    observation.update(
+        {
+            "observed_g_pdu_count": 10,
+            "observed_payload_octets": 1000,
+            "temporal_placement_status": "TEMPORAL_PLACEMENT_NOT_ESTABLISHED",
+            "partition_basis": "FRAME_LEVEL_EVENTS_INCOMPLETE",
+            "partition_conserved": False,
+            "partition_scope": "OBSERVED_SUBSET",
+            "partitions": {
+                "before_release": {
+                    "g_pdu_count": 1,
+                    "payload_octets": 100,
+                    "first_frame": 100,
+                    "last_frame": 100,
+                },
+                "pending_release": {
+                    "g_pdu_count": 1,
+                    "payload_octets": 100,
+                    "first_frame": 202,
+                    "last_frame": 202,
+                },
+                "after_confirmation": {
+                    "g_pdu_count": 1,
+                    "payload_octets": 100,
+                    "first_frame": 210,
+                    "last_frame": 210,
+                },
+            },
+        }
+    )
+    stream = documents["s1u"]["stream_observations"][0]
+    stream["observed_g_pdu_packet_count"] = 10
+    stream["observed_payload_byte_count"] = 1000
+    documents["s1u"]["observed_g_pdu_packet_count"] = 10
+    documents["s1u"]["observed_payload_byte_count"] = 1000
+    scoped = documents["lifecycle"]["generation_scoped_s1u_observations"][0]
+    scoped["observed_g_pdu_count"] = 10
+    scoped["observed_payload_octets"] = 1000
+    documents["lifecycle"]["accounting"] = {
+        "aggregate_g_pdu_count": 10,
+        "attributed_g_pdu_count": 10,
+        "unresolved_g_pdu_count": 0,
+        "aggregate_payload_octets": 1000,
+        "attributed_payload_octets": 1000,
+        "unresolved_payload_octets": 0,
+        "conserved_g_pdu": True,
+        "conserved_payload_octets": True,
+    }
+    documents["narrative"]["temporal_accounting"] = {
+        "frame_level_evidence_supplied": True,
+        "observed_g_pdu_event_count": 3,
+        "assigned_to_release_window_count": 3,
+        "unassigned_g_pdu_event_count": 0,
+        "duplicate_assignment_count": 0,
+        "conserved": True,
+        "attributed_observation_count": 1,
+        "unattributed_observation_count": 0,
+    }
+    documents["gtpu"] = [
+        {
+            "capture_file": AUDIT_CAPTURE,
+            "frame_number": frame,
+            "header": {"message_type": "G-PDU", "teid": 77, "message_length": 100},
+            "outer": {"source_address": "10.0.0.20", "destination_address": "10.0.0.40"},
+        }
+        for frame in (100, 202, 210)
+    ]
+    return documents
+
+
+def _audit_closure_for(result, reference):
+    return next(
+        record
+        for record in _audit_of(result, "GENERATION_CLOSURE")
+        if record["target_subject_reference"] == reference
+    )
+
+
 def _audit_run(model, documents):
     return model.analyze(
         documents["identity"],
@@ -3105,6 +3258,104 @@ def _validate_evidence_audit(skill: Path, root: Path) -> list[str]:
         fail("evidence audit must never publish a first abnormal boundary")
     if not positive["accounting_integrity_summary"]["audit_derived"]["source_counts_unchanged"]:
         fail("evidence audit must leave producer counts unchanged")
+
+    # Valid multi-generation closure under one accepted release.
+    two_generation = _audit_two_generation_scenario()
+    two_result = _audit_run(model, two_generation)
+    two_closures = _audit_of(two_result, "GENERATION_CLOSURE")
+    if len(two_closures) != 2 or any(
+        record["audit_status"] != "VERIFIED_CONSISTENT" for record in two_closures
+    ):
+        fail("evidence audit rejected a valid two-generation release closure")
+    if two_result["audit_summary"]["inconsistent_count"]:
+        fail("evidence audit reported a contradiction for a valid two-generation closure")
+
+    # Competing candidates stay unresolved only for the endpoint they compete on.
+    competing = copy.deepcopy(two_generation)
+    competing["identity"]["generation_closure_candidates"].append(
+        dict(
+            competing["identity"]["generation_closure_candidates"][1],
+            generation_closure_candidate_reference=AUDIT_CANDIDATE_3,
+        )
+    )
+    competing["identity"]["generation_closure_candidate_count"] = 3
+    competing_result = _audit_run(model, competing)
+    if (
+        _audit_closure_for(competing_result, AUDIT_GENERATION_2)["audit_status"]
+        != "AMBIGUOUS"
+    ):
+        fail("evidence audit did not keep competing candidates for one generation ambiguous")
+    if (
+        _audit_closure_for(competing_result, AUDIT_GENERATION)["audit_status"]
+        != "VERIFIED_CONSISTENT"
+    ):
+        fail("a competing candidate for another generation demoted the valid generation")
+
+    # A valid observed subset is evidence, not corruption.
+    subset = _audit_subset_scenario()
+    subset_result = _audit_run(model, subset)
+    subset_temporal = _audit_of(subset_result, "TEMPORAL_FRAME_PARTITION")[0]
+    if subset_temporal["audit_status"] != "VERIFIED_CONSISTENT":
+        fail("evidence audit treated a valid observed subset as inconsistent")
+    if subset_temporal["proof_sufficiency_status"] != "INSUFFICIENT":
+        fail("evidence audit claimed complete-stream proof for an observed subset")
+    if subset_result["audit_summary"]["inconsistent_count"]:
+        fail("valid observed-subset evidence produced an inconsistency")
+
+    # An unsupported complete-stream claim stays rejected.
+    wrong_scope = copy.deepcopy(subset)
+    wrong_scope["narrative"]["temporal_observations"][0][
+        "partition_scope"
+    ] = "COMPLETE_STREAM"
+    wrong_scope_result = _audit_run(model, wrong_scope)
+    if (
+        _audit_of(wrong_scope_result, "TEMPORAL_FRAME_PARTITION")[0]["audit_status"]
+        != "INCONSISTENT"
+    ):
+        fail("evidence audit accepted an incorrect complete-stream temporal claim")
+
+    # An unestablished session-to-generation link is never promoted.
+    unestablished = copy.deepcopy(documents)
+    unestablished["identity"]["session_to_generation_links"][0][
+        "association_status"
+    ] = "NOT_ESTABLISHED"
+    unestablished_result = _audit_run(model, unestablished)
+    if (
+        _audit_closure_for(unestablished_result, AUDIT_GENERATION)["audit_status"]
+        != "INCONSISTENT"
+    ):
+        fail("evidence audit accepted a NOT_ESTABLISHED session-to-generation link")
+    if not any(
+        record["audit_status"] == "INCONSISTENT"
+        for record in _audit_of(unestablished_result, "SESSION_GENERATION_LINK")
+        if record["source_analysis"] == "epc-release-narrative"
+    ):
+        fail("evidence audit did not reject the unestablished link at the link record")
+
+    # A generation link in the wrong relationship namespace never closes a generation.
+    wrong_namespace = copy.deepcopy(documents)
+    wrong_namespace["identity"]["session_to_generation_links"][0][
+        "relationship_type"
+    ] = "CROSS_INTERFACE_SESSION_IDENTITY"
+    namespace_result = _audit_run(model, wrong_namespace)
+    generation_reference = [
+        record
+        for record in _audit_of(namespace_result, "REFERENCE_INTEGRITY")
+        if record["relationship_type"] == "SESSION_CONTEXT_TO_BEARER_GENERATION"
+    ]
+    if not generation_reference or generation_reference[0]["audit_status"] != "INCONSISTENT":
+        fail("evidence audit did not preserve the generation link namespace")
+    if (
+        generation_reference
+        and generation_reference[0]["source_artifact_reference"]
+        != "epc-session-identity:session_to_generation_links"
+    ):
+        fail("evidence audit attributed a generation link to the wrong source collection")
+    if (
+        _audit_closure_for(namespace_result, AUDIT_GENERATION)["audit_status"]
+        != "INCONSISTENT"
+    ):
+        fail("evidence audit accepted a generation link in the wrong namespace")
 
     # Cross-capture reference mismatch.
     mismatch = copy.deepcopy(documents)
@@ -3275,6 +3526,81 @@ def _validate_evidence_audit(skill: Path, root: Path) -> list[str]:
         != "INCONSISTENT"
     ):
         fail("mutation restore failed: the frame-exclusivity gate stayed disabled")
+
+    # Mutation check 4: restore the one-candidate-per-release closure assumption.
+    original_candidates = model._closure_endpoint_candidates
+    try:
+        model._closure_endpoint_candidates = lambda established, *_args: established
+        mutated = _audit_run(model, two_generation)
+    finally:
+        model._closure_endpoint_candidates = original_candidates
+    if all(
+        record["audit_status"] == "VERIFIED_CONSISTENT"
+        for record in _audit_of(mutated, "GENERATION_CLOSURE")
+    ):
+        fail(
+            "mutation check failed: restoring the one-candidate-per-release gate was not "
+            "detected"
+        )
+    if any(
+        record["audit_status"] != "VERIFIED_CONSISTENT"
+        for record in _audit_of(_audit_run(model, two_generation), "GENERATION_CLOSURE")
+    ):
+        fail(
+            "mutation restore failed: the one-candidate-per-release gate stayed active"
+        )
+
+    # Mutation check 5: restore rejection of any non-null partial partition.
+    original_subset_form = model._observed_subset_form
+    try:
+        model._observed_subset_form = (
+            lambda observation: observation.get("partitions") is None
+        )
+        mutated = _audit_run(model, subset)
+    finally:
+        model._observed_subset_form = original_subset_form
+    if (
+        _audit_of(mutated, "TEMPORAL_FRAME_PARTITION")[0]["audit_status"]
+        != "INCONSISTENT"
+    ):
+        fail(
+            "mutation check failed: rejecting every partial partition was not detected"
+        )
+    if (
+        _audit_of(_audit_run(model, subset), "TEMPORAL_FRAME_PARTITION")[0][
+            "audit_status"
+        ]
+        != "VERIFIED_CONSISTENT"
+    ):
+        fail(
+            "mutation restore failed: the partial-partition rejection stayed active"
+        )
+
+    # Mutation check 6: restore the record-existence-only link gate.
+    original_link_gate = model._established_session_generation_link
+    try:
+        model._established_session_generation_link = (
+            lambda *_args, **_kwargs: ({}, False, True)
+        )
+        mutated = _audit_run(model, unestablished)
+    finally:
+        model._established_session_generation_link = original_link_gate
+    if (
+        _audit_closure_for(mutated, AUDIT_GENERATION)["audit_status"]
+        != "VERIFIED_CONSISTENT"
+    ):
+        fail(
+            "mutation check failed: the record-existence-only link gate was not detected"
+        )
+    if (
+        _audit_closure_for(_audit_run(model, unestablished), AUDIT_GENERATION)[
+            "audit_status"
+        ]
+        != "INCONSISTENT"
+    ):
+        fail(
+            "mutation restore failed: the record-existence-only link gate stayed active"
+        )
 
     # Determinism.
     if json.dumps(positive, sort_keys=True) != json.dumps(

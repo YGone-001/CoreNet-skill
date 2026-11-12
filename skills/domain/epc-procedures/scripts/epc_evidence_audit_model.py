@@ -635,6 +635,7 @@ def build_indexes(
     contexts: dict[tuple[str, str], list[dict[str, Any]]] = {}
     bindings: dict[tuple[str, str], list[dict[str, Any]]] = {}
     identity_links: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    generation_links: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     correspondences: dict[tuple[str, str], list[dict[str, Any]]] = {}
     candidates: dict[tuple[str, str], list[dict[str, Any]]] = {}
     candidates_by_chain: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
@@ -659,13 +660,18 @@ def build_indexes(
         capture = record.get("capture_file")
         if isinstance(reference, str) and isinstance(capture, str):
             _bucket(bindings, (capture, reference), record)
-    for key in ("session_identity_links", "session_to_generation_links"):
-        for record in _records(identity, key):
-            capture = record.get("capture_file")
-            source = record.get("source_subject_reference")
-            target = record.get("target_subject_reference")
-            if isinstance(capture, str) and isinstance(source, str) and isinstance(target, str):
-                _bucket(identity_links, (capture, source, target), record)
+    for record in _records(identity, "session_identity_links"):
+        capture = record.get("capture_file")
+        source = record.get("source_subject_reference")
+        target = record.get("target_subject_reference")
+        if isinstance(capture, str) and isinstance(source, str) and isinstance(target, str):
+            _bucket(identity_links, (capture, source, target), record)
+    for record in _records(identity, "session_to_generation_links"):
+        capture = record.get("capture_file")
+        source = record.get("source_subject_reference")
+        target = record.get("target_subject_reference")
+        if isinstance(capture, str) and isinstance(source, str) and isinstance(target, str):
+            _bucket(generation_links, (capture, source, target), record)
     for record in _records(identity, "endpoint_correspondence_links"):
         capture = record.get("capture_file")
         reference = record.get("reference")
@@ -741,6 +747,7 @@ def build_indexes(
         "contexts": contexts,
         "bindings": bindings,
         "identity_links": identity_links,
+        "generation_links": generation_links,
         "correspondences": correspondences,
         "candidates": candidates,
         "candidates_by_chain": candidates_by_chain,
@@ -1135,30 +1142,72 @@ def audit_reference_integrity(
             candidate_completeness_status=binding_status,
             proof_sufficiency_status=(
                 PROOF_SUFFICIENT
-                if resolved is not None and binding_status == COMPLETE_COLLECTION
+                if resolved is not None
+                and binding_status == COMPLETE_COLLECTION
                 else PROOF_INSUFFICIENT
             ),
         )
 
+    identity_link_status = collection_status(
+        completeness, ARTIFACT_IDENTITY, "session_identity_links"
+    )
     for (capture, source, target), records in sorted(index["identity_links"].items()):
         link = records[0]
-        relationship = str(link.get("relationship_type"))
         source_resolved = _one(index["contexts"], (capture, source))[0] is not None
-        if relationship == REL_SESSION_IDENTITY:
-            target_resolved = _one(index["contexts"], (capture, target))[0] is not None
-        elif relationship == REL_SESSION_GENERATION:
-            endpoint = link.get("bearer_endpoint")
-            recomputed = _bearer_endpoint_reference(endpoint, capture)
-            target_resolved = recomputed == target
-        else:
-            target_resolved = False
+        target_resolved = _one(index["contexts"], (capture, target))[0] is not None
         checks = [
-            _check(CHECK_REFERENCE_UNIQUE, len(records) == 1),
+            _check(CHECK_REFERENCE_UNIQUE, None if len(records) > 1 else True),
             _check(CHECK_CONTEXT_PRESENT, source_resolved),
             _check(CHECK_ENDPOINT_PRESENT, target_resolved),
             _check(
                 CHECK_RELATIONSHIP_TYPE,
-                relationship in (REL_SESSION_IDENTITY, REL_SESSION_GENERATION),
+                link.get("relationship_type") == REL_SESSION_IDENTITY,
+            ),
+        ]
+        ledger.add(
+            CATEGORY_REFERENCE_INTEGRITY,
+            _status(checks, ambiguous=len(records) > 1, completeness=identity_link_status),
+            source_analysis="epc-session-identity",
+            source_artifact_reference="epc-session-identity:session_identity_links",
+            source_subject_reference=source,
+            target_analysis="epc-session-identity",
+            target_artifact_reference="epc-session-identity:hop_local_contexts",
+            target_subject_reference=target,
+            capture_file=capture,
+            relationship_type=REL_SESSION_IDENTITY,
+            source_evidence_refs=link.get("evidence_refs"),
+            checks=checks,
+            candidate_completeness_status=identity_link_status,
+            proof_sufficiency_status=(
+                PROOF_SUFFICIENT
+                if source_resolved
+                and target_resolved
+                and identity_link_status == COMPLETE_COLLECTION
+                else PROOF_INSUFFICIENT
+            ),
+            limitations=(
+                []
+                if source_resolved and target_resolved
+                else [
+                    "a published cross-interface session identity names a context that the "
+                    "supplied artifacts do not publish"
+                ]
+            ),
+        )
+
+    for (capture, source, target), records in sorted(index["generation_links"].items()):
+        link = records[0]
+        source_resolved = _one(index["contexts"], (capture, source))[0] is not None
+        endpoint = link.get("bearer_endpoint")
+        recomputed = _bearer_endpoint_reference(endpoint, capture)
+        target_resolved = recomputed == target
+        checks = [
+            _check(CHECK_REFERENCE_UNIQUE, None if len(records) > 1 else True),
+            _check(CHECK_CONTEXT_PRESENT, source_resolved),
+            _check(CHECK_ENDPOINT_PRESENT, target_resolved),
+            _check(
+                CHECK_RELATIONSHIP_TYPE,
+                link.get("relationship_type") == REL_SESSION_GENERATION,
             ),
         ]
         ledger.add(
@@ -1168,20 +1217,18 @@ def audit_reference_integrity(
             source_artifact_reference="epc-session-identity:session_to_generation_links",
             source_subject_reference=source,
             target_analysis="epc-session-identity",
-            target_artifact_reference=(
-                "epc-session-identity:hop_local_contexts"
-                if relationship == REL_SESSION_IDENTITY
-                else "epc-identity-link:bearer_endpoint"
-            ),
+            target_artifact_reference="epc-identity-link:bearer_endpoint",
             target_subject_reference=target,
             capture_file=capture,
-            relationship_type=relationship,
+            relationship_type=REL_SESSION_GENERATION,
             source_evidence_refs=link.get("evidence_refs"),
             checks=checks,
             candidate_completeness_status=link_status,
             proof_sufficiency_status=(
                 PROOF_SUFFICIENT
-                if source_resolved and target_resolved
+                if source_resolved
+                and target_resolved
+                and link_status == COMPLETE_COLLECTION
                 else PROOF_INSUFFICIENT
             ),
             limitations=(
@@ -2104,6 +2151,94 @@ def _boundary_subjects(index: dict[str, Any]) -> dict[tuple[str, str], list[dict
     return result
 
 
+def _proved_endpoint_key(generation: dict[str, Any], capture: str) -> tuple[Any, ...]:
+    return (
+        capture,
+        str(generation.get("receiving_endpoint_role")),
+        str(generation.get("receiving_endpoint_address")),
+        _int(generation.get("receiving_endpoint_teid")) or 0,
+        _int(generation.get("reviewed_interface_type")) or 0,
+    )
+
+
+def _distinct_proved_generations(record: dict[str, Any]) -> list[dict[str, Any]]:
+    """One proved generation is counted once per release narrative."""
+    seen: set[tuple[Any, ...]] = set()
+    result: list[dict[str, Any]] = []
+    for generation in record.get("proved_generations") or []:
+        if not isinstance(generation, dict):
+            continue
+        key = (
+            str(generation.get("generation_reference")),
+            str(generation.get("receiving_endpoint_role")),
+            str(generation.get("receiving_endpoint_address")),
+            _int(generation.get("receiving_endpoint_teid")) or 0,
+            _int(generation.get("reviewed_interface_type")) or 0,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(generation)
+    return result
+
+
+def _established_session_generation_link(
+    index: dict[str, Any],
+    capture: str,
+    context: str,
+    endpoint_reference: Any,
+) -> tuple[dict[str, Any] | None, bool, bool]:
+    """A generation link is proved only by an explicit established record."""
+    if not isinstance(endpoint_reference, str):
+        return None, False, False
+    link, ambiguous = _one(
+        index["generation_links"], (capture, context, endpoint_reference)
+    )
+    if ambiguous or not isinstance(link, dict):
+        return link, ambiguous, False
+    established = (
+        link.get("relationship_type") == REL_SESSION_GENERATION
+        and link.get("association_status") == ESTABLISHED
+        and link.get("capture_file") == capture
+        and link.get("source_subject_reference") == context
+        and link.get("target_subject_reference") == endpoint_reference
+    )
+    return link, False, established
+
+
+def _candidate_closes_endpoint(
+    candidate: dict[str, Any],
+    capture: str,
+    context: str,
+    transaction: str,
+    endpoint_key: tuple[Any, ...],
+) -> bool:
+    return (
+        candidate.get("capture_file") == capture
+        and candidate.get("session_context_reference") == context
+        and candidate.get("release_transaction_reference") == transaction
+        and candidate.get("association_status") == ESTABLISHED
+        and _candidate_endpoint_key(candidate, capture) == endpoint_key
+    )
+
+
+def _closure_endpoint_candidates(
+    established: list[dict[str, Any]],
+    capture: str,
+    context: str,
+    transaction: str,
+    endpoint_key: tuple[Any, ...],
+) -> list[dict[str, Any]]:
+    """Candidates are unique per reviewed endpoint, never per release transaction."""
+    return [
+        candidate
+        for candidate in established
+        if _candidate_closes_endpoint(
+            candidate, capture, context, transaction, endpoint_key
+        )
+    ]
+
+
 def audit_session_generation_links(
     ledger: Ledger,
     narrative: dict[str, Any],
@@ -2129,7 +2264,7 @@ def audit_session_generation_links(
                 continue
             endpoint_reference = candidate.get("bearer_endpoint_reference")
             link, ambiguous = (
-                _one(index["identity_links"], (capture, context, endpoint_reference))
+                _one(index["generation_links"], (capture, context, endpoint_reference))
                 if isinstance(endpoint_reference, str)
                 else (None, False)
             )
@@ -2147,20 +2282,20 @@ def audit_session_generation_links(
                 _check(
                     CHECK_RELATIONSHIP_TYPE,
                     None
-                    if not published
+                    if not published or ambiguous
                     else isinstance(link, dict)
                     and link.get("relationship_type") == REL_SESSION_GENERATION,
                 ),
                 _check(
                     CHECK_UNIQUE_CANDIDATE,
                     None
-                    if not published
+                    if not published or ambiguous
                     else isinstance(link, dict)
                     and link.get("association_status") == ESTABLISHED,
                 ),
             ]
             limitations: list[str] = []
-            if published and link is None:
+            if published and link is None and not ambiguous:
                 limitations.append(
                     "the identity analysis publishes an established closure candidate whose "
                     "context-to-endpoint relationship it does not publish"
@@ -2183,7 +2318,7 @@ def audit_session_generation_links(
                 relationship_type=REL_SESSION_GENERATION,
                 checks=checks,
                 candidate_completeness_status=(
-                    candidate_completeness
+                    _worst_status([candidate_completeness, link_completeness])
                     if published
                     else link_completeness
                 ),
@@ -2207,23 +2342,42 @@ def audit_session_generation_links(
                 if candidate.get("association_status") == ESTABLISHED
                 and _candidate_endpoint_key(candidate, capture) == endpoint_key
             ]
-            link_established = any(
-                isinstance(
-                    _one(
-                        index["identity_links"],
-                        (capture, context, candidate.get("bearer_endpoint_reference")),
-                    )[0],
-                    dict,
+            link_ok = False
+            link_ambiguous = False
+            if len(owners) == 1:
+                _link, link_ambiguous, link_ok = _established_session_generation_link(
+                    index,
+                    capture,
+                    context,
+                    owners[0].get("bearer_endpoint_reference"),
                 )
-                for candidate in owners
-            )
             checks = [
-                _check(CHECK_CANDIDATES_COMPLETE, len(owners) == 1),
-                _check(CHECK_UNIQUE_CANDIDATE, link_established),
+                _check(
+                    CHECK_CANDIDATES_COMPLETE,
+                    None if len(owners) > 1 else len(owners) == 1,
+                ),
+                _check(
+                    CHECK_UNIQUE_CANDIDATE,
+                    None
+                    if len(owners) > 1 or link_ambiguous
+                    else len(owners) == 1 and link_ok,
+                ),
             ]
+            generation_path_limitations = (
+                []
+                if not (_failed(checks) and not link_ambiguous)
+                else [
+                    "the narrative publishes a proved generation whose session-to-generation "
+                    "chain the supplied identity analysis does not publish"
+                ]
+            )
             ledger.add(
                 CATEGORY_SESSION_GENERATION_LINK,
-                _status(checks, ambiguous=len(owners) > 1, completeness=link_completeness),
+                _status(
+                    checks,
+                    ambiguous=len(owners) > 1 or link_ambiguous,
+                    completeness=link_completeness,
+                ),
                 source_analysis="epc-release-narrative",
                 source_artifact_reference="epc-release-narrative:release_narratives",
                 source_subject_reference=record.get("release_narrative_reference"),
@@ -2233,20 +2387,15 @@ def audit_session_generation_links(
                 capture_file=capture,
                 relationship_type=REL_SESSION_GENERATION,
                 checks=checks,
-                candidate_completeness_status=candidate_completeness,
+                candidate_completeness_status=_worst_status(
+                    [candidate_completeness, link_completeness]
+                ),
                 proof_sufficiency_status=(
                     PROOF_SUFFICIENT
-                    if not _failed(checks)
+                    if not _failed(checks) and not link_ambiguous
                     else PROOF_INSUFFICIENT
                 ),
-                limitations=(
-                    []
-                    if not _failed(checks)
-                    else [
-                        "the narrative publishes a proved generation whose session-to-generation "
-                        "chain the supplied identity analysis does not publish"
-                    ]
-                ),
+                limitations=generation_path_limitations,
             )
 
 
@@ -2256,9 +2405,15 @@ def audit_generation_closure(
     index: dict[str, Any],
     completeness: dict[str, Any],
 ) -> None:
-    """Release outcome, binding and closure are audited separately."""
+    """Audit each proved generation at its own endpoint; one release may close several."""
     closure_complete, closure_failures = closure_completeness(completeness)
     boundary_subjects = _boundary_subjects(index)
+    completeness_status = _worst_status(
+        [
+            collection_status(completeness, artifact, collection)
+            for artifact, collection in CLOSURE_CRITICAL_COLLECTIONS
+        ]
+    )
     for record in _records(narrative, "release_narratives"):
         capture = str(record.get("capture_file"))
         context = record.get("session_context_reference")
@@ -2273,6 +2428,137 @@ def audit_generation_closure(
             if candidate.get("association_status") == ESTABLISHED
         ]
         subjects = boundary_subjects.get((capture, transaction), [])
+        other_release_candidates = [
+            candidate
+            for (key, values) in index["candidates_by_chain"].items()
+            if key[0] == capture
+            and key[1] == context
+            and key[2] != transaction
+            for candidate in values
+        ]
+        proved = _distinct_proved_generations(record)
+
+        if claim == ESTABLISHED and proved:
+            for generation in proved:
+                generation_reference = generation.get("generation_reference")
+                endpoint_key = _proved_endpoint_key(generation, capture)
+                owners = _closure_endpoint_candidates(
+                    established, capture, context, transaction, endpoint_key
+                )
+                matching = [
+                    subject
+                    for subject in subjects
+                    if subject.get("generation_state") == GENERATION_CLOSED
+                    and _subject_endpoint_key(subject) == endpoint_key
+                    and subject.get("generation_reference") == generation_reference
+                ]
+                link_ok = False
+                link_ambiguous = False
+                if len(owners) == 1:
+                    _link, link_ambiguous, link_ok = _established_session_generation_link(
+                        index,
+                        capture,
+                        context,
+                        owners[0].get("bearer_endpoint_reference"),
+                    )
+                checks = [
+                    _check(
+                        CHECK_CANDIDATES_COMPLETE,
+                        None if not closure_complete else True,
+                    ),
+                    _check(
+                        CHECK_UNIQUE_CANDIDATE,
+                        None
+                        if len(owners) > 1 or len(matching) > 1 or link_ambiguous
+                        else len(owners) == 1 and len(matching) == 1 and link_ok,
+                    ),
+                    _check(
+                        CHECK_RELEASE_TRANSACTION,
+                        not (not owners and bool(other_release_candidates)),
+                    ),
+                ]
+                limitations: list[str] = []
+                if not closure_complete:
+                    limitations.append(
+                        "no unique bearer-generation closure is audited while a closure-critical "
+                        "collection is incomplete: " + ", ".join(closure_failures)
+                    )
+                if len(owners) > 1:
+                    limitations.append(
+                        "several established closure candidates name the same bearer-generation "
+                        "endpoint; the audit selects none and keeps that closure ambiguous"
+                    )
+                elif not owners:
+                    limitations.append(
+                        "the proved generation has no established closure candidate closed by "
+                        "this release transaction"
+                    )
+                    if other_release_candidates:
+                        limitations.append(
+                            "a closure candidate for this context names another release "
+                            "transaction, so it never justifies this release's closure"
+                        )
+                if len(matching) > 1:
+                    limitations.append(
+                        "several lifecycle subjects are closed by this release at the same "
+                        "endpoint, so no single closure is audited"
+                    )
+                elif not matching:
+                    limitations.append(
+                        "no lifecycle subject closed by this release carries the proved "
+                        "generation's endpoint"
+                    )
+                if len(owners) == 1 and not link_ok:
+                    limitations.append(
+                        "the session-to-generation link for this proved generation is not "
+                        "explicitly established; record existence alone never proves the link"
+                    )
+                status = _status(
+                    checks,
+                    ambiguous=len(owners) > 1 or len(matching) > 1 or link_ambiguous,
+                    completeness=completeness_status,
+                )
+                if record.get("release_outcome_status") != ACCEPTED:
+                    checks.append(_check(CHECK_RELEASE_TRANSACTION, False))
+                    status = STATUS_INCONSISTENT
+                    limitations.append(
+                        "a generation closure is claimed beside a release outcome that is not "
+                        "accepted"
+                    )
+                ledger.add(
+                    CATEGORY_GENERATION_CLOSURE,
+                    status,
+                    source_analysis="epc-release-narrative",
+                    source_artifact_reference="epc-release-narrative:release_narratives",
+                    source_subject_reference=record.get("release_narrative_reference"),
+                    target_analysis="epc-bearer-lifecycle",
+                    target_artifact_reference="epc-bearer-lifecycle:lifecycle_subjects",
+                    target_subject_reference=(
+                        matching[0].get("generation_reference") if matching else None
+                    ),
+                    capture_file=capture,
+                    relationship_type=REL_RELEASE_GENERATION,
+                    source_evidence_refs=[],
+                    checks=checks,
+                    candidate_completeness_status=completeness_status,
+                    proof_sufficiency_status=(
+                        PROOF_SUFFICIENT
+                        if status == STATUS_VERIFIED
+                        else PROOF_INSUFFICIENT
+                    ),
+                    limitations=limitations,
+                    additional_evidence_needed=(
+                        []
+                        if status == STATUS_VERIFIED
+                        else [
+                            "one complete closure candidate set, one established "
+                            "session-to-generation link and one lifecycle subject closed by the "
+                            "same release transaction are required for this generation"
+                        ]
+                    ),
+                )
+            continue
+
         matching: list[tuple[dict[str, Any], dict[str, Any]]] = []
         for candidate in established:
             endpoint_key = _candidate_endpoint_key(candidate, capture)
@@ -2283,37 +2569,25 @@ def audit_generation_closure(
                 ):
                     matching.append((candidate, subject))
         links_established = all(
-            isinstance(
-                _one(
-                    index["identity_links"],
-                    (capture, context, candidate.get("bearer_endpoint_reference")),
-                )[0],
-                dict,
-            )
+            _established_session_generation_link(
+                index,
+                capture,
+                context,
+                candidate.get("bearer_endpoint_reference"),
+            )[2]
             for candidate, _subject in matching
         )
         visible_chain = (
             len(established) == 1 and len(matching) == 1 and links_established
         )
-        other_release_candidates = [
-            candidate
-            for (key, values) in index["candidates_by_chain"].items()
-            if key[0] == capture
-            and key[1] == context
-            and key[2] != transaction
-            for candidate in values
-        ]
-        limitations: list[str] = []
-        completeness_status = collection_status(
-            completeness, ARTIFACT_IDENTITY, "generation_closure_candidates"
-        )
+        limitations = []
         if claim == ESTABLISHED:
             checks = [
                 _check(
                     CHECK_CANDIDATES_COMPLETE,
                     None if not closure_complete else True,
                 ),
-                _check(CHECK_UNIQUE_CANDIDATE, visible_chain),
+                _check(CHECK_UNIQUE_CANDIDATE, False),
                 _check(
                     CHECK_RELEASE_TRANSACTION,
                     not (not visible_chain and bool(other_release_candidates)),
@@ -2324,22 +2598,20 @@ def audit_generation_closure(
                     "no unique bearer-generation closure is audited while a closure-critical "
                     "collection is incomplete: " + ", ".join(closure_failures)
                 )
-            if not visible_chain:
+            limitations.append(
+                "the published closure promotes no proved generation, so no closure is audited"
+            )
+            if other_release_candidates:
                 limitations.append(
-                    "the published closure is not supported by exactly one established candidate "
-                    "and one lifecycle subject closed by this release transaction"
+                    "a closure candidate for this context names another release transaction, "
+                    "so it never justifies this release's closure"
                 )
-                if other_release_candidates:
-                    limitations.append(
-                        "a closure candidate for this context names another release transaction, "
-                        "so it never justifies this release's closure"
-                    )
             status = _status(
                 checks,
                 ambiguous=len(established) > 1,
                 completeness=completeness_status,
             )
-            proof = PROOF_SUFFICIENT if status == STATUS_VERIFIED else PROOF_INSUFFICIENT
+            proof = PROOF_INSUFFICIENT
         else:
             checks = [
                 _check(
@@ -2390,11 +2662,7 @@ def audit_generation_closure(
             relationship_type=REL_RELEASE_GENERATION,
             source_evidence_refs=[],
             checks=checks,
-            candidate_completeness_status=(
-                collection_status(
-                    completeness, ARTIFACT_IDENTITY, "generation_closure_candidates"
-                )
-            ),
+            candidate_completeness_status=completeness_status,
             proof_sufficiency_status=proof,
             limitations=limitations,
             additional_evidence_needed=(
@@ -2810,6 +3078,15 @@ def _partition_values(partitions: Any, name: str) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _observed_subset_form(observation: dict[str, Any]) -> bool:
+    """A bounded partial observation is valid observed evidence, not corruption."""
+    return (
+        observation.get("temporal_placement_status") == PLACEMENT_NOT_ESTABLISHED
+        and observation.get("partition_scope") == SCOPE_SUBSET
+        and observation.get("partition_conserved") is False
+    )
+
+
 def _partition_span_ok(
     partitions: Any, request: int | None, confirmation: int | None
 ) -> bool:
@@ -2904,16 +3181,57 @@ def audit_temporal_partitions(
                     "an established placement must publish the COMPLETE_STREAM scope"
                 )
         else:
-            checks.append(
-                _check(
-                    CHECK_PARTITION_CONVERVES,
-                    partitions is None and observation.get("partition_scope") != SCOPE_COMPLETE,
+            scope = observation.get("partition_scope")
+            conserved = observation.get("partition_conserved")
+            if partitions is None:
+                checks.append(
+                    _check(
+                        CHECK_PARTITION_CONVERVES,
+                        scope != SCOPE_COMPLETE and conserved is not True,
+                    )
                 )
-            )
-            if partitions is not None or observation.get("partition_scope") == SCOPE_COMPLETE:
-                limitations.append(
-                    "a non-established placement publishes a partition or a complete scope"
-                )
+                if scope == SCOPE_COMPLETE or conserved is True:
+                    limitations.append(
+                        "a non-established placement publishes a complete scope or a "
+                        "conserved partition claim"
+                    )
+            else:
+                subset_form = _observed_subset_form(observation)
+                checks.append(_check(CHECK_PARTITION_CONVERVES, subset_form))
+                if not subset_form:
+                    limitations.append(
+                        "a non-established placement publishes a partition that is not the "
+                        "accepted OBSERVED_SUBSET form; the observed subset is not promoted"
+                    )
+                else:
+                    checks.append(
+                        _check(
+                            CHECK_PARTITION_CONVERVES,
+                            sum_count <= aggregate_count
+                            and sum_octets <= aggregate_octets,
+                        )
+                    )
+                    checks.append(
+                        _check(
+                            CHECK_PARTITION_WINDOW,
+                            _partition_span_ok(partitions, request, confirmation),
+                        )
+                    )
+                    checks.append(
+                        _check(
+                            CHECK_FRAME_EXCLUSIVE,
+                            not observation.get("duplicate_frame_ownership"),
+                        )
+                    )
+                    limitations.append(
+                        "the observed subset keeps only its own frame positions; the complete "
+                        "stream placement is not established and stays unproved"
+                    )
+                    if sum_count == 0:
+                        limitations.append(
+                            "the observed subset counts no frame, so it proves no temporal "
+                            "placement"
+                        )
         if observation.get("duplicate_frame_ownership"):
             checks.append(_check(CHECK_FRAME_EXCLUSIVE, False))
             limitations.append(
@@ -2975,9 +3293,9 @@ def audit_temporal_partitions(
             proof_sufficiency_status=(
                 PROOF_SUFFICIENT
                 if status == STATUS_VERIFIED and placement == PLACEMENT_ESTABLISHED
-                else PROOF_INSUFFICIENT
-                if status != STATUS_VERIFIED
                 else PROOF_NOT_APPLICABLE
+                if status == STATUS_VERIFIED and partitions is None
+                else PROOF_INSUFFICIENT
             ),
             limitations=limitations,
             additional_evidence_needed=(
@@ -3166,9 +3484,29 @@ def audit_accounting(
         complete = collection_status(
             completeness, ARTIFACT_S1U, "stream_observations"
         ) == COMPLETE_COLLECTION
+        observed_subset = any(
+            observation.get("partition_scope") == SCOPE_SUBSET
+            and observation.get("partition_conserved") is False
+            for observation in _records(narrative, "temporal_observations")
+        )
+        subset_within_aggregate = (
+            observed_subset
+            and audit_packets <= (declared_packets or 0)
+            and audit_octets <= (declared_octets or 0)
+        )
         checks = [
-            _check(CHECK_ACCOUNTING, audit_packets == (declared_packets or 0)),
-            _check(CHECK_ACCOUNTING, audit_octets == (declared_octets or 0)),
+            _check(
+                CHECK_ACCOUNTING,
+                None
+                if subset_within_aggregate
+                else audit_packets == (declared_packets or 0),
+            ),
+            _check(
+                CHECK_ACCOUNTING,
+                None
+                if subset_within_aggregate
+                else audit_octets == (declared_octets or 0),
+            ),
             _check(CHECK_CANDIDATES_COMPLETE, complete),
         ]
         ledger.add(
@@ -3183,12 +3521,23 @@ def audit_accounting(
                 completeness, ARTIFACT_S1U, "stream_observations"
             ),
             proof_sufficiency_status=(
-                PROOF_SUFFICIENT if not _failed(checks) else PROOF_INSUFFICIENT
+                PROOF_INSUFFICIENT
+                if observed_subset or _failed(checks)
+                else PROOF_SUFFICIENT
             ),
-            limitations=[
-                "these totals are audit-derived from the supplied frame-level events; they are "
-                "never written back into any producer count"
-            ],
+            limitations=(
+                [
+                    "these totals are audit-derived from the supplied frame-level events; they are "
+                    "never written back into any producer count",
+                    "the supplied frames reproduce only the published OBSERVED_SUBSET, so the "
+                    "complete-stream packet and octet totals stay unproved",
+                ]
+                if observed_subset
+                else [
+                    "these totals are audit-derived from the supplied frame-level events; they are "
+                    "never written back into any producer count"
+                ]
+            ),
         )
 
 
