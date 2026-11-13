@@ -172,9 +172,11 @@
           "type": "string",
           "enum": [
             "MESSAGE_ACCEPTED_OBSERVED",
+            "MESSAGE_PARTIALLY_ACCEPTED_OBSERVED",
             "MESSAGE_REJECTED_OBSERVED",
             "MESSAGE_OUTCOME_NOT_OBSERVED",
-            "MESSAGE_OUTCOME_AMBIGUOUS"
+            "MESSAGE_OUTCOME_AMBIGUOUS",
+            "MESSAGE_OUTCOME_UNRESOLVED"
           ]
         },
         "cause": {"anyOf": [{"$ref": "#/$defs/cause"}, {"type": "null"}]},
@@ -284,6 +286,7 @@
           "type": "string",
           "enum": [
             "ITEM_CONTROL_ACCEPTED_OBSERVED",
+            "ITEM_CONTROL_PARTIALLY_ACCEPTED_OBSERVED",
             "ITEM_CONTROL_REJECTED_OBSERVED",
             "ITEM_OUTCOME_NOT_OBSERVED",
             "ITEM_REQUEST_EVIDENCE_ONLY",

@@ -90,8 +90,13 @@ python3 scripts/analyze_epc_dedicated_bearer_control.py \
 Optional `--session-identity` preserves capture-scoped session context without
 inventing a relationship. The producer keeps transaction correlation,
 message-level outcome and per-Bearer-Context item outcome separate. Mixed
-accepted/rejected items are `CONTROL_PARTIAL_OR_MIXED`; item association requires
-a unique valid EBI and never uses array order, TEID or QCI. It never claims
+accepted/rejected or partially accepted items are
+`CONTROL_PARTIAL_OR_MIXED`; Cause 17 is partial acceptance, not rejection. Cause
+scope must match its evidence location (`message` versus `bearer`); a missing or
+wrong scope never establishes an outcome at that level. A mandatory missing
+reference makes source completeness `TRUNCATED`, malformed identity makes it
+`INVALID`, and global severity is monotonic. Item association requires a unique
+valid EBI and never uses array order, TEID or QCI. It never claims
 dedicated-bearer activation, QoS admission, TFT installation or user-plane
 delivery.
 

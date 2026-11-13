@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -221,6 +222,8 @@ class DedicatedBearerControlTests(unittest.TestCase):
 
     def test_output_is_schema_valid(self) -> None:
         if jsonschema is None:
+            if os.environ.get("CI"):
+                self.fail("jsonschema is required for the dedicated-bearer schema gate in CI")
             self.skipTest("jsonschema unavailable")
         jsonschema.validate(self.analyze(), load_json(SCHEMA))
 
@@ -251,7 +254,10 @@ class DedicatedBearerControlTests(unittest.TestCase):
             analysis = load_json(output)
             self.assertEqual(analysis["control_transaction_count"], 3)
             self.assertEqual(len(load_jsonl(timeline)), 3)
-            if jsonschema is not None:
+            if jsonschema is None:
+                if os.environ.get("CI"):
+                    self.fail("jsonschema is required for the dedicated-bearer schema gate in CI")
+            else:
                 jsonschema.validate(analysis, load_json(SCHEMA))
 
     def test_m1_ownership_fixture_is_compatible(self) -> None:
@@ -558,6 +564,281 @@ class DedicatedBearerControlTests(unittest.TestCase):
         payload = json.dumps(self.analyze(transactions=transactions))
         self.assertNotIn("460020000000001", payload)
         self.assertIn("ordinary limitation", payload)
+
+    def test_n1_wrong_message_cause_scope_cannot_establish_message_outcome(self) -> None:
+        events = copy.deepcopy(self.events)
+        self.event(events, 2)["message_cause"]["scope"] = "bearer"
+        analysis = self.analyze(events=events)
+        tx = self.tx_output(analysis, "create-bearer")
+        self.assertEqual(tx["message_outcome"]["status"], "MESSAGE_OUTCOME_UNRESOLVED")
+        self.assertEqual(tx["message_outcome"]["cause"]["scope"], "bearer")
+        self.assertEqual(tx["transaction_outcome"], "CONTROL_OUTCOME_UNRESOLVED")
+        self.assertTrue(
+            any("required scope" in item for item in tx["message_outcome"]["limitations"])
+        )
+
+    def test_n1_wrong_item_cause_scope_cannot_establish_item_outcome(self) -> None:
+        events = copy.deepcopy(self.events)
+        self.event(events, 2)["bearer_contexts"][0]["cause"]["scope"] = "message"
+        analysis = self.analyze(events=events)
+        items = [
+            item
+            for item in analysis["bearer_item_observations"]
+            if item["transaction_reference"].endswith("create-bearer-1-256-ebi-5-6")
+            and item["side"] == "RESPONSE"
+        ]
+        self.assertEqual(items[0]["item_outcome"], "ITEM_OUTCOME_UNRESOLVED")
+        self.assertEqual(items[0]["cause"]["scope"], "message")
+        self.assertEqual(items[1]["item_outcome"], "ITEM_CONTROL_REJECTED_OBSERVED")
+        self.assertEqual(self.tx_output(analysis, "create-bearer")["transaction_outcome"], "CONTROL_PARTIAL_OR_MIXED")
+
+    def test_n1_missing_message_cause_scope_is_unresolved(self) -> None:
+        events = copy.deepcopy(self.events)
+        self.event(events, 2)["message_cause"].pop("scope")
+        tx = self.tx_output(self.analyze(events=events), "create-bearer")
+        self.assertEqual(tx["message_outcome"]["status"], "MESSAGE_OUTCOME_UNRESOLVED")
+        self.assertIsNone(tx["message_outcome"]["cause"]["scope"])
+        self.assertEqual(tx["transaction_outcome"], "CONTROL_OUTCOME_UNRESOLVED")
+
+    def test_n1_missing_item_cause_scope_is_unresolved(self) -> None:
+        events = copy.deepcopy(self.events)
+        self.event(events, 2)["bearer_contexts"][0]["cause"].pop("scope")
+        analysis = self.analyze(events=events)
+        item = next(
+            item
+            for item in analysis["bearer_item_observations"]
+            if item["transaction_reference"].endswith("create-bearer-1-256-ebi-5-6")
+            and item["side"] == "RESPONSE"
+            and item["item_index"] == 0
+        )
+        self.assertEqual(item["item_outcome"], "ITEM_OUTCOME_UNRESOLVED")
+        self.assertTrue(any("required scope" in value for value in item["evidence_limitations"]))
+
+    def test_n1_null_scopes_are_unresolved(self) -> None:
+        events = copy.deepcopy(self.events)
+        self.event(events, 2)["message_cause"]["scope"] = None
+        self.event(events, 2)["bearer_contexts"][1]["cause"]["scope"] = None
+        analysis = self.analyze(events=events)
+        tx = self.tx_output(analysis, "create-bearer")
+        self.assertEqual(tx["message_outcome"]["status"], "MESSAGE_OUTCOME_UNRESOLVED")
+        items = [
+            item
+            for item in analysis["bearer_item_observations"]
+            if item["transaction_reference"].endswith("create-bearer-1-256-ebi-5-6")
+            and item["side"] == "RESPONSE"
+        ]
+        self.assertEqual(items[0]["item_outcome"], "ITEM_CONTROL_ACCEPTED_OBSERVED")
+        self.assertEqual(items[1]["item_outcome"], "ITEM_OUTCOME_UNRESOLVED")
+
+    def test_n1_valid_item_remains_valid_beside_invalid_item(self) -> None:
+        events = copy.deepcopy(self.events)
+        self.event(events, 2)["bearer_contexts"][0]["cause"]["scope"] = "message"
+        analysis = self.analyze(events=events)
+        items = [
+            item
+            for item in analysis["bearer_item_observations"]
+            if item["transaction_reference"].endswith("create-bearer-1-256-ebi-5-6")
+            and item["side"] == "RESPONSE"
+        ]
+        self.assertEqual(items[0]["item_outcome"], "ITEM_OUTCOME_UNRESOLVED")
+        self.assertEqual(items[1]["item_outcome"], "ITEM_CONTROL_REJECTED_OBSERVED")
+        self.assertEqual(items[1]["cause"]["cause_code"], 73)
+
+    def test_n2_message_cause_17_is_partial_acceptance(self) -> None:
+        events = copy.deepcopy(self.events)
+        cause = self.event(events, 2)["message_cause"]
+        cause["cause_code"] = 17
+        cause["cause_name"] = "Request accepted partially"
+        tx = self.tx_output(self.analyze(events=events), "create-bearer")
+        self.assertEqual(tx["message_outcome"]["status"], "MESSAGE_PARTIALLY_ACCEPTED_OBSERVED")
+        self.assertEqual(tx["transaction_outcome"], "CONTROL_PARTIAL_OR_MIXED")
+
+    def test_n2_item_cause_17_is_partial_and_not_ordinary_acceptance(self) -> None:
+        events = copy.deepcopy(self.events)
+        cause = self.event(events, 2)["bearer_contexts"][0]["cause"]
+        cause["cause_code"] = 17
+        cause["cause_name"] = "Request accepted partially"
+        analysis = self.analyze(events=events)
+        item = next(
+            item
+            for item in analysis["bearer_item_observations"]
+            if item["transaction_reference"].endswith("create-bearer-1-256-ebi-5-6")
+            and item["side"] == "RESPONSE"
+            and item["item_index"] == 0
+        )
+        self.assertEqual(item["item_outcome"], "ITEM_CONTROL_PARTIALLY_ACCEPTED_OBSERVED")
+        self.assertEqual(self.tx_output(analysis, "create-bearer")["transaction_outcome"], "CONTROL_PARTIAL_OR_MIXED")
+
+    def test_n2_delete_message_cause_17_is_partial(self) -> None:
+        events = copy.deepcopy(self.events)
+        cause = self.event(events, 6)["message_cause"]
+        cause["cause_code"] = 17
+        cause["cause_name"] = "Request accepted partially"
+        tx = self.tx_output(self.analyze(events=events), "delete-bearer")
+        self.assertEqual(tx["message_outcome"]["status"], "MESSAGE_PARTIALLY_ACCEPTED_OBSERVED")
+        self.assertEqual(tx["transaction_outcome"], "CONTROL_PARTIAL_OR_MIXED")
+
+    def test_n2_unknown_message_cause_is_unresolved(self) -> None:
+        events = copy.deepcopy(self.events)
+        cause = self.event(events, 2)["message_cause"]
+        cause["cause_code"] = 999
+        cause["cause_name"] = "Unreviewed cause"
+        tx = self.tx_output(self.analyze(events=events), "create-bearer")
+        self.assertEqual(tx["message_outcome"]["status"], "MESSAGE_OUTCOME_UNRESOLVED")
+        self.assertEqual(tx["transaction_outcome"], "CONTROL_OUTCOME_UNRESOLVED")
+
+    def test_n2_unknown_item_cause_is_unresolved(self) -> None:
+        events = copy.deepcopy(self.events)
+        cause = self.event(events, 2)["bearer_contexts"][0]["cause"]
+        cause["cause_code"] = 999
+        cause["cause_name"] = "Unreviewed cause"
+        analysis = self.analyze(events=events)
+        item = next(
+            item
+            for item in analysis["bearer_item_observations"]
+            if item["transaction_reference"].endswith("create-bearer-1-256-ebi-5-6")
+            and item["side"] == "RESPONSE"
+            and item["item_index"] == 0
+        )
+        self.assertEqual(item["item_outcome"], "ITEM_OUTCOME_UNRESOLVED")
+        self.assertEqual(self.tx_output(analysis, "create-bearer")["transaction_outcome"], "CONTROL_PARTIAL_OR_MIXED")
+
+    def test_n2_partial_message_with_missing_item_cause_is_conservative(self) -> None:
+        events = copy.deepcopy(self.events)
+        self.event(events, 2)["message_cause"]["cause_code"] = 17
+        self.event(events, 2)["message_cause"]["cause_name"] = "Request accepted partially"
+        self.event(events, 2)["bearer_contexts"][0]["cause"] = None
+        analysis = self.analyze(events=events)
+        items = [
+            item
+            for item in analysis["bearer_item_observations"]
+            if item["transaction_reference"].endswith("create-bearer-1-256-ebi-5-6")
+            and item["side"] == "RESPONSE"
+        ]
+        self.assertEqual(items[0]["item_outcome"], "ITEM_OUTCOME_NOT_OBSERVED")
+        self.assertEqual(self.tx_output(analysis, "create-bearer")["transaction_outcome"], "CONTROL_PARTIAL_OR_MIXED")
+
+    def test_n3_matched_missing_response_is_truncated_and_unresolved(self) -> None:
+        transactions = copy.deepcopy(self.transactions)
+        self.transaction(transactions, "create-bearer")["response"] = None
+        analysis = self.analyze(transactions=transactions)
+        tx = self.tx_output(analysis, "create-bearer")
+        self.assertEqual(tx["source_completeness_status"], "TRUNCATED")
+        self.assertEqual(tx["transaction_outcome"], "CONTROL_OUTCOME_UNRESOLVED")
+        self.assertFalse(analysis["source_completeness"]["reference_complete"])
+        self.assertTrue(
+            any(item["kind"] == "RESPONSE_EVENT" for item in analysis["source_completeness"]["missing_references"])
+        )
+        self.assertFalse(
+            any(item["status"] == "ITEM_ASSOCIATION_ESTABLISHED" for item in analysis["item_associations"] if item["transaction_reference"].endswith("create-bearer-1-256-ebi-5-6"))
+        )
+
+    def test_n3_matched_missing_request_is_truncated(self) -> None:
+        transactions = copy.deepcopy(self.transactions)
+        self.transaction(transactions, "create-bearer")["request"] = None
+        analysis = self.analyze(transactions=transactions)
+        tx = self.tx_output(analysis, "create-bearer")
+        self.assertEqual(tx["source_completeness_status"], "TRUNCATED")
+        self.assertFalse(analysis["source_completeness"]["reference_complete"])
+        self.assertTrue(
+            any(item["kind"] == "REQUEST_EVENT" for item in analysis["source_completeness"]["missing_references"])
+        )
+
+    def test_n3_open_request_absent_response_is_not_truncated(self) -> None:
+        transactions = copy.deepcopy(self.transactions)
+        tx = self.transaction(transactions, "create-bearer")
+        tx["correlation_status"] = "OPEN_REQUEST"
+        tx["response"] = None
+        analysis = self.analyze(transactions=transactions)
+        output = self.tx_output(analysis, "create-bearer")
+        self.assertEqual(output["source_completeness_status"], "COMPLETE")
+        self.assertEqual(analysis["source_completeness"]["missing_reference_count"], 0)
+
+    def test_n3_response_only_absent_request_is_not_truncated(self) -> None:
+        transactions = copy.deepcopy(self.transactions)
+        tx = self.transaction(transactions, "create-bearer")
+        tx["correlation_status"] = "RESPONSE_ONLY"
+        tx["request"] = None
+        analysis = self.analyze(transactions=transactions)
+        output = self.tx_output(analysis, "create-bearer")
+        self.assertEqual(output["source_completeness_status"], "COMPLETE")
+        self.assertEqual(analysis["source_completeness"]["missing_reference_count"], 0)
+
+    def test_n3_ambiguous_unselected_response_is_not_truncated(self) -> None:
+        transactions = copy.deepcopy(self.transactions)
+        tx = self.transaction(transactions, "create-bearer")
+        tx["correlation_status"] = "AMBIGUOUS"
+        tx["response"] = None
+        analysis = self.analyze(transactions=transactions)
+        output = self.tx_output(analysis, "create-bearer")
+        self.assertEqual(output["source_completeness_status"], "COMPLETE")
+        self.assertEqual(analysis["source_completeness"]["missing_reference_count"], 0)
+
+    def test_n3_malformed_reference_is_invalid(self) -> None:
+        transactions = copy.deepcopy(self.transactions)
+        self.transaction(transactions, "create-bearer")["response"].pop("sequence_number")
+        analysis = self.analyze(transactions=transactions)
+        tx = self.tx_output(analysis, "create-bearer")
+        self.assertEqual(tx["source_completeness_status"], "INVALID")
+        self.assertEqual(analysis["source_completeness"]["status"], "INVALID")
+
+    def test_n3_cross_capture_reference_collision_is_invalid(self) -> None:
+        events = copy.deepcopy(self.events)
+        duplicate = copy.deepcopy(self.event(events, 2))
+        duplicate["capture_file"] = "other-capture.pcap"
+        events.append(duplicate)
+        analysis = self.analyze(events=events)
+        tx = self.tx_output(analysis, "create-bearer")
+        self.assertEqual(tx["source_completeness_status"], "INVALID")
+        self.assertEqual(analysis["source_completeness"]["status"], "INVALID")
+
+    def test_n3_invalid_then_truncated_is_invalid(self) -> None:
+        transactions = copy.deepcopy(self.transactions)
+        invalid = copy.deepcopy(transactions["transactions"][0])
+        invalid["transaction_reference"] = ""
+        truncated = copy.deepcopy(transactions["transactions"][1])
+        truncated["response"] = {
+            "frame_number": 99,
+            "message_type_code": 98,
+            "sequence_number": 257,
+        }
+        transactions["transactions"] = [invalid, truncated]
+        analysis = self.analyze(transactions=transactions)
+        self.assertEqual(analysis["source_completeness"]["status"], "INVALID")
+
+    def test_n3_truncated_then_invalid_is_invalid(self) -> None:
+        transactions = copy.deepcopy(self.transactions)
+        invalid = copy.deepcopy(transactions["transactions"][0])
+        invalid["transaction_reference"] = ""
+        truncated = copy.deepcopy(transactions["transactions"][1])
+        truncated["response"] = {
+            "frame_number": 99,
+            "message_type_code": 98,
+            "sequence_number": 257,
+        }
+        transactions["transactions"] = [truncated, invalid]
+        analysis = self.analyze(transactions=transactions)
+        self.assertEqual(analysis["source_completeness"]["status"], "INVALID")
+
+    def test_n3_valid_then_truncated_is_truncated(self) -> None:
+        transactions = copy.deepcopy(self.transactions)
+        truncated = copy.deepcopy(transactions["transactions"][1])
+        truncated["response"] = {
+            "frame_number": 99,
+            "message_type_code": 98,
+            "sequence_number": 257,
+        }
+        transactions["transactions"] = [copy.deepcopy(self.transactions["transactions"][0]), truncated]
+        analysis = self.analyze(transactions=transactions)
+        self.assertEqual(analysis["source_completeness"]["status"], "TRUNCATED")
+
+    def test_n1_n2_schema_vocabulary_is_valid(self) -> None:
+        if jsonschema is None:
+            self.skipTest("jsonschema unavailable")
+        events = copy.deepcopy(self.events)
+        self.event(events, 2)["message_cause"]["cause_code"] = 17
+        self.event(events, 2)["message_cause"]["cause_name"] = "Request accepted partially"
+        jsonschema.validate(self.analyze(events=events), load_json(SCHEMA))
 
 
 if __name__ == "__main__":

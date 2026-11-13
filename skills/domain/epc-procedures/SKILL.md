@@ -413,11 +413,19 @@ Update and Delete Bearer control messages (95/96, 97/98, 99/100).
   the Domain layer never re-correlates request/response messages.
 - Transaction correlation, observed message-level control outcome and each
   Bearer Context item's own outcome are published as separate dimensions.
-- The outcome vocabulary is `CONTROL_ACCEPTED_OBSERVED`,
+- The transaction vocabulary is `CONTROL_ACCEPTED_OBSERVED`,
   `CONTROL_REJECTED_OBSERVED`, `CONTROL_PARTIAL_OR_MIXED` and
-  `CONTROL_OUTCOME_UNRESOLVED`. A bearer item uses
-  `ITEM_CONTROL_ACCEPTED_OBSERVED`, `ITEM_CONTROL_REJECTED_OBSERVED`,
+  `CONTROL_OUTCOME_UNRESOLVED`. Message outcomes include
+  `MESSAGE_PARTIALLY_ACCEPTED_OBSERVED` for Cause 17 and
+  `MESSAGE_OUTCOME_UNRESOLVED` for unreviewed or invalid-scope evidence. A bearer
+  item uses `ITEM_CONTROL_ACCEPTED_OBSERVED`,
+  `ITEM_CONTROL_PARTIALLY_ACCEPTED_OBSERVED`,
+  `ITEM_CONTROL_REJECTED_OBSERVED`, `ITEM_OUTCOME_UNRESOLVED`,
   `ITEM_OUTCOME_NOT_OBSERVED` or `ITEM_REQUEST_EVIDENCE_ONLY`.
+- A message Cause must carry scope `message`; a Bearer Context Cause must carry
+  scope `bearer`. Wrong, missing or null scope preserves the observed Cause as
+  diagnostic evidence but does not establish an outcome at that level. Cause 17
+  is partial acceptance, never ordinary rejection.
 - Message-level Cause is never copied to a Bearer Context item, and item-level
   Cause is never promoted to the message.
 - Request/response item association requires the same capture, a `MATCHED`

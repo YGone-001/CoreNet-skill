@@ -26,6 +26,16 @@ FAMILY_UPDATE = "update-bearer"
 FAMILY_DELETE = "delete-bearer"
 CONTROL_FAMILIES = (FAMILY_CREATE, FAMILY_UPDATE, FAMILY_DELETE)
 CONTROL_MESSAGE_CODES = (95, 96, 97, 98, 99, 100)
+EXPECTED_REQUEST_CODE = {
+    FAMILY_CREATE: 95,
+    FAMILY_UPDATE: 97,
+    FAMILY_DELETE: 99,
+}
+EXPECTED_RESPONSE_CODE = {
+    FAMILY_CREATE: 96,
+    FAMILY_UPDATE: 98,
+    FAMILY_DELETE: 100,
+}
 
 CORRELATION_MATCHED = "MATCHED"
 CORRELATION_OPEN = "OPEN_REQUEST"
@@ -39,9 +49,11 @@ CORRELATION_VOCABULARY = {
 }
 
 MESSAGE_ACCEPTED = "MESSAGE_ACCEPTED_OBSERVED"
+MESSAGE_PARTIALLY_ACCEPTED = "MESSAGE_PARTIALLY_ACCEPTED_OBSERVED"
 MESSAGE_REJECTED = "MESSAGE_REJECTED_OBSERVED"
 MESSAGE_NOT_OBSERVED = "MESSAGE_OUTCOME_NOT_OBSERVED"
 MESSAGE_AMBIGUOUS = "MESSAGE_OUTCOME_AMBIGUOUS"
+MESSAGE_UNRESOLVED = "MESSAGE_OUTCOME_UNRESOLVED"
 
 TX_ACCEPTED = "CONTROL_ACCEPTED_OBSERVED"
 TX_REJECTED = "CONTROL_REJECTED_OBSERVED"
@@ -49,6 +61,7 @@ TX_PARTIAL = "CONTROL_PARTIAL_OR_MIXED"
 TX_UNRESOLVED = "CONTROL_OUTCOME_UNRESOLVED"
 
 ITEM_ACCEPTED = "ITEM_CONTROL_ACCEPTED_OBSERVED"
+ITEM_PARTIALLY_ACCEPTED = "ITEM_CONTROL_PARTIALLY_ACCEPTED_OBSERVED"
 ITEM_REJECTED = "ITEM_CONTROL_REJECTED_OBSERVED"
 ITEM_NOT_OBSERVED = "ITEM_OUTCOME_NOT_OBSERVED"
 ITEM_REQUEST_ONLY = "ITEM_REQUEST_EVIDENCE_ONLY"
@@ -66,6 +79,8 @@ SIDE_REQUEST = "REQUEST"
 SIDE_RESPONSE = "RESPONSE"
 
 ACCEPTED_CAUSE_CODE = 16
+PARTIALLY_ACCEPTED_CAUSE_CODE = 17
+REVIEWED_REJECTION_CAUSES = frozenset({64, 72, 73})
 MAX_TRANSACTIONS = 128
 MAX_ITEMS = 256
 MAX_ASSOCIATIONS = 256
@@ -202,8 +217,8 @@ def _resolve_reference(
     events: list[dict[str, Any]],
 ) -> tuple[dict[str, Any] | None, str, str | None]:
     key = _reference_key(reference)
-    if any(value is None for value in key[:3]):
-        return None, INVALID, "the protocol reference lacks frame, type or message identity"
+    if any(value is None for value in key):
+        return None, INVALID, "the protocol reference lacks frame, type, sequence or message identity"
     matches = []
     for event in events:
         header = _dict(event.get("header"))
@@ -225,18 +240,67 @@ def _resolve_reference(
     return matches[0], COMPLETE, None
 
 
-def _cause(event: dict[str, Any] | None, key: str) -> dict[str, Any] | None:
+def _cause(
+    event: dict[str, Any] | None,
+    key: str,
+    expected_scope: str,
+) -> tuple[dict[str, Any] | None, str | None]:
     if event is None:
-        return None
+        return None, None
     cause = _dict(event.get(key))
     if not cause:
-        return None
+        return None, None
     code = _int(cause.get("cause_code"))
     if code is None:
-        return None
+        return None, None
     name = _safe_text(cause.get("cause_name"))
-    scope = cause.get("scope") if cause.get("scope") in ("message", "bearer") else None
-    return {"cause_code": code, "cause_name": name, "scope": scope}
+    scope_value = cause.get("scope")
+    scope = scope_value if scope_value in ("message", "bearer") else None
+    observed = {"cause_code": code, "cause_name": name, "scope": scope}
+    if scope_value != expected_scope:
+        return observed, (
+            f"{key} carries scope {scope_value!r}; the required scope is "
+            f"{expected_scope!r}, so this Cause does not establish an outcome at this level"
+        )
+    return observed, None
+
+
+def classify_message_cause(
+    cause: dict[str, Any] | None,
+    detail: str | None,
+) -> tuple[str, list[str]]:
+    if cause is None:
+        return MESSAGE_NOT_OBSERVED, []
+    if detail is not None:
+        return MESSAGE_UNRESOLVED, [detail]
+    code = cause.get("cause_code")
+    if code == ACCEPTED_CAUSE_CODE:
+        return MESSAGE_ACCEPTED, []
+    if code == PARTIALLY_ACCEPTED_CAUSE_CODE:
+        return MESSAGE_PARTIALLY_ACCEPTED, []
+    if code in REVIEWED_REJECTION_CAUSES:
+        return MESSAGE_REJECTED, []
+    return MESSAGE_UNRESOLVED, [
+        f"Cause code {code} is not in the reviewed rejection set; no accepted or rejected outcome is assigned"
+    ]
+
+
+def classify_item_cause(
+    cause: dict[str, Any] | None,
+    detail: str | None,
+) -> str:
+    if cause is None:
+        return ITEM_NOT_OBSERVED
+    if detail is not None:
+        return ITEM_UNRESOLVED
+    code = cause.get("cause_code")
+    if code == ACCEPTED_CAUSE_CODE:
+        return ITEM_ACCEPTED
+    if code == PARTIALLY_ACCEPTED_CAUSE_CODE:
+        return ITEM_PARTIALLY_ACCEPTED
+    if code in REVIEWED_REJECTION_CAUSES:
+        return ITEM_REJECTED
+    return ITEM_UNRESOLVED
 
 
 def _ebi_status(
@@ -295,14 +359,11 @@ def _item_observations(
             item,
             ebi_counts.get(_int(item.get("ebi")) or -1, 0) > 1,
         )
-        cause = _cause(item, "cause") if side == SIDE_RESPONSE else None
+        cause = None
+        cause_detail = None
         if side == SIDE_RESPONSE:
-            if cause is None:
-                item_outcome = ITEM_NOT_OBSERVED
-            elif cause.get("cause_code") == ACCEPTED_CAUSE_CODE:
-                item_outcome = ITEM_ACCEPTED
-            else:
-                item_outcome = ITEM_REJECTED
+            cause, cause_detail = _cause(item, "cause", "bearer")
+            item_outcome = classify_item_cause(cause, cause_detail)
         else:
             item_outcome = ITEM_REQUEST_ONLY
         limitations: list[str] = []
@@ -314,6 +375,8 @@ def _item_observations(
             limitations.append("duplicate EBI evidence prevents a unique item identity")
         if side == SIDE_RESPONSE and cause is None:
             limitations.append("the response Bearer Context item has no observed Cause; no outcome is invented")
+        if cause_detail is not None:
+            limitations.append(cause_detail)
         observations.append(
             {
                 "item_reference": _item_reference(
@@ -523,16 +586,20 @@ def _transaction_outcome(
     response_items: list[dict[str, Any]],
 ) -> tuple[str, list[str]]:
     if message_status == MESSAGE_REJECTED:
-        return TX_REJECTED, ["the observed message-level Cause is not accepted"]
+        return TX_REJECTED, ["the observed message-level Cause is a reviewed rejection"]
+    if message_status == MESSAGE_PARTIALLY_ACCEPTED:
+        return TX_PARTIAL, [
+            "the observed message-level Cause is partial acceptance; it is not ordinary acceptance or rejection"
+        ]
     if message_status != MESSAGE_ACCEPTED:
-        return TX_UNRESOLVED, ["no accepted message-level control outcome is observed"]
+        return TX_UNRESOLVED, ["no accepted or explicitly partial message-level control outcome is observed"]
     if not response_items:
         return TX_ACCEPTED, ["message-level acceptance is observed; no bearer item outcome is available"]
     outcomes = [item["item_outcome"] for item in response_items]
     if all(outcome == ITEM_ACCEPTED for outcome in outcomes):
         return TX_ACCEPTED, ["message-level acceptance and every observed bearer item Cause are accepted"]
     return TX_PARTIAL, [
-        "message-level acceptance is observed, but at least one bearer item is rejected or lacks an observed Cause"
+        "message-level acceptance is observed, but at least one bearer item is rejected, partially accepted or lacks an observed Cause"
     ]
 
 
@@ -545,6 +612,26 @@ def _sorted_transactions(transactions: list[dict[str, Any]]) -> list[dict[str, A
             str(item.get("protocol_transaction_reference") or ""),
         ),
     )
+
+
+def _resolve_expected_reference(
+    reference: dict[str, Any],
+    events: list[dict[str, Any]],
+    expected: bool,
+    expected_code: int | None,
+    kind: str,
+) -> tuple[dict[str, Any] | None, str, str | None]:
+    if not reference:
+        if expected:
+            return None, TRUNCATED, f"the transaction has no {kind} reference"
+        return None, COMPLETE, None
+    if _int(reference.get("message_type_code")) != expected_code:
+        return (
+            None,
+            INVALID,
+            f"the {kind} reference does not identify the expected message type {expected_code}",
+        )
+    return _resolve_reference(reference, events)
 
 
 def analyze(
@@ -577,7 +664,7 @@ def analyze(
             continue
         protocol_reference = transaction.get("transaction_reference")
         if not isinstance(protocol_reference, str) or not protocol_reference:
-            global_status = INVALID
+            global_status = _merge_status(global_status, INVALID)
             unresolved.append(
                 {
                     "kind": "MALFORMED_TRANSACTION_REFERENCE",
@@ -588,7 +675,7 @@ def analyze(
             continue
         correlation_status = transaction.get("correlation_status")
         if correlation_status not in CORRELATION_VOCABULARY:
-            global_status = INVALID
+            global_status = _merge_status(global_status, INVALID)
             correlation_status = CORRELATION_AMBIGUOUS
         correlation_strength = transaction.get("correlation_strength")
         if correlation_strength not in ("STRONG", "SUPPORTED", "NONE", None):
@@ -596,11 +683,6 @@ def analyze(
 
         request_reference = _dict(transaction.get("request"))
         response_reference = _dict(transaction.get("response"))
-        request_event, request_status, request_detail = _resolve_reference(request_reference, events)
-        response_event, response_status, response_detail = _resolve_reference(
-            response_reference, events
-        ) if response_reference else (None, COMPLETE, None)
-
         expected_request = correlation_status in (
             CORRELATION_MATCHED,
             CORRELATION_OPEN,
@@ -610,8 +692,22 @@ def analyze(
             CORRELATION_MATCHED,
             CORRELATION_RESPONSE_ONLY,
         )
+        request_event, request_status, request_detail = _resolve_expected_reference(
+            request_reference,
+            events,
+            expected_request,
+            EXPECTED_REQUEST_CODE.get(family),
+            "request",
+        )
+        response_event, response_status, response_detail = _resolve_expected_reference(
+            response_reference,
+            events,
+            expected_response,
+            EXPECTED_RESPONSE_CODE.get(family),
+            "response",
+        )
         if expected_request and request_status != COMPLETE:
-            global_status = INVALID if request_status == INVALID else TRUNCATED
+            global_status = _merge_status(global_status, request_status)
             missing_references.append(
                 {
                     "kind": "REQUEST_EVENT",
@@ -620,7 +716,7 @@ def analyze(
                 }
             )
         if expected_response and response_status != COMPLETE:
-            global_status = INVALID if response_status == INVALID else TRUNCATED
+            global_status = _merge_status(global_status, response_status)
             missing_references.append(
                 {
                     "kind": "RESPONSE_EVENT",
@@ -632,12 +728,12 @@ def analyze(
         request_capture = safe_capture((request_event or {}).get("capture_file"))
         response_capture = safe_capture((response_event or {}).get("capture_file"))
         if request_capture and response_capture and request_capture != response_capture:
-            global_status = INVALID
+            global_status = _merge_status(global_status, INVALID)
             capture = None
         else:
             capture = request_capture or response_capture
         if capture is None:
-            global_status = INVALID
+            global_status = _merge_status(global_status, INVALID)
 
         transaction_reference = f"epc-db-tx:{capture or 'unresolved'}:{protocol_reference}"
 
@@ -657,13 +753,15 @@ def analyze(
         elif response_event is None:
             message_limitations.append("the selected response message is not present in the supplied events")
         else:
-            message_cause = _cause(response_event, "message_cause")
+            message_cause, message_cause_detail = _cause(
+                response_event, "message_cause", "message"
+            )
+            message_outcome_status, cause_limitations = classify_message_cause(
+                message_cause, message_cause_detail
+            )
+            message_limitations.extend(cause_limitations)
             if message_cause is None:
                 message_limitations.append("the response has no valid message-level Cause")
-            elif message_cause.get("cause_code") == ACCEPTED_CAUSE_CODE:
-                message_outcome_status = MESSAGE_ACCEPTED
-            else:
-                message_outcome_status = MESSAGE_REJECTED
 
         request_items = _item_observations(
             event=request_event,
@@ -732,9 +830,9 @@ def analyze(
 
         source_status = COMPLETE
         if request_status != COMPLETE and expected_request:
-            source_status = request_status
+            source_status = _merge_status(source_status, request_status)
         if response_status != COMPLETE and expected_response:
-            source_status = INVALID if response_status == INVALID else TRUNCATED
+            source_status = _merge_status(source_status, response_status)
         if capture is None:
             source_status = INVALID
 

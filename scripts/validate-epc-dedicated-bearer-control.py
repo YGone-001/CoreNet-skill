@@ -207,7 +207,7 @@ def validate(root: Path = ROOT) -> list[str]:
         items = original_item(*args, **kwargs)
         if kwargs.get("side") == model.SIDE_RESPONSE:
             event = kwargs.get("event") or {}
-            message_cause = model._cause(event, "message_cause")
+            message_cause, _detail = model._cause(event, "message_cause", "message")
             if message_cause is not None:
                 for item in items:
                     item["cause"] = dict(message_cause, scope="bearer")
@@ -315,6 +315,221 @@ def validate(root: Path = ROOT) -> list[str]:
         for item in analyze()["control_transactions"]
     ):
         fail("mutation restore failed: activation outcome stayed active")
+
+
+    wrong_message = copy.deepcopy(events)
+    for event in wrong_message:
+        if event.get("frame_number") == 2:
+            event["message_cause"]["scope"] = "bearer"
+    wrong_message_analysis = analyze(evts=wrong_message)
+    wrong_message_tx = next(
+        item for item in wrong_message_analysis["control_transactions"] if item["procedure_family"] == "create-bearer"
+    )
+    if wrong_message_tx["message_outcome"]["status"] != "MESSAGE_OUTCOME_UNRESOLVED":
+        fail("a bearer-scoped message Cause must not establish message acceptance")
+    if wrong_message_tx["message_outcome"]["cause"]["scope"] != "bearer":
+        fail("an invalid-scope Cause code must be preserved as bounded diagnostic evidence")
+
+    wrong_item = copy.deepcopy(events)
+    for event in wrong_item:
+        if event.get("frame_number") == 2:
+            event["bearer_contexts"][0]["cause"]["scope"] = "message"
+    wrong_item_analysis = analyze(evts=wrong_item)
+    wrong_items = [
+        item
+        for item in wrong_item_analysis["bearer_item_observations"]
+        if item["transaction_reference"].endswith("create-bearer-1-256-ebi-5-6")
+        and item["side"] == "RESPONSE"
+    ]
+    if wrong_items[0]["item_outcome"] != "ITEM_OUTCOME_UNRESOLVED":
+        fail("a message-scoped bearer Cause must not establish item acceptance")
+    if wrong_items[1]["item_outcome"] != "ITEM_CONTROL_REJECTED_OBSERVED":
+        fail("an independently valid item Cause must remain valid beside an invalid item")
+
+    missing_scope = copy.deepcopy(events)
+    for event in missing_scope:
+        if event.get("frame_number") == 2:
+            event["message_cause"].pop("scope", None)
+    if next(
+        item for item in analyze(evts=missing_scope)["control_transactions"] if item["procedure_family"] == "create-bearer"
+    )["message_outcome"]["status"] != "MESSAGE_OUTCOME_UNRESOLVED":
+        fail("a message Cause without scope must not establish message acceptance")
+
+    partial = copy.deepcopy(events)
+    for event in partial:
+        if event.get("frame_number") == 2:
+            event["message_cause"]["cause_code"] = 17
+            event["message_cause"]["cause_name"] = "Request accepted partially"
+    partial_analysis = analyze(evts=partial)
+    partial_tx = next(
+        item for item in partial_analysis["control_transactions"] if item["procedure_family"] == "create-bearer"
+    )
+    if partial_tx["message_outcome"]["status"] != "MESSAGE_PARTIALLY_ACCEPTED_OBSERVED":
+        fail("Cause 17 must be classified as partial acceptance, not rejection")
+    if partial_tx["transaction_outcome"] != "CONTROL_PARTIAL_OR_MIXED":
+        fail("partial acceptance must map to a conservative partial/mixed transaction")
+
+    partial_item = copy.deepcopy(events)
+    for event in partial_item:
+        if event.get("frame_number") == 2:
+            event["bearer_contexts"][0]["cause"]["cause_code"] = 17
+            event["bearer_contexts"][0]["cause"]["cause_name"] = "Request accepted partially"
+    partial_item_analysis = analyze(evts=partial_item)
+    partial_item_row = next(
+        item
+        for item in partial_item_analysis["bearer_item_observations"]
+        if item["transaction_reference"].endswith("create-bearer-1-256-ebi-5-6")
+        and item["side"] == "RESPONSE"
+        and item["item_index"] == 0
+    )
+    if partial_item_row["item_outcome"] != "ITEM_CONTROL_PARTIALLY_ACCEPTED_OBSERVED":
+        fail("bearer-item Cause 17 must not become ordinary acceptance or rejection")
+
+    unknown = copy.deepcopy(events)
+    for event in unknown:
+        if event.get("frame_number") == 2:
+            event["message_cause"]["cause_code"] = 999
+            event["message_cause"]["cause_name"] = "Unreviewed cause"
+    unknown_tx = next(
+        item for item in analyze(evts=unknown)["control_transactions"] if item["procedure_family"] == "create-bearer"
+    )
+    if unknown_tx["message_outcome"]["status"] != "MESSAGE_OUTCOME_UNRESOLVED":
+        fail("an unreviewed Cause code must not be assigned a rejection classification")
+
+    missing_response = copy.deepcopy(transactions)
+    next(
+        item for item in missing_response["transactions"] if item["procedure_family"] == "create-bearer"
+    )["response"] = None
+    missing_response_analysis = analyze(txs=missing_response)
+    missing_tx = next(
+        item for item in missing_response_analysis["control_transactions"] if item["procedure_family"] == "create-bearer"
+    )
+    if missing_tx["source_completeness_status"] == "COMPLETE":
+        fail("a matched transaction without a selected Response must not be complete")
+    if missing_response_analysis["source_completeness"]["reference_complete"]:
+        fail("global reference completeness must be false when a mandatory Response is missing")
+    if missing_tx["transaction_outcome"] != "CONTROL_OUTCOME_UNRESOLVED":
+        fail("a missing selected Response must keep the transaction unresolved")
+    if any(
+        item["status"] == "ITEM_ASSOCIATION_ESTABLISHED"
+        for item in missing_response_analysis["item_associations"]
+        if item["transaction_reference"].endswith("create-bearer-1-256-ebi-5-6")
+    ):
+        fail("no item association may be established through a missing Response")
+
+    open_missing_response = copy.deepcopy(transactions)
+    open_tx = next(
+        item for item in open_missing_response["transactions"] if item["procedure_family"] == "create-bearer"
+    )
+    open_tx["correlation_status"] = "OPEN_REQUEST"
+    open_tx["response"] = None
+    if next(
+        item for item in analyze(txs=open_missing_response)["control_transactions"] if item["procedure_family"] == "create-bearer"
+    )["source_completeness_status"] != "COMPLETE":
+        fail("an absent Response in OPEN_REQUEST must not be treated as malformed")
+
+    invalid_then_truncated = copy.deepcopy(transactions)
+    invalid = copy.deepcopy(invalid_then_truncated["transactions"][0])
+    invalid["transaction_reference"] = ""
+    truncated = copy.deepcopy(invalid_then_truncated["transactions"][1])
+    truncated["response"] = {"frame_number": 99, "message_type_code": 98, "sequence_number": 257}
+    invalid_then_truncated["transactions"] = [invalid, truncated]
+    first_status = analyze(txs=invalid_then_truncated)["source_completeness"]["status"]
+    invalid_then_truncated["transactions"] = [truncated, invalid]
+    second_status = analyze(txs=invalid_then_truncated)["source_completeness"]["status"]
+    if first_status != "INVALID" or second_status != "INVALID":
+        fail("global completeness must be monotonic and order-independent")
+
+    if jsonschema is not None:
+        try:
+            schema = json.loads(schema_path.read_text(encoding="utf-8"))
+            jsonschema.validate(partial_analysis, schema)
+            jsonschema.validate(partial_item_analysis, schema)
+        except Exception as exc:
+            fail(f"partial-acceptance schema validation failed: {exc}")
+
+    original_cause = model._cause
+
+    def ignore_scope(event, key, expected_scope):
+        cause, _detail = original_cause(event, key, expected_scope)
+        return cause, None
+
+    try:
+        model._cause = ignore_scope
+        mutated_scope = analyze(evts=wrong_message)
+    finally:
+        model._cause = original_cause
+    mutated_scope_tx = next(
+        item for item in mutated_scope["control_transactions"] if item["procedure_family"] == "create-bearer"
+    )
+    if mutated_scope_tx["message_outcome"]["status"] != "MESSAGE_ACCEPTED_OBSERVED":
+        fail("mutation check failed: disabling Cause Scope enforcement was not detected")
+    restored_scope = next(
+        item for item in analyze(evts=wrong_message)["control_transactions"] if item["procedure_family"] == "create-bearer"
+    )
+    if restored_scope["message_outcome"]["status"] != "MESSAGE_OUTCOME_UNRESOLVED":
+        fail("mutation restore failed: Cause Scope enforcement stayed disabled")
+
+    original_message_classifier = model.classify_message_cause
+
+    def old_rejection_rule(cause, detail):
+        if cause is None:
+            return "MESSAGE_OUTCOME_NOT_OBSERVED", []
+        if cause.get("cause_code") == 16:
+            return "MESSAGE_ACCEPTED_OBSERVED", []
+        return "MESSAGE_REJECTED_OBSERVED", []
+
+    try:
+        model.classify_message_cause = old_rejection_rule
+        mutated_17 = analyze(evts=partial)
+    finally:
+        model.classify_message_cause = original_message_classifier
+    mutated_17_tx = next(
+        item for item in mutated_17["control_transactions"] if item["procedure_family"] == "create-bearer"
+    )
+    if mutated_17_tx["message_outcome"]["status"] != "MESSAGE_REJECTED_OBSERVED":
+        fail("mutation check failed: Cause 17 rejection regression was not detected")
+    if next(
+        item for item in analyze(evts=partial)["control_transactions"] if item["procedure_family"] == "create-bearer"
+    )["message_outcome"]["status"] != "MESSAGE_PARTIALLY_ACCEPTED_OBSERVED":
+        fail("mutation restore failed: Cause 17 stayed rejected")
+
+    original_expected_reference = model._resolve_expected_reference
+
+    def old_missing_reference(reference, evts, expected, expected_code, kind):
+        if not reference:
+            return None, "COMPLETE", None
+        return original_expected_reference(reference, evts, expected, expected_code, kind)
+
+    try:
+        model._resolve_expected_reference = old_missing_reference
+        mutated_missing = analyze(txs=missing_response)
+    finally:
+        model._resolve_expected_reference = original_expected_reference
+    if next(
+        item for item in mutated_missing["control_transactions"] if item["procedure_family"] == "create-bearer"
+    )["source_completeness_status"] != "COMPLETE":
+        fail("mutation check failed: missing mandatory Response completeness regression was not detected")
+    if next(
+        item for item in analyze(txs=missing_response)["control_transactions"] if item["procedure_family"] == "create-bearer"
+    )["source_completeness_status"] == "COMPLETE":
+        fail("mutation restore failed: missing Response stayed complete")
+
+    invalid_then_truncated["transactions"] = [invalid, truncated]
+    original_merge = model._merge_status
+
+    def last_wins(current, incoming):
+        return incoming
+
+    try:
+        model._merge_status = last_wins
+        mutated_severity = analyze(txs=invalid_then_truncated)
+    finally:
+        model._merge_status = original_merge
+    if mutated_severity["source_completeness"]["status"] != "TRUNCATED":
+        fail("mutation check failed: direct global-status overwrite was not detected")
+    if analyze(txs=invalid_then_truncated)["source_completeness"]["status"] != "INVALID":
+        fail("mutation restore failed: invalid status stayed downgraded")
 
     return errors
 

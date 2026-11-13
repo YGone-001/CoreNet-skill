@@ -30,12 +30,23 @@ limitation is preserved in the analysis.
    artifact: `MATCHED`, `OPEN_REQUEST`, `RESPONSE_ONLY` or `AMBIGUOUS`, with its
    strength and basis. A Response remains uniquely owned by one transaction.
 2. **Message-level observed outcome** is derived only from the selected response
-   message Cause. `16 Request accepted` is `MESSAGE_ACCEPTED_OBSERVED`; another
-   valid Cause is `MESSAGE_REJECTED_OBSERVED`; absent or unselected evidence is
+   message Cause whose observed scope is exactly `message`. Cause 16 is
+   `MESSAGE_ACCEPTED_OBSERVED`; Cause 17 is
+   `MESSAGE_PARTIALLY_ACCEPTED_OBSERVED`; reviewed rejection Causes (64, 72, 73)
+   are `MESSAGE_REJECTED_OBSERVED`; unknown codes are
+   `MESSAGE_OUTCOME_UNRESOLVED`; absent or unselected evidence is
    `MESSAGE_OUTCOME_NOT_OBSERVED` or `MESSAGE_OUTCOME_AMBIGUOUS`.
 3. **Bearer-item outcome** is derived only from that grouped Bearer Context's own
-   Cause. A missing item Cause is `ITEM_OUTCOME_NOT_OBSERVED`. The message Cause is
-   never copied to an item and an item Cause is never promoted to the message.
+   Cause whose observed scope is exactly `bearer`. Cause 16 is
+   `ITEM_CONTROL_ACCEPTED_OBSERVED`, Cause 17 is
+   `ITEM_CONTROL_PARTIALLY_ACCEPTED_OBSERVED`, reviewed rejection Causes are
+   `ITEM_CONTROL_REJECTED_OBSERVED`, unknown codes and invalid scopes are
+   `ITEM_OUTCOME_UNRESOLVED`, and a missing Cause is
+   `ITEM_OUTCOME_NOT_OBSERVED`.
+4. A Cause with the wrong or missing scope is preserved as bounded diagnostic
+   evidence but never establishes acceptance or rejection at that level. The
+   message Cause is never copied to an item and an item Cause is never promoted to
+   the message. An unrelated correctly scoped Cause remains valid.
 
 Transaction classifications:
 
@@ -46,9 +57,11 @@ CONTROL_PARTIAL_OR_MIXED
 CONTROL_OUTCOME_UNRESOLVED
 ```
 
-`CONTROL_PARTIAL_OR_MIXED` is used when the message outcome is accepted but at
-least one observed response Bearer Context item is rejected or lacks its own
-Cause. A non-matched correlation is always `CONTROL_OUTCOME_UNRESOLVED`.
+`CONTROL_PARTIAL_OR_MIXED` is used when the message outcome is accepted or
+partially accepted but at least one observed response Bearer Context item is
+rejected, partially accepted, unresolved or lacks its own Cause. Cause 17 is
+never ordinary rejection. A non-matched correlation or an unresolved message
+outcome is `CONTROL_OUTCOME_UNRESOLVED`.
 
 ## Bearer item identity
 
@@ -104,6 +117,17 @@ publish a total count, a published subset and an explicit omitted count. The
 input does not declare an exhaustive universe, so
 `source_completeness.exhaustive_coverage_proven` stays false. Output ordering and
 references are deterministic and capture-scoped.
+
+Reference completeness follows the accepted correlation contract:
+
+- `MATCHED` requires both a request and a selected response reference;
+- `OPEN_REQUEST` requires a request and treats an absent response as expected;
+- `RESPONSE_ONLY` requires a response and treats an absent request as expected;
+- `AMBIGUOUS` requires a request and allows no selected response.
+
+A missing mandatory reference is `TRUNCATED` with an explicit missing-reference
+finding; a present but malformed reference is `INVALID`. Global severity is
+monotonic: `COMPLETE < TRUNCATED < INVALID`, independent of transaction order.
 
 ## Optional Session Identity
 

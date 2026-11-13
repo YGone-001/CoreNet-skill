@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+      - name: Install bounded schema-validation dependency
+        run: python -m pip install "jsonschema>=4.0,<5"
       - name: Validate repository contract
         run: python scripts/validate-repository.py
       - name: Validate architecture
