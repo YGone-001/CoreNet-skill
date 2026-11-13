@@ -1,0 +1,372 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "epc-dedicated-bearer-control-analysis.schema.json",
+  "title": "EPC dedicated-bearer control-plane outcome analysis",
+  "description": "Bounded, capture-scoped evidence of observed GTPv2-C Create/Update/Delete Bearer control transactions and grouped Bearer Context items. It preserves protocol correlation ownership, keeps message and bearer-item outcomes separate, and never asserts bearer activation, QoS admission, TFT installation or user-plane delivery.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "domain",
+    "analysis_name",
+    "analysis_version",
+    "input_provenance",
+    "analysis_scope",
+    "source_completeness",
+    "control_transactions",
+    "control_transaction_count",
+    "control_transactions_omitted",
+    "bearer_item_observations",
+    "bearer_item_observation_count",
+    "bearer_item_observations_omitted",
+    "item_associations",
+    "item_association_count",
+    "item_associations_omitted",
+    "session_identity_context",
+    "outcome_summary",
+    "unresolved_findings",
+    "unresolved_finding_count",
+    "evidence_limitations",
+    "not_confirmed",
+    "bounded",
+    "limits"
+  ],
+  "properties": {
+    "domain": {"const": "epc-procedures"},
+    "analysis_name": {"const": "epc-dedicated-bearer-control"},
+    "analysis_version": {"type": "string"},
+    "input_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gtpv2_events",
+        "transaction_artifact",
+        "session_identity",
+        "event_count",
+        "protocol_transaction_count",
+        "control_transaction_input_count"
+      ],
+      "properties": {
+        "gtpv2_events": {"type": ["string", "null"]},
+        "transaction_artifact": {"type": ["string", "null"]},
+        "session_identity": {"type": ["string", "null"]},
+        "event_count": {"type": "integer", "minimum": 0},
+        "protocol_transaction_count": {"type": "integer", "minimum": 0},
+        "control_transaction_input_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "analysis_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["procedures", "message_types", "transaction_correlation_source", "not_inferred"],
+      "properties": {
+        "procedures": {"type": "array", "items": {"type": "string"}},
+        "message_types": {"type": "array", "items": {"type": "integer"}},
+        "transaction_correlation_source": {"type": "string"},
+        "not_inferred": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "source_completeness": {
+      "$ref": "#/$defs/completeness"
+    },
+    "control_transactions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/transaction"}
+    },
+    "control_transaction_count": {"type": "integer", "minimum": 0},
+    "control_transactions_omitted": {"type": "integer", "minimum": 0},
+    "bearer_item_observations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/item"}
+    },
+    "bearer_item_observation_count": {"type": "integer", "minimum": 0},
+    "bearer_item_observations_omitted": {"type": "integer", "minimum": 0},
+    "item_associations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/association"}
+    },
+    "item_association_count": {"type": "integer", "minimum": 0},
+    "item_associations_omitted": {"type": "integer", "minimum": 0},
+    "session_identity_context": {
+      "$ref": "#/$defs/sessionContext"
+    },
+    "outcome_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transaction_classification_counts",
+        "message_outcome_counts",
+        "item_outcome_counts",
+        "item_association_status_counts"
+      ],
+      "properties": {
+        "transaction_classification_counts": {"$ref": "#/$defs/countMap"},
+        "message_outcome_counts": {"$ref": "#/$defs/countMap"},
+        "item_outcome_counts": {"$ref": "#/$defs/countMap"},
+        "item_association_status_counts": {"$ref": "#/$defs/countMap"}
+      }
+    },
+    "unresolved_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "transaction_reference", "limitation"],
+        "properties": {
+          "kind": {"type": "string"},
+          "transaction_reference": {"type": ["string", "null"]},
+          "limitation": {"type": "string"}
+        }
+      }
+    },
+    "unresolved_finding_count": {"type": "integer", "minimum": 0},
+    "evidence_limitations": {"type": "array", "items": {"type": "string"}},
+    "not_confirmed": {"type": "array", "items": {"type": "string"}},
+    "bounded": {"const": true},
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["control_transactions", "bearer_items", "item_associations", "unresolved_findings"],
+      "properties": {
+        "control_transactions": {"type": "integer", "minimum": 1},
+        "bearer_items": {"type": "integer", "minimum": 1},
+        "item_associations": {"type": "integer", "minimum": 1},
+        "unresolved_findings": {"type": "integer", "minimum": 1}
+      }
+    }
+  },
+  "$defs": {
+    "countMap": {
+      "type": "object",
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "cause": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cause_code", "cause_name", "scope"],
+      "properties": {
+        "cause_code": {"type": "integer"},
+        "cause_name": {"type": ["string", "null"]},
+        "scope": {"type": ["string", "null"], "enum": ["message", "bearer", null]}
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame_number", "message_type_code"],
+      "properties": {
+        "frame_number": {"type": ["integer", "string", "null"]},
+        "message_type": {"type": ["string", "null"]},
+        "message_type_code": {"type": ["integer", "null"]},
+        "sequence_number": {"type": ["integer", "null"]},
+        "header_teid": {"type": ["integer", "null"]},
+        "header_teid_state": {"type": ["string", "null"]},
+        "message_occurrence": {"type": "integer", "minimum": 1}
+      }
+    },
+    "messageOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "cause", "source_reference", "limitations"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "MESSAGE_ACCEPTED_OBSERVED",
+            "MESSAGE_REJECTED_OBSERVED",
+            "MESSAGE_OUTCOME_NOT_OBSERVED",
+            "MESSAGE_OUTCOME_AMBIGUOUS"
+          ]
+        },
+        "cause": {"anyOf": [{"$ref": "#/$defs/cause"}, {"type": "null"}]},
+        "source_reference": {"anyOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "transaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transaction_reference",
+        "protocol_transaction_reference",
+        "capture",
+        "procedure_family",
+        "correlation_status",
+        "correlation_strength",
+        "correlation_basis",
+        "request",
+        "response",
+        "retransmissions",
+        "frame_anchors",
+        "message_outcome",
+        "transaction_outcome",
+        "transaction_outcome_basis",
+        "request_bearer_item_references",
+        "response_bearer_item_references",
+        "request_top_level_ebi_references",
+        "source_completeness_status",
+        "evidence_limitations"
+      ],
+      "properties": {
+        "transaction_reference": {"type": "string"},
+        "protocol_transaction_reference": {"type": "string"},
+        "capture": {"type": ["string", "null"]},
+        "procedure_family": {"type": "string", "enum": ["create-bearer", "update-bearer", "delete-bearer"]},
+        "correlation_status": {"type": "string", "enum": ["MATCHED", "OPEN_REQUEST", "RESPONSE_ONLY", "AMBIGUOUS"]},
+        "correlation_strength": {"type": ["string", "null"], "enum": ["STRONG", "SUPPORTED", "NONE", null]},
+        "correlation_basis": {"type": "array", "items": {"type": "string"}},
+        "request": {"anyOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]},
+        "response": {"anyOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]},
+        "retransmissions": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
+        "frame_anchors": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["request_frame", "response_frame"],
+          "properties": {
+            "request_frame": {"type": ["integer", "string", "null"]},
+            "response_frame": {"type": ["integer", "string", "null"]}
+          }
+        },
+        "message_outcome": {"$ref": "#/$defs/messageOutcome"},
+        "transaction_outcome": {
+          "type": "string",
+          "enum": [
+            "CONTROL_ACCEPTED_OBSERVED",
+            "CONTROL_REJECTED_OBSERVED",
+            "CONTROL_PARTIAL_OR_MIXED",
+            "CONTROL_OUTCOME_UNRESOLVED"
+          ]
+        },
+        "transaction_outcome_basis": {"type": "array", "items": {"type": "string"}},
+        "request_bearer_item_references": {"type": "array", "items": {"type": "string"}},
+        "response_bearer_item_references": {"type": "array", "items": {"type": "string"}},
+        "request_top_level_ebi_references": {"type": "array", "items": {"type": "string"}},
+        "source_completeness_status": {"type": "string", "enum": ["COMPLETE", "TRUNCATED", "INVALID"]},
+        "evidence_limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_reference",
+        "capture",
+        "transaction_reference",
+        "procedure_family",
+        "side",
+        "frame_number",
+        "message_occurrence",
+        "item_index",
+        "ebi",
+        "ebi_valid",
+        "ebi_status",
+        "cause",
+        "item_outcome",
+        "f_teids",
+        "qos",
+        "tft",
+        "source_completeness_status",
+        "evidence_limitations"
+      ],
+      "properties": {
+        "item_reference": {"type": "string"},
+        "capture": {"type": "string"},
+        "transaction_reference": {"type": "string"},
+        "procedure_family": {"type": ["string", "null"]},
+        "side": {"type": "string", "enum": ["REQUEST", "RESPONSE"]},
+        "frame_number": {"type": ["integer", "string", "null"]},
+        "message_occurrence": {"type": "integer", "minimum": 0},
+        "item_index": {"type": "integer", "minimum": 0},
+        "ebi": {"type": ["integer", "null"]},
+        "ebi_valid": {"type": "boolean"},
+        "ebi_status": {"type": "string", "enum": ["VALID", "MISSING", "INVALID", "DUPLICATE_IN_CONTEXT", "DUPLICATE_ACROSS_CONTEXTS"]},
+        "cause": {"anyOf": [{"$ref": "#/$defs/cause"}, {"type": "null"}]},
+        "item_outcome": {
+          "type": "string",
+          "enum": [
+            "ITEM_CONTROL_ACCEPTED_OBSERVED",
+            "ITEM_CONTROL_REJECTED_OBSERVED",
+            "ITEM_OUTCOME_NOT_OBSERVED",
+            "ITEM_REQUEST_EVIDENCE_ONLY",
+            "ITEM_OUTCOME_UNRESOLVED"
+          ]
+        },
+        "f_teids": {"type": "array", "items": {"type": "object"}},
+        "qos": {"type": ["object", "null"]},
+        "tft": {"type": ["object", "null"]},
+        "source_completeness_status": {"type": "string", "enum": ["COMPLETE", "TRUNCATED", "INVALID"]},
+        "evidence_limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "association": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "association_reference",
+        "capture",
+        "transaction_reference",
+        "request_item_reference",
+        "response_item_reference",
+        "ebi",
+        "status",
+        "basis",
+        "limitations"
+      ],
+      "properties": {
+        "association_reference": {"type": "string"},
+        "capture": {"type": "string"},
+        "transaction_reference": {"type": "string"},
+        "request_item_reference": {"type": ["string", "null"]},
+        "response_item_reference": {"type": ["string", "null"]},
+        "request_top_level_ebi_reference": {"type": ["string", "null"]},
+        "ebi": {"type": ["integer", "null"]},
+        "status": {
+          "type": "string",
+          "enum": [
+            "ITEM_ASSOCIATION_ESTABLISHED",
+            "ITEM_ASSOCIATION_AMBIGUOUS",
+            "ITEM_ASSOCIATION_NOT_ESTABLISHED"
+          ]
+        },
+        "basis": {"type": "array", "items": {"type": "string"}},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "sessionContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "artifact", "captures", "associated_transaction_references", "limitations"],
+      "properties": {
+        "status": {"type": "string", "enum": ["NOT_PROVIDED", "NOT_ESTABLISHED", "ESTABLISHED"]},
+        "artifact": {"type": ["string", "null"]},
+        "captures": {"type": "array", "items": {"type": "string"}},
+        "associated_transaction_references": {"type": "array", "items": {"type": "string"}},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "exhaustive_coverage_proven", "reference_complete", "missing_references", "missing_reference_count", "limitations"],
+      "properties": {
+        "status": {"type": "string", "enum": ["COMPLETE", "TRUNCATED", "INVALID"]},
+        "exhaustive_coverage_proven": {"type": "boolean"},
+        "reference_complete": {"type": "boolean"},
+        "missing_references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "transaction_reference", "limitation"],
+            "properties": {
+              "kind": {"type": "string"},
+              "transaction_reference": {"type": ["string", "null"]},
+              "limitation": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "missing_reference_count": {"type": "integer", "minimum": 0},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

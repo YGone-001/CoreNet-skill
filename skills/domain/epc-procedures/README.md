@@ -77,6 +77,24 @@ It never links S11 to S5/S8, never links an Attach UE to a GTPv2-C session, and
 never claims PDN, bearer or user-plane success. See
 `references/session-control.md`.
 
+## Dedicated bearer control
+
+```bash
+python3 scripts/analyze_epc_dedicated_bearer_control.py \
+  --gtpv2 gtpv2-events.jsonl \
+  --transactions gtpv2-transactions.json \
+  --output epc-dedicated-bearer-control-analysis.json \
+  --timeline-output epc-dedicated-bearer-control-timeline.jsonl
+```
+
+Optional `--session-identity` preserves capture-scoped session context without
+inventing a relationship. The producer keeps transaction correlation,
+message-level outcome and per-Bearer-Context item outcome separate. Mixed
+accepted/rejected items are `CONTROL_PARTIAL_OR_MIXED`; item association requires
+a unique valid EBI and never uses array order, TEID or QCI. It never claims
+dedicated-bearer activation, QoS admission, TFT installation or user-plane
+delivery.
+
 ## Default bearer
 
 ```bash
@@ -213,4 +231,4 @@ alias. See `references/evidence-chain-audit.md`.
 
 ## Version
 
-0.8.0
+0.9.0

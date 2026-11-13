@@ -403,6 +403,37 @@ not an abnormal failure boundary and never produces a root cause.
 
 See `references/release-narrative.md` and `references/release-temporal-evidence.md`.
 
+## Dedicated Bearer Control
+
+`analyze_epc_dedicated_bearer_control.py` consumes already-extracted GTPv2-C
+detailed events and the accepted transaction-correlation artifact for Create,
+Update and Delete Bearer control messages (95/96, 97/98, 99/100).
+
+- Correlation status and strength are reused from the accepted Protocol artifact;
+  the Domain layer never re-correlates request/response messages.
+- Transaction correlation, observed message-level control outcome and each
+  Bearer Context item's own outcome are published as separate dimensions.
+- The outcome vocabulary is `CONTROL_ACCEPTED_OBSERVED`,
+  `CONTROL_REJECTED_OBSERVED`, `CONTROL_PARTIAL_OR_MIXED` and
+  `CONTROL_OUTCOME_UNRESOLVED`. A bearer item uses
+  `ITEM_CONTROL_ACCEPTED_OBSERVED`, `ITEM_CONTROL_REJECTED_OBSERVED`,
+  `ITEM_OUTCOME_NOT_OBSERVED` or `ITEM_REQUEST_EVIDENCE_ONLY`.
+- Message-level Cause is never copied to a Bearer Context item, and item-level
+  Cause is never promoted to the message.
+- Request/response item association requires the same capture, a `MATCHED`
+  transaction, a unique valid EBI on each side and one candidate item per side.
+  Order, TEID and QCI never establish identity. Duplicate EBI stays
+  `ITEM_ASSOCIATION_AMBIGUOUS`; missing or invalid identity stays
+  `ITEM_ASSOCIATION_NOT_ESTABLISHED`.
+- Multiple Bearer Context items remain independently visible. A top-level EBI is
+  message-scope evidence and never becomes a grouped request item.
+- QoS values, F-TEIDs and TFT presence are signalling evidence only. No resource
+  admission, TFT installation, UE acceptance, E-RAB setup, user-plane delivery or
+  dedicated-bearer activation/teardown is proven.
+- An optional Session Identity artifact is preserved as capture-scoped context
+  only; without an explicitly established relationship the result is
+  `NOT_ESTABLISHED` and no join by TEID or EBI is attempted.
+
 ## Evidence Audit
 
 Version 0.8.0 adds an eighth, independently executable capability:
@@ -513,4 +544,6 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Original CoreNet Domain-layer package. No upstream material imported. Normative
 references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the accepted
-`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.8.0.
+`s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.9.0 adds
+a standalone dedicated-bearer control-plane outcome producer with separate
+transaction, message-level and per-Bearer-Context item outcomes. Version 0.9.0.
