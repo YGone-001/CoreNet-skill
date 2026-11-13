@@ -133,9 +133,11 @@ python3 scripts/corenet-analyze.py \
 
 `--domains` accepts `auto`, `5gc`, `epc`, `ims`, or a comma-separated list. 5GC and
 EPC execute bounded analysis paths; EPC covers EPS Attach and session-control
-evidence, including GTPv2-C Create/Update/Delete Bearer signaling at the Protocol
-layer, including a standalone dedicated-bearer control-plane outcome producer;
-dedicated-bearer lifecycle remains out of scope. IMS reports
+evidence, and when the accepted GTPv2-C transactions contain Create/Update/Delete
+Bearer signaling the unified path also runs the dedicated-bearer control-plane
+outcome producer and records its bounded summary in `analysis.json` and `report.txt`.
+A capture without those transactions reports `NOT_OBSERVED_IN_CAPTURE` instead of a
+failure or a fabricated success; dedicated-bearer lifecycle remains out of scope. IMS reports
 `UNSUPPORTED` rather than inventing results. Every
 diagnostic subject in a capture is reported with its own boundary status, a failed
 component makes the run `PARTIAL` instead of `COMPLETED`, and the workflow never asserts

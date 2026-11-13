@@ -34,6 +34,7 @@ ARTIFACT_BEARER_LIFECYCLE = "bearer_lifecycle"
 ARTIFACT_RELEASE_NARRATIVE = "release_narrative"
 ARTIFACT_S1U = "s1u_observation"
 ARTIFACT_AUDIT = "evidence_audit"
+ARTIFACT_DEDICATED_BEARER = "dedicated_bearer_control"
 
 ARTIFACT_SPECS = (
     (ARTIFACT_SESSION_IDENTITY, "epc-session-identity-analysis.json", "epc-session-identity", True),
@@ -41,6 +42,12 @@ ARTIFACT_SPECS = (
     (ARTIFACT_RELEASE_NARRATIVE, "epc-release-narrative-analysis.json", "epc-release-narrative", True),
     (ARTIFACT_S1U, "epc-s1u-observation.json", "epc-s1u-observation", False),
     (ARTIFACT_AUDIT, "epc-evidence-audit-analysis.json", "epc-evidence-audit", False),
+    (
+        ARTIFACT_DEDICATED_BEARER,
+        "epc-dedicated-bearer-control-analysis.json",
+        "epc-dedicated-bearer-control",
+        False,
+    ),
 )
 
 MAX_CONTEXTS = 16
@@ -52,6 +59,10 @@ MAX_BINDINGS = 32
 MAX_CANDIDATES = 32
 MAX_FINDINGS = 48
 MAX_REFERENCES = 64
+MAX_LIST_ITEMS = 16
+MAX_DEDICATED_TRANSACTIONS = 32
+MAX_DEDICATED_ITEMS = 64
+MAX_DEDICATED_ASSOCIATIONS = 64
 MAX_TEXT = 240
 
 CLASSIFICATION_OBSERVED = "OBSERVED"
@@ -275,6 +286,9 @@ def load_artifacts(
             )
         _validate_version(document, filename)
         documents[artifact] = document
+        completeness_status = None
+        if artifact == ARTIFACT_DEDICATED_BEARER:
+            completeness_status = _dict(document.get("source_completeness")).get("status")
         sources.append(
             {
                 "artifact_type": artifact,
@@ -283,7 +297,7 @@ def load_artifacts(
                 "analysis_version": document.get("analysis_version"),
                 "sha256": sha256_file(path),
                 "supplied": True,
-                "completeness_status": None,
+                "completeness_status": completeness_status,
             }
         )
 
@@ -366,6 +380,19 @@ def _capture_set(documents: dict[str, Any]) -> list[str]:
         capture = safe_capture(_dict(item).get("capture_file"))
         if capture:
             captures.add(capture)
+    dedicated = _dict(documents.get(ARTIFACT_DEDICATED_BEARER))
+    for item in _list(dedicated.get("control_transactions")):
+        capture = safe_capture(_dict(item).get("capture"))
+        if capture:
+            captures.add(capture)
+    for item in _list(dedicated.get("bearer_item_observations")):
+        capture = safe_capture(_dict(item).get("capture"))
+        if capture:
+            captures.add(capture)
+    for item in _list(dedicated.get("item_associations")):
+        capture = safe_capture(_dict(item).get("capture"))
+        if capture:
+            captures.add(capture)
     for item in _list(audit.get("audit_records")):
         capture = safe_capture(_dict(item).get("capture_file"))
         if capture:
@@ -382,12 +409,109 @@ def _duplicate_values(items: list[dict[str, Any]], key: str) -> dict[str, int]:
     return {key_value: count for key_value, count in counts.items() if count > 1}
 
 
+def _dedicated_item_projection(
+    item: dict[str, Any],
+    transaction: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Project one Domain item without recomputing or copying its outcome."""
+    cause = _dict(item.get("cause"))
+    return {
+        "item_reference": item.get("item_reference"),
+        "transaction_reference": item.get("transaction_reference"),
+        "side": item.get("side"),
+        "frame_number": item.get("frame_number"),
+        "message_occurrence": item.get("message_occurrence"),
+        "item_index": item.get("item_index"),
+        "ebi": item.get("ebi"),
+        "ebi_valid": item.get("ebi_valid"),
+        "ebi_status": item.get("ebi_status"),
+        "item_outcome": item.get("item_outcome"),
+        "cause_code": cause.get("cause_code"),
+        "cause_scope": cause.get("scope"),
+        "qos_present": isinstance(item.get("qos"), dict),
+        "tft_present": bool(_dict(item.get("tft")).get("present")),
+        "evidence_limitations": (item.get("evidence_limitations") or [])[:MAX_LIST_ITEMS],
+    }
+
+
+def _dedicated_summary(dedicated: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(dedicated, dict):
+        return {
+            "status": "NOT_SUPPLIED",
+            "source_artifact": None,
+            "analysis_name": None,
+            "analysis_version": None,
+            "control_transaction_count": 0,
+            "bearer_item_observation_count": 0,
+            "item_association_count": 0,
+            "transaction_family_counts": {},
+            "correlation_status_counts": {},
+            "transaction_outcome_counts": {},
+            "message_outcome_counts": {},
+            "item_outcome_counts": {},
+            "item_association_status_counts": {},
+            "source_completeness_status": None,
+            "omitted_counts": {},
+            "evidence_limitations": [],
+            "not_confirmed": [],
+        }
+    transactions = [
+        item for item in _list(dedicated.get("control_transactions")) if isinstance(item, dict)
+    ]
+    items = [
+        item
+        for item in _list(dedicated.get("bearer_item_observations"))
+        if isinstance(item, dict)
+    ]
+    associations = [
+        item for item in _list(dedicated.get("item_associations")) if isinstance(item, dict)
+    ]
+    family_counts = {"create-bearer": 0, "update-bearer": 0, "delete-bearer": 0}
+    for transaction in transactions:
+        family = transaction.get("procedure_family")
+        if family in family_counts:
+            family_counts[family] += 1
+    completeness = _dict(dedicated.get("source_completeness"))
+    return {
+        "status": "EXECUTED" if transactions else "NOT_OBSERVED_IN_CAPTURE",
+        "source_artifact": "epc-dedicated-bearer-control-analysis.json",
+        "analysis_name": dedicated.get("analysis_name"),
+        "analysis_version": dedicated.get("analysis_version"),
+        "control_transaction_count": len(transactions),
+        "bearer_item_observation_count": len(items),
+        "item_association_count": len(associations),
+        "transaction_family_counts": family_counts,
+        "correlation_status_counts": _ordered_counts(
+            [item.get("correlation_status") for item in transactions]
+        ),
+        "transaction_outcome_counts": _ordered_counts(
+            [item.get("transaction_outcome") for item in transactions]
+        ),
+        "message_outcome_counts": _ordered_counts(
+            [_dict(item.get("message_outcome")).get("status") for item in transactions]
+        ),
+        "item_outcome_counts": _ordered_counts([item.get("item_outcome") for item in items]),
+        "item_association_status_counts": _ordered_counts(
+            [item.get("status") for item in associations]
+        ),
+        "source_completeness_status": completeness.get("status"),
+        "omitted_counts": {
+            "control_transactions": dedicated.get("control_transactions_omitted", 0),
+            "bearer_items": dedicated.get("bearer_item_observations_omitted", 0),
+            "item_associations": dedicated.get("item_associations_omitted", 0),
+        },
+        "evidence_limitations": (dedicated.get("evidence_limitations") or [])[:MAX_LIST_ITEMS],
+        "not_confirmed": (dedicated.get("not_confirmed") or [])[:MAX_LIST_ITEMS],
+    }
+
+
 def build_index(documents: dict[str, Any]) -> dict[str, Any]:
     identity = _dict(documents.get(ARTIFACT_SESSION_IDENTITY))
     lifecycle = _dict(documents.get(ARTIFACT_BEARER_LIFECYCLE))
     narrative = _dict(documents.get(ARTIFACT_RELEASE_NARRATIVE))
     s1u = _dict(documents.get(ARTIFACT_S1U))
     audit = _dict(documents.get(ARTIFACT_AUDIT))
+    dedicated = _dict(documents.get(ARTIFACT_DEDICATED_BEARER))
 
     contexts = sorted(
         [_dict(item) for item in _list(identity.get("hop_local_contexts"))],
@@ -448,6 +572,18 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
         [_dict(item) for item in _list(audit.get("audit_records"))],
         key=lambda item: str(item.get("audit_record_reference")),
     )
+    dedicated_transactions = sorted(
+        [_dict(item) for item in _list(dedicated.get("control_transactions"))],
+        key=lambda item: str(item.get("transaction_reference")),
+    )
+    dedicated_items = sorted(
+        [_dict(item) for item in _list(dedicated.get("bearer_item_observations"))],
+        key=lambda item: str(item.get("item_reference")),
+    )
+    dedicated_associations = sorted(
+        [_dict(item) for item in _list(dedicated.get("item_associations"))],
+        key=lambda item: str(item.get("association_reference")),
+    )
 
     captures = _capture_set(documents)
     missing: list[dict[str, Any]] = []
@@ -482,6 +618,21 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
             "observations": [item for item in observations if safe_capture(item.get("capture_file")) == capture],
             "streams": [item for item in streams if safe_capture(item.get("capture_file")) == capture],
             "audit": [item for item in audit_records if safe_capture(item.get("capture_file")) == capture],
+            "dedicated_transactions": [
+                item
+                for item in dedicated_transactions
+                if safe_capture(item.get("capture")) == capture
+            ],
+            "dedicated_items": [
+                item
+                for item in dedicated_items
+                if safe_capture(item.get("capture")) == capture
+            ],
+            "dedicated_associations": [
+                item
+                for item in dedicated_associations
+                if safe_capture(item.get("capture")) == capture
+            ],
         }
         for kind, key in (
             ("session_context", "hop_local_contexts"),
@@ -806,6 +957,79 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
                     "temporal_observation_references": temporal_references,
                 }
             )
+        dedicated_tx_nodes = [
+            {
+                "transaction_reference": item.get("transaction_reference"),
+                "procedure_family": item.get("procedure_family"),
+                "correlation_status": item.get("correlation_status"),
+                "transaction_outcome": item.get("transaction_outcome"),
+                "message_outcome_status": _dict(item.get("message_outcome")).get("status"),
+                "request_frame": _dict(item.get("frame_anchors")).get("request_frame"),
+                "response_frame": _dict(item.get("frame_anchors")).get("response_frame"),
+                "request_item_references": (
+                    item.get("request_bearer_item_references") or []
+                )[:MAX_REFERENCES],
+                "response_item_references": (
+                    item.get("response_bearer_item_references") or []
+                )[:MAX_REFERENCES],
+            }
+            for item in bucket["dedicated_transactions"][:MAX_DEDICATED_TRANSACTIONS]
+        ]
+        dedicated_item_nodes = [
+            _dedicated_item_projection(item) for item in bucket["dedicated_items"][:MAX_DEDICATED_ITEMS]
+        ]
+        dedicated_assoc_nodes = [
+            {
+                "association_reference": item.get("association_reference"),
+                "transaction_reference": item.get("transaction_reference"),
+                "request_item_reference": item.get("request_item_reference"),
+                "response_item_reference": item.get("response_item_reference"),
+                "request_top_level_ebi_reference": item.get(
+                    "request_top_level_ebi_reference"
+                ),
+                "ebi": item.get("ebi"),
+                "status": item.get("status"),
+                "limitations": (item.get("limitations") or [])[:MAX_LIST_ITEMS],
+            }
+            for item in bucket["dedicated_associations"][:MAX_DEDICATED_ASSOCIATIONS]
+        ]
+        dedicated_tx_refs = {
+            str(item.get("transaction_reference"))
+            for item in bucket["dedicated_transactions"]
+            if isinstance(item.get("transaction_reference"), str)
+        }
+        dedicated_item_refs = {
+            str(item.get("item_reference"))
+            for item in bucket["dedicated_items"]
+            if isinstance(item.get("item_reference"), str)
+        }
+        for item in bucket["dedicated_items"]:
+            transaction_reference = item.get("transaction_reference")
+            if isinstance(transaction_reference, str) and transaction_reference not in dedicated_tx_refs:
+                add_missing(
+                    "DEDICATED_BEARER_TRANSACTION",
+                    transaction_reference,
+                    capture,
+                    f"item:{item.get('item_reference')}",
+                )
+        for item in bucket["dedicated_associations"]:
+            transaction_reference = item.get("transaction_reference")
+            if isinstance(transaction_reference, str) and transaction_reference not in dedicated_tx_refs:
+                add_missing(
+                    "DEDICATED_BEARER_TRANSACTION",
+                    transaction_reference,
+                    capture,
+                    f"association:{item.get('association_reference')}",
+                )
+            for key in ("request_item_reference", "response_item_reference"):
+                reference = item.get(key)
+                if isinstance(reference, str) and reference not in dedicated_item_refs:
+                    add_missing(
+                        "DEDICATED_BEARER_ITEM",
+                        reference,
+                        capture,
+                        f"association:{item.get('association_reference')}",
+                    )
         capture_nodes.append(
             {
                 "capture": capture,
@@ -815,6 +1039,11 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
                 "s1u_streams": stream_nodes,
                 "temporal_observations": observation_nodes,
                 "audit_findings": audit_nodes,
+                "dedicated_bearer_control": {
+                    "transactions": dedicated_tx_nodes,
+                    "items": dedicated_item_nodes,
+                    "associations": dedicated_assoc_nodes,
+                },
                 "counts": {
                     "session_contexts": len(bucket["contexts"]),
                     "release_narratives": len(bucket["releases"]),
@@ -822,6 +1051,9 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
                     "s1u_streams": len(bucket["streams"]),
                     "temporal_observations": len(bucket["observations"]),
                     "audit_findings": len(bucket["audit"]),
+                    "dedicated_control_transactions": len(bucket["dedicated_transactions"]),
+                    "dedicated_bearer_items": len(bucket["dedicated_items"]),
+                    "dedicated_item_associations": len(bucket["dedicated_associations"]),
                     "session_to_generation_links": len(bucket["generation_links"]),
                     "identity_links": len(bucket["identity_links"]),
                 },
@@ -832,6 +1064,15 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
                     "s1u_streams": max(0, len(bucket["streams"]) - MAX_STREAMS),
                     "temporal_observations": max(0, len(bucket["observations"]) - MAX_OBSERVATIONS),
                     "audit_findings": max(0, len(bucket["audit"]) - MAX_FINDINGS),
+                    "dedicated_control_transactions": max(
+                        0, len(bucket["dedicated_transactions"]) - MAX_DEDICATED_TRANSACTIONS
+                    ),
+                    "dedicated_bearer_items": max(
+                        0, len(bucket["dedicated_items"]) - MAX_DEDICATED_ITEMS
+                    ),
+                    "dedicated_item_associations": max(
+                        0, len(bucket["dedicated_associations"]) - MAX_DEDICATED_ASSOCIATIONS
+                    ),
                 },
             }
         )
@@ -856,6 +1097,9 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
             "session_to_generation_link": len(generation_links),
             "identity_link": len(identity_links),
             "closure_candidate": len(candidates),
+            "dedicated_control_transaction": len(dedicated_transactions),
+            "dedicated_bearer_item": len(dedicated_items),
+            "dedicated_item_association": len(dedicated_associations),
         },
         "bounded_limits": {
             "session_contexts": MAX_CONTEXTS,
@@ -865,6 +1109,9 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
             "temporal_observations": MAX_OBSERVATIONS,
             "audit_findings": MAX_FINDINGS,
             "references": MAX_REFERENCES,
+            "dedicated_control_transactions": MAX_DEDICATED_TRANSACTIONS,
+            "dedicated_bearer_items": MAX_DEDICATED_ITEMS,
+            "dedicated_item_associations": MAX_DEDICATED_ASSOCIATIONS,
         },
     }
 
@@ -992,6 +1239,15 @@ def build_manifest(
                 None,
             ),
             "evidence_audit": "epc-evidence-audit-analysis.json",
+            "dedicated_bearer_control": next(
+                (
+                    source["artifact_name"]
+                    for source in artifacts["sources"]
+                    if source["artifact_type"] == ARTIFACT_DEDICATED_BEARER
+                    and source["supplied"]
+                ),
+                None,
+            ),
         },
     }
 
@@ -1002,6 +1258,10 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
     narrative = _dict(documents.get(ARTIFACT_RELEASE_NARRATIVE))
     s1u = _dict(documents.get(ARTIFACT_S1U))
     audit = _dict(documents.get(ARTIFACT_AUDIT))
+    dedicated_document = documents.get(ARTIFACT_DEDICATED_BEARER)
+    if not isinstance(dedicated_document, dict):
+        dedicated_document = None
+    dedicated = _dict(dedicated_document)
 
     contexts = sorted(
         [_dict(item) for item in _list(identity.get("hop_local_contexts"))],
@@ -1027,6 +1287,24 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
         [_dict(item) for item in _list(audit.get("audit_records"))],
         key=lambda item: str(item.get("audit_record_reference")),
     )
+    dedicated = _dict(dedicated_document)
+    dedicated_transactions = sorted(
+        [_dict(item) for item in _list(dedicated.get("control_transactions"))],
+        key=lambda item: str(item.get("transaction_reference")),
+    )
+    dedicated_items = sorted(
+        [_dict(item) for item in _list(dedicated.get("bearer_item_observations"))],
+        key=lambda item: str(item.get("item_reference")),
+    )
+    dedicated_associations = sorted(
+        [_dict(item) for item in _list(dedicated.get("item_associations"))],
+        key=lambda item: str(item.get("association_reference")),
+    )
+    dedicated_transactions_by_ref = {
+        str(item.get("transaction_reference")): item
+        for item in dedicated_transactions
+        if isinstance(item.get("transaction_reference"), str)
+    }
     completeness = _audit_completeness(audit)
     review_published = min(len(audit_records), MAX_FINDINGS)
     review_omitted = max(0, len(audit_records) - MAX_FINDINGS)
@@ -1095,6 +1373,88 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
         }
         for item in streams[:MAX_STREAMS]
     ]
+    dedicated_summary = _dedicated_summary(dedicated_document)
+    sections["dedicated_bearer_control_summary"] = [
+        {
+            "classification": (
+                CLASSIFICATION_DERIVED
+                if dedicated_summary["status"] != "NOT_SUPPLIED"
+                else CLASSIFICATION_UNSUPPORTED
+            ),
+            **dedicated_summary,
+            "source_references": (
+                [dedicated_summary["source_artifact"]]
+                if dedicated_summary["source_artifact"]
+                else []
+            ),
+            "limitation": (
+                None
+                if dedicated_summary["status"] != "NOT_SUPPLIED"
+                else "the optional Dedicated Bearer Control artifact was not supplied; the existing Review Pack remains valid"
+            ),
+        }
+    ]
+    sections["dedicated_bearer_control_transactions"] = [
+        {
+            "classification": CLASSIFICATION_DERIVED,
+            "capture": safe_capture(item.get("capture")),
+            "transaction_reference": item.get("transaction_reference"),
+            "procedure_family": item.get("procedure_family"),
+            "correlation_status": item.get("correlation_status"),
+            "transaction_outcome": item.get("transaction_outcome"),
+            "message_outcome_status": _dict(item.get("message_outcome")).get("status"),
+            "evidence_limitations": (item.get("evidence_limitations") or [])[:MAX_LIST_ITEMS],
+            "source_references": [item.get("transaction_reference")],
+        }
+        for item in dedicated_transactions[:MAX_DEDICATED_TRANSACTIONS]
+    ]
+    sections["dedicated_bearer_control_items"] = [
+        {
+            "classification": (
+                CLASSIFICATION_UNRESOLVED
+                if item.get("item_outcome")
+                in ("ITEM_OUTCOME_UNRESOLVED", "ITEM_OUTCOME_NOT_OBSERVED")
+                else CLASSIFICATION_DERIVED
+            ),
+            "capture": safe_capture(item.get("capture")),
+            **_dedicated_item_projection(
+                item, dedicated_transactions_by_ref.get(str(item.get("transaction_reference")))
+            ),
+            "source_references": [item.get("item_reference")],
+        }
+        for item in dedicated_items[:MAX_DEDICATED_ITEMS]
+    ]
+    sections["dedicated_bearer_control_associations"] = [
+        {
+            "classification": (
+                CLASSIFICATION_DERIVED
+                if item.get("status") == "ITEM_ASSOCIATION_ESTABLISHED"
+                else CLASSIFICATION_UNRESOLVED
+            ),
+            "capture": safe_capture(item.get("capture")),
+            "association_reference": item.get("association_reference"),
+            "transaction_reference": item.get("transaction_reference"),
+            "request_item_reference": item.get("request_item_reference"),
+            "response_item_reference": item.get("response_item_reference"),
+            "request_top_level_ebi_reference": item.get(
+                "request_top_level_ebi_reference"
+            ),
+            "ebi": item.get("ebi"),
+            "status": item.get("status"),
+            "limitations": (item.get("limitations") or [])[:MAX_LIST_ITEMS],
+            "source_references": [
+                value
+                for value in (
+                    item.get("request_item_reference"),
+                    item.get("response_item_reference"),
+                    item.get("request_top_level_ebi_reference"),
+                )
+                if isinstance(value, str)
+            ],
+        }
+        for item in dedicated_associations[:MAX_DEDICATED_ASSOCIATIONS]
+    ]
+
     sections["temporal_placement_summary"] = [
         {
             "classification": CLASSIFICATION_DERIVED,
@@ -1343,6 +1703,11 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
         "s1u_stream_count": len(streams),
         "temporal_observation_count": len(observations),
         "audit_record_count": len(audit_records),
+        "dedicated_source_supplied": dedicated_document is not None,
+        "dedicated_status": dedicated_summary.get("status"),
+        "dedicated_control_transaction_count": len(dedicated_transactions),
+        "dedicated_bearer_item_count": len(dedicated_items),
+        "dedicated_item_association_count": len(dedicated_associations),
         "published": {
             "session_contexts": min(len(contexts), MAX_CONTEXTS),
             "release_narratives": min(len(releases), MAX_RELEASES),
@@ -1350,6 +1715,13 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
             "s1u_streams": min(len(streams), MAX_STREAMS),
             "temporal_observations": min(len(observations), MAX_OBSERVATIONS),
             "audit_findings": min(len(audit_records), MAX_FINDINGS),
+            "dedicated_control_transactions": min(
+                len(dedicated_transactions), MAX_DEDICATED_TRANSACTIONS
+            ),
+            "dedicated_bearer_items": min(len(dedicated_items), MAX_DEDICATED_ITEMS),
+            "dedicated_item_associations": min(
+                len(dedicated_associations), MAX_DEDICATED_ASSOCIATIONS
+            ),
         },
         "omitted": {
             "session_contexts": max(0, len(contexts) - MAX_CONTEXTS),
@@ -1358,6 +1730,15 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
             "s1u_streams": max(0, len(streams) - MAX_STREAMS),
             "temporal_observations": max(0, len(observations) - MAX_OBSERVATIONS),
             "audit_findings": max(0, len(audit_records) - MAX_FINDINGS),
+            "dedicated_control_transactions": max(
+                0, len(dedicated_transactions) - MAX_DEDICATED_TRANSACTIONS
+            ),
+            "dedicated_bearer_items": max(
+                0, len(dedicated_items) - MAX_DEDICATED_ITEMS
+            ),
+            "dedicated_item_associations": max(
+                0, len(dedicated_associations) - MAX_DEDICATED_ASSOCIATIONS
+            ),
         },
         "source_completeness_status": completeness["source_completeness_status"],
         "exhaustive_coverage_proven": completeness["exhaustive_coverage_proven"],
@@ -1545,6 +1926,68 @@ def render_markdown(
         "9. Temporal Placement Summary",
         ("capture", "temporal_observation_reference", "temporal_placement_status", "partition_scope"),
     )
+    lines.append("## 9A. Dedicated Bearer Control Evidence")
+    lines.append("")
+    dedicated_summaries = [
+        _dict(item)
+        for item in _list(sections.get("dedicated_bearer_control_summary"))
+        if _dict(item).get("status") != "NOT_SUPPLIED"
+    ]
+    if not dedicated_summaries:
+        lines.append("- no Dedicated Bearer Control source was supplied")
+    for item in dedicated_summaries:
+        lines.append(
+            f"- status={item.get('status')}; source={item.get('source_artifact')}; "
+            f"transactions={item.get('control_transaction_count')}; "
+            f"bearer items={item.get('bearer_item_observation_count')}; "
+            f"associations={item.get('item_association_count')}; "
+            f"source completeness={item.get('source_completeness_status')}"
+        )
+        lines.append(
+            f"  - family counts: {json.dumps(item.get('transaction_family_counts') or {}, sort_keys=True)}; "
+            f"correlation: {json.dumps(item.get('correlation_status_counts') or {}, sort_keys=True)}"
+        )
+        lines.append(
+            f"  - message outcomes: {json.dumps(item.get('message_outcome_counts') or {}, sort_keys=True)}; "
+            f"transaction outcomes: {json.dumps(item.get('transaction_outcome_counts') or {}, sort_keys=True)}"
+        )
+        lines.append(
+            f"  - item outcomes: {json.dumps(item.get('item_outcome_counts') or {}, sort_keys=True)}; "
+            f"associations: {json.dumps(item.get('item_association_status_counts') or {}, sort_keys=True)}"
+        )
+        lines.append(
+            f"  - omitted: {json.dumps(item.get('omitted_counts') or {}, sort_keys=True)}; "
+            f"limitation={item.get('limitation')}"
+        )
+        for limitation in _list(item.get("evidence_limitations"))[:MAX_LIST_ITEMS]:
+            lines.append(f"  - limitation: {limitation}")
+        if item.get("status") != "NOT_SUPPLIED":
+            lines.append(
+                "  - observed GTPv2-C dedicated-bearer control outcomes do not prove "
+                "end-to-end dedicated-bearer activation"
+            )
+    dedicated_transactions = _list(sections.get("dedicated_bearer_control_transactions"))
+    if dedicated_transactions:
+        lines.append("- bounded control transactions:")
+        for item in dedicated_transactions[:MAX_LIST_ITEMS]:
+            item = _dict(item)
+            lines.append(
+                f"  - {item.get('transaction_reference')} {item.get('procedure_family')} "
+                f"{item.get('correlation_status')} message={item.get('message_outcome_status')} "
+                f"transaction={item.get('transaction_outcome')}"
+            )
+    dedicated_associations = _list(sections.get("dedicated_bearer_control_associations"))
+    if dedicated_associations:
+        lines.append("- bounded item associations:")
+        for item in dedicated_associations[:MAX_LIST_ITEMS]:
+            item = _dict(item)
+            lines.append(
+                f"  - ebi={item.get('ebi')} status={item.get('status')} "
+                f"request={item.get('request_item_reference')} "
+                f"response={item.get('response_item_reference')}"
+            )
+    lines.append("")
+
     simple(
         "conflicting_or_ambiguous_ownership",
         "10. Conflicting or Ambiguous Ownership",

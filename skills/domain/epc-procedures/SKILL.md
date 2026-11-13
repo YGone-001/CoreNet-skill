@@ -442,6 +442,14 @@ Update and Delete Bearer control messages (95/96, 97/98, 99/100).
   only; without an explicitly established relationship the result is
   `NOT_ESTABLISHED` and no join by TEID or EBI is attempted.
 
+The unified EPC workflow invokes this producer only when the accepted GTPv2-C
+transaction artifact already contains Create, Update or Delete Bearer
+transactions. It publishes a bounded `dedicated_bearer_control` summary while the
+full artifact keeps the detailed collections. In a capture without such
+transactions the unified result is `NOT_OBSERVED_IN_CAPTURE`, not a failure. The
+EPC Evidence Review Pack consumes the artifact as an optional bounded source and
+does not recompute or reinterpret its outcomes.
+
 ## Evidence Audit
 
 Version 0.8.0 adds an eighth, independently executable capability:

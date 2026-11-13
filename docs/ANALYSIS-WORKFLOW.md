@@ -375,9 +375,22 @@ carry item-scoped bearer evidence, and state `cross_interface_association` and
 `attach_association` as `NOT_ESTABLISHED`. The result never reports a bearer, PDN or
 service verdict, and it never selects a global first-abnormal boundary: EPC boundary
 selection is reported as `NOT_EVALUATED` until an EPC Analysis Orchestration Skill
-exists. Diameter EPC, complete ESM semantics, dedicated-bearer and PDN-disconnect
+exists. Diameter EPC, complete ESM semantics, dedicated-bearer lifecycle, PDN-disconnect
 lifecycle, cross-interface session association and user-plane verification remain
 outside the implemented scope.
+
+When the accepted GTPv2-C transaction artifact contains Create, Update or Delete
+Bearer transactions, the unified EPC path invokes the accepted dedicated-bearer
+control-plane producer and keeps its bounded summary under
+`dedicated_bearer_control`. The summary separates message outcomes from
+bearer-item outcomes, preserves established, ambiguous and not-established item
+associations, exposes completeness and omission counts, and states that observed
+control outcomes do not prove end-to-end dedicated-bearer activation. A capture
+without any such transaction publishes `NOT_OBSERVED_IN_CAPTURE`; a producer
+failure keeps the existing EPC evidence and makes the domain `PARTIAL` (or
+`FAILED` when no usable procedure evidence remains) rather than `COMPLETED`.
+The Evidence Review Pack consumes the same artifact as an optional bounded source
+and remains valid when an older pack omits it.
 
 ## 11. Roadmap for EPC and IMS
 

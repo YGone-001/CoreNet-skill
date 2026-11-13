@@ -100,6 +100,13 @@ valid EBI and never uses array order, TEID or QCI. It never claims
 dedicated-bearer activation, QoS admission, TFT installation or user-plane
 delivery.
 
+The unified EPC workflow runs this producer when the accepted transaction artifact
+contains Create, Update or Delete Bearer transactions and publishes a bounded
+summary in `analysis.json` and `report.txt`. When none are present the unified
+result is `NOT_OBSERVED_IN_CAPTURE`, not a failure. The EPC Evidence Review Pack
+considers this artifact an optional bounded source and remains valid when it is
+absent.
+
 ## Default bearer
 
 ```bash

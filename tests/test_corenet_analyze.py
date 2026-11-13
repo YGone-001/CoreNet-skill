@@ -3142,5 +3142,424 @@ class EpcEvidenceAuditIntegrationTests(WorkflowTestCase):
         )
 
 
+def dedicated_bearer_analysis(
+    *,
+    create: int = 2,
+    update: int = 1,
+    delete: int = 1,
+    completeness: str = "COMPLETE",
+    partial_item: bool = True,
+) -> dict:
+    """A bounded Dedicated Bearer Control artifact shaped like the published one."""
+    transactions: list[dict] = []
+    items: list[dict] = []
+    associations: list[dict] = []
+    families = (("create-bearer", create), ("update-bearer", update), ("delete-bearer", delete))
+    index = 0
+    for family, count in families:
+        for occurrence in range(count):
+            reference = f"epc-db-tx:fixture.pcap:{family}-{index}"
+            outcome = "CONTROL_ACCEPTED_OBSERVED"
+            if partial_item and occurrence == 1:
+                outcome = "CONTROL_PARTIALLY_ACCEPTED_OBSERVED"
+            transactions.append(
+                {
+                    "capture": "fixture.pcap",
+                    "correlation_status": "MATCHED",
+                    "correlation_strength": "STRONG",
+                    "procedure_family": family,
+                    "transaction_reference": reference,
+                    "protocol_transaction_reference": f"gtpv2-{family}-{index}",
+                    "message_outcome": {
+                        "status": (
+                            "MESSAGE_ACCEPTED_OBSERVED"
+                            if outcome == "CONTROL_ACCEPTED_OBSERVED"
+                            else "MESSAGE_PARTIALLY_ACCEPTED_OBSERVED"
+                        ),
+                        "cause": {
+                            "cause_code": 16 if outcome == "CONTROL_ACCEPTED_OBSERVED" else 17,
+                            "cause_name": "Request accepted",
+                            "scope": "message",
+                        },
+                        "limitations": [],
+                    },
+                    "transaction_outcome": outcome,
+                    "transaction_outcome_basis": ["message and item evidence summarized"],
+                    "evidence_limitations": [],
+                    "source_completeness_status": completeness,
+                }
+            )
+            item_outcome = (
+                "ITEM_CONTROL_ACCEPTED_OBSERVED"
+                if outcome == "CONTROL_ACCEPTED_OBSERVED"
+                else "ITEM_CONTROL_PARTIALLY_ACCEPTED_OBSERVED"
+            )
+            if family == "delete-bearer" and occurrence == 0:
+                item_outcome = "ITEM_OUTCOME_UNRESOLVED"
+            item_reference = f"epc-db-item:{reference}:response:{index}:0:0"
+            items.append(
+                {
+                    "capture": "fixture.pcap",
+                    "ebi": 7,
+                    "ebi_status": "VALID",
+                    "ebi_valid": True,
+                    "item_reference": item_reference,
+                    "item_outcome": item_outcome,
+                    "procedure_family": family,
+                    "side": "RESPONSE",
+                    "transaction_reference": reference,
+                    "evidence_limitations": [],
+                    "source_completeness_status": completeness,
+                }
+            )
+            associations.append(
+                {
+                    "association_reference": f"epc-db-assoc:{reference}:{index}",
+                    "capture": "fixture.pcap",
+                    "ebi": 7,
+                    "status": "ITEM_ASSOCIATION_ESTABLISHED",
+                    "transaction_reference": reference,
+                    "request_item_reference": f"epc-db-item:{reference}:request:{index}:0:0",
+                    "response_item_reference": item_reference,
+                    "limitations": [],
+                }
+            )
+            associations.append(
+                {
+                    "association_reference": f"epc-db-assoc:{reference}:{index}:top-ebi",
+                    "capture": "fixture.pcap",
+                    "ebi": 0,
+                    "status": "ITEM_ASSOCIATION_NOT_ESTABLISHED",
+                    "transaction_reference": reference,
+                    "request_item_reference": None,
+                    "response_item_reference": None,
+                    "limitations": ["top-level EBI is not a grouped Bearer Context item"],
+                }
+            )
+            index += 1
+    return {
+        "analysis_name": "epc-dedicated-bearer-control",
+        "analysis_version": "1.0.0",
+        "domain": "epc-procedures",
+        "bounded": True,
+        "control_transaction_count": len(transactions),
+        "control_transactions": transactions,
+        "control_transactions_omitted": 0,
+        "bearer_item_observation_count": len(items),
+        "bearer_item_observations": items,
+        "bearer_item_observations_omitted": 0,
+        "item_association_count": len(associations),
+        "item_associations": associations,
+        "item_associations_omitted": 0,
+        "outcome_summary": {
+            "message_outcome_counts": {
+                "MESSAGE_ACCEPTED_OBSERVED": sum(
+                    1
+                    for item in transactions
+                    if item["message_outcome"]["status"] == "MESSAGE_ACCEPTED_OBSERVED"
+                )
+            },
+            "transaction_outcome_counts": {
+                "CONTROL_ACCEPTED_OBSERVED": sum(
+                    1
+                    for item in transactions
+                    if item["transaction_outcome"] == "CONTROL_ACCEPTED_OBSERVED"
+                )
+            },
+            "item_outcome_counts": {
+                "ITEM_CONTROL_ACCEPTED_OBSERVED": sum(
+                    1
+                    for item in items
+                    if item["item_outcome"] == "ITEM_CONTROL_ACCEPTED_OBSERVED"
+                )
+            },
+            "item_association_status_counts": {
+                "ITEM_ASSOCIATION_ESTABLISHED": sum(
+                    1 for item in associations if item["status"] == "ITEM_ASSOCIATION_ESTABLISHED"
+                ),
+                "ITEM_ASSOCIATION_NOT_ESTABLISHED": sum(
+                    1
+                    for item in associations
+                    if item["status"] == "ITEM_ASSOCIATION_NOT_ESTABLISHED"
+                ),
+            },
+        },
+        "source_completeness": {
+            "status": completeness,
+            "exhaustive_coverage_proven": completeness == "COMPLETE",
+            "limitations": [] if completeness == "COMPLETE" else ["truncated source"],
+        },
+        "evidence_limitations": [
+            "a correlated Create/Update/Delete Bearer transaction proves an observed signaling exchange only",
+        ],
+        "not_confirmed": [
+            "no dedicated-bearer activation, modification or effective removal is proven",
+        ],
+        "limits": {
+            "control_transactions": 128,
+            "bearer_items": 256,
+            "item_associations": 256,
+            "unresolved_findings": 64,
+        },
+    }
+
+
+class EpcDedicatedBearerIntegrationTests(WorkflowTestCase):
+    """The unified EPC adapter publishes bounded dedicated-bearer evidence."""
+
+    def use_payload(self, payload: dict) -> None:
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+
+    def epc_result(self) -> dict:
+        return self.domain_result()
+
+    def summary(self, procedure: str) -> dict:
+        entries = [
+            item
+            for item in self.epc_result()["procedure_summaries"]
+            if item.get("procedure") == procedure
+        ]
+        self.assertEqual(len(entries), 1)
+        return entries[0]
+
+    def test_dedicated_bearer_script_is_registered(self) -> None:
+        script = MODULE.EPC_DEDICATED_BEARER_ANALYZE_SCRIPT
+        self.assertTrue(script.is_file(), f"missing dedicated-bearer CLI: {script}")
+        self.assertEqual(
+            script.name, "analyze_epc_dedicated_bearer_control.py"
+        )
+
+    def test_stage_launches_producer_with_accepted_paths(self) -> None:
+        events = self.base / "gtpv2-events.jsonl"
+        transactions = self.base / "gtpv2-transactions.json"
+        identity = self.base / "epc-session-identity-analysis.json"
+        events.write_text("{}\n", encoding="utf-8")
+        transactions.write_text('{"transactions": []}', encoding="utf-8")
+        identity.write_text('{"analysis_name": "epc-session-identity"}', encoding="utf-8")
+        output = self.base / "epc-dedicated-bearer-control-analysis.json"
+        commands: list[list[str]] = []
+
+        def fake_run(command, description):
+            commands.append(list(command))
+            output.write_text(
+                json.dumps(dedicated_bearer_analysis()), encoding="utf-8"
+            )
+
+        original = MODULE._run_component
+        MODULE._run_component = fake_run
+        try:
+            analysis, error = MODULE._run_dedicated_bearer_stage(
+                events, transactions, output, identity
+            )
+        finally:
+            MODULE._run_component = original
+        self.assertIsNone(error)
+        self.assertEqual(analysis["analysis_name"], "epc-dedicated-bearer-control")
+        command = commands[0]
+        self.assertIn(str(MODULE.EPC_DEDICATED_BEARER_ANALYZE_SCRIPT), command)
+        self.assertEqual(command[command.index("--gtpv2") + 1], str(events))
+        self.assertEqual(command[command.index("--transactions") + 1], str(transactions))
+        self.assertEqual(command[command.index("--output") + 1], str(output))
+        self.assertEqual(command[command.index("--session-identity") + 1], str(identity))
+        self.assertIn("--force", command)
+        self.assertEqual(output.name, "epc-dedicated-bearer-control-analysis.json")
+
+    def test_stage_rejects_incompatible_or_empty_output(self) -> None:
+        events = self.base / "gtpv2-events.jsonl"
+        transactions = self.base / "gtpv2-transactions.json"
+        events.write_text("{}\n", encoding="utf-8")
+        transactions.write_text('{"transactions": []}', encoding="utf-8")
+
+        for payload in (
+            {"analysis_name": "other", "control_transaction_count": 1},
+            {"analysis_name": "epc-dedicated-bearer-control", "control_transaction_count": 0},
+            {"analysis_name": "epc-dedicated-bearer-control"},
+        ):
+            output = self.base / f"out-{len(payload)}.json"
+            original = MODULE._run_component
+            MODULE._run_component = lambda command, description, payload=payload, output=output: output.write_text(
+                json.dumps(payload), encoding="utf-8"
+            )
+            try:
+                analysis, error = MODULE._run_dedicated_bearer_stage(
+                    events, transactions, output
+                )
+            finally:
+                MODULE._run_component = original
+            self.assertIsNone(analysis)
+            self.assertEqual(error["code"], MODULE.DEDICATED_BEARER_FAILURE_CODE)
+
+    def test_stage_rejects_malformed_output_json(self) -> None:
+        events = self.base / "events.jsonl"
+        transactions = self.base / "transactions.json"
+        events.write_text("{}\n", encoding="utf-8")
+        transactions.write_text('{"transactions": []}', encoding="utf-8")
+        output = self.base / "out.json"
+        original = MODULE._run_component
+        MODULE._run_component = lambda command, description: output.write_text(
+            "{", encoding="utf-8"
+        )
+        try:
+            analysis, error = MODULE._run_dedicated_bearer_stage(events, transactions, output)
+        finally:
+            MODULE._run_component = original
+        self.assertIsNone(analysis)
+        self.assertEqual(error["code"], MODULE.DEDICATED_BEARER_FAILURE_CODE)
+
+    def test_transaction_counts_gate_the_producer(self) -> None:
+        path = self.base / "gtpv2-transactions.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "transactions": [
+                        {"procedure_family": "create-bearer"},
+                        {"procedure_family": "modify-bearer"},
+                        {"procedure_family": "delete-bearer"},
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        counts = MODULE._dedicated_bearer_transaction_counts(path)
+        self.assertEqual(
+            counts, {"create-bearer": 1, "update-bearer": 0, "delete-bearer": 1}
+        )
+        self.assertTrue(MODULE._dedicated_bearer_requested(counts))
+        self.assertFalse(
+            MODULE._dedicated_bearer_requested(
+                {"create-bearer": 0, "update-bearer": 0, "delete-bearer": 0}
+            )
+        )
+
+    def test_three_family_counts_and_outcomes_are_separate(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["dedicated_bearer_analysis"] = dedicated_bearer_analysis()
+        payload["dedicated_bearer_error"] = None
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        block = self.epc_result()["dedicated_bearer_control"]
+        self.assertEqual(block["execution_status"], "EXECUTED")
+        self.assertEqual(block["control_transaction_count"], 4)
+        self.assertEqual(
+            block["transaction_family_counts"],
+            {"create-bearer": 2, "update-bearer": 1, "delete-bearer": 1},
+        )
+        self.assertEqual(block["bearer_item_observation_count"], 4)
+        self.assertEqual(block["item_association_count"], 8)
+        self.assertEqual(
+            block["message_outcome_counts"],
+            {
+                "MESSAGE_ACCEPTED_OBSERVED": 3,
+                "MESSAGE_PARTIALLY_ACCEPTED_OBSERVED": 1,
+            },
+        )
+        self.assertEqual(
+            block["item_outcome_counts"],
+            {
+                "ITEM_CONTROL_ACCEPTED_OBSERVED": 2,
+                "ITEM_CONTROL_PARTIALLY_ACCEPTED_OBSERVED": 1,
+                "ITEM_OUTCOME_UNRESOLVED": 1,
+            },
+        )
+        self.assertNotEqual(
+            block["message_outcome_counts"], block["item_outcome_counts"]
+        )
+        self.assertEqual(
+            block["item_association_status_counts"],
+            {
+                "ITEM_ASSOCIATION_ESTABLISHED": 4,
+                "ITEM_ASSOCIATION_NOT_ESTABLISHED": 4,
+            },
+        )
+        self.assertEqual(block["source_completeness_status"], "COMPLETE")
+        summary = self.summary("epc-dedicated-bearer-control")
+        self.assertEqual(summary["execution_status"], "EXECUTED")
+        self.assertEqual(summary["create_bearer_transaction_count"], 2)
+        self.assertEqual(summary["update_bearer_transaction_count"], 1)
+        self.assertEqual(summary["delete_bearer_transaction_count"], 1)
+
+    def test_report_section_keeps_the_activation_disclaimer(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["dedicated_bearer_analysis"] = dedicated_bearer_analysis()
+        payload["dedicated_bearer_error"] = None
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        text = self.read_text()
+        self.assertIn("EPC Dedicated Bearer Control", text)
+        self.assertIn("transactions: create 2, update 1, delete 1", text)
+        self.assertIn(
+            "do not prove end-to-end dedicated-bearer activation", text
+        )
+        for forbidden in ("bearer activation confirmed", "dedicated bearer success"):
+            self.assertNotIn(forbidden, text.lower())
+
+    def test_no_dedicated_evidence_is_not_a_failure(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["dedicated_bearer_analysis"] = None
+        payload["dedicated_bearer_error"] = None
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "COMPLETED")
+        self.assertEqual(
+            result["dedicated_bearer_control"]["execution_status"],
+            "NOT_OBSERVED_IN_CAPTURE",
+        )
+        self.assertEqual(
+            result["dedicated_bearer_control"]["control_transaction_count"], 0
+        )
+        self.assertEqual(
+            self.summary("epc-dedicated-bearer-control")["execution_status"],
+            "NO_SUBJECT",
+        )
+        text = self.read_text()
+        self.assertIn("NOT_OBSERVED_IN_CAPTURE", text)
+        self.assertIn("not a parser failure or fabricated success", text)
+
+    def test_producer_failure_degrades_but_preserves_evidence(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["dedicated_bearer_analysis"] = None
+        payload["dedicated_bearer_error"] = {
+            "code": "DEDICATED_BEARER_CONTROL_FAILED",
+            "message": "transaction artifact unreadable",
+        }
+        self.use_payload(payload)
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        result = self.epc_result()
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertEqual(result["failure_code"], "DEDICATED_BEARER_CONTROL_FAILED")
+        self.assertEqual(
+            result["dedicated_bearer_control"]["execution_status"], "FAILED"
+        )
+        self.assertEqual(
+            self.summary("epc-dedicated-bearer-control")["execution_status"], "FAILED"
+        )
+        self.assertTrue(
+            any("dedicated-bearer" in item for item in result["degradation"])
+        )
+        self.assertTrue(
+            [
+                subject
+                for subject in result["diagnostic_subjects"]
+                if subject["subject_type"] == "EPS_ATTACH"
+            ]
+        )
+
+    def test_dedicated_output_is_deterministic(self) -> None:
+        payload = epc_payload_with_s1u()
+        payload["dedicated_bearer_analysis"] = dedicated_bearer_analysis()
+        payload["dedicated_bearer_error"] = None
+        self.use_payload(payload)
+        first, second = self.base / "ded-a", self.base / "ded-b"
+        self.output = first
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        self.output = second
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        for name in ("analysis.json", "report.txt"):
+            self.assertEqual(
+                (first / name).read_bytes(), (second / name).read_bytes(), name
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -48,6 +48,7 @@ ARTIFACT_FILES = {
     "lifecycle": "epc-bearer-lifecycle-analysis.json",
     "narrative": "epc-release-narrative-analysis.json",
     "s1u": "epc-s1u-observation.json",
+    "dedicated": "epc-dedicated-bearer-control-analysis.json",
 }
 
 
@@ -1279,6 +1280,285 @@ class EpcReplayPathIsolationTest(unittest.TestCase):
         )
         self.assertEqual(completed.returncode, 4)
         self.assertIn("UNSAFE_PATH_OVERLAP", completed.stderr)
+
+
+def dedicated_document(
+    *,
+    capture: str = "capture-a.pcap",
+    create: int = 2,
+    update: int = 1,
+    delete: int = 1,
+    completeness: str = "COMPLETE",
+) -> dict:
+    transactions = []
+    items = []
+    associations = []
+    index = 0
+    for family, count in (
+        ("create-bearer", create),
+        ("update-bearer", update),
+        ("delete-bearer", delete),
+    ):
+        for occurrence in range(count):
+            reference = f"epc-db-tx:{capture}:{family}-{index}"
+            transactions.append(
+                {
+                    "capture": capture,
+                    "correlation_status": "MATCHED",
+                    "correlation_strength": "STRONG",
+                    "procedure_family": family,
+                    "transaction_reference": reference,
+                    "protocol_transaction_reference": f"gtpv2-{family}-{index}",
+                    "message_outcome": {
+                        "status": "MESSAGE_ACCEPTED_OBSERVED",
+                        "cause": {
+                            "cause_code": 16,
+                            "cause_name": "Request accepted",
+                            "scope": "message",
+                        },
+                        "limitations": [],
+                    },
+                    "transaction_outcome": "CONTROL_ACCEPTED_OBSERVED",
+                    "evidence_limitations": [],
+                    "source_completeness_status": completeness,
+                }
+            )
+            request_reference = f"epc-db-item:{reference}:request:{index}:0:0"
+            item_reference = f"epc-db-item:{reference}:response:{index}:0:0"
+            items.append(
+                {
+                    "capture": capture,
+                    "ebi": 7,
+                    "ebi_status": "VALID",
+                    "ebi_valid": True,
+                    "item_reference": request_reference,
+                    "item_outcome": "ITEM_REQUEST_EVIDENCE_ONLY",
+                    "procedure_family": family,
+                    "side": "REQUEST",
+                    "transaction_reference": reference,
+                    "evidence_limitations": [],
+                    "source_completeness_status": completeness,
+                }
+            )
+            items.append(
+                {
+                    "capture": capture,
+                    "ebi": 7,
+                    "ebi_status": "VALID",
+                    "ebi_valid": True,
+                    "item_reference": item_reference,
+                    "item_outcome": "ITEM_CONTROL_ACCEPTED_OBSERVED",
+                    "procedure_family": family,
+                    "side": "RESPONSE",
+                    "transaction_reference": reference,
+                    "evidence_limitations": [],
+                    "source_completeness_status": completeness,
+                }
+            )
+            associations.append(
+                {
+                    "association_reference": f"epc-db-assoc:{reference}:{index}",
+                    "capture": capture,
+                    "ebi": 7,
+                    "status": "ITEM_ASSOCIATION_ESTABLISHED",
+                    "transaction_reference": reference,
+                    "request_item_reference": request_reference,
+                    "response_item_reference": item_reference,
+                    "limitations": [],
+                }
+            )
+            index += 1
+    return {
+        "analysis_name": "epc-dedicated-bearer-control",
+        "analysis_version": "1.0.0",
+        "domain": "epc-procedures",
+        "control_transaction_count": len(transactions),
+        "control_transactions": transactions,
+        "control_transactions_omitted": 0,
+        "bearer_item_observation_count": len(items),
+        "bearer_item_observations": items,
+        "bearer_item_observations_omitted": 0,
+        "item_association_count": len(associations),
+        "item_associations": associations,
+        "item_associations_omitted": 0,
+        "source_completeness": {
+            "status": completeness,
+            "exhaustive_coverage_proven": completeness == "COMPLETE",
+            "limitations": [] if completeness == "COMPLETE" else ["truncated source"],
+        },
+        "evidence_limitations": [
+            "a correlated Create/Update/Delete Bearer transaction proves an observed signaling exchange only",
+        ],
+        "not_confirmed": [
+            "no dedicated-bearer activation, modification or effective removal is proven",
+        ],
+    }
+
+
+class EpcDedicatedBearerReviewTests(unittest.TestCase):
+    """The optional dedicated-bearer artifact is loaded, bounded and navigable."""
+
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self._temporary.name)
+
+    def tearDown(self) -> None:
+        self._temporary.cleanup()
+
+    def source(self, documents: dict, name: str = "artifacts") -> Path:
+        directory = self.root / name
+        return write_documents(directory, documents, detailed=True)
+
+    def pack(self, source: Path, name: str = "pack") -> tuple[Path, dict, dict]:
+        artifacts, files = REVIEW.existing_artifact_pack(
+            source,
+            gtpv2_events=source / "gtpv2-events.jsonl"
+            if (source / "gtpv2-events.jsonl").is_file()
+            else None,
+            gtpu_events=source / "gtpu-events.jsonl"
+            if (source / "gtpu-events.jsonl").is_file()
+            else None,
+        )
+        output = self.root / name
+        REVIEW.write_pack(output, files, artifacts_dir=source, force=True)
+        return output, artifacts, files
+
+    def read(self, output: Path, name: str) -> dict:
+        return json.loads((output / name).read_text(encoding="utf-8"))
+
+    def documents(self, **kwargs) -> dict:
+        documents = EPC.scenario()
+        documents["dedicated"] = dedicated_document(**kwargs)
+        return documents
+
+    def test_supplied_artifact_is_loaded_hashed_and_provenanced(self) -> None:
+        source = self.source(self.documents())
+        output, _artifacts, _files = self.pack(source)
+        manifest = self.read(output, "manifest.json")
+        expected = REVIEW.sha256_file(
+            source / "epc-dedicated-bearer-control-analysis.json"
+        )
+        entry = [
+            item
+            for item in manifest["source_artifacts"]
+            if item["artifact_type"] == "dedicated_bearer_control"
+        ][0]
+        self.assertTrue(entry["supplied"])
+        self.assertEqual(entry["sha256"], expected)
+        self.assertEqual(entry["analysis_name"], "epc-dedicated-bearer-control")
+        self.assertEqual(
+            manifest["provenance"]["dedicated_bearer_control"],
+            "epc-dedicated-bearer-control-analysis.json",
+        )
+        review = self.read(output, "evidence-review.json")
+        self.assertTrue(review["coverage"]["dedicated_source_supplied"])
+        self.assertEqual(review["coverage"]["dedicated_status"], "EXECUTED")
+        self.assertEqual(review["coverage"]["dedicated_control_transaction_count"], 4)
+        self.assertEqual(review["coverage"]["dedicated_bearer_item_count"], 8)
+        self.assertEqual(review["coverage"]["dedicated_item_association_count"], 4)
+        summary = review["sections"]["dedicated_bearer_control_summary"][0]
+        self.assertEqual(
+            summary["transaction_family_counts"],
+            {"create-bearer": 2, "update-bearer": 1, "delete-bearer": 1},
+        )
+        self.assertEqual(summary["message_outcome_counts"], {"MESSAGE_ACCEPTED_OBSERVED": 4})
+        self.assertEqual(
+            summary["item_outcome_counts"],
+            {
+                "ITEM_CONTROL_ACCEPTED_OBSERVED": 4,
+                "ITEM_REQUEST_EVIDENCE_ONLY": 4,
+            },
+        )
+
+    def test_markdown_renders_bounded_summary_and_disclaimer(self) -> None:
+        source = self.source(self.documents())
+        output, _artifacts, _files = self.pack(source)
+        markdown = (output / "evidence-review.md").read_text(encoding="utf-8")
+        self.assertIn("## 9A. Dedicated Bearer Control Evidence", markdown)
+        self.assertIn("status=EXECUTED", markdown)
+        self.assertIn('"create-bearer": 2', markdown)
+        self.assertIn(
+            "do not prove end-to-end dedicated-bearer activation", markdown
+        )
+
+    def test_navigation_resolves_dedicated_source_references(self) -> None:
+        source = self.source(self.documents())
+        output, artifacts, _files = self.pack(source)
+        index = self.read(output, "evidence-index.json")
+        self.assertEqual(index["missing_references"], [])
+        review = self.read(output, "evidence-review.json")
+        transactions = review["sections"]["dedicated_bearer_control_transactions"]
+        items = review["sections"]["dedicated_bearer_control_items"]
+        associations = review["sections"]["dedicated_bearer_control_associations"]
+        self.assertEqual(len(transactions), 4)
+        self.assertEqual(len(items), 8)
+        self.assertEqual(len(associations), 4)
+        for entry in transactions:
+            self.assertTrue(entry["source_references"])
+            self.assertIn(entry["transaction_reference"], entry["source_references"])
+        for entry in items:
+            self.assertTrue(entry["source_references"])
+        self.assertTrue(
+            all(
+                entry["status"] == "ITEM_ASSOCIATION_ESTABLISHED"
+                for entry in associations
+            )
+        )
+        self.assertTrue(
+            artifacts["documents"]["dedicated_bearer_control"]["control_transactions"]
+        )
+
+    def test_missing_optional_artifact_keeps_older_pack_valid(self) -> None:
+        documents = EPC.scenario()
+        source = self.source(documents)
+        self.assertFalse(
+            (source / "epc-dedicated-bearer-control-analysis.json").exists()
+        )
+        output, _artifacts, _files = self.pack(source)
+        manifest = self.read(output, "manifest.json")
+        self.assertIsNone(manifest["provenance"]["dedicated_bearer_control"])
+        review = self.read(output, "evidence-review.json")
+        self.assertFalse(review["coverage"]["dedicated_source_supplied"])
+        self.assertEqual(review["coverage"]["dedicated_status"], "NOT_SUPPLIED")
+        summary = review["sections"]["dedicated_bearer_control_summary"][0]
+        self.assertEqual(summary["status"], "NOT_SUPPLIED")
+        self.assertIsNone(summary["source_artifact"])
+        markdown = (output / "evidence-review.md").read_text(encoding="utf-8")
+        self.assertIn("no Dedicated Bearer Control source was supplied", markdown)
+        self.assertNotIn("source=epc-dedicated-bearer-control-analysis.json", markdown)
+
+    def test_corrupt_optional_artifact_is_rejected(self) -> None:
+        source = self.source(self.documents())
+        path = source / "epc-dedicated-bearer-control-analysis.json"
+        path.write_text("{", encoding="utf-8")
+        with self.assertRaises(REVIEW.ReviewInputError) as raised:
+            REVIEW.load_artifacts(source)
+        self.assertEqual(raised.exception.code, "INVALID_SOURCE_JSON")
+
+    def test_incompatible_optional_artifact_is_rejected(self) -> None:
+        documents = self.documents()
+        documents["dedicated"]["analysis_name"] = "epc-session-identity"
+        source = self.source(documents)
+        with self.assertRaises(REVIEW.ReviewInputError) as raised:
+            REVIEW.load_artifacts(source)
+        self.assertEqual(raised.exception.code, "INVALID_SOURCE_ARTIFACT")
+
+        documents = self.documents()
+        documents["dedicated"]["analysis_version"] = "2.0.0"
+        source = self.source(documents, name="artifacts-v2")
+        with self.assertRaises(REVIEW.ReviewInputError) as raised:
+            REVIEW.load_artifacts(source)
+        self.assertEqual(raised.exception.code, "UNSUPPORTED_SCHEMA_VERSION")
+
+    def test_truncated_artifact_keeps_limits_visible(self) -> None:
+        documents = self.documents(completeness="TRUNCATED")
+        source = self.source(documents)
+        output, _artifacts, _files = self.pack(source)
+        review = self.read(output, "evidence-review.json")
+        summary = review["sections"]["dedicated_bearer_control_summary"][0]
+        self.assertEqual(summary["source_completeness_status"], "TRUNCATED")
+        markdown = (output / "evidence-review.md").read_text(encoding="utf-8")
+        self.assertIn("source completeness=TRUNCATED", markdown)
 
 
 if __name__ == "__main__":

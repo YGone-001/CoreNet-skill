@@ -79,6 +79,12 @@ EPC_EVIDENCE_AUDIT_ANALYZE_SCRIPT = (
 EPC_BOUNDARY_SCRIPT = (
     ROOT / "skills" / "orchestration" / "epc-failure-boundary" / "scripts" / "analyze_epc_failure_boundary.py"
 )
+EPC_DEDICATED_BEARER_ANALYZE_SCRIPT = (
+    ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_dedicated_bearer_control.py"
+)
+DEDICATED_BEARER_FAMILIES = ("create-bearer", "update-bearer", "delete-bearer")
+DEDICATED_BEARER_FAILURE_CODE = "DEDICATED_BEARER_CONTROL_FAILED"
+DEDICATED_BEARER_NOT_OBSERVED = "NOT_OBSERVED_IN_CAPTURE"
 FROZEN_BENCHMARK_DIR = ROOT / "benchmarks" / "golden-captures"
 
 STATUS_COMPLETED = "COMPLETED"
@@ -1534,6 +1540,67 @@ def render_text_report(report: dict[str, Any]) -> str:
             "(a lifecycle generation boundary is not an abnormal failure boundary)"
         )
 
+    dedicated_blocks = [
+        (result, result.get("dedicated_bearer_control"))
+        for result in results
+        if isinstance(result.get("dedicated_bearer_control"), dict)
+    ]
+    if dedicated_blocks:
+        _section(lines, "EPC Dedicated Bearer Control")
+    for result, block in dedicated_blocks:
+        status = block.get("execution_status")
+        lines.append(
+            f"  {result['domain']}: {_value(status)}, "
+            f"{_value(block.get('control_transaction_count'))} control transaction(s), "
+            f"{_value(block.get('bearer_item_observation_count'))} bearer item(s), "
+            f"{_value(block.get('item_association_count'))} item association(s)"
+        )
+        if status == "EXECUTED":
+            families = block.get("transaction_family_counts") or {}
+            lines.append(
+                f"    transactions: create {_value(families.get('create-bearer'))}, "
+                f"update {_value(families.get('update-bearer'))}, "
+                f"delete {_value(families.get('delete-bearer'))}"
+            )
+            lines.append(
+                f"    correlation: {json.dumps(block.get('correlation_status_counts') or {}, sort_keys=True)}"
+            )
+            lines.append(
+                f"    message outcomes: {json.dumps(block.get('message_outcome_counts') or {}, sort_keys=True)}"
+            )
+            lines.append(
+                f"    transaction outcomes: {json.dumps(block.get('transaction_outcome_counts') or {}, sort_keys=True)}"
+            )
+            lines.append(
+                f"    item outcomes: {json.dumps(block.get('item_outcome_counts') or {}, sort_keys=True)}"
+            )
+            lines.append(
+                f"    item associations: {json.dumps(block.get('item_association_status_counts') or {}, sort_keys=True)}"
+            )
+            omitted = block.get("omitted_counts") or {}
+            lines.append(
+                f"    source completeness {_value(block.get('source_completeness_status'))}; "
+                f"omitted transactions {_value(omitted.get('control_transactions'))}, "
+                f"items {_value(omitted.get('bearer_items'))}, "
+                f"associations {_value(omitted.get('item_associations'))}"
+            )
+            for limitation in (block.get("evidence_limitations") or [])[:MAX_LIST_ITEMS]:
+                lines.append(f"    limitation: {_value(limitation)}")
+            lines.append(
+                "    Observed GTPv2-C dedicated-bearer control outcomes do not prove "
+                "end-to-end dedicated-bearer activation."
+            )
+        elif status == "FAILED":
+            lines.append(
+                f"    failure: {_value(block.get('failure_code'))} "
+                f"{_value(block.get('failure_message'))}"
+            )
+        else:
+            lines.append(
+                "    no dedicated-bearer control transaction was observed in this capture; "
+                "this is not a parser failure or fabricated success."
+            )
+
     narrative_blocks = [
         (result, result.get("release_narrative"))
         for result in results
@@ -1915,6 +1982,203 @@ def _count_lines(path: Path) -> int:
         return 0
 
 
+def _dedicated_bearer_transaction_counts(path: Path) -> dict[str, int]:
+    """Count accepted dedicated-bearer transaction families without re-correlating."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise AnalysisError(
+            "PIPELINE_OUTPUT_UNREADABLE", f"GTPv2-C correlation is unreadable: {exc}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise AnalysisError("PIPELINE_OUTPUT_UNREADABLE", "GTPv2-C correlation is not an object")
+    counts = {family: 0 for family in DEDICATED_BEARER_FAMILIES}
+    for transaction in payload.get("transactions") or []:
+        if not isinstance(transaction, dict):
+            continue
+        family = transaction.get("procedure_family")
+        if family in counts:
+            counts[family] += 1
+    return counts
+
+
+def _dedicated_bearer_requested(counts: dict[str, int]) -> bool:
+    return any(counts.get(family, 0) > 0 for family in DEDICATED_BEARER_FAMILIES)
+
+
+def _run_dedicated_bearer_stage(
+    gtpv2_events: Path,
+    gtpv2_transactions: Path,
+    output: Path,
+    session_identity: Path | None = None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Invoke the accepted Domain CLI and validate its published artifact."""
+    command = [
+        sys.executable,
+        str(EPC_DEDICATED_BEARER_ANALYZE_SCRIPT),
+        "--gtpv2",
+        str(gtpv2_events),
+        "--transactions",
+        str(gtpv2_transactions),
+        "--output",
+        str(output),
+        "--force",
+    ]
+    if session_identity is not None and session_identity.is_file():
+        command.extend(["--session-identity", str(session_identity)])
+    try:
+        _run_component(command, "EPC dedicated-bearer control analysis")
+        if not output.is_file():
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_MISSING",
+                "EPC dedicated-bearer control analysis produced no artifact",
+            )
+        analysis = json.loads(output.read_text(encoding="utf-8"))
+        if not isinstance(analysis, dict):
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_UNREADABLE",
+                "EPC dedicated-bearer control analysis is not an object",
+            )
+        if analysis.get("analysis_name") != "epc-dedicated-bearer-control":
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_UNREADABLE",
+                "EPC dedicated-bearer control analysis has an incompatible analysis name",
+            )
+        if not isinstance(analysis.get("control_transaction_count"), int):
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_UNREADABLE",
+                "EPC dedicated-bearer control analysis has no bounded transaction count",
+            )
+        if analysis["control_transaction_count"] <= 0:
+            raise AnalysisError(
+                DEDICATED_BEARER_FAILURE_CODE,
+                "relevant dedicated-bearer transactions were present but the Domain Producer published no control transaction",
+            )
+        return analysis, None
+    except (AnalysisError, OSError, json.JSONDecodeError) as exc:
+        return None, {
+            "code": DEDICATED_BEARER_FAILURE_CODE,
+            "message": scrub_free_text(str(exc)),
+        }
+
+
+def _count_values(items: list[dict[str, Any]], key: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        value = item.get(key)
+        if isinstance(value, str):
+            counts[value] = counts.get(value, 0) + 1
+    return {name: counts[name] for name in sorted(counts)}
+
+
+def _project_dedicated_bearer_control(
+    analysis: dict[str, Any] | None,
+    error: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Publish a bounded summary; full collections stay in the Domain artifact."""
+    if isinstance(analysis, dict):
+        transactions = [
+            item for item in analysis.get("control_transactions") or [] if isinstance(item, dict)
+        ]
+        items = [
+            item
+            for item in analysis.get("bearer_item_observations") or []
+            if isinstance(item, dict)
+        ]
+        associations = [
+            item for item in analysis.get("item_associations") or [] if isinstance(item, dict)
+        ]
+        family_counts = {family: 0 for family in DEDICATED_BEARER_FAMILIES}
+        for transaction in transactions:
+            family = transaction.get("procedure_family")
+            if family in family_counts:
+                family_counts[family] += 1
+        completeness = analysis.get("source_completeness") or {}
+        return {
+            "execution_status": "EXECUTED",
+            "source_artifact": "epc-dedicated-bearer-control-analysis.json",
+            "analysis_name": analysis.get("analysis_name"),
+            "analysis_version": analysis.get("analysis_version"),
+            "control_transaction_count": analysis.get("control_transaction_count", 0),
+            "bearer_item_observation_count": analysis.get(
+                "bearer_item_observation_count", 0
+            ),
+            "item_association_count": analysis.get("item_association_count", 0),
+            "transaction_family_counts": family_counts,
+            "correlation_status_counts": _count_values(transactions, "correlation_status"),
+            "transaction_outcome_counts": _count_values(transactions, "transaction_outcome"),
+            "message_outcome_counts": _count_values(
+                [item.get("message_outcome") or {} for item in transactions], "status"
+            ),
+            "item_outcome_counts": _count_values(items, "item_outcome"),
+            "item_association_status_counts": _count_values(associations, "status"),
+            "source_completeness_status": completeness.get("status"),
+            "exhaustive_coverage_proven": completeness.get("exhaustive_coverage_proven"),
+            "omitted_counts": {
+                "control_transactions": analysis.get("control_transactions_omitted", 0),
+                "bearer_items": analysis.get("bearer_item_observations_omitted", 0),
+                "item_associations": analysis.get("item_associations_omitted", 0),
+            },
+            "evidence_limitations": (
+                analysis.get("evidence_limitations") or []
+            )[:MAX_LIST_ITEMS],
+            "not_confirmed": (analysis.get("not_confirmed") or [])[:MAX_LIST_ITEMS],
+            "failure_code": None,
+        }
+    if isinstance(error, dict):
+        return {
+            "execution_status": "FAILED",
+            "source_artifact": None,
+            "analysis_name": None,
+            "analysis_version": None,
+            "control_transaction_count": 0,
+            "bearer_item_observation_count": 0,
+            "item_association_count": 0,
+            "transaction_family_counts": {family: 0 for family in DEDICATED_BEARER_FAMILIES},
+            "correlation_status_counts": {},
+            "transaction_outcome_counts": {},
+            "message_outcome_counts": {},
+            "item_outcome_counts": {},
+            "item_association_status_counts": {},
+            "source_completeness_status": None,
+            "exhaustive_coverage_proven": None,
+            "omitted_counts": {
+                "control_transactions": 0,
+                "bearer_items": 0,
+                "item_associations": 0,
+            },
+            "evidence_limitations": [],
+            "not_confirmed": [],
+            "failure_code": error.get("code", DEDICATED_BEARER_FAILURE_CODE),
+            "failure_message": scrub_free_text(error.get("message")),
+        }
+    return {
+        "execution_status": DEDICATED_BEARER_NOT_OBSERVED,
+        "source_artifact": None,
+        "analysis_name": None,
+        "analysis_version": None,
+        "control_transaction_count": 0,
+        "bearer_item_observation_count": 0,
+        "item_association_count": 0,
+        "transaction_family_counts": {family: 0 for family in DEDICATED_BEARER_FAMILIES},
+        "correlation_status_counts": {},
+        "transaction_outcome_counts": {},
+        "message_outcome_counts": {},
+        "item_outcome_counts": {},
+        "item_association_status_counts": {},
+        "source_completeness_status": None,
+        "exhaustive_coverage_proven": None,
+        "omitted_counts": {
+            "control_transactions": 0,
+            "bearer_items": 0,
+            "item_associations": 0,
+        },
+        "evidence_limitations": [],
+        "not_confirmed": [],
+        "failure_code": None,
+    }
+
+
 def _transaction_count(path: Path) -> int:
     """Count accepted transactions without trusting an unreadable artifact."""
     try:
@@ -2180,6 +2444,20 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                 "message": scrub_free_text(str(exc)),
             }
 
+    dedicated_bearer_analysis: dict[str, Any] | None = None
+    dedicated_bearer_error: dict[str, Any] | None = None
+    dedicated_bearer_counts = {family: 0 for family in DEDICATED_BEARER_FAMILIES}
+    dedicated_bearer_path = run_dir / "epc-dedicated-bearer-control-analysis.json"
+    if gtpv2_transactions.is_file():
+        dedicated_bearer_counts = _dedicated_bearer_transaction_counts(gtpv2_transactions)
+    if _dedicated_bearer_requested(dedicated_bearer_counts):
+        dedicated_bearer_analysis, dedicated_bearer_error = _run_dedicated_bearer_stage(
+            gtpv2_events,
+            gtpv2_transactions,
+            dedicated_bearer_path,
+            identity_path if isinstance(identity_analysis, dict) else None,
+        )
+
     lifecycle_analysis: dict[str, Any] | None = None
     lifecycle_error: dict[str, Any] | None = None
     if gtpv2_event_count and gtpv2_transactions.is_file():
@@ -2360,6 +2638,9 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
         "release_narrative_error": narrative_error,
         "evidence_audit_analysis": audit_analysis,
         "evidence_audit_error": audit_error,
+        "dedicated_bearer_analysis": dedicated_bearer_analysis,
+        "dedicated_bearer_error": dedicated_bearer_error,
+        "dedicated_bearer_transaction_counts": dedicated_bearer_counts,
         "s1ap_event_count": _count_lines(s1ap_events),
         "nas_eps_event_count": _count_lines(nas_events),
         "gtpv2_event_count": gtpv2_event_count,
@@ -3191,6 +3472,9 @@ def execute_epc_domain(
     narrative_error = payload.get("release_narrative_error")
     audit = payload.get("evidence_audit_analysis")
     audit_error = payload.get("evidence_audit_error")
+    dedicated = payload.get("dedicated_bearer_analysis")
+    dedicated_error = payload.get("dedicated_bearer_error")
+    dedicated_summary = _project_dedicated_bearer_control(dedicated, dedicated_error)
     groups_by_reference: dict[str, Any] = {}
     if isinstance(boundary, dict):
         for group in boundary.get("diagnostic_groups") or []:
@@ -3256,6 +3540,12 @@ def execute_epc_domain(
         status = STATUS_COMPLETED
     else:
         status = STATUS_INSUFFICIENT_EVIDENCE
+    if dedicated_error:
+        status = (
+            STATUS_PARTIAL
+            if (instances or session_subjects or default_bearer_instances or s1u_subjects or gtpv2_transaction_count)
+            else STATUS_FAILED
+        )
 
     boundary_evaluated = isinstance(boundary, dict) and not boundary_error
     limitations: list[str] = [
@@ -3287,6 +3577,8 @@ def execute_epc_domain(
     if isinstance(audit, dict):
         limitations.extend(audit.get("evidence_limitations") or [])
         additional.extend(audit.get("additional_evidence_needed") or [])
+    if isinstance(dedicated, dict):
+        limitations.extend(dedicated.get("evidence_limitations") or [])
     bounded_limitations, _ = _bounded_limitations(list(dict.fromkeys(limitations)))
     bounded_additional, _ = _bounded_limitations(list(dict.fromkeys(additional)))
 
@@ -3448,6 +3740,36 @@ def execute_epc_domain(
             },
             {
                 "procedure_domain": "epc-procedures",
+                "procedure": "epc-dedicated-bearer-control",
+                "execution_status": (
+                    "EXECUTED"
+                    if isinstance(dedicated, dict)
+                    else "FAILED"
+                    if dedicated_error
+                    else "NO_SUBJECT"
+                ),
+                "instance_count": dedicated_summary.get("control_transaction_count", 0),
+                "create_bearer_transaction_count": (
+                    dedicated_summary.get("transaction_family_counts") or {}
+                ).get("create-bearer", 0),
+                "update_bearer_transaction_count": (
+                    dedicated_summary.get("transaction_family_counts") or {}
+                ).get("update-bearer", 0),
+                "delete_bearer_transaction_count": (
+                    dedicated_summary.get("transaction_family_counts") or {}
+                ).get("delete-bearer", 0),
+                "bearer_item_observation_count": dedicated_summary.get(
+                    "bearer_item_observation_count", 0
+                ),
+                "item_association_count": dedicated_summary.get(
+                    "item_association_count", 0
+                ),
+                "source_completeness_status": dedicated_summary.get(
+                    "source_completeness_status"
+                ),
+            },
+            {
+                "procedure_domain": "epc-procedures",
                 "procedure": "eps-bearer-lifecycle",
                 "execution_status": (
                     "EXECUTED"
@@ -3487,6 +3809,7 @@ def execute_epc_domain(
         "bearer_lifecycle": _project_bearer_lifecycle(lifecycle),
         "release_narrative": _project_release_narrative(narrative),
         "evidence_audit": _project_evidence_audit(audit),
+        "dedicated_bearer_control": dedicated_summary,
         "evidence_limitations": bounded_limitations,
         "additional_evidence_needed": bounded_additional,
         "degradation": [],
@@ -3549,6 +3872,13 @@ def execute_epc_domain(
             "EPC release narrative failed: "
             f"{narrative_error.get('code')} {narrative_error.get('message')}".strip()
             + "; earlier EPC evidence is preserved and no EPC protocol failure is asserted"
+        )
+    if dedicated_error:
+        result["failure_code"] = DEDICATED_BEARER_FAILURE_CODE
+        degradation.append(
+            "EPC dedicated-bearer control analysis failed: "
+            f"{dedicated_error.get('code')} {dedicated_error.get('message')}".strip()
+            + "; earlier EPC evidence is preserved and a failed observed component is never reported COMPLETED"
         )
     if audit_error:
         result["failure_code"] = "EVIDENCE_AUDIT_FAILED"
