@@ -726,5 +726,48 @@ class Nas5gsFieldResolutionTests(unittest.TestCase):
         self.assertEqual(resolved, "nas_5gs")
 
 
+class RepeatedBooleanTests(unittest.TestCase):
+    def test_scalar_booleans_remain_unchanged(self) -> None:
+        for value in ("True", "true", "1", "yes"):
+            self.assertIs(MODEL.optional_bool(value), True)
+        for value in ("False", "false", "0", "no"):
+            self.assertIs(MODEL.optional_bool(value), False)
+
+    def test_identical_repeated_values_resolve(self) -> None:
+        self.assertIs(MODEL.optional_bool("True,True"), True)
+        self.assertIs(MODEL.optional_bool("False,False"), False)
+        self.assertIs(MODEL.optional_bool(["True", "True"]), True)
+
+    def test_conflicting_repeated_values_fail_closed(self) -> None:
+        for value in ("True,False", "False,True", ["True", "False"]):
+            with self.assertRaises(MODEL.InputError):
+                MODEL.optional_bool(value)
+
+    def test_mixed_invalid_tokens_fail_closed(self) -> None:
+        for value in ("True,invalid", "invalid,False", ["yes", "maybe"]):
+            with self.assertRaises(MODEL.InputError):
+                MODEL.optional_bool(value)
+
+    def test_empty_and_null_remain_missing(self) -> None:
+        self.assertIsNone(MODEL.optional_bool(None))
+        self.assertIsNone(MODEL.optional_bool(""))
+        self.assertIsNone(MODEL.optional_bool(" , "))
+
+    def test_repeated_follow_on_request_is_message_local(self) -> None:
+        record = {
+            "frame.number": "1",
+            "frame.time_epoch": "1704164645.000001",
+            "nas-5gs.security_header_type": "0",
+            "nas-5gs.mm.message_type": "65",
+            "nas-5gs.mm.5gs_reg_type": "1",
+            "nas-5gs.mm.for": "True,True",
+        }
+        event = MODEL.normalize_record(record, "x.jsonl")
+        self.assertTrue(event["registration"]["follow_on_request"])
+        record["nas-5gs.mm.for"] = "True,False"
+        with self.assertRaises(MODEL.InputError):
+            MODEL.normalize_record(record, "x.jsonl")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+
 import argparse
 import hashlib
 import json
@@ -450,6 +451,72 @@ def validate(root: Path) -> list[str]:
                 py_compile.compile(str(script), doraise=True)
             except py_compile.PyCompileError as exc:
                 errors.append(f"{label} does not compile: {script.name}: {exc.msg}")
+    try:
+        import tempfile
+        import importlib.util
+
+        def load_module(path, name):
+            spec = importlib.util.spec_from_file_location(name, path)
+            module = importlib.util.module_from_spec(spec)
+            assert spec.loader is not None
+            sys.modules[name] = module
+            spec.loader.exec_module(module)
+            return module
+
+        ngap_model = load_module(skill / "scripts" / "ngap_model.py", "ngap_model_gate")
+        ngap_extract = load_module(skill / "scripts" / "extract-ngap.py", "ngap_extract_gate")
+        source_record = json.loads(
+            (skill / "examples" / "extracted" / "ue-context-flow.jsonl").read_text(encoding="utf-8").splitlines()[0]
+        )
+        valid = dict(source_record)
+        valid["frame.protocols"] = "sll:ethertype:ip:sctp:ngap"
+        valid["ngap.procedureCode"] = "15"
+        nested = dict(source_record)
+        nested.pop("ngap.procedureCode", None)
+        nested["frame_number"] = "999"
+        nested["frame.protocols"] = "sll:ethertype:ip:tcp:http2:mime_multipart:json:ngap:ngap"
+        with tempfile.TemporaryDirectory() as directory:
+            root_gate = Path(directory)
+            mixed = root_gate / "mixed.jsonl"
+            mixed.write_text(
+                "\n".join(json.dumps(item) for item in (valid, nested)) + "\n",
+                encoding="utf-8",
+            )
+            baseline_out = root_gate / "baseline.jsonl"
+            exclusions = []
+            count = ngap_extract.write_events(
+                mixed, "fields-jsonl", baseline_out, True, exclusions
+            )
+            if count != 1 or len(exclusions) != 1:
+                errors.append("nested non-N2 NGAP scope gate did not exclude exactly one nested record")
+            if "999" in baseline_out.read_text(encoding="utf-8"):
+                errors.append("nested SBI NGAP dissection leaked into N2 events")
+            malformed = root_gate / "malformed.jsonl"
+            malformed_record = dict(valid)
+            malformed_record.pop("ngap.procedureCode", None)
+            malformed_record["frame.protocols"] = "sll:ethertype:ip:sctp:ngap"
+            malformed.write_text(json.dumps(malformed_record) + "\n", encoding="utf-8")
+            try:
+                ngap_extract.write_events(malformed, "fields-jsonl", root_gate / "bad.jsonl", True)
+                errors.append("genuine SCTP NGAP record without procedureCode must still fail")
+            except ngap_extract.InputError:
+                pass
+            original_scope = ngap_extract.is_non_n2_nested
+            try:
+                ngap_extract.is_non_n2_nested = lambda _record: False
+                try:
+                    ngap_extract.write_events(mixed, "fields-jsonl", root_gate / "mutated.jsonl", True)
+                    errors.append("mutation check failed: unqualified NGAP layer acceptance was not detected")
+                except ngap_extract.InputError:
+                    pass
+            finally:
+                ngap_extract.is_non_n2_nested = original_scope
+            restored_out = root_gate / "restored.jsonl"
+            if ngap_extract.write_events(mixed, "fields-jsonl", restored_out, True, []) != 1:
+                errors.append("mutation restore failed: nested NGAP scope stayed unqualified")
+    except Exception as exc:
+        errors.append(f"NGAP nested-scope gate could not run: {exc}")
+
     return errors
 
 

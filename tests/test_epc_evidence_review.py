@@ -692,7 +692,7 @@ class EpcReplayProvenanceTest(unittest.TestCase):
 
     def current_run(self, work: Path, run_name: str) -> Path:
         invocation = next(work.glob("epc-review-run-*"))
-        return invocation / "epc" / "runs" / run_name
+        return invocation / "scratch" / "epc" / "runs" / run_name
 
     def manifest(self, artifacts: dict, verification: dict) -> dict:
         return REVIEW.build_manifest(
@@ -1200,6 +1200,85 @@ class EpcAuditTruncationTest(unittest.TestCase):
         self.assertEqual(first[0], second[0])
         self.assertEqual(first[1], second[1])
         self.assertEqual(first[2], second[2])
+
+
+class EpcReplayPathIsolationTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self._temporary.name)
+
+    def tearDown(self) -> None:
+        self._temporary.cleanup()
+
+    def test_replay_paths_are_non_overlapping_siblings(self) -> None:
+        scratch, output = REVIEW._replay_paths(Path("/tmp/invocation"))
+        self.assertEqual(scratch.parent, output.parent)
+        self.assertNotEqual(scratch, output)
+        self.assertNotIn(scratch, output.parents)
+        self.assertNotIn(output, scratch.parents)
+
+    def test_replay_command_uses_scratch_and_sibling_output(self) -> None:
+        work = self.root / "work"
+        capture = self.root / "capture-a.pcap"
+        capture.write_bytes(b"capture")
+        commands: list[list[str]] = []
+
+        def fake_run(command, **kwargs):
+            commands.append(command)
+            scratch = Path(command[command.index("--work-dir") + 1])
+            run = scratch / "epc" / "runs" / "0000000000000000"
+            write_documents(
+                run,
+                normalize_capture(copy.deepcopy(EPC.scenario()), "capture-a.pcap"),
+            )
+            output = Path(command[command.index("--output-dir") + 1])
+            output.mkdir(parents=True, exist_ok=True)
+            (output / "analysis.json").write_text(
+                json.dumps({"overall_execution_status": "COMPLETED"}), encoding="utf-8"
+            )
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        with mock.patch.object(REVIEW.subprocess, "run", side_effect=fake_run), mock.patch.object(
+            REVIEW.shutil, "which", return_value="/bin/tshark"
+        ):
+            verification, artifacts, detail = REVIEW.run_local_replay(
+                capture, work_dir=work
+            )
+        self.assertEqual(verification["overall_status"], "COMPLETED")
+        self.assertIsNotNone(artifacts)
+        work_path = Path(commands[0][commands[0].index("--work-dir") + 1])
+        output_path = Path(commands[0][commands[0].index("--output-dir") + 1])
+        self.assertEqual(work_path.name, "scratch")
+        self.assertEqual(output_path.name, "cli-output")
+        self.assertNotIn(work_path, output_path.parents)
+        self.assertNotIn(output_path, work_path.parents)
+        self.assertEqual(detail["run_dir"], "0000000000000000")
+
+
+    def test_unified_cli_rejects_nested_work_output_paths(self) -> None:
+        work = self.root / "work"
+        capture = self.root / "x.pcap"
+        capture.write_bytes(b"not-a-real-capture")
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "corenet-analyze.py"),
+                "--capture",
+                str(capture),
+                "--domains",
+                "epc",
+                "--work-dir",
+                str(work),
+                "--output-dir",
+                str(work / "out"),
+                "--force",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 4)
+        self.assertIn("UNSAFE_PATH_OVERLAP", completed.stderr)
 
 
 if __name__ == "__main__":

@@ -210,6 +210,46 @@ def validate(root: Path) -> list[str]:
             except py_compile.PyCompileError as exc:
                 errors.append(f"script does not compile: {script.name}: {exc.msg}")
     check_structured_provenance(root, errors)
+    try:
+        import importlib.util
+        import tempfile
+
+        spec = importlib.util.spec_from_file_location(
+            "procedure_model_gate", skill / "scripts" / "procedure_model.py"
+        )
+        registration_model = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(registration_model)
+        with tempfile.TemporaryDirectory() as directory:
+            root_gate = Path(directory)
+            mixed = root_gate / "mixed.jsonl"
+            records = [
+                {"timestamp": "t", "frame_number": 1, "capture_file": "c", "nas_family": "5GMM", "message_type": "Registration request"},
+                {"timestamp": "t", "frame_number": 2, "capture_file": "c", "nas_family": "5GSM", "message_type": "PDU session establishment request"},
+            ]
+            mixed.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
+            exclusions = []
+            events = registration_model.load_nas_events(mixed, exclusions)
+            if len(events) != 1 or len(exclusions) != 1:
+                errors.append("mixed 5GMM/5GSM input must retain only owned 5GMM evidence")
+            original_disposition = registration_model.nas_family_disposition
+            try:
+                registration_model.nas_family_disposition = (
+                    lambda family: "invalid" if family == "5GSM" else original_disposition(family)
+                )
+                try:
+                    registration_model.load_nas_events(mixed, [])
+                    errors.append("mutation check failed: blanket 5GSM rejection was not detected")
+                except registration_model.InputError:
+                    pass
+            finally:
+                registration_model.nas_family_disposition = original_disposition
+            restored_exclusions = []
+            if len(registration_model.load_nas_events(mixed, restored_exclusions)) != 1:
+                errors.append("mutation restore failed: valid 5GSM exclusion stayed rejected")
+    except Exception as exc:
+        errors.append(f"Registration NAS-family gate could not run: {exc}")
+
     return errors
 
 

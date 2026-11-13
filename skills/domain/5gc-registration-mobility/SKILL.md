@@ -1,5 +1,13 @@
 # 5GC Registration & Mobility
 
+## NAS family ownership
+
+Registration/Mobility evaluates bounded 5GMM evidence only. Valid 5GSM records
+are excluded from this Domain and remain with PDU Session analysis; bounded
+exclusion accounting is published when such records are supplied. 5GSM evidence
+never satisfies a Registration stage. Unknown or malformed NAS family values
+remain contract violations.
+
 ## Purpose
 
 Analyze bounded 5GC registration and access/mobility signaling at the

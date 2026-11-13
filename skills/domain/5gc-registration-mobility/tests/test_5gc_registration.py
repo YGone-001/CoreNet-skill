@@ -305,13 +305,16 @@ class EvidenceBoundaryTests(unittest.TestCase):
 
 
 class LoadingAndSafetyTests(unittest.TestCase):
-    def test_5gsm_family_refused(self):
+    def test_5gsm_family_excluded_from_registration_ownership(self):
         record = {"timestamp": "t", "frame_number": 1, "capture_file": "c", "nas_family": "5GSM", "message_type": "x"}
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "nas.jsonl"
             path.write_text(json.dumps(record) + "\n", encoding="utf-8")
-            with self.assertRaises(MODEL.InputError):
-                MODEL.load_nas_events(path)
+            exclusions = []
+            self.assertEqual(MODEL.load_nas_events(path, exclusions), [])
+            self.assertEqual(len(exclusions), 1)
+            self.assertEqual(exclusions[0]["nas_family"], "5GSM")
+            self.assertEqual(exclusions[0]["frame_number"], 1)
 
     def test_missing_provenance_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1213,6 +1216,143 @@ class StageAttributionTests(unittest.TestCase):
         self.assertEqual(rejects[0]["stage_id"], "authentication")
         self.assertEqual(rejects[0]["evidence_refs"][0]["frame_number"], 12)
         self.assertLess(ref["frame_number"], rejects[0]["evidence_refs"][0]["frame_number"])
+
+
+class NasFamilyOwnershipTests(unittest.TestCase):
+    def test_pure_5gmm_input_is_unchanged(self) -> None:
+        exclusions = []
+        events = MODEL.load_nas_events(INPUTS / "full-registration" / "nas.jsonl", exclusions)
+        self.assertTrue(events)
+        self.assertEqual(exclusions, [])
+        self.assertTrue(all(event.get("nas_family") in ("5GMM", None) for event in events))
+
+    def test_pure_5gsm_input_is_excluded_not_rejected(self) -> None:
+        record = {
+            "timestamp": "t",
+            "frame_number": 1,
+            "capture_file": "c",
+            "nas_family": "5GSM",
+            "message_type": "PDU session establishment request",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "nas.jsonl"
+            path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+            exclusions = []
+            self.assertEqual(MODEL.load_nas_events(path, exclusions), [])
+            self.assertEqual(len(exclusions), 1)
+
+    def test_mixed_5gmm_5gsm_input_keeps_only_5gmm(self) -> None:
+        source = INPUTS / "full-registration" / "nas.jsonl"
+        rows = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
+        rows.append(
+            {
+                "timestamp": "t",
+                "frame_number": 999,
+                "capture_file": rows[0]["capture_file"],
+                "nas_family": "5GSM",
+                "message_type": "PDU session establishment request",
+            }
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mixed.jsonl"
+            path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+            exclusions = []
+            events = MODEL.load_nas_events(path, exclusions)
+            self.assertEqual(len(events), len(rows) - 1)
+            self.assertEqual(len(exclusions), 1)
+            self.assertEqual(exclusions[0]["frame_number"], 999)
+
+    def test_unknown_nas_family_remains_a_contract_violation(self) -> None:
+        record = {"timestamp": "t", "frame_number": 1, "capture_file": "c", "nas_family": "6GMM", "message_type": "x"}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unknown.jsonl"
+            path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+            with self.assertRaises(MODEL.InputError):
+                MODEL.load_nas_events(path)
+
+    def test_malformed_nas_record_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad.jsonl"
+            path.write_text("{not json}\n", encoding="utf-8")
+            with self.assertRaises(MODEL.InputError):
+                MODEL.load_nas_events(path)
+
+    def test_mixed_input_does_not_change_registration_analysis(self) -> None:
+        ngap = MODEL.load_ngap_events(INPUTS / "full-registration" / "ngap.jsonl")
+        pure = MODEL.load_nas_events(INPUTS / "full-registration" / "nas.jsonl")
+        source = INPUTS / "full-registration" / "nas.jsonl"
+        rows = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
+        rows.append(
+            {
+                "timestamp": "t",
+                "frame_number": 999,
+                "capture_file": rows[0]["capture_file"],
+                "nas_family": "5GSM",
+                "message_type": "PDU session establishment request",
+            }
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mixed.jsonl"
+            path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+            mixed = MODEL.load_nas_events(path)
+        pure_result = MODEL.analyze(ngap, pure, [], RULES)
+        mixed_result = MODEL.analyze(ngap, mixed, [], RULES)
+        self.assertEqual(json.dumps(pure_result["analyses"], sort_keys=True), json.dumps(mixed_result["analyses"], sort_keys=True))
+        self.assertEqual(pure_result["stage_records"], mixed_result["stage_records"])
+
+    def test_cli_reports_bounded_5gsm_exclusion_accounting(self) -> None:
+        source = INPUTS / "full-registration" / "nas.jsonl"
+        rows = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
+        rows.append(
+            {
+                "timestamp": "t",
+                "frame_number": 999,
+                "capture_file": rows[0]["capture_file"],
+                "nas_family": "5GSM",
+                "message_type": "PDU session establishment request",
+            }
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            nas = root / "mixed.jsonl"
+            nas.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+            output = root / "analysis.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "analyze-registration.py"),
+                    "--ngap",
+                    str(INPUTS / "full-registration" / "ngap.jsonl"),
+                    "--nas",
+                    str(nas),
+                    "--output",
+                    str(output),
+                    "--force",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            summary = json.loads(output.read_text())
+            self.assertEqual(summary["input_accounting"]["nas_5gsm_records_excluded"], 1)
+            self.assertEqual(summary["input_accounting"]["nas_5gsm_excluded_references"][0]["frame_number"], 999)
+            try:
+                import jsonschema
+
+                schema = json.loads(
+                    (PACKAGE / "schemas" / "5gc-registration-analysis.schema.json").read_text(encoding="utf-8")
+                )
+                jsonschema.validate(
+                    summary["input_accounting"], schema["properties"]["input_accounting"]
+                )
+            except ImportError:
+                pass
+
+    def test_loader_is_deterministic(self) -> None:
+        first = MODEL.load_nas_events(INPUTS / "full-registration" / "nas.jsonl")
+        second = MODEL.load_nas_events(INPUTS / "full-registration" / "nas.jsonl")
+        self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
 
 
 if __name__ == "__main__":

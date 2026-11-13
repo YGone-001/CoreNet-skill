@@ -277,6 +277,49 @@ def validate(root: Path) -> list[str]:
                 py_compile.compile(str(script), doraise=True)
             except py_compile.PyCompileError as exc:
                 errors.append(f"script does not compile: {script.name}: {exc.msg}")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "nas5gs_model_gate", skill / "scripts" / "nas5gs_model.py"
+        )
+        nas_model = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        sys.modules[spec.name] = nas_model
+        spec.loader.exec_module(nas_model)
+        if nas_model.optional_bool("True,True") is not True:
+            errors.append("identical repeated Boolean values must resolve to one value")
+        try:
+            nas_model.optional_bool("True,False")
+            errors.append("conflicting repeated Boolean values must fail closed")
+        except nas_model.InputError:
+            pass
+        original_bool = nas_model.optional_bool
+
+        def scalar_only(value):
+            text = value.strip() if isinstance(value, str) else value
+            if text is None or text == "":
+                return None
+            if text in {"1", "true", "True", "yes"}:
+                return True
+            if text in {"0", "false", "False", "no"}:
+                return False
+            raise nas_model.InputError("boolean field must be 0/1 or true/false")
+
+        try:
+            nas_model.optional_bool = scalar_only
+            try:
+                nas_model.optional_bool("True,True")
+                errors.append("mutation check failed: scalar-only Boolean parser was not detected")
+            except nas_model.InputError:
+                pass
+        finally:
+            nas_model.optional_bool = original_bool
+        if nas_model.optional_bool("True,True") is not True:
+            errors.append("mutation restore failed: repeated Boolean parsing stayed scalar-only")
+    except Exception as exc:
+        errors.append(f"NAS repeated-Boolean gate could not run: {exc}")
+
     return errors
 
 

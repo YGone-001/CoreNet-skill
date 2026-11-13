@@ -1,7 +1,10 @@
 # nas-5gs
 
 `nas-5gs` is a standalone Protocol-layer package for bounded NAS-5GS
-semantic extraction on the N1 interface. Version 0.2.1 implements the
+semantic extraction on the N1 interface. Repeated Boolean fields emitted by
+TShark are parsed conservatively: exact repetitions resolve to one value,
+conflicting or mixed valid/invalid repetitions fail closed, and missing values
+stay missing. Version 0.2.1 implements the
 5GMM registration, identity, authentication, security mode, service, and
 status subset plus the 5GSM PDU session establishment, modification, and
 release subset and 5GSM status, with security-envelope classification,

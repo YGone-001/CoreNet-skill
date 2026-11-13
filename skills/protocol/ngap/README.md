@@ -2,6 +2,11 @@
 
 `ngap` is a standalone Protocol-layer package for bounded NGAP semantic
 extraction on the N2 interface (NG-RAN to AMF, NGAP over SCTP). Version
+N2 extraction is scoped to SCTP NGAP signaling. TShark dissections embedded in
+HTTP/2 JSON application content are not treated as N2 PDUs and are reported as
+bounded exclusions; a genuine SCTP N2 record without `ngap.procedureCode` still
+fails closed.
+
 0.3.2 implements direct-capture TShark compatibility adapters alongside the
 UE-context, NAS-transport, Initial Context, release, and paging subset, bounded
 PDU Session Resource Setup, Modify, and Release semantics, PDU Session resources

@@ -153,6 +153,11 @@ derived label is never presented as wire observation.
 
 ## Direct-Capture TShark Compatibility
 
+Repeated Boolean fields (for example `nas-5gs.mm.for=True,True`) are accepted
+only when all observed tokens resolve to the same Boolean value. Conflicting or
+mixed valid/invalid repeated tokens raise an input error; they never become a
+definitive scalar by taking the first token.
+
 Version 0.2.1 introduces deterministic direct-capture compatibility handling:
 
 - **Protocol Filter Resolution**: `resolve_filter` evaluates candidate display filters `("nas-5gs", "nas_5gs")` against discovered protocols in the active TShark installation.

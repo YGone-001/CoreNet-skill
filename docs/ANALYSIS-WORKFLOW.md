@@ -11,6 +11,13 @@ Capture benchmark. It executes real 5GC analysis and bounded EPC EPS Attach
 procedure evidence analysis. IMS is a declared capability that reports `UNSUPPORTED`
 until its Protocol and Domain Skills exist.
 
+## Review replay path isolation
+
+Review Pack Mode B invokes the unified EPC CLI with sibling `scratch/` and
+`cli-output/` directories inside one fresh invocation namespace. Work and output
+directories never contain one another; the unified CLI path-safety guard remains
+authoritative.
+
 ## 1. Prerequisites
 
 | Requirement | Detail |

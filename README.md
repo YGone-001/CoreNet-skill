@@ -162,7 +162,8 @@ count is rewritten. `--capture` enables local replay, while `--compare-a` and
 `--compare-b` compare two independently produced Review Packs without treating
 different evidence as equal.
 
-Local replay binds artifacts to a fresh, invocation-specific work directory and
+Local replay binds artifacts to a fresh, invocation-specific work directory with
+sibling `scratch/` and `cli-output/` paths, so work and output never overlap, and
 never selects a stale run. Comparison mode returns `0` only for `IDENTICAL`, `1` for
 `DIFFERENT`, and `5` for missing, schema-incompatible, capture-mismatched or
 unsupported comparisons; output-write failures return `7`. Audit Ledger omission,

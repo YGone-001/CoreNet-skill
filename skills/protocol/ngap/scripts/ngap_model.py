@@ -55,6 +55,7 @@ SCHEMA_NAME = "ngap-event"
 FIELDS = (
     "frame.number",
     "frame.time_epoch",
+    "frame.protocols",
     "ip.src",
     "ip.dst",
     "ipv6.src",
@@ -1091,6 +1092,25 @@ def resolve_pdu_session_resources(
             "limitations": limitations,
         }
     return items, unbound
+
+
+def is_non_n2_nested(record: object) -> bool:
+    """Return True only when transport evidence proves a nested non-N2 NGAP dissection.
+
+    The accepted NGAP Skill owns SCTP N2 signaling. TShark can also decode an
+    NGAP-looking payload embedded in HTTP/2 JSON application content; such a
+    dissection is not an N2 PDU and must not be required to expose
+    ngap.procedureCode.
+    """
+    if not isinstance(record, dict):
+        return False
+    protocols = clean(record.get("frame.protocols"))
+    if protocols is None:
+        return False
+    layers = {token.strip().lower() for token in protocols.replace(",", ":").split(":") if token.strip()}
+    if "sctp" in layers:
+        return False
+    return "ngap" in layers and bool(layers & {"http2", "mime_multipart", "json"})
 
 
 def normalize_record(record: object, capture_file: str) -> dict[str, object]:

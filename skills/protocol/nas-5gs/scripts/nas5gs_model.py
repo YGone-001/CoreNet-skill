@@ -535,15 +535,39 @@ def int_list(value: object) -> list[int]:
     return result
 
 
-def optional_bool(value: object) -> bool | None:
-    text = clean(value)
-    if text is None:
-        return None
-    if text in {"1", "true", "True", "yes"}:
+def _single_bool(token: str) -> bool:
+    if token in {"1", "true", "True", "yes"}:
         return True
-    if text in {"0", "false", "False", "no"}:
+    if token in {"0", "false", "False", "no"}:
         return False
     raise InputError("boolean field must be 0/1 or true/false")
+
+
+def optional_bool(value: object) -> bool | None:
+    """Parse a scalar or repeated Boolean field conservatively.
+
+    TShark exports repeated occurrences comma-joined. Exact repetitions of the
+    same Boolean value are one scalar evidence value; conflicting repeated
+    values or mixed valid/invalid tokens never select the first occurrence.
+    Structured input may pass a JSON array instead of a comma-joined scalar.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple)):
+        tokens = [str(item).strip() for item in value]
+    else:
+        text = clean(value)
+        if text is None:
+            return None
+        tokens = [token.strip() for token in text.split(",")]
+    if not tokens or all(token == "" for token in tokens):
+        return None
+    if any(token == "" for token in tokens):
+        raise InputError("boolean field contains a missing value in a repeated field")
+    parsed = {_single_bool(token) for token in tokens}
+    if len(parsed) == 1:
+        return parsed.pop()
+    raise InputError("conflicting repeated boolean values cannot be resolved to one scalar evidence value")
 
 
 def normalize_timestamp(value: object) -> str:

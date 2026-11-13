@@ -37,6 +37,34 @@
       "items": {
         "type": "object"
       }
+    },
+    "input_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nas_5gsm_records_excluded",
+        "nas_5gsm_excluded_references",
+        "exclusion_basis"
+      ],
+      "properties": {
+        "nas_5gsm_records_excluded": {"type": "integer", "minimum": 0},
+        "nas_5gsm_excluded_references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["capture_file", "frame_number", "nas_family", "message_type", "basis"],
+            "properties": {
+              "capture_file": {"type": ["string", "null"]},
+              "frame_number": {"type": ["integer", "string", "null"]},
+              "nas_family": {"const": "5GSM"},
+              "message_type": {"type": ["string", "null"]},
+              "basis": {"type": "string"}
+            }
+          }
+        },
+        "exclusion_basis": {"type": "string"}
+      }
     }
   },
   "$defs": {

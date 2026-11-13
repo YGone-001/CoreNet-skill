@@ -179,6 +179,14 @@ rather than observed.
 - evidence.source names the capture frame and the procedure code, plus the
   Info-column text when it drove PDU resolution.
 
+## Nested NGAP Scope (v0.3.2)
+
+`frame.protocols` is an optional compatibility field. When it proves that an
+`ngap` dissection is nested in HTTP/2/JSON application content without SCTP, the
+record is not N2 signaling and is excluded from the NGAP skill. The exclusion is
+reported to stderr with a bounded frame reference. If transport is SCTP or cannot
+be classified, a missing `ngap.procedureCode` remains a hard extraction failure.
+
 ## Direct-Capture TShark Compatibility (v0.3.2)
 
 Direct capture extraction uses a bounded compatibility adapter (`FieldSpec`)

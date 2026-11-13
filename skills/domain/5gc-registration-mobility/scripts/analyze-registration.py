@@ -85,8 +85,9 @@ def main(argv: list[str] | None = None) -> int:
         for path in args.ngap:
             ngap_events.extend(load_ngap_events(path))
         nas_events = []
+        nas_exclusions: list[dict[str, object]] = []
         for path in args.nas:
-            nas_events.extend(load_nas_events(path))
+            nas_events.extend(load_nas_events(path, nas_exclusions))
         correlation_groups = []
         for path in args.correlation:
             correlation_groups.extend(load_correlation_groups(path))
@@ -102,6 +103,15 @@ def main(argv: list[str] | None = None) -> int:
             "unbound_records": result["unbound_records"],
             "correlation_conflicts": result["correlation_conflicts"],
         }
+        if nas_exclusions:
+            summary["input_accounting"] = {
+                "nas_5gsm_records_excluded": len(nas_exclusions),
+                "nas_5gsm_excluded_references": nas_exclusions[:64],
+                "exclusion_basis": (
+                    "5GSM evidence is owned by PDU Session analysis and is not "
+                    "evaluated as Registration 5GMM evidence"
+                ),
+            }
         sanitize_output(summary)
         _write_atomic(args.output, json.dumps(sanitize_output(summary), sort_keys=True, indent=2) + "\n")
         count = 0

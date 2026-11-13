@@ -452,7 +452,7 @@ def validate() -> list[str]:
         if replay_manifest.get("capture_identities") != [epc_validator.AUDIT_CAPTURE]:
             fail("replay consumed stale capture artifacts")
         current_run = next(
-            replay_work.glob("epc-review-run-*/epc/runs/0000000000000000")
+            replay_work.glob("epc-review-run-*/scratch/epc/runs/0000000000000000")
         )
         consumed = next(
             source["sha256"]
@@ -701,6 +701,31 @@ def validate() -> list[str]:
         )
         if not restored_manifest.get("audit_results_truncated"):
             fail("mutation restore failed: omitted audit records stayed ignored")
+
+    def paths_overlap(first, second):
+        first = first.resolve()
+        second = second.resolve()
+        return first == second or first in second.parents or second in first.parents
+
+    try:
+        scratch, cli_output = review._replay_paths(Path("/tmp/epc-review-gate"))
+        if paths_overlap(scratch, cli_output):
+            errors.append("Review replay scratch and CLI-output paths must not overlap")
+        if scratch.name != "scratch" or cli_output.name != "cli-output":
+            errors.append("Review replay must use sibling scratch and cli-output directories")
+        original_paths = review._replay_paths
+        try:
+            review._replay_paths = lambda root: (root, root / "cli-output")
+            nested_scratch, nested_output = review._replay_paths(Path("/tmp/epc-review-gate"))
+            if not paths_overlap(nested_scratch, nested_output):
+                errors.append("mutation check failed: nested Review work/output path was not detected")
+        finally:
+            review._replay_paths = original_paths
+        restored_scratch, restored_output = review._replay_paths(Path("/tmp/epc-review-gate"))
+        if paths_overlap(restored_scratch, restored_output):
+            errors.append("mutation restore failed: Review replay paths stayed nested")
+    except (OSError, AttributeError) as exc:
+        errors.append(f"Review replay path gate could not run: {exc}")
 
     return errors
 

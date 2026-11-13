@@ -1629,8 +1629,13 @@ def build_replay_verification(
     }
 
 
-def _current_run_candidates(invocation_root: Path) -> list[Path]:
-    runs = invocation_root / "epc" / "runs"
+def _replay_paths(invocation_root: Path) -> tuple[Path, Path]:
+    """Return non-overlapping sibling scratch and CLI-output directories."""
+    return invocation_root / "scratch", invocation_root / "cli-output"
+
+
+def _current_run_candidates(scratch_root: Path) -> list[Path]:
+    runs = scratch_root / "epc" / "runs"
     if not runs.is_dir():
         return []
     return sorted(
@@ -1698,7 +1703,8 @@ def run_local_replay(
         work_root.mkdir(parents=True, exist_ok=True)
     invocation_root = work_root / f"epc-review-run-{uuid.uuid4().hex[:16]}"
     invocation_root.mkdir(parents=True, exist_ok=False)
-    cli_output = invocation_root / "cli-output"
+    scratch, cli_output = _replay_paths(invocation_root)
+    scratch.mkdir(parents=True, exist_ok=False)
     command = [
         sys.executable,
         str(UNIFIED_CLI),
@@ -1707,7 +1713,7 @@ def run_local_replay(
         "--domains",
         "epc",
         "--work-dir",
-        str(invocation_root),
+        str(scratch),
         "--output-dir",
         str(cli_output),
         "--force",
@@ -1755,7 +1761,7 @@ def run_local_replay(
                 "detail": cli_status,
             }
         )
-        candidates = _current_run_candidates(invocation_root)
+        candidates = _current_run_candidates(scratch)
         run_dir = _select_current_run(candidates)
         if run_dir is None:
             steps.append(

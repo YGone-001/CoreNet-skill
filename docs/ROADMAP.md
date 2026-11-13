@@ -33,7 +33,10 @@ the bounded `5gc-handover-mobility` N2 handover and Path Switch Domain analysis 
 and Handover/Path Switch Mobility Domain outputs;
 the remaining NGAP mobility-adjacent procedures, UPF relocation, inter-system
 mobility, GTP-U on further interfaces, and every later capability remain future work.
-GTP-U v0.1.0 proves packet observations at the capture point only, never
+Real-capture correction work keeps NGAP extraction scoped to SCTP N2 signaling,
+NAS-5GS repeated Booleans fail closed, Review Mode B uses non-overlapping replay
+paths, and Registration/Mobility excludes valid 5GSM evidence at its input
+boundary. GTP-U v0.1.0 proves packet observations at the capture point only, never
 end-to-end user-plane validation. The bounded `s1ap`, `nas-eps` and `gtpv2` Protocol Skills
 extract S1-MME, EPS NAS and GTPv2-C session-control message evidence from LTE captures,
 and the bounded `epc-procedures` Domain Skill analyzes observed EPS Attach procedure

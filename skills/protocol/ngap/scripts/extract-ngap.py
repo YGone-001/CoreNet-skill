@@ -25,6 +25,7 @@ from ngap_model import (
     InputError,
     TsharkError,
     ToolUnavailable,
+    is_non_n2_nested,
     normalize_record,
     project_trace_event,
     records_for_input,
@@ -42,7 +43,13 @@ def parser() -> argparse.ArgumentParser:
     return result
 
 
-def write_events(input_path: Path, input_format: str, output: Path, force: bool) -> int:
+def write_events(
+    input_path: Path,
+    input_format: str,
+    output: Path,
+    force: bool,
+    exclusions: list[dict[str, object]] | None = None,
+) -> int:
     if input_path.resolve() == output.resolve():
         raise OSError("output must not replace the input artifact")
     if output.exists() and not force:
@@ -57,11 +64,21 @@ def write_events(input_path: Path, input_format: str, output: Path, force: bool)
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, dir=output.parent, prefix=f".{output.name}.", suffix=".tmp") as temporary:
             temporary_name = temporary.name
             for record in records:
+                if is_non_n2_nested(record):
+                    if exclusions is not None:
+                        exclusions.append(
+                            {
+                                "frame_number": record.get("frame.number"),
+                                "reason": "NESTED_NON_N2_NGAP_DISSECTION",
+                                "protocols": record.get("frame.protocols"),
+                            }
+                        )
+                    continue
                 event = normalize_record(record, capture_file)
                 temporary.write(json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n")
                 count += 1
         if count == 0:
-            raise InputError("input contains no NGAP records")
+            raise InputError("input contains no NGAP records after excluding nested non-N2 NGAP dissections")
         os.replace(temporary_name, output)
         temporary_name = None
         return count
@@ -107,8 +124,16 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_OUTPUT_FAILURE
     try:
         if args.output is not None:
-            count = write_events(args.input, args.input_format, args.output, args.force)
+            exclusions: list[dict[str, object]] = []
+            count = write_events(
+                args.input, args.input_format, args.output, args.force, exclusions
+            )
             print(f"wrote {count} detailed NGAP event(s) to {args.output.name}")
+            if exclusions:
+                print(
+                    f"excluded {len(exclusions)} nested non-N2 NGAP dissection(s) from N2 extraction",
+                    file=sys.stderr,
+                )
         if args.trace_output is not None:
             if args.output is None:
                 with tempfile.TemporaryDirectory() as directory:

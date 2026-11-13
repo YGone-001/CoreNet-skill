@@ -18,6 +18,14 @@ supplied through the nas-5gs and ngap Skill contracts. The reviewed
 lower-layer tool basis is Wireshark/TShark 4.7.1. No incompatible
 Release mixing is claimed.
 
+## Input ownership
+
+Registration/Mobility owns bounded 5GMM NAS evidence. Valid 5GSM records are
+excluded from Registration analysis and remain owned by PDU Session analysis;
+they are reported in `input_accounting.nas_5gsm_records_excluded` without being
+converted to 5GMM or used to satisfy Registration stages. Unknown NAS family
+values remain input-contract violations.
+
 ## Package structure
 
 - `scripts/procedure_model.py`: standalone analysis engine (loading,

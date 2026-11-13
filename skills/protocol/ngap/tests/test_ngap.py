@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
 import shutil
@@ -1026,6 +1027,110 @@ class NgapFieldResolutionTests(unittest.TestCase):
         with self.assertRaises(MODEL.TsharkError) as ctx:
             MODEL.resolve_filter(("ngap",), MODEL.get_available_protocols())
         self.assertIn("none of the protocol filter candidates", str(ctx.exception))
+
+
+class NestedNgapScopeTests(unittest.TestCase):
+    def base_record(self) -> dict:
+        return copy.deepcopy(records("ue-context-flow.jsonl")[0])
+
+    def test_n2_sctp_record_is_accepted(self) -> None:
+        record = self.base_record()
+        record["frame.protocols"] = "sll:ethertype:ip:sctp:ngap"
+        record["ngap.procedureCode"] = "15"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "sctp.jsonl"
+            source.write_text(json.dumps(record) + "\n", encoding="utf-8")
+            output = root / "out.jsonl"
+            self.assertEqual(EXTRACT.write_events(source, "fields-jsonl", output, True), 1)
+            self.assertEqual(json.loads(output.read_text())["frame_number"], int(record["frame.number"]))
+
+    def test_nested_sbi_ngap_without_procedure_code_is_excluded(self) -> None:
+        nested = self.base_record()
+        nested.pop("ngap.procedureCode", None)
+        nested["frame.protocols"] = "sll:ethertype:ip:tcp:http2:mime_multipart:json:ngap:ngap"
+        nested["frame.number"] = "999"
+        valid = self.base_record()
+        valid["frame.protocols"] = "sll:ethertype:ip:sctp:ngap"
+        valid["ngap.procedureCode"] = "15"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "mixed.jsonl"
+            source.write_text("\n".join(json.dumps(item) for item in (valid, nested)) + "\n", encoding="utf-8")
+            output = root / "out.jsonl"
+            exclusions = []
+            count = EXTRACT.write_events(source, "fields-jsonl", output, True, exclusions)
+            self.assertEqual(count, 1)
+            self.assertEqual(len(exclusions), 1)
+            self.assertEqual(exclusions[0]["reason"], "NESTED_NON_N2_NGAP_DISSECTION")
+            self.assertNotIn("999", output.read_text())
+
+    def test_nested_only_capture_writes_no_n2_events(self) -> None:
+        nested = self.base_record()
+        nested.pop("ngap.procedureCode", None)
+        nested["frame.protocols"] = "sll:ethertype:ip:tcp:http2:json:ngap"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "nested.jsonl"
+            source.write_text(json.dumps(nested) + "\n", encoding="utf-8")
+            with self.assertRaises(MODEL.InputError):
+                EXTRACT.write_events(source, "fields-jsonl", root / "out.jsonl", True)
+
+    def test_genuine_sctp_record_missing_procedure_code_still_fails(self) -> None:
+        malformed = self.base_record()
+        malformed.pop("ngap.procedureCode", None)
+        malformed["frame.protocols"] = "sll:ethertype:ip:sctp:ngap"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "malformed.jsonl"
+            source.write_text(json.dumps(malformed) + "\n", encoding="utf-8")
+            with self.assertRaises(MODEL.InputError):
+                EXTRACT.write_events(source, "fields-jsonl", root / "out.jsonl", True)
+
+    def test_unclassifiable_transport_missing_code_still_fails(self) -> None:
+        malformed = self.base_record()
+        malformed.pop("ngap.procedureCode", None)
+        malformed["frame.protocols"] = "sll:ethertype:ip:tcp:ngap"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "ambiguous.jsonl"
+            source.write_text(json.dumps(malformed) + "\n", encoding="utf-8")
+            with self.assertRaises(MODEL.InputError):
+                EXTRACT.write_events(source, "fields-jsonl", root / "out.jsonl", True)
+
+    def test_unsupported_but_valid_sctp_procedure_is_preserved(self) -> None:
+        record = self.base_record()
+        record["frame.protocols"] = "sll:ethertype:ip:sctp:ngap"
+        record["ngap.procedureCode"] = "250"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "unknown.jsonl"
+            source.write_text(json.dumps(record) + "\n", encoding="utf-8")
+            output = root / "out.jsonl"
+            self.assertEqual(EXTRACT.write_events(source, "fields-jsonl", output, True), 1)
+            event = json.loads(output.read_text())
+            self.assertEqual(event["support_status"], "UNKNOWN")
+
+    def test_nested_scope_output_is_deterministic(self) -> None:
+        nested = self.base_record()
+        nested.pop("ngap.procedureCode", None)
+        nested["frame.protocols"] = "sll:ethertype:ip:tcp:http2:json:ngap"
+        valid = self.base_record()
+        valid["frame.protocols"] = "sll:ethertype:ip:sctp:ngap"
+        valid["ngap.procedureCode"] = "15"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "mixed.jsonl"
+            source.write_text("\n".join(json.dumps(item) for item in (valid, nested)) + "\n", encoding="utf-8")
+            first = root / "first.jsonl"
+            second = root / "second.jsonl"
+            EXTRACT.write_events(source, "fields-jsonl", first, True)
+            EXTRACT.write_events(source, "fields-jsonl", second, True)
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+
+    def test_frame_protocols_field_is_optional_compatibility_field(self) -> None:
+        spec = next(item for item in MODEL.FIELD_SPECS if item.canonical_name == "frame.protocols")
+        self.assertFalse(spec.required)
 
 
 if __name__ == "__main__":

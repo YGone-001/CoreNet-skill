@@ -309,7 +309,24 @@ def load_ngap_events(path: Path) -> list[dict[str, object]]:
     return events
 
 
-def load_nas_events(path: Path) -> list[dict[str, object]]:
+def nas_family_disposition(family: object) -> str:
+    """Classify a NAS family for Registration ownership.
+
+    Registration owns bounded 5GMM evidence. 5GSM is valid Protocol evidence but
+    belongs to the PDU Session Domain and must be excluded here, not rejected or
+    reclassified. Unknown families remain contract violations.
+    """
+    if family in ("5GMM", None):
+        return "owned"
+    if family == "5GSM":
+        return "excluded_5gsm"
+    return "invalid"
+
+
+def load_nas_events(
+    path: Path,
+    exclusions: list[dict[str, object]] | None = None,
+) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
     with path.open("r", encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
@@ -320,8 +337,23 @@ def load_nas_events(path: Path) -> list[dict[str, object]]:
             except json.JSONDecodeError as exc:
                 raise InputError(f"invalid JSON in {path.name} at line {line_number}: {exc.msg}") from exc
             record = _require_event_fields(record, len(events), "NAS-5GS")
-            if record.get("nas_family") not in ("5GMM", None):
-                raise InputError(f"NAS-5GS record {len(events)} carries an unsupported family; 5GSM evidence stays with session work")
+            disposition = nas_family_disposition(record.get("nas_family"))
+            if disposition == "excluded_5gsm":
+                if exclusions is not None:
+                    exclusions.append(
+                        {
+                            "capture_file": record.get("capture_file"),
+                            "frame_number": record.get("frame_number"),
+                            "nas_family": "5GSM",
+                            "message_type": record.get("message_type"),
+                            "basis": "5GSM evidence is owned by PDU Session analysis",
+                        }
+                    )
+                continue
+            if disposition == "invalid":
+                raise InputError(
+                    f"NAS-5GS record {len(events)} carries an unsupported family; unknown NAS families remain contract violations"
+                )
             events.append(record)
     return events
 
