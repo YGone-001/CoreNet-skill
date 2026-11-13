@@ -251,7 +251,8 @@ class DedicatedBearerControlTests(unittest.TestCase):
             analysis = load_json(output)
             self.assertEqual(analysis["control_transaction_count"], 3)
             self.assertEqual(len(load_jsonl(timeline)), 3)
-            jsonschema.validate(analysis, load_json(SCHEMA))
+            if jsonschema is not None:
+                jsonschema.validate(analysis, load_json(SCHEMA))
 
     def test_m1_ownership_fixture_is_compatible(self) -> None:
         events = load_jsonl(GTPV2_EXTRACTED / "bearer-ownership-positive-events.jsonl")
