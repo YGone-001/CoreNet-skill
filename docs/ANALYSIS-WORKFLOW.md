@@ -401,6 +401,18 @@ from producer-published and Review-display counts, source omission is kept separ
 from display omission, and any breakdown computed only from the visible subset is
 labelled `VISIBLE_SUBSET_ONLY`.
 
+When the accepted control artifact exists, the unified EPC path also publishes
+`epc-dedicated-bearer-timeline-analysis.json`. The timeline is anchored on the
+control transaction request/response frames and lists observed dedicated ESM
+(197/198/199, 201/202/203, 205/206) and standalone S1AP E-RAB Setup/Modify/Release
+item references. It resolves a cross-layer association only with capture-scoped
+UE-context evidence shared between the control observation and the access
+observation; EBI-only, E-RAB-ID-only and temporal-proximity shortcuts remain
+candidates or ambiguity. Missing or unsupported access evidence is published as
+`NOT_OBSERVED` or `UNSUPPORTED_EVIDENCE`, never as a fabricated stage. The Review
+Pack consumes the timeline as a second optional bounded source and validates its
+Schema and count identity before publication.
+
 The Review Pack navigation index registers the bounded `narrative_subjects`,
 derived `narrative_groups` and nested `narrative_bearer_endpoints` collections
 alongside the already-published session contexts, streams, generations,

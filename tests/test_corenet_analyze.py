@@ -3996,5 +3996,84 @@ class DedicatedBearerArtifactContractTests(WorkflowTestCase):
         self.assertIn("producer exited with 1", error["message"])
 
 
+class DedicatedBearerTimelineStageTests(WorkflowTestCase):
+    """The unified path validates the timeline artifact contract."""
+
+    def timeline(self, control: dict) -> dict:
+        model_path = (
+            MODULE.ROOT
+            / "skills"
+            / "domain"
+            / "epc-procedures"
+            / "scripts"
+            / "epc_dedicated_bearer_timeline_model.py"
+        )
+        spec = importlib.util.spec_from_file_location("timeline_model_under_test", model_path)
+        model = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(model)
+        control_path = self.base / "control.json"
+        control_path.write_text(json.dumps(control), encoding="utf-8")
+        return model.build_timeline(
+            control,
+            [],
+            [],
+            control_path=control_path,
+            nas_path=None,
+            s1ap_path=None,
+        )
+
+    def test_valid_timeline_is_accepted(self) -> None:
+        control = dedicated_bearer_analysis()
+        timeline = self.timeline(control)
+        output = self.base / "epc-dedicated-bearer-timeline-analysis.json"
+        original = MODULE._run_component
+        MODULE._run_component = lambda command, label: output.write_text(
+            json.dumps(timeline), encoding="utf-8"
+        )
+        try:
+            analysis, error = MODULE._run_dedicated_bearer_timeline_stage(
+                self.base / "control.json",
+                self.base / "nas.jsonl",
+                self.base / "s1ap.jsonl",
+                output,
+            )
+        finally:
+            MODULE._run_component = original
+        self.assertIsNone(error)
+        self.assertIsNotNone(analysis)
+        self.assertEqual(analysis["timeline_entry_count"], 4)
+
+    def test_minimal_or_malformed_timeline_is_rejected(self) -> None:
+        for payload in ({}, {"analysis_name": "epc-dedicated-bearer-timeline"}):
+            with self.subTest(payload=payload):
+                output = self.base / "epc-dedicated-bearer-timeline-analysis.json"
+                original = MODULE._run_component
+
+                def writer(command, label, p=payload):
+                    output.write_text(json.dumps(p), encoding="utf-8")
+
+                MODULE._run_component = writer
+                try:
+                    analysis, error = MODULE._run_dedicated_bearer_timeline_stage(
+                        self.base / "control.json",
+                        self.base / "nas.jsonl",
+                        self.base / "s1ap.jsonl",
+                        output,
+                    )
+                finally:
+                    MODULE._run_component = original
+                self.assertIsNone(analysis)
+                self.assertEqual(error["code"], MODULE.DEDICATED_BEARER_TIMELINE_FAILURE_CODE)
+
+    def test_timeline_failure_projection_is_never_completed(self) -> None:
+        projected = MODULE._project_dedicated_bearer_timeline(
+            None,
+            {"code": MODULE.DEDICATED_BEARER_TIMELINE_FAILURE_CODE, "message": "boom"},
+        )
+        self.assertEqual(projected["execution_status"], "FAILED")
+        self.assertEqual(projected["failure_code"], MODULE.DEDICATED_BEARER_TIMELINE_FAILURE_CODE)
+
+
 if __name__ == "__main__":
     unittest.main()

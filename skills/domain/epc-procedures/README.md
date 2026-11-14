@@ -110,6 +110,14 @@ declared/published/omitted count identity before treating the source as valid, a
 they report producer-declared totals, producer-published records and Review-display
 subsets as distinct quantities.
 
+The unified workflow also builds a deterministic cross-layer timeline from the
+accepted control artifact and the run's NAS-EPS/S1AP events. It preserves actual
+request/response frames, lists observed dedicated ESM and standalone E-RAB
+references, and never infers UE acceptance from a GTPv2-C Cause. Cross-layer
+associations are `ESTABLISHED_BY_EVIDENCE` only with shared capture-scoped UE
+context; otherwise they remain candidates, ambiguity, unsupported or not observed.
+The timeline artifact is an optional validated Review Pack source.
+
 ## Default bearer
 
 ```bash
@@ -246,4 +254,4 @@ alias. See `references/evidence-chain-audit.md`.
 
 ## Version
 
-0.9.0
+0.10.0

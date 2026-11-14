@@ -1,20 +1,21 @@
 name: s1ap
-version: 0.2.0
+version: 0.3.0
 category: protocol
 description: >
   Bounded S1AP semantic extraction for the S1-MME interface: PDU category,
   procedure and message identification for the S1 setup, UE-associated NAS
   transport, Initial Context Setup and UE context release subset, eNB/MME UE
   S1AP identifiers, Cause preservation, NAS-PDU presence and length only,
-  bounded E-RAB item evidence, protocol-local UE-context correlation, detailed
-  S1AP events, and normalized trace-event projection.
+  bounded E-RAB item evidence for Initial Context Setup and standalone E-RAB
+  Setup/Modify/Release procedures, protocol-local UE-context correlation,
+  detailed S1AP events, and normalized trace-event projection.
 scope:
   includes:
     - S1AP PDU category and procedure/message identification for the bounded subset
     - eNB-UE-S1AP-ID and MME-UE-S1AP-ID extraction and protocol-local handling
     - S1AP Cause group and value preservation
     - NAS-PDU presence and length only (no NAS decoding)
-    - bounded E-RAB item evidence for Initial Context Setup request and response
+    - bounded E-RAB item evidence for Initial Context Setup request/response and standalone E-RAB Setup/Modify/Release request/response items
     - bounded location metadata presence (TAC, PLMN identity, E-UTRAN CGI)
     - deterministic UE-context correlation scoped by capture and SCTP association, with explicit strength and ambiguity
     - detailed S1AP event JSONL and shared trace-event projection

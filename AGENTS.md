@@ -267,6 +267,7 @@ For EPC Evidence Review navigation changes, also run:
 
     python3 scripts/validate-epc-review-navigation.py
     python3 scripts/validate-epc-evidence-review.py
+    python3 scripts/validate-epc-dedicated-bearer-timeline.py
 
 Also run any Skill-specific tests introduced by the task. Never call a check PASS unless it ran. If a tool or dependency prevents a check, report NOT RUN and the exact reason. Tests for executable or rule-driven Skills should use small deterministic fixtures and cover normal behavior, malformed or missing input, boundary cases, evidence classification, correlation where applicable, and expected failure handling. Avoid large opaque packet captures unless justified.
 

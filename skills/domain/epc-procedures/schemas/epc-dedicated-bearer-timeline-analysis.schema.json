@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.local/schemas/epc-dedicated-bearer-timeline-analysis.schema.json",
+  "title": "EPC Dedicated Bearer Cross-Layer Evidence Timeline",
+  "$ref": "#/$defs/document",
+  "$defs": {
+    "countMap": {
+      "type": "object",
+      "propertyNames": {"type": "string"},
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "sourceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "frame_number", "kind", "source_analysis"],
+      "properties": {
+        "reference": {"type": "string"},
+        "frame_number": {"type": "integer", "minimum": 1},
+        "kind": {"type": "string"},
+        "source_analysis": {"type": "string"},
+        "support_status": {"type": ["string", "null"]},
+        "procedure": {"type": ["string", "null"]},
+        "result": {"type": ["string", "null"]},
+        "eps_bearer_identity": {"type": ["integer", "null"]},
+        "erab_id": {"type": ["integer", "null"]},
+        "operation": {"type": ["string", "null"]},
+        "direction": {"type": ["string", "null"]},
+        "protection_state": {"type": ["string", "null"]},
+        "ue_context_reference": {"type": ["string", "null"]},
+        "binding_basis": {"type": ["string", "null"]},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "association": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidence_basis"],
+      "properties": {
+        "status": {
+          "enum": [
+            "ESTABLISHED_BY_EVIDENCE",
+            "CANDIDATE_UNCONFIRMED",
+            "AMBIGUOUS",
+            "NOT_ESTABLISHED",
+            "NOT_OBSERVED",
+            "UNSUPPORTED_EVIDENCE"
+          ]
+        },
+        "evidence_basis": {"type": "array", "items": {"type": "string"}},
+        "candidate_count": {"type": "integer", "minimum": 0},
+        "candidate_contexts": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry_reference",
+        "capture",
+        "control_transaction_reference",
+        "procedure_family",
+        "request_frame",
+        "response_frame",
+        "correlation_status",
+        "message_outcome",
+        "bearer_item_outcome_summary",
+        "observed_nas_esm_references",
+        "observed_s1ap_erab_references",
+        "nas_esm_association",
+        "s1ap_erab_association",
+        "cross_layer_association_status",
+        "association_evidence_basis",
+        "source_completeness_status",
+        "limitations",
+        "not_confirmed"
+      ],
+      "properties": {
+        "entry_reference": {"type": "string"},
+        "capture": {"type": "string"},
+        "control_transaction_reference": {"type": "string"},
+        "procedure_family": {"enum": ["create-bearer", "update-bearer", "delete-bearer"]},
+        "request_frame": {"type": ["integer", "null"], "minimum": 1},
+        "response_frame": {"type": ["integer", "null"], "minimum": 1},
+        "correlation_status": {"type": "string"},
+        "message_outcome": {"type": ["string", "null"]},
+        "bearer_item_outcome_summary": {"$ref": "#/$defs/countMap"},
+        "observed_nas_esm_references": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/sourceReference"}
+        },
+        "observed_s1ap_erab_references": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/sourceReference"}
+        },
+        "nas_esm_association": {"$ref": "#/$defs/association"},
+        "s1ap_erab_association": {"$ref": "#/$defs/association"},
+        "cross_layer_association_status": {
+          "enum": [
+            "ESTABLISHED_BY_EVIDENCE",
+            "CANDIDATE_UNCONFIRMED",
+            "AMBIGUOUS",
+            "NOT_ESTABLISHED",
+            "NOT_OBSERVED",
+            "UNSUPPORTED_EVIDENCE"
+          ]
+        },
+        "association_evidence_basis": {"type": "array", "items": {"type": "string"}},
+        "source_completeness_status": {"type": ["string", "null"]},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "not_confirmed": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "analysis_name",
+        "analysis_version",
+        "input_provenance",
+        "analysis_scope",
+        "source_completeness",
+        "execution_status",
+        "timeline_entries",
+        "timeline_entry_count",
+        "timeline_entries_omitted",
+        "association_status_counts",
+        "unresolved_evidence",
+        "not_confirmed",
+        "bounded",
+        "limits"
+      ],
+      "properties": {
+        "domain": {"const": "epc-procedures"},
+        "analysis_name": {"const": "epc-dedicated-bearer-timeline"},
+        "analysis_version": {"type": "string", "pattern": "^1\\."},
+        "input_provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "control_artifact",
+            "control_artifact_sha256",
+            "nas_events",
+            "s1ap_events",
+            "control_transaction_count",
+            "nas_event_count",
+            "s1ap_event_count"
+          ],
+          "properties": {
+            "control_artifact": {"type": "string"},
+            "control_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "nas_events": {"type": ["string", "null"]},
+            "s1ap_events": {"type": ["string", "null"]},
+            "control_transaction_count": {"type": "integer", "minimum": 0},
+            "nas_event_count": {"type": "integer", "minimum": 0},
+            "s1ap_event_count": {"type": "integer", "minimum": 0}
+          }
+        },
+        "analysis_scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["capture", "procedures", "nas_esm_scope", "s1ap_erab_scope", "not_inferred"],
+          "properties": {
+            "capture": {"type": "string"},
+            "procedures": {"type": "array", "items": {"type": "string"}},
+            "nas_esm_scope": {"type": "array", "items": {"type": "string"}},
+            "s1ap_erab_scope": {"type": "array", "items": {"type": "string"}},
+            "not_inferred": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "source_completeness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "control_source_present", "nas_source_present", "s1ap_source_present", "limitations"],
+          "properties": {
+            "status": {"type": "string"},
+            "control_source_present": {"type": "boolean"},
+            "nas_source_present": {"type": "boolean"},
+            "s1ap_source_present": {"type": "boolean"},
+            "limitations": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "execution_status": {"enum": ["EXECUTED", "NOT_OBSERVED_IN_CAPTURE", "NOT_EVALUATED"]},
+        "timeline_entries": {"type": "array", "items": {"$ref": "#/$defs/entry"}},
+        "timeline_entry_count": {"type": "integer", "minimum": 0},
+        "timeline_entries_omitted": {"type": "integer", "minimum": 0},
+        "association_status_counts": {"$ref": "#/$defs/countMap"},
+        "unresolved_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["entry_reference", "status", "reason"],
+            "properties": {
+              "entry_reference": {"type": "string"},
+              "status": {"type": "string"},
+              "reason": {"type": "string"}
+            }
+          }
+        },
+        "not_confirmed": {"type": "array", "items": {"type": "string"}},
+        "bounded": {"const": true},
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["timeline_entries", "source_references", "unresolved_evidence"],
+          "properties": {
+            "timeline_entries": {"type": "integer", "minimum": 1},
+            "source_references": {"type": "integer", "minimum": 1},
+            "unresolved_evidence": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    }
+  }
+}

@@ -84,9 +84,17 @@ EPC_DEDICATED_BEARER_ANALYZE_SCRIPT = (
     ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_dedicated_bearer_control.py"
 )
 EPC_DEDICATED_BEARER_CONTRACT_SCRIPT = ROOT / "scripts" / "epc_dedicated_bearer_contract.py"
+EPC_DEDICATED_BEARER_TIMELINE_SCRIPT = (
+    ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_dedicated_bearer_timeline.py"
+)
+EPC_DEDICATED_BEARER_TIMELINE_CONTRACT_SCRIPT = (
+    ROOT / "scripts" / "epc_dedicated_bearer_timeline_contract.py"
+)
 DEDICATED_BEARER_FAMILIES = ("create-bearer", "update-bearer", "delete-bearer")
 DEDICATED_BEARER_FAILURE_CODE = "DEDICATED_BEARER_CONTROL_FAILED"
+DEDICATED_BEARER_TIMELINE_FAILURE_CODE = "DEDICATED_BEARER_TIMELINE_FAILED"
 DEDICATED_BEARER_NOT_OBSERVED = "NOT_OBSERVED_IN_CAPTURE"
+MAX_DEDICATED_TIMELINE_ENTRIES = 128
 FROZEN_BENCHMARK_DIR = ROOT / "benchmarks" / "golden-captures"
 
 STATUS_COMPLETED = "COMPLETED"
@@ -1603,6 +1611,73 @@ def render_text_report(report: dict[str, Any]) -> str:
                 "this is not a parser failure or fabricated success."
             )
 
+    timeline_blocks = [
+        (result, result.get("dedicated_bearer_timeline"))
+        for result in results
+        if isinstance(result.get("dedicated_bearer_timeline"), dict)
+    ]
+    if timeline_blocks:
+        _section(lines, "EPC Dedicated Bearer Cross-Layer Timeline")
+    for result, block in timeline_blocks:
+        lines.append(
+            f"  {result['domain']}: {_value(block.get('execution_status'))}, "
+            f"{_value(block.get('entry_count'))} timeline entry(ies), "
+            f"unresolved {_value(block.get('unresolved_evidence_count'))}"
+        )
+        if block.get("execution_status") == "EXECUTED":
+            lines.append(
+                f"    association statuses: {json.dumps(block.get('association_status_counts') or {}, sort_keys=True)}"
+            )
+            for entry in (block.get("entries") or [])[:MAX_DEDICATED_TIMELINE_ENTRIES]:
+                lines.append(
+                    f"    {_value(entry.get('procedure_family'))} "
+                    f"{_value(entry.get('control_transaction_reference'))}: "
+                    f"request frame {_value(entry.get('request_frame'))}, "
+                    f"response frame {_value(entry.get('response_frame'))}, "
+                    f"control outcome {_value(entry.get('message_outcome'))}, "
+                    f"cross-layer {_value(entry.get('cross_layer_association_status'))}"
+                )
+                lines.append(
+                    "      NAS-ESM: "
+                    + (
+                        ", ".join(
+                            f"frame {_value(ref.get('frame_number'))} "
+                            f"{_value(ref.get('result'))} EBI {_value(ref.get('eps_bearer_identity'))}"
+                            for ref in entry.get("observed_nas_esm_references") or []
+                        )
+                        or "not observed"
+                    )
+                    + "; S1AP E-RAB: "
+                    + (
+                        ", ".join(
+                            f"frame {_value(ref.get('frame_number'))} "
+                            f"{_value(ref.get('operation'))} "
+                            f"E-RAB {_value(ref.get('erab_id'))} "
+                            f"{_value(ref.get('result'))}"
+                            for ref in entry.get("observed_s1ap_erab_references") or []
+                        )
+                        or "not observed"
+                    )
+                )
+                for basis in (entry.get("association_evidence_basis") or [])[:MAX_LIST_ITEMS]:
+                    lines.append(f"      basis: {_value(basis)}")
+                for limitation in (entry.get("limitations") or [])[:MAX_LIST_ITEMS]:
+                    lines.append(f"      limitation: {_value(limitation)}")
+                lines.append(
+                    "      not confirmed: control-plane outcome and observed access signaling "
+                    "do not prove UE acceptance, radio setup or user-plane delivery"
+                )
+        elif block.get("execution_status") == "FAILED":
+            lines.append(
+                f"    failure: {_value(block.get('failure_code'))} "
+                f"{_value(block.get('failure_message'))}"
+            )
+        else:
+            lines.append(
+                "    timeline not evaluated because no dedicated-bearer control transaction "
+                "was observed in this capture"
+            )
+
     narrative_blocks = [
         (result, result.get("release_narrative"))
         for result in results
@@ -2105,6 +2180,14 @@ def _run_dedicated_bearer_stage(
         }
 
 
+def _dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
 def _count_values(items: list[dict[str, Any]], key: str) -> dict[str, int]:
     counts: dict[str, int] = {}
     for item in items:
@@ -2118,6 +2201,96 @@ def _strict_nonnegative_int(value: Any) -> int | None:
     if isinstance(value, bool) or not isinstance(value, int):
         return None
     return value if value >= 0 else None
+
+
+_TIMELINE_CONTRACT: Any = None
+
+
+def _load_timeline_contract():
+    global _TIMELINE_CONTRACT
+    if _TIMELINE_CONTRACT is None:
+        spec = importlib.util.spec_from_file_location(
+            "corenet_epc_dedicated_bearer_timeline_contract",
+            EPC_DEDICATED_BEARER_TIMELINE_CONTRACT_SCRIPT,
+        )
+        if spec is None or spec.loader is None:
+            raise AnalysisError(
+                "COMPONENT_UNAVAILABLE",
+                "the Dedicated Bearer timeline contract validator is unavailable",
+            )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception as exc:
+            raise AnalysisError(
+                "COMPONENT_UNAVAILABLE",
+                f"the Dedicated Bearer timeline contract validator could not load: {exc}",
+            ) from exc
+        _TIMELINE_CONTRACT = module
+    return _TIMELINE_CONTRACT
+
+
+def _validate_timeline_artifact(analysis: dict[str, Any]) -> None:
+    contract = _load_timeline_contract()
+    try:
+        contract.validate_artifact(analysis)
+    except contract.ContractValidationError as exc:
+        raise AnalysisError(
+            DEDICATED_BEARER_TIMELINE_FAILURE_CODE,
+            f"EPC dedicated-bearer timeline artifact is invalid: {exc.code}: {exc.message}",
+        ) from exc
+
+
+def _run_dedicated_bearer_timeline_stage(
+    control: Path,
+    nas_events: Path,
+    s1ap_events: Path,
+    output: Path,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    command = [
+        sys.executable,
+        str(EPC_DEDICATED_BEARER_TIMELINE_SCRIPT),
+        "--control",
+        str(control),
+        "--nas-events",
+        str(nas_events),
+        "--s1ap-events",
+        str(s1ap_events),
+        "--output",
+        str(output),
+        "--force",
+    ]
+    try:
+        _run_component(command, "EPC dedicated-bearer timeline")
+        if not output.is_file():
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_MISSING",
+                "EPC dedicated-bearer timeline produced no artifact",
+            )
+        analysis = json.loads(output.read_text(encoding="utf-8"))
+        if not isinstance(analysis, dict):
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_UNREADABLE",
+                "EPC dedicated-bearer timeline is not an object",
+            )
+        if analysis.get("analysis_name") != "epc-dedicated-bearer-timeline":
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_UNREADABLE",
+                "EPC dedicated-bearer timeline has an incompatible analysis name",
+            )
+        _validate_timeline_artifact(analysis)
+        if not isinstance(analysis.get("timeline_entry_count"), int):
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_UNREADABLE",
+                "EPC dedicated-bearer timeline has no bounded entry count",
+            )
+        return analysis, None
+    except (AnalysisError, OSError, json.JSONDecodeError) as exc:
+        return None, {
+            "code": DEDICATED_BEARER_TIMELINE_FAILURE_CODE,
+            "message": scrub_free_text(str(exc)),
+        }
 
 
 def _dedicated_declared_total(
@@ -2325,6 +2498,120 @@ def _project_dedicated_bearer_control(
             "item_associations": 0,
         },
         "evidence_limitations": [],
+        "not_confirmed": [],
+        "failure_code": None,
+    }
+
+
+def _project_dedicated_bearer_timeline(
+    analysis: dict[str, Any] | None,
+    error: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if isinstance(analysis, dict):
+        entries = [
+            item for item in analysis.get("timeline_entries") or [] if isinstance(item, dict)
+        ]
+        projected: list[dict[str, Any]] = []
+        for item in entries[:MAX_DEDICATED_TIMELINE_ENTRIES]:
+            nas = [
+                ref
+                for ref in item.get("observed_nas_esm_references") or []
+                if isinstance(ref, dict)
+            ][:MAX_LIST_ITEMS]
+            s1ap_refs = [
+                ref
+                for ref in item.get("observed_s1ap_erab_references") or []
+                if isinstance(ref, dict)
+            ][:MAX_LIST_ITEMS]
+            projected.append(
+                {
+                    "entry_reference": item.get("entry_reference"),
+                    "control_transaction_reference": item.get("control_transaction_reference"),
+                    "procedure_family": item.get("procedure_family"),
+                    "request_frame": item.get("request_frame"),
+                    "response_frame": item.get("response_frame"),
+                    "correlation_status": item.get("correlation_status"),
+                    "message_outcome": item.get("message_outcome"),
+                    "bearer_item_outcome_summary": item.get(
+                        "bearer_item_outcome_summary", {}
+                    ),
+                    "nas_esm_association_status": _dict(item.get("nas_esm_association")).get(
+                        "status"
+                    ),
+                    "s1ap_erab_association_status": _dict(
+                        item.get("s1ap_erab_association")
+                    ).get("status"),
+                    "cross_layer_association_status": item.get(
+                        "cross_layer_association_status"
+                    ),
+                    "association_evidence_basis": item.get("association_evidence_basis", [])[
+                        :MAX_LIST_ITEMS
+                    ],
+                    "observed_nas_esm_references": [
+                        {
+                            "reference": ref.get("reference"),
+                            "frame_number": ref.get("frame_number"),
+                            "result": ref.get("result"),
+                            "eps_bearer_identity": ref.get("eps_bearer_identity"),
+                            "support_status": ref.get("support_status"),
+                            "protection_state": ref.get("protection_state"),
+                            "ue_context_reference": ref.get("ue_context_reference"),
+                        }
+                        for ref in nas
+                    ],
+                    "observed_s1ap_erab_references": [
+                        {
+                            "reference": ref.get("reference"),
+                            "frame_number": ref.get("frame_number"),
+                            "operation": ref.get("operation"),
+                            "result": ref.get("result"),
+                            "erab_id": ref.get("erab_id"),
+                            "ue_context_reference": ref.get("ue_context_reference"),
+                        }
+                        for ref in s1ap_refs
+                    ],
+                    "source_completeness_status": item.get("source_completeness_status"),
+                    "limitations": item.get("limitations", [])[:MAX_LIST_ITEMS],
+                    "not_confirmed": item.get("not_confirmed", [])[:MAX_LIST_ITEMS],
+                }
+            )
+        return {
+            "execution_status": analysis.get("execution_status"),
+            "source_artifact": "epc-dedicated-bearer-timeline-analysis.json",
+            "entry_count": analysis.get("timeline_entry_count", 0),
+            "omitted_entry_count": analysis.get("timeline_entries_omitted", 0),
+            "association_status_counts": analysis.get("association_status_counts", {}),
+            "unresolved_evidence_count": len(analysis.get("unresolved_evidence") or []),
+            "source_completeness_status": _dict(analysis.get("source_completeness")).get(
+                "status"
+            ),
+            "entries": projected,
+            "not_confirmed": analysis.get("not_confirmed", [])[:MAX_LIST_ITEMS],
+            "failure_code": None,
+        }
+    if error:
+        return {
+            "execution_status": "FAILED",
+            "source_artifact": None,
+            "entry_count": 0,
+            "omitted_entry_count": 0,
+            "association_status_counts": {},
+            "unresolved_evidence_count": 0,
+            "source_completeness_status": None,
+            "entries": [],
+            "not_confirmed": [],
+            "failure_code": error.get("code", DEDICATED_BEARER_TIMELINE_FAILURE_CODE),
+            "failure_message": scrub_free_text(error.get("message")),
+        }
+    return {
+        "execution_status": "NOT_EVALUATED",
+        "source_artifact": None,
+        "entry_count": 0,
+        "omitted_entry_count": 0,
+        "association_status_counts": {},
+        "unresolved_evidence_count": 0,
+        "source_completeness_status": None,
+        "entries": [],
         "not_confirmed": [],
         "failure_code": None,
     }
@@ -2609,6 +2896,14 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
             identity_path if isinstance(identity_analysis, dict) else None,
         )
 
+    timeline_analysis: dict[str, Any] | None = None
+    timeline_error: dict[str, Any] | None = None
+    timeline_path = run_dir / "epc-dedicated-bearer-timeline-analysis.json"
+    if isinstance(dedicated_bearer_analysis, dict):
+        timeline_analysis, timeline_error = _run_dedicated_bearer_timeline_stage(
+            dedicated_bearer_path, nas_events, s1ap_events, timeline_path
+        )
+
     lifecycle_analysis: dict[str, Any] | None = None
     lifecycle_error: dict[str, Any] | None = None
     if gtpv2_event_count and gtpv2_transactions.is_file():
@@ -2791,6 +3086,8 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
         "evidence_audit_error": audit_error,
         "dedicated_bearer_analysis": dedicated_bearer_analysis,
         "dedicated_bearer_error": dedicated_bearer_error,
+        "dedicated_bearer_timeline_analysis": timeline_analysis,
+        "dedicated_bearer_timeline_error": timeline_error,
         "dedicated_bearer_transaction_counts": dedicated_bearer_counts,
         "s1ap_event_count": _count_lines(s1ap_events),
         "nas_eps_event_count": _count_lines(nas_events),
@@ -3626,6 +3923,9 @@ def execute_epc_domain(
     dedicated = payload.get("dedicated_bearer_analysis")
     dedicated_error = payload.get("dedicated_bearer_error")
     dedicated_summary = _project_dedicated_bearer_control(dedicated, dedicated_error)
+    timeline = payload.get("dedicated_bearer_timeline_analysis")
+    timeline_error = payload.get("dedicated_bearer_timeline_error")
+    timeline_summary = _project_dedicated_bearer_timeline(timeline, timeline_error)
     groups_by_reference: dict[str, Any] = {}
     if isinstance(boundary, dict):
         for group in boundary.get("diagnostic_groups") or []:
@@ -3691,10 +3991,16 @@ def execute_epc_domain(
         status = STATUS_COMPLETED
     else:
         status = STATUS_INSUFFICIENT_EVIDENCE
-    if dedicated_error:
+    if dedicated_error or timeline_error:
         status = (
             STATUS_PARTIAL
-            if (instances or session_subjects or default_bearer_instances or s1u_subjects or gtpv2_transaction_count)
+            if (
+                instances
+                or session_subjects
+                or default_bearer_instances
+                or s1u_subjects
+                or gtpv2_transaction_count
+            )
             else STATUS_FAILED
         )
 
@@ -3921,6 +4227,35 @@ def execute_epc_domain(
             },
             {
                 "procedure_domain": "epc-procedures",
+                "procedure": "epc-dedicated-bearer-timeline",
+                "execution_status": (
+                    "EXECUTED"
+                    if isinstance(timeline, dict)
+                    and timeline.get("execution_status") == "EXECUTED"
+                    else "FAILED"
+                    if timeline_error
+                    else "NO_SUBJECT"
+                ),
+                "instance_count": timeline_summary.get("entry_count", 0),
+                "omitted_entry_count": timeline_summary.get("omitted_entry_count", 0),
+                "association_status_counts": timeline_summary.get(
+                    "association_status_counts", {}
+                ),
+                "unresolved_evidence_count": timeline_summary.get(
+                    "unresolved_evidence_count", 0
+                ),
+                "nas_source_present": _dict((timeline or {}).get("source_completeness")).get(
+                    "nas_source_present"
+                ),
+                "s1ap_source_present": _dict((timeline or {}).get("source_completeness")).get(
+                    "s1ap_source_present"
+                ),
+                "source_completeness_status": timeline_summary.get(
+                    "source_completeness_status"
+                ),
+            },
+            {
+                "procedure_domain": "epc-procedures",
                 "procedure": "eps-bearer-lifecycle",
                 "execution_status": (
                     "EXECUTED"
@@ -3961,6 +4296,7 @@ def execute_epc_domain(
         "release_narrative": _project_release_narrative(narrative),
         "evidence_audit": _project_evidence_audit(audit),
         "dedicated_bearer_control": dedicated_summary,
+        "dedicated_bearer_timeline": timeline_summary,
         "evidence_limitations": bounded_limitations,
         "additional_evidence_needed": bounded_additional,
         "degradation": [],
@@ -4030,6 +4366,13 @@ def execute_epc_domain(
             "EPC dedicated-bearer control analysis failed: "
             f"{dedicated_error.get('code')} {dedicated_error.get('message')}".strip()
             + "; earlier EPC evidence is preserved and a failed observed component is never reported COMPLETED"
+        )
+    if timeline_error:
+        result["failure_code"] = DEDICATED_BEARER_TIMELINE_FAILURE_CODE
+        degradation.append(
+            "EPC dedicated-bearer timeline failed: "
+            f"{timeline_error.get('code')} {timeline_error.get('message')}".strip()
+            + "; the accepted control artifact is preserved and the timeline failure is not hidden"
         )
     if audit_error:
         result["failure_code"] = "EVIDENCE_AUDIT_FAILED"

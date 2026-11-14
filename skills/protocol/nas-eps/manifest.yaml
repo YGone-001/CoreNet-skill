@@ -1,13 +1,14 @@
 name: nas-eps
-version: 0.2.0
+version: 0.3.0
 category: protocol
 description: >
   Bounded EPS NAS semantic extraction: message identity for the EPS attach,
   identity, authentication and NAS security mode control subset, security header
   type and protection state, EMM cause preservation, bounded attach and identity
   type metadata, ESM container presence and length, bounded ESM message evidence
-  for PDN connectivity, default bearer activation and the ESM information
-  exchange, protected-inner-message classification, detailed NAS-EPS events, and
+  for PDN connectivity, default bearer activation, dedicated bearer
+  activation/modification/deactivation and the ESM information exchange,
+  protected-inner-message classification, detailed NAS-EPS events, and
   normalized trace-event projection.
 scope:
   includes:
@@ -16,7 +17,7 @@ scope:
     - EMM cause value and reviewed name preservation
     - bounded attach type and identity type value metadata (never the identity value)
     - ESM container presence and length
-    - bounded ESM message identity for PDN connectivity request/reject, activate default EPS bearer context request/accept/reject, ESM information request/response and ESM status
+    - bounded ESM message identity for PDN connectivity request/reject, activate default EPS bearer context request/accept/reject, activate/modify/deactivate dedicated EPS bearer context request/accept/reject, ESM information request/response and ESM status
     - EPS bearer identity and procedure transaction identity kept as separate fields
     - reviewed ESM cause value and name preservation
     - APN presence and length only, PDN address presence and family only, QoS and PCO presence only
@@ -26,7 +27,7 @@ scope:
     - detailed NAS-EPS event JSONL and shared trace-event projection
     - tshark-assisted capture extraction and deterministic structured offline input
   excludes:
-    - the complete ESM state machine, dedicated EPS bearer procedures and PDN disconnect lifecycle
+    - the complete ESM state machine, dedicated EPS bearer lifecycle inference and PDN disconnect lifecycle
     - EPS bearer or PDN connection state reconstruction
     - LTE Attach procedure state or end-to-end attach verdicts
     - first-abnormal-boundary selection, severity ranking, or root-cause output

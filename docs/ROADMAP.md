@@ -48,7 +48,8 @@ Review Pack source, including full Domain contract validation at both consumer
 boundaries, separate producer-declared, producer-published and Review-display
 counts, and capture-scoped Audit Subject navigation that registers real narrative
 source objects while keeping missing, ambiguous and relationship-only references
-explicit, while complete ESM semantics, dedicated-bearer lifecycle, and
+explicit, plus a frame-anchored Dedicated Bearer cross-layer timeline over optional
+NAS-ESM and standalone S1AP E-RAB evidence, while complete ESM semantics, dedicated-bearer lifecycle, and
 PDN-disconnect lifecycle, safe general-purpose Attach/S11/S5-C identity linking, Diameter EPC
 and EPC user-plane verification remain future work. Implementation-specific Skills are not
 planned: external implementation analysis is performed only when users provide

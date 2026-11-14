@@ -22,8 +22,10 @@ Wireshark/TShark 4.7.1 S1AP dissector.
 - Preserve S1AP Cause group and value exactly; never expand it into a root cause.
 - Preserve NAS-PDU presence and length only. NAS semantics belong to the `nas-eps`
   Protocol Skill.
-- Preserve bounded E-RAB item evidence for Initial Context Setup request and
-  response: operation, list role and observed E-RAB identifier.
+- Preserve bounded E-RAB item evidence for Initial Context Setup request/response
+  and standalone E-RAB Setup/Modify/Release request/response: operation, list
+  role and observed E-RAB identifier. Initial Context Setup is never relabelled
+  as Dedicated Bearer Setup.
 - Preserve TAC, PLMN identity presence and E-UTRAN CGI presence as bounded location
   metadata.
 - Provide protocol-local UE-context correlation scoped by capture file and SCTP
@@ -35,7 +37,9 @@ Wireshark/TShark 4.7.1 S1AP dissector.
 Supported messages: S1SetupRequest, S1SetupResponse, S1SetupFailure,
 InitialUEMessage, UplinkNASTransport, DownlinkNASTransport,
 InitialContextSetupRequest, InitialContextSetupResponse, InitialContextSetupFailure,
-UEContextReleaseRequest, UEContextReleaseCommand, UEContextReleaseComplete.
+UEContextReleaseRequest, UEContextReleaseCommand, UEContextReleaseComplete,
+E-RABSetupRequest, E-RABSetupResponse, E-RABModifyRequest, E-RABModifyResponse,
+E-RABReleaseCommand, E-RABReleaseResponse, E-RABReleaseIndication.
 
 ### E-RAB item evidence (bounded)
 
@@ -133,4 +137,4 @@ zero-filled at their original length, so fixtures carry no NAS content.
 Original CoreNet Protocol-layer package. No upstream material imported. Normative
 references are 3GPP TS 36.413 (S1AP) and 3GPP TS 23.401 (EPC architecture context
 only); field names were verified against the TShark 4.7.1 dissector rather than
-assumed. Version 0.2.0.
+assumed. Version 0.3.0.

@@ -17,6 +17,7 @@ TIMELINE = SCRIPTS / "nas_eps_timeline.py"
 EXAMPLES = PACKAGE / "examples"
 
 sys.path.insert(0, str(SCRIPTS))
+import nas_eps_esm  # noqa: E402
 import nas_eps_model as model  # noqa: E402
 
 
@@ -265,6 +266,51 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(name, "Tracking area update request")
         self.assertEqual(status, "UNSUPPORTED")
         self.assertIsNone(procedure)
+
+    def test_dedicated_bearer_esm_activation_is_supported(self) -> None:
+        messages = nas_eps_esm.flat_esm_messages(
+            {
+                "frame.number": "100",
+                "nas-eps.nas_msg_esm_type": "197,198",
+                "nas-eps.bearer_id": "7",
+                "nas-eps.esm.proc_trans_id": "0",
+                "nas-eps.security_header_type": "2",
+            },
+            "fixture.pcap",
+        )
+        self.assertEqual([item["message_type_code"] for item in messages], [197, 198])
+        self.assertEqual(
+            [item["support_status"] for item in messages], ["SUPPORTED", "SUPPORTED"]
+        )
+        self.assertEqual(
+            [item["procedure"] for item in messages],
+            ["dedicated-bearer-activation", "dedicated-bearer-activation"],
+        )
+        self.assertEqual([item["result"] for item in messages], ["REQUEST", "ACCEPT"])
+        self.assertEqual([item["eps_bearer_identity"] for item in messages], [7, 7])
+
+    def test_dedicated_bearer_esm_modify_and_deactivate_are_supported(self) -> None:
+        messages = nas_eps_esm.flat_esm_messages(
+            {
+                "frame.number": "101",
+                "nas-eps.nas_msg_esm_type": "201,202,205,206",
+                "nas-eps.bearer_id": "7",
+            },
+            "fixture.pcap",
+        )
+        self.assertEqual(
+            [item["message_type_code"] for item in messages], [201, 202, 205, 206]
+        )
+        self.assertEqual(
+            [item["procedure"] for item in messages],
+            [
+                "dedicated-bearer-modification",
+                "dedicated-bearer-modification",
+                "dedicated-bearer-deactivation",
+                "dedicated-bearer-deactivation",
+            ],
+        )
+        self.assertTrue(all(item["support_status"] == "SUPPORTED" for item in messages))
 
     def test_hexadecimal_message_type_is_accepted(self) -> None:
         event = model.normalize_record(

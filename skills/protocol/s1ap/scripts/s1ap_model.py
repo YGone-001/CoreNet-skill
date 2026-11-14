@@ -179,6 +179,19 @@ KNOWN_PROCEDURES = {
 
 # Bounded supported procedures: procedure code -> (name, {pdu type: message}).
 SUPPORTED_PROCEDURES = {
+    5: ("id-E-RABSetup", {
+        PDU_INITIATING: "E-RABSetupRequest",
+        PDU_SUCCESSFUL: "E-RABSetupResponse",
+    }),
+    6: ("id-E-RABModify", {
+        PDU_INITIATING: "E-RABModifyRequest",
+        PDU_SUCCESSFUL: "E-RABModifyResponse",
+    }),
+    7: ("id-E-RABRelease", {
+        PDU_INITIATING: "E-RABReleaseCommand",
+        PDU_SUCCESSFUL: "E-RABReleaseResponse",
+    }),
+    8: ("id-E-RABReleaseIndication", {PDU_INITIATING: "E-RABReleaseIndication"}),
     9: ("InitialContextSetup", {
         PDU_INITIATING: "InitialContextSetupRequest",
         PDU_SUCCESSFUL: "InitialContextSetupResponse",
@@ -214,6 +227,13 @@ MESSAGE_RESULTS = {
     "UEContextReleaseRequest": "REQUEST",
     "UEContextReleaseCommand": "COMMAND",
     "UEContextReleaseComplete": "COMPLETE",
+    "E-RABSetupRequest": "REQUEST",
+    "E-RABSetupResponse": "SUCCESS",
+    "E-RABModifyRequest": "REQUEST",
+    "E-RABModifyResponse": "SUCCESS",
+    "E-RABReleaseCommand": "COMMAND",
+    "E-RABReleaseResponse": "COMPLETE",
+    "E-RABReleaseIndication": "INDICATION",
 }
 
 # TS 36.413 defines which signaling side sends each message. The role is derived
@@ -231,6 +251,13 @@ MESSAGE_SENDER_ROLES = {
     "UEContextReleaseRequest": "enodeb",
     "UEContextReleaseCommand": "mme",
     "UEContextReleaseComplete": "enodeb",
+    "E-RABSetupRequest": "mme",
+    "E-RABSetupResponse": "enodeb",
+    "E-RABModifyRequest": "mme",
+    "E-RABModifyResponse": "enodeb",
+    "E-RABReleaseCommand": "mme",
+    "E-RABReleaseResponse": "enodeb",
+    "E-RABReleaseIndication": "enodeb",
 }
 
 MESSAGE_TO_PDU_TYPE = {

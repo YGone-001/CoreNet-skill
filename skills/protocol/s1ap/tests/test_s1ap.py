@@ -17,6 +17,7 @@ TIMELINE = SCRIPTS / "s1ap_timeline.py"
 EXAMPLES = PACKAGE / "examples"
 
 sys.path.insert(0, str(SCRIPTS))
+import s1ap_erab  # noqa: E402
 import s1ap_model as model  # noqa: E402
 
 
@@ -300,6 +301,66 @@ class ModelTests(unittest.TestCase):
         identity = model.resolve_procedure(9, None, None, "unavailable")
         self.assertEqual(identity["support_status"], "UNKNOWN")
         self.assertIsNone(identity["message_type"])
+
+    def test_standalone_e_rab_procedures_are_supported(self) -> None:
+        identity = model.resolve_procedure(
+            5, "E-RABSetupRequest", "initiatingMessage", "presence_field"
+        )
+        self.assertEqual(identity["procedure_name"], "id-E-RABSetup")
+        self.assertEqual(identity["message_type"], "E-RABSetupRequest")
+        self.assertEqual(identity["result"], "REQUEST")
+        self.assertEqual(identity["support_status"], "SUPPORTED")
+        identity = model.resolve_procedure(
+            7, "E-RABReleaseResponse", "successfulOutcome", "presence_field"
+        )
+        self.assertEqual(identity["procedure_name"], "id-E-RABRelease")
+        self.assertEqual(identity["message_type"], "E-RABReleaseResponse")
+        self.assertEqual(identity["result"], "COMPLETE")
+
+    def test_standalone_e_rab_item_boundaries_are_extracted(self) -> None:
+        pdml = """
+        <pdml><packet>
+          <field name="frame.number" show="10"/>
+          <proto name="s1ap">
+            <field name="s1ap.procedureCode" show="5"/>
+            <field name="s1ap.E_RABSetupRequest_element"/>
+            <field name="s1ap.E_RABToBeSetupListBearerSUReq" show="1"/>
+            <field name="s1ap.E_RABToBeSetupItemBearerSUReq_element">
+              <field name="s1ap.e_RAB_ID" show="7"/>
+              <field name="s1ap.qCI" show="9"/>
+            </field>
+          </proto>
+        </packet></pdml>
+        """
+        index, _nas_frames = s1ap_erab.pdml_erab_dissection(pdml, "fixture.pcap")
+        items = index[10]
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["operation"], "E_RAB_SETUP")
+        self.assertEqual(items[0]["list_role"], "REQUEST")
+        self.assertEqual(items[0]["erab_id"], 7)
+        self.assertEqual(items[0]["qci"], 9)
+        self.assertEqual(items[0]["binding_basis"], "pdml_grouped_ie")
+
+    def test_release_item_has_no_tunnel_endpoint(self) -> None:
+        pdml = """
+        <pdml><packet>
+          <field name="frame.number" show="11"/>
+          <proto name="s1ap">
+            <field name="s1ap.procedureCode" show="7"/>
+            <field name="s1ap.E_RABReleaseCommand_element"/>
+            <field name="s1ap.E_RABList" show="1"/>
+            <field name="s1ap.E_RABItem_element">
+              <field name="s1ap.e_RAB_ID" show="7"/>
+            </field>
+          </proto>
+        </packet></pdml>
+        """
+        index, _nas_frames = s1ap_erab.pdml_erab_dissection(pdml, "fixture.pcap")
+        item = index[11][0]
+        self.assertEqual(item["operation"], "E_RAB_RELEASE")
+        self.assertEqual(item["list_role"], "REQUEST")
+        self.assertIsNone(item["gtp_teid"])
+        self.assertIsNone(item["endpoint_role"])
 
     def test_known_procedure_without_message_identity(self) -> None:
         identity = model.resolve_procedure(10, None, "initiatingMessage", "presence_field")

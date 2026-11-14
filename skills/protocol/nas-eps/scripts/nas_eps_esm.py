@@ -54,8 +54,11 @@ KNOWN_ESM_MESSAGES = {
     235: "ESM data transport",
 }
 
-# Bounded support: default-bearer establishment and the ESM information exchange.
-SUPPORTED_ESM_MESSAGES = frozenset({193, 194, 195, 208, 209, 217, 218, 232})
+# Bounded support: default-bearer establishment, dedicated-bearer control,
+# and the ESM information exchange.
+SUPPORTED_ESM_MESSAGES = frozenset(
+    {193, 194, 195, 197, 198, 199, 201, 202, 203, 205, 206, 208, 209, 217, 218, 232}
+)
 
 ESM_PROCEDURE = {
     208: "pdn-connectivity",
@@ -63,6 +66,14 @@ ESM_PROCEDURE = {
     193: "default-bearer-activation",
     194: "default-bearer-activation",
     195: "default-bearer-activation",
+    197: "dedicated-bearer-activation",
+    198: "dedicated-bearer-activation",
+    199: "dedicated-bearer-activation",
+    201: "dedicated-bearer-modification",
+    202: "dedicated-bearer-modification",
+    203: "dedicated-bearer-modification",
+    205: "dedicated-bearer-deactivation",
+    206: "dedicated-bearer-deactivation",
     217: "esm-information",
     218: "esm-information",
     232: "esm-status",

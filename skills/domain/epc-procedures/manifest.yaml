@@ -1,5 +1,5 @@
 name: epc-procedures
-version: 0.9.0
+version: 0.10.0
 category: domain
 description: >
   Bounded EPS Attach procedure analysis over already-extracted S1AP and NAS-EPS
@@ -45,7 +45,11 @@ description: >
   Create/Update/Delete Bearer events and transactions: reused protocol
   correlation ownership, separate message-level and per-Bearer-Context item
   outcomes, conservative EBI-based item association, bounded QoS/TFT evidence
-  and explicit non-activation limitations.
+  and explicit non-activation limitations, plus a deterministic cross-layer
+  evidence timeline over the accepted control artifact and optional NAS-EPS/S1AP
+  events: frame-anchored control entries, observed dedicated ESM and standalone
+  E-RAB references, capture-scoped association statuses, and explicit
+  non-activation/non-delivery limitations.
 scope:
   includes:
     - EPS Attach procedure instance formation scoped by capture, SCTP association and S1AP UE identifiers
@@ -84,6 +88,8 @@ scope:
     - conservative frame-level temporal partition and conservation audits that never interpolate or double-count
     - audit-derived accounting checks that are labelled and never written back into a producer count
     - bounded dedicated-bearer control-plane outcome evidence over accepted GTPv2-C Create/Update/Delete Bearer transactions
+    - deterministic cross-layer timeline entries over the accepted Dedicated Bearer control artifact and optional NAS-EPS/S1AP events
+    - capture-scoped association statuses that never infer UE acceptance from a control-plane Cause
     - separate transaction correlation, message-level outcome and per-Bearer-Context item outcome classifications
     - conservative request/response item association requiring unique valid EBI evidence and capture-scoped correlation
     - explicit non-activation, non-admission and non-installation limitations for QoS, TFT and F-TEID evidence
@@ -95,7 +101,7 @@ scope:
     - generation splits without a proved release boundary bound to the same endpoint
     - GTP-U sequence-gap packet-loss inference, UE delivery confirmation or application reachability
     - inner packet content publication
-    - dedicated EPS bearer procedures, PDN disconnect lifecycle and the complete ESM state machine
+    - complete dedicated EPS bearer lifecycle inference, PDN disconnect lifecycle and the complete ESM state machine
     - S1-U user-plane validation
     - success, failure or root-cause verdicts and network-function blame
     - global EPC first-abnormal-boundary selection; per-subject selection belongs to the epc-failure-boundary Orchestration Skill
@@ -139,6 +145,7 @@ outputs:
   - evidence-audit text report
   - EPC dedicated-bearer control analysis JSON (schemas/epc-dedicated-bearer-control-analysis.schema.json)
   - dedicated-bearer control timeline JSON Lines
+  - EPC dedicated-bearer cross-layer timeline JSON (schemas/epc-dedicated-bearer-timeline-analysis.schema.json)
 protocols: [S1AP, NAS-EPS, GTPv2-C, GTP-U]
 interfaces: [S1-MME, N1, S11, S5/S8, S1-U]
 network_functions: []

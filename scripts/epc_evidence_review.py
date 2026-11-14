@@ -26,6 +26,9 @@ ROOT = Path(__file__).resolve().parents[1]
 EPC_SCRIPTS = ROOT / "skills" / "domain" / "epc-procedures" / "scripts"
 UNIFIED_CLI = ROOT / "scripts" / "corenet-analyze.py"
 EPC_DEDICATED_BEARER_CONTRACT_SCRIPT = ROOT / "scripts" / "epc_dedicated_bearer_contract.py"
+EPC_DEDICATED_BEARER_TIMELINE_CONTRACT_SCRIPT = (
+    ROOT / "scripts" / "epc_dedicated_bearer_timeline_contract.py"
+)
 
 REVIEW_SCHEMA_VERSION = "1.0"
 REVIEW_NAME = "epc-evidence-review"
@@ -37,6 +40,7 @@ ARTIFACT_RELEASE_NARRATIVE = "release_narrative"
 ARTIFACT_S1U = "s1u_observation"
 ARTIFACT_AUDIT = "evidence_audit"
 ARTIFACT_DEDICATED_BEARER = "dedicated_bearer_control"
+ARTIFACT_DEDICATED_BEARER_TIMELINE = "dedicated_bearer_timeline"
 
 SUPPLIED_ARTIFACT_VALID = "SUPPLIED_ARTIFACT_VALID"
 SUPPLIED_ARTIFACT_INVALID = "SUPPLIED_ARTIFACT_INVALID"
@@ -54,6 +58,12 @@ ARTIFACT_SPECS = (
         "epc-dedicated-bearer-control",
         False,
     ),
+    (
+        ARTIFACT_DEDICATED_BEARER_TIMELINE,
+        "epc-dedicated-bearer-timeline-analysis.json",
+        "epc-dedicated-bearer-timeline",
+        False,
+    ),
 )
 
 MAX_CONTEXTS = 16
@@ -68,6 +78,7 @@ MAX_BINDINGS = 32
 MAX_CANDIDATES = 32
 MAX_FINDINGS = 48
 MAX_REFERENCES = 64
+MAX_TIMELINE_ENTRIES = 128
 MAX_LIST_ITEMS = 16
 MAX_DEDICATED_TRANSACTIONS = 32
 MAX_DEDICATED_ITEMS = 64
@@ -284,6 +295,45 @@ def _validate_dedicated_bearer_source(document: dict[str, Any]) -> None:
         ) from exc
 
 
+_TIMELINE_CONTRACT: Any = None
+
+
+def _load_timeline_contract():
+    global _TIMELINE_CONTRACT
+    if _TIMELINE_CONTRACT is None:
+        spec = importlib.util.spec_from_file_location(
+            "review_epc_dedicated_bearer_timeline_contract",
+            EPC_DEDICATED_BEARER_TIMELINE_CONTRACT_SCRIPT,
+        )
+        if spec is None or spec.loader is None:
+            raise ReviewInputError(
+                SUPPLIED_ARTIFACT_INVALID,
+                "the Dedicated Bearer timeline contract validator is unavailable",
+            )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception as exc:  # pragma: no cover - dependency boundary
+            raise ReviewInputError(
+                SUPPLIED_ARTIFACT_INVALID,
+                f"the Dedicated Bearer timeline contract validator could not load: {exc}",
+            ) from exc
+        _TIMELINE_CONTRACT = module
+    return _TIMELINE_CONTRACT
+
+
+def _validate_timeline_source(document: dict[str, Any]) -> None:
+    contract = _load_timeline_contract()
+    try:
+        contract.validate_artifact(document)
+    except contract.ContractValidationError as exc:
+        raise ReviewInputError(
+            SUPPLIED_ARTIFACT_INVALID,
+            f"Dedicated Bearer timeline artifact is invalid: {exc.code}: {exc.message}",
+        ) from exc
+
+
 def _recompute_audit(
     identity: dict[str, Any],
     lifecycle: dict[str, Any],
@@ -349,7 +399,8 @@ def load_artifacts(
                     "completeness_status": None,
                     "validation_status": (
                         OPTIONAL_ARTIFACT_NOT_SUPPLIED
-                        if artifact == ARTIFACT_DEDICATED_BEARER
+                        if artifact
+                        in (ARTIFACT_DEDICATED_BEARER, ARTIFACT_DEDICATED_BEARER_TIMELINE)
                         else None
                     ),
                 }
@@ -366,9 +417,15 @@ def load_artifacts(
         if artifact == ARTIFACT_DEDICATED_BEARER:
             _validate_dedicated_bearer_source(document)
             validation_status = SUPPLIED_ARTIFACT_VALID
+        elif artifact == ARTIFACT_DEDICATED_BEARER_TIMELINE:
+            _validate_timeline_source(document)
+            validation_status = SUPPLIED_ARTIFACT_VALID
         documents[artifact] = document
         completeness_status = None
-        if artifact == ARTIFACT_DEDICATED_BEARER:
+        if artifact in (
+            ARTIFACT_DEDICATED_BEARER,
+            ARTIFACT_DEDICATED_BEARER_TIMELINE,
+        ):
             completeness_status = _dict(document.get("source_completeness")).get("status")
         sources.append(
             {
@@ -2379,7 +2436,38 @@ def build_manifest(
                 ),
                 None,
             ),
+            "dedicated_bearer_timeline": next(
+                (
+                    source["artifact_name"]
+                    for source in artifacts["sources"]
+                    if source["artifact_type"] == ARTIFACT_DEDICATED_BEARER_TIMELINE
+                    and source["supplied"]
+                ),
+                None,
+            ),
         },
+    }
+
+
+def _timeline_summary(timeline: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(timeline, dict):
+        return {
+            "status": "NOT_SUPPLIED",
+            "source_artifact": None,
+            "entry_count": 0,
+            "omitted_entry_count": 0,
+            "association_status_counts": {},
+            "unresolved_evidence_count": 0,
+            "source_completeness_status": None,
+        }
+    return {
+        "status": timeline.get("execution_status"),
+        "source_artifact": "epc-dedicated-bearer-timeline-analysis.json",
+        "entry_count": timeline.get("timeline_entry_count", 0),
+        "omitted_entry_count": timeline.get("timeline_entries_omitted", 0),
+        "association_status_counts": timeline.get("association_status_counts", {}),
+        "unresolved_evidence_count": len(timeline.get("unresolved_evidence") or []),
+        "source_completeness_status": _dict(timeline.get("source_completeness")).get("status"),
     }
 
 
@@ -2393,6 +2481,9 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
     if not isinstance(dedicated_document, dict):
         dedicated_document = None
     dedicated = _dict(dedicated_document)
+    timeline_document = documents.get(ARTIFACT_DEDICATED_BEARER_TIMELINE)
+    if not isinstance(timeline_document, dict):
+        timeline_document = None
 
     contexts = sorted(
         [_dict(item) for item in _list(identity.get("hop_local_contexts"))],
@@ -2528,6 +2619,56 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
                 else "the optional Dedicated Bearer Control artifact was not supplied; the existing Review Pack remains valid"
             ),
         }
+    ]
+    timeline_summary = _timeline_summary(timeline_document)
+    sections["dedicated_bearer_timeline_summary"] = [
+        {
+            "classification": (
+                CLASSIFICATION_DERIVED
+                if timeline_summary["status"] != "NOT_SUPPLIED"
+                else CLASSIFICATION_UNSUPPORTED
+            ),
+            **timeline_summary,
+            "source_references": (
+                [timeline_summary["source_artifact"]]
+                if timeline_summary["source_artifact"]
+                else []
+            ),
+            "limitation": (
+                None
+                if timeline_summary["status"] != "NOT_SUPPLIED"
+                else "the optional Dedicated Bearer timeline artifact was not supplied; the existing Review Pack remains valid"
+            ),
+        }
+    ]
+    sections["dedicated_bearer_timeline_entries"] = [
+        {
+            "classification": CLASSIFICATION_DERIVED,
+            "capture": safe_capture(entry.get("capture")),
+            "entry_reference": entry.get("entry_reference"),
+            "control_transaction_reference": entry.get("control_transaction_reference"),
+            "procedure_family": entry.get("procedure_family"),
+            "request_frame": entry.get("request_frame"),
+            "response_frame": entry.get("response_frame"),
+            "cross_layer_association_status": entry.get("cross_layer_association_status"),
+            "nas_esm_association_status": _dict(entry.get("nas_esm_association")).get("status"),
+            "s1ap_erab_association_status": _dict(entry.get("s1ap_erab_association")).get("status"),
+            "observed_nas_esm_reference_count": len(
+                _list(entry.get("observed_nas_esm_references"))
+            ),
+            "observed_s1ap_erab_reference_count": len(
+                _list(entry.get("observed_s1ap_erab_references"))
+            ),
+            "source_references": [
+                value
+                for value in (
+                    entry.get("entry_reference"),
+                    entry.get("control_transaction_reference"),
+                )
+                if isinstance(value, str)
+            ],
+        }
+        for entry in _list((timeline_document or {}).get("timeline_entries"))[:MAX_TIMELINE_ENTRIES]
     ]
     sections["dedicated_bearer_control_transactions"] = [
         {
@@ -2940,6 +3081,18 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
         "dedicated_review_display_omitted": dedicated_summary.get(
             "review_display_omitted_counts", {}
         ),
+        "dedicated_bearer_timeline_supplied": timeline_document is not None,
+        "dedicated_bearer_timeline_status": timeline_summary.get("status"),
+        "dedicated_bearer_timeline_entry_count": timeline_summary.get("entry_count", 0),
+        "dedicated_bearer_timeline_association_status_counts": timeline_summary.get(
+            "association_status_counts", {}
+        ),
+        "dedicated_bearer_timeline_unresolved_evidence_count": timeline_summary.get(
+            "unresolved_evidence_count", 0
+        ),
+        "dedicated_bearer_timeline_source_completeness_status": timeline_summary.get(
+            "source_completeness_status"
+        ),
         "published": {
             "session_contexts": min(len(contexts), MAX_CONTEXTS),
             "release_narratives": min(len(releases), MAX_RELEASES),
@@ -3238,6 +3391,35 @@ def render_markdown(
                 f"request={item.get('request_item_reference')} "
                 f"response={item.get('response_item_reference')}"
             )
+    timeline_summaries = [
+        _dict(item)
+        for item in _list(sections.get("dedicated_bearer_timeline_summary"))
+        if _dict(item).get("status") != "NOT_SUPPLIED"
+    ]
+    if timeline_summaries:
+        lines.append("")
+        lines.append("## 9B. Dedicated Bearer Cross-Layer Timeline")
+        lines.append("")
+        for item in timeline_summaries:
+            lines.append(
+                f"- status={item.get('status')}; source={item.get('source_artifact')}; "
+                f"entries={item.get('entry_count')}; omitted={item.get('omitted_entry_count')}; "
+                f"unresolved={item.get('unresolved_evidence_count')}; "
+                f"associations={json.dumps(item.get('association_status_counts') or {}, sort_keys=True)}"
+            )
+        for entry in _list(sections.get("dedicated_bearer_timeline_entries"))[:MAX_LIST_ITEMS]:
+            entry = _dict(entry)
+            lines.append(
+                f"  - {entry.get('entry_reference')} {entry.get('procedure_family')} "
+                f"request={entry.get('request_frame')} response={entry.get('response_frame')} "
+                f"cross-layer={entry.get('cross_layer_association_status')} "
+                f"NAS={entry.get('nas_esm_association_status')} "
+                f"S1AP={entry.get('s1ap_erab_association_status')}"
+            )
+        lines.append(
+            "  - observed control and access signaling do not prove UE acceptance, "
+            "radio setup or end-to-end user-plane delivery"
+        )
     lines.append("")
 
     simple(

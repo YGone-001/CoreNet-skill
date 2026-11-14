@@ -145,7 +145,11 @@ supplied optional source rather than treating it as usable evidence. The Review
 Pack navigation index registers real narrative-subject, narrative-group and nested
 bearer-endpoint objects and resolves Audit Subject references only by capture-scoped
 source ownership and explicit identity; unresolved relationship mentions, missing
-objects and cross-capture references remain explicitly classified. IMS reports
+objects and cross-capture references remain explicitly classified. The unified path
+also emits a frame-anchored Dedicated Bearer cross-layer timeline over the accepted
+control artifact and optional NAS-EPS/S1AP events; it lists observed dedicated ESM
+and standalone E-RAB references and marks cross-layer links as established only
+when shared capture-scoped UE context evidence exists. IMS reports
 `UNSUPPORTED` rather than inventing results. Every
 diagnostic subject in a capture is reported with its own boundary status, a failed
 component makes the run `PARTIAL` instead of `COMPLETED`, and the workflow never asserts

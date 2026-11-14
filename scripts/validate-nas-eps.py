@@ -35,7 +35,7 @@ REQUIRED = (
 )
 
 # Reviewed ESM message identities that the bounded subset must support.
-ESM_SUPPORTED = (193, 194, 195, 208, 209, 217, 218, 232)
+ESM_SUPPORTED = (193, 194, 195, 197, 198, 199, 201, 202, 203, 205, 206, 208, 209, 217, 218, 232)
 
 # Values that must never appear in published ESM evidence.
 ESM_FORBIDDEN = ("internet", "apn.test", "10.45.0.", "198.51.100.7")

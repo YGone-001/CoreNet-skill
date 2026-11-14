@@ -453,6 +453,15 @@ accepted Schema contract before publishing success, requiring
 `declared_count == published_records + omitted_count` for every collection, and
 they keep producer-declared, producer-published and Review-display counts separate.
 
+The cross-layer timeline capability consumes the accepted control artifact plus
+optional NAS-EPS and S1AP detailed events. It publishes a deterministic,
+frame-anchored entry per Create/Update/Delete Bearer transaction, lists observed
+dedicated ESM messages and standalone E-RAB items, and separates control outcomes
+from access evidence. A cross-layer association is established only with shared
+capture-scoped UE-context evidence; EBI-only, E-RAB-ID-only and timestamp-only
+matches remain candidates or ambiguity. The output is bounded and includes explicit
+non-activation, non-radio-setup and non-delivery limitations.
+
 ## Evidence Audit
 
 Version 0.8.0 adds an eighth, independently executable capability:
@@ -565,4 +574,6 @@ Original CoreNet Domain-layer package. No upstream material imported. Normative
 references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the accepted
 `s1ap`, `nas-eps`, `gtpv2` and `gtpu` Protocol Skill contracts. Version 0.9.0 adds
 a standalone dedicated-bearer control-plane outcome producer with separate
-transaction, message-level and per-Bearer-Context item outcomes. Version 0.9.0.
+transaction, message-level and per-Bearer-Context item outcomes. Version 0.10.0 adds
+the frame-anchored Dedicated Bearer cross-layer timeline over optional NAS-EPS ESM
+and standalone S1AP E-RAB evidence. Version 0.10.0.

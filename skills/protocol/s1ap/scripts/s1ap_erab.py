@@ -47,11 +47,53 @@ ERAB_ITEM_FIELDS = {
         "enodeb_s1u",
         "initial_context_setup_response_erab_semantics",
     ),
+    "s1ap.E_RABToBeSetupItemBearerSUReq_element": (
+        "E_RAB_SETUP",
+        "REQUEST",
+        "sgw_s1u",
+        "standalone_e_rab_setup_request_semantics",
+    ),
+    "s1ap.E_RABSetupItemBearerSURes_element": (
+        "E_RAB_SETUP",
+        "SUCCESS",
+        "enodeb_s1u",
+        "standalone_e_rab_setup_response_semantics",
+    ),
+    "s1ap.E_RABToBeModifiedItemBearerModReq_element": (
+        "E_RAB_MODIFY",
+        "REQUEST",
+        "sgw_s1u",
+        "standalone_e_rab_modify_request_semantics",
+    ),
+    "s1ap.E_RABModifyItemBearerModRes_element": (
+        "E_RAB_MODIFY",
+        "SUCCESS",
+        "enodeb_s1u",
+        "standalone_e_rab_modify_response_semantics",
+    ),
+    "s1ap.E_RABItem_element": (
+        "E_RAB_RELEASE",
+        "REQUEST",
+        None,
+        "release_command_item_has_no_tunnel_endpoint",
+    ),
+    "s1ap.E_RABReleaseItemBearerRelComp_element": (
+        "E_RAB_RELEASE",
+        "COMPLETE",
+        None,
+        "release_complete_item_has_no_tunnel_endpoint",
+    ),
 }
 
 ERAB_LIST_FIELDS = {
     "s1ap.E_RABToBeSetupListCtxtSUReq": ("INITIAL_CONTEXT_SETUP", "REQUEST"),
     "s1ap.E_RABSetupListCtxtSURes": ("INITIAL_CONTEXT_SETUP", "SUCCESS"),
+    "s1ap.E_RABToBeSetupListBearerSUReq": ("E_RAB_SETUP", "REQUEST"),
+    "s1ap.E_RABSetupListBearerSURes": ("E_RAB_SETUP", "SUCCESS"),
+    "s1ap.E_RABToBeModifiedListBearerModReq": ("E_RAB_MODIFY", "REQUEST"),
+    "s1ap.E_RABModifyListBearerModRes": ("E_RAB_MODIFY", "SUCCESS"),
+    "s1ap.E_RABList": ("E_RAB_RELEASE", "REQUEST"),
+    "s1ap.E_RABReleaseListBearerRelComp": ("E_RAB_RELEASE", "COMPLETE"),
 }
 
 # Reviewed S1-U receiving-endpoint roles.
@@ -207,8 +249,8 @@ def unbound_erab_evidence(record: dict[str, object]) -> dict[str, Any] | None:
     the observed identities stay explicitly unbound.
     """
     roles = [
-        (field, role)
-        for field, (_operation, role) in ERAB_LIST_FIELDS.items()
+        (field, operation, role)
+        for field, (operation, role) in ERAB_LIST_FIELDS.items()
         if str(record.get(field) or "").strip()
     ]
     if not roles:
@@ -221,7 +263,8 @@ def unbound_erab_evidence(record: dict[str, object]) -> dict[str, Any] | None:
             if value is not None:
                 identities.append(value)
     return {
-        "list_roles": [role for _field, role in roles],
+        "list_operations": [operation for _field, operation, _role in roles],
+        "list_roles": [role for _field, _operation, role in roles],
         "erab_ids": identities,
         "reason": (
             "flat field input repeats the E-RAB identity, QoS and tunnel fields per message "
@@ -239,9 +282,12 @@ def flat_erab_items(record: dict[str, object], capture_file: str, frame: int) ->
     items: list[dict[str, Any]] = []
     for index, identifier in enumerate(evidence["erab_ids"]):
         role = evidence["list_roles"][0] if len(evidence["list_roles"]) == 1 else None
+        operation = (
+            evidence["list_operations"][0] if len(evidence["list_operations"]) == 1 else None
+        )
         items.append(
             {
-                "operation": "INITIAL_CONTEXT_SETUP",
+                "operation": operation,
                 "list_role": role,
                 "item_index": index,
                 "erab_id": identifier,
