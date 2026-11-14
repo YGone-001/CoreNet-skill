@@ -137,7 +137,11 @@ evidence, and when the accepted GTPv2-C transactions contain Create/Update/Delet
 Bearer signaling the unified path also runs the dedicated-bearer control-plane
 outcome producer and records its bounded summary in `analysis.json` and `report.txt`.
 A capture without those transactions reports `NOT_OBSERVED_IN_CAPTURE` instead of a
-failure or a fabricated success; dedicated-bearer lifecycle remains out of scope. IMS reports
+failure or a fabricated success; dedicated-bearer lifecycle remains out of scope.
+Both the unified path and the optional Review Pack validate the complete Dedicated
+Bearer artifact contract before publishing success, preserve the producer's declared
+totals separately from published and displayed subsets, and reject a malformed
+supplied optional source rather than treating it as usable evidence. IMS reports
 `UNSUPPORTED` rather than inventing results. Every
 diagnostic subject in a capture is reported with its own boundary status, a failed
 component makes the run `PARTIAL` instead of `COMPLETED`, and the workflow never asserts

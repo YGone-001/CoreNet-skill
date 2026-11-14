@@ -390,7 +390,16 @@ without any such transaction publishes `NOT_OBSERVED_IN_CAPTURE`; a producer
 failure keeps the existing EPC evidence and makes the domain `PARTIAL` (or
 `FAILED` when no usable procedure evidence remains) rather than `COMPLETED`.
 The Evidence Review Pack consumes the same artifact as an optional bounded source
-and remains valid when an older pack omits it.
+and remains valid when an older pack omits it. Both consumers validate the complete
+accepted Domain artifact contract before publication: identity, compatible analysis
+version, required collections and provenance, strict integer counts, omission
+metadata, boundedness limits, and declared/published/omitted consistency. A supplied
+optional Review source that violates this contract is rejected as
+`SUPPLIED_ARTIFACT_INVALID`; an absent optional source remains
+`OPTIONAL_ARTIFACT_NOT_SUPPLIED`. Producer-declared totals are preserved separately
+from producer-published and Review-display counts, source omission is kept separate
+from display omission, and any breakdown computed only from the visible subset is
+labelled `VISIBLE_SUBSET_ONLY`.
 
 ## 11. Roadmap for EPC and IMS
 

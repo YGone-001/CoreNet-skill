@@ -3142,6 +3142,221 @@ class EpcEvidenceAuditIntegrationTests(WorkflowTestCase):
         )
 
 
+def _dedicated_reference(frame: int, code: int) -> dict:
+    return {
+        "frame_number": frame,
+        "message_type": "Create Bearer Request",
+        "message_type_code": code,
+        "sequence_number": 1,
+        "header_teid": 0,
+        "header_teid_state": "PRESENT",
+        "message_occurrence": 1,
+    }
+
+
+def _dedicated_transaction(
+    reference: str,
+    family: str,
+    index: int,
+    completeness: str,
+    outcome: str,
+) -> dict:
+    accepted = outcome == "CONTROL_ACCEPTED_OBSERVED"
+    if outcome == "CONTROL_PARTIALLY_ACCEPTED_OBSERVED":
+        outcome = "CONTROL_PARTIAL_OR_MIXED"
+    return {
+        "transaction_reference": reference,
+        "protocol_transaction_reference": f"gtpv2-{family}-{index}",
+        "capture": "fixture.pcap",
+        "procedure_family": family,
+        "correlation_status": "MATCHED",
+        "correlation_strength": "STRONG",
+        "correlation_basis": ["sequence_number"],
+        "request": _dedicated_reference(10 + index, 95),
+        "response": _dedicated_reference(11 + index, 96),
+        "retransmissions": [],
+        "frame_anchors": {"request_frame": 10 + index, "response_frame": 11 + index},
+        "message_outcome": {
+            "status": (
+                "MESSAGE_ACCEPTED_OBSERVED" if accepted else "MESSAGE_PARTIALLY_ACCEPTED_OBSERVED"
+            ),
+            "cause": {
+                "cause_code": 16 if accepted else 17,
+                "cause_name": "Request accepted",
+                "scope": "message",
+            },
+            "source_reference": _dedicated_reference(11 + index, 96),
+            "limitations": [],
+        },
+        "transaction_outcome": outcome,
+        "transaction_outcome_basis": ["message and item evidence summarized"],
+        "request_bearer_item_references": [f"epc-db-item:{reference}:request:{index}:0:0"],
+        "response_bearer_item_references": [f"epc-db-item:{reference}:response:{index}:0:0"],
+        "request_top_level_ebi_references": [],
+        "source_completeness_status": completeness,
+        "evidence_limitations": [],
+    }
+
+
+def _dedicated_item(
+    reference: str,
+    family: str,
+    index: int,
+    side: str,
+    outcome: str,
+    completeness: str,
+) -> dict:
+    item_reference = f"epc-db-item:{reference}:{side.lower()}:{index}:0:0"
+    return {
+        "item_reference": item_reference,
+        "capture": "fixture.pcap",
+        "transaction_reference": reference,
+        "procedure_family": family,
+        "side": side,
+        "frame_number": 11 + index,
+        "message_occurrence": 1,
+        "item_index": 0,
+        "ebi": 7,
+        "ebi_valid": True,
+        "ebi_status": "VALID",
+        "cause": {"cause_code": 16, "cause_name": "Request accepted", "scope": "bearer"},
+        "item_outcome": outcome,
+        "f_teids": [],
+        "qos": {"present": True},
+        "tft": {"present": True},
+        "source_completeness_status": completeness,
+        "evidence_limitations": [],
+    }
+
+
+def _dedicated_association(
+    transaction_reference: str,
+    index: int,
+    request_reference: str | None,
+    response_reference: str | None,
+    *,
+    status: str = "ITEM_ASSOCIATION_ESTABLISHED",
+) -> dict:
+    return {
+        "association_reference": f"epc-db-assoc:{transaction_reference}:{index}",
+        "capture": "fixture.pcap",
+        "transaction_reference": transaction_reference,
+        "request_item_reference": request_reference,
+        "response_item_reference": response_reference,
+        "request_top_level_ebi_reference": None,
+        "ebi": 7 if status == "ITEM_ASSOCIATION_ESTABLISHED" else 0,
+        "status": status,
+        "basis": ["ebi"] if status == "ITEM_ASSOCIATION_ESTABLISHED" else ["no item pair"],
+        "limitations": (
+            []
+            if status == "ITEM_ASSOCIATION_ESTABLISHED"
+            else ["top-level EBI is not a grouped Bearer Context item"]
+        ),
+    }
+
+
+def _dedicated_artifact(
+    transactions: list[dict],
+    items: list[dict],
+    associations: list[dict],
+    *,
+    declared: dict[str, int] | None = None,
+    omitted: dict[str, int] | None = None,
+    completeness: str = "COMPLETE",
+) -> dict:
+    declared = declared or {
+        "control_transactions": len(transactions),
+        "bearer_items": len(items),
+        "item_associations": len(associations),
+    }
+    omitted = omitted or {
+        "control_transactions": max(0, declared["control_transactions"] - len(transactions)),
+        "bearer_items": max(0, declared["bearer_items"] - len(items)),
+        "item_associations": max(0, declared["item_associations"] - len(associations)),
+    }
+    transaction_outcomes: dict[str, int] = {}
+    message_outcomes: dict[str, int] = {}
+    for item in transactions:
+        transaction_outcomes[item["transaction_outcome"]] = (
+            transaction_outcomes.get(item["transaction_outcome"], 0) + 1
+        )
+        status = item["message_outcome"]["status"]
+        message_outcomes[status] = message_outcomes.get(status, 0) + 1
+    item_outcomes: dict[str, int] = {}
+    for item in items:
+        item_outcomes[item["item_outcome"]] = item_outcomes.get(item["item_outcome"], 0) + 1
+    association_statuses: dict[str, int] = {}
+    for item in associations:
+        association_statuses[item["status"]] = association_statuses.get(item["status"], 0) + 1
+    status = completeness
+    if any(value > 0 for value in omitted.values()):
+        status = "TRUNCATED" if completeness == "COMPLETE" else completeness
+    return {
+        "domain": "epc-procedures",
+        "analysis_name": "epc-dedicated-bearer-control",
+        "analysis_version": "1.0.0",
+        "input_provenance": {
+            "gtpv2_events": "gtpv2-events.jsonl",
+            "transaction_artifact": "gtpv2-transactions.json",
+            "session_identity": "epc-session-identity-analysis.json",
+            "event_count": len(transactions) * 2,
+            "protocol_transaction_count": declared["control_transactions"],
+            "control_transaction_input_count": declared["control_transactions"],
+        },
+        "analysis_scope": {
+            "procedures": ["create-bearer", "update-bearer", "delete-bearer"],
+            "message_types": [95, 96, 97, 98, 99, 100],
+            "transaction_correlation_source": "accepted GTPv2-C transaction artifact",
+            "not_inferred": ["no dedicated-bearer activation is proven"],
+        },
+        "source_completeness": {
+            "status": status,
+            "exhaustive_coverage_proven": False,
+            "reference_complete": not any(value > 0 for value in omitted.values()),
+            "missing_references": [],
+            "missing_reference_count": 0,
+            "limitations": ["bounded publication is not exhaustive coverage"],
+        },
+        "control_transactions": transactions,
+        "control_transaction_count": declared["control_transactions"],
+        "control_transactions_omitted": omitted["control_transactions"],
+        "bearer_item_observations": items,
+        "bearer_item_observation_count": declared["bearer_items"],
+        "bearer_item_observations_omitted": omitted["bearer_items"],
+        "item_associations": associations,
+        "item_association_count": declared["item_associations"],
+        "item_associations_omitted": omitted["item_associations"],
+        "session_identity_context": {
+            "status": "NOT_ESTABLISHED",
+            "artifact": "epc-session-identity-analysis.json",
+            "captures": ["fixture.pcap"],
+            "associated_transaction_references": [],
+            "limitations": ["no join attempted"],
+        },
+        "outcome_summary": {
+            "transaction_classification_counts": dict(sorted(transaction_outcomes.items())),
+            "message_outcome_counts": dict(sorted(message_outcomes.items())),
+            "item_outcome_counts": dict(sorted(item_outcomes.items())),
+            "item_association_status_counts": dict(sorted(association_statuses.items())),
+        },
+        "unresolved_findings": [],
+        "unresolved_finding_count": 0,
+        "evidence_limitations": [
+            "a correlated Create/Update/Delete Bearer transaction proves an observed signaling exchange only",
+        ],
+        "not_confirmed": [
+            "no dedicated-bearer activation, modification or effective removal is proven",
+        ],
+        "bounded": True,
+        "limits": {
+            "control_transactions": 128,
+            "bearer_items": 256,
+            "item_associations": 256,
+            "unresolved_findings": 64,
+        },
+    }
+
+
 def dedicated_bearer_analysis(
     *,
     create: int = 2,
@@ -3150,7 +3365,7 @@ def dedicated_bearer_analysis(
     completeness: str = "COMPLETE",
     partial_item: bool = True,
 ) -> dict:
-    """A bounded Dedicated Bearer Control artifact shaped like the published one."""
+    """A complete, schema-conforming Dedicated Bearer Control artifact."""
     transactions: list[dict] = []
     items: list[dict] = []
     associations: list[dict] = []
@@ -3161,33 +3376,9 @@ def dedicated_bearer_analysis(
             reference = f"epc-db-tx:fixture.pcap:{family}-{index}"
             outcome = "CONTROL_ACCEPTED_OBSERVED"
             if partial_item and occurrence == 1:
-                outcome = "CONTROL_PARTIALLY_ACCEPTED_OBSERVED"
+                outcome = "CONTROL_PARTIAL_OR_MIXED"
             transactions.append(
-                {
-                    "capture": "fixture.pcap",
-                    "correlation_status": "MATCHED",
-                    "correlation_strength": "STRONG",
-                    "procedure_family": family,
-                    "transaction_reference": reference,
-                    "protocol_transaction_reference": f"gtpv2-{family}-{index}",
-                    "message_outcome": {
-                        "status": (
-                            "MESSAGE_ACCEPTED_OBSERVED"
-                            if outcome == "CONTROL_ACCEPTED_OBSERVED"
-                            else "MESSAGE_PARTIALLY_ACCEPTED_OBSERVED"
-                        ),
-                        "cause": {
-                            "cause_code": 16 if outcome == "CONTROL_ACCEPTED_OBSERVED" else 17,
-                            "cause_name": "Request accepted",
-                            "scope": "message",
-                        },
-                        "limitations": [],
-                    },
-                    "transaction_outcome": outcome,
-                    "transaction_outcome_basis": ["message and item evidence summarized"],
-                    "evidence_limitations": [],
-                    "source_completeness_status": completeness,
-                }
+                _dedicated_transaction(reference, family, index, completeness, outcome)
             )
             item_outcome = (
                 "ITEM_CONTROL_ACCEPTED_OBSERVED"
@@ -3196,112 +3387,137 @@ def dedicated_bearer_analysis(
             )
             if family == "delete-bearer" and occurrence == 0:
                 item_outcome = "ITEM_OUTCOME_UNRESOLVED"
-            item_reference = f"epc-db-item:{reference}:response:{index}:0:0"
             items.append(
-                {
-                    "capture": "fixture.pcap",
-                    "ebi": 7,
-                    "ebi_status": "VALID",
-                    "ebi_valid": True,
-                    "item_reference": item_reference,
-                    "item_outcome": item_outcome,
-                    "procedure_family": family,
-                    "side": "RESPONSE",
-                    "transaction_reference": reference,
-                    "evidence_limitations": [],
-                    "source_completeness_status": completeness,
-                }
+                _dedicated_item(reference, family, index, "RESPONSE", item_outcome, completeness)
+            )
+            request_reference = f"epc-db-item:{reference}:request:{index}:0:0"
+            associations.append(
+                _dedicated_association(
+                    reference, index, request_reference, items[-1]["item_reference"]
+                )
             )
             associations.append(
-                {
-                    "association_reference": f"epc-db-assoc:{reference}:{index}",
-                    "capture": "fixture.pcap",
-                    "ebi": 7,
-                    "status": "ITEM_ASSOCIATION_ESTABLISHED",
-                    "transaction_reference": reference,
-                    "request_item_reference": f"epc-db-item:{reference}:request:{index}:0:0",
-                    "response_item_reference": item_reference,
-                    "limitations": [],
-                }
-            )
-            associations.append(
-                {
-                    "association_reference": f"epc-db-assoc:{reference}:{index}:top-ebi",
-                    "capture": "fixture.pcap",
-                    "ebi": 0,
-                    "status": "ITEM_ASSOCIATION_NOT_ESTABLISHED",
-                    "transaction_reference": reference,
-                    "request_item_reference": None,
-                    "response_item_reference": None,
-                    "limitations": ["top-level EBI is not a grouped Bearer Context item"],
-                }
+                _dedicated_association(
+                    reference,
+                    index * 2 + 1,
+                    None,
+                    None,
+                    status="ITEM_ASSOCIATION_NOT_ESTABLISHED",
+                )
             )
             index += 1
-    return {
-        "analysis_name": "epc-dedicated-bearer-control",
-        "analysis_version": "1.0.0",
-        "domain": "epc-procedures",
-        "bounded": True,
-        "control_transaction_count": len(transactions),
-        "control_transactions": transactions,
-        "control_transactions_omitted": 0,
-        "bearer_item_observation_count": len(items),
-        "bearer_item_observations": items,
-        "bearer_item_observations_omitted": 0,
-        "item_association_count": len(associations),
-        "item_associations": associations,
-        "item_associations_omitted": 0,
-        "outcome_summary": {
-            "message_outcome_counts": {
-                "MESSAGE_ACCEPTED_OBSERVED": sum(
-                    1
-                    for item in transactions
-                    if item["message_outcome"]["status"] == "MESSAGE_ACCEPTED_OBSERVED"
-                )
-            },
-            "transaction_outcome_counts": {
-                "CONTROL_ACCEPTED_OBSERVED": sum(
-                    1
-                    for item in transactions
-                    if item["transaction_outcome"] == "CONTROL_ACCEPTED_OBSERVED"
-                )
-            },
-            "item_outcome_counts": {
-                "ITEM_CONTROL_ACCEPTED_OBSERVED": sum(
-                    1
-                    for item in items
-                    if item["item_outcome"] == "ITEM_CONTROL_ACCEPTED_OBSERVED"
-                )
-            },
-            "item_association_status_counts": {
-                "ITEM_ASSOCIATION_ESTABLISHED": sum(
-                    1 for item in associations if item["status"] == "ITEM_ASSOCIATION_ESTABLISHED"
-                ),
-                "ITEM_ASSOCIATION_NOT_ESTABLISHED": sum(
-                    1
-                    for item in associations
-                    if item["status"] == "ITEM_ASSOCIATION_NOT_ESTABLISHED"
-                ),
-            },
+    return _dedicated_artifact(transactions, items, associations, completeness=completeness)
+
+
+def bounded_dedicated_bearer_analysis(
+    *,
+    declared_transactions: int,
+    published_transactions: int,
+    declared_items: int,
+    published_items: int,
+    declared_associations: int,
+    published_associations: int,
+) -> dict:
+    """A schema-valid artifact whose declared totals exceed its published subset."""
+    families = ("create-bearer", "update-bearer", "delete-bearer")
+    transactions: list[dict] = []
+    items: list[dict] = []
+    associations: list[dict] = []
+    for index in range(declared_transactions):
+        family = families[index % len(families)]
+        reference = f"epc-db-tx:fixture.pcap:{family}-{index}"
+        transactions.append(
+            _dedicated_transaction(
+                reference, family, index, "TRUNCATED", "CONTROL_ACCEPTED_OBSERVED"
+            )
+        )
+        items.append(
+            _dedicated_item(
+                reference,
+                family,
+                index,
+                "REQUEST",
+                "ITEM_REQUEST_EVIDENCE_ONLY",
+                "TRUNCATED",
+            )
+        )
+        items.append(
+            _dedicated_item(
+                reference,
+                family,
+                index,
+                "RESPONSE",
+                "ITEM_CONTROL_ACCEPTED_OBSERVED",
+                "TRUNCATED",
+            )
+        )
+        request_reference = f"epc-db-item:{reference}:request:{index}:0:0"
+        response_reference = f"epc-db-item:{reference}:response:{index}:0:0"
+        associations.append(
+            _dedicated_association(reference, index * 2, request_reference, response_reference)
+        )
+        associations.append(
+            _dedicated_association(
+                reference,
+                index * 2 + 1,
+                None,
+                None,
+                status="ITEM_ASSOCIATION_NOT_ESTABLISHED",
+            )
+        )
+    while len(items) < max(declared_items, published_items):
+        index = len(items)
+        items.append(
+            _dedicated_item(
+                transactions[0]["transaction_reference"],
+                "create-bearer",
+                index,
+                "RESPONSE",
+                "ITEM_CONTROL_ACCEPTED_OBSERVED",
+                "TRUNCATED",
+            )
+        )
+    while len(associations) < max(declared_associations, published_associations):
+        index = len(associations)
+        associations.append(
+            _dedicated_association(
+                transactions[0]["transaction_reference"],
+                index,
+                None,
+                None,
+                status="ITEM_ASSOCIATION_NOT_ESTABLISHED",
+            )
+        )
+    artifact = _dedicated_artifact(
+        transactions[:published_transactions],
+        items[:published_items],
+        associations[:published_associations],
+        declared={
+            "control_transactions": declared_transactions,
+            "bearer_items": declared_items,
+            "item_associations": declared_associations,
         },
-        "source_completeness": {
-            "status": completeness,
-            "exhaustive_coverage_proven": completeness == "COMPLETE",
-            "limitations": [] if completeness == "COMPLETE" else ["truncated source"],
+        omitted={
+            "control_transactions": declared_transactions - published_transactions,
+            "bearer_items": declared_items - published_items,
+            "item_associations": declared_associations - published_associations,
         },
-        "evidence_limitations": [
-            "a correlated Create/Update/Delete Bearer transaction proves an observed signaling exchange only",
-        ],
-        "not_confirmed": [
-            "no dedicated-bearer activation, modification or effective removal is proven",
-        ],
-        "limits": {
-            "control_transactions": 128,
-            "bearer_items": 256,
-            "item_associations": 256,
-            "unresolved_findings": 64,
-        },
+        completeness="TRUNCATED",
+    )
+    artifact["outcome_summary"]["transaction_classification_counts"] = {
+        "CONTROL_ACCEPTED_OBSERVED": declared_transactions
     }
+    artifact["outcome_summary"]["message_outcome_counts"] = {
+        "MESSAGE_ACCEPTED_OBSERVED": declared_transactions
+    }
+    artifact["outcome_summary"]["item_outcome_counts"] = {
+        "ITEM_CONTROL_ACCEPTED_OBSERVED": declared_items // 2,
+        "ITEM_REQUEST_EVIDENCE_ONLY": declared_items - declared_items // 2,
+    }
+    artifact["outcome_summary"]["item_association_status_counts"] = {
+        "ITEM_ASSOCIATION_ESTABLISHED": declared_associations,
+    }
+    return artifact
 
 
 class EpcDedicatedBearerIntegrationTests(WorkflowTestCase):
@@ -3559,6 +3775,225 @@ class EpcDedicatedBearerIntegrationTests(WorkflowTestCase):
             self.assertEqual(
                 (first / name).read_bytes(), (second / name).read_bytes(), name
             )
+
+
+
+class DedicatedBearerArtifactContractTests(WorkflowTestCase):
+    """The unified consumer validates the complete Domain output contract."""
+
+    def stage(self, payload: dict) -> tuple[dict | None, dict | None]:
+        events = self.base / "gtpv2-events.jsonl"
+        transactions = self.base / "gtpv2-transactions.json"
+        events.write_text("{}\n", encoding="utf-8")
+        transactions.write_text('{"transactions": []}', encoding="utf-8")
+        output = self.base / "epc-dedicated-bearer-control-analysis.json"
+        original = MODULE._run_component
+        MODULE._run_component = lambda command, label: output.write_text(
+            json.dumps(payload), encoding="utf-8"
+        )
+        try:
+            return MODULE._run_dedicated_bearer_stage(events, transactions, output)
+        finally:
+            MODULE._run_component = original
+
+    def stage_writer(self, writer) -> tuple[dict | None, dict | None]:
+        events = self.base / "gtpv2-events.jsonl"
+        transactions = self.base / "gtpv2-transactions.json"
+        events.write_text("{}\n", encoding="utf-8")
+        transactions.write_text('{"transactions": []}', encoding="utf-8")
+        output = self.base / "epc-dedicated-bearer-control-analysis.json"
+        original = MODULE._run_component
+        MODULE._run_component = writer
+        try:
+            return MODULE._run_dedicated_bearer_stage(events, transactions, output)
+        finally:
+            MODULE._run_component = original
+
+    def assert_rejected(self, payload: dict) -> None:
+        analysis, error = self.stage(payload)
+        self.assertIsNone(analysis)
+        self.assertIsNotNone(error)
+        self.assertEqual(error["code"], MODULE.DEDICATED_BEARER_FAILURE_CODE)
+
+    def test_complete_artifact_is_accepted(self) -> None:
+        analysis, error = self.stage(dedicated_bearer_analysis())
+        self.assertIsNone(error)
+        self.assertIsNotNone(analysis)
+        self.assertEqual(analysis["analysis_name"], "epc-dedicated-bearer-control")
+
+    def test_legitimately_truncated_artifact_is_accepted(self) -> None:
+        artifact = bounded_dedicated_bearer_analysis(
+            declared_transactions=129,
+            published_transactions=128,
+            declared_items=257,
+            published_items=256,
+            declared_associations=257,
+            published_associations=256,
+        )
+        analysis, error = self.stage(artifact)
+        self.assertIsNone(error)
+        self.assertIsNotNone(analysis)
+        summary = MODULE._project_dedicated_bearer_control(analysis, None)
+        self.assertEqual(summary["execution_status"], "EXECUTED")
+        self.assertEqual(summary["control_transaction_count"], 129)
+        self.assertEqual(summary["bearer_item_observation_count"], 257)
+        self.assertEqual(summary["item_association_count"], 257)
+        self.assertEqual(
+            summary["producer_published_counts"],
+            {"control_transactions": 128, "bearer_items": 256, "item_associations": 256},
+        )
+        self.assertEqual(
+            summary["omitted_counts"],
+            {"control_transactions": 1, "bearer_items": 1, "item_associations": 1},
+        )
+
+    def test_source_aggregates_and_visible_only_breakdowns_are_labelled(self) -> None:
+        analysis, error = self.stage(
+            bounded_dedicated_bearer_analysis(
+                declared_transactions=129,
+                published_transactions=128,
+                declared_items=257,
+                published_items=256,
+                declared_associations=257,
+                published_associations=256,
+            )
+        )
+        self.assertIsNone(error)
+        summary = MODULE._project_dedicated_bearer_control(analysis, None)
+        self.assertEqual(
+            summary["transaction_outcome_counts"], {"CONTROL_ACCEPTED_OBSERVED": 129}
+        )
+        self.assertEqual(
+            summary["outcome_counts_basis"]["transaction_outcome_counts"], "SOURCE_DECLARED"
+        )
+        self.assertEqual(
+            summary["outcome_counts_basis"]["transaction_family_counts"],
+            "VISIBLE_SUBSET_ONLY",
+        )
+        self.assertIn("transaction_family_counts", summary["visible_subset_only_breakdowns"])
+
+    def test_published_boundaries_are_accepted(self) -> None:
+        for artifact in (
+            bounded_dedicated_bearer_analysis(
+                declared_transactions=128,
+                published_transactions=128,
+                declared_items=256,
+                published_items=256,
+                declared_associations=256,
+                published_associations=256,
+            ),
+            bounded_dedicated_bearer_analysis(
+                declared_transactions=129,
+                published_transactions=128,
+                declared_items=257,
+                published_items=256,
+                declared_associations=257,
+                published_associations=256,
+            ),
+        ):
+            analysis, error = self.stage(artifact)
+            self.assertIsNone(error)
+
+    def test_c096_compatible_shape_is_accepted(self) -> None:
+        artifact = bounded_dedicated_bearer_analysis(
+            declared_transactions=10,
+            published_transactions=10,
+            declared_items=16,
+            published_items=16,
+            declared_associations=22,
+            published_associations=22,
+        )
+        families = ["create-bearer"] * 4 + ["update-bearer"] * 2 + ["delete-bearer"] * 4
+        for transaction, family in zip(artifact["control_transactions"], families):
+            transaction["procedure_family"] = family
+        analysis, error = self.stage(artifact)
+        self.assertIsNone(error)
+        summary = MODULE._project_dedicated_bearer_control(analysis, None)
+        self.assertEqual(
+            summary["transaction_family_counts"],
+            {"create-bearer": 4, "update-bearer": 2, "delete-bearer": 4},
+        )
+        self.assertEqual(summary["control_transaction_count"], 10)
+        self.assertEqual(summary["bearer_item_observation_count"], 16)
+        self.assertEqual(summary["item_association_count"], 22)
+
+    def test_minimal_and_incomplete_artifacts_are_rejected(self) -> None:
+        self.assert_rejected(
+            {
+                "analysis_name": "epc-dedicated-bearer-control",
+                "control_transaction_count": 10,
+            }
+        )
+
+        cases: list[tuple[str, dict]] = []
+        base = dedicated_bearer_analysis()
+        without_version = copy.deepcopy(base)
+        del without_version["analysis_version"]
+        cases.append(("missing version", without_version))
+        unsupported = copy.deepcopy(base)
+        unsupported["analysis_version"] = "2.0.0"
+        cases.append(("unsupported version", unsupported))
+        wrong_domain = copy.deepcopy(base)
+        wrong_domain["domain"] = "5gc"
+        cases.append(("wrong domain", wrong_domain))
+        missing_completeness = copy.deepcopy(base)
+        del missing_completeness["source_completeness"]
+        cases.append(("missing source completeness", missing_completeness))
+        missing_collection = copy.deepcopy(base)
+        del missing_collection["control_transactions"]
+        cases.append(("missing collection", missing_collection))
+        wrong_types = copy.deepcopy(base)
+        wrong_types["control_transactions"] = {}
+        cases.append(("invalid collection type", wrong_types))
+        missing_omitted = copy.deepcopy(base)
+        del missing_omitted["control_transactions_omitted"]
+        cases.append(("missing omitted count", missing_omitted))
+        negative_omitted = copy.deepcopy(base)
+        negative_omitted["control_transactions_omitted"] = -1
+        cases.append(("negative omitted count", negative_omitted))
+        boolean_count = copy.deepcopy(base)
+        boolean_count["control_transaction_count"] = True
+        cases.append(("boolean count", boolean_count))
+        inconsistent = copy.deepcopy(base)
+        inconsistent["control_transaction_count"] += 1
+        cases.append(("declared/published/omitted inconsistency", inconsistent))
+        outcome_mismatch = copy.deepcopy(base)
+        outcome_mismatch["outcome_summary"]["transaction_classification_counts"] = {
+            "CONTROL_ACCEPTED_OBSERVED": 1
+        }
+        cases.append(("outcome aggregate inconsistency", outcome_mismatch))
+        invalid_outcome = copy.deepcopy(base)
+        invalid_outcome["control_transactions"][0]["transaction_outcome"] = "SUCCESS"
+        cases.append(("invalid outcome vocabulary", invalid_outcome))
+        invalid_provenance = copy.deepcopy(base)
+        invalid_provenance["input_provenance"] = {"gtpv2_events": None}
+        cases.append(("invalid provenance", invalid_provenance))
+
+        for label, payload in cases:
+            with self.subTest(label=label):
+                self.assert_rejected(payload)
+
+    def test_missing_output_and_malformed_json_are_controlled_failures(self) -> None:
+        analysis, error = self.stage_writer(lambda command, label: None)
+        self.assertIsNone(analysis)
+        self.assertEqual(error["code"], MODULE.DEDICATED_BEARER_FAILURE_CODE)
+
+        def write_malformed(command, label):
+            output = self.base / "epc-dedicated-bearer-control-analysis.json"
+            output.write_text("{", encoding="utf-8")
+
+        analysis, error = self.stage_writer(write_malformed)
+        self.assertIsNone(analysis)
+        self.assertEqual(error["code"], MODULE.DEDICATED_BEARER_FAILURE_CODE)
+
+    def test_producer_subprocess_failure_is_a_controlled_failure(self) -> None:
+        def fail(command, label):
+            raise MODULE.AnalysisError("EXTRACTION_FAILED", "producer exited with 1")
+
+        analysis, error = self.stage_writer(fail)
+        self.assertIsNone(analysis)
+        self.assertEqual(error["code"], MODULE.DEDICATED_BEARER_FAILURE_CODE)
+        self.assertIn("producer exited with 1", error["message"])
 
 
 if __name__ == "__main__":

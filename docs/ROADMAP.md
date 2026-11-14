@@ -44,7 +44,9 @@ stages and bounded GTPv2-C session-control transactions through the unified
 workflow, and the `epc-failure-boundary` Orchestration Skill selects the earliest supported
 abnormal observation per EPC diagnostic subject; dedicated-bearer control-plane
 outcome evidence is integrated into the unified EPC path and the optional Evidence
-Review Pack source, while complete ESM semantics, dedicated-bearer lifecycle, and
+Review Pack source, including full Domain contract validation at both consumer
+boundaries and separate producer-declared, producer-published and Review-display
+counts, while complete ESM semantics, dedicated-bearer lifecycle, and
 PDN-disconnect lifecycle, safe general-purpose Attach/S11/S5-C identity linking, Diameter EPC
 and EPC user-plane verification remain future work. Implementation-specific Skills are not
 planned: external implementation analysis is performed only when users provide

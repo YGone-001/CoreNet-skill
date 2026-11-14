@@ -1282,6 +1282,181 @@ class EpcReplayPathIsolationTest(unittest.TestCase):
         self.assertIn("UNSAFE_PATH_OVERLAP", completed.stderr)
 
 
+def _review_reference(frame: int, code: int) -> dict:
+    return {
+        "frame_number": frame,
+        "message_type": "Create Bearer Request",
+        "message_type_code": code,
+        "sequence_number": 1,
+        "header_teid": 0,
+        "header_teid_state": "PRESENT",
+        "message_occurrence": 1,
+    }
+
+
+def _review_transaction(reference: str, family: str, index: int, completeness: str) -> dict:
+    return {
+        "transaction_reference": reference,
+        "protocol_transaction_reference": f"gtpv2-{family}-{index}",
+        "capture": "capture-a.pcap",
+        "procedure_family": family,
+        "correlation_status": "MATCHED",
+        "correlation_strength": "STRONG",
+        "correlation_basis": ["sequence_number"],
+        "request": _review_reference(10 + index, 95),
+        "response": _review_reference(11 + index, 96),
+        "retransmissions": [],
+        "frame_anchors": {"request_frame": 10 + index, "response_frame": 11 + index},
+        "message_outcome": {
+            "status": "MESSAGE_ACCEPTED_OBSERVED",
+            "cause": {"cause_code": 16, "cause_name": "Request accepted", "scope": "message"},
+            "source_reference": _review_reference(11 + index, 96),
+            "limitations": [],
+        },
+        "transaction_outcome": "CONTROL_ACCEPTED_OBSERVED",
+        "transaction_outcome_basis": ["message and item evidence summarized"],
+        "request_bearer_item_references": [f"epc-db-item:{reference}:request:{index}:0:0"],
+        "response_bearer_item_references": [f"epc-db-item:{reference}:response:{index}:0:0"],
+        "request_top_level_ebi_references": [],
+        "source_completeness_status": completeness,
+        "evidence_limitations": [],
+    }
+
+
+def _review_item(
+    reference: str,
+    family: str,
+    index: int,
+    side: str,
+    outcome: str,
+    completeness: str,
+    capture: str,
+) -> dict:
+    return {
+        "item_reference": f"epc-db-item:{reference}:{side.lower()}:{index}:0:0",
+        "capture": capture,
+        "transaction_reference": reference,
+        "procedure_family": family,
+        "side": side,
+        "frame_number": 11 + index,
+        "message_occurrence": 1,
+        "item_index": 0,
+        "ebi": 7,
+        "ebi_valid": True,
+        "ebi_status": "VALID",
+        "cause": {"cause_code": 16, "cause_name": "Request accepted", "scope": "bearer"},
+        "item_outcome": outcome,
+        "f_teids": [],
+        "qos": {"present": True},
+        "tft": {"present": True},
+        "source_completeness_status": completeness,
+        "evidence_limitations": [],
+    }
+
+
+def _review_artifact(
+    transactions: list[dict],
+    items: list[dict],
+    associations: list[dict],
+    *,
+    capture: str,
+    declared: dict[str, int] | None = None,
+    omitted: dict[str, int] | None = None,
+    completeness: str = "COMPLETE",
+) -> dict:
+    declared = declared or {
+        "control_transactions": len(transactions),
+        "bearer_items": len(items),
+        "item_associations": len(associations),
+    }
+    omitted = omitted or {
+        "control_transactions": max(0, declared["control_transactions"] - len(transactions)),
+        "bearer_items": max(0, declared["bearer_items"] - len(items)),
+        "item_associations": max(0, declared["item_associations"] - len(associations)),
+    }
+    transaction_outcomes: dict[str, int] = {}
+    message_outcomes: dict[str, int] = {}
+    for item in transactions:
+        transaction_outcomes[item["transaction_outcome"]] = (
+            transaction_outcomes.get(item["transaction_outcome"], 0) + 1
+        )
+        status = item["message_outcome"]["status"]
+        message_outcomes[status] = message_outcomes.get(status, 0) + 1
+    item_outcomes: dict[str, int] = {}
+    for item in items:
+        item_outcomes[item["item_outcome"]] = item_outcomes.get(item["item_outcome"], 0) + 1
+    association_statuses: dict[str, int] = {}
+    for item in associations:
+        association_statuses[item["status"]] = association_statuses.get(item["status"], 0) + 1
+    status = completeness
+    if any(value > 0 for value in omitted.values()):
+        status = "TRUNCATED" if completeness == "COMPLETE" else completeness
+    return {
+        "domain": "epc-procedures",
+        "analysis_name": "epc-dedicated-bearer-control",
+        "analysis_version": "1.0.0",
+        "input_provenance": {
+            "gtpv2_events": "gtpv2-events.jsonl",
+            "transaction_artifact": "gtpv2-transactions.json",
+            "session_identity": "epc-session-identity-analysis.json",
+            "event_count": len(transactions) * 2,
+            "protocol_transaction_count": declared["control_transactions"],
+            "control_transaction_input_count": declared["control_transactions"],
+        },
+        "analysis_scope": {
+            "procedures": ["create-bearer", "update-bearer", "delete-bearer"],
+            "message_types": [95, 96, 97, 98, 99, 100],
+            "transaction_correlation_source": "accepted GTPv2-C transaction artifact",
+            "not_inferred": ["no dedicated-bearer activation is proven"],
+        },
+        "source_completeness": {
+            "status": status,
+            "exhaustive_coverage_proven": False,
+            "reference_complete": not any(value > 0 for value in omitted.values()),
+            "missing_references": [],
+            "missing_reference_count": 0,
+            "limitations": ["bounded publication is not exhaustive coverage"],
+        },
+        "control_transactions": transactions,
+        "control_transaction_count": declared["control_transactions"],
+        "control_transactions_omitted": omitted["control_transactions"],
+        "bearer_item_observations": items,
+        "bearer_item_observation_count": declared["bearer_items"],
+        "bearer_item_observations_omitted": omitted["bearer_items"],
+        "item_associations": associations,
+        "item_association_count": declared["item_associations"],
+        "item_associations_omitted": omitted["item_associations"],
+        "session_identity_context": {
+            "status": "NOT_ESTABLISHED",
+            "artifact": "epc-session-identity-analysis.json",
+            "captures": [capture],
+            "associated_transaction_references": [],
+            "limitations": ["no join attempted"],
+        },
+        "outcome_summary": {
+            "transaction_classification_counts": dict(sorted(transaction_outcomes.items())),
+            "message_outcome_counts": dict(sorted(message_outcomes.items())),
+            "item_outcome_counts": dict(sorted(item_outcomes.items())),
+            "item_association_status_counts": dict(sorted(association_statuses.items())),
+        },
+        "unresolved_findings": [],
+        "unresolved_finding_count": 0,
+        "evidence_limitations": [
+            "a correlated Create/Update/Delete Bearer transaction proves an observed signaling exchange only",
+        ],
+        "not_confirmed": [
+            "no dedicated-bearer activation, modification or effective removal is proven",
+        ],
+        "bounded": True,
+        "limits": {
+            "control_transactions": 128,
+            "bearer_items": 256,
+            "item_associations": 256,
+            "unresolved_findings": 64,
+        },
+    }
+
+
 def dedicated_document(
     *,
     capture: str = "capture-a.pcap",
@@ -1299,100 +1474,154 @@ def dedicated_document(
         ("update-bearer", update),
         ("delete-bearer", delete),
     ):
-        for occurrence in range(count):
+        for _occurrence in range(count):
             reference = f"epc-db-tx:{capture}:{family}-{index}"
-            transactions.append(
-                {
-                    "capture": capture,
-                    "correlation_status": "MATCHED",
-                    "correlation_strength": "STRONG",
-                    "procedure_family": family,
-                    "transaction_reference": reference,
-                    "protocol_transaction_reference": f"gtpv2-{family}-{index}",
-                    "message_outcome": {
-                        "status": "MESSAGE_ACCEPTED_OBSERVED",
-                        "cause": {
-                            "cause_code": 16,
-                            "cause_name": "Request accepted",
-                            "scope": "message",
-                        },
-                        "limitations": [],
-                    },
-                    "transaction_outcome": "CONTROL_ACCEPTED_OBSERVED",
-                    "evidence_limitations": [],
-                    "source_completeness_status": completeness,
-                }
-            )
+            transactions.append(_review_transaction(reference, family, index, completeness))
             request_reference = f"epc-db-item:{reference}:request:{index}:0:0"
             item_reference = f"epc-db-item:{reference}:response:{index}:0:0"
             items.append(
-                {
-                    "capture": capture,
-                    "ebi": 7,
-                    "ebi_status": "VALID",
-                    "ebi_valid": True,
-                    "item_reference": request_reference,
-                    "item_outcome": "ITEM_REQUEST_EVIDENCE_ONLY",
-                    "procedure_family": family,
-                    "side": "REQUEST",
-                    "transaction_reference": reference,
-                    "evidence_limitations": [],
-                    "source_completeness_status": completeness,
-                }
+                _review_item(
+                    reference,
+                    family,
+                    index,
+                    "REQUEST",
+                    "ITEM_REQUEST_EVIDENCE_ONLY",
+                    completeness,
+                    capture,
+                )
             )
             items.append(
-                {
-                    "capture": capture,
-                    "ebi": 7,
-                    "ebi_status": "VALID",
-                    "ebi_valid": True,
-                    "item_reference": item_reference,
-                    "item_outcome": "ITEM_CONTROL_ACCEPTED_OBSERVED",
-                    "procedure_family": family,
-                    "side": "RESPONSE",
-                    "transaction_reference": reference,
-                    "evidence_limitations": [],
-                    "source_completeness_status": completeness,
-                }
+                _review_item(
+                    reference,
+                    family,
+                    index,
+                    "RESPONSE",
+                    "ITEM_CONTROL_ACCEPTED_OBSERVED",
+                    completeness,
+                    capture,
+                )
             )
             associations.append(
                 {
                     "association_reference": f"epc-db-assoc:{reference}:{index}",
                     "capture": capture,
-                    "ebi": 7,
-                    "status": "ITEM_ASSOCIATION_ESTABLISHED",
                     "transaction_reference": reference,
                     "request_item_reference": request_reference,
                     "response_item_reference": item_reference,
+                    "request_top_level_ebi_reference": None,
+                    "ebi": 7,
+                    "status": "ITEM_ASSOCIATION_ESTABLISHED",
+                    "basis": ["ebi"],
                     "limitations": [],
                 }
             )
             index += 1
-    return {
-        "analysis_name": "epc-dedicated-bearer-control",
-        "analysis_version": "1.0.0",
-        "domain": "epc-procedures",
-        "control_transaction_count": len(transactions),
-        "control_transactions": transactions,
-        "control_transactions_omitted": 0,
-        "bearer_item_observation_count": len(items),
-        "bearer_item_observations": items,
-        "bearer_item_observations_omitted": 0,
-        "item_association_count": len(associations),
-        "item_associations": associations,
-        "item_associations_omitted": 0,
-        "source_completeness": {
-            "status": completeness,
-            "exhaustive_coverage_proven": completeness == "COMPLETE",
-            "limitations": [] if completeness == "COMPLETE" else ["truncated source"],
+    return _review_artifact(
+        transactions, items, associations, capture=capture, completeness=completeness
+    )
+
+
+def bounded_dedicated_document(
+    *,
+    capture: str = "capture-a.pcap",
+    declared_transactions: int,
+    published_transactions: int,
+    declared_items: int,
+    published_items: int,
+    declared_associations: int,
+    published_associations: int,
+) -> dict:
+    families = ("create-bearer", "update-bearer", "delete-bearer")
+    transactions = []
+    items = []
+    associations = []
+    for index in range(declared_transactions):
+        family = families[index % len(families)]
+        reference = f"epc-db-tx:{capture}:{family}-{index}"
+        transactions.append(_review_transaction(reference, family, index, "TRUNCATED"))
+        request_reference = f"epc-db-item:{reference}:request:{index}:0:0"
+        response_reference = f"epc-db-item:{reference}:response:{index}:0:0"
+        items.append(
+            _review_item(
+                reference,
+                family,
+                index,
+                "REQUEST",
+                "ITEM_REQUEST_EVIDENCE_ONLY",
+                "TRUNCATED",
+                capture,
+            )
+        )
+        items.append(
+            _review_item(
+                reference,
+                family,
+                index,
+                "RESPONSE",
+                "ITEM_CONTROL_ACCEPTED_OBSERVED",
+                "TRUNCATED",
+                capture,
+            )
+        )
+        associations.append(
+            {
+                "association_reference": f"epc-db-assoc:{reference}:{index}",
+                "capture": capture,
+                "transaction_reference": reference,
+                "request_item_reference": request_reference,
+                "response_item_reference": response_reference,
+                "request_top_level_ebi_reference": None,
+                "ebi": 7,
+                "status": "ITEM_ASSOCIATION_ESTABLISHED",
+                "basis": ["ebi"],
+                "limitations": [],
+            }
+        )
+        associations.append(
+            {
+                "association_reference": f"epc-db-assoc:{reference}:{index}:top-ebi",
+                "capture": capture,
+                "transaction_reference": reference,
+                "request_item_reference": None,
+                "response_item_reference": None,
+                "request_top_level_ebi_reference": None,
+                "ebi": 0,
+                "status": "ITEM_ASSOCIATION_NOT_ESTABLISHED",
+                "basis": ["no item pair"],
+                "limitations": ["top-level EBI is not a grouped Bearer Context item"],
+            }
+        )
+    artifact = _review_artifact(
+        transactions[:published_transactions],
+        items[:published_items],
+        associations[:published_associations],
+        capture=capture,
+        declared={
+            "control_transactions": declared_transactions,
+            "bearer_items": declared_items,
+            "item_associations": declared_associations,
         },
-        "evidence_limitations": [
-            "a correlated Create/Update/Delete Bearer transaction proves an observed signaling exchange only",
-        ],
-        "not_confirmed": [
-            "no dedicated-bearer activation, modification or effective removal is proven",
-        ],
+        omitted={
+            "control_transactions": declared_transactions - published_transactions,
+            "bearer_items": declared_items - published_items,
+            "item_associations": declared_associations - published_associations,
+        },
+        completeness="TRUNCATED",
+    )
+    artifact["outcome_summary"]["transaction_classification_counts"] = {
+        "CONTROL_ACCEPTED_OBSERVED": declared_transactions
     }
+    artifact["outcome_summary"]["message_outcome_counts"] = {
+        "MESSAGE_ACCEPTED_OBSERVED": declared_transactions
+    }
+    artifact["outcome_summary"]["item_outcome_counts"] = {
+        "ITEM_CONTROL_ACCEPTED_OBSERVED": declared_items // 2,
+        "ITEM_REQUEST_EVIDENCE_ONLY": declared_items - declared_items // 2,
+    }
+    artifact["outcome_summary"]["item_association_status_counts"] = {
+        "ITEM_ASSOCIATION_ESTABLISHED": declared_associations,
+    }
+    return artifact
 
 
 class EpcDedicatedBearerReviewTests(unittest.TestCase):
@@ -1559,6 +1788,231 @@ class EpcDedicatedBearerReviewTests(unittest.TestCase):
         self.assertEqual(summary["source_completeness_status"], "TRUNCATED")
         markdown = (output / "evidence-review.md").read_text(encoding="utf-8")
         self.assertIn("source completeness=TRUNCATED", markdown)
+
+
+
+class DedicatedBearerCountFidelityTests(unittest.TestCase):
+    """Producer-declared totals, source omission and display omission."""
+
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self._temporary.name)
+
+    def tearDown(self) -> None:
+        self._temporary.cleanup()
+
+    def source(self, documents: dict, name: str = "artifacts") -> Path:
+        directory = self.root / name
+        return write_documents(directory, documents, detailed=True)
+
+    def pack(self, source: Path, name: str = "pack") -> tuple[Path, dict, dict]:
+        artifacts, files = REVIEW.existing_artifact_pack(
+            source,
+            gtpv2_events=source / "gtpv2-events.jsonl"
+            if (source / "gtpv2-events.jsonl").is_file()
+            else None,
+            gtpu_events=source / "gtpu-events.jsonl"
+            if (source / "gtpu-events.jsonl").is_file()
+            else None,
+        )
+        output = self.root / name
+        REVIEW.write_pack(output, files, artifacts_dir=source, force=True)
+        return output, artifacts, files
+
+    def read(self, output: Path, name: str) -> dict:
+        return json.loads((output / name).read_text(encoding="utf-8"))
+
+    def bounded_documents(self, **kwargs) -> dict:
+        documents = EPC.scenario()
+        documents["dedicated"] = bounded_dedicated_document(**kwargs)
+        return documents
+
+    def test_declared_counts_survive_review_consumption(self) -> None:
+        source = self.source(
+            self.bounded_documents(
+                declared_transactions=129,
+                published_transactions=128,
+                declared_items=257,
+                published_items=256,
+                declared_associations=257,
+                published_associations=256,
+            )
+        )
+        output, _artifacts, _files = self.pack(source)
+        review = self.read(output, "evidence-review.json")
+        summary = review["sections"]["dedicated_bearer_control_summary"][0]
+        self.assertEqual(summary["control_transaction_count"], 129)
+        self.assertEqual(summary["bearer_item_observation_count"], 257)
+        self.assertEqual(summary["item_association_count"], 257)
+        self.assertEqual(
+            summary["producer_declared_counts"],
+            {"control_transactions": 129, "bearer_items": 257, "item_associations": 257},
+        )
+        self.assertEqual(
+            summary["producer_published_counts"],
+            {"control_transactions": 128, "bearer_items": 256, "item_associations": 256},
+        )
+        self.assertEqual(
+            summary["producer_omitted_counts"],
+            {"control_transactions": 1, "bearer_items": 1, "item_associations": 1},
+        )
+
+    def test_source_and_display_omission_are_separated(self) -> None:
+        source = self.source(
+            self.bounded_documents(
+                declared_transactions=129,
+                published_transactions=128,
+                declared_items=257,
+                published_items=256,
+                declared_associations=257,
+                published_associations=256,
+            )
+        )
+        output, _artifacts, _files = self.pack(source)
+        review = self.read(output, "evidence-review.json")
+        summary = review["sections"]["dedicated_bearer_control_summary"][0]
+        self.assertEqual(
+            summary["review_published_counts"],
+            {"control_transactions": 32, "bearer_items": 64, "item_associations": 64},
+        )
+        self.assertEqual(
+            summary["review_display_omitted_counts"],
+            {"control_transactions": 96, "bearer_items": 192, "item_associations": 192},
+        )
+        self.assertNotEqual(
+            summary["producer_omitted_counts"], summary["review_display_omitted_counts"]
+        )
+        coverage = review["coverage"]
+        self.assertEqual(coverage["dedicated_control_transaction_count"], 129)
+        self.assertEqual(
+            coverage["dedicated_producer_omitted"],
+            {"control_transactions": 1, "bearer_items": 1, "item_associations": 1},
+        )
+        self.assertEqual(
+            coverage["dedicated_review_display_omitted"],
+            {"control_transactions": 96, "bearer_items": 192, "item_associations": 192},
+        )
+        markdown = (output / "evidence-review.md").read_text(encoding="utf-8")
+        self.assertIn("producer declared total=", markdown)
+        self.assertIn("source-omitted=", markdown)
+        self.assertIn("display-omitted=", markdown)
+        self.assertIn("source omission limitation:", markdown)
+
+    def test_source_outcome_aggregates_are_preferred(self) -> None:
+        source = self.source(
+            self.bounded_documents(
+                declared_transactions=129,
+                published_transactions=128,
+                declared_items=257,
+                published_items=256,
+                declared_associations=257,
+                published_associations=256,
+            )
+        )
+        output, _artifacts, _files = self.pack(source)
+        review = self.read(output, "evidence-review.json")
+        summary = review["sections"]["dedicated_bearer_control_summary"][0]
+        self.assertEqual(
+            summary["transaction_outcome_counts"], {"CONTROL_ACCEPTED_OBSERVED": 129}
+        )
+        self.assertEqual(
+            summary["outcome_counts_basis"]["transaction_outcome_counts"], "SOURCE_DECLARED"
+        )
+        self.assertEqual(
+            summary["outcome_counts_basis"]["transaction_family_counts"],
+            "VISIBLE_SUBSET_ONLY",
+        )
+        self.assertIn("transaction_family_counts", summary["visible_subset_only_breakdowns"])
+        markdown = (output / "evidence-review.md").read_text(encoding="utf-8")
+        self.assertIn("outcome count basis:", markdown)
+
+    def test_unresolved_reference_to_omitted_record_is_disclosed(self) -> None:
+        document = bounded_dedicated_document(
+            declared_transactions=129,
+            published_transactions=128,
+            declared_items=257,
+            published_items=256,
+            declared_associations=257,
+            published_associations=256,
+        )
+        document["item_associations"][0]["response_item_reference"] = (
+            "epc-db-item:omitted-record"
+        )
+        documents = EPC.scenario()
+        documents["dedicated"] = document
+        source = self.source(documents)
+        output, _artifacts, _files = self.pack(source)
+        index = self.read(output, "evidence-index.json")
+        self.assertTrue(
+            any(
+                item["kind"] == "DEDICATED_BEARER_ITEM"
+                and item["reference"] == "epc-db-item:omitted-record"
+                for item in index["missing_references"]
+            )
+        )
+        review = self.read(output, "evidence-review.json")
+        summary = review["sections"]["dedicated_bearer_control_summary"][0]
+        self.assertTrue(summary["source_omission_limitations"])
+
+    def test_supplied_invalid_optional_artifact_is_rejected(self) -> None:
+        documents = EPC.scenario()
+        documents["dedicated"] = {
+            "domain": "epc-procedures",
+            "analysis_name": "epc-dedicated-bearer-control",
+            "analysis_version": "1.0.0",
+            "control_transaction_count": 10,
+        }
+        source = self.source(documents)
+        with self.assertRaises(REVIEW.ReviewInputError) as raised:
+            REVIEW.load_artifacts(source)
+        self.assertEqual(raised.exception.code, REVIEW.SUPPLIED_ARTIFACT_INVALID)
+
+    def test_missing_optional_artifact_has_explicit_status(self) -> None:
+        source = self.source(EPC.scenario())
+        artifacts = REVIEW.load_artifacts(source)
+        entry = [
+            item
+            for item in artifacts["sources"]
+            if item["artifact_type"] == REVIEW.ARTIFACT_DEDICATED_BEARER
+        ][0]
+        self.assertFalse(entry["supplied"])
+        self.assertEqual(
+            entry["validation_status"], REVIEW.OPTIONAL_ARTIFACT_NOT_SUPPLIED
+        )
+        manifest = REVIEW.build_manifest(
+            artifacts,
+            mode="EXISTING_ARTIFACTS",
+            local_pcap_replayed=False,
+            replay_status="NOT_REPLAYED",
+        )
+        manifest_entry = [
+            item
+            for item in manifest["source_artifacts"]
+            if item["artifact_type"] == REVIEW.ARTIFACT_DEDICATED_BEARER
+        ][0]
+        self.assertEqual(manifest_entry["validation_status"], "OPTIONAL_ARTIFACT_NOT_SUPPLIED")
+
+    def test_dedicated_pack_outputs_are_deterministic(self) -> None:
+        documents = self.bounded_documents(
+            declared_transactions=129,
+            published_transactions=128,
+            declared_items=257,
+            published_items=256,
+            declared_associations=257,
+            published_associations=256,
+        )
+        source = self.source(documents)
+        first, _a1, _f1 = self.pack(source, "deterministic-a")
+        second, _a2, _f2 = self.pack(source, "deterministic-b")
+        for name in (
+            "manifest.json",
+            "evidence-review.json",
+            "evidence-index.json",
+            "evidence-review.md",
+        ):
+            self.assertEqual(
+                (first / name).read_bytes(), (second / name).read_bytes(), name
+            )
 
 
 if __name__ == "__main__":

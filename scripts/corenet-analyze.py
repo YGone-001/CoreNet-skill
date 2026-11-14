@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -82,6 +83,7 @@ EPC_BOUNDARY_SCRIPT = (
 EPC_DEDICATED_BEARER_ANALYZE_SCRIPT = (
     ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_dedicated_bearer_control.py"
 )
+EPC_DEDICATED_BEARER_CONTRACT_SCRIPT = ROOT / "scripts" / "epc_dedicated_bearer_contract.py"
 DEDICATED_BEARER_FAMILIES = ("create-bearer", "update-bearer", "delete-bearer")
 DEDICATED_BEARER_FAILURE_CODE = "DEDICATED_BEARER_CONTROL_FAILED"
 DEDICATED_BEARER_NOT_OBSERVED = "NOT_OBSERVED_IN_CAPTURE"
@@ -2006,6 +2008,46 @@ def _dedicated_bearer_requested(counts: dict[str, int]) -> bool:
     return any(counts.get(family, 0) > 0 for family in DEDICATED_BEARER_FAMILIES)
 
 
+_DEDICATED_BEARER_CONTRACT: Any = None
+
+
+def _load_dedicated_bearer_contract():
+    global _DEDICATED_BEARER_CONTRACT
+    if _DEDICATED_BEARER_CONTRACT is None:
+        spec = importlib.util.spec_from_file_location(
+            "corenet_epc_dedicated_bearer_contract",
+            EPC_DEDICATED_BEARER_CONTRACT_SCRIPT,
+        )
+        if spec is None or spec.loader is None:
+            raise AnalysisError(
+                "COMPONENT_UNAVAILABLE",
+                "the Dedicated Bearer artifact contract validator is unavailable",
+            )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception as exc:
+            raise AnalysisError(
+                "COMPONENT_UNAVAILABLE",
+                f"the Dedicated Bearer artifact contract validator could not load: {exc}",
+            ) from exc
+        _DEDICATED_BEARER_CONTRACT = module
+    return _DEDICATED_BEARER_CONTRACT
+
+
+def _validate_dedicated_bearer_artifact(analysis: dict[str, Any]) -> None:
+    """Enforce the complete accepted Domain output contract before publication."""
+    contract = _load_dedicated_bearer_contract()
+    try:
+        contract.validate_artifact(analysis)
+    except contract.ContractValidationError as exc:
+        raise AnalysisError(
+            DEDICATED_BEARER_FAILURE_CODE,
+            f"EPC dedicated-bearer control analysis artifact is invalid: {exc.code}: {exc.message}",
+        ) from exc
+
+
 def _run_dedicated_bearer_stage(
     gtpv2_events: Path,
     gtpv2_transactions: Path,
@@ -2044,6 +2086,7 @@ def _run_dedicated_bearer_stage(
                 "PIPELINE_OUTPUT_UNREADABLE",
                 "EPC dedicated-bearer control analysis has an incompatible analysis name",
             )
+        _validate_dedicated_bearer_artifact(analysis)
         if not isinstance(analysis.get("control_transaction_count"), int):
             raise AnalysisError(
                 "PIPELINE_OUTPUT_UNREADABLE",
@@ -2071,11 +2114,44 @@ def _count_values(items: list[dict[str, Any]], key: str) -> dict[str, int]:
     return {name: counts[name] for name in sorted(counts)}
 
 
+def _strict_nonnegative_int(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if value >= 0 else None
+
+
+def _dedicated_declared_total(
+    analysis: dict[str, Any], key: str, published: list[dict[str, Any]]
+) -> int:
+    declared = _strict_nonnegative_int(analysis.get(key))
+    return declared if declared is not None else len(published)
+
+
+def _producer_outcome_counts(
+    analysis: dict[str, Any], key: str
+) -> dict[str, int] | None:
+    summary = analysis.get("outcome_summary")
+    if not isinstance(summary, dict):
+        return None
+    raw = summary.get(key)
+    if not isinstance(raw, dict):
+        return None
+    counts: dict[str, int] = {}
+    for name, value in raw.items():
+        if not isinstance(name, str):
+            return None
+        strict = _strict_nonnegative_int(value)
+        if strict is None:
+            return None
+        counts[name] = strict
+    return {name: counts[name] for name in sorted(counts)}
+
+
 def _project_dedicated_bearer_control(
     analysis: dict[str, Any] | None,
     error: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Publish a bounded summary; full collections stay in the Domain artifact."""
+    """Publish the Producer-declared totals and explicitly labelled breakdowns."""
     if isinstance(analysis, dict):
         transactions = [
             item for item in analysis.get("control_transactions") or [] if isinstance(item, dict)
@@ -2094,24 +2170,85 @@ def _project_dedicated_bearer_control(
             if family in family_counts:
                 family_counts[family] += 1
         completeness = analysis.get("source_completeness") or {}
+
+        transaction_outcome_counts = _producer_outcome_counts(
+            analysis, "transaction_classification_counts"
+        )
+        message_outcome_counts = _producer_outcome_counts(analysis, "message_outcome_counts")
+        item_outcome_counts = _producer_outcome_counts(analysis, "item_outcome_counts")
+        association_status_counts = _producer_outcome_counts(
+            analysis, "item_association_status_counts"
+        )
+        outcome_counts_basis = {
+            "transaction_outcome_counts": (
+                "SOURCE_DECLARED"
+                if transaction_outcome_counts is not None
+                else "VISIBLE_SUBSET_ONLY"
+            ),
+            "message_outcome_counts": (
+                "SOURCE_DECLARED"
+                if message_outcome_counts is not None
+                else "VISIBLE_SUBSET_ONLY"
+            ),
+            "item_outcome_counts": (
+                "SOURCE_DECLARED" if item_outcome_counts is not None else "VISIBLE_SUBSET_ONLY"
+            ),
+            "item_association_status_counts": (
+                "SOURCE_DECLARED"
+                if association_status_counts is not None
+                else "VISIBLE_SUBSET_ONLY"
+            ),
+            "transaction_family_counts": "VISIBLE_SUBSET_ONLY",
+            "correlation_status_counts": "VISIBLE_SUBSET_ONLY",
+        }
+        visible_subset_only = [
+            name for name, basis in outcome_counts_basis.items() if basis == "VISIBLE_SUBSET_ONLY"
+        ]
         return {
             "execution_status": "EXECUTED",
             "source_artifact": "epc-dedicated-bearer-control-analysis.json",
             "analysis_name": analysis.get("analysis_name"),
             "analysis_version": analysis.get("analysis_version"),
-            "control_transaction_count": analysis.get("control_transaction_count", 0),
-            "bearer_item_observation_count": analysis.get(
-                "bearer_item_observation_count", 0
+            "control_transaction_count": _dedicated_declared_total(
+                analysis, "control_transaction_count", transactions
             ),
-            "item_association_count": analysis.get("item_association_count", 0),
+            "bearer_item_observation_count": _dedicated_declared_total(
+                analysis, "bearer_item_observation_count", items
+            ),
+            "item_association_count": _dedicated_declared_total(
+                analysis, "item_association_count", associations
+            ),
+            "producer_published_counts": {
+                "control_transactions": len(transactions),
+                "bearer_items": len(items),
+                "item_associations": len(associations),
+            },
             "transaction_family_counts": family_counts,
             "correlation_status_counts": _count_values(transactions, "correlation_status"),
-            "transaction_outcome_counts": _count_values(transactions, "transaction_outcome"),
-            "message_outcome_counts": _count_values(
-                [item.get("message_outcome") or {} for item in transactions], "status"
+            "transaction_outcome_counts": (
+                transaction_outcome_counts
+                if transaction_outcome_counts is not None
+                else _count_values(transactions, "transaction_outcome")
             ),
-            "item_outcome_counts": _count_values(items, "item_outcome"),
-            "item_association_status_counts": _count_values(associations, "status"),
+            "message_outcome_counts": (
+                message_outcome_counts
+                if message_outcome_counts is not None
+                else _count_values(
+                    [item.get("message_outcome") or {} for item in transactions], "status"
+                )
+            ),
+            "item_outcome_counts": (
+                item_outcome_counts
+                if item_outcome_counts is not None
+                else _count_values(items, "item_outcome")
+            ),
+            "item_association_status_counts": (
+                association_status_counts
+                if association_status_counts is not None
+                else _count_values(associations, "status")
+            ),
+            "outcome_counts_basis": outcome_counts_basis,
+            "visible_subset_only_breakdowns": sorted(visible_subset_only),
             "source_completeness_status": completeness.get("status"),
             "exhaustive_coverage_proven": completeness.get("exhaustive_coverage_proven"),
             "omitted_counts": {
@@ -2134,12 +2271,19 @@ def _project_dedicated_bearer_control(
             "control_transaction_count": 0,
             "bearer_item_observation_count": 0,
             "item_association_count": 0,
+            "producer_published_counts": {
+                "control_transactions": 0,
+                "bearer_items": 0,
+                "item_associations": 0,
+            },
             "transaction_family_counts": {family: 0 for family in DEDICATED_BEARER_FAMILIES},
             "correlation_status_counts": {},
             "transaction_outcome_counts": {},
             "message_outcome_counts": {},
             "item_outcome_counts": {},
             "item_association_status_counts": {},
+            "outcome_counts_basis": {},
+            "visible_subset_only_breakdowns": [],
             "source_completeness_status": None,
             "exhaustive_coverage_proven": None,
             "omitted_counts": {
@@ -2160,12 +2304,19 @@ def _project_dedicated_bearer_control(
         "control_transaction_count": 0,
         "bearer_item_observation_count": 0,
         "item_association_count": 0,
+        "producer_published_counts": {
+            "control_transactions": 0,
+            "bearer_items": 0,
+            "item_associations": 0,
+        },
         "transaction_family_counts": {family: 0 for family in DEDICATED_BEARER_FAMILIES},
         "correlation_status_counts": {},
         "transaction_outcome_counts": {},
         "message_outcome_counts": {},
         "item_outcome_counts": {},
         "item_association_status_counts": {},
+        "outcome_counts_basis": {},
+        "visible_subset_only_breakdowns": [],
         "source_completeness_status": None,
         "exhaustive_coverage_proven": None,
         "omitted_counts": {

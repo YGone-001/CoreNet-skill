@@ -448,7 +448,10 @@ transactions. It publishes a bounded `dedicated_bearer_control` summary while th
 full artifact keeps the detailed collections. In a capture without such
 transactions the unified result is `NOT_OBSERVED_IN_CAPTURE`, not a failure. The
 EPC Evidence Review Pack consumes the artifact as an optional bounded source and
-does not recompute or reinterpret its outcomes.
+does not recompute or reinterpret its outcomes. Both consumers validate the full
+accepted Schema contract before publishing success, requiring
+`declared_count == published_records + omitted_count` for every collection, and
+they keep producer-declared, producer-published and Review-display counts separate.
 
 ## Evidence Audit
 

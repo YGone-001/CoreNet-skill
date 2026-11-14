@@ -105,7 +105,10 @@ contains Create, Update or Delete Bearer transactions and publishes a bounded
 summary in `analysis.json` and `report.txt`. When none are present the unified
 result is `NOT_OBSERVED_IN_CAPTURE`, not a failure. The EPC Evidence Review Pack
 considers this artifact an optional bounded source and remains valid when it is
-absent.
+absent. Both consumers enforce the complete accepted Schema contract and the
+declared/published/omitted count identity before treating the source as valid, and
+they report producer-declared totals, producer-published records and Review-display
+subsets as distinct quantities.
 
 ## Default bearer
 

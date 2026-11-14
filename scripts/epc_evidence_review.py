@@ -10,6 +10,7 @@ reference-oriented evidence views and keeps every unresolved claim explicit.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -24,6 +25,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 EPC_SCRIPTS = ROOT / "skills" / "domain" / "epc-procedures" / "scripts"
 UNIFIED_CLI = ROOT / "scripts" / "corenet-analyze.py"
+EPC_DEDICATED_BEARER_CONTRACT_SCRIPT = ROOT / "scripts" / "epc_dedicated_bearer_contract.py"
 
 REVIEW_SCHEMA_VERSION = "1.0"
 REVIEW_NAME = "epc-evidence-review"
@@ -35,6 +37,10 @@ ARTIFACT_RELEASE_NARRATIVE = "release_narrative"
 ARTIFACT_S1U = "s1u_observation"
 ARTIFACT_AUDIT = "evidence_audit"
 ARTIFACT_DEDICATED_BEARER = "dedicated_bearer_control"
+
+SUPPLIED_ARTIFACT_VALID = "SUPPLIED_ARTIFACT_VALID"
+SUPPLIED_ARTIFACT_INVALID = "SUPPLIED_ARTIFACT_INVALID"
+OPTIONAL_ARTIFACT_NOT_SUPPLIED = "OPTIONAL_ARTIFACT_NOT_SUPPLIED"
 
 ARTIFACT_SPECS = (
     (ARTIFACT_SESSION_IDENTITY, "epc-session-identity-analysis.json", "epc-session-identity", True),
@@ -212,6 +218,46 @@ def _validate_version(document: dict[str, Any], artifact: str) -> None:
         )
 
 
+_DEDICATED_BEARER_CONTRACT: Any = None
+
+
+def _load_dedicated_bearer_contract():
+    global _DEDICATED_BEARER_CONTRACT
+    if _DEDICATED_BEARER_CONTRACT is None:
+        spec = importlib.util.spec_from_file_location(
+            "review_epc_dedicated_bearer_contract",
+            EPC_DEDICATED_BEARER_CONTRACT_SCRIPT,
+        )
+        if spec is None or spec.loader is None:
+            raise ReviewInputError(
+                "SUPPLIED_ARTIFACT_INVALID",
+                "the Dedicated Bearer artifact contract validator is unavailable",
+            )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception as exc:  # pragma: no cover - dependency boundary
+            raise ReviewInputError(
+                "SUPPLIED_ARTIFACT_INVALID",
+                f"the Dedicated Bearer artifact contract validator could not load: {exc}",
+            ) from exc
+        _DEDICATED_BEARER_CONTRACT = module
+    return _DEDICATED_BEARER_CONTRACT
+
+
+def _validate_dedicated_bearer_source(document: dict[str, Any]) -> None:
+    """Reject a supplied optional artifact that violates the accepted contract."""
+    contract = _load_dedicated_bearer_contract()
+    try:
+        contract.validate_artifact(document)
+    except contract.ContractValidationError as exc:
+        raise ReviewInputError(
+            SUPPLIED_ARTIFACT_INVALID,
+            f"Dedicated Bearer artifact is invalid: {exc.code}: {exc.message}",
+        ) from exc
+
+
 def _recompute_audit(
     identity: dict[str, Any],
     lifecycle: dict[str, Any],
@@ -275,6 +321,11 @@ def load_artifacts(
                     "sha256": None,
                     "supplied": False,
                     "completeness_status": None,
+                    "validation_status": (
+                        OPTIONAL_ARTIFACT_NOT_SUPPLIED
+                        if artifact == ARTIFACT_DEDICATED_BEARER
+                        else None
+                    ),
                 }
             )
             continue
@@ -285,6 +336,10 @@ def load_artifacts(
                 f"{filename} is not a {analysis_name} artifact",
             )
         _validate_version(document, filename)
+        validation_status = None
+        if artifact == ARTIFACT_DEDICATED_BEARER:
+            _validate_dedicated_bearer_source(document)
+            validation_status = SUPPLIED_ARTIFACT_VALID
         documents[artifact] = document
         completeness_status = None
         if artifact == ARTIFACT_DEDICATED_BEARER:
@@ -298,6 +353,7 @@ def load_artifacts(
                 "sha256": sha256_file(path),
                 "supplied": True,
                 "completeness_status": completeness_status,
+                "validation_status": validation_status,
             }
         )
 
@@ -434,6 +490,76 @@ def _dedicated_item_projection(
     }
 
 
+def _dedicated_count_blocks(dedicated: dict[str, Any]) -> dict[str, dict[str, int]]:
+    specs = (
+        (
+            "control_transactions",
+            "control_transactions",
+            "control_transaction_count",
+            "control_transactions_omitted",
+            MAX_DEDICATED_TRANSACTIONS,
+        ),
+        (
+            "bearer_items",
+            "bearer_item_observations",
+            "bearer_item_observation_count",
+            "bearer_item_observations_omitted",
+            MAX_DEDICATED_ITEMS,
+        ),
+        (
+            "item_associations",
+            "item_associations",
+            "item_association_count",
+            "item_associations_omitted",
+            MAX_DEDICATED_ASSOCIATIONS,
+        ),
+    )
+    blocks = {
+        "producer_declared_counts": {},
+        "producer_published_counts": {},
+        "producer_omitted_counts": {},
+        "review_published_counts": {},
+        "review_display_omitted_counts": {},
+    }
+    for label, collection_key, declared_key, omitted_key, display_limit in specs:
+        published = len(_list(dedicated.get(collection_key)))
+        declared = _strict_count(dedicated.get(declared_key))
+        if declared is None:
+            declared = published
+        omitted = _strict_count(dedicated.get(omitted_key))
+        if omitted is None:
+            omitted = max(0, declared - published)
+        display_published = min(published, display_limit)
+        blocks["producer_declared_counts"][label] = declared
+        blocks["producer_published_counts"][label] = published
+        blocks["producer_omitted_counts"][label] = omitted
+        blocks["review_published_counts"][label] = display_published
+        blocks["review_display_omitted_counts"][label] = max(
+            0, published - display_published
+        )
+    return blocks
+
+
+def _dedicated_source_counts(
+    dedicated: dict[str, Any], key: str
+) -> dict[str, int] | None:
+    summary = _dict(dedicated.get("outcome_summary"))
+    if key not in summary:
+        return None
+    raw = summary.get(key)
+    if not isinstance(raw, dict):
+        return None
+    counts: dict[str, int] = {}
+    for name, value in raw.items():
+        if not isinstance(name, str):
+            return None
+        strict = _strict_count(value)
+        if strict is None:
+            return None
+        counts[name] = strict
+    return {name: counts[name] for name in sorted(counts)}
+
+
 def _dedicated_summary(dedicated: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(dedicated, dict):
         return {
@@ -444,14 +570,21 @@ def _dedicated_summary(dedicated: dict[str, Any] | None) -> dict[str, Any]:
             "control_transaction_count": 0,
             "bearer_item_observation_count": 0,
             "item_association_count": 0,
+            "producer_declared_counts": {},
+            "producer_published_counts": {},
+            "omitted_counts": {},
+            "review_published_counts": {},
+            "review_display_omitted_counts": {},
             "transaction_family_counts": {},
             "correlation_status_counts": {},
             "transaction_outcome_counts": {},
             "message_outcome_counts": {},
             "item_outcome_counts": {},
             "item_association_status_counts": {},
+            "outcome_counts_basis": {},
+            "visible_subset_only_breakdowns": [],
+            "source_omission_limitations": [],
             "source_completeness_status": None,
-            "omitted_counts": {},
             "evidence_limitations": [],
             "not_confirmed": [],
         }
@@ -472,34 +605,91 @@ def _dedicated_summary(dedicated: dict[str, Any] | None) -> dict[str, Any]:
         if family in family_counts:
             family_counts[family] += 1
     completeness = _dict(dedicated.get("source_completeness"))
+    counts = _dedicated_count_blocks(dedicated)
+
+    transaction_outcome_counts = _dedicated_source_counts(
+        dedicated, "transaction_classification_counts"
+    )
+    message_outcome_counts = _dedicated_source_counts(dedicated, "message_outcome_counts")
+    item_outcome_counts = _dedicated_source_counts(dedicated, "item_outcome_counts")
+    association_status_counts = _dedicated_source_counts(
+        dedicated, "item_association_status_counts"
+    )
+    outcome_counts_basis = {
+        "transaction_outcome_counts": (
+            "SOURCE_DECLARED" if transaction_outcome_counts is not None else "VISIBLE_SUBSET_ONLY"
+        ),
+        "message_outcome_counts": (
+            "SOURCE_DECLARED" if message_outcome_counts is not None else "VISIBLE_SUBSET_ONLY"
+        ),
+        "item_outcome_counts": (
+            "SOURCE_DECLARED" if item_outcome_counts is not None else "VISIBLE_SUBSET_ONLY"
+        ),
+        "item_association_status_counts": (
+            "SOURCE_DECLARED"
+            if association_status_counts is not None
+            else "VISIBLE_SUBSET_ONLY"
+        ),
+        "transaction_family_counts": "VISIBLE_SUBSET_ONLY",
+        "correlation_status_counts": "VISIBLE_SUBSET_ONLY",
+    }
+    visible_subset_only = [
+        name for name, basis in outcome_counts_basis.items() if basis == "VISIBLE_SUBSET_ONLY"
+    ]
+    declared_transactions = counts["producer_declared_counts"]["control_transactions"]
     return {
-        "status": "EXECUTED" if transactions else "NOT_OBSERVED_IN_CAPTURE",
+        "status": (
+            "EXECUTED" if transactions or declared_transactions > 0 else "NOT_OBSERVED_IN_CAPTURE"
+        ),
         "source_artifact": "epc-dedicated-bearer-control-analysis.json",
         "analysis_name": dedicated.get("analysis_name"),
         "analysis_version": dedicated.get("analysis_version"),
-        "control_transaction_count": len(transactions),
-        "bearer_item_observation_count": len(items),
-        "item_association_count": len(associations),
+        "control_transaction_count": declared_transactions,
+        "bearer_item_observation_count": counts["producer_declared_counts"]["bearer_items"],
+        "item_association_count": counts["producer_declared_counts"]["item_associations"],
+        **counts,
         "transaction_family_counts": family_counts,
         "correlation_status_counts": _ordered_counts(
             [item.get("correlation_status") for item in transactions]
         ),
-        "transaction_outcome_counts": _ordered_counts(
-            [item.get("transaction_outcome") for item in transactions]
+        "transaction_outcome_counts": (
+            transaction_outcome_counts
+            if transaction_outcome_counts is not None
+            else _ordered_counts([item.get("transaction_outcome") for item in transactions])
         ),
-        "message_outcome_counts": _ordered_counts(
-            [_dict(item.get("message_outcome")).get("status") for item in transactions]
+        "message_outcome_counts": (
+            message_outcome_counts
+            if message_outcome_counts is not None
+            else _ordered_counts(
+                [_dict(item.get("message_outcome")).get("status") for item in transactions]
+            )
         ),
-        "item_outcome_counts": _ordered_counts([item.get("item_outcome") for item in items]),
-        "item_association_status_counts": _ordered_counts(
-            [item.get("status") for item in associations]
+        "item_outcome_counts": (
+            item_outcome_counts
+            if item_outcome_counts is not None
+            else _ordered_counts([item.get("item_outcome") for item in items])
+        ),
+        "item_association_status_counts": (
+            association_status_counts
+            if association_status_counts is not None
+            else _ordered_counts([item.get("status") for item in associations])
+        ),
+        "outcome_counts_basis": outcome_counts_basis,
+        "visible_subset_only_breakdowns": sorted(visible_subset_only),
+        "source_omission_limitations": (
+            [
+                f"the Producer omitted {counts['producer_omitted_counts'][label]} {label.replace('_', ' ')}; "
+                "references to omitted records are not fabricated by the Review Pack"
+                for label in (
+                    "control_transactions",
+                    "bearer_items",
+                    "item_associations",
+                )
+                if counts["producer_omitted_counts"][label] > 0
+            ]
         ),
         "source_completeness_status": completeness.get("status"),
-        "omitted_counts": {
-            "control_transactions": dedicated.get("control_transactions_omitted", 0),
-            "bearer_items": dedicated.get("bearer_item_observations_omitted", 0),
-            "item_associations": dedicated.get("item_associations_omitted", 0),
-        },
+        "omitted_counts": dict(counts["producer_omitted_counts"]),
         "evidence_limitations": (dedicated.get("evidence_limitations") or [])[:MAX_LIST_ITEMS],
         "not_confirmed": (dedicated.get("not_confirmed") or [])[:MAX_LIST_ITEMS],
     }
@@ -1191,6 +1381,7 @@ def build_manifest(
                 "sha256": source["sha256"],
                 "supplied": source["supplied"],
                 "completeness_status": source["completeness_status"],
+                "validation_status": source.get("validation_status"),
             }
         )
     limitations = []
@@ -1705,9 +1896,27 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
         "audit_record_count": len(audit_records),
         "dedicated_source_supplied": dedicated_document is not None,
         "dedicated_status": dedicated_summary.get("status"),
-        "dedicated_control_transaction_count": len(dedicated_transactions),
-        "dedicated_bearer_item_count": len(dedicated_items),
-        "dedicated_item_association_count": len(dedicated_associations),
+        "dedicated_control_transaction_count": dedicated_summary.get(
+            "control_transaction_count", 0
+        ),
+        "dedicated_bearer_item_count": dedicated_summary.get(
+            "bearer_item_observation_count", 0
+        ),
+        "dedicated_item_association_count": dedicated_summary.get(
+            "item_association_count", 0
+        ),
+        "dedicated_producer_published": dedicated_summary.get(
+            "producer_published_counts", {}
+        ),
+        "dedicated_producer_omitted": dedicated_summary.get(
+            "producer_omitted_counts", {}
+        ),
+        "dedicated_review_display_published": dedicated_summary.get(
+            "review_published_counts", {}
+        ),
+        "dedicated_review_display_omitted": dedicated_summary.get(
+            "review_display_omitted_counts", {}
+        ),
         "published": {
             "session_contexts": min(len(contexts), MAX_CONTEXTS),
             "release_narratives": min(len(releases), MAX_RELEASES),
@@ -1944,6 +2153,17 @@ def render_markdown(
             f"source completeness={item.get('source_completeness_status')}"
         )
         lines.append(
+            "  - bounded counts: "
+            f"producer declared total={json.dumps(item.get('producer_declared_counts') or {}, sort_keys=True)}; "
+            f"producer published={json.dumps(item.get('producer_published_counts') or {}, sort_keys=True)}; "
+            f"producer source-omitted={json.dumps(item.get('producer_omitted_counts') or {}, sort_keys=True)}"
+        )
+        lines.append(
+            "  - review display: "
+            f"published={json.dumps(item.get('review_published_counts') or {}, sort_keys=True)}; "
+            f"display-omitted={json.dumps(item.get('review_display_omitted_counts') or {}, sort_keys=True)}"
+        )
+        lines.append(
             f"  - family counts: {json.dumps(item.get('transaction_family_counts') or {}, sort_keys=True)}; "
             f"correlation: {json.dumps(item.get('correlation_status_counts') or {}, sort_keys=True)}"
         )
@@ -1956,9 +2176,15 @@ def render_markdown(
             f"associations: {json.dumps(item.get('item_association_status_counts') or {}, sort_keys=True)}"
         )
         lines.append(
-            f"  - omitted: {json.dumps(item.get('omitted_counts') or {}, sort_keys=True)}; "
+            f"  - outcome count basis: {json.dumps(item.get('outcome_counts_basis') or {}, sort_keys=True)}; "
+            f"visible-subset-only={json.dumps(item.get('visible_subset_only_breakdowns') or [], sort_keys=True)}"
+        )
+        lines.append(
+            f"  - source-omitted: {json.dumps(item.get('omitted_counts') or {}, sort_keys=True)}; "
             f"limitation={item.get('limitation')}"
         )
+        for limitation in _list(item.get("source_omission_limitations")):
+            lines.append(f"  - source omission limitation: {limitation}")
         for limitation in _list(item.get("evidence_limitations"))[:MAX_LIST_ITEMS]:
             lines.append(f"  - limitation: {limitation}")
         if item.get("status") != "NOT_SUPPLIED":
