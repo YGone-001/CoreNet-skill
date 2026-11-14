@@ -1714,7 +1714,17 @@ class EpcDedicatedBearerReviewTests(unittest.TestCase):
         source = self.source(self.documents())
         output, artifacts, _files = self.pack(source)
         index = self.read(output, "evidence-index.json")
-        self.assertEqual(index["missing_references"], [])
+        missing = index["missing_references"]
+        self.assertFalse(
+            [
+                entry
+                for entry in missing
+                if entry["reference"].startswith(("epc-db-tx:", "epc-db-item:", "epc-db-assoc:"))
+            ]
+        )
+        self.assertTrue(all(entry["classification"] != "RESOLVED" for entry in missing))
+        self.assertTrue(all(entry["resolution_basis"] for entry in missing))
+        self.assertGreater(index["navigation_summary"]["resolved_reference_count"], 0)
         review = self.read(output, "evidence-review.json")
         transactions = review["sections"]["dedicated_bearer_control_transactions"]
         items = review["sections"]["dedicated_bearer_control_items"]
@@ -2012,6 +2022,377 @@ class DedicatedBearerCountFidelityTests(unittest.TestCase):
         ):
             self.assertEqual(
                 (first / name).read_bytes(), (second / name).read_bytes(), name
+            )
+
+
+
+class EpcReviewNavigationTests(unittest.TestCase):
+    """Navigation resolution uses source-object ownership and capture scope."""
+
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self._temporary.name)
+
+    def tearDown(self) -> None:
+        self._temporary.cleanup()
+
+    def audit_record(
+        self,
+        reference: str,
+        source_reference: str,
+        target_reference: str,
+        *,
+        source_analysis: object = "epc-release-narrative",
+        source_artifact: object = "epc-release-narrative:narrative_subjects",
+        target_analysis: object = "epc-session-identity",
+        target_artifact: object = "epc-session-identity:hop_local_contexts",
+        capture: str = EPC.CAPTURE_A,
+    ) -> dict:
+        return {
+            "audit_record_reference": reference,
+            "capture_file": capture,
+            "audit_category": "REFERENCE_INTEGRITY",
+            "audit_status": "VERIFIED_CONSISTENT",
+            "relationship_type": "HOP_LOCAL_SESSION_CONTEXT",
+            "source_analysis": source_analysis,
+            "source_artifact_reference": source_artifact,
+            "source_subject_reference": source_reference,
+            "target_analysis": target_analysis,
+            "target_artifact_reference": target_artifact,
+            "target_subject_reference": target_reference,
+            "proof_sufficiency_status": "SUFFICIENT",
+            "candidate_completeness_status": "COMPLETE",
+            "consistency_checks": [],
+            "limitations": [],
+        }
+
+    def audit_document(self, records: list[dict]) -> dict:
+        return {
+            "analysis_name": "epc-evidence-audit",
+            "analysis_version": "1.0.0",
+            "audit_records": records,
+            "audit_record_count": len(records),
+            "audit_records_omitted": 0,
+            "source_completeness": {
+                "status": "COMPLETE",
+                "exhaustive_coverage_proven": False,
+                "collections": [],
+            },
+            "audit_summary": {},
+            "source_artifacts": [],
+        }
+
+    def build(
+        self, documents: dict, records: list[dict], name: str = "artifacts"
+    ) -> tuple[Path, dict, dict]:
+        source = self.root / name
+        write_documents(source, documents, audit=self.audit_document(records))
+        artifacts, _files = REVIEW.existing_artifact_pack(source)
+        index = REVIEW.build_index(artifacts["documents"])
+        return source, artifacts, index
+
+    def audit_node(self, index: dict, reference: str) -> dict:
+        for capture in index["captures"]:
+            for node in capture["audit_findings"]:
+                if node["audit_record_reference"] == reference:
+                    return node
+        raise AssertionError(f"audit node not found: {reference}")
+
+    def missing(self, index: dict, reference: str) -> dict:
+        candidates = [
+            entry for entry in index["missing_references"] if entry["reference"] == reference
+        ]
+        for entry in candidates:
+            if entry.get("kind") == "AUDIT_SUBJECT":
+                return entry
+        if candidates:
+            return candidates[0]
+        raise AssertionError(f"missing reference not found: {reference}")
+
+    def test_direct_source_object_resolves_with_capture_scope(self) -> None:
+        documents = EPC.scenario()
+        records = [
+            self.audit_record("epc-audit-nav-0001", EPC.SUBJECT, EPC.CONTEXT)
+        ]
+        _source, _artifacts, index = self.build(documents, records)
+        self.assertEqual(index["missing_references"], [])
+        self.assertEqual(index["navigation_summary"]["resolved_reference_count"], 2)
+        self.assertEqual(index["navigation_summary"]["unresolved_reference_count"], 0)
+        node = self.audit_node(index, "epc-audit-nav-0001")
+        self.assertEqual(
+            node["source_subject_resolution"]["classification"], "RESOLVED"
+        )
+        self.assertEqual(
+            node["target_subject_resolution"]["classification"], "RESOLVED"
+        )
+
+    def test_source_object_is_registered_in_navigation_index(self) -> None:
+        documents = EPC.scenario()
+        _source, _artifacts, index = self.build(
+            documents,
+            [self.audit_record("epc-audit-nav-0002", EPC.SUBJECT, EPC.CONTEXT)],
+        )
+        capture = index["captures"][0]
+        self.assertIn(
+            EPC.SUBJECT,
+            [item["narrative_subject_reference"] for item in capture["narrative_subjects"]],
+        )
+        self.assertIn(
+            EPC.GROUP,
+            [item["narrative_group_reference"] for item in capture["narrative_groups"]],
+        )
+        self.assertEqual(capture["counts"]["narrative_subjects"], 1)
+
+    def test_relationship_mention_only_does_not_resolve(self) -> None:
+        documents = EPC.scenario()
+        binding = copy.deepcopy(documents["identity"]["release_session_bindings"][0])
+        binding["target_subject_reference"] = "epc-unregistered-target"
+        documents["identity"]["release_session_bindings"].append(binding)
+        records = [
+            self.audit_record(
+                "epc-audit-nav-0003",
+                EPC.SUBJECT,
+                "epc-unregistered-target",
+                target_artifact="epc-session-identity:release_session_bindings",
+            )
+        ]
+        _source, _artifacts, index = self.build(documents, records, "mention")
+        entry = self.missing(index, "epc-unregistered-target")
+        self.assertEqual(entry["classification"], "RELATIONSHIP_REFERENCE_ONLY")
+        self.assertEqual(entry["candidate_count"], 0)
+        self.assertEqual(entry["actual_source_collection_presence"], "RELATIONSHIP_MENTION_ONLY")
+
+    def test_display_cap_resolution_is_separate_from_source_presence(self) -> None:
+        documents = EPC.scenario()
+        template = copy.deepcopy(documents["narrative"]["narrative_subjects"][0])
+        for index in range(1, 33):
+            subject = copy.deepcopy(template)
+            subject["narrative_subject_reference"] = f"epc-release-subject-cap{index:028d}"[-40:]
+            subject["narrative_group_reference"] = EPC.GROUP
+            documents["narrative"]["narrative_subjects"].append(subject)
+        overflow = "epc-release-subject-cap0000000000000000000033"[:40]
+        subject = copy.deepcopy(template)
+        subject["narrative_subject_reference"] = overflow
+        subject["narrative_group_reference"] = EPC.GROUP
+        documents["narrative"]["narrative_subjects"].append(subject)
+        records = [
+            self.audit_record("epc-audit-nav-0004", overflow, EPC.CONTEXT)
+        ]
+        _source, _artifacts, index = self.build(documents, records, "display-cap")
+        self.assertEqual(index["navigation_summary"]["unresolved_reference_count"], 0)
+        node = self.audit_node(index, "epc-audit-nav-0004")
+        resolution = node["source_subject_resolution"]
+        self.assertEqual(resolution["classification"], "RESOLVED")
+        self.assertTrue(resolution["display_omitted"])
+        self.assertFalse(resolution["source_omitted"])
+        self.assertGreater(
+            index["captures"][0]["display_omitted"]["narrative_subjects"], 0
+        )
+
+    def test_source_omission_is_distinct_from_display_omission(self) -> None:
+        documents = EPC.scenario()
+        documents["narrative"]["narrative_subjects_omitted"] = 1
+        records = [
+            self.audit_record(
+                "epc-audit-nav-0005",
+                "epc-release-subject-omitted0001",
+                EPC.CONTEXT,
+            )
+        ]
+        _source, _artifacts, index = self.build(documents, records, "source-omitted")
+        entry = self.missing(index, "epc-release-subject-omitted0001")
+        self.assertEqual(entry["classification"], "SOURCE_OMITTED")
+        self.assertTrue(entry["source_omitted"])
+        self.assertFalse(entry["display_omitted"])
+        self.assertEqual(entry["source_omission_status"], "PUBLICATION_OMITTED")
+
+    def test_absent_object_and_missing_artifact_are_distinguished(self) -> None:
+        documents = EPC.scenario()
+        records = [
+            self.audit_record(
+                "epc-audit-nav-0006",
+                "epc-release-subject-absent0001",
+                EPC.CONTEXT,
+            )
+        ]
+        _source, _artifacts, index = self.build(documents, records, "absent")
+        entry = self.missing(index, "epc-release-subject-absent0001")
+        self.assertEqual(entry["classification"], "SOURCE_OBJECT_MISSING")
+
+        without_s1u = EPC.scenario()
+        without_s1u.pop("s1u", None)
+        records = [
+            self.audit_record(
+                "epc-audit-nav-0007",
+                EPC.SUBJECT,
+                "epc-s1u-stream-0000000001",
+                target_artifact="epc-s1u-observation:stream_observations",
+            )
+        ]
+        _source, _artifacts, index = self.build(without_s1u, records, "no-s1u")
+        entry = self.missing(index, "epc-s1u-stream-0000000001")
+        self.assertEqual(entry["classification"], "SOURCE_ARTIFACT_MISSING")
+        self.assertEqual(entry["actual_source_collection_presence"], "NOT_SUPPLIED")
+
+    def test_duplicate_and_cross_capture_references_stay_isolated(self) -> None:
+        documents = EPC.scenario()
+        duplicate = copy.deepcopy(documents["narrative"]["narrative_subjects"][0])
+        duplicate["narrative_group_reference"] = "epc-release-group-duplicate01"
+        documents["narrative"]["narrative_subjects"].append(duplicate)
+        _source, _artifacts, index = self.build(
+            documents,
+            [self.audit_record("epc-audit-nav-0008", EPC.SUBJECT, EPC.CONTEXT)],
+            "duplicate",
+        )
+        entry = self.missing(index, EPC.SUBJECT)
+        self.assertEqual(entry["classification"], "AMBIGUOUS")
+        self.assertGreater(entry["candidate_count"], 1)
+
+        cross = EPC.scenario()
+        foreign = copy.deepcopy(cross["narrative"]["narrative_subjects"][0])
+        foreign["capture_file"] = EPC.CAPTURE_B
+        foreign["narrative_subject_reference"] = "epc-release-subject-crosscap01"
+        foreign["narrative_group_reference"] = "epc-release-group-crosscap01"
+        cross["narrative"]["narrative_subjects"].append(foreign)
+        _source, _artifacts, index = self.build(
+            cross,
+            [
+                self.audit_record(
+                    "epc-audit-nav-0009",
+                    "epc-release-subject-crosscap01",
+                    EPC.CONTEXT,
+                )
+            ],
+            "cross-capture",
+        )
+        entry = self.missing(index, "epc-release-subject-crosscap01")
+        self.assertEqual(entry["classification"], "CROSS_CAPTURE_ISOLATED")
+        self.assertEqual(entry["candidate_captures"], [EPC.CAPTURE_B])
+
+    def test_ownership_dispatch_and_malformed_metadata(self) -> None:
+        documents = EPC.scenario()
+        records = [
+            self.audit_record(
+                "epc-audit-nav-0010",
+                EPC.SUBJECT,
+                EPC.CONTEXT,
+                target_analysis="epc-not-the-owner",
+                target_artifact="epc-not-the-owner:hop_local_contexts",
+            ),
+            self.audit_record(
+                "epc-audit-nav-0011",
+                "mystery-reference",
+                "mystery-reference-2",
+                source_analysis=123,
+                source_artifact=None,
+                target_analysis=None,
+                target_artifact=None,
+            ),
+        ]
+        _source, _artifacts, index = self.build(documents, records, "ownership")
+        node = self.audit_node(index, "epc-audit-nav-0010")
+        self.assertEqual(
+            node["target_subject_resolution"]["classification"], "RESOLVED"
+        )
+        self.assertFalse(node["target_subject_resolution"]["ownership_dispatch_matches"])
+        entry = self.missing(index, "mystery-reference")
+        self.assertEqual(entry["classification"], "INSUFFICIENT_EVIDENCE")
+
+    def test_accounting_and_relationship_only_classifications(self) -> None:
+        documents = EPC.scenario()
+        binding = copy.deepcopy(documents["identity"]["release_session_bindings"][0])
+        binding["target_subject_reference"] = "epc-unregistered-relationship"
+        documents["identity"]["release_session_bindings"].append(binding)
+        records = [
+            self.audit_record(
+                "epc-audit-nav-0012",
+                "epc:accounting",
+                "epc-unregistered-relationship",
+                source_analysis=None,
+                source_artifact=None,
+                target_artifact="epc-session-identity:release_session_bindings",
+            )
+        ]
+        _source, _artifacts, index = self.build(documents, records, "accounting")
+        self.assertEqual(
+            self.missing(index, "epc:accounting")["classification"],
+            "NON_NAVIGABLE_ACCOUNTING",
+        )
+        self.assertEqual(
+            self.missing(index, "epc-unregistered-relationship")["classification"],
+            "RELATIONSHIP_REFERENCE_ONLY",
+        )
+
+    def test_valid_relationship_source_reference_resolves(self) -> None:
+        documents = EPC.scenario()
+        records = [
+            self.audit_record(
+                "epc-audit-nav-0013",
+                EPC.SUBJECT,
+                EPC.CANDIDATE,
+                target_artifact="epc-session-identity:generation_closure_candidates",
+            )
+        ]
+        _source, _artifacts, index = self.build(documents, records, "relationship-source")
+        self.assertEqual(index["navigation_summary"]["unresolved_reference_count"], 0)
+        node = self.audit_node(index, "epc-audit-nav-0013")
+        self.assertEqual(
+            node["target_subject_resolution"]["source_collection"],
+            "generation_closure_candidates",
+        )
+
+    def test_audit_ledger_and_dedicated_navigation_are_unchanged(self) -> None:
+        documents = EPC.scenario()
+        documents["dedicated"] = dedicated_document()
+        audit = EPC.audit(documents)
+        source = self.root / "ledger"
+        write_documents(source, documents, audit=audit)
+        artifacts, files = REVIEW.existing_artifact_pack(source)
+        output = self.root / "ledger-pack"
+        REVIEW.write_pack(output, files, artifacts_dir=source, force=True)
+        review = json.loads((output / "evidence-review.json").read_text(encoding="utf-8"))
+        self.assertEqual(review["coverage"]["audit_record_count"], len(audit["audit_records"]))
+        self.assertEqual(review["coverage"]["audit_record_count_declared"], audit["audit_record_count"])
+        self.assertEqual(review["coverage"]["audit_records_omitted"], audit["audit_records_omitted"])
+        dedicated = review["sections"]["dedicated_bearer_control_summary"][0]
+        self.assertEqual(dedicated["status"], "EXECUTED")
+        self.assertEqual(dedicated["control_transaction_count"], 4)
+
+    def test_markdown_discloses_unresolved_navigation(self) -> None:
+        documents = EPC.scenario()
+        records = [
+            self.audit_record(
+                "epc-audit-nav-0014",
+                "epc-release-subject-absent0002",
+                EPC.CONTEXT,
+            )
+        ]
+        source, _artifacts, _index = self.build(documents, records, "markdown")
+        artifacts, files = REVIEW.existing_artifact_pack(source)
+        output = self.root / "markdown-pack"
+        REVIEW.write_pack(output, files, artifacts_dir=source, force=True)
+        markdown = (output / "evidence-review.md").read_text(encoding="utf-8")
+        self.assertIn("navigation audit references:", markdown)
+        self.assertIn("SOURCE_OBJECT_MISSING", markdown)
+        self.assertIn("navigation contract:", markdown)
+
+    def test_navigation_index_is_deterministic(self) -> None:
+        documents = EPC.scenario()
+        records = [self.audit_record("epc-audit-nav-0015", EPC.SUBJECT, EPC.CONTEXT)]
+        source, artifacts, first = self.build(documents, records, "det")
+        second = REVIEW.build_index(copy.deepcopy(artifacts["documents"]))
+        self.assertEqual(
+            json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True)
+        )
+        first_pack = self.root / "det-a"
+        second_pack = self.root / "det-b"
+        _a, files = REVIEW.existing_artifact_pack(source)
+        REVIEW.write_pack(first_pack, files, artifacts_dir=source, force=True)
+        _b, files = REVIEW.existing_artifact_pack(source)
+        REVIEW.write_pack(second_pack, files, artifacts_dir=source, force=True)
+        for name in ("evidence-index.json", "evidence-review.json", "evidence-review.md"):
+            self.assertEqual(
+                (first_pack / name).read_bytes(), (second_pack / name).read_bytes(), name
             )
 
 

@@ -141,7 +141,11 @@ failure or a fabricated success; dedicated-bearer lifecycle remains out of scope
 Both the unified path and the optional Review Pack validate the complete Dedicated
 Bearer artifact contract before publishing success, preserve the producer's declared
 totals separately from published and displayed subsets, and reject a malformed
-supplied optional source rather than treating it as usable evidence. IMS reports
+supplied optional source rather than treating it as usable evidence. The Review
+Pack navigation index registers real narrative-subject, narrative-group and nested
+bearer-endpoint objects and resolves Audit Subject references only by capture-scoped
+source ownership and explicit identity; unresolved relationship mentions, missing
+objects and cross-capture references remain explicitly classified. IMS reports
 `UNSUPPORTED` rather than inventing results. Every
 diagnostic subject in a capture is reported with its own boundary status, a failed
 component makes the run `PARTIAL` instead of `COMPLETED`, and the workflow never asserts

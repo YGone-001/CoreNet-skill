@@ -263,6 +263,11 @@ Before claiming completion, run repository-level validation appropriate to the c
     python3 -m compileall scripts
     git diff --check
 
+For EPC Evidence Review navigation changes, also run:
+
+    python3 scripts/validate-epc-review-navigation.py
+    python3 scripts/validate-epc-evidence-review.py
+
 Also run any Skill-specific tests introduced by the task. Never call a check PASS unless it ran. If a tool or dependency prevents a check, report NOT RUN and the exact reason. Tests for executable or rule-driven Skills should use small deterministic fixtures and cover normal behavior, malformed or missing input, boundary cases, evidence classification, correlation where applicable, and expected failure handling. Avoid large opaque packet captures unless justified.
 
 For non-trivial repository changes, the final report includes the inspected baseline, files changed, behavior added or changed, scope intentionally not implemented, tests and validation results, commit SHA if committed, push status if pushed, and blockers. Report failed validation; do not claim remote success without verification.

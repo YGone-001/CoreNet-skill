@@ -401,6 +401,19 @@ from producer-published and Review-display counts, source omission is kept separ
 from display omission, and any breakdown computed only from the visible subset is
 labelled `VISIBLE_SUBSET_ONLY`.
 
+The Review Pack navigation index registers the bounded `narrative_subjects`,
+derived `narrative_groups` and nested `narrative_bearer_endpoints` collections
+alongside the already-published session contexts, streams, generations,
+observations and Dedicated Bearer collections. An Audit Subject reference resolves
+only when the owning source artifact is present, the capture identity matches, the
+exact reference is an explicit identity of one source object and no ambiguity
+applies. Relationship-only mentions, genuinely absent objects, source-omitted
+objects, missing optional artifacts, cross-capture collisions, accounting labels
+and insufficient metadata remain explicitly classified and are never silently
+converted into resolved targets. `navigation_summary` reports resolved and
+unresolved reference counts, classification counts and separate source-omission
+and display-omission counts; unresolved references may remain in a correct pack.
+
 ## 11. Roadmap for EPC and IMS
 
 IMS appears in the capability contract with `implementation_status: UNSUPPORTED`, no

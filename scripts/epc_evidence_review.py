@@ -58,6 +58,9 @@ ARTIFACT_SPECS = (
 
 MAX_CONTEXTS = 16
 MAX_RELEASES = 32
+MAX_NARRATIVE_SUBJECTS = 32
+MAX_NARRATIVE_GROUPS = 32
+MAX_NARRATIVE_ENDPOINTS = 32
 MAX_GENERATIONS = 32
 MAX_STREAMS = 32
 MAX_OBSERVATIONS = 32
@@ -76,6 +79,29 @@ CLASSIFICATION_DERIVED = "DERIVED"
 CLASSIFICATION_AUDIT = "AUDIT_FINDING"
 CLASSIFICATION_UNRESOLVED = "UNRESOLVED_CLAIM"
 CLASSIFICATION_UNSUPPORTED = "UNSUPPORTED_CONCLUSION"
+
+NAVIGATION_RESOLVED = "RESOLVED"
+NAVIGATION_SOURCE_OBJECT_MISSING = "SOURCE_OBJECT_MISSING"
+NAVIGATION_SOURCE_OMITTED = "SOURCE_OMITTED"
+NAVIGATION_SOURCE_ARTIFACT_MISSING = "SOURCE_ARTIFACT_MISSING"
+NAVIGATION_RELATIONSHIP_REFERENCE_ONLY = "RELATIONSHIP_REFERENCE_ONLY"
+NAVIGATION_CROSS_CAPTURE_ISOLATED = "CROSS_CAPTURE_ISOLATED"
+NAVIGATION_AMBIGUOUS = "AMBIGUOUS"
+NAVIGATION_NON_NAVIGABLE_ACCOUNTING = "NON_NAVIGABLE_ACCOUNTING"
+NAVIGATION_EXTERNAL_PROTOCOL_REFERENCE = "EXTERNAL_PROTOCOL_REFERENCE"
+NAVIGATION_INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
+NAVIGATION_CLASSIFICATIONS = (
+    NAVIGATION_RESOLVED,
+    NAVIGATION_SOURCE_OBJECT_MISSING,
+    NAVIGATION_SOURCE_OMITTED,
+    NAVIGATION_SOURCE_ARTIFACT_MISSING,
+    NAVIGATION_RELATIONSHIP_REFERENCE_ONLY,
+    NAVIGATION_CROSS_CAPTURE_ISOLATED,
+    NAVIGATION_AMBIGUOUS,
+    NAVIGATION_NON_NAVIGABLE_ACCOUNTING,
+    NAVIGATION_EXTERNAL_PROTOCOL_REFERENCE,
+    NAVIGATION_INSUFFICIENT_EVIDENCE,
+)
 
 REPLAY_COMPLETED = "COMPLETED"
 REPLAY_PARTIAL = "PARTIAL"
@@ -465,6 +491,565 @@ def _duplicate_values(items: list[dict[str, Any]], key: str) -> dict[str, int]:
     return {key_value: count for key_value, count in counts.items() if count > 1}
 
 
+COLLECTION_ARTIFACTS = {
+    "narrative_subjects": "epc-release-narrative",
+    "narrative_groups": "epc-release-narrative",
+    "narrative_bearer_endpoints": "epc-release-narrative",
+    "release_narratives": "epc-release-narrative",
+    "temporal_observations": "epc-release-narrative",
+    "hop_local_contexts": "epc-session-identity",
+    "session_identity_links": "epc-session-identity",
+    "endpoint_correspondence_links": "epc-session-identity",
+    "session_to_generation_bearer_endpoints": "epc-session-identity",
+    "generation_closure_candidates": "epc-session-identity",
+    "lifecycle_subjects": "epc-bearer-lifecycle",
+    "stream_observations": "epc-s1u-observation",
+    "control_transactions": "epc-dedicated-bearer-control",
+    "bearer_item_observations": "epc-dedicated-bearer-control",
+    "item_associations": "epc-dedicated-bearer-control",
+    "gtpv2_transactions": "gtpv2-c-transactions",
+    "audit_records": "epc-evidence-audit",
+}
+
+COLLECTION_OMISSION_FIELDS = {
+    "narrative_subjects": "narrative_subjects_omitted",
+    "narrative_groups": "narrative_subjects_omitted",
+    "narrative_bearer_endpoints": "narrative_subjects_omitted",
+    "release_narratives": "release_narratives_omitted",
+    "temporal_observations": "temporal_observations_omitted",
+    "hop_local_contexts": None,
+    "session_identity_links": None,
+    "endpoint_correspondence_links": None,
+    "session_to_generation_bearer_endpoints": None,
+    "generation_closure_candidates": "generation_closure_candidates_omitted",
+    "lifecycle_subjects": "lifecycle_subjects_omitted",
+    "stream_observations": "streams_omitted",
+    "control_transactions": "control_transactions_omitted",
+    "bearer_item_observations": "bearer_item_observations_omitted",
+    "item_associations": "item_associations_omitted",
+    "audit_records": "audit_records_omitted",
+}
+
+COLLECTION_ARTIFACT_FILES = {
+    "epc-release-narrative": "epc-release-narrative-analysis.json",
+    "epc-session-identity": "epc-session-identity-analysis.json",
+    "epc-bearer-lifecycle": "epc-bearer-lifecycle-analysis.json",
+    "epc-s1u-observation": "epc-s1u-observation.json",
+    "epc-dedicated-bearer-control": "epc-dedicated-bearer-control-analysis.json",
+    "gtpv2-c-transactions": "gtpv2-transactions.json",
+    "epc-evidence-audit": "epc-evidence-audit-analysis.json",
+}
+
+REFERENCE_PREFIX_HINTS = (
+    ("epc-release-subject-", "narrative_subjects"),
+    ("epc-release-group-", "narrative_groups"),
+    ("epc-bearer-endpoint-", "narrative_bearer_endpoints"),
+    ("epc-release-narrative-", "release_narratives"),
+    ("epc-temporal-", "temporal_observations"),
+    ("epc-session-context-", "hop_local_contexts"),
+    ("epc-identity-link-", "session_identity_links"),
+    ("epc-bearer-generation-", "lifecycle_subjects"),
+    ("epc-s1u-stream-", "stream_observations"),
+    ("epc-db-tx:", "control_transactions"),
+    ("epc-db-item:", "bearer_item_observations"),
+    ("epc-db-assoc:", "item_associations"),
+    ("gtpv2-", "gtpv2_transactions"),
+)
+
+ACCOUNTING_REFERENCE_PATTERN = re.compile(
+    r"(?:^|:)(?:accounting|totals?|event_count|record_count|frame_totals|observed_totals)$"
+)
+
+
+def _collection_artifact(collection: str | None) -> str | None:
+    return COLLECTION_ARTIFACTS.get(collection or "")
+
+
+def _reference_collection_hint(reference: str) -> str | None:
+    for prefix, collection in REFERENCE_PREFIX_HINTS:
+        if reference.startswith(prefix):
+            return collection
+    return None
+
+
+def _source_omitted_counts(documents: dict[str, Any]) -> dict[str, int]:
+    artifacts = {
+        "epc-release-narrative": _dict(documents.get(ARTIFACT_RELEASE_NARRATIVE)),
+        "epc-session-identity": _dict(documents.get(ARTIFACT_SESSION_IDENTITY)),
+        "epc-bearer-lifecycle": _dict(documents.get(ARTIFACT_BEARER_LIFECYCLE)),
+        "epc-s1u-observation": _dict(documents.get(ARTIFACT_S1U)),
+        "epc-dedicated-bearer-control": _dict(documents.get(ARTIFACT_DEDICATED_BEARER)),
+        "epc-evidence-audit": _dict(documents.get(ARTIFACT_AUDIT)),
+    }
+    counts: dict[str, int] = {}
+    for collection, field in COLLECTION_OMISSION_FIELDS.items():
+        if field is None:
+            counts[collection] = 0
+            continue
+        artifact = _dict(artifacts.get(_collection_artifact(collection) or ""))
+        value = artifact.get(field)
+        counts[collection] = value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
+    return counts
+
+
+def _source_completeness_for(
+    documents: dict[str, Any], collection: str | None
+) -> str | None:
+    artifact_name = _collection_artifact(collection)
+    if artifact_name is None:
+        return None
+    artifact = _dict(documents.get({
+        "epc-release-narrative": ARTIFACT_RELEASE_NARRATIVE,
+        "epc-session-identity": ARTIFACT_SESSION_IDENTITY,
+        "epc-bearer-lifecycle": ARTIFACT_BEARER_LIFECYCLE,
+        "epc-s1u-observation": ARTIFACT_S1U,
+        "epc-dedicated-bearer-control": ARTIFACT_DEDICATED_BEARER,
+        "epc-evidence-audit": ARTIFACT_AUDIT,
+    }.get(artifact_name, "")))
+    status = _dict(artifact.get("source_completeness")).get("status")
+    return status if isinstance(status, str) else None
+
+
+def _missing_optional_artifacts(documents: dict[str, Any]) -> set[str]:
+    missing: set[str] = {"gtpv2-c-transactions"}
+    if documents.get(ARTIFACT_S1U) is None:
+        missing.add("epc-s1u-observation")
+    if documents.get(ARTIFACT_DEDICATED_BEARER) is None:
+        missing.add("epc-dedicated-bearer-control")
+    return missing
+
+
+def _endpoint_shape(endpoint: dict[str, Any]) -> tuple[str, str, str, str]:
+    return (
+        str(endpoint.get("role")),
+        str(endpoint.get("address")),
+        str(endpoint.get("teid")),
+        str(endpoint.get("interface_type")),
+    )
+
+
+def _append_navigation_entry(
+    registry: dict[str, list[dict[str, Any]]],
+    reference: Any,
+    *,
+    collection: str,
+    source_analysis: str,
+    capture: str,
+    members: list[str] | None = None,
+    family: str | None = None,
+    attributes: tuple[str, ...] | None = None,
+) -> None:
+    safe = _safe_reference(reference)
+    if safe is None:
+        return
+    registry.setdefault(safe, []).append(
+        {
+            "collection": collection,
+            "source_analysis": source_analysis,
+            "capture": capture,
+            "reference": safe,
+            "members": sorted(members or []),
+            "family": family,
+            "attributes": attributes,
+        }
+    )
+
+
+def _build_source_navigation(
+    bucket: dict[str, Any], capture: str
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, list[str]]]:
+    registry: dict[str, list[dict[str, Any]]] = {}
+    mentions: dict[str, list[str]] = {}
+
+    def mention(value: Any, context: str) -> None:
+        safe = _safe_reference(value)
+        if safe is not None:
+            mentions.setdefault(safe, []).append(context)
+
+    for item in bucket["contexts"]:
+        _append_navigation_entry(
+            registry, item.get("session_context_reference"),
+            collection="hop_local_contexts", source_analysis="epc-session-identity", capture=capture,
+        )
+        for value in _list(item.get("member_transaction_references")):
+            mention(value, "session_context")
+    for item in bucket["narrative_subjects"]:
+        _append_navigation_entry(
+            registry, item.get("narrative_subject_reference"),
+            collection="narrative_subjects", source_analysis="epc-release-narrative", capture=capture,
+        )
+        subject_reference = _safe_reference(item.get("narrative_subject_reference"))
+        for endpoint in _list(item.get("bearer_endpoints")):
+            endpoint = _dict(endpoint)
+            _append_navigation_entry(
+                registry, endpoint.get("bearer_endpoint_reference"),
+                collection="narrative_bearer_endpoints",
+                source_analysis="epc-release-narrative",
+                capture=capture,
+                members=[subject_reference] if subject_reference else [],
+                family="bearer_endpoint",
+                attributes=_endpoint_shape(endpoint),
+            )
+            for key in ("generation_references", "eps_bearer_identities"):
+                for value in _list(endpoint.get(key)):
+                    mention(value, "narrative_bearer_endpoint")
+        for value in (
+            item.get("session_context_reference"),
+            item.get("allocation_transaction_reference"),
+            item.get("narrative_subject_reference"),
+        ):
+            mention(value, "narrative_subject")
+        for key in (
+            "member_transaction_references",
+            "narrative_group_members",
+            "narrative_group_bridge_references",
+            "endpoint_correspondence_references",
+            "release_narrative_references",
+        ):
+            for value in _list(item.get(key)):
+                mention(value, "narrative_subject")
+    groups: dict[str, set[str]] = {}
+    for item in bucket["narrative_subjects"]:
+        group = _safe_reference(item.get("narrative_group_reference"))
+        if group is None:
+            continue
+        groups.setdefault(group, set()).update(
+            str(value)
+            for value in _list(item.get("narrative_group_members"))
+            if isinstance(value, str)
+        )
+    for group, members in groups.items():
+        _append_navigation_entry(
+            registry, group,
+            collection="narrative_groups", source_analysis="epc-release-narrative",
+            capture=capture, members=sorted(members),
+        )
+    for item in bucket["releases"]:
+        _append_navigation_entry(
+            registry, item.get("release_narrative_reference"),
+            collection="release_narratives", source_analysis="epc-release-narrative", capture=capture,
+        )
+        for key in (
+            "narrative_subject_reference",
+            "narrative_group_reference",
+            "session_context_reference",
+            "release_transaction_reference",
+        ):
+            mention(item.get(key), "release_narrative")
+        for value in _list(item.get("temporal_observation_references")):
+            mention(value, "release_narrative")
+        for proved in _list(item.get("proved_generations")):
+            proved = _dict(proved)
+            mention(proved.get("generation_reference"), "release_narrative")
+            mention(proved.get("closure_candidate_reference"), "release_narrative")
+    for item in bucket["observations"]:
+        _append_navigation_entry(
+            registry, item.get("temporal_observation_reference"),
+            collection="temporal_observations", source_analysis="epc-release-narrative", capture=capture,
+        )
+        for key in ("release_narrative_reference", "stream_reference", "generation_reference"):
+            mention(item.get(key), "temporal_observation")
+    for item in bucket["subjects"]:
+        _append_navigation_entry(
+            registry, item.get("generation_reference"),
+            collection="lifecycle_subjects", source_analysis="epc-bearer-lifecycle", capture=capture,
+        )
+        mention(item.get("transaction_reference"), "lifecycle_subject")
+        boundary = _dict(item.get("generation_boundary"))
+        mention(boundary.get("transaction_reference"), "lifecycle_subject")
+    for item in bucket["bindings"]:
+        for key in ("source_subject_reference", "target_subject_reference"):
+            mention(item.get(key), "release_session_binding")
+    for item in bucket["generation_links"]:
+        for key in ("source_subject_reference", "target_subject_reference"):
+            mention(item.get(key), "session_to_generation_link")
+        endpoint = _dict(item.get("bearer_endpoint"))
+        target_reference = item.get("target_subject_reference")
+        if isinstance(target_reference, str) and target_reference.startswith(
+            "epc-bearer-endpoint-"
+        ):
+            _append_navigation_entry(
+                registry,
+                target_reference,
+                collection="session_to_generation_bearer_endpoints",
+                source_analysis="epc-session-identity",
+                capture=capture,
+                family="bearer_endpoint",
+                attributes=_endpoint_shape(endpoint),
+            )
+    for item in bucket["candidates"]:
+        _append_navigation_entry(
+            registry, item.get("generation_closure_candidate_reference"),
+            collection="generation_closure_candidates", source_analysis="epc-session-identity", capture=capture,
+        )
+        for key in (
+            "session_context_reference",
+            "release_transaction_reference",
+            "bearer_endpoint_reference",
+        ):
+            mention(item.get(key), "closure_candidate")
+    for item in bucket["identity_links"]:
+        _append_navigation_entry(
+            registry, item.get("reference"),
+            collection="session_identity_links", source_analysis="epc-session-identity", capture=capture,
+        )
+        for key in ("source_subject_reference", "target_subject_reference"):
+            mention(item.get(key), "session_identity_link")
+    for item in bucket["identity_endpoint_links"]:
+        _append_navigation_entry(
+            registry, item.get("reference"),
+            collection="endpoint_correspondence_links", source_analysis="epc-session-identity", capture=capture,
+        )
+        for key in ("source_subject_reference", "target_subject_reference"):
+            mention(item.get(key), "endpoint_correspondence_link")
+    for item in bucket["forced_streams"]:
+        mention(item.get("source_stream_reference"), "generation_scoped_s1u_observation")
+        mention(item.get("generation_reference"), "generation_scoped_s1u_observation")
+    for item in bucket["streams"]:
+        _append_navigation_entry(
+            registry, item.get("stream_reference"),
+            collection="stream_observations", source_analysis="epc-s1u-observation", capture=capture,
+        )
+    for item in bucket["dedicated_transactions"]:
+        _append_navigation_entry(
+            registry, item.get("transaction_reference"),
+            collection="control_transactions", source_analysis="epc-dedicated-bearer-control", capture=capture,
+        )
+        for value in _list(item.get("request_bearer_item_references")) + _list(
+            item.get("response_bearer_item_references")
+        ):
+            mention(value, "dedicated_transaction")
+    for item in bucket["dedicated_items"]:
+        _append_navigation_entry(
+            registry, item.get("item_reference"),
+            collection="bearer_item_observations", source_analysis="epc-dedicated-bearer-control", capture=capture,
+        )
+        mention(item.get("transaction_reference"), "dedicated_item")
+    for item in bucket["dedicated_associations"]:
+        _append_navigation_entry(
+            registry, item.get("association_reference"),
+            collection="item_associations", source_analysis="epc-dedicated-bearer-control", capture=capture,
+        )
+        for key in (
+            "transaction_reference",
+            "request_item_reference",
+            "response_item_reference",
+        ):
+            mention(item.get(key), "dedicated_association")
+    for item in bucket["audit"]:
+        _append_navigation_entry(
+            registry, item.get("audit_record_reference"),
+            collection="audit_records", source_analysis="epc-evidence-audit", capture=capture,
+        )
+    return registry, mentions
+
+
+def _resolve_navigation_reference(
+    reference: str,
+    capture: str,
+    *,
+    declared_analysis: Any,
+    declared_artifact: Any,
+    registries: dict[str, dict[str, list[dict[str, Any]]]],
+    mentions: dict[str, dict[str, list[str]]],
+    omitted: dict[str, dict[str, int]],
+    missing_artifacts: dict[str, set[str]],
+    displayed: dict[str, set[str]],
+    documents: dict[str, Any],
+) -> dict[str, Any]:
+    candidates = registries.get(capture, {}).get(reference, [])
+    endpoint_entries = [entry for entry in candidates if entry.get("family") == "bearer_endpoint"]
+    if endpoint_entries:
+        shapes = {
+            tuple(entry.get("attributes") or ()) for entry in endpoint_entries
+        }
+        other_entries = [entry for entry in candidates if entry not in endpoint_entries]
+        if len(shapes) == 1 and not other_entries:
+            preferred = next(
+                (
+                    entry
+                    for entry in endpoint_entries
+                    if entry["collection"] == "narrative_bearer_endpoints"
+                ),
+                endpoint_entries[0],
+            )
+            candidates = [preferred]
+    unique: dict[tuple[str, str, tuple[str, ...]], dict[str, Any]] = {}
+    for entry in candidates:
+        unique[(entry["collection"], entry["source_analysis"], tuple(entry["members"]))] = entry
+    duplicate_candidates = len(candidates) != len(unique)
+    declared_collection = (
+        declared_artifact.split(":", 1)[1]
+        if isinstance(declared_artifact, str) and ":" in declared_artifact
+        else None
+    )
+    hinted_collection = _reference_collection_hint(reference)
+    expected_collection = hinted_collection or declared_collection
+    base = {
+        "capture": capture,
+        "reference": reference,
+        "declared_source_analysis": declared_analysis,
+        "declared_artifact_reference": declared_artifact,
+        "expected_source_collection": expected_collection,
+        "candidate_count": len(candidates),
+        "candidate_references": sorted(key[0] for key in unique),
+        "source_omitted": False,
+        "display_omitted": False,
+    }
+    if len(candidates) == 1:
+        entry = next(iter(unique.values()))
+        collection = entry["collection"]
+        displayed_refs = displayed.get(collection, set())
+        base.update(
+            {
+                "status": NAVIGATION_RESOLVED,
+                "classification": NAVIGATION_RESOLVED,
+                "source_analysis": entry["source_analysis"],
+                "source_collection": collection,
+                "source_subject_reference": reference,
+                "source_artifact_reference": f"{entry['source_analysis']}:{collection}",
+                "actual_source_collection_presence": "PRESENT",
+                "ownership_dispatch_matches": declared_analysis in (None, entry["source_analysis"]),
+                "display_omitted": reference not in displayed_refs,
+                "source_completeness": _source_completeness_for(documents, collection),
+                "resolution_basis": (
+                    "the exact reference is an explicit identity of one source object in the "
+                    "recorded capture and the owning source artifact is present"
+                ),
+            }
+        )
+        return base
+    if len(unique) > 1 or duplicate_candidates:
+        base.update(
+            {
+                "status": NAVIGATION_AMBIGUOUS,
+                "classification": NAVIGATION_AMBIGUOUS,
+                "source_collection": sorted(key[0] for key in unique)[0],
+                "actual_source_collection_presence": "PRESENT",
+                "source_completeness": _source_completeness_for(documents, expected_collection),
+                "resolution_basis": "multiple source objects carry the same reference in this capture",
+            }
+        )
+        return base
+
+    other_captures = sorted(
+        other
+        for other, registry in registries.items()
+        if other != capture
+        and (
+            reference in registry
+            or reference in mentions.get(other, {})
+        )
+    )
+    if other_captures:
+        base.update(
+            {
+                "status": NAVIGATION_CROSS_CAPTURE_ISOLATED,
+                "classification": NAVIGATION_CROSS_CAPTURE_ISOLATED,
+                "actual_source_collection_presence": "ABSENT_IN_REFERENCING_CAPTURE",
+                "source_completeness": _source_completeness_for(documents, expected_collection),
+                "resolution_basis": (
+                    "the reference appears only in a different capture and is not resolved across capture scope"
+                ),
+                "candidate_captures": other_captures,
+            }
+        )
+        return base
+
+    if expected_collection == "gtpv2_transactions":
+        base.update(
+            {
+                "status": NAVIGATION_EXTERNAL_PROTOCOL_REFERENCE,
+                "classification": NAVIGATION_EXTERNAL_PROTOCOL_REFERENCE,
+                "source_collection": "gtpv2_transactions",
+                "actual_source_collection_presence": "EXTERNAL_PROTOCOL_ARTIFACT",
+                "resolution_basis": (
+                    "the reference identifies a GTPv2-C transaction owned by the protocol layer; "
+                    "the Review Pack consumes EPC Domain artifacts and does not navigate protocol transactions"
+                ),
+            }
+        )
+        return base
+
+    artifact_name = _collection_artifact(expected_collection)
+    if artifact_name is not None and artifact_name in missing_artifacts.get(capture, set()):
+        base.update(
+            {
+                "status": NAVIGATION_SOURCE_ARTIFACT_MISSING,
+                "classification": NAVIGATION_SOURCE_ARTIFACT_MISSING,
+                "actual_source_collection_presence": "NOT_SUPPLIED",
+                "resolution_basis": "the owning optional source artifact was not supplied",
+            }
+        )
+        return base
+
+    omitted_count = omitted.get(capture, {}).get(expected_collection or "", 0)
+    if omitted_count:
+        base.update(
+            {
+                "status": NAVIGATION_SOURCE_OMITTED,
+                "classification": NAVIGATION_SOURCE_OMITTED,
+                "actual_source_collection_presence": "OMITTED_BY_SOURCE",
+                "source_omitted": True,
+                "source_completeness": _source_completeness_for(documents, expected_collection),
+                "resolution_basis": (
+                    "the owning source collection declares omitted records and the reference is not in the published subset"
+                ),
+            }
+        )
+        return base
+
+    if reference in mentions.get(capture, {}):
+        base.update(
+            {
+                "status": NAVIGATION_RELATIONSHIP_REFERENCE_ONLY,
+                "classification": NAVIGATION_RELATIONSHIP_REFERENCE_ONLY,
+                "actual_source_collection_presence": "RELATIONSHIP_MENTION_ONLY",
+                "source_completeness": _source_completeness_for(documents, expected_collection),
+                "resolution_basis": (
+                    "the reference appears inside a relationship or evidence statement but is not an explicit identity of a published source object"
+                ),
+            }
+        )
+        return base
+
+    if ACCOUNTING_REFERENCE_PATTERN.search(reference):
+        base.update(
+            {
+                "status": NAVIGATION_NON_NAVIGABLE_ACCOUNTING,
+                "classification": NAVIGATION_NON_NAVIGABLE_ACCOUNTING,
+                "actual_source_collection_presence": "ACCOUNTING_LABEL",
+                "resolution_basis": "the reference is an accounting or collection label, not an addressable source object",
+            }
+        )
+        return base
+
+    if expected_collection is None:
+        base.update(
+            {
+                "status": NAVIGATION_INSUFFICIENT_EVIDENCE,
+                "classification": NAVIGATION_INSUFFICIENT_EVIDENCE,
+                "actual_source_collection_presence": "UNKNOWN",
+                "resolution_basis": "the reference does not identify an expected source collection",
+            }
+        )
+        return base
+
+    base.update(
+        {
+            "status": NAVIGATION_SOURCE_OBJECT_MISSING,
+            "classification": NAVIGATION_SOURCE_OBJECT_MISSING,
+            "source_collection": expected_collection,
+            "actual_source_collection_presence": "ABSENT",
+            "source_completeness": _source_completeness_for(documents, expected_collection),
+            "resolution_basis": (
+                "the owning source artifact is present and neither declares omission nor contains the reference as an explicit object identity"
+            ),
+        }
+    )
+    return base
+
+
 def _dedicated_item_projection(
     item: dict[str, Any],
     transaction: dict[str, Any] | None = None,
@@ -735,6 +1320,14 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
             str(item.get("target_subject_reference")),
         ),
     )
+    identity_endpoint_links = sorted(
+        [_dict(item) for item in _list(identity.get("endpoint_correspondence_links"))],
+        key=lambda item: (
+            str(item.get("capture_file")),
+            str(item.get("source_subject_reference")),
+            str(item.get("target_subject_reference")),
+        ),
+    )
     subjects = sorted(
         [_dict(item) for item in _list(lifecycle.get("lifecycle_subjects"))],
         key=lambda item: str(item.get("generation_reference")),
@@ -749,6 +1342,10 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
     releases = sorted(
         [_dict(item) for item in _list(narrative.get("release_narratives"))],
         key=lambda item: str(item.get("release_narrative_reference")),
+    )
+    narrative_subjects = sorted(
+        [_dict(item) for item in _list(narrative.get("narrative_subjects"))],
+        key=lambda item: str(item.get("narrative_subject_reference")),
     )
     observations = sorted(
         [_dict(item) for item in _list(narrative.get("temporal_observations"))],
@@ -777,6 +1374,7 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
 
     captures = _capture_set(documents)
     missing: list[dict[str, Any]] = []
+    external_references: list[dict[str, Any]] = []
     ambiguous: list[dict[str, Any]] = []
 
     def add_missing(kind: str, reference: Any, capture: str, context: str) -> None:
@@ -802,9 +1400,19 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
             "generation_links": [item for item in generation_links if safe_capture(item.get("capture_file")) == capture],
             "candidates": [item for item in candidates if safe_capture(item.get("capture_file")) == capture],
             "identity_links": [item for item in identity_links if safe_capture(item.get("capture_file")) == capture],
+            "identity_endpoint_links": [
+                item
+                for item in identity_endpoint_links
+                if safe_capture(item.get("capture_file")) == capture
+            ],
             "subjects": [item for item in subjects if safe_capture(item.get("capture_file")) == capture],
             "forced_streams": [item for item in forced_streams if safe_capture(item.get("capture_file")) == capture],
             "releases": [item for item in releases if safe_capture(item.get("capture_file")) == capture],
+            "narrative_subjects": [
+                item
+                for item in narrative_subjects
+                if safe_capture(item.get("capture_file")) == capture
+            ],
             "observations": [item for item in observations if safe_capture(item.get("capture_file")) == capture],
             "streams": [item for item in streams if safe_capture(item.get("capture_file")) == capture],
             "audit": [item for item in audit_records if safe_capture(item.get("capture_file")) == capture],
@@ -827,6 +1435,7 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
         for kind, key in (
             ("session_context", "hop_local_contexts"),
             ("release_narrative", "release_narratives"),
+            ("narrative_subject", "narrative_subjects"),
             ("temporal_observation", "temporal_observations"),
             ("s1u_stream", "stream_observations"),
             ("bearer_generation", "lifecycle_subjects"),
@@ -834,6 +1443,7 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
             source = {
                 "session_context": by_capture[capture]["contexts"],
                 "release_narrative": by_capture[capture]["releases"],
+                "narrative_subject": by_capture[capture]["narrative_subjects"],
                 "temporal_observation": by_capture[capture]["observations"],
                 "s1u_stream": by_capture[capture]["streams"],
                 "bearer_generation": by_capture[capture]["subjects"],
@@ -841,6 +1451,7 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
             reference_key = {
                 "session_context": "session_context_reference",
                 "release_narrative": "release_narrative_reference",
+                "narrative_subject": "narrative_subject_reference",
                 "temporal_observation": "temporal_observation_reference",
                 "s1u_stream": "stream_reference",
                 "bearer_generation": "generation_reference",
@@ -853,6 +1464,25 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
                         "reference": reference,
                         "occurrences": count,
                         "limitation": "equal textual references inside one capture are ambiguous and are not selected",
+                    }
+                )
+        group_shapes: dict[str, set[tuple[str, ...]]] = {}
+        for item in by_capture[capture]["narrative_subjects"]:
+            group = _safe_reference(item.get("narrative_group_reference"))
+            if group is None:
+                continue
+            group_shapes.setdefault(group, set()).add(
+                tuple(sorted(str(value) for value in _list(item.get("narrative_group_members")) if isinstance(value, str)))
+            )
+        for group, shapes in sorted(group_shapes.items()):
+            if len(shapes) > 1:
+                ambiguous.append(
+                    {
+                        "capture": capture,
+                        "kind": "narrative_group",
+                        "reference": group,
+                        "occurrences": sum(len(shape) for shape in shapes),
+                        "limitation": "equal narrative-group references carry different membership and are not selected",
                     }
                 )
         by_capture[capture]["_keys"] = {
@@ -875,6 +1505,20 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
                 str(item.get("generation_closure_candidate_reference")): item for item in by_capture[capture]["candidates"]
             },
         }
+        registry, mentions = _build_source_navigation(by_capture[capture], capture)
+        by_capture[capture]["_registry"] = registry
+        by_capture[capture]["_mentions"] = mentions
+
+    registries = {
+        capture: by_capture[capture]["_registry"] for capture in captures
+    }
+    mentions_by_capture = {
+        capture: by_capture[capture]["_mentions"] for capture in captures
+    }
+    omitted_by_capture = {capture: _source_omitted_counts(documents) for capture in captures}
+    missing_artifacts_by_capture = {
+        capture: _missing_optional_artifacts(documents) for capture in captures
+    }
 
     cross_capture_collisions: list[dict[str, Any]] = []
     for kind, key, collection in (
@@ -883,6 +1527,7 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
         ("bearer_generation", "generation_reference", subjects),
         ("session_context", "session_context_reference", contexts),
         ("release_narrative", "release_narrative_reference", releases),
+        ("narrative_subject", "narrative_subject_reference", narrative_subjects),
     ):
         values: dict[str, set[str]] = {}
         for item in collection:
@@ -902,6 +1547,13 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
                 )
 
     capture_nodes: list[dict[str, Any]] = []
+    navigation_checked = 0
+    navigation_unresolved = 0
+    navigation_source_omitted = 0
+    navigation_display_omitted = 0
+    navigation_external = 0
+    navigation_unique: set[str] = set()
+    navigation_counts: dict[str, int] = {classification: 0 for classification in NAVIGATION_CLASSIFICATIONS}
     for capture in captures:
         bucket = by_capture[capture]
         keys = bucket["_keys"]
@@ -984,83 +1636,282 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
                     "last_observed_frame": item.get("last_observed_frame"),
                 }
             )
-        known: set[str] = set()
-        for namespace in keys.values():
-            known.update(namespace.keys())
-        for item in bucket["contexts"]:
-            known.add(str(item.get("session_context_reference")))
-        for item in bucket["releases"]:
-            known.update(
-                str(item.get(key))
-                for key in (
-                    "release_narrative_reference",
-                    "release_transaction_reference",
-                    "narrative_subject_reference",
-                    "narrative_group_reference",
-                    "session_context_reference",
+        narrative_group_nodes: list[dict[str, Any]] = []
+        group_members: dict[str, set[str]] = {}
+        group_basis: dict[str, str] = {}
+        group_bridges: dict[str, set[str]] = {}
+        for item in bucket["narrative_subjects"]:
+            group = _safe_reference(item.get("narrative_group_reference"))
+            if group is None:
+                continue
+            group_members.setdefault(group, set()).update(
+                str(value) for value in _list(item.get("narrative_group_members")) if isinstance(value, str)
+            )
+            group_basis.setdefault(group, str(item.get("narrative_group_basis") or ""))
+            group_bridges.setdefault(group, set()).update(
+                str(value)
+                for value in _list(item.get("narrative_group_bridge_references"))
+                if isinstance(value, str)
+            )
+        for group in sorted(group_members)[:MAX_NARRATIVE_GROUPS]:
+            narrative_group_nodes.append(
+                {
+                    "narrative_group_reference": group,
+                    "narrative_group_basis": group_basis.get(group) or None,
+                    "members": sorted(group_members[group]),
+                    "bridge_references": sorted(group_bridges[group]),
+                }
+            )
+        narrative_subject_nodes = [
+            {
+                "narrative_subject_reference": item.get("narrative_subject_reference"),
+                "narrative_group_reference": item.get("narrative_group_reference"),
+                "interface_class": item.get("interface_class"),
+                "session_context_reference": item.get("session_context_reference"),
+                "session_context_status": item.get("session_context_status"),
+                "allocation_outcome_status": item.get("allocation_outcome_status"),
+                "member_transaction_references": [
+                    value
+                    for value in _list(item.get("member_transaction_references"))[:MAX_REFERENCES]
+                    if isinstance(value, str)
+                ],
+                "release_narrative_references": [
+                    value
+                    for value in _list(item.get("release_narrative_references"))[:MAX_REFERENCES]
+                    if isinstance(value, str)
+                ],
+                "endpoint_correspondence_references": [
+                    value
+                    for value in _list(item.get("endpoint_correspondence_references"))[:MAX_REFERENCES]
+                    if isinstance(value, str)
+                ],
+                "narrative_group_bridge_references": [
+                    value
+                    for value in _list(item.get("narrative_group_bridge_references"))[:MAX_REFERENCES]
+                    if isinstance(value, str)
+                ],
+            }
+            for item in bucket["narrative_subjects"][:MAX_NARRATIVE_SUBJECTS]
+        ]
+        endpoint_total = len(
+            {
+                endpoint
+                for endpoint in (
+                    _safe_reference(_dict(value).get("bearer_endpoint_reference"))
+                    for subject in bucket["narrative_subjects"]
+                    for value in _list(subject.get("bearer_endpoints"))
                 )
-            )
-        for item in bucket["subjects"]:
-            known.update(
-                str(item.get(key))
-                for key in ("generation_reference", "transaction_reference")
-            )
-            boundary = _dict(item.get("generation_boundary"))
-            if boundary.get("transaction_reference") is not None:
-                known.add(str(boundary.get("transaction_reference")))
-        for item in bucket["bindings"]:
-            known.update(
-                str(item.get(key))
-                for key in ("source_subject_reference", "target_subject_reference")
-            )
-        for item in bucket["generation_links"]:
-            known.update(
-                str(item.get(key))
-                for key in ("source_subject_reference", "target_subject_reference")
-            )
-        for item in bucket["candidates"]:
-            known.update(
-                str(item.get(key))
-                for key in (
-                    "generation_closure_candidate_reference",
-                    "session_context_reference",
-                    "release_transaction_reference",
-                    "bearer_endpoint_reference",
+                if endpoint is not None
+            }
+            | {
+                reference
+                for reference in (
+                    _safe_reference(link.get("target_subject_reference"))
+                    for link in bucket["generation_links"]
                 )
+                if reference is not None and reference.startswith("epc-bearer-endpoint-")
+            }
+        )
+        narrative_endpoint_nodes = [
+            {
+                "bearer_endpoint_reference": endpoint.get("bearer_endpoint_reference"),
+                "parent_narrative_subject_reference": subject.get("narrative_subject_reference"),
+                "role": endpoint.get("role"),
+                "interface_type": endpoint.get("interface_type"),
+                "teid": endpoint.get("teid"),
+                "association_status": endpoint.get("association_status"),
+                "association_basis": endpoint.get("association_basis"),
+                "bridge_mediated": bool(endpoint.get("bridge_mediated")),
+                "generation_references": [
+                    value
+                    for value in _list(endpoint.get("generation_references"))[:MAX_REFERENCES]
+                    if isinstance(value, str)
+                ],
+            }
+            for subject in bucket["narrative_subjects"][:MAX_NARRATIVE_SUBJECTS]
+            for endpoint in (
+                _dict(value) for value in _list(subject.get("bearer_endpoints"))
             )
-        for item in bucket["identity_links"]:
-            known.update(
-                str(item.get(key))
-                for key in ("source_subject_reference", "target_subject_reference")
-            )
-        for item in bucket["forced_streams"]:
-            known.update(
-                str(item.get(key))
-                for key in ("source_stream_reference", "generation_reference")
-            )
-        for item in bucket["streams"]:
-            known.add(str(item.get("stream_reference")))
-        for item in bucket["observations"]:
-            known.update(
-                str(item.get(key))
-                for key in (
-                    "temporal_observation_reference",
-                    "release_narrative_reference",
-                    "stream_reference",
-                    "generation_reference",
+            if isinstance(endpoint.get("bearer_endpoint_reference"), str)
+        ][:MAX_NARRATIVE_ENDPOINTS]
+        displayed = {
+            "hop_local_contexts": {
+                value for value in (node.get("session_context_reference") for node in context_nodes) if isinstance(value, str)
+            },
+            "release_narratives": {
+                value
+                for value in (
+                    node.get("release_narrative_reference")
+                    for node in bucket["releases"][:MAX_RELEASES]
                 )
-            )
-        for item in bucket["audit"]:
-            known.add(str(item.get("audit_record_reference")))
-        known = {value for value in known if value and value != "None"}
+                if isinstance(value, str)
+            },
+            "narrative_subjects": {
+                value
+                for value in (
+                    node.get("narrative_subject_reference") for node in narrative_subject_nodes
+                )
+                if isinstance(value, str)
+            },
+            "narrative_groups": {
+                value
+                for value in (
+                    node.get("narrative_group_reference") for node in narrative_group_nodes
+                )
+                if isinstance(value, str)
+            },
+            "narrative_bearer_endpoints": {
+                value
+                for value in (
+                    node.get("bearer_endpoint_reference") for node in narrative_endpoint_nodes
+                )
+                if isinstance(value, str)
+            },
+            "temporal_observations": {
+                value
+                for value in (node.get("temporal_observation_reference") for node in observation_nodes)
+                if isinstance(value, str)
+            },
+            "stream_observations": {
+                value for value in (node.get("stream_reference") for node in stream_nodes) if isinstance(value, str)
+            },
+            "lifecycle_subjects": {
+                value for value in (node.get("generation_reference") for node in generation_nodes) if isinstance(value, str)
+            },
+            "control_transactions": {
+                value
+                for value in (
+                    item.get("transaction_reference")
+                    for item in bucket["dedicated_transactions"][:MAX_DEDICATED_TRANSACTIONS]
+                )
+                if isinstance(value, str)
+            },
+            "bearer_item_observations": {
+                value
+                for value in (
+                    item.get("item_reference")
+                    for item in bucket["dedicated_items"][:MAX_DEDICATED_ITEMS]
+                )
+                if isinstance(value, str)
+            },
+            "item_associations": {
+                value
+                for value in (
+                    item.get("association_reference")
+                    for item in bucket["dedicated_associations"][:MAX_DEDICATED_ASSOCIATIONS]
+                )
+                if isinstance(value, str)
+            },
+            "audit_records": {
+                value
+                for value in (
+                    item.get("audit_record_reference") for item in bucket["audit"][:MAX_FINDINGS]
+                )
+                if isinstance(value, str)
+            },
+        }
         audit_nodes: list[dict[str, Any]] = []
         for item in bucket["audit"][:MAX_FINDINGS]:
             source_subject = item.get("source_subject_reference")
             target_subject = item.get("target_subject_reference")
-            if isinstance(source_subject, str) and source_subject not in known:
-                add_missing("AUDIT_SUBJECT", source_subject, capture, str(item.get("audit_record_reference")))
-            if isinstance(target_subject, str) and target_subject not in known:
-                add_missing("AUDIT_SUBJECT", target_subject, capture, str(item.get("audit_record_reference")))
+            source_resolution = (
+                _resolve_navigation_reference(
+                    source_subject,
+                    capture,
+                    declared_analysis=item.get("source_analysis"),
+                    declared_artifact=item.get("source_artifact_reference"),
+                    registries=registries,
+                    mentions=mentions_by_capture,
+                    omitted=omitted_by_capture,
+                    missing_artifacts=missing_artifacts_by_capture,
+                    displayed=displayed,
+                    documents=documents,
+                )
+                if isinstance(source_subject, str)
+                else None
+            )
+            target_resolution = (
+                _resolve_navigation_reference(
+                    target_subject,
+                    capture,
+                    declared_analysis=item.get("target_analysis"),
+                    declared_artifact=item.get("target_artifact_reference"),
+                    registries=registries,
+                    mentions=mentions_by_capture,
+                    omitted=omitted_by_capture,
+                    missing_artifacts=missing_artifacts_by_capture,
+                    displayed=displayed,
+                    documents=documents,
+                )
+                if isinstance(target_subject, str)
+                else None
+            )
+            for resolution, role in ((source_resolution, "source"), (target_resolution, "target")):
+                if resolution is None:
+                    continue
+                reference = resolution["reference"]
+                navigation_checked += 1
+                navigation_unique.add(reference)
+                navigation_counts[resolution["classification"]] = (
+                    navigation_counts.get(resolution["classification"], 0) + 1
+                )
+                if resolution["classification"] != NAVIGATION_RESOLVED:
+                    navigation_unresolved += 1
+                    if resolution.get("source_omitted"):
+                        navigation_source_omitted += 1
+                    if resolution.get("display_omitted"):
+                        navigation_display_omitted += 1
+                    entry = {
+                        "capture": capture,
+                        "kind": "AUDIT_SUBJECT",
+                        "reference": reference,
+                        "context": str(item.get("audit_record_reference")),
+                        "role": role,
+                        "classification": resolution["classification"],
+                        "declared_source_analysis": resolution.get("declared_source_analysis"),
+                        "declared_artifact_reference": resolution.get("declared_artifact_reference"),
+                        "source_analysis": resolution.get("source_analysis"),
+                        "actual_source_analysis": resolution.get("source_analysis"),
+                        "ownership_dispatch_matches": resolution.get("ownership_dispatch_matches"),
+                        "source_collection": resolution.get("source_collection"),
+                        "source_subject_reference": reference,
+                        "source_artifact_reference": resolution.get("source_artifact_reference"),
+                        "expected_source_collection": resolution.get("expected_source_collection"),
+                        "actual_source_collection_presence": resolution.get(
+                            "actual_source_collection_presence"
+                        ),
+                        "candidate_count": resolution.get("candidate_count", 0),
+                        "candidate_references": resolution.get("candidate_references", []),
+                        "candidate_captures": resolution.get("candidate_captures", []),
+                        "source_completeness": resolution.get("source_completeness"),
+                        "source_omitted": bool(resolution.get("source_omitted")),
+                        "display_omitted": bool(resolution.get("display_omitted")),
+                        "source_omission_status": (
+                            "PUBLICATION_OMITTED"
+                            if resolution.get("source_omitted")
+                            else "NOT_OMITTED"
+                        ),
+                        "review_display_omission_status": (
+                            "DISPLAY_OMITTED"
+                            if resolution.get("display_omitted")
+                            else "DISPLAYED_OR_NOT_REQUIRED"
+                        ),
+                        "resolution_basis": resolution.get("resolution_basis"),
+                        "relationship_type": item.get("relationship_type"),
+                        "audit_status": item.get("audit_status"),
+                        "limitation": (
+                            f"audit {role} reference is {resolution['classification']} "
+                            "in its capture scope"
+                        ),
+                    }
+                    if (
+                        resolution["classification"]
+                        == NAVIGATION_EXTERNAL_PROTOCOL_REFERENCE
+                    ):
+                        navigation_external += 1
+                        external_references.append(entry)
+                    else:
+                        _append_missing(missing, entry)
             audit_nodes.append(
                 {
                     "audit_record_reference": item.get("audit_record_reference"),
@@ -1069,6 +1920,8 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
                     "relationship_type": item.get("relationship_type"),
                     "source_subject_reference": source_subject,
                     "target_subject_reference": target_subject,
+                    "source_subject_resolution": source_resolution,
+                    "target_subject_resolution": target_resolution,
                     "proof_sufficiency_status": item.get("proof_sufficiency_status"),
                     "candidate_completeness_status": item.get("candidate_completeness_status"),
                     "failed_checks": sorted(
@@ -1225,6 +2078,9 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
                 "capture": capture,
                 "session_contexts": context_nodes,
                 "release_narratives": release_nodes,
+                "narrative_subjects": narrative_subject_nodes,
+                "narrative_groups": narrative_group_nodes,
+                "narrative_bearer_endpoints": narrative_endpoint_nodes,
                 "bearer_generations": generation_nodes,
                 "s1u_streams": stream_nodes,
                 "temporal_observations": observation_nodes,
@@ -1237,6 +2093,9 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
                 "counts": {
                     "session_contexts": len(bucket["contexts"]),
                     "release_narratives": len(bucket["releases"]),
+                    "narrative_subjects": len(bucket["narrative_subjects"]),
+                    "narrative_groups": len(group_members),
+                    "narrative_bearer_endpoints": endpoint_total,
                     "bearer_generations": len(bucket["subjects"]),
                     "s1u_streams": len(bucket["streams"]),
                     "temporal_observations": len(bucket["observations"]),
@@ -1247,9 +2106,45 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
                     "session_to_generation_links": len(bucket["generation_links"]),
                     "identity_links": len(bucket["identity_links"]),
                 },
+                "source_omitted": {
+                    key: value
+                    for key, value in omitted_by_capture[capture].items()
+                    if value > 0
+                },
+                "display_omitted": {
+                    "session_contexts": max(0, len(bucket["contexts"]) - MAX_CONTEXTS),
+                    "release_narratives": max(0, len(bucket["releases"]) - MAX_RELEASES),
+                    "narrative_subjects": max(
+                        0, len(bucket["narrative_subjects"]) - MAX_NARRATIVE_SUBJECTS
+                    ),
+                    "narrative_groups": max(0, len(group_members) - MAX_NARRATIVE_GROUPS),
+                    "narrative_bearer_endpoints": max(
+                        0, endpoint_total - MAX_NARRATIVE_ENDPOINTS
+                    ),
+                    "bearer_generations": max(0, len(bucket["subjects"]) - MAX_GENERATIONS),
+                    "s1u_streams": max(0, len(bucket["streams"]) - MAX_STREAMS),
+                    "temporal_observations": max(0, len(bucket["observations"]) - MAX_OBSERVATIONS),
+                    "audit_findings": max(0, len(bucket["audit"]) - MAX_FINDINGS),
+                    "dedicated_control_transactions": max(
+                        0, len(bucket["dedicated_transactions"]) - MAX_DEDICATED_TRANSACTIONS
+                    ),
+                    "dedicated_bearer_items": max(
+                        0, len(bucket["dedicated_items"]) - MAX_DEDICATED_ITEMS
+                    ),
+                    "dedicated_item_associations": max(
+                        0, len(bucket["dedicated_associations"]) - MAX_DEDICATED_ASSOCIATIONS
+                    ),
+                },
                 "omitted": {
                     "session_contexts": max(0, len(bucket["contexts"]) - MAX_CONTEXTS),
                     "release_narratives": max(0, len(bucket["releases"]) - MAX_RELEASES),
+                    "narrative_subjects": max(
+                        0, len(bucket["narrative_subjects"]) - MAX_NARRATIVE_SUBJECTS
+                    ),
+                    "narrative_groups": max(0, len(group_members) - MAX_NARRATIVE_GROUPS),
+                    "narrative_bearer_endpoints": max(
+                        0, endpoint_total - MAX_NARRATIVE_ENDPOINTS
+                    ),
                     "bearer_generations": max(0, len(bucket["subjects"]) - MAX_GENERATIONS),
                     "s1u_streams": max(0, len(bucket["streams"]) - MAX_STREAMS),
                     "temporal_observations": max(0, len(bucket["observations"]) - MAX_OBSERVATIONS),
@@ -1273,6 +2168,8 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
         "captures": capture_nodes,
         "missing_references": missing[:MAX_REFERENCES],
         "missing_reference_count": len(missing),
+        "external_non_navigable_references": external_references[:MAX_REFERENCES],
+        "external_non_navigable_reference_count": len(external_references),
         "ambiguous_references": ambiguous[:MAX_REFERENCES],
         "ambiguous_reference_count": len(ambiguous),
         "cross_capture_references": cross_capture_collisions[:MAX_REFERENCES],
@@ -1280,6 +2177,28 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
         "reference_counts": {
             "session_context": len(contexts),
             "release_narrative": len(releases),
+            "narrative_subject": len(narrative_subjects),
+            "narrative_group": len(
+                {
+                    group
+                    for group in (
+                        _safe_reference(item.get("narrative_group_reference"))
+                        for item in narrative_subjects
+                    )
+                    if group is not None
+                }
+            ),
+            "narrative_bearer_endpoint": len(
+                {
+                    endpoint
+                    for endpoint in (
+                        _safe_reference(_dict(item).get("bearer_endpoint_reference"))
+                        for subject in narrative_subjects
+                        for item in _list(subject.get("bearer_endpoints"))
+                    )
+                    if endpoint is not None
+                }
+            ),
             "bearer_generation": len(subjects),
             "s1u_stream": len(streams),
             "temporal_observation": len(observations),
@@ -1294,6 +2213,9 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
         "bounded_limits": {
             "session_contexts": MAX_CONTEXTS,
             "release_narratives": MAX_RELEASES,
+            "narrative_subjects": MAX_NARRATIVE_SUBJECTS,
+            "narrative_groups": MAX_NARRATIVE_GROUPS,
+            "narrative_bearer_endpoints": MAX_NARRATIVE_ENDPOINTS,
             "bearer_generations": MAX_GENERATIONS,
             "s1u_streams": MAX_STREAMS,
             "temporal_observations": MAX_OBSERVATIONS,
@@ -1302,6 +2224,24 @@ def build_index(documents: dict[str, Any]) -> dict[str, Any]:
             "dedicated_control_transactions": MAX_DEDICATED_TRANSACTIONS,
             "dedicated_bearer_items": MAX_DEDICATED_ITEMS,
             "dedicated_item_associations": MAX_DEDICATED_ASSOCIATIONS,
+        },
+        "navigation_summary": {
+            "contract": (
+                "an audit subject is RESOLVED only when the owning source artifact is present, "
+                "the exact reference is an explicit identity of one compatible source object in the "
+                "recorded capture, and no ambiguity applies"
+            ),
+            "audit_reference_count": navigation_checked,
+            "unique_reference_count": len(navigation_unique),
+            "resolved_reference_count": navigation_counts.get(NAVIGATION_RESOLVED, 0),
+            "unresolved_reference_count": navigation_unresolved,
+            "classifications": {
+                key: value for key, value in sorted(navigation_counts.items()) if value
+            },
+            "source_omitted_reference_count": navigation_source_omitted,
+            "review_display_omitted_reference_count": navigation_display_omitted,
+            "external_protocol_reference_count": navigation_external,
+            "unresolved_reference_count_bounded": min(navigation_unresolved, MAX_REFERENCES),
         },
     }
 
@@ -1469,6 +2409,10 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
     releases = sorted(
         [_dict(item) for item in _list(narrative.get("release_narratives"))],
         key=lambda item: str(item.get("release_narrative_reference")),
+    )
+    narrative_subjects = sorted(
+        [_dict(item) for item in _list(narrative.get("narrative_subjects"))],
+        key=lambda item: str(item.get("narrative_subject_reference")),
     )
     observations = sorted(
         [_dict(item) for item in _list(narrative.get("temporal_observations"))],
@@ -1807,24 +2751,76 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
             "kind": item.get("kind"),
             "reference": item.get("reference"),
             "context": item.get("context"),
+            "role": item.get("role"),
+            "navigation_classification": item.get("classification"),
+            "declared_source_analysis": item.get("declared_source_analysis"),
+            "declared_artifact_reference": item.get("declared_artifact_reference"),
+            "source_collection": item.get("source_collection"),
+            "expected_source_collection": item.get("expected_source_collection"),
+            "actual_source_collection_presence": item.get("actual_source_collection_presence"),
+            "candidate_count": item.get("candidate_count"),
+            "candidate_references": item.get("candidate_references"),
+            "source_completeness": item.get("source_completeness"),
+            "source_omitted": bool(item.get("source_omitted")),
+            "display_omitted": bool(item.get("display_omitted")),
+            "source_omission_status": item.get("source_omission_status"),
+            "review_display_omission_status": item.get("review_display_omission_status"),
+            "resolution_basis": item.get("resolution_basis"),
             "source_references": [item.get("reference")],
             "limitation": item.get("limitation"),
         }
         for item in index["missing_references"]
     ]
+    sections["external_non_navigable_references"] = [
+        {
+            "classification": CLASSIFICATION_UNRESOLVED,
+            "capture": item.get("capture"),
+            "kind": item.get("kind"),
+            "reference": item.get("reference"),
+            "context": item.get("context"),
+            "role": item.get("role"),
+            "navigation_classification": item.get("classification"),
+            "declared_artifact_reference": item.get("declared_artifact_reference"),
+            "expected_source_collection": item.get("expected_source_collection"),
+            "actual_source_collection_presence": item.get("actual_source_collection_presence"),
+            "resolution_basis": item.get("resolution_basis"),
+            "source_references": [item.get("reference")],
+            "limitation": item.get("limitation"),
+        }
+        for item in index.get("external_non_navigable_references", [])
+    ]
+    index_audit_nodes: dict[tuple[str, str], dict[str, Any]] = {}
+    for capture_node in _list(index.get("captures")):
+        capture_node = _dict(capture_node)
+        capture = safe_capture(capture_node.get("capture"))
+        for node in _list(capture_node.get("audit_findings")):
+            node = _dict(node)
+            reference = node.get("audit_record_reference")
+            if capture and isinstance(reference, str):
+                index_audit_nodes[(capture, reference)] = node
     findings = []
     for record in audit_records[:MAX_FINDINGS]:
         record = _dict(record)
+        capture = safe_capture(record.get("capture_file"))
+        node = index_audit_nodes.get((capture or "", str(record.get("audit_record_reference"))), {})
+        source_resolution = _dict(node.get("source_subject_resolution"))
+        target_resolution = _dict(node.get("target_subject_resolution"))
         findings.append(
             {
                 "classification": CLASSIFICATION_AUDIT,
-                "capture": safe_capture(record.get("capture_file")),
+                "capture": capture,
                 "audit_record_reference": record.get("audit_record_reference"),
                 "audit_category": record.get("audit_category"),
                 "audit_status": record.get("audit_status"),
                 "proof_sufficiency_status": record.get("proof_sufficiency_status"),
                 "source_subject_reference": record.get("source_subject_reference"),
                 "target_subject_reference": record.get("target_subject_reference"),
+                "source_navigation_classification": source_resolution.get("classification"),
+                "target_navigation_classification": target_resolution.get("classification"),
+                "source_analysis": source_resolution.get("source_analysis"),
+                "source_collection": source_resolution.get("source_collection"),
+                "target_analysis": target_resolution.get("source_analysis"),
+                "target_collection": target_resolution.get("source_collection"),
                 "source_references": [
                     value
                     for value in (
@@ -1890,10 +2886,37 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
         "capture_count": len(index["captures"]),
         "session_context_count": len(contexts),
         "release_narrative_count": len(releases),
+        "narrative_subject_count": len(narrative_subjects),
+        "narrative_bearer_endpoint_count": len(
+            {
+                endpoint
+                for endpoint in (
+                    _safe_reference(_dict(value).get("bearer_endpoint_reference"))
+                    for subject in narrative_subjects
+                    for value in _list(subject.get("bearer_endpoints"))
+                )
+                if endpoint is not None
+            }
+        ),
         "bearer_generation_count": len(generations),
         "s1u_stream_count": len(streams),
         "temporal_observation_count": len(observations),
         "audit_record_count": len(audit_records),
+        "navigation_audit_reference_count": _dict(index.get("navigation_summary")).get(
+            "audit_reference_count"
+        ),
+        "navigation_resolved_reference_count": _dict(index.get("navigation_summary")).get(
+            "resolved_reference_count"
+        ),
+        "navigation_unresolved_reference_count": _dict(index.get("navigation_summary")).get(
+            "unresolved_reference_count"
+        ),
+        "navigation_classifications": _dict(index.get("navigation_summary")).get(
+            "classifications", {}
+        ),
+        "navigation_external_protocol_reference_count": _dict(
+            index.get("navigation_summary")
+        ).get("external_protocol_reference_count"),
         "dedicated_source_supplied": dedicated_document is not None,
         "dedicated_status": dedicated_summary.get("status"),
         "dedicated_control_transaction_count": dedicated_summary.get(
@@ -1920,6 +2943,7 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
         "published": {
             "session_contexts": min(len(contexts), MAX_CONTEXTS),
             "release_narratives": min(len(releases), MAX_RELEASES),
+            "narrative_subjects": min(len(narrative_subjects), MAX_NARRATIVE_SUBJECTS),
             "bearer_generations": min(len(generations), MAX_GENERATIONS),
             "s1u_streams": min(len(streams), MAX_STREAMS),
             "temporal_observations": min(len(observations), MAX_OBSERVATIONS),
@@ -1935,6 +2959,7 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
         "omitted": {
             "session_contexts": max(0, len(contexts) - MAX_CONTEXTS),
             "release_narratives": max(0, len(releases) - MAX_RELEASES),
+            "narrative_subjects": max(0, len(narrative_subjects) - MAX_NARRATIVE_SUBJECTS),
             "bearer_generations": max(0, len(generations) - MAX_GENERATIONS),
             "s1u_streams": max(0, len(streams) - MAX_STREAMS),
             "temporal_observations": max(0, len(observations) - MAX_OBSERVATIONS),
@@ -1992,6 +3017,7 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
             "limits": index["bounded_limits"],
         },
         "coverage": coverage,
+        "navigation": _dict(index.get("navigation_summary")),
         "sections": sections,
         "section_counts": {name: len(value) for name, value in sections.items()},
         "not_confirmed": [
@@ -2227,12 +3253,58 @@ def render_markdown(
     simple(
         "missing_cross_artifact_references",
         "12. Missing Cross-Artifact References",
-        ("capture", "kind", "reference", "context"),
+        (
+            "capture",
+            "kind",
+            "reference",
+            "role",
+            "navigation_classification",
+            "source_collection",
+            "source_omission_status",
+            "review_display_omission_status",
+        ),
+    )
+    navigation = _dict(review.get("navigation"))
+    lines.append(
+        f"- navigation audit references: {navigation.get('audit_reference_count')}; "
+        f"resolved {navigation.get('resolved_reference_count')}; "
+        f"unresolved {navigation.get('unresolved_reference_count')}"
+    )
+    lines.append(
+        f"- navigation classifications: {json.dumps(navigation.get('classifications') or {}, sort_keys=True)}"
+    )
+    lines.append(
+        f"- source-omitted references: {navigation.get('source_omitted_reference_count')}; "
+        f"review-display-omitted references: {navigation.get('review_display_omitted_reference_count')}; "
+        f"external protocol references: {navigation.get('external_protocol_reference_count')}"
+    )
+    lines.append(f"- navigation contract: {navigation.get('contract')}")
+    lines.append("")
+    simple(
+        "external_non_navigable_references",
+        "12A. External Non-Navigable References",
+        (
+            "capture",
+            "kind",
+            "reference",
+            "role",
+            "navigation_classification",
+            "expected_source_collection",
+            "actual_source_collection_presence",
+        ),
     )
     simple(
         "evidence_audit_findings",
         "13. Evidence Audit Findings",
-        ("capture", "audit_record_reference", "audit_category", "audit_status", "proof_sufficiency_status"),
+        (
+            "capture",
+            "audit_record_reference",
+            "audit_category",
+            "audit_status",
+            "proof_sufficiency_status",
+            "source_navigation_classification",
+            "target_navigation_classification",
+        ),
     )
 
     lines.append("## 14. Evidence References for Manual Inspection")
