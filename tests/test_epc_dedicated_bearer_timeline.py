@@ -110,6 +110,7 @@ def control_document(
         "bearer_item_observations": items,
         "bearer_item_observation_count": len(items),
         "bearer_item_observations_omitted": 0,
+        "source_completeness": {"status": "COMPLETE"},
     }
 
 
@@ -223,6 +224,14 @@ class TimelinePositiveTests(TimelineTestCase):
         self.assertEqual(entry["nas_esm_association"]["status"], "NOT_OBSERVED")
         self.assertEqual(entry["s1ap_erab_association"]["status"], "NOT_OBSERVED")
         self.assertEqual(entry["cross_layer_association_status"], "NOT_OBSERVED")
+        self.assertEqual(entry["cross_layer_relationship_summary"], "NO_ASSOCIATION_OBSERVED")
+        self.assertEqual(timeline["source_completeness"]["status"], "PARTIAL")
+        self.assertEqual(
+            timeline["source_completeness"]["nas_input_status"], "NOT_SUPPLIED"
+        )
+        self.assertEqual(
+            timeline["source_completeness"]["s1ap_input_status"], "NOT_SUPPLIED"
+        )
         self.assertEqual(entry["observed_nas_esm_references"], [])
 
     def test_complete_create_signaling_is_established(self) -> None:
@@ -232,14 +241,15 @@ class TimelinePositiveTests(TimelineTestCase):
             nas_event(108, 198, "ACCEPT", 5),
         ]
         s1ap = [
-            s1ap_event(102, "E_RAB_SETUP", "REQUEST", 7, "ctx-1"),
-            s1ap_event(108, "E_RAB_SETUP", "SUCCESS", 7, "ctx-1"),
+            s1ap_event(102, "E_RAB_SETUP", "REQUEST", 5, "ctx-1"),
+            s1ap_event(108, "E_RAB_SETUP", "SUCCESS", 5, "ctx-1"),
         ]
         timeline = self.build(control_document([tx], items), nas, s1ap)
         entry = timeline["timeline_entries"][0]
         self.assertEqual(entry["nas_esm_association"]["status"], "ESTABLISHED_BY_EVIDENCE")
         self.assertEqual(entry["s1ap_erab_association"]["status"], "ESTABLISHED_BY_EVIDENCE")
         self.assertEqual(entry["cross_layer_association_status"], "ESTABLISHED_BY_EVIDENCE")
+        self.assertEqual(entry["cross_layer_relationship_summary"], "COMPLETE_THREE_PLANE")
         self.assertEqual(
             [ref["frame_number"] for ref in entry["observed_nas_esm_references"]], [102, 108]
         )
@@ -263,9 +273,12 @@ class TimelinePositiveTests(TimelineTestCase):
                     s1ap_event(208, operation, "COMPLETE" if family == "delete-bearer" else "SUCCESS", 7, "ctx-1"),
                 ]
                 timeline = self.build(control_document([tx], items), nas, s1ap)
+                entry = timeline["timeline_entries"][0]
                 self.assertEqual(
-                    timeline["timeline_entries"][0]["cross_layer_association_status"],
-                    "ESTABLISHED_BY_EVIDENCE",
+                    entry["cross_layer_association_status"], "ESTABLISHED_BY_EVIDENCE"
+                )
+                self.assertEqual(
+                    entry["cross_layer_relationship_summary"], "COMPLETE_THREE_PLANE"
                 )
 
     def test_reject_is_observed_without_acceptance_verdict(self) -> None:
@@ -281,6 +294,7 @@ class TimelinePositiveTests(TimelineTestCase):
         timeline = self.build(control_document([tx], items), nas, s1ap)
         entry = timeline["timeline_entries"][0]
         self.assertEqual(entry["nas_esm_association"]["status"], "ESTABLISHED_BY_EVIDENCE")
+        self.assertEqual(entry["cross_layer_relationship_summary"], "COMPLETE_THREE_PLANE")
         self.assertIn("does not prove UE acceptance", " ".join(entry["not_confirmed"]))
         self.assertNotIn("bearer_activated", entry)
         self.assertNotIn("activation_success", entry)
@@ -303,6 +317,10 @@ class TimelinePositiveTests(TimelineTestCase):
         timeline = self.build(control_document([tx1, tx2], items1 + items2), nas, s1ap)
         statuses = [entry["nas_esm_association"]["status"] for entry in timeline["timeline_entries"]]
         self.assertEqual(statuses, ["ESTABLISHED_BY_EVIDENCE", "ESTABLISHED_BY_EVIDENCE"])
+        self.assertEqual(
+            [entry["cross_layer_relationship_summary"] for entry in timeline["timeline_entries"]],
+            ["COMPLETE_THREE_PLANE", "COMPLETE_THREE_PLANE"],
+        )
 
     def test_multiple_ue_contexts_stay_isolated(self) -> None:
         tx1, items1 = transaction("create-1", "create-bearer", 100, 110, 5, context="ctx-1")
@@ -415,8 +433,8 @@ class TimelineNegativeTests(TimelineTestCase):
     def test_ambiguous_s1ap_contexts_do_not_establish(self) -> None:
         tx, items = transaction("create-1", "create-bearer", 100, 110, 5)
         s1ap = [
-            s1ap_event(101, "E_RAB_SETUP", "REQUEST", 7, "ctx-1"),
-            s1ap_event(102, "E_RAB_SETUP", "REQUEST", 7, "ctx-2"),
+            s1ap_event(101, "E_RAB_SETUP", "REQUEST", 5, "ctx-1"),
+            s1ap_event(102, "E_RAB_SETUP", "REQUEST", 5, "ctx-2"),
         ]
         timeline = self.build(control_document([tx], items), [], s1ap)
         self.assertEqual(
@@ -502,10 +520,167 @@ class TimelineNegativeTests(TimelineTestCase):
         tx, items = transaction(
             "create-1", "create-bearer", 100, 110, 5, completeness="TRUNCATED"
         )
-        timeline = self.build(control_document([tx], items, omitted=1))
+        control = control_document([tx], items, omitted=1)
+        control["source_completeness"]["status"] = "TRUNCATED"
+        timeline = self.build(control)
         self.assertEqual(
             timeline["timeline_entries"][0]["source_completeness_status"], "TRUNCATED"
         )
+        self.assertEqual(timeline["source_completeness"]["status"], "TRUNCATED")
+        self.assertEqual(
+            timeline["source_completeness"]["control_source_completeness"], "TRUNCATED"
+        )
+
+
+    def test_wrong_erab_id_does_not_establish(self) -> None:
+        tx, items = transaction("create-1", "create-bearer", 100, 110, 5, context="ctx-1")
+        s1ap = [
+            s1ap_event(102, "E_RAB_SETUP", "REQUEST", 7, "ctx-1"),
+            s1ap_event(108, "E_RAB_SETUP", "SUCCESS", 7, "ctx-1"),
+        ]
+        timeline = self.build(control_document([tx], items), [], s1ap)
+        entry = timeline["timeline_entries"][0]
+        self.assertEqual(entry["s1ap_erab_association"]["status"], "CANDIDATE_UNCONFIRMED")
+        self.assertEqual(entry["cross_layer_association_status"], "CANDIDATE_UNCONFIRMED")
+        self.assertNotEqual(entry["cross_layer_association_status"], "ESTABLISHED_BY_EVIDENCE")
+        self.assertIn("no explicitly proven E-RAB item identity", " ".join(entry["association_evidence_basis"]))
+
+    def test_missing_completion_does_not_establish(self) -> None:
+        tx, items = transaction("create-1", "create-bearer", 100, 110, 5, context="ctx-1")
+        s1ap = [s1ap_event(102, "E_RAB_SETUP", "REQUEST", 5, "ctx-1")]
+        timeline = self.build(control_document([tx], items), [], s1ap)
+        entry = timeline["timeline_entries"][0]
+        self.assertEqual(entry["s1ap_erab_association"]["status"], "CANDIDATE_UNCONFIRMED")
+        self.assertEqual(entry["cross_layer_relationship_summary"], "PARTIAL_PROOF_ONLY")
+
+    def test_response_only_does_not_establish(self) -> None:
+        tx, items = transaction("create-1", "create-bearer", 100, 110, 5, context="ctx-1")
+        s1ap = [s1ap_event(108, "E_RAB_SETUP", "SUCCESS", 5, "ctx-1")]
+        timeline = self.build(control_document([tx], items), [], s1ap)
+        self.assertEqual(
+            timeline["timeline_entries"][0]["s1ap_erab_association"]["status"],
+            "CANDIDATE_UNCONFIRMED",
+        )
+
+    def test_inconsistent_request_response_ids_do_not_establish(self) -> None:
+        tx, items = transaction("create-1", "create-bearer", 100, 110, 5, context="ctx-1")
+        s1ap = [
+            s1ap_event(102, "E_RAB_SETUP", "REQUEST", 5, "ctx-1"),
+            s1ap_event(108, "E_RAB_SETUP", "SUCCESS", 6, "ctx-1"),
+        ]
+        timeline = self.build(control_document([tx], items), [], s1ap)
+        entry = timeline["timeline_entries"][0]
+        self.assertEqual(entry["s1ap_erab_association"]["status"], "CANDIDATE_UNCONFIRMED")
+        self.assertNotEqual(entry["cross_layer_association_status"], "ESTABLISHED_BY_EVIDENCE")
+
+    def test_duplicate_request_is_ambiguous(self) -> None:
+        tx, items = transaction("create-1", "create-bearer", 100, 110, 5, context="ctx-1")
+        s1ap = [
+            s1ap_event(101, "E_RAB_SETUP", "REQUEST", 5, "ctx-1"),
+            s1ap_event(102, "E_RAB_SETUP", "REQUEST", 5, "ctx-1"),
+            s1ap_event(108, "E_RAB_SETUP", "SUCCESS", 5, "ctx-1"),
+        ]
+        timeline = self.build(control_document([tx], items), [], s1ap)
+        self.assertEqual(
+            timeline["timeline_entries"][0]["s1ap_erab_association"]["status"],
+            "AMBIGUOUS",
+        )
+
+    def test_multiple_items_establish_only_the_matching_erab_id(self) -> None:
+        tx, items = transaction("create-1", "create-bearer", 100, 110, 5, context="ctx-1")
+        s1ap = [
+            s1ap_event(101, "E_RAB_SETUP", "REQUEST", 7, "ctx-1"),
+            s1ap_event(107, "E_RAB_SETUP", "SUCCESS", 7, "ctx-1"),
+            s1ap_event(102, "E_RAB_SETUP", "REQUEST", 5, "ctx-1"),
+            s1ap_event(108, "E_RAB_SETUP", "SUCCESS", 5, "ctx-1"),
+        ]
+        timeline = self.build(control_document([tx], items), [], s1ap)
+        entry = timeline["timeline_entries"][0]
+        self.assertEqual(entry["s1ap_erab_association"]["status"], "ESTABLISHED_BY_EVIDENCE")
+        self.assertIn("only E-RAB ID 5", " ".join(entry["association_evidence_basis"]))
+        self.assertEqual(len(entry["observed_s1ap_erab_references"]), 4)
+
+    def test_overall_status_truth_table(self) -> None:
+        expected = {
+            (model.ESTABLISHED, model.ESTABLISHED): model.ESTABLISHED,
+            (model.ESTABLISHED, model.AMBIGUOUS): model.AMBIGUOUS,
+            (model.AMBIGUOUS, model.ESTABLISHED): model.AMBIGUOUS,
+            (model.ESTABLISHED, model.NOT_OBSERVED): model.NOT_ESTABLISHED,
+            (model.NOT_OBSERVED, model.ESTABLISHED): model.NOT_ESTABLISHED,
+            (model.CANDIDATE, model.ESTABLISHED): model.CANDIDATE,
+            (model.ESTABLISHED, model.UNSUPPORTED): model.UNSUPPORTED,
+            (model.NOT_OBSERVED, model.NOT_OBSERVED): model.NOT_OBSERVED,
+            (model.AMBIGUOUS, model.AMBIGUOUS): model.AMBIGUOUS,
+            (model.CANDIDATE, model.CANDIDATE): model.CANDIDATE,
+        }
+        for (nas, s1ap), expected_status in expected.items():
+            with self.subTest(nas=nas, s1ap=s1ap):
+                self.assertEqual(model._combined_status(nas, s1ap), expected_status)
+
+    def test_nas_only_and_s1ap_only_remain_visible(self) -> None:
+        tx, items = transaction("create-1", "create-bearer", 100, 110, 5, context="ctx-1")
+        nas = [nas_event(102, 197, "REQUEST", 5), nas_event(108, 198, "ACCEPT", 5)]
+        context_only = [
+            {"capture_file": "fixture.pcap", "frame_number": 102, "context_key": "ctx-1"},
+            {"capture_file": "fixture.pcap", "frame_number": 108, "context_key": "ctx-1"},
+        ]
+        nas_only = self.build(control_document([tx], items), nas, context_only)
+        entry = nas_only["timeline_entries"][0]
+        self.assertEqual(entry["nas_esm_association"]["status"], "ESTABLISHED_BY_EVIDENCE")
+        self.assertEqual(entry["cross_layer_association_status"], "NOT_ESTABLISHED")
+        self.assertEqual(entry["cross_layer_relationship_summary"], "NAS_ONLY_PROVEN")
+        self.assertIn(
+            "an individual NAS-ESM or S1AP E-RAB relationship is proven",
+            " ".join(entry["not_confirmed"]),
+        )
+        s1ap = [
+            s1ap_event(102, "E_RAB_SETUP", "REQUEST", 5, "ctx-1"),
+            s1ap_event(108, "E_RAB_SETUP", "SUCCESS", 5, "ctx-1"),
+        ]
+        s1ap_only = self.build(control_document([tx], items), [], s1ap)
+        entry = s1ap_only["timeline_entries"][0]
+        self.assertEqual(entry["s1ap_erab_association"]["status"], "ESTABLISHED_BY_EVIDENCE")
+        self.assertEqual(entry["cross_layer_association_status"], "NOT_ESTABLISHED")
+        self.assertEqual(entry["cross_layer_relationship_summary"], "S1AP_ONLY_PROVEN")
+
+    def test_truncated_control_and_empty_inputs_are_explicit(self) -> None:
+        tx, items = transaction("create-1", "create-bearer", 100, 110, 5, context="ctx-1")
+        control = control_document([tx], items, omitted=1)
+        control["source_completeness"]["status"] = "TRUNCATED"
+        timeline = self.build(control, [], [])
+        source = timeline["source_completeness"]
+        self.assertEqual(source["status"], "TRUNCATED")
+        self.assertEqual(source["control_source_completeness"], "TRUNCATED")
+        self.assertEqual(source["nas_input_status"], "SUPPLIED_EMPTY")
+        self.assertEqual(source["s1ap_input_status"], "SUPPLIED_EMPTY")
+        self.assertFalse(source["exhaustive_coverage_proven"])
+
+    def test_missing_input_differs_from_supplied_empty(self) -> None:
+        tx, items = transaction("create-1", "create-bearer", 100, 110, 5, context="ctx-1")
+        missing = self.build(control_document([tx], items), [], [], nas_present=False, s1ap_present=True)
+        self.assertEqual(missing["source_completeness"]["nas_input_status"], "NOT_SUPPLIED")
+        self.assertFalse(missing["source_completeness"]["nas_source_present"])
+        self.assertEqual(missing["source_completeness"]["s1ap_input_status"], "SUPPLIED_EMPTY")
+        self.assertTrue(missing["source_completeness"]["s1ap_source_present"])
+        self.assertEqual(missing["source_completeness"]["status"], "PARTIAL")
+
+    def test_mixed_capture_artifact_is_rejected(self) -> None:
+        tx, items = transaction("create-1", "create-bearer", 100, 110, 5, context="ctx-1")
+        foreign = copy.deepcopy(tx)
+        foreign["capture"] = "other.pcap"
+        foreign["transaction_reference"] = "epc-db-tx:other.pcap:create-2"
+        with self.assertRaises(model.InputError) as raised:
+            self.build(control_document([tx, foreign], items))
+        self.assertEqual(raised.exception.code, "MIXED_CAPTURE_ARTIFACT")
+
+    def test_invalid_and_unknown_control_completeness_are_preserved(self) -> None:
+        for status in ("INVALID", "UNKNOWN"):
+            with self.subTest(status=status):
+                tx, items = transaction("create-1", "create-bearer", 100, 110, 5)
+                control = control_document([tx], items)
+                control["source_completeness"]["status"] = status
+                timeline = self.build(control, [], [])
+                self.assertEqual(timeline["source_completeness"]["status"], status)
 
 
 class TimelineContractTests(unittest.TestCase):
@@ -556,6 +731,19 @@ class TimelineContractTests(unittest.TestCase):
         bad_version["analysis_version"] = "2.0.0"
         with self.assertRaises(self.contract.ContractValidationError):
             self.contract.validate_artifact(bad_version)
+        promoted = copy.deepcopy(timeline)
+        promoted["timeline_entries"][0]["nas_esm_association"]["status"] = "CANDIDATE_UNCONFIRMED"
+        promoted["timeline_entries"][0]["cross_layer_association_status"] = "ESTABLISHED_BY_EVIDENCE"
+        with self.assertRaises(self.contract.ContractValidationError):
+            self.contract.validate_artifact(promoted)
+        summary_only = copy.deepcopy(timeline)
+        summary_only["timeline_entries"][0]["cross_layer_relationship_summary"] = "COMPLETE_THREE_PLANE"
+        with self.assertRaises(self.contract.ContractValidationError):
+            self.contract.validate_artifact(summary_only)
+        upgraded = copy.deepcopy(timeline)
+        upgraded["source_completeness"]["status"] = "COMPLETE"
+        with self.assertRaises(self.contract.ContractValidationError):
+            self.contract.validate_artifact(upgraded)
 
 
 class TimelineReviewCompatibilityTests(unittest.TestCase):

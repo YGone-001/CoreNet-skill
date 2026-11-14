@@ -457,10 +457,15 @@ The cross-layer timeline capability consumes the accepted control artifact plus
 optional NAS-EPS and S1AP detailed events. It publishes a deterministic,
 frame-anchored entry per Create/Update/Delete Bearer transaction, lists observed
 dedicated ESM messages and standalone E-RAB items, and separates control outcomes
-from access evidence. A cross-layer association is established only with shared
-capture-scoped UE-context evidence; EBI-only, E-RAB-ID-only and timestamp-only
-matches remain candidates or ambiguity. The output is bounded and includes explicit
-non-activation, non-radio-setup and non-delivery limitations.
+from access evidence. An S1AP relationship is established only with a matching
+valid E-RAB item identity, a complete request/completion pair in the correct
+procedure scope, and shared capture-scoped UE-context evidence. The overall
+three-plane status is established only when both NAS-ESM and S1AP layers are
+independently established; a single proven layer remains visible as NAS-only or
+S1AP-only partial proof. Upstream source completeness is preserved, supplied-empty
+inputs are distinguished from unsupplied inputs, exhaustive coverage is never
+assumed, and mixed-capture control artifacts are rejected. The output is bounded
+and includes explicit non-activation, non-radio-setup and non-delivery limitations.
 
 ## Evidence Audit
 
@@ -576,4 +581,6 @@ references are 3GPP TS 23.401, TS 24.301 and TS 36.413, consumed through the acc
 a standalone dedicated-bearer control-plane outcome producer with separate
 transaction, message-level and per-Bearer-Context item outcomes. Version 0.10.0 adds
 the frame-anchored Dedicated Bearer cross-layer timeline over optional NAS-EPS ESM
-and standalone S1AP E-RAB evidence. Version 0.10.0.
+and standalone S1AP E-RAB evidence. Version 0.10.1 corrects S1AP item-identity
+association, three-plane overall status, source completeness propagation and
+mixed-capture input handling. Version 0.10.1.

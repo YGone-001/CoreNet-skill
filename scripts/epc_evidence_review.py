@@ -2466,8 +2466,24 @@ def _timeline_summary(timeline: dict[str, Any] | None) -> dict[str, Any]:
         "entry_count": timeline.get("timeline_entry_count", 0),
         "omitted_entry_count": timeline.get("timeline_entries_omitted", 0),
         "association_status_counts": timeline.get("association_status_counts", {}),
+        "relationship_summary_counts": _ordered_counts(
+            _dict(entry).get("cross_layer_relationship_summary")
+            for entry in _list(timeline.get("timeline_entries"))
+        ),
         "unresolved_evidence_count": len(timeline.get("unresolved_evidence") or []),
         "source_completeness_status": _dict(timeline.get("source_completeness")).get("status"),
+        "control_source_completeness": _dict(timeline.get("source_completeness")).get(
+            "control_source_completeness"
+        ),
+        "nas_input_status": _dict(timeline.get("source_completeness")).get(
+            "nas_input_status"
+        ),
+        "s1ap_input_status": _dict(timeline.get("source_completeness")).get(
+            "s1ap_input_status"
+        ),
+        "exhaustive_coverage_proven": _dict(timeline.get("source_completeness")).get(
+            "exhaustive_coverage_proven"
+        ),
     }
 
 
@@ -2651,6 +2667,9 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
             "request_frame": entry.get("request_frame"),
             "response_frame": entry.get("response_frame"),
             "cross_layer_association_status": entry.get("cross_layer_association_status"),
+            "cross_layer_relationship_summary": entry.get(
+                "cross_layer_relationship_summary"
+            ),
             "nas_esm_association_status": _dict(entry.get("nas_esm_association")).get("status"),
             "s1ap_erab_association_status": _dict(entry.get("s1ap_erab_association")).get("status"),
             "observed_nas_esm_reference_count": len(
@@ -3093,6 +3112,18 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
         "dedicated_bearer_timeline_source_completeness_status": timeline_summary.get(
             "source_completeness_status"
         ),
+        "dedicated_bearer_timeline_control_source_completeness": timeline_summary.get(
+            "control_source_completeness"
+        ),
+        "dedicated_bearer_timeline_nas_input_status": timeline_summary.get(
+            "nas_input_status"
+        ),
+        "dedicated_bearer_timeline_s1ap_input_status": timeline_summary.get(
+            "s1ap_input_status"
+        ),
+        "dedicated_bearer_timeline_exhaustive_coverage_proven": timeline_summary.get(
+            "exhaustive_coverage_proven"
+        ),
         "published": {
             "session_contexts": min(len(contexts), MAX_CONTEXTS),
             "release_narratives": min(len(releases), MAX_RELEASES),
@@ -3405,7 +3436,15 @@ def render_markdown(
                 f"- status={item.get('status')}; source={item.get('source_artifact')}; "
                 f"entries={item.get('entry_count')}; omitted={item.get('omitted_entry_count')}; "
                 f"unresolved={item.get('unresolved_evidence_count')}; "
-                f"associations={json.dumps(item.get('association_status_counts') or {}, sort_keys=True)}"
+                f"associations={json.dumps(item.get('association_status_counts') or {}, sort_keys=True)}; "
+                f"relationships={json.dumps(item.get('relationship_summary_counts') or {}, sort_keys=True)}"
+            )
+            lines.append(
+                f"  - source completeness={item.get('source_completeness_status')}; "
+                f"control={item.get('control_source_completeness')}; "
+                f"NAS input={item.get('nas_input_status')}; "
+                f"S1AP input={item.get('s1ap_input_status')}; "
+                f"exhaustive coverage={item.get('exhaustive_coverage_proven')}"
             )
         for entry in _list(sections.get("dedicated_bearer_timeline_entries"))[:MAX_LIST_ITEMS]:
             entry = _dict(entry)
@@ -3413,6 +3452,7 @@ def render_markdown(
                 f"  - {entry.get('entry_reference')} {entry.get('procedure_family')} "
                 f"request={entry.get('request_frame')} response={entry.get('response_frame')} "
                 f"cross-layer={entry.get('cross_layer_association_status')} "
+                f"summary={entry.get('cross_layer_relationship_summary')} "
                 f"NAS={entry.get('nas_esm_association_status')} "
                 f"S1AP={entry.get('s1ap_erab_association_status')}"
             )

@@ -203,11 +203,96 @@ def gate_unobserved_stage() -> str | None:
     return None
 
 
+def gate_s1ap_item_identity() -> str | None:
+    tx, items = transaction("create-1", "create-bearer", 100, 110, 5, context="ctx-1")
+    wrong_id = build(
+        control([tx], items),
+        [],
+        [
+            s1ap(102, "E_RAB_SETUP", "REQUEST", 7, "ctx-1"),
+            s1ap(108, "E_RAB_SETUP", "SUCCESS", 7, "ctx-1"),
+        ],
+    )["timeline_entries"][0]
+    if wrong_id["s1ap_erab_association"]["status"] == "ESTABLISHED_BY_EVIDENCE":
+        return "a complete E-RAB pair with the wrong E-RAB ID was established"
+    if wrong_id["cross_layer_association_status"] == "ESTABLISHED_BY_EVIDENCE":
+        return "a wrong-ID E-RAB pair produced an established cross-layer association"
+    missing = build(
+        control([tx], items),
+        [],
+        [s1ap(102, "E_RAB_SETUP", "REQUEST", 5, "ctx-1")],
+    )["timeline_entries"][0]
+    if missing["s1ap_erab_association"]["status"] == "ESTABLISHED_BY_EVIDENCE":
+        return "an incomplete E-RAB procedure was established"
+    return None
+
+
+def gate_overall_status() -> str | None:
+    expected = {
+        (MODEL.ESTABLISHED, MODEL.ESTABLISHED): MODEL.ESTABLISHED,
+        (MODEL.ESTABLISHED, MODEL.AMBIGUOUS): MODEL.AMBIGUOUS,
+        (MODEL.AMBIGUOUS, MODEL.ESTABLISHED): MODEL.AMBIGUOUS,
+        (MODEL.ESTABLISHED, MODEL.NOT_OBSERVED): MODEL.NOT_ESTABLISHED,
+        (MODEL.NOT_OBSERVED, MODEL.ESTABLISHED): MODEL.NOT_ESTABLISHED,
+        (MODEL.CANDIDATE, MODEL.ESTABLISHED): MODEL.CANDIDATE,
+        (MODEL.ESTABLISHED, MODEL.UNSUPPORTED): MODEL.UNSUPPORTED,
+    }
+    for (nas, s1ap), status in expected.items():
+        if MODEL._combined_status(nas, s1ap) != status:
+            return f"overall status for {nas}+{s1ap} was promoted beyond per-layer evidence"
+    if MODEL._relationship_summary(MODEL.ESTABLISHED, MODEL.NOT_OBSERVED) != "NAS_ONLY_PROVEN":
+        return "NAS-only established evidence was not summarized separately"
+    if MODEL._relationship_summary(MODEL.ESTABLISHED, MODEL.AMBIGUOUS) != "PARTIAL_PROOF_ONLY":
+        return "a partially proven relationship was not summarized as partial proof"
+    return None
+
+
+def gate_source_completeness() -> str | None:
+    tx, items = transaction("create-1", "create-bearer", 100, 110, 5)
+    document = control([tx], items)
+    document["source_completeness"] = {"status": "TRUNCATED"}
+    document["control_transactions_omitted"] = 1
+    timeline = build(document, [], [])
+    source = timeline["source_completeness"]
+    if source["status"] == "COMPLETE":
+        return "a truncated control source was upgraded to COMPLETE because both event files existed"
+    if source["status"] != "TRUNCATED":
+        return "the accepted control source completeness was not preserved"
+    if source["control_transactions_omitted"] != 1:
+        return "the omitted control transaction count was not preserved"
+    if source["nas_input_status"] != "SUPPLIED_EMPTY" or source["s1ap_input_status"] != "SUPPLIED_EMPTY":
+        return "supplied-empty inputs were not represented explicitly"
+    return None
+
+
+def gate_mixed_capture() -> str | None:
+    tx, items = transaction("create-1", "create-bearer", 100, 110, 5)
+    foreign = dict(tx)
+    foreign["capture"] = "other.pcap"
+    foreign["transaction_reference"] = "epc-db-tx:other.pcap:create-2"
+    document = control([tx, foreign], items)
+    try:
+        timeline = build(document, [], [])
+    except MODEL.InputError as exc:
+        if exc.code in ("MIXED_CAPTURE_ARTIFACT", "INCOMPLETE_CAPTURE_IDENTITY"):
+            return None
+        return f"mixed capture was rejected with an unexpected code: {exc.code}"
+    if timeline.get("timeline_entry_count") != 2:
+        return "mixed-capture input silently discarded control transactions"
+    if timeline.get("analysis_scope", {}).get("capture") not in (None, "MULTI_CAPTURE"):
+        return "mixed-capture input selected a single capture without partitioning"
+    return "mixed-capture input was neither rejected nor fully partitioned"
+
+
 GATES = (
     ("ambiguous EBI", gate_ambiguous_ebi),
     ("control Cause", gate_control_cause),
     ("unbound E-RAB", gate_unbound_erab),
     ("unobserved stage", gate_unobserved_stage),
+    ("S1AP item identity", gate_s1ap_item_identity),
+    ("overall status precedence", gate_overall_status),
+    ("source completeness", gate_source_completeness),
+    ("mixed capture", gate_mixed_capture),
 )
 
 
@@ -274,6 +359,91 @@ def main() -> int:
     finally:
         MODEL._combined_status = original_combined
     mutations.append(("D: mark unobserved stage complete", [check] if check else []))
+
+    original_association = MODEL._s1ap_association
+    original_source = MODEL._source_completeness
+
+    def context_only_s1ap(
+        family: str,
+        ebis: list[int],
+        request: int | None,
+        response: int | None,
+        observations: list[dict[str, Any]],
+        control_context: str | None,
+    ):
+        result, candidates = original_association(
+            family, ebis, request, response, observations, control_context
+        )
+        if control_context is not None and candidates:
+            return (
+                MODEL._association(
+                    MODEL.ESTABLISHED,
+                    ["restored context-only S1AP establishment"],
+                    candidates,
+                ),
+                candidates,
+            )
+        return result, candidates
+
+    MODEL._s1ap_association = context_only_s1ap
+    try:
+        check = gate_s1ap_item_identity()
+    finally:
+        MODEL._s1ap_association = original_association
+    mutations.append(("E: restore context-only S1AP establishment", [check] if check else []))
+
+    MODEL._combined_status = lambda nas, s1ap: (
+        MODEL.ESTABLISHED if MODEL.ESTABLISHED in (nas, s1ap) else original_combined(nas, s1ap)
+    )
+    try:
+        check = gate_overall_status()
+    finally:
+        MODEL._combined_status = original_combined
+    mutations.append(("F: restore either-layer overall promotion", [check] if check else []))
+
+    def file_presence_complete(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        source = original_source(*args, **kwargs)
+        if source["nas_input_status"] != "NOT_SUPPLIED" and source["s1ap_input_status"] != "NOT_SUPPLIED":
+            source = dict(source)
+            source["status"] = "COMPLETE"
+        return source
+
+    MODEL._source_completeness = file_presence_complete
+    try:
+        check = gate_source_completeness()
+    finally:
+        MODEL._source_completeness = original_source
+    mutations.append(("G: restore file-presence-only COMPLETE", [check] if check else []))
+
+    def first_capture_selection(
+        control_doc: dict, nas_events: list[dict], s1ap_events: list[dict], **kwargs: Any
+    ) -> dict:
+        try:
+            return original_build(control_doc, nas_events, s1ap_events, **kwargs)
+        except MODEL.InputError as exc:
+            if exc.code != "MIXED_CAPTURE_ARTIFACT":
+                raise
+            captures = sorted(
+                {
+                    item.get("capture")
+                    for item in control_doc.get("control_transactions") or []
+                    if isinstance(item.get("capture"), str)
+                }
+            )
+            filtered = dict(control_doc)
+            filtered["control_transactions"] = [
+                item
+                for item in control_doc.get("control_transactions") or []
+                if item.get("capture") == captures[0]
+            ]
+            return original_build(filtered, nas_events, s1ap_events, **kwargs)
+
+    MODEL.build_timeline = first_capture_selection
+    try:
+        check = gate_mixed_capture()
+    finally:
+        MODEL.build_timeline = original_build
+    mutations.append(("H: restore first-capture selection", [check] if check else []))
 
     for label, mutation_errors in mutations:
         if not mutation_errors:

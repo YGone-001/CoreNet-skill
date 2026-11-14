@@ -111,6 +111,133 @@ def validate_artifact(document: Any) -> None:
             f"association status counts total {total} but timeline_entry_count is {declared}",
         )
 
+    source = document.get("source_completeness")
+    if not isinstance(source, dict):
+        raise ContractValidationError("SCHEMA_VIOLATION", "source completeness is missing")
+    control_status = source.get("control_source_completeness")
+    if source.get("status") == "COMPLETE":
+        if control_status != "COMPLETE":
+            raise ContractValidationError(
+                "COMPLETENESS_OVERSTATED",
+                "timeline source completeness cannot be COMPLETE when the control artifact is not COMPLETE",
+            )
+        if source.get("nas_input_status") != "SUPPLIED_WITH_EVENTS" or source.get(
+            "s1ap_input_status"
+        ) != "SUPPLIED_WITH_EVENTS":
+            raise ContractValidationError(
+                "COMPLETENESS_OVERSTATED",
+                "timeline source completeness cannot be COMPLETE without non-empty NAS and S1AP inputs",
+            )
+        if not source.get("exhaustive_coverage_proven"):
+            raise ContractValidationError(
+                "COMPLETENESS_OVERSTATED",
+                "timeline source completeness cannot be COMPLETE without declared exhaustive coverage",
+            )
+        if source.get("control_transactions_omitted", 0) != 0:
+            raise ContractValidationError(
+                "COMPLETENESS_OVERSTATED",
+                "timeline source completeness cannot be COMPLETE with omitted control transactions",
+            )
+    if source.get("status") in ("TRUNCATED", "INVALID", "UNKNOWN") and source.get(
+        "status"
+    ) != control_status:
+        raise ContractValidationError(
+            "COMPLETENESS_INTEGRITY",
+            "timeline status does not preserve the accepted control source completeness",
+        )
+    for prefix in ("nas", "s1ap"):
+        input_status = source.get(f"{prefix}_input_status")
+        present = source.get(f"{prefix}_source_present")
+        if input_status == "NOT_SUPPLIED" and present is not False:
+            raise ContractValidationError(
+                "COMPLETENESS_INTEGRITY", f"{prefix} NOT_SUPPLIED must not be marked present"
+            )
+        if input_status in ("SUPPLIED_EMPTY", "SUPPLIED_WITH_EVENTS") and present is not True:
+            raise ContractValidationError(
+                "COMPLETENESS_INTEGRITY", f"{prefix} supplied input must be marked present"
+            )
+    provenance = document.get("input_provenance")
+    if isinstance(provenance, dict):
+        if provenance.get("control_transactions_published") != source.get(
+            "control_transactions_published"
+        ):
+            raise ContractValidationError(
+                "COMPLETENESS_INTEGRITY",
+                "provenance and source completeness disagree on published control transactions",
+            )
+        if provenance.get("control_transactions_omitted") != source.get(
+            "control_transactions_omitted"
+        ):
+            raise ContractValidationError(
+                "COMPLETENESS_INTEGRITY",
+                "provenance and source completeness disagree on omitted control transactions",
+            )
+        if provenance.get("control_transaction_count") != (
+            source.get("control_transactions_published", 0)
+            + source.get("control_transactions_omitted", 0)
+        ):
+            raise ContractValidationError(
+                "COMPLETENESS_INTEGRITY",
+                "declared control transaction count does not equal published plus omitted",
+            )
+
+    def expected_overall(nas: str, s1ap: str) -> str:
+        if nas == "ESTABLISHED_BY_EVIDENCE" and s1ap == "ESTABLISHED_BY_EVIDENCE":
+            return "ESTABLISHED_BY_EVIDENCE"
+        if "AMBIGUOUS" in (nas, s1ap):
+            return "AMBIGUOUS"
+        if "CANDIDATE_UNCONFIRMED" in (nas, s1ap):
+            return "CANDIDATE_UNCONFIRMED"
+        if "UNSUPPORTED_EVIDENCE" in (nas, s1ap):
+            return "UNSUPPORTED_EVIDENCE"
+        if nas == "NOT_OBSERVED" and s1ap == "NOT_OBSERVED":
+            return "NOT_OBSERVED"
+        return "NOT_ESTABLISHED"
+
+    def expected_summary(nas: str, s1ap: str) -> str:
+        if nas == "ESTABLISHED_BY_EVIDENCE" and s1ap == "ESTABLISHED_BY_EVIDENCE":
+            return "COMPLETE_THREE_PLANE"
+        if nas == "ESTABLISHED_BY_EVIDENCE" and s1ap == "NOT_OBSERVED":
+            return "NAS_ONLY_PROVEN"
+        if s1ap == "ESTABLISHED_BY_EVIDENCE" and nas == "NOT_OBSERVED":
+            return "S1AP_ONLY_PROVEN"
+        if nas == "ESTABLISHED_BY_EVIDENCE" or s1ap == "ESTABLISHED_BY_EVIDENCE":
+            return "PARTIAL_PROOF_ONLY"
+        if "AMBIGUOUS" in (nas, s1ap):
+            return "AMBIGUOUS_EVIDENCE"
+        if "CANDIDATE_UNCONFIRMED" in (nas, s1ap):
+            return "PARTIAL_PROOF_ONLY"
+        if "UNSUPPORTED_EVIDENCE" in (nas, s1ap):
+            return "UNSUPPORTED_EVIDENCE"
+        if nas == "NOT_OBSERVED" and s1ap == "NOT_OBSERVED":
+            return "NO_ASSOCIATION_OBSERVED"
+        return "PARTIAL_PROOF_ONLY"
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ContractValidationError("SCHEMA_VIOLATION", "timeline entry is not an object")
+        nas = (entry.get("nas_esm_association") or {}).get("status")
+        s1ap = (entry.get("s1ap_erab_association") or {}).get("status")
+        overall = entry.get("cross_layer_association_status")
+        summary = entry.get("cross_layer_relationship_summary")
+        if overall != expected_overall(nas, s1ap):
+            raise ContractValidationError(
+                "ASSOCIATION_STATUS_INTEGRITY",
+                f"entry {entry.get('entry_reference')} overall status {overall} is not supported by NAS {nas} and S1AP {s1ap}",
+            )
+        if summary != expected_summary(nas, s1ap):
+            raise ContractValidationError(
+                "ASSOCIATION_STATUS_INTEGRITY",
+                f"entry {entry.get('entry_reference')} relationship summary {summary} is not supported by its layer statuses",
+            )
+        if overall == "ESTABLISHED_BY_EVIDENCE" and not (
+            nas == "ESTABLISHED_BY_EVIDENCE" and s1ap == "ESTABLISHED_BY_EVIDENCE"
+        ):
+            raise ContractValidationError(
+                "ASSOCIATION_STATUS_INTEGRITY",
+                "overall association cannot be ESTABLISHED_BY_EVIDENCE unless both layers are established",
+            )
+
     for entry in entries:
         if not isinstance(entry, dict):
             raise ContractValidationError("SCHEMA_VIOLATION", "timeline entry is not an object")

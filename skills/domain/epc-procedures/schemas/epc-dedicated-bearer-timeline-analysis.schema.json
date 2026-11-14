@@ -69,6 +69,7 @@
         "nas_esm_association",
         "s1ap_erab_association",
         "cross_layer_association_status",
+        "cross_layer_relationship_summary",
         "association_evidence_basis",
         "source_completeness_status",
         "limitations",
@@ -105,6 +106,17 @@
           ]
         },
         "association_evidence_basis": {"type": "array", "items": {"type": "string"}},
+        "cross_layer_relationship_summary": {
+          "enum": [
+            "COMPLETE_THREE_PLANE",
+            "NAS_ONLY_PROVEN",
+            "S1AP_ONLY_PROVEN",
+            "PARTIAL_PROOF_ONLY",
+            "NO_ASSOCIATION_OBSERVED",
+            "AMBIGUOUS_EVIDENCE",
+            "UNSUPPORTED_EVIDENCE"
+          ]
+        },
         "source_completeness_status": {"type": ["string", "null"]},
         "limitations": {"type": "array", "items": {"type": "string"}},
         "not_confirmed": {"type": "array", "items": {"type": "string"}}
@@ -143,6 +155,9 @@
             "nas_events",
             "s1ap_events",
             "control_transaction_count",
+            "control_transactions_published",
+            "control_transactions_omitted",
+            "timeline_entry_count",
             "nas_event_count",
             "s1ap_event_count"
           ],
@@ -152,6 +167,9 @@
             "nas_events": {"type": ["string", "null"]},
             "s1ap_events": {"type": ["string", "null"]},
             "control_transaction_count": {"type": "integer", "minimum": 0},
+            "control_transactions_published": {"type": "integer", "minimum": 0},
+            "control_transactions_omitted": {"type": "integer", "minimum": 0},
+            "timeline_entry_count": {"type": "integer", "minimum": 0},
             "nas_event_count": {"type": "integer", "minimum": 0},
             "s1ap_event_count": {"type": "integer", "minimum": 0}
           }
@@ -171,12 +189,40 @@
         "source_completeness": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status", "control_source_present", "nas_source_present", "s1ap_source_present", "limitations"],
+          "required": [
+            "status",
+            "control_artifact_supplied",
+            "control_source_present",
+            "control_source_completeness",
+            "control_transactions_published",
+            "control_transactions_omitted",
+            "nas_input_status",
+            "s1ap_input_status",
+            "nas_source_present",
+            "s1ap_source_present",
+            "exhaustive_coverage_proven",
+            "limitations"
+          ],
           "properties": {
-            "status": {"type": "string"},
+            "status": {
+              "enum": ["COMPLETE", "PARTIAL", "TRUNCATED", "INVALID", "UNKNOWN"]
+            },
+            "control_artifact_supplied": {"type": "boolean"},
             "control_source_present": {"type": "boolean"},
+            "control_source_completeness": {
+              "enum": ["COMPLETE", "PARTIAL", "TRUNCATED", "INVALID", "UNKNOWN"]
+            },
+            "control_transactions_published": {"type": "integer", "minimum": 0},
+            "control_transactions_omitted": {"type": "integer", "minimum": 0},
+            "nas_input_status": {
+              "enum": ["NOT_SUPPLIED", "SUPPLIED_EMPTY", "SUPPLIED_WITH_EVENTS"]
+            },
+            "s1ap_input_status": {
+              "enum": ["NOT_SUPPLIED", "SUPPLIED_EMPTY", "SUPPLIED_WITH_EVENTS"]
+            },
             "nas_source_present": {"type": "boolean"},
             "s1ap_source_present": {"type": "boolean"},
+            "exhaustive_coverage_proven": {"type": "boolean"},
             "limitations": {"type": "array", "items": {"type": "string"}}
           }
         },

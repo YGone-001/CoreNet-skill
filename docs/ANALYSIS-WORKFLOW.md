@@ -408,10 +408,17 @@ control transaction request/response frames and lists observed dedicated ESM
 item references. It resolves a cross-layer association only with capture-scoped
 UE-context evidence shared between the control observation and the access
 observation; EBI-only, E-RAB-ID-only and temporal-proximity shortcuts remain
-candidates or ambiguity. Missing or unsupported access evidence is published as
-`NOT_OBSERVED` or `UNSUPPORTED_EVIDENCE`, never as a fabricated stage. The Review
-Pack consumes the timeline as a second optional bounded source and validates its
-Schema and count identity before publication.
+candidates or ambiguity. An S1AP relationship additionally requires a matching
+valid E-RAB item identity and a complete request/completion pair in the correct
+procedure scope. The overall three-plane status is `ESTABLISHED_BY_EVIDENCE` only
+when both NAS-ESM and S1AP layers are independently established; one proven layer
+is summarized as NAS-only or S1AP-only partial proof. Missing or unsupported access
+evidence is published as `NOT_OBSERVED` or `UNSUPPORTED_EVIDENCE`, never as a
+fabricated stage. Upstream control completeness is preserved, supplied-empty inputs
+are distinct from unsupplied inputs, exhaustive coverage is never assumed, and
+mixed-capture control artifacts are rejected. The Review Pack consumes the timeline
+as a second optional bounded source and validates its Schema and count identity
+before publication.
 
 The Review Pack navigation index registers the bounded `narrative_subjects`,
 derived `narrative_groups` and nested `narrative_bearer_endpoints` collections

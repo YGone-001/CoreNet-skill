@@ -114,9 +114,13 @@ The unified workflow also builds a deterministic cross-layer timeline from the
 accepted control artifact and the run's NAS-EPS/S1AP events. It preserves actual
 request/response frames, lists observed dedicated ESM and standalone E-RAB
 references, and never infers UE acceptance from a GTPv2-C Cause. Cross-layer
-associations are `ESTABLISHED_BY_EVIDENCE` only with shared capture-scoped UE
-context; otherwise they remain candidates, ambiguity, unsupported or not observed.
-The timeline artifact is an optional validated Review Pack source.
+associations require a matching valid E-RAB item identity, a complete request/
+completion pair and shared capture-scoped UE context; overall status becomes
+`ESTABLISHED_BY_EVIDENCE` only when both NAS-ESM and S1AP E-RAB layers are
+independently established. Source completeness preserves the upstream control
+artifact status, distinguishes unsupplied from supplied-empty inputs and never
+upgrades truncated metadata; mixed-capture control artifacts are rejected. The
+timeline artifact is an optional validated Review Pack source.
 
 ## Default bearer
 
@@ -254,4 +258,4 @@ alias. See `references/evidence-chain-audit.md`.
 
 ## Version
 
-0.10.0
+0.10.1

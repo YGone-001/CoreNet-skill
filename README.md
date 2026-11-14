@@ -149,7 +149,9 @@ objects and cross-capture references remain explicitly classified. The unified p
 also emits a frame-anchored Dedicated Bearer cross-layer timeline over the accepted
 control artifact and optional NAS-EPS/S1AP events; it lists observed dedicated ESM
 and standalone E-RAB references and marks cross-layer links as established only
-when shared capture-scoped UE context evidence exists. IMS reports
+with matching item identity, a complete procedure pair and shared capture-scoped UE
+context evidence; the three-plane overall status requires both NAS and S1AP layers.
+Upstream source completeness is preserved and mixed-capture inputs are rejected. IMS reports
 `UNSUPPORTED` rather than inventing results. Every
 diagnostic subject in a capture is reported with its own boundary status, a failed
 component makes the run `PARTIAL` instead of `COMPLETED`, and the workflow never asserts

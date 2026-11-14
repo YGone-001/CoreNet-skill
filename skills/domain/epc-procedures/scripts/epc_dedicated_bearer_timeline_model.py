@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 ANALYSIS_NAME = "epc-dedicated-bearer-timeline"
-ANALYSIS_VERSION = "1.0.0"
+ANALYSIS_VERSION = "1.1.0"
 MAX_TIMELINE_ENTRIES = 128
 MAX_SOURCE_REFERENCES = 16
 MAX_UNRESOLVED_EVIDENCE = 64
@@ -30,6 +30,24 @@ AMBIGUOUS = "AMBIGUOUS"
 NOT_ESTABLISHED = "NOT_ESTABLISHED"
 NOT_OBSERVED = "NOT_OBSERVED"
 UNSUPPORTED = "UNSUPPORTED_EVIDENCE"
+
+SUMMARY_COMPLETE = "COMPLETE_THREE_PLANE"
+SUMMARY_NAS_ONLY = "NAS_ONLY_PROVEN"
+SUMMARY_S1AP_ONLY = "S1AP_ONLY_PROVEN"
+SUMMARY_PARTIAL = "PARTIAL_PROOF_ONLY"
+SUMMARY_NONE = "NO_ASSOCIATION_OBSERVED"
+SUMMARY_AMBIGUOUS = "AMBIGUOUS_EVIDENCE"
+SUMMARY_UNSUPPORTED = "UNSUPPORTED_EVIDENCE"
+
+INPUT_NOT_SUPPLIED = "NOT_SUPPLIED"
+INPUT_SUPPLIED_EMPTY = "SUPPLIED_EMPTY"
+INPUT_SUPPLIED_WITH_EVENTS = "SUPPLIED_WITH_EVENTS"
+
+SOURCE_COMPLETE = "COMPLETE"
+SOURCE_PARTIAL = "PARTIAL"
+SOURCE_TRUNCATED = "TRUNCATED"
+SOURCE_INVALID = "INVALID"
+SOURCE_UNKNOWN = "UNKNOWN"
 
 FAMILY_ESM = {
     "create-bearer": frozenset({197, 198, 199}),
@@ -390,6 +408,7 @@ def _nas_association(
 
 def _s1ap_association(
     family: str,
+    ebis: list[int],
     request: int | None,
     response: int | None,
     observations: list[dict[str, Any]],
@@ -410,33 +429,90 @@ def _s1ap_association(
     ]
     if not candidates:
         return _association(NOT_OBSERVED, basis, []), []
-    if any(candidate.get("kind") == "S1AP_ERAB_UNBOUND" for candidate in candidates):
+    bound = [item for item in candidates if item.get("kind") != "S1AP_ERAB_UNBOUND"]
+    if not bound:
         basis.append("the S1AP evidence has no provable E-RAB item boundary")
         basis.append("flattened E-RAB fields were not converted into a fabricated item")
         return _association(UNSUPPORTED, basis, candidates), candidates
+    if len(ebis) != 1:
+        basis.append("the control transaction has no single valid EPS bearer identity")
+        basis.append("an E-RAB identifier alone is not an EPS bearer identity")
+        return _association(
+            AMBIGUOUS if len(ebis) > 1 else CANDIDATE, basis, candidates
+        ), candidates
+    target_ebi = ebis[0]
+    matching_items = [
+        item
+        for item in bound
+        if item.get("erab_id") == target_ebi
+        and item.get("binding_basis") == "pdml_grouped_ie"
+    ]
+    unrelated_items = [
+        item
+        for item in bound
+        if item.get("erab_id") != target_ebi
+        and item.get("binding_basis") == "pdml_grouped_ie"
+    ]
+    if not matching_items:
+        basis.append(
+            "no explicitly proven E-RAB item identity matches the valid control EPS bearer identity"
+        )
+        basis.append("an E-RAB identifier alone is not an EPS bearer identity")
+        return _association(CANDIDATE, basis, candidates), candidates
+    if unrelated_items:
+        basis.append(
+            f"only E-RAB ID {target_ebi} matches the valid control EBI; other observed item identities are not treated as the same procedure"
+        )
     contexts = {
-        candidate.get("ue_context_reference")
-        for candidate in candidates
-        if candidate.get("ue_context_reference")
+        item.get("ue_context_reference")
+        for item in matching_items
+        if item.get("ue_context_reference")
     }
     if len(contexts) > 1:
-        basis.append("more than one S1AP UE context carries candidate E-RAB items")
-        basis.append("an E-RAB identifier alone is not an EPS bearer identity")
+        basis.append("more than one S1AP UE context carries the matching E-RAB identity")
         return _association(AMBIGUOUS, basis, candidates), candidates
-    if control_context is not None and contexts == {control_context}:
-        basis.append(f"shared capture-scoped UE context {control_context}")
-        return _association(ESTABLISHED, basis, candidates), candidates
-    results = {candidate.get("result") for candidate in candidates}
-    if not (results & REQUEST_RESULTS) or not (results & COMPLETION_RESULTS):
-        basis.append("the observed E-RAB procedure is missing its request or completion message")
-    basis.append("no shared UE context exists between the control artifact and the S1AP observations")
-    basis.append("an E-RAB identifier alone is not an EPS bearer identity")
-    basis.append("temporal proximity alone is not a cross-layer identity proof")
-    return _association(CANDIDATE, basis, candidates), candidates
+    expected_completion = "COMPLETE" if family == "delete-bearer" else "SUCCESS"
+    request_items = [
+        item for item in matching_items if item.get("result") == "REQUEST"
+    ]
+    completion_items = [
+        item for item in matching_items if item.get("result") == expected_completion
+    ]
+    if len(request_items) > 1 or len(completion_items) > 1:
+        basis.append(
+            "more than one request or completion message repeats the matching E-RAB identity"
+        )
+        return _association(AMBIGUOUS, basis, candidates), candidates
+    if len(request_items) != 1 or len(completion_items) != 1:
+        basis.append(
+            "the matching E-RAB identity does not form exactly one request and one completion"
+        )
+        return _association(CANDIDATE, basis, candidates), candidates
+    if request_items[0]["frame_number"] > completion_items[0]["frame_number"]:
+        basis.append("the E-RAB completion frame precedes its request frame")
+        return _association(CANDIDATE, basis, candidates), candidates
+    if control_context is None or contexts != {control_context}:
+        basis.append("no shared UE context exists between the control artifact and the S1AP observations")
+        basis.append("a bearer-identity match plus item completeness is not sufficient without shared UE context")
+        return _association(CANDIDATE, basis, candidates), candidates
+    basis.append(f"shared capture-scoped UE context {control_context}")
+    basis.append(
+        f"exactly one E-RAB ID {target_ebi} request/completion pair matches the valid control EBI"
+    )
+    basis.append(
+        "the bounded E-RAB ID-to-EPS-bearer-identity relationship is used only with the complete item and procedure evidence"
+    )
+    return _association(ESTABLISHED, basis, candidates), candidates
 
 
 def _combined_status(nas: str, s1ap: str) -> str:
-    if ESTABLISHED in (nas, s1ap):
+    """Conservative complete three-plane association status.
+
+    Precedence: ambiguity, then candidate, then unsupported, then no
+    observation, then an unproven single-layer relationship. Only a complete
+    NAS-ESM and S1AP E-RAB establishment can be ESTABLISHED_BY_EVIDENCE.
+    """
+    if nas == ESTABLISHED and s1ap == ESTABLISHED:
         return ESTABLISHED
     if AMBIGUOUS in (nas, s1ap):
         return AMBIGUOUS
@@ -447,6 +523,26 @@ def _combined_status(nas: str, s1ap: str) -> str:
     if nas == NOT_OBSERVED and s1ap == NOT_OBSERVED:
         return NOT_OBSERVED
     return NOT_ESTABLISHED
+
+
+def _relationship_summary(nas: str, s1ap: str) -> str:
+    if nas == ESTABLISHED and s1ap == ESTABLISHED:
+        return SUMMARY_COMPLETE
+    if nas == ESTABLISHED and s1ap == NOT_OBSERVED:
+        return SUMMARY_NAS_ONLY
+    if s1ap == ESTABLISHED and nas == NOT_OBSERVED:
+        return SUMMARY_S1AP_ONLY
+    if nas == ESTABLISHED or s1ap == ESTABLISHED:
+        return SUMMARY_PARTIAL
+    if AMBIGUOUS in (nas, s1ap):
+        return SUMMARY_AMBIGUOUS
+    if CANDIDATE in (nas, s1ap):
+        return SUMMARY_PARTIAL
+    if UNSUPPORTED in (nas, s1ap):
+        return SUMMARY_UNSUPPORTED
+    if nas == NOT_OBSERVED and s1ap == NOT_OBSERVED:
+        return SUMMARY_NONE
+    return SUMMARY_PARTIAL
 
 
 def _public_reference(observation: dict[str, Any]) -> dict[str, Any]:
@@ -472,6 +568,102 @@ def _public_reference(observation: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _input_status(path: Path | None, events: list[dict[str, Any]]) -> str:
+    if path is None:
+        return INPUT_NOT_SUPPLIED
+    return INPUT_SUPPLIED_WITH_EVENTS if events else INPUT_SUPPLIED_EMPTY
+
+
+def _control_source_completeness(control: dict[str, Any]) -> str:
+    value = _dict(control.get("source_completeness")).get("status")
+    if value in (
+        SOURCE_COMPLETE,
+        SOURCE_PARTIAL,
+        SOURCE_TRUNCATED,
+        SOURCE_INVALID,
+        SOURCE_UNKNOWN,
+    ):
+        return value
+    return SOURCE_UNKNOWN
+
+
+def _source_completeness(
+    control: dict[str, Any],
+    transactions: list[dict[str, Any]],
+    nas_path: Path | None,
+    s1ap_path: Path | None,
+    nas_events: list[dict[str, Any]],
+    s1ap_events: list[dict[str, Any]],
+    event_capture_mismatch_count: int,
+) -> dict[str, Any]:
+    control_status = _control_source_completeness(control)
+    nas_status = _input_status(nas_path, nas_events)
+    s1ap_status = _input_status(s1ap_path, s1ap_events)
+    published = len(transactions)
+    omitted = _int(control.get("control_transactions_omitted"))
+    if omitted is None:
+        omitted = 0
+    exhaustive = False
+    limitations: list[str] = []
+    if control_status != SOURCE_COMPLETE:
+        limitations.append(
+            f"the accepted control artifact declares source completeness {control_status}"
+        )
+    if nas_status == INPUT_NOT_SUPPLIED:
+        limitations.append("NAS-EPS events were not supplied; NAS-ESM coverage is NOT_OBSERVED")
+    elif nas_status == INPUT_SUPPLIED_EMPTY:
+        limitations.append(
+            "NAS-EPS events were supplied but contain no records; this is not the same as an unsupplied source"
+        )
+    if s1ap_status == INPUT_NOT_SUPPLIED:
+        limitations.append("S1AP events were not supplied; S1AP E-RAB coverage is NOT_OBSERVED")
+    elif s1ap_status == INPUT_SUPPLIED_EMPTY:
+        limitations.append(
+            "S1AP events were supplied but contain no records; this is not the same as an unsupplied source"
+        )
+    if omitted > 0:
+        limitations.append(
+            f"the accepted control artifact omits {omitted} declared control transaction(s)"
+        )
+    if nas_status == INPUT_SUPPLIED_WITH_EVENTS and s1ap_status == INPUT_SUPPLIED_WITH_EVENTS:
+        limitations.append(
+            "the supplied protocol event streams do not declare exhaustive capture coverage"
+        )
+    if event_capture_mismatch_count:
+        limitations.append(
+            f"{event_capture_mismatch_count} event record(s) from another capture were not mixed into this timeline"
+        )
+    if control_status == SOURCE_INVALID:
+        status = SOURCE_INVALID
+    elif control_status == SOURCE_UNKNOWN:
+        status = SOURCE_UNKNOWN
+    elif control_status == SOURCE_TRUNCATED:
+        status = SOURCE_TRUNCATED
+    elif (
+        exhaustive
+        and nas_status == INPUT_SUPPLIED_WITH_EVENTS
+        and s1ap_status == INPUT_SUPPLIED_WITH_EVENTS
+        and omitted == 0
+    ):
+        status = SOURCE_COMPLETE
+    else:
+        status = SOURCE_PARTIAL
+    return {
+        "status": status,
+        "control_artifact_supplied": True,
+        "control_source_present": bool(transactions),
+        "control_source_completeness": control_status,
+        "control_transactions_published": published,
+        "control_transactions_omitted": omitted,
+        "nas_input_status": nas_status,
+        "s1ap_input_status": s1ap_status,
+        "nas_source_present": nas_path is not None,
+        "s1ap_source_present": s1ap_path is not None,
+        "exhaustive_coverage_proven": exhaustive,
+        "limitations": limitations[:MAX_LIST_ITEMS],
+    }
+
+
 def build_timeline(
     control: dict[str, Any],
     nas_events: list[dict[str, Any]],
@@ -481,27 +673,33 @@ def build_timeline(
     nas_path: Path | None,
     s1ap_path: Path | None,
 ) -> dict[str, Any]:
-    capture = _text(control.get("input_provenance", {}).get("gtpv2_events"))
     capture_names = sorted(
         {
             _text(_dict(item).get("capture"))
             for item in _list(control.get("control_transactions"))
-            if isinstance(item.get("capture"), str)
+            if isinstance(_dict(item).get("capture"), str)
+            and _text(_dict(item).get("capture")) is not None
         }
     )
-    if len(capture_names) == 1:
-        capture = capture_names[0]
-    elif capture_names:
-        capture = capture_names[0]
-    if capture is None:
-        capture = "unknown-capture"
-
-    transactions = []
-    for raw in _list(control.get("control_transactions")):
-        transaction = _dict(raw)
-        if _text(transaction.get("capture")) not in (None, capture):
-            continue
-        transactions.append(transaction)
+    if len(capture_names) > 1:
+        raise InputError(
+            "MIXED_CAPTURE_ARTIFACT",
+            "control artifact contains multiple capture identities: "
+            + ", ".join(capture_names)
+            + "; mixed-capture input is rejected rather than silently partitioned",
+        )
+    raw_transactions = [
+        _dict(item) for item in _list(control.get("control_transactions"))
+    ]
+    if capture_names and any(
+        _text(item.get("capture")) is None for item in raw_transactions
+    ):
+        raise InputError(
+            "INCOMPLETE_CAPTURE_IDENTITY",
+            "control artifact mixes a capture identity with transactions that have no capture identity",
+        )
+    capture = capture_names[0] if capture_names else "unknown-capture"
+    transactions = [item for item in raw_transactions if isinstance(item, dict)]
     transactions.sort(
         key=lambda item: (
             _transaction_frames(item)[0] or 1 << 30,
@@ -518,6 +716,12 @@ def build_timeline(
     s1ap_by_frame = _s1ap_context_by_frame(s1ap_events)
     nas_observations = _dedicated_nas_observations(nas_events, capture, s1ap_by_frame)
     s1ap_observations = _dedicated_s1ap_observations(s1ap_events, capture)
+    event_capture_mismatch_count = sum(
+        1
+        for event in (nas_events + s1ap_events)
+        if isinstance(event.get("capture_file"), str)
+        and _text(event.get("capture_file")) not in (None, capture)
+    )
 
     entries: list[dict[str, Any]] = []
     for transaction in transactions:
@@ -538,9 +742,12 @@ def build_timeline(
             transaction, family, ebis, request, response, nas_observations, sibling_count, control_context
         )
         s1ap_association, s1ap_candidates = _s1ap_association(
-            family, request, response, s1ap_observations, control_context
+            family, ebis, request, response, s1ap_observations, control_context
         )
         status = _combined_status(nas_association["status"], s1ap_association["status"])
+        relationship_summary = _relationship_summary(
+            nas_association["status"], s1ap_association["status"]
+        )
         basis = sorted(
             set(nas_association["evidence_basis"] + s1ap_association["evidence_basis"])
         )
@@ -561,11 +768,24 @@ def build_timeline(
 
         entry_not_confirmed = [
             "a GTPv2-C accepted Cause is a control-plane outcome and does not prove UE acceptance",
+            "observed control and access signaling do not prove network procedure success",
             "observed control and access signaling do not prove end-to-end user-plane delivery",
         ]
         if status != ESTABLISHED:
+            if (
+                nas_association["status"] == ESTABLISHED
+                or s1ap_association["status"] == ESTABLISHED
+            ):
+                entry_not_confirmed.append(
+                    "an individual NAS-ESM or S1AP E-RAB relationship is proven, but the complete three-plane association is not established"
+                )
+            else:
+                entry_not_confirmed.append(
+                    "no individual cross-layer relationship between the control transaction and NAS/S1AP evidence is established"
+                )
+        else:
             entry_not_confirmed.append(
-                "no cross-layer association between the control transaction and NAS/S1AP evidence is established"
+                "the complete three-plane association is established by evidence, but network procedure success is not proven"
             )
         entries.append(
             {
@@ -587,6 +807,7 @@ def build_timeline(
                 "nas_esm_association": nas_association,
                 "s1ap_erab_association": s1ap_association,
                 "cross_layer_association_status": status,
+                "cross_layer_relationship_summary": relationship_summary,
                 "association_evidence_basis": basis[:MAX_LIST_ITEMS],
                 "source_completeness_status": _text(transaction.get("source_completeness_status")),
                 "limitations": limitations[:MAX_LIST_ITEMS],
@@ -614,11 +835,15 @@ def build_timeline(
         for item in entries
         if item["cross_layer_association_status"] != ESTABLISHED
     ][:MAX_UNRESOLVED_EVIDENCE]
-    source_limitations = []
-    if nas_path is None:
-        source_limitations.append("NAS-EPS events were not supplied; NAS-ESM coverage is NOT_OBSERVED")
-    if s1ap_path is None:
-        source_limitations.append("S1AP events were not supplied; S1AP E-RAB coverage is NOT_OBSERVED")
+    source_completeness = _source_completeness(
+        control,
+        transactions,
+        nas_path,
+        s1ap_path,
+        nas_events,
+        s1ap_events,
+        event_capture_mismatch_count,
+    )
     return {
         "domain": "epc-procedures",
         "analysis_name": ANALYSIS_NAME,
@@ -628,7 +853,14 @@ def build_timeline(
             "control_artifact_sha256": sha256_file(control_path),
             "nas_events": nas_path.name if nas_path is not None else None,
             "s1ap_events": s1ap_path.name if s1ap_path is not None else None,
-            "control_transaction_count": total_entries,
+            "control_transactions_published": len(transactions),
+            "control_transactions_omitted": _int(
+                control.get("control_transactions_omitted")
+            )
+            or 0,
+            "control_transaction_count": len(transactions)
+            + (_int(control.get("control_transactions_omitted")) or 0),
+            "timeline_entry_count": total_entries,
             "nas_event_count": len(nas_events),
             "s1ap_event_count": len(s1ap_events),
         },
@@ -658,13 +890,7 @@ def build_timeline(
                 "no end-to-end user-plane delivery conclusion",
             ],
         },
-        "source_completeness": {
-            "status": "COMPLETE" if nas_path is not None and s1ap_path is not None else "PARTIAL",
-            "control_source_present": bool(transactions),
-            "nas_source_present": nas_path is not None,
-            "s1ap_source_present": s1ap_path is not None,
-            "limitations": source_limitations,
-        },
+        "source_completeness": source_completeness,
         "execution_status": "EXECUTED" if transactions else "NOT_OBSERVED_IN_CAPTURE",
         "timeline_entries": published,
         "timeline_entry_count": total_entries,
@@ -673,9 +899,10 @@ def build_timeline(
         "unresolved_evidence": unresolved,
         "not_confirmed": [
             "GTPv2-C control outcomes do not prove UE acceptance",
-            "correlated control and access signaling does not prove successful bearer activation",
+            "an established three-plane association does not prove network procedure success",
             "correlated signaling does not prove end-to-end user-plane delivery",
             "absence of NAS-ESM or S1AP E-RAB evidence is not evidence of failure",
+            "an individual NAS-ESM or S1AP E-RAB relationship may be proven while the complete three-plane association remains unproven",
         ],
         "bounded": True,
         "limits": {

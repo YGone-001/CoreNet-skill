@@ -1626,7 +1626,12 @@ def render_text_report(report: dict[str, Any]) -> str:
         )
         if block.get("execution_status") == "EXECUTED":
             lines.append(
-                f"    association statuses: {json.dumps(block.get('association_status_counts') or {}, sort_keys=True)}"
+                f"    association statuses: {json.dumps(block.get('association_status_counts') or {}, sort_keys=True)}; "
+                f"source completeness {_value(block.get('source_completeness_status'))} "
+                f"(control {_value(block.get('control_source_completeness'))}, "
+                f"NAS {_value(block.get('nas_input_status'))}, "
+                f"S1AP {_value(block.get('s1ap_input_status'))}, "
+                f"exhaustive {_value(block.get('exhaustive_coverage_proven'))})"
             )
             for entry in (block.get("entries") or [])[:MAX_DEDICATED_TIMELINE_ENTRIES]:
                 lines.append(
@@ -1635,7 +1640,10 @@ def render_text_report(report: dict[str, Any]) -> str:
                     f"request frame {_value(entry.get('request_frame'))}, "
                     f"response frame {_value(entry.get('response_frame'))}, "
                     f"control outcome {_value(entry.get('message_outcome'))}, "
-                    f"cross-layer {_value(entry.get('cross_layer_association_status'))}"
+                    f"NAS {_value(entry.get('nas_esm_association_status'))}, "
+                    f"S1AP {_value(entry.get('s1ap_erab_association_status'))}, "
+                    f"cross-layer {_value(entry.get('cross_layer_association_status'))}, "
+                    f"summary {_value(entry.get('cross_layer_relationship_summary'))}"
                 )
                 lines.append(
                     "      NAS-ESM: "
@@ -2544,6 +2552,9 @@ def _project_dedicated_bearer_timeline(
                     "cross_layer_association_status": item.get(
                         "cross_layer_association_status"
                     ),
+                    "cross_layer_relationship_summary": item.get(
+                        "cross_layer_relationship_summary"
+                    ),
                     "association_evidence_basis": item.get("association_evidence_basis", [])[
                         :MAX_LIST_ITEMS
                     ],
@@ -2585,6 +2596,18 @@ def _project_dedicated_bearer_timeline(
             "source_completeness_status": _dict(analysis.get("source_completeness")).get(
                 "status"
             ),
+            "control_source_completeness": _dict(
+                analysis.get("source_completeness")
+            ).get("control_source_completeness"),
+            "nas_input_status": _dict(analysis.get("source_completeness")).get(
+                "nas_input_status"
+            ),
+            "s1ap_input_status": _dict(analysis.get("source_completeness")).get(
+                "s1ap_input_status"
+            ),
+            "exhaustive_coverage_proven": _dict(
+                analysis.get("source_completeness")
+            ).get("exhaustive_coverage_proven"),
             "entries": projected,
             "not_confirmed": analysis.get("not_confirmed", [])[:MAX_LIST_ITEMS],
             "failure_code": None,

@@ -1,5 +1,5 @@
 name: epc-procedures
-version: 0.10.0
+version: 0.10.1
 category: domain
 description: >
   Bounded EPS Attach procedure analysis over already-extracted S1AP and NAS-EPS
@@ -49,7 +49,9 @@ description: >
   evidence timeline over the accepted control artifact and optional NAS-EPS/S1AP
   events: frame-anchored control entries, observed dedicated ESM and standalone
   E-RAB references, capture-scoped association statuses, and explicit
-  non-activation/non-delivery limitations.
+  non-activation/non-delivery limitations, with conservative item-identity
+  matching, a complete three-plane overall-status contract, upstream source
+  completeness preservation and controlled mixed-capture rejection.
 scope:
   includes:
     - EPS Attach procedure instance formation scoped by capture, SCTP association and S1AP UE identifiers
