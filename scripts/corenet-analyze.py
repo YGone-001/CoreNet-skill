@@ -945,6 +945,82 @@ def execute_5gc_pipeline(
     return summary, raw_orchestration, artifacts_dir
 
 
+def _read_5gc_registration_evidence(artifacts_dir: Path) -> dict[str, Any]:
+    """Read bounded, sanitized registration evidence from the accepted artifacts."""
+    registration_path = artifacts_dir / "5gc-registration-mobility-analysis.json"
+    nas_path = artifacts_dir / "nas-5gs-events.jsonl"
+    evidence: dict[str, Any] = {}
+    if registration_path.is_file():
+        try:
+            document = json.loads(registration_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            document = {}
+        analyses = document.get("analyses") if isinstance(document, dict) else None
+        analysis = analyses[0] if isinstance(analyses, list) and analyses else {}
+        if isinstance(analysis, dict):
+            evidence["procedure_completeness_confidence"] = analysis.get("confidence")
+            events = [item for item in analysis.get("events") or [] if isinstance(item, dict)]
+            evidence["events"] = [
+                {
+                    "frame_number": item.get("frame_number"),
+                    "protocol": item.get("protocol"),
+                    "message_type": item.get("message_type"),
+                    "cause": item.get("cause"),
+                }
+                for item in events
+                if item.get("message_type") in {
+                    "Authentication request",
+                    "Authentication failure",
+                    "Authentication reject",
+                    "Security mode complete",
+                    "Security mode reject",
+                    "Registration reject",
+                }
+            ]
+    if nas_path.is_file():
+        requested: list[dict[str, Any]] = []
+        inner: list[dict[str, Any]] = []
+        auth_fields: dict[str, Any] = {}
+        for line in nas_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            for item in event.get("requested_nssai") or []:
+                if isinstance(item, dict):
+                    requested.append({
+                        "frame_number": event.get("frame_number"),
+                        "sst": item.get("sst"),
+                        "sd": item.get("sd"),
+                    })
+            for item in event.get("inner_nas_messages") or []:
+                if isinstance(item, dict) and item.get("message_type") == "Security mode complete":
+                    inner.append({
+                        "frame_number": event.get("frame_number"),
+                        "message_type": item.get("message_type"),
+                        "message_type_code": item.get("message_type_code"),
+                    })
+            if event.get("message_type") == "Security mode complete":
+                inner.append({
+                    "frame_number": event.get("frame_number"),
+                    "message_type": event.get("message_type"),
+                    "message_type_code": event.get("message_type_code"),
+                })
+            if event.get("message_type") == "Authentication request" and isinstance(event.get("authentication"), dict):
+                auth_fields = {
+                    "frame_number": event.get("frame_number"),
+                    **event.get("authentication"),
+                }
+        evidence["requested_nssai"] = requested[:MAX_LIST_ITEMS]
+        evidence["security_mode_complete_frames"] = inner[:MAX_LIST_ITEMS]
+        evidence["authentication_request"] = auth_fields
+    return evidence
+
+
 def execute_5gc_domain(
     capture: Path,
     work_dir: Path,
@@ -957,6 +1033,15 @@ def execute_5gc_domain(
     summary, raw_orchestration, artifacts_dir = pipeline(capture, work_dir, case_id)
     components = evaluate_5gc_components(summary, observed)
     subjects, omitted = project_diagnostic_subjects(raw_orchestration)
+    registration_evidence = _read_5gc_registration_evidence(artifacts_dir)
+    for subject in subjects:
+        if any(
+            _dict(instance).get("source_domain") == "5gc-registration-mobility"
+            for instance in subject.get("source_domain_instances") or []
+        ):
+            subject["procedure_completeness_confidence"] = registration_evidence.get(
+                "procedure_completeness_confidence"
+            )
     result: dict[str, Any] = {
         "domain": DOMAIN_5GC,
         "display_name": DOMAIN_CAPABILITIES[DOMAIN_5GC]["display_name"],
@@ -966,6 +1051,7 @@ def execute_5gc_domain(
         "unsupported_reason": None,
         "protocol_evidence": project_protocol_evidence(summary, artifacts_dir),
         "procedure_summaries": project_procedure_summaries(summary),
+        "registration_evidence": registration_evidence,
         "diagnostic_groups": project_diagnostic_groups(summary),
         "diagnostic_subject_count": len(subjects),
         "diagnostic_subjects": subjects,
@@ -1393,6 +1479,53 @@ def render_text_report(report: dict[str, Any]) -> str:
     if not procedure_any:
         _empty(lines, "no Domain procedure instance was produced")
 
+    registration_any = False
+    for result in results:
+        evidence = result.get("registration_evidence") or {}
+        if not evidence:
+            continue
+        if not registration_any:
+            _section(lines, "5GC Registration Evidence")
+            registration_any = True
+        boundary = result.get("first_abnormal_boundary") or {}
+        lines.append(
+            f"  {result['domain']}: boundary confidence "
+            f"{_value(boundary.get('confidence'))}; procedure completeness confidence "
+            f"{_value(evidence.get('procedure_completeness_confidence'))}"
+        )
+        for frame in evidence.get("security_mode_complete_frames") or []:
+            lines.append(
+                f"    Security mode complete: frame {_value(frame.get('frame_number'))}"
+            )
+        for nssai in evidence.get("requested_nssai") or []:
+            lines.append(
+                f"    Requested S-NSSAI: frame {_value(nssai.get('frame_number'))}, "
+                f"SST {_value(nssai.get('sst'))}, SD {_value(nssai.get('sd'))}"
+            )
+        auth = evidence.get("authentication_request") or {}
+        if auth:
+            lines.append(
+                f"    Authentication request: frame {_value(auth.get('frame_number'))}, "
+                f"RAND present {_value(auth.get('rand_present'))}, "
+                f"AUTN present {_value(auth.get('autn_present'))}"
+            )
+        for event in evidence.get("events") or []:
+            cause = event.get("cause") or {}
+            if event.get("message_type") in (
+                "Authentication failure",
+                "Authentication reject",
+                "Registration reject",
+            ):
+                lines.append(
+                    f"    {event.get('message_type')}: frame {_value(event.get('frame_number'))}, "
+                    f"cause {_value(cause.get('family'))} {_value(cause.get('code'))} "
+                    f"{_value(cause.get('name'))}"
+                )
+        lines.append(
+            "    interpretation: Authentication Reject may omit a 5GMM Cause; MAC failure and "
+            "Synch failure are distinct; a Cause 20 does not by itself prove a K/OPc mismatch"
+        )
+
     _section(lines, "Diagnostic Subjects")
     subject_any = False
     for result in results:
@@ -1408,7 +1541,8 @@ def render_text_report(report: dict[str, Any]) -> str:
                 f"    - {subject['diagnostic_group_reference']} "
                 f"[{_value(subject.get('subject_type'))}]: "
                 f"{_value(subject.get('boundary_selection_status'))} "
-                f"(confidence {_value(subject.get('boundary_confidence'))}, "
+                f"(boundary confidence {_value(subject.get('boundary_confidence'))}, "
+                f"procedure completeness confidence {_value(subject.get('procedure_completeness_confidence'))}, "
                 f"candidates {_value(subject.get('candidate_boundary_count'))}, "
                 f"source domains {', '.join(domains) or 'none'})"
             )
@@ -1452,10 +1586,16 @@ def render_text_report(report: dict[str, Any]) -> str:
                 )
                 for outcome in subject.get("outcomes") or []:
                     lines.append(f"      outcome: {outcome}")
-                for stage in subject.get("procedure_stages") or []:
-                    lines.append(
-                        f"      stage {stage.get('stage_id')}: {_value(stage.get('status'))}"
-                    )
+            for release_cause in subject.get("s1ap_release_causes") or []:
+                lines.append(
+                    f"      S1AP release cause: {_value(release_cause.get('category'))} "
+                    f"{_value(release_cause.get('value'))} at frame "
+                    f"{_value(release_cause.get('frame_number'))}"
+                )
+            for stage in subject.get("procedure_stages") or []:
+                lines.append(
+                    f"      stage {stage.get('stage_id')}: {_value(stage.get('status'))}"
+                )
             if subject.get("subject_type") == "EPC_SESSION_CONTROL":
                 evidence = subject.get("interface_evidence") or {}
                 lines.append(
@@ -1483,8 +1623,21 @@ def render_text_report(report: dict[str, Any]) -> str:
                     f"({_value(boundary.get('protocol'))} {_value(boundary.get('message_type'))}), "
                     f"confidence {_value(subject.get('boundary_confidence'))}"
                 )
+                if boundary.get("cause_code") is not None:
+                    lines.append(
+                        f"      cause: {_value(boundary.get('cause_family'))} "
+                        f"{_value(boundary.get('cause_code'))} "
+                        f"{_value(boundary.get('cause_name'))} "
+                        f"(scope {_value(boundary.get('cause_scope'))})"
+                    )
             elif subject.get("boundary_selection_status") not in (None, "NOT_EVALUATED"):
                 lines.append(f"      boundary: {subject.get('boundary_selection_status')}")
+            for release_cause in subject.get("s1ap_release_causes") or []:
+                lines.append(
+                    f"      S1AP release cause: {_value(release_cause.get('category'))} "
+                    f"{_value(release_cause.get('value'))} at frame "
+                    f"{_value(release_cause.get('frame_number'))}"
+                )
             for stage in subject.get("procedure_stages") or []:
                 marker = "conditional" if stage.get("conditional") else "required"
                 first, last = stage.get("first_frame"), stage.get("last_frame")
@@ -1505,6 +1658,13 @@ def render_text_report(report: dict[str, Any]) -> str:
                     f"{_value(deviation.get('frame_number'))}{span}: "
                     f"{_value(deviation.get('explanation'))}"
                 )
+                if deviation.get("cause_code") is not None:
+                    lines.append(
+                        f"        cause: {_value(deviation.get('cause_family'))} "
+                        f"{_value(deviation.get('cause_code'))} "
+                        f"{_value(deviation.get('cause_name'))} "
+                        f"(scope {_value(deviation.get('cause_scope'))})"
+                    )
     if not subject_any:
         _empty(lines, "no diagnostic group was established")
 
@@ -3499,6 +3659,9 @@ def _project_epc_deviations(deviations: Any) -> list[dict[str, Any]]:
             "explanation": scrub_free_text(deviation.get("explanation")),
             "limitations": limitations,
         }
+        for cause_key in ("cause_code", "cause_name", "cause_family", "cause_scope"):
+            if deviation.get(cause_key) is not None:
+                entry[cause_key] = deviation[cause_key]
         if references_omitted:
             entry["evidence_refs_omitted"] = references_omitted
         if limitations_omitted:
@@ -3526,6 +3689,8 @@ def _project_boundary(boundary: Any) -> dict[str, Any] | None:
     for key in (
         "transaction_reference",
         "cause_code",
+        "cause_name",
+        "cause_family",
         "cause_scope",
         "bearer_item_index",
         "procedure_family_or_stage",
@@ -3604,6 +3769,15 @@ def _project_epc_subject(
             for stage in instance.get("stages") or []
         ],
         "procedure_deviations": _project_epc_deviations(instance.get("deviations")),
+        "s1ap_release_causes": [
+            {
+                "frame_number": item.get("frame_number"),
+                "category": item.get("category"),
+                "value": item.get("value"),
+            }
+            for item in instance.get("s1ap_release_causes") or []
+            if isinstance(item, dict)
+        ],
         "observations": [
             observation.get("observation_type") for observation in instance.get("observations") or []
         ],

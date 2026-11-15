@@ -103,8 +103,8 @@ class Nas5gsValidatorTests(unittest.TestCase):
         temporary, root = self.fixture()
         with temporary:
             manifest = root / "skills/protocol/nas-5gs/manifest.yaml"
-            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.2.1", "version: 0.1.0"), encoding="utf-8")
-            self.assertTrue(any("manifest version must be 0.2.1" in error for error in VALIDATOR.validate(root)))
+            manifest.write_text(manifest.read_text(encoding="utf-8").replace("version: 0.3.0", "version: 0.1.0"), encoding="utf-8")
+            self.assertTrue(any("manifest version must be 0.3.0" in error for error in VALIDATOR.validate(root)))
 
     def test_missing_field_spec_is_detected(self):
         temporary, root = self.fixture()

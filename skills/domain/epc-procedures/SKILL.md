@@ -585,4 +585,6 @@ and standalone S1AP E-RAB evidence. Version 0.10.1 corrects S1AP item-identity
 association, three-plane overall status, source completeness propagation and
 mixed-capture input handling. Version 0.11.0 adds a bounded control-to-access
 attribution feasibility artifact without changing accepted control, session
-identity or timeline inference. Version 0.11.0.
+identity or timeline inference. Version 0.11.1 propagates structured EMM cause
+code, name, family, scope and source frame from EPS Attach rejects into the
+accepted boundary evidence. Version 0.11.1.

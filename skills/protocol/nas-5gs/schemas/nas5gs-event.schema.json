@@ -53,7 +53,7 @@
         "message_authentication_code_present": {"type": ["boolean", "null"]},
         "security_parameter_index": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295},
         "inner_message_available": {"type": ["boolean", "null"]},
-        "decode_basis": {"type": ["string", "null"], "enum": ["plain-message", "dissector-decoded", null]}
+        "decode_basis": {"type": ["string", "null"], "enum": ["plain-message", "dissector-decoded", "null-ciphering-dissector", null]}
       }
     },
     "message_type_code": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
@@ -131,6 +131,32 @@
       "properties": {
         "type_code": {"type": ["integer", "null"], "minimum": 0, "maximum": 7},
         "type_name": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "inner_nas_messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["message_type", "message_type_code", "nas_family", "result"],
+        "additionalProperties": false,
+        "properties": {
+          "message_type": {"type": ["string", "null"]},
+          "message_type_code": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+          "nas_family": {"type": ["string", "null"], "enum": ["5GMM", "5GSM", null]},
+          "result": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "requested_nssai": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["sst", "sd"],
+        "additionalProperties": false,
+        "properties": {
+          "sst": {"type": "integer", "minimum": 0, "maximum": 255},
+          "sd": {"type": ["integer", "null"], "minimum": 0, "maximum": 16777215}
+        }
       }
     },
     "session_management": {

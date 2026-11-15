@@ -158,7 +158,9 @@ only when all observed tokens resolve to the same Boolean value. Conflicting or
 mixed valid/invalid repeated tokens raise an input error; they never become a
 definitive scalar by taking the first token.
 
-Version 0.2.1 introduces deterministic direct-capture compatibility handling:
+Version 0.3.0 adds bounded 5G-EA0 null-ciphering inner-message visibility and
+Requested S-NSSAI publication when the installed dissector establishes them.
+Version 0.2.1 introduced deterministic direct-capture compatibility handling:
 
 - **Protocol Filter Resolution**: `resolve_filter` evaluates candidate display filters `("nas-5gs", "nas_5gs")` against discovered protocols in the active TShark installation.
 - **Candidate Field Resolution**: Each field in `FIELD_SPECS` defines deterministic candidate names (e.g. `nas-5gs.<field>` and `nas_5gs.<field>`). Canonical field names are preserved in output records regardless of dissector token naming.

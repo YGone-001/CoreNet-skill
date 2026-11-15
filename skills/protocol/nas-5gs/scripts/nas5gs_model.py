@@ -94,6 +94,10 @@ FIELDS = (
     "nas-5gs.mm.serv_type",
     "nas-5gs.mm.imei",
     "nas-5gs.mm.imeisv",
+    "gsm_a.dtap.rand",
+    "gsm_a.dtap.autn",
+    "gsm_a.dtap.auts",
+    "gsm_a.dtap.res",
 )
 
 @dataclass(frozen=True)
@@ -493,6 +497,16 @@ def first_token(value: object) -> str | None:
     return text.split(",")[0].strip() or None
 
 
+def tokens(value: object) -> list[str]:
+    """Split a scalar or repeated dissector value into ordered non-empty tokens."""
+    if isinstance(value, (list, tuple)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = clean(value)
+    if text is None:
+        return []
+    return [token.strip() for token in text.split(",") if token.strip()]
+
+
 def parse_int(value: object, field: str) -> int:
     text = first_token(value)
     if text is None:
@@ -795,14 +809,17 @@ def normalize_record(record: object, capture_file: str, include_sensitive: bool 
         raise InputError("frame.number must be at least 1")
     timestamp = normalize_timestamp(record.get("frame.time_epoch"))
 
-    mm_code = optional_int(record.get("nas-5gs.mm.message_type"))
-    sm_code = optional_int(record.get("nas-5gs.sm.message_type"))
+    mm_codes = [optional_int(token) for token in tokens(record.get("nas-5gs.mm.message_type"))]
+    sm_codes = [optional_int(token) for token in tokens(record.get("nas-5gs.sm.message_type"))]
+    mm_code = mm_codes[0] if mm_codes else None
+    sm_code = sm_codes[0] if sm_codes else None
     for code, field in ((mm_code, "nas-5gs.mm.message_type"), (sm_code, "nas-5gs.sm.message_type")):
         if code is not None and not 0 <= code <= 255:
             raise InputError(f"{field} must be within 0..255")
     identity = resolve_message(mm_code, sm_code)
 
-    header_code = optional_int(record.get("nas-5gs.security_header_type"))
+    header_codes = [optional_int(token) for token in tokens(record.get("nas-5gs.security_header_type"))]
+    header_code = header_codes[0] if header_codes else None
     if clean(record.get("nas-5gs.security_header_type")) is not None and header_code is None:
         raise InputError("nas-5gs.security_header_type must be an integer")
     security = resolve_security_header(header_code)
@@ -812,9 +829,15 @@ def normalize_record(record: object, capture_file: str, include_sensitive: bool 
         raise InputError("nas-5gs.msg_auth_code must be an integer")
     security["message_authentication_code_present"] = mac_code is not None
     security["security_parameter_index"] = optional_int(record.get("nas-5gs.security_parameter_index"))
+    inner_codes: list[int] = []
+    if header_code in (3, 4) and len(mm_codes) > 1:
+        inner_codes = mm_codes[1:]
     if security["header_type"] == 0:
         security["inner_message_available"] = True
         security["decode_basis"] = "plain-message"
+    elif inner_codes:
+        security["inner_message_available"] = True
+        security["decode_basis"] = "null-ciphering-dissector"
     elif identity.message_type is not None:
         security["inner_message_available"] = True
         security["decode_basis"] = "dissector-decoded"
@@ -857,11 +880,17 @@ def normalize_record(record: object, capture_file: str, include_sensitive: bool 
     if ksi is not None and not 0 <= ksi <= 7:
         raise InputError("nas-5gs.mm.nas_key_set_id must be within 0..7")
 
+    def auth_presence(name: str, dtap_field: str) -> bool | None:
+        value = optional_bool(record.get(name))
+        if value is None and clean(record.get(dtap_field)) is not None:
+            return True
+        return value
+
     auth_meta = {
-        "rand_present": optional_bool(record.get("auth_rand_present")),
-        "autn_present": optional_bool(record.get("auth_autn_present")),
-        "res_present": optional_bool(record.get("auth_res_present")),
-        "auts_present": optional_bool(record.get("auth_auts_present")),
+        "rand_present": auth_presence("auth_rand_present", "gsm_a.dtap.rand"),
+        "autn_present": auth_presence("auth_autn_present", "gsm_a.dtap.autn"),
+        "res_present": auth_presence("auth_res_present", "gsm_a.dtap.res"),
+        "auts_present": auth_presence("auth_auts_present", "gsm_a.dtap.auts"),
     }
 
     cipher_code = optional_int(record.get("nas-5gs.mm.nas_sec_algo_enc"))
@@ -931,6 +960,28 @@ def normalize_record(record: object, capture_file: str, include_sensitive: bool 
     }
     if identity.nas_family == FAMILY_SM:
         event["session_management"] = normalize_session_management(record)
+    if inner_codes:
+        inner_messages: list[dict[str, object]] = []
+        for code in inner_codes:
+            resolved = resolve_message(code, None)
+            inner_messages.append({
+                "message_type": resolved.message_type,
+                "message_type_code": code,
+                "nas_family": resolved.nas_family,
+                "result": resolved.result,
+            })
+        event["inner_nas_messages"] = inner_messages
+        extra_derivations.append("inner_messages")
+    sst_values = int_list(record.get("nas-5gs.mm.sst"))
+    sd_values = int_list(record.get("nas-5gs.mm.mm_sd"))
+    if sst_values and identity.nas_family == FAMILY_MM:
+        requested_nssai = []
+        for index, sst in enumerate(sst_values):
+            sd = sd_values[index] if index < len(sd_values) else None
+            requested_nssai.append({"sst": sst, "sd": sd})
+        event["requested_nssai"] = requested_nssai
+        extra_derivations.append("requested_nssai")
+    event["derivations"] = tuple(sorted(set(identity.derivations) | set(extra_derivations)))
     return event
 
 
@@ -1139,6 +1190,8 @@ def build_tshark_fields_command(
         "-n",
         "-r",
         str(capture),
+        "-o",
+        "nas-5gs.null_decipher:TRUE",
         "-T",
         "fields",
         "-E",

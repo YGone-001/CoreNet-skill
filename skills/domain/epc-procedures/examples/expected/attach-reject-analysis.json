@@ -52,6 +52,10 @@
       "attempt_index": 1,
       "deviations": [
         {
+          "cause_code": 19,
+          "cause_family": "EMM",
+          "cause_name": "ESM failure",
+          "cause_scope": "NAS message",
           "deviation_type": "ATTACH_REJECT_OBSERVED",
           "evidence_level": "OBSERVED",
           "evidence_refs": [
@@ -154,6 +158,13 @@
       "procedure": "eps-attach",
       "procedure_label": "EPS Attach",
       "procedure_reference": "epc-attach-44f18aebfc",
+      "s1ap_release_causes": [
+        {
+          "category": "nas",
+          "frame_number": 49,
+          "value": 0
+        }
+      ],
       "stages": [
         {
           "conditional": false,
@@ -320,6 +331,10 @@
       "attempt_index": 1,
       "deviations": [
         {
+          "cause_code": 19,
+          "cause_family": "EMM",
+          "cause_name": "ESM failure",
+          "cause_scope": "NAS message",
           "deviation_type": "ATTACH_REJECT_OBSERVED",
           "evidence_level": "OBSERVED",
           "evidence_refs": [
@@ -422,6 +437,13 @@
       "procedure": "eps-attach",
       "procedure_label": "EPS Attach",
       "procedure_reference": "epc-attach-bae7c7576f",
+      "s1ap_release_causes": [
+        {
+          "category": "nas",
+          "frame_number": 77,
+          "value": 0
+        }
+      ],
       "stages": [
         {
           "conditional": false,

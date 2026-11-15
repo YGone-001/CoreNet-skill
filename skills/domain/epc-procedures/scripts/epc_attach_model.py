@@ -420,9 +420,10 @@ def build_attempt(
         protocol: str,
         explanation: str,
         extra_limitations: list[str] | None = None,
+        cause: dict[str, Any] | None = None,
     ) -> None:
         refs = [_event_ref(event, protocol)] if event is not None else []
-        deviations.append({
+        entry: dict[str, Any] = {
             "deviation_type": deviation_type,
             "procedure_stage": stage,
             "protocol": protocol,
@@ -433,7 +434,10 @@ def build_attempt(
             "observation_window": _window([(frame, item) for frame, proto, item in combined if proto == protocol]),
             "explanation": explanation,
             "limitations": list(extra_limitations or []),
-        })
+        }
+        if cause:
+            entry.update(cause)
+        deviations.append(entry)
 
     for frame, protocol, event in combined:
         message = event.get("message_type")
@@ -451,7 +455,23 @@ def build_attempt(
                 explanation = "explicit Attach rejection observed"
                 if value is not None:
                     explanation += f" with EMM cause {value}" + (f" ({name})" if name else "")
-                add_deviation("ATTACH_REJECT_OBSERVED", "attach-decision", event, protocol, explanation)
+                add_deviation(
+                    "ATTACH_REJECT_OBSERVED",
+                    "attach-decision",
+                    event,
+                    protocol,
+                    explanation,
+                    cause=(
+                        {
+                            "cause_code": value,
+                            "cause_name": name,
+                            "cause_family": "EMM",
+                            "cause_scope": "NAS message",
+                        }
+                        if value is not None
+                        else None
+                    ),
+                )
             elif message == "Authentication response":
                 add_observation("AUTHENTICATION_RESPONSE_OBSERVED", "authentication", event, protocol)
             elif message == "Authentication failure":
@@ -582,6 +602,18 @@ def build_attempt(
         )
 
     frames = [frame for frame, _, _ in combined]
+    release_causes = []
+    for frame, protocol, event in combined:
+        if protocol != "S1AP" or event.get("procedure_name") != "UEContextRelease":
+            continue
+        cause = event.get("cause")
+        if not isinstance(cause, dict):
+            continue
+        release_causes.append({
+            "frame_number": event.get("frame_number"),
+            "category": cause.get("category"),
+            "value": cause.get("value"),
+        })
     attempt = {
         "procedure_reference": context_identity(context, attempt_index),
         "procedure": PROCEDURE,
@@ -603,6 +635,8 @@ def build_attempt(
         "evidence_limitations": limitations,
         "additional_evidence_needed": _additional_evidence(stages, deviations),
     }
+    if release_causes:
+        attempt["s1ap_release_causes"] = release_causes
     return attempt
 
 

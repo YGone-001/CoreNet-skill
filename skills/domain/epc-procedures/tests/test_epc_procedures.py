@@ -117,6 +117,31 @@ class FixtureTests(unittest.TestCase):
         self.assertIn("19", explanations[0])
         self.assertIn("ESM failure", explanations[0])
 
+        deviations = [
+            deviation
+            for instance in analysis["procedure_instances"]
+            for deviation in instance["deviations"]
+            if deviation["deviation_type"] == "ATTACH_REJECT_OBSERVED"
+        ]
+        self.assertEqual(deviations[0]["cause_code"], 19)
+        self.assertEqual(deviations[0]["cause_name"], "ESM failure")
+        self.assertEqual(deviations[0]["cause_family"], "EMM")
+        self.assertEqual(deviations[0]["cause_scope"], "NAS message")
+
+    def test_attach_release_causes_are_preserved(self) -> None:
+        analysis = self.analyze_fixture("attach-reject")
+        causes = [
+            cause
+            for instance in analysis["procedure_instances"]
+            for cause in instance.get("s1ap_release_causes") or []
+        ]
+        self.assertEqual(
+            {(cause["category"], cause["value"]) for cause in causes},
+            {("nas", 0)},
+        )
+        for cause in causes:
+            self.assertIsInstance(cause["frame_number"], int)
+
     # D3 / D13 --------------------------------------------------------------
     def test_multiple_ues_remain_independent(self) -> None:
         analysis = self.analyze_fixture("attach-reject")

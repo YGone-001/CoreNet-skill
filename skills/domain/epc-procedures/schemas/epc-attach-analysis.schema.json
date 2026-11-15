@@ -145,7 +145,11 @@
           }
         },
         "explanation": {"type": "string"},
-        "limitations": {"type": "array", "items": {"type": "string"}}
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "cause_code": {"type": ["integer", "null"]},
+        "cause_name": {"type": ["string", "null"]},
+        "cause_family": {"type": ["string", "null"]},
+        "cause_scope": {"type": ["string", "null"]}
       }
     },
     "instance": {
@@ -175,6 +179,19 @@
         "stages": {"type": "array", "items": {"$ref": "#/$defs/stage"}},
         "observations": {"type": "array", "items": {"$ref": "#/$defs/observation"}},
         "deviations": {"type": "array", "items": {"$ref": "#/$defs/deviation"}},
+        "s1ap_release_causes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["frame_number", "category", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "frame_number": {"type": ["integer", "null"]},
+              "category": {"type": ["string", "null"]},
+              "value": {"type": ["integer", "null"]}
+            }
+          }
+        },
         "evidence_limitations": {"type": "array", "items": {"type": "string"}},
         "additional_evidence_needed": {"type": "array", "items": {"type": "string"}}
       }

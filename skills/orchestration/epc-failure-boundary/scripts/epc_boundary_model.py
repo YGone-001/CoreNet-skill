@@ -566,6 +566,8 @@ def build_candidate(subject: Subject, deviation: dict[str, Any], ordinal: int) -
     for field_name in (
         "transaction_reference",
         "cause_code",
+        "cause_name",
+        "cause_family",
         "cause_scope",
         "bearer_item_index",
         "esm_cause_code",
@@ -756,6 +758,8 @@ def analyze_subject(subject: Subject, index: int) -> dict[str, Any]:
         for field_name in (
             "transaction_reference",
             "cause_code",
+            "cause_name",
+            "cause_family",
             "cause_scope",
             "bearer_item_index",
             "procedure_family_or_stage",

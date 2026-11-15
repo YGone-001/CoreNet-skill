@@ -175,6 +175,35 @@ class SecurityEnvelopeTests(unittest.TestCase):
         self.assertNotIn("message_authentication_code_value", json.dumps(security))
 
 
+def test_null_ciphering_inner_message_and_requested_nssai(self):
+        event = MODEL.normalize_record(
+            {
+                "frame.number": "3271",
+                "frame.time_epoch": "1710000000.000000",
+                "nas-5gs.security_header_type": "4,0,0",
+                "nas-5gs.mm.message_type": "0x5e,0x41",
+                "nas-5gs.mm.sst": "1,1",
+                "nas-5gs.mm.mm_sd": "66051,1122867",
+                "gsm_a.dtap.rand": "00",
+                "gsm_a.dtap.autn": "00",
+            },
+            "B02.pcap",
+        )
+        self.assertEqual(event["message_type"], "Security mode complete")
+        self.assertEqual(event["security"]["decode_basis"], "null-ciphering-dissector")
+        self.assertTrue(event["security"]["inner_message_available"])
+        self.assertEqual(
+            [item["message_type"] for item in event["inner_nas_messages"]],
+            ["Registration request"],
+        )
+        self.assertEqual(
+            event["requested_nssai"],
+            [{"sst": 1, "sd": 66051}, {"sst": 1, "sd": 1122867}],
+        )
+        self.assertTrue(event["authentication"]["rand_present"])
+        self.assertTrue(event["authentication"]["autn_present"])
+
+
 class RegistrationSemanticsTests(unittest.TestCase):
     def test_registration_types_normalized(self):
         events = events_of("registration-flow.jsonl")
@@ -595,6 +624,7 @@ class TsharkBoundaryTests(unittest.TestCase):
         self.assertIn("-Y", command)
         self.assertIn("nas-5gs", command)
         self.assertIn("nas-5gs.mm.message_type", command)
+        self.assertIn("nas-5gs.null_decipher:TRUE", command)
         self.assertNotIn("shell=True", command)
 
 

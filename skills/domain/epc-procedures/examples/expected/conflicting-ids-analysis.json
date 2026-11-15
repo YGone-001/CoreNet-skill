@@ -52,6 +52,10 @@
       "attempt_index": 1,
       "deviations": [
         {
+          "cause_code": 15,
+          "cause_family": "EMM",
+          "cause_name": "No suitable cells in tracking area",
+          "cause_scope": "NAS message",
           "deviation_type": "ATTACH_REJECT_OBSERVED",
           "evidence_level": "OBSERVED",
           "evidence_refs": [
@@ -189,6 +193,10 @@
       "attempt_index": 1,
       "deviations": [
         {
+          "cause_code": 15,
+          "cause_family": "EMM",
+          "cause_name": "No suitable cells in tracking area",
+          "cause_scope": "NAS message",
           "deviation_type": "ATTACH_REJECT_OBSERVED",
           "evidence_level": "OBSERVED",
           "evidence_refs": [

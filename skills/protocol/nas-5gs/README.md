@@ -4,12 +4,15 @@
 semantic extraction on the N1 interface. Repeated Boolean fields emitted by
 TShark are parsed conservatively: exact repetitions resolve to one value,
 conflicting or mixed valid/invalid repetitions fail closed, and missing values
-stay missing. Version 0.2.1 implements the
+stay missing. Version 0.3.0 implements the
 5GMM registration, identity, authentication, security mode, service, and
 status subset plus the 5GSM PDU session establishment, modification, and
 release subset and 5GSM status, with security-envelope classification,
 bounded session-management normalization, privacy defaults, and shared
-trace-event projection. It includes deterministic TShark compatibility
+trace-event projection. For an explicitly established 5G-EA0 null-ciphering
+context, the installed dissector may expose inner message identity and
+Requested S-NSSAI without key derivation; subscriber identity values remain
+redacted. It includes deterministic TShark compatibility
 handling (field and protocol filter candidate resolution) for robust
 direct-PCAP extraction. It never performs NAS cryptography and never
 decides procedure outcomes.

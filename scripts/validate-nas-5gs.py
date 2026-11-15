@@ -155,7 +155,7 @@ def validate(root: Path) -> list[str]:
         return errors
 
     manifest = (skill / "manifest.yaml").read_text(encoding="utf-8")
-    for key, expected in (("name", "nas-5gs"), ("version", "0.2.1"), ("category", "protocol")):
+    for key, expected in (("name", "nas-5gs"), ("version", "0.3.0"), ("category", "protocol")):
         if manifest_value(manifest, key) != expected:
             errors.append(f"manifest {key} must be {expected}")
     if not re.search(r"(?m)^\s*required:\s*\[\]\s*$", manifest):

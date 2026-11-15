@@ -43,6 +43,8 @@ def deviation(
     level: str = "OBSERVED",
     cause_code: int | None = None,
     cause_scope: str | None = None,
+    cause_name: str | None = None,
+    cause_family: str | None = None,
     bearer_item_index: int | None = None,
     transaction: str = "tx-1",
 ) -> dict:
@@ -71,6 +73,10 @@ def deviation(
     if cause_code is not None:
         payload["cause_code"] = cause_code
         payload["cause_scope"] = cause_scope
+        if cause_name is not None:
+            payload["cause_name"] = cause_name
+        if cause_family is not None:
+            payload["cause_family"] = cause_family
     if bearer_item_index is not None:
         payload["bearer_item_index"] = bearer_item_index
     return payload
@@ -176,6 +182,32 @@ class Workspace(unittest.TestCase):
 
 
 class SourceEvidenceTests(Workspace):
+    def test_attach_reject_carries_structured_emm_cause(self) -> None:
+        document = attach_document([
+            attach_instance(
+                "epc-attach-0001",
+                [
+                    deviation(
+                        "ATTACH_REJECT_OBSERVED",
+                        47,
+                        protocol="NAS-EPS",
+                        message_type="Attach reject",
+                        transaction=None,
+                        cause_code=17,
+                        cause_name="Network failure",
+                        cause_family="EMM",
+                        cause_scope="message",
+                    )
+                ],
+            )
+        ])
+        boundary = self.group(self.analyze_docs(attach=document))["first_abnormal_boundary"]
+        self.assertEqual(boundary["frame_number"], 47)
+        self.assertEqual(boundary["cause_code"], 17)
+        self.assertEqual(boundary["cause_name"], "Network failure")
+        self.assertEqual(boundary["cause_family"], "EMM")
+        self.assertEqual(boundary["cause_scope"], "message")
+
     def test_response_defined_rejection_anchors_at_the_response_frame(self) -> None:
         subject = session_subject(deviations=[deviation("CREATE_SESSION_REJECTED_OBSERVED", 106, refs=[100, 106])])
         analysis = self.analyze_docs(session=session_document([subject]))

@@ -329,6 +329,18 @@
             "null"
           ]
         },
+        "cause_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cause_family": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "cause_scope": {
           "type": [
             "string",
@@ -429,6 +441,12 @@
         },
         "cause_code": {
           "type": "integer"
+        },
+        "cause_name": {
+          "type": ["string", "null"]
+        },
+        "cause_family": {
+          "type": ["string", "null"]
         },
         "cause_scope": {
           "type": "string",

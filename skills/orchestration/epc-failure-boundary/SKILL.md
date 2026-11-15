@@ -128,4 +128,6 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 Original CoreNet Orchestration-layer package. No upstream material imported.
 Normative references are the accepted EPC Domain contracts and 3GPP TS 24.301,
-TS 36.413 and TS 29.274 for message identity only. Version 0.1.0.
+TS 36.413 and TS 29.274 for message identity only. Version 0.2.1 preserves
+structured cause code, name, family and scope when supplied by accepted Domain
+deviation evidence.

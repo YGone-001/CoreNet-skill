@@ -1,5 +1,5 @@
 name: nas-5gs
-version: 0.2.1
+version: 0.3.0
 category: protocol
 description: >
   Bounded NAS-5GS semantic extraction for N1 signaling: security-envelope
@@ -8,7 +8,10 @@ description: >
   subset, bounded 5GSM message identification for the PDU session
   establishment/modification/release and 5GSM status subset, bounded IE
   normalization, detailed NAS events, and shared trace-event projection
-  with privacy defaults.
+  with privacy defaults. An established 5G-EA0 null-ciphering context may be
+  decoded by the installed dissector without keys; only the observable inner
+  message identity and Requested S-NSSAI are published, never subscriber
+  identity values.
 scope:
   includes:
     - 5GMM/5GSM family recognition via protocol-local evidence
@@ -18,6 +21,8 @@ scope:
     - reviewed 5GMM and 5GSM cause code/name preservation
     - bounded 5GSM session-management fields (PDU session identity, procedure transaction identity, request type, PDU session type, SSC mode, DNN, S-NSSAI, PDU address, bounded QoS presence and QFI/5QI, always-on, EPCO presence)
     - registration type and follow-on request normalization
+    - explicit 5G-EA0 null-ciphering inner-message visibility when the installed dissector establishes it
+    - observable Requested S-NSSAI values in bounded 5GMM evidence
     - identity privacy defaults (presence and type; redacted values)
     - detailed NAS event JSONL and shared trace-event projection
   excludes:
