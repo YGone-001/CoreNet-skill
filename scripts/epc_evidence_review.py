@@ -29,6 +29,9 @@ EPC_DEDICATED_BEARER_CONTRACT_SCRIPT = ROOT / "scripts" / "epc_dedicated_bearer_
 EPC_DEDICATED_BEARER_TIMELINE_CONTRACT_SCRIPT = (
     ROOT / "scripts" / "epc_dedicated_bearer_timeline_contract.py"
 )
+EPC_DEDICATED_BEARER_ATTRIBUTION_CONTRACT_SCRIPT = (
+    ROOT / "scripts" / "epc_dedicated_bearer_attribution_contract.py"
+)
 
 REVIEW_SCHEMA_VERSION = "1.0"
 REVIEW_NAME = "epc-evidence-review"
@@ -41,6 +44,7 @@ ARTIFACT_S1U = "s1u_observation"
 ARTIFACT_AUDIT = "evidence_audit"
 ARTIFACT_DEDICATED_BEARER = "dedicated_bearer_control"
 ARTIFACT_DEDICATED_BEARER_TIMELINE = "dedicated_bearer_timeline"
+ARTIFACT_DEDICATED_BEARER_ATTRIBUTION = "dedicated_bearer_attribution"
 
 SUPPLIED_ARTIFACT_VALID = "SUPPLIED_ARTIFACT_VALID"
 SUPPLIED_ARTIFACT_INVALID = "SUPPLIED_ARTIFACT_INVALID"
@@ -62,6 +66,12 @@ ARTIFACT_SPECS = (
         ARTIFACT_DEDICATED_BEARER_TIMELINE,
         "epc-dedicated-bearer-timeline-analysis.json",
         "epc-dedicated-bearer-timeline",
+        False,
+    ),
+    (
+        ARTIFACT_DEDICATED_BEARER_ATTRIBUTION,
+        "epc-dedicated-bearer-attribution-analysis.json",
+        "epc-dedicated-bearer-attribution",
         False,
     ),
 )
@@ -334,6 +344,45 @@ def _validate_timeline_source(document: dict[str, Any]) -> None:
         ) from exc
 
 
+_ATTRIBUTION_CONTRACT: Any = None
+
+
+def _load_attribution_contract():
+    global _ATTRIBUTION_CONTRACT
+    if _ATTRIBUTION_CONTRACT is None:
+        spec = importlib.util.spec_from_file_location(
+            "review_epc_dedicated_bearer_attribution_contract",
+            EPC_DEDICATED_BEARER_ATTRIBUTION_CONTRACT_SCRIPT,
+        )
+        if spec is None or spec.loader is None:
+            raise ReviewInputError(
+                SUPPLIED_ARTIFACT_INVALID,
+                "the Dedicated Bearer attribution contract validator is unavailable",
+            )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception as exc:  # pragma: no cover - dependency boundary
+            raise ReviewInputError(
+                SUPPLIED_ARTIFACT_INVALID,
+                f"the Dedicated Bearer attribution contract validator could not load: {exc}",
+            ) from exc
+        _ATTRIBUTION_CONTRACT = module
+    return _ATTRIBUTION_CONTRACT
+
+
+def _validate_attribution_source(document: dict[str, Any]) -> None:
+    contract = _load_attribution_contract()
+    try:
+        contract.validate_artifact(document)
+    except contract.ContractValidationError as exc:
+        raise ReviewInputError(
+            SUPPLIED_ARTIFACT_INVALID,
+            f"Dedicated Bearer attribution artifact is invalid: {exc.code}: {exc.message}",
+        ) from exc
+
+
 def _recompute_audit(
     identity: dict[str, Any],
     lifecycle: dict[str, Any],
@@ -400,7 +449,11 @@ def load_artifacts(
                     "validation_status": (
                         OPTIONAL_ARTIFACT_NOT_SUPPLIED
                         if artifact
-                        in (ARTIFACT_DEDICATED_BEARER, ARTIFACT_DEDICATED_BEARER_TIMELINE)
+                        in (
+                            ARTIFACT_DEDICATED_BEARER,
+                            ARTIFACT_DEDICATED_BEARER_TIMELINE,
+                            ARTIFACT_DEDICATED_BEARER_ATTRIBUTION,
+                        )
                         else None
                     ),
                 }
@@ -420,11 +473,15 @@ def load_artifacts(
         elif artifact == ARTIFACT_DEDICATED_BEARER_TIMELINE:
             _validate_timeline_source(document)
             validation_status = SUPPLIED_ARTIFACT_VALID
+        elif artifact == ARTIFACT_DEDICATED_BEARER_ATTRIBUTION:
+            _validate_attribution_source(document)
+            validation_status = SUPPLIED_ARTIFACT_VALID
         documents[artifact] = document
         completeness_status = None
         if artifact in (
             ARTIFACT_DEDICATED_BEARER,
             ARTIFACT_DEDICATED_BEARER_TIMELINE,
+            ARTIFACT_DEDICATED_BEARER_ATTRIBUTION,
         ):
             completeness_status = _dict(document.get("source_completeness")).get("status")
         sources.append(
@@ -2445,6 +2502,15 @@ def build_manifest(
                 ),
                 None,
             ),
+            "dedicated_bearer_attribution": next(
+                (
+                    source["artifact_name"]
+                    for source in artifacts["sources"]
+                    if source["artifact_type"] == ARTIFACT_DEDICATED_BEARER_ATTRIBUTION
+                    and source["supplied"]
+                ),
+                None,
+            ),
         },
     }
 
@@ -2487,6 +2553,46 @@ def _timeline_summary(timeline: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+def _attribution_summary(attribution: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(attribution, dict):
+        return {
+            "status": "NOT_SUPPLIED",
+            "source_artifact": None,
+            "entry_count": 0,
+            "omitted_entry_count": 0,
+            "control_session_status_counts": {},
+            "session_access_status_counts": {},
+            "nas_access_status_counts": {},
+            "s1ap_access_status_counts": {},
+            "overall_status_counts": {},
+            "established_link_counts": {},
+            "unresolved_evidence_count": 0,
+            "source_completeness_status": None,
+        }
+    return {
+        "status": attribution.get("execution_status"),
+        "source_artifact": "epc-dedicated-bearer-attribution-analysis.json",
+        "entry_count": attribution.get("attribution_entry_count", 0),
+        "omitted_entry_count": attribution.get("attribution_entries_omitted", 0),
+        "control_session_status_counts": attribution.get(
+            "control_session_status_counts", {}
+        ),
+        "session_access_status_counts": attribution.get(
+            "session_access_status_counts", {}
+        ),
+        "nas_access_status_counts": attribution.get("nas_access_status_counts", {}),
+        "s1ap_access_status_counts": attribution.get("s1ap_access_status_counts", {}),
+        "overall_status_counts": attribution.get("overall_status_counts", {}),
+        "established_link_counts": attribution.get("established_link_counts", {}),
+        "unresolved_evidence_count": len(
+            _list(attribution.get("unresolved_evidence"))
+        ),
+        "source_completeness_status": _dict(attribution.get("source_completeness")).get(
+            "status"
+        ),
+    }
+
+
 def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, Any]:
     identity = _dict(documents.get(ARTIFACT_SESSION_IDENTITY))
     lifecycle = _dict(documents.get(ARTIFACT_BEARER_LIFECYCLE))
@@ -2500,6 +2606,9 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
     timeline_document = documents.get(ARTIFACT_DEDICATED_BEARER_TIMELINE)
     if not isinstance(timeline_document, dict):
         timeline_document = None
+    attribution_document = documents.get(ARTIFACT_DEDICATED_BEARER_ATTRIBUTION)
+    if not isinstance(attribution_document, dict):
+        attribution_document = None
 
     contexts = sorted(
         [_dict(item) for item in _list(identity.get("hop_local_contexts"))],
@@ -2637,6 +2746,58 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
         }
     ]
     timeline_summary = _timeline_summary(timeline_document)
+    attribution_summary = _attribution_summary(attribution_document)
+    sections["dedicated_bearer_attribution_summary"] = [
+        {
+            "classification": (
+                CLASSIFICATION_DERIVED
+                if attribution_summary["status"] != "NOT_SUPPLIED"
+                else CLASSIFICATION_UNSUPPORTED
+            ),
+            **attribution_summary,
+            "source_references": (
+                [attribution_summary["source_artifact"]]
+                if attribution_summary["source_artifact"]
+                else []
+            ),
+            "limitation": (
+                None
+                if attribution_summary["status"] != "NOT_SUPPLIED"
+                else "the optional Dedicated Bearer attribution artifact was not supplied; the existing Review Pack remains valid"
+            ),
+        }
+    ]
+    sections["dedicated_bearer_attribution_entries"] = [
+        {
+            "classification": CLASSIFICATION_DERIVED,
+            "capture": safe_capture(entry.get("capture")),
+            "entry_reference": entry.get("entry_reference"),
+            "control_transaction_reference": entry.get("control_transaction_reference"),
+            "procedure_family": entry.get("procedure_family"),
+            "request_frame": entry.get("request_frame"),
+            "response_frame": entry.get("response_frame"),
+            "control_session_status": _dict(entry.get("control_session")).get("status"),
+            "control_session_context": _dict(entry.get("control_session")).get(
+                "session_context_reference"
+            ),
+            "session_access_status": _dict(entry.get("session_access")).get("status"),
+            "nas_access_status": _dict(entry.get("nas_access")).get("status"),
+            "s1ap_access_status": _dict(entry.get("s1ap_access")).get("status"),
+            "overall_status": entry.get("overall_status"),
+            "established_links": _list(entry.get("established_links")),
+            "source_references": [
+                value
+                for value in (
+                    entry.get("entry_reference"),
+                    entry.get("control_transaction_reference"),
+                )
+                if isinstance(value, str)
+            ],
+        }
+        for entry in _list(
+            (attribution_document or {}).get("attribution_entries")
+        )[:MAX_TIMELINE_ENTRIES]
+    ]
     sections["dedicated_bearer_timeline_summary"] = [
         {
             "classification": (
@@ -3124,6 +3285,35 @@ def build_review(documents: dict[str, Any], index: dict[str, Any]) -> dict[str, 
         "dedicated_bearer_timeline_exhaustive_coverage_proven": timeline_summary.get(
             "exhaustive_coverage_proven"
         ),
+        "dedicated_bearer_attribution_supplied": attribution_document is not None,
+        "dedicated_bearer_attribution_status": attribution_summary.get("status"),
+        "dedicated_bearer_attribution_entry_count": attribution_summary.get(
+            "entry_count", 0
+        ),
+        "dedicated_bearer_attribution_control_session_status_counts": attribution_summary.get(
+            "control_session_status_counts", {}
+        ),
+        "dedicated_bearer_attribution_session_access_status_counts": attribution_summary.get(
+            "session_access_status_counts", {}
+        ),
+        "dedicated_bearer_attribution_nas_access_status_counts": attribution_summary.get(
+            "nas_access_status_counts", {}
+        ),
+        "dedicated_bearer_attribution_s1ap_access_status_counts": attribution_summary.get(
+            "s1ap_access_status_counts", {}
+        ),
+        "dedicated_bearer_attribution_overall_status_counts": attribution_summary.get(
+            "overall_status_counts", {}
+        ),
+        "dedicated_bearer_attribution_established_link_counts": attribution_summary.get(
+            "established_link_counts", {}
+        ),
+        "dedicated_bearer_attribution_unresolved_evidence_count": attribution_summary.get(
+            "unresolved_evidence_count", 0
+        ),
+        "dedicated_bearer_attribution_source_completeness_status": attribution_summary.get(
+            "source_completeness_status"
+        ),
         "published": {
             "session_contexts": min(len(contexts), MAX_CONTEXTS),
             "release_narratives": min(len(releases), MAX_RELEASES),
@@ -3460,6 +3650,45 @@ def render_markdown(
             "  - observed control and access signaling do not prove UE acceptance, "
             "radio setup or end-to-end user-plane delivery"
         )
+    attribution_summaries = [
+        _dict(item)
+        for item in _list(sections.get("dedicated_bearer_attribution_summary"))
+        if _dict(item).get("status") != "NOT_SUPPLIED"
+    ]
+    if attribution_summaries:
+        lines.append("")
+        lines.append("## 9C. Control-to-Access Attribution Feasibility")
+        lines.append("")
+        for item in attribution_summaries:
+            lines.append(
+                f"- status={item.get('status')}; entries={item.get('entry_count')}; "
+                f"control-to-session={json.dumps(item.get('control_session_status_counts') or {}, sort_keys=True)}; "
+                f"session-to-access={json.dumps(item.get('session_access_status_counts') or {}, sort_keys=True)}"
+            )
+            lines.append(
+                f"  - NAS ownership={json.dumps(item.get('nas_access_status_counts') or {}, sort_keys=True)}; "
+                f"S1AP E-RAB={json.dumps(item.get('s1ap_access_status_counts') or {}, sort_keys=True)}; "
+                f"overall={json.dumps(item.get('overall_status_counts') or {}, sort_keys=True)}; "
+                f"established links={json.dumps(item.get('established_link_counts') or {}, sort_keys=True)}"
+            )
+        for entry in _list(sections.get("dedicated_bearer_attribution_entries"))[:MAX_LIST_ITEMS]:
+            entry = _dict(entry)
+            lines.append(
+                f"  - {entry.get('entry_reference')} {entry.get('procedure_family')} "
+                f"frames={entry.get('request_frame')}/{entry.get('response_frame')} "
+                f"control-to-session={entry.get('control_session_status')} "
+                f"context={entry.get('control_session_context')} "
+                f"session-to-access={entry.get('session_access_status')} "
+                f"NAS={entry.get('nas_access_status')} "
+                f"S1AP={entry.get('s1ap_access_status')} "
+                f"overall={entry.get('overall_status')} "
+                f"links={json.dumps(entry.get('established_links') or [], sort_keys=True)}"
+            )
+        lines.append(
+            "  - endpoint equality, EBI/E-RAB ID equality, shared QCI, timing or a single observed UE context "
+            "never establishes a UE identity bridge"
+        )
+
     lines.append("")
 
     simple(

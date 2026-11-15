@@ -420,6 +420,17 @@ mixed-capture control artifacts are rejected. The Review Pack consumes the timel
 as a second optional bounded source and validates its Schema and count identity
 before publication.
 
+A separate optional attribution artifact exposes control-to-access feasibility using
+only accepted evidence. Control-to-session attribution applies the accepted
+receiver-scoped control-plane F-TEID and path-peer rule against established
+hop-local contexts. NAS-to-S1AP ownership requires the observed enclosing S1AP
+message, a declared embedded NAS-PDU, matching capture/frame identity and exactly
+one owning UE context. S1AP E-RAB bearer endpoint equality is published as
+`ENDPOINT_CORRESPONDENCE_ONLY`; it is never promoted to UE identity. Every entry
+states its established links, limiting evidence and the additional identity bridge
+needed. The artifact is optional and validated by the Unified EPC and Review Pack
+consumers.
+
 The Review Pack navigation index registers the bounded `narrative_subjects`,
 derived `narrative_groups` and nested `narrative_bearer_endpoints` collections
 alongside the already-published session contexts, streams, generations,

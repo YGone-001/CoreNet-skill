@@ -90,9 +90,16 @@ EPC_DEDICATED_BEARER_TIMELINE_SCRIPT = (
 EPC_DEDICATED_BEARER_TIMELINE_CONTRACT_SCRIPT = (
     ROOT / "scripts" / "epc_dedicated_bearer_timeline_contract.py"
 )
+EPC_DEDICATED_BEARER_ATTRIBUTION_SCRIPT = (
+    ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_dedicated_bearer_attribution.py"
+)
+EPC_DEDICATED_BEARER_ATTRIBUTION_CONTRACT_SCRIPT = (
+    ROOT / "scripts" / "epc_dedicated_bearer_attribution_contract.py"
+)
 DEDICATED_BEARER_FAMILIES = ("create-bearer", "update-bearer", "delete-bearer")
 DEDICATED_BEARER_FAILURE_CODE = "DEDICATED_BEARER_CONTROL_FAILED"
 DEDICATED_BEARER_TIMELINE_FAILURE_CODE = "DEDICATED_BEARER_TIMELINE_FAILED"
+DEDICATED_BEARER_ATTRIBUTION_FAILURE_CODE = "DEDICATED_BEARER_ATTRIBUTION_FAILED"
 DEDICATED_BEARER_NOT_OBSERVED = "NOT_OBSERVED_IN_CAPTURE"
 MAX_DEDICATED_TIMELINE_ENTRIES = 128
 FROZEN_BENCHMARK_DIR = ROOT / "benchmarks" / "golden-captures"
@@ -1686,6 +1693,72 @@ def render_text_report(report: dict[str, Any]) -> str:
                 "was observed in this capture"
             )
 
+    attribution_blocks = [
+        (result, result.get("dedicated_bearer_attribution"))
+        for result in results
+        if isinstance(result.get("dedicated_bearer_attribution"), dict)
+    ]
+    if attribution_blocks:
+        _section(lines, "EPC Control-to-Access Attribution Feasibility")
+    for result, block in attribution_blocks:
+        lines.append(
+            f"  {result['domain']}: {_value(block.get('execution_status'))}, "
+            f"{_value(block.get('entry_count'))} attribution entry(ies), "
+            f"established-link counts {json.dumps(block.get('established_link_counts') or {}, sort_keys=True)}"
+        )
+        if block.get("execution_status") == "EXECUTED":
+            lines.append(
+                f"    control-to-session: {json.dumps(block.get('control_session_status_counts') or {}, sort_keys=True)}; "
+                f"session-to-access: {json.dumps(block.get('session_access_status_counts') or {}, sort_keys=True)}"
+            )
+            lines.append(
+                f"    NAS ownership: {json.dumps(block.get('nas_access_status_counts') or {}, sort_keys=True)}; "
+                f"S1AP E-RAB: {json.dumps(block.get('s1ap_access_status_counts') or {}, sort_keys=True)}; "
+                f"overall: {json.dumps(block.get('overall_status_counts') or {}, sort_keys=True)}"
+            )
+            for entry in (block.get("entries") or [])[:MAX_DEDICATED_TIMELINE_ENTRIES]:
+                lines.append(
+                    f"    {_value(entry.get('procedure_family'))} "
+                    f"{_value(entry.get('control_transaction_reference'))}: "
+                    f"frames {_value(entry.get('request_frame'))}/{_value(entry.get('response_frame'))}, "
+                    f"control={_value(entry.get('control_outcome'))}"
+                )
+                lines.append(
+                    f"      control-to-session {_value(entry.get('control_session_status'))} "
+                    f"context={_value(entry.get('control_session_context'))} "
+                    f"interface={_value(entry.get('control_session_interface'))}; "
+                    f"session-to-access {_value(entry.get('session_access_status'))} "
+                    f"related={_value(entry.get('session_access_related_contexts'))}"
+                )
+                lines.append(
+                    f"      NAS ownership {_value(entry.get('nas_access_status'))} "
+                    f"owner={_value(entry.get('nas_owner_s1ap_context'))}; "
+                    f"S1AP E-RAB {_value(entry.get('s1ap_access_status'))} "
+                    f"endpoint matches={_value(entry.get('s1ap_endpoint_matches'))}"
+                )
+                lines.append(
+                    f"      overall {_value(entry.get('overall_status'))}; "
+                    f"established links={_value(entry.get('established_links'))}"
+                )
+                for limiting in (entry.get("limiting_evidence") or [])[:MAX_LIST_ITEMS]:
+                    lines.append(f"      limiting evidence: {_value(limiting)}")
+                for needed in (entry.get("additional_evidence_needed") or [])[:MAX_LIST_ITEMS]:
+                    lines.append(f"      additional evidence needed: {_value(needed)}")
+                lines.append(
+                    "      not confirmed: control Cause, endpoint equality or NAS ownership alone "
+                    "does not prove a complete UE identity chain or user-plane delivery"
+                )
+        elif block.get("execution_status") == "FAILED":
+            lines.append(
+                f"    failure: {_value(block.get('failure_code'))} "
+                f"{_value(block.get('failure_message'))}"
+            )
+        else:
+            lines.append(
+                "    attribution not evaluated because no dedicated-bearer control transaction "
+                "was observed in this capture"
+            )
+
     narrative_blocks = [
         (result, result.get("release_narrative"))
         for result in results
@@ -2301,6 +2374,102 @@ def _run_dedicated_bearer_timeline_stage(
         }
 
 
+_ATTRIBUTION_CONTRACT: Any = None
+
+
+def _load_attribution_contract():
+    global _ATTRIBUTION_CONTRACT
+    if _ATTRIBUTION_CONTRACT is None:
+        spec = importlib.util.spec_from_file_location(
+            "corenet_epc_dedicated_bearer_attribution_contract",
+            EPC_DEDICATED_BEARER_ATTRIBUTION_CONTRACT_SCRIPT,
+        )
+        if spec is None or spec.loader is None:
+            raise AnalysisError(
+                "COMPONENT_UNAVAILABLE",
+                "the Dedicated Bearer attribution contract validator is unavailable",
+            )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception as exc:
+            raise AnalysisError(
+                "COMPONENT_UNAVAILABLE",
+                f"the Dedicated Bearer attribution contract validator could not load: {exc}",
+            ) from exc
+        _ATTRIBUTION_CONTRACT = module
+    return _ATTRIBUTION_CONTRACT
+
+
+def _validate_attribution_artifact(analysis: dict[str, Any]) -> None:
+    contract = _load_attribution_contract()
+    try:
+        contract.validate_artifact(analysis)
+    except contract.ContractValidationError as exc:
+        raise AnalysisError(
+            DEDICATED_BEARER_ATTRIBUTION_FAILURE_CODE,
+            f"EPC dedicated-bearer attribution artifact is invalid: {exc.code}: {exc.message}",
+        ) from exc
+
+
+def _run_dedicated_bearer_attribution_stage(
+    control: Path,
+    identity: Path,
+    gtpv2_events: Path,
+    nas_events: Path,
+    s1ap_events: Path,
+    output: Path,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    command = [
+        sys.executable,
+        str(EPC_DEDICATED_BEARER_ATTRIBUTION_SCRIPT),
+        "--control",
+        str(control),
+        "--session-identity",
+        str(identity),
+        "--gtpv2-events",
+        str(gtpv2_events),
+        "--nas-events",
+        str(nas_events),
+        "--s1ap-events",
+        str(s1ap_events),
+        "--output",
+        str(output),
+        "--force",
+    ]
+    try:
+        _run_component(command, "EPC dedicated-bearer attribution")
+        if not output.is_file():
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_MISSING",
+                "EPC dedicated-bearer attribution produced no artifact",
+            )
+        analysis = json.loads(output.read_text(encoding="utf-8"))
+        if not isinstance(analysis, dict):
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_UNREADABLE",
+                "EPC dedicated-bearer attribution is not an object",
+            )
+        if analysis.get("analysis_name") != "epc-dedicated-bearer-attribution":
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_UNREADABLE",
+                "EPC dedicated-bearer attribution has an incompatible analysis name",
+            )
+        _validate_attribution_artifact(analysis)
+        if not isinstance(analysis.get("attribution_entry_count"), int):
+            raise AnalysisError(
+                "PIPELINE_OUTPUT_UNREADABLE",
+                "EPC dedicated-bearer attribution has no bounded entry count",
+            )
+        return analysis, None
+    except (AnalysisError, OSError, json.JSONDecodeError) as exc:
+        return None, {
+            "code": DEDICATED_BEARER_ATTRIBUTION_FAILURE_CODE,
+            "message": scrub_free_text(str(exc)),
+        }
+
+
 def _dedicated_declared_total(
     analysis: dict[str, Any], key: str, published: list[dict[str, Any]]
 ) -> int:
@@ -2640,6 +2809,138 @@ def _project_dedicated_bearer_timeline(
     }
 
 
+def _project_dedicated_bearer_attribution(
+    analysis: dict[str, Any] | None,
+    error: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if isinstance(analysis, dict):
+        entries = [
+            item
+            for item in analysis.get("attribution_entries") or []
+            if isinstance(item, dict)
+        ]
+        projected = []
+        for entry in entries[:MAX_DEDICATED_TIMELINE_ENTRIES]:
+            control_session = _dict(entry.get("control_session"))
+            session_access = _dict(entry.get("session_access"))
+            nas_access = _dict(entry.get("nas_access"))
+            s1ap_access = _dict(entry.get("s1ap_access"))
+            projected.append(
+                {
+                    "entry_reference": entry.get("entry_reference"),
+                    "control_transaction_reference": entry.get(
+                        "control_transaction_reference"
+                    ),
+                    "procedure_family": entry.get("procedure_family"),
+                    "request_frame": entry.get("request_frame"),
+                    "response_frame": entry.get("response_frame"),
+                    "control_outcome": entry.get("control_outcome"),
+                    "control_session_status": control_session.get("status"),
+                    "control_session_context": control_session.get(
+                        "session_context_reference"
+                    ),
+                    "control_session_interface": control_session.get("interface_class"),
+                    "control_session_candidates": control_session.get(
+                        "candidate_contexts", []
+                    )[:MAX_LIST_ITEMS],
+                    "session_access_status": session_access.get("status"),
+                    "session_access_related_contexts": session_access.get(
+                        "related_session_contexts", []
+                    )[:MAX_LIST_ITEMS],
+                    "session_access_endpoint_correspondences": session_access.get(
+                        "endpoint_correspondence_references", []
+                    )[:MAX_LIST_ITEMS],
+                    "nas_access_status": nas_access.get("status"),
+                    "nas_owner_s1ap_context": nas_access.get("owner_s1ap_context"),
+                    "nas_observed_reference_count": len(
+                        _list(nas_access.get("observed_references"))
+                    ),
+                    "s1ap_access_status": s1ap_access.get("status"),
+                    "s1ap_endpoint_matches": s1ap_access.get("endpoint_matches", [])[
+                        :MAX_LIST_ITEMS
+                    ],
+                    "s1ap_candidate_contexts": s1ap_access.get(
+                        "candidate_contexts", []
+                    )[:MAX_LIST_ITEMS],
+                    "overall_status": entry.get("overall_status"),
+                    "established_links": entry.get("established_links", [])[
+                        :MAX_LIST_ITEMS
+                    ],
+                    "limiting_evidence": entry.get("limiting_evidence", [])[
+                        :MAX_LIST_ITEMS
+                    ],
+                    "additional_evidence_needed": entry.get(
+                        "additional_evidence_needed", []
+                    )[:MAX_LIST_ITEMS],
+                }
+            )
+        return {
+            "execution_status": analysis.get("execution_status"),
+            "source_artifact": "epc-dedicated-bearer-attribution-analysis.json",
+            "entry_count": analysis.get("attribution_entry_count", 0),
+            "omitted_entry_count": analysis.get("attribution_entries_omitted", 0),
+            "control_session_status_counts": analysis.get(
+                "control_session_status_counts", {}
+            ),
+            "session_access_status_counts": analysis.get(
+                "session_access_status_counts", {}
+            ),
+            "nas_access_status_counts": analysis.get(
+                "nas_access_status_counts", {}
+            ),
+            "s1ap_access_status_counts": analysis.get(
+                "s1ap_access_status_counts", {}
+            ),
+            "overall_status_counts": analysis.get("overall_status_counts", {}),
+            "established_link_counts": analysis.get("established_link_counts", {}),
+            "unresolved_evidence_count": len(
+                _list(analysis.get("unresolved_evidence"))
+            ),
+            "source_completeness_status": _dict(analysis.get("source_completeness")).get(
+                "status"
+            ),
+            "entries": projected,
+            "not_confirmed": analysis.get("not_confirmed", [])[:MAX_LIST_ITEMS],
+            "failure_code": None,
+        }
+    if error:
+        return {
+            "execution_status": "FAILED",
+            "source_artifact": None,
+            "entry_count": 0,
+            "omitted_entry_count": 0,
+            "control_session_status_counts": {},
+            "session_access_status_counts": {},
+            "nas_access_status_counts": {},
+            "s1ap_access_status_counts": {},
+            "overall_status_counts": {},
+            "established_link_counts": {},
+            "unresolved_evidence_count": 0,
+            "source_completeness_status": None,
+            "entries": [],
+            "not_confirmed": [],
+            "failure_code": error.get("code", DEDICATED_BEARER_ATTRIBUTION_FAILURE_CODE),
+            "failure_message": scrub_free_text(error.get("message")),
+        }
+    return {
+        "execution_status": "NOT_EVALUATED",
+        "source_artifact": None,
+        "entry_count": 0,
+        "omitted_entry_count": 0,
+        "control_session_status_counts": {},
+        "session_access_status_counts": {},
+        "nas_access_status_counts": {},
+        "s1ap_access_status_counts": {},
+        "overall_status_counts": {},
+        "established_link_counts": {},
+        "unresolved_evidence_count": 0,
+        "source_completeness_status": None,
+        "entries": [],
+        "not_confirmed": [],
+        "failure_code": None,
+    }
+
+
 def _transaction_count(path: Path) -> int:
     """Count accepted transactions without trusting an unreadable artifact."""
     try:
@@ -2927,6 +3228,19 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
             dedicated_bearer_path, nas_events, s1ap_events, timeline_path
         )
 
+    attribution_analysis: dict[str, Any] | None = None
+    attribution_error: dict[str, Any] | None = None
+    attribution_path = run_dir / "epc-dedicated-bearer-attribution-analysis.json"
+    if isinstance(dedicated_bearer_analysis, dict) and isinstance(identity_analysis, dict):
+        attribution_analysis, attribution_error = _run_dedicated_bearer_attribution_stage(
+            dedicated_bearer_path,
+            identity_path,
+            gtpv2_events,
+            nas_events,
+            s1ap_events,
+            attribution_path,
+        )
+
     lifecycle_analysis: dict[str, Any] | None = None
     lifecycle_error: dict[str, Any] | None = None
     if gtpv2_event_count and gtpv2_transactions.is_file():
@@ -3111,6 +3425,8 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
         "dedicated_bearer_error": dedicated_bearer_error,
         "dedicated_bearer_timeline_analysis": timeline_analysis,
         "dedicated_bearer_timeline_error": timeline_error,
+        "dedicated_bearer_attribution_analysis": attribution_analysis,
+        "dedicated_bearer_attribution_error": attribution_error,
         "dedicated_bearer_transaction_counts": dedicated_bearer_counts,
         "s1ap_event_count": _count_lines(s1ap_events),
         "nas_eps_event_count": _count_lines(nas_events),
@@ -3949,6 +4265,11 @@ def execute_epc_domain(
     timeline = payload.get("dedicated_bearer_timeline_analysis")
     timeline_error = payload.get("dedicated_bearer_timeline_error")
     timeline_summary = _project_dedicated_bearer_timeline(timeline, timeline_error)
+    attribution = payload.get("dedicated_bearer_attribution_analysis")
+    attribution_error = payload.get("dedicated_bearer_attribution_error")
+    attribution_summary = _project_dedicated_bearer_attribution(
+        attribution, attribution_error
+    )
     groups_by_reference: dict[str, Any] = {}
     if isinstance(boundary, dict):
         for group in boundary.get("diagnostic_groups") or []:
@@ -4014,7 +4335,7 @@ def execute_epc_domain(
         status = STATUS_COMPLETED
     else:
         status = STATUS_INSUFFICIENT_EVIDENCE
-    if dedicated_error or timeline_error:
+    if dedicated_error or timeline_error or attribution_error:
         status = (
             STATUS_PARTIAL
             if (
@@ -4279,6 +4600,34 @@ def execute_epc_domain(
             },
             {
                 "procedure_domain": "epc-procedures",
+                "procedure": "epc-dedicated-bearer-attribution",
+                "execution_status": (
+                    "EXECUTED"
+                    if isinstance(attribution, dict)
+                    and attribution.get("execution_status") == "EXECUTED"
+                    else "FAILED"
+                    if attribution_error
+                    else "NO_SUBJECT"
+                ),
+                "instance_count": attribution_summary.get("entry_count", 0),
+                "omitted_entry_count": attribution_summary.get(
+                    "omitted_entry_count", 0
+                ),
+                "overall_status_counts": attribution_summary.get(
+                    "overall_status_counts", {}
+                ),
+                "established_link_counts": attribution_summary.get(
+                    "established_link_counts", {}
+                ),
+                "unresolved_evidence_count": attribution_summary.get(
+                    "unresolved_evidence_count", 0
+                ),
+                "source_completeness_status": attribution_summary.get(
+                    "source_completeness_status"
+                ),
+            },
+            {
+                "procedure_domain": "epc-procedures",
                 "procedure": "eps-bearer-lifecycle",
                 "execution_status": (
                     "EXECUTED"
@@ -4320,6 +4669,7 @@ def execute_epc_domain(
         "evidence_audit": _project_evidence_audit(audit),
         "dedicated_bearer_control": dedicated_summary,
         "dedicated_bearer_timeline": timeline_summary,
+        "dedicated_bearer_attribution": attribution_summary,
         "evidence_limitations": bounded_limitations,
         "additional_evidence_needed": bounded_additional,
         "degradation": [],
@@ -4389,6 +4739,13 @@ def execute_epc_domain(
             "EPC dedicated-bearer control analysis failed: "
             f"{dedicated_error.get('code')} {dedicated_error.get('message')}".strip()
             + "; earlier EPC evidence is preserved and a failed observed component is never reported COMPLETED"
+        )
+    if attribution_error:
+        result["failure_code"] = DEDICATED_BEARER_ATTRIBUTION_FAILURE_CODE
+        degradation.append(
+            "EPC dedicated-bearer attribution failed: "
+            f"{attribution_error.get('code')} {attribution_error.get('message')}".strip()
+            + "; the control and timeline artifacts are preserved and the attribution failure is not hidden"
         )
     if timeline_error:
         result["failure_code"] = DEDICATED_BEARER_TIMELINE_FAILURE_CODE

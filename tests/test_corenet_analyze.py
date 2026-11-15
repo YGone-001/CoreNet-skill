@@ -4075,5 +4075,105 @@ class DedicatedBearerTimelineStageTests(WorkflowTestCase):
         self.assertEqual(projected["failure_code"], MODULE.DEDICATED_BEARER_TIMELINE_FAILURE_CODE)
 
 
+class DedicatedBearerAttributionStageTests(WorkflowTestCase):
+    """The unified path validates the optional attribution artifact contract."""
+
+    def attribution(self, control: dict) -> dict:
+        model_path = (
+            MODULE.ROOT
+            / "skills"
+            / "domain"
+            / "epc-procedures"
+            / "scripts"
+            / "epc_dedicated_bearer_attribution_model.py"
+        )
+        spec = importlib.util.spec_from_file_location("attribution_model_under_test", model_path)
+        model = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(model)
+        control_path = self.base / "control.json"
+        identity_path = self.base / "identity.json"
+        control_path.write_text(json.dumps(control), encoding="utf-8")
+        identity_path.write_text(
+            json.dumps(
+                {
+                    "analysis_name": "epc-session-identity",
+                    "analysis_version": "1.0.0",
+                    "hop_local_contexts": [],
+                    "endpoint_correspondence_links": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return model.build_attribution(
+            control,
+            {
+                "analysis_name": "epc-session-identity",
+                "analysis_version": "1.0.0",
+                "hop_local_contexts": [],
+                "endpoint_correspondence_links": [],
+            },
+            [],
+            [],
+            [],
+            control_path=control_path,
+            identity_path=identity_path,
+            gtpv2_path=None,
+            nas_path=None,
+            s1ap_path=None,
+        )
+
+    def test_valid_attribution_is_accepted(self) -> None:
+        control = dedicated_bearer_analysis()
+        attribution = self.attribution(control)
+        output = self.base / "epc-dedicated-bearer-attribution-analysis.json"
+        original = MODULE._run_component
+        MODULE._run_component = lambda command, label: output.write_text(
+            json.dumps(attribution), encoding="utf-8"
+        )
+        try:
+            analysis, error = MODULE._run_dedicated_bearer_attribution_stage(
+                self.base / "control.json",
+                self.base / "identity.json",
+                self.base / "gtpv2.jsonl",
+                self.base / "nas.jsonl",
+                self.base / "s1ap.jsonl",
+                output,
+            )
+        finally:
+            MODULE._run_component = original
+        self.assertIsNone(error)
+        self.assertIsNotNone(analysis)
+        self.assertEqual(analysis["attribution_entry_count"], 4)
+
+    def test_minimal_attribution_is_rejected(self) -> None:
+        output = self.base / "epc-dedicated-bearer-attribution-analysis.json"
+        original = MODULE._run_component
+        MODULE._run_component = lambda command, label: output.write_text("{}", encoding="utf-8")
+        try:
+            analysis, error = MODULE._run_dedicated_bearer_attribution_stage(
+                self.base / "control.json",
+                self.base / "identity.json",
+                self.base / "gtpv2.jsonl",
+                self.base / "nas.jsonl",
+                self.base / "s1ap.jsonl",
+                output,
+            )
+        finally:
+            MODULE._run_component = original
+        self.assertIsNone(analysis)
+        self.assertEqual(error["code"], MODULE.DEDICATED_BEARER_ATTRIBUTION_FAILURE_CODE)
+
+    def test_failure_projection_is_never_completed(self) -> None:
+        projected = MODULE._project_dedicated_bearer_attribution(
+            None,
+            {"code": MODULE.DEDICATED_BEARER_ATTRIBUTION_FAILURE_CODE, "message": "boom"},
+        )
+        self.assertEqual(projected["execution_status"], "FAILED")
+        self.assertEqual(
+            projected["failure_code"], MODULE.DEDICATED_BEARER_ATTRIBUTION_FAILURE_CODE
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

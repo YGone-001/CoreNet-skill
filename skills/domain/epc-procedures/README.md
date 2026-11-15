@@ -258,4 +258,4 @@ alias. See `references/evidence-chain-audit.md`.
 
 ## Version
 
-0.10.1
+0.11.0

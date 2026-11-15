@@ -1,0 +1,372 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.local/schemas/epc-dedicated-bearer-attribution-analysis.schema.json",
+  "title": "EPC Dedicated Bearer Control-to-Access Attribution Feasibility",
+  "$ref": "#/$defs/document",
+  "$defs": {
+    "countMap": {
+      "type": "object",
+      "propertyNames": {"type": "string"},
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "frame_number"],
+      "properties": {
+        "reference": {"type": "string"},
+        "frame_number": {"type": "integer", "minimum": 1},
+        "message_type_code": {"type": ["integer", "null"]},
+        "result": {"type": ["string", "null"]},
+        "eps_bearer_identity": {"type": ["integer", "null"]},
+        "support_status": {"type": ["string", "null"]},
+        "protection_state": {"type": ["string", "null"]},
+        "operation": {"type": ["string", "null"]},
+        "erab_id": {"type": ["integer", "null"]},
+        "gtp_teid": {"type": ["integer", "null"]},
+        "address": {"type": ["string", "null"]},
+        "ue_context_reference": {"type": ["string", "null"]},
+        "binding_basis": {"type": ["string", "null"]},
+        "bearer_endpoint_present": {"type": "boolean"},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "controlSession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "session_context_reference",
+        "interface_class",
+        "candidate_contexts",
+        "request_header_teid_present",
+        "request_destination_scope",
+        "request_source_scope",
+        "evidence_basis",
+        "missing_evidence"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "ESTABLISHED_BY_EVIDENCE",
+            "CANDIDATE_UNCONFIRMED",
+            "ENDPOINT_CORRESPONDENCE_ONLY",
+            "AMBIGUOUS",
+            "NOT_ESTABLISHED",
+            "NOT_OBSERVED",
+            "UNSUPPORTED_EVIDENCE"
+          ]
+        },
+        "session_context_reference": {"type": ["string", "null"]},
+        "interface_class": {"type": ["string", "null"]},
+        "candidate_contexts": {"type": "array", "items": {"type": "string"}},
+        "request_header_teid_present": {"type": "boolean"},
+        "request_destination_scope": {"type": ["string", "null"]},
+        "request_source_scope": {"type": ["string", "null"]},
+        "evidence_basis": {"type": "array", "items": {"type": "string"}},
+        "missing_evidence": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "sessionAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "related_session_contexts",
+        "endpoint_correspondence_references",
+        "s1ap_candidate_contexts",
+        "evidence_basis",
+        "missing_evidence"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "ESTABLISHED_BY_EVIDENCE",
+            "CANDIDATE_UNCONFIRMED",
+            "ENDPOINT_CORRESPONDENCE_ONLY",
+            "AMBIGUOUS",
+            "NOT_ESTABLISHED",
+            "NOT_OBSERVED",
+            "UNSUPPORTED_EVIDENCE"
+          ]
+        },
+        "related_session_contexts": {"type": "array", "items": {"type": "string"}},
+        "endpoint_correspondence_references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reference", "association_status"],
+            "properties": {
+              "reference": {"type": ["string", "null"]},
+              "association_status": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "s1ap_candidate_contexts": {"type": "array", "items": {"type": "string"}},
+        "evidence_basis": {"type": "array", "items": {"type": "string"}},
+        "missing_evidence": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "nasAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "owner_s1ap_context",
+        "candidate_contexts",
+        "observed_references",
+        "evidence_basis",
+        "missing_evidence"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "ESTABLISHED_BY_EVIDENCE",
+            "CANDIDATE_UNCONFIRMED",
+            "ENDPOINT_CORRESPONDENCE_ONLY",
+            "AMBIGUOUS",
+            "NOT_ESTABLISHED",
+            "NOT_OBSERVED",
+            "UNSUPPORTED_EVIDENCE"
+          ]
+        },
+        "owner_s1ap_context": {"type": ["string", "null"]},
+        "candidate_contexts": {"type": "array", "items": {"type": "string"}},
+        "observed_references": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
+        "evidence_basis": {"type": "array", "items": {"type": "string"}},
+        "missing_evidence": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "s1apAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "observed_items",
+        "endpoint_matches",
+        "candidate_contexts",
+        "evidence_basis",
+        "missing_evidence"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "ESTABLISHED_BY_EVIDENCE",
+            "CANDIDATE_UNCONFIRMED",
+            "ENDPOINT_CORRESPONDENCE_ONLY",
+            "AMBIGUOUS",
+            "NOT_ESTABLISHED",
+            "NOT_OBSERVED",
+            "UNSUPPORTED_EVIDENCE"
+          ]
+        },
+        "observed_items": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
+        "endpoint_matches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "erab_reference",
+              "control_endpoint_reference",
+              "erab_id",
+              "ue_context_reference",
+              "match_basis"
+            ],
+            "properties": {
+              "erab_reference": {"type": "string"},
+              "control_endpoint_reference": {"type": "string"},
+              "erab_id": {"type": ["integer", "null"]},
+              "ue_context_reference": {"type": ["string", "null"]},
+              "match_basis": {"type": "string"}
+            }
+          }
+        },
+        "candidate_contexts": {"type": "array", "items": {"type": "string"}},
+        "evidence_basis": {"type": "array", "items": {"type": "string"}},
+        "missing_evidence": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry_reference",
+        "control_transaction_reference",
+        "procedure_family",
+        "request_frame",
+        "response_frame",
+        "control_outcome",
+        "control_session",
+        "session_access",
+        "nas_access",
+        "s1ap_access",
+        "overall_status",
+        "established_links",
+        "limiting_evidence",
+        "additional_evidence_needed"
+      ],
+      "properties": {
+        "entry_reference": {"type": "string"},
+        "control_transaction_reference": {"type": "string"},
+        "procedure_family": {"enum": ["create-bearer", "update-bearer", "delete-bearer"]},
+        "request_frame": {"type": ["integer", "null"], "minimum": 1},
+        "response_frame": {"type": ["integer", "null"], "minimum": 1},
+        "control_outcome": {"type": ["string", "null"]},
+        "control_session": {"$ref": "#/$defs/controlSession"},
+        "session_access": {"$ref": "#/$defs/sessionAccess"},
+        "nas_access": {"$ref": "#/$defs/nasAccess"},
+        "s1ap_access": {"$ref": "#/$defs/s1apAccess"},
+        "overall_status": {
+          "enum": [
+            "ESTABLISHED_BY_EVIDENCE",
+            "CANDIDATE_UNCONFIRMED",
+            "ENDPOINT_CORRESPONDENCE_ONLY",
+            "AMBIGUOUS",
+            "NOT_ESTABLISHED",
+            "NOT_OBSERVED",
+            "UNSUPPORTED_EVIDENCE"
+          ]
+        },
+        "established_links": {"type": "array", "items": {"type": "string"}},
+        "limiting_evidence": {"type": "array", "items": {"type": "string"}},
+        "additional_evidence_needed": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "analysis_name",
+        "analysis_version",
+        "input_provenance",
+        "analysis_scope",
+        "source_completeness",
+        "execution_status",
+        "attribution_entries",
+        "attribution_entry_count",
+        "attribution_entries_omitted",
+        "control_session_status_counts",
+        "session_access_status_counts",
+        "nas_access_status_counts",
+        "s1ap_access_status_counts",
+        "overall_status_counts",
+        "established_link_counts",
+        "unresolved_evidence",
+        "not_confirmed",
+        "bounded",
+        "limits"
+      ],
+      "properties": {
+        "domain": {"const": "epc-procedures"},
+        "analysis_name": {"const": "epc-dedicated-bearer-attribution"},
+        "analysis_version": {"type": "string", "pattern": "^1\\."},
+        "input_provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "control_artifact",
+            "control_artifact_sha256",
+            "session_identity_artifact",
+            "session_identity_artifact_sha256",
+            "gtpv2_events",
+            "nas_events",
+            "s1ap_events",
+            "control_transaction_count",
+            "context_count",
+            "gtpv2_event_count",
+            "nas_event_count",
+            "s1ap_event_count"
+          ],
+          "properties": {
+            "control_artifact": {"type": "string"},
+            "control_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "session_identity_artifact": {"type": "string"},
+            "session_identity_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "gtpv2_events": {"type": ["string", "null"]},
+            "nas_events": {"type": ["string", "null"]},
+            "s1ap_events": {"type": ["string", "null"]},
+            "control_transaction_count": {"type": "integer", "minimum": 0},
+            "context_count": {"type": "integer", "minimum": 0},
+            "gtpv2_event_count": {"type": "integer", "minimum": 0},
+            "nas_event_count": {"type": "integer", "minimum": 0},
+            "s1ap_event_count": {"type": "integer", "minimum": 0}
+          }
+        },
+        "analysis_scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["capture", "reviewed_rules", "not_inferred"],
+          "properties": {
+            "capture": {"type": "string"},
+            "reviewed_rules": {"type": "array", "items": {"type": "string"}},
+            "not_inferred": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "source_completeness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "control_artifact_supplied",
+            "session_identity_artifact_supplied",
+            "gtpv2_events_supplied",
+            "nas_events_supplied",
+            "s1ap_events_supplied",
+            "control_source_completeness",
+            "exhaustive_coverage_proven",
+            "limitations"
+          ],
+          "properties": {
+            "status": {"enum": ["COMPLETE", "PARTIAL", "TRUNCATED", "INVALID", "UNKNOWN"]},
+            "control_artifact_supplied": {"type": "boolean"},
+            "session_identity_artifact_supplied": {"type": "boolean"},
+            "gtpv2_events_supplied": {"type": "boolean"},
+            "nas_events_supplied": {"type": "boolean"},
+            "s1ap_events_supplied": {"type": "boolean"},
+            "control_source_completeness": {"type": "string"},
+            "exhaustive_coverage_proven": {"type": "boolean"},
+            "limitations": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "execution_status": {"enum": ["EXECUTED", "NOT_OBSERVED_IN_CAPTURE", "NOT_EVALUATED"]},
+        "attribution_entries": {"type": "array", "items": {"$ref": "#/$defs/entry"}},
+        "attribution_entry_count": {"type": "integer", "minimum": 0},
+        "attribution_entries_omitted": {"type": "integer", "minimum": 0},
+        "control_session_status_counts": {"$ref": "#/$defs/countMap"},
+        "session_access_status_counts": {"$ref": "#/$defs/countMap"},
+        "nas_access_status_counts": {"$ref": "#/$defs/countMap"},
+        "s1ap_access_status_counts": {"$ref": "#/$defs/countMap"},
+        "overall_status_counts": {"$ref": "#/$defs/countMap"},
+        "established_link_counts": {"$ref": "#/$defs/countMap"},
+        "unresolved_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["entry_reference", "status", "reason"],
+            "properties": {
+              "entry_reference": {"type": "string"},
+              "status": {"type": "string"},
+              "reason": {"type": "string"}
+            }
+          }
+        },
+        "not_confirmed": {"type": "array", "items": {"type": "string"}},
+        "bounded": {"const": true},
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["attribution_entries", "references", "unresolved_evidence"],
+          "properties": {
+            "attribution_entries": {"type": "integer", "minimum": 1},
+            "references": {"type": "integer", "minimum": 1},
+            "unresolved_evidence": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    }
+  }
+}

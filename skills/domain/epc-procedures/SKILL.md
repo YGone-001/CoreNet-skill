@@ -583,4 +583,6 @@ transaction, message-level and per-Bearer-Context item outcomes. Version 0.10.0 
 the frame-anchored Dedicated Bearer cross-layer timeline over optional NAS-EPS ESM
 and standalone S1AP E-RAB evidence. Version 0.10.1 corrects S1AP item-identity
 association, three-plane overall status, source completeness propagation and
-mixed-capture input handling. Version 0.10.1.
+mixed-capture input handling. Version 0.11.0 adds a bounded control-to-access
+attribution feasibility artifact without changing accepted control, session
+identity or timeline inference. Version 0.11.0.

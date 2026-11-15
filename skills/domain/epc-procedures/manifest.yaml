@@ -1,5 +1,5 @@
 name: epc-procedures
-version: 0.10.1
+version: 0.11.0
 category: domain
 description: >
   Bounded EPS Attach procedure analysis over already-extracted S1AP and NAS-EPS
@@ -51,7 +51,10 @@ description: >
   E-RAB references, capture-scoped association statuses, and explicit
   non-activation/non-delivery limitations, with conservative item-identity
   matching, a complete three-plane overall-status contract, upstream source
-  completeness preservation and controlled mixed-capture rejection.
+  completeness preservation and controlled mixed-capture rejection, plus a
+  bounded control-to-access attribution feasibility artifact that separates
+  established receiver-scoped control-to-session links, NAS-to-S1AP ownership,
+  endpoint-only correspondence and missing identity bridges.
 scope:
   includes:
     - EPS Attach procedure instance formation scoped by capture, SCTP association and S1AP UE identifiers
@@ -92,6 +95,7 @@ scope:
     - bounded dedicated-bearer control-plane outcome evidence over accepted GTPv2-C Create/Update/Delete Bearer transactions
     - deterministic cross-layer timeline entries over the accepted Dedicated Bearer control artifact and optional NAS-EPS/S1AP events
     - capture-scoped association statuses that never infer UE acceptance from a control-plane Cause
+    - bounded control-to-access attribution feasibility separating established receiver-scoped session links, NAS-to-S1AP ownership, endpoint-only correspondence and missing identity bridges
     - separate transaction correlation, message-level outcome and per-Bearer-Context item outcome classifications
     - conservative request/response item association requiring unique valid EBI evidence and capture-scoped correlation
     - explicit non-activation, non-admission and non-installation limitations for QoS, TFT and F-TEID evidence
@@ -148,6 +152,7 @@ outputs:
   - EPC dedicated-bearer control analysis JSON (schemas/epc-dedicated-bearer-control-analysis.schema.json)
   - dedicated-bearer control timeline JSON Lines
   - EPC dedicated-bearer cross-layer timeline JSON (schemas/epc-dedicated-bearer-timeline-analysis.schema.json)
+  - EPC dedicated-bearer control-to-access attribution JSON (schemas/epc-dedicated-bearer-attribution-analysis.schema.json)
 protocols: [S1AP, NAS-EPS, GTPv2-C, GTP-U]
 interfaces: [S1-MME, N1, S11, S5/S8, S1-U]
 network_functions: []

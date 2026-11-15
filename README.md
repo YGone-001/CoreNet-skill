@@ -151,7 +151,11 @@ control artifact and optional NAS-EPS/S1AP events; it lists observed dedicated E
 and standalone E-RAB references and marks cross-layer links as established only
 with matching item identity, a complete procedure pair and shared capture-scoped UE
 context evidence; the three-plane overall status requires both NAS and S1AP layers.
-Upstream source completeness is preserved and mixed-capture inputs are rejected. IMS reports
+Upstream source completeness is preserved and mixed-capture inputs are rejected.
+A separate optional attribution artifact exposes receiver-scoped control-to-session
+links, NAS-to-S1AP ownership from an observed embedded NAS-PDU, and endpoint-only
+correspondence with the exact missing identity bridge; endpoint equality is never
+promoted to UE identity. IMS reports
 `UNSUPPORTED` rather than inventing results. Every
 diagnostic subject in a capture is reported with its own boundary status, a failed
 component makes the run `PARTIAL` instead of `COMPLETED`, and the workflow never asserts
