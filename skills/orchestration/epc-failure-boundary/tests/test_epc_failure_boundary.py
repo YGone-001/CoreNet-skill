@@ -639,7 +639,8 @@ class ModelUnitTests(unittest.TestCase):
 
     def test_attach_and_session_sets_cover_the_reviewed_types(self) -> None:
         self.assertEqual(len(model.ELIGIBLE_ATTACH), 5)
-        self.assertEqual(len(model.ELIGIBLE_SESSION), 4)
+        self.assertEqual(len(model.ELIGIBLE_SESSION), 5)
+        self.assertIn("CREATE_BEARER_REJECTED_OBSERVED", model.ELIGIBLE_SESSION)
 
     def test_group_summary_counts_statuses(self) -> None:
         analysis = model.analyze([], [INPUTS / "session-accepted" / "session-analysis.json"])

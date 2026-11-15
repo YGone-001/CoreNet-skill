@@ -80,7 +80,7 @@ Negative outcomes are typed and frame-anchored at the message that carries them:
 | --- | --- |
 | `PDN_CONNECTIVITY_REJECT_OBSERVED` | the PDN connectivity reject frame |
 | `DEFAULT_BEARER_ACTIVATION_REJECT_OBSERVED` | the activation reject frame |
-| `ESM_REJECTION_OBSERVED` | another reviewed ESM reject frame |
+| `ESM_REJECTION_OBSERVED` | another reviewed default-bearer or PDN-connectivity ESM reject frame; dedicated-bearer activation and modification rejects stay in dedicated-bearer ownership |
 
 Each deviation publishes `esm_cause_code`, `esm_cause_name`, the EBI where
 decoded, `evidence_refs` and the observation window. An ESM Cause is a

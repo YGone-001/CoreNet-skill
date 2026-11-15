@@ -32,8 +32,8 @@ limitation is preserved in the analysis.
 2. **Message-level observed outcome** is derived only from the selected response
    message Cause whose observed scope is exactly `message`. Cause 16 is
    `MESSAGE_ACCEPTED_OBSERVED`; Cause 17 is
-   `MESSAGE_PARTIALLY_ACCEPTED_OBSERVED`; reviewed rejection Causes (64, 72, 73)
-   are `MESSAGE_REJECTED_OBSERVED`; unknown codes are
+   `MESSAGE_PARTIALLY_ACCEPTED_OBSERVED`; reviewed rejection Causes (64, 72, 73,
+   74, 75, 76, 77) are `MESSAGE_REJECTED_OBSERVED`; unknown codes are
    `MESSAGE_OUTCOME_UNRESOLVED`; absent or unselected evidence is
    `MESSAGE_OUTCOME_NOT_OBSERVED` or `MESSAGE_OUTCOME_AMBIGUOUS`.
 3. **Bearer-item outcome** is derived only from that grouped Bearer Context's own

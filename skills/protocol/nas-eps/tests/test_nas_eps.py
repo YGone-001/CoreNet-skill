@@ -399,6 +399,19 @@ class EsmTests(unittest.TestCase):
         self.assertEqual(item["eps_bearer_identity"], 5)
 
     # E05 -----------------------------------------------------------------
+    def test_two_esm_occurrences_in_one_record_keep_distinct_identity(self) -> None:
+        record = {
+            "frame.number": "234",
+            "nas-eps.nas_msg_esm_type": "0xc7,0xc7",
+            "nas-eps.bearer_id": "7",
+            "nas-eps.esm.proc_trans_id": "0",
+            "nas-eps.esm.cause": "45",
+        }
+        items = self.esm.flat_esm_messages(record, "fixture.pcap")
+        self.assertEqual([item["occurrence_index"] for item in items], [0, 1])
+        self.assertEqual(len({item["evidence"]["source"] for item in items}), 2)
+        self.assertTrue(all(item["message_type_code"] == 199 for item in items))
+
     def test_activation_reject_preserves_its_cause(self) -> None:
         record = {
             "frame.number": "70",

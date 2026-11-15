@@ -609,7 +609,7 @@ def _deviations_for(instance: dict[str, Any], esm_messages: list[dict[str, Any]]
             deviation_type = DEVIATION_PDN_REJECT
         elif code == 195:
             deviation_type = DEVIATION_ACTIVATION_REJECT
-        elif code in (211, 213, 215, 199, 203):
+        elif code in (211, 213, 215):
             deviation_type = DEVIATION_ESM_REJECT
         else:
             continue

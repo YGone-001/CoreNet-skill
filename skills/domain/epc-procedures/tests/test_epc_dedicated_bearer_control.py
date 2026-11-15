@@ -106,6 +106,29 @@ class DedicatedBearerControlTests(unittest.TestCase):
         self.assertEqual(tx["message_outcome"]["status"], "MESSAGE_REJECTED_OBSERVED")
         self.assertEqual(tx["transaction_outcome"], "CONTROL_REJECTED_OBSERVED")
 
+    def test_cause_77_is_a_reviewed_message_rejection(self) -> None:
+        events = copy.deepcopy(self.events)
+        self.event(events, 2)["message_cause"] = {
+            "cause_code": 77,
+            "cause_name": "Syntactic errors in packet filter(s)",
+            "scope": "message",
+        }
+        analysis = self.analyze(events=events)
+        tx = self.tx_output(analysis, "create-bearer")
+        self.assertEqual(tx["message_outcome"]["status"], "MESSAGE_REJECTED_OBSERVED")
+        self.assertEqual(tx["transaction_outcome"], "CONTROL_REJECTED_OBSERVED")
+        items = [
+            item
+            for item in analysis["bearer_item_observations"]
+            if item["transaction_reference"] == tx["transaction_reference"]
+            and item["side"] == "RESPONSE"
+        ]
+        self.assertTrue(items)
+        self.assertEqual(
+            [item["item_outcome"] for item in items],
+            ["ITEM_CONTROL_ACCEPTED_OBSERVED", "ITEM_CONTROL_REJECTED_OBSERVED"],
+        )
+
     def test_response_with_two_grouped_bearer_contexts(self) -> None:
         analysis = self.analyze()
         response_items = [

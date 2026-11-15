@@ -428,6 +428,29 @@ class SyntheticTests(unittest.TestCase):
         self.assertEqual(deviation["frame_number"], 12)
         self.assertEqual(deviation["esm_cause_code"], 27)
 
+    def test_dedicated_bearer_reject_is_not_a_default_bearer_deviation(self) -> None:
+        messages = [
+            esm_message(208, "PDN connectivity request", frame=10, ebi=0),
+            esm_message(193, "Activate default EPS bearer context request", frame=12, ebi=5),
+            esm_message(
+                199,
+                "Activate dedicated EPS bearer context reject",
+                frame=234,
+                ebi=7,
+                cause=(45, "Syntactical errors in packet filter(s)"),
+            ),
+        ]
+        nas = [
+            nas_event(10, [messages[0]]),
+            nas_event(12, [messages[1]]),
+            nas_event(234, [messages[2]]),
+        ]
+        analysis = self.analyze(nas, [s1ap_event(10), s1ap_event(12), s1ap_event(234)])
+        types = [item["deviation_type"] for item in analysis["procedure_local_deviations"]]
+        self.assertNotIn("ESM_REJECTION_OBSERVED", types)
+        self.assertNotIn("DEFAULT_BEARER_ACTIVATION_REJECT_OBSERVED", types)
+        self.assertNotIn("PDN_CONNECTIVITY_REJECT_OBSERVED", types)
+
     # D05 / D06 -----------------------------------------------------------
     def test_protected_esm_is_unavailable_not_absent(self) -> None:
         nas = [nas_event(20, [], ciphered=True)]

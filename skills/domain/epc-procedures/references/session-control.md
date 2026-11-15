@@ -70,6 +70,10 @@ grouping.
 
 ## Generation handling
 
+Create Bearer transactions keep their own `create-bearer` family. A message
+rejection there is published as `CREATE_BEARER_REJECTED_OBSERVED` and never as
+a Create Session rejection.
+
 An accepted Delete Session closes its context generation. A later transaction
 that reuses one of the closed TEIDs starts a new subject and records a
 `CONTEXT_REUSE_AFTER_DELETION` deviation with the prior subject reference. The

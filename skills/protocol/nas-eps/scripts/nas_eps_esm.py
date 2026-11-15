@@ -383,6 +383,10 @@ def pdml_esm_index(xml_text: str, capture_file: str) -> dict[int, list[dict[str,
                 break
         if frame_number is None:
             continue
+        # One capture frame can carry several SCTP DATA chunks, each with its
+        # own NAS layer. The occurrence identity is assigned per frame so two
+        # ESM messages in the same frame remain distinguishable.
+        frame_occurrence = 0
         for proto in packet.iter("proto"):
             if proto.get("name") != "nas-eps":
                 continue
@@ -399,7 +403,8 @@ def pdml_esm_index(xml_text: str, capture_file: str) -> dict[int, list[dict[str,
                     emm_type = parse_number(show)
             saw_container = any(name == "nas-eps.emm.esm_msg_cont" for name, _s, _n in entries)
             container_kind = "esm_message_container" if saw_container else "standalone"
-            for occurrence, segment in enumerate(_segment_fields(entries)):
+            for segment in _segment_fields(entries):
+                occurrence = frame_occurrence
                 container = {
                     "kind": container_kind,
                     "enclosing_emm_message_type_code": emm_type,
@@ -423,6 +428,7 @@ def pdml_esm_index(xml_text: str, capture_file: str) -> dict[int, list[dict[str,
                 )
                 if item is not None:
                     index.setdefault(frame_number, []).append(item)
+                    frame_occurrence += 1
     return index
 
 

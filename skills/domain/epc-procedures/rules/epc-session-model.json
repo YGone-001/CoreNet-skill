@@ -9,6 +9,7 @@
   },
   "procedure_families": {
     "create-session": {"label": "Create Session", "request_code": 32, "response_code": 33},
+    "create-bearer": {"label": "Create Bearer", "request_code": 95, "response_code": 96},
     "modify-bearer": {"label": "Modify Bearer", "request_code": 34, "response_code": 35},
     "delete-session": {"label": "Delete Session", "request_code": 36, "response_code": 37},
     "release-access-bearers": {"label": "Release Access Bearers", "request_code": 170, "response_code": 171},

@@ -36,6 +36,9 @@ or `PROTECTED_INNER_MESSAGE_UNAVAILABLE`.
   The Skill parses both hexadecimal and decimal values.
 - `nas-eps.security_header_type` may be exported comma-joined when several headers
   appear in one frame; the first occurrence is used and the rest are ignored.
+- ESM message occurrences are indexed per capture frame across every NAS layer, so
+  two standalone ESM messages inside one frame keep distinct `occurrence_index`
+  values and distinct `esm-occurrence` provenance.
 - The decoder exposes no standalone protocol-discriminator field. The event records
   `EPS_MOBILITY_MANAGEMENT` with basis `decoder_dissection`, because the NAS-EPS
   dissector is only selected for that discriminator.

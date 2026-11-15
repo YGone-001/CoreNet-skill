@@ -699,6 +699,34 @@ class ModelUnitTests(unittest.TestCase):
         self.assertEqual(model.CAUSES[70], "Mandatory IE missing")
         self.assertEqual(model.CAUSES[128], "S1-U Path Failure")
 
+    def test_tft_and_packet_filter_causes_are_named(self) -> None:
+        self.assertEqual(model.CAUSES[74], "Semantic error in the TFT operation")
+        self.assertEqual(model.CAUSES[75], "Syntactic error in the TFT operation")
+        self.assertEqual(model.CAUSES[76], "Semantic errors in packet filter(s)")
+        self.assertEqual(model.CAUSES[77], "Syntactic errors in packet filter(s)")
+
+    def test_unknown_cause_is_not_invented(self) -> None:
+        self.assertNotIn(200, model.CAUSES)
+
+    def test_message_scope_cause_77_uses_the_reviewed_table(self) -> None:
+        event = model.normalize_flat_record(
+            {
+                "frame.number": "1",
+                "frame.time_epoch": "1700000000.000000000",
+                "gtpv2.message_type": "96",
+                "gtpv2.cause": "77",
+            },
+            "fixture.pcap",
+        )
+        self.assertEqual(
+            event["message_cause"],
+            {
+                "cause_code": 77,
+                "cause_name": "Syntactic errors in packet filter(s)",
+                "scope": "message",
+            },
+        )
+
     def test_interface_type_names_match_the_specification(self) -> None:
         self.assertEqual(model.INTERFACE_TYPES[10], "S11 MME GTP-C interface")
         self.assertEqual(model.INTERFACE_TYPES[11], "S11/S4 SGW GTP-C interface")

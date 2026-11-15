@@ -175,6 +175,19 @@ class ProcedureObservationTests(SessionControlTestCase):
         types = [item["deviation_type"] for item in analysis["procedure_local_deviations"]]
         self.assertIn(model.DEVIATION_CREATE_REJECTED, types)
 
+    def test_create_bearer_rejection_keeps_its_own_family(self) -> None:
+        events = [
+            event(1, 95, "create-bearer", teid_state="ZERO", teid=0, f_teids=[control_fteid(10, 6)]),
+            event(2, 96, "create-bearer", cause=77),
+        ]
+        analysis = analyze(events, [transaction("tx-1", "create-bearer", 1, 2)])
+        observation = analysis["transaction_observations"][0]
+        self.assertEqual(observation["procedure_family"], "create-bearer")
+        self.assertEqual(observation["outcome"], model.OUTCOME_REJECTED)
+        types = [item["deviation_type"] for item in analysis["procedure_local_deviations"]]
+        self.assertIn(model.DEVIATION_CREATE_BEARER_REJECTED, types)
+        self.assertNotIn(model.DEVIATION_CREATE_REJECTED, types)
+
     def test_bearer_cause_stays_item_scoped(self) -> None:
         events = [
             event(1, 32, "create-session", teid_state="ZERO", teid=0, f_teids=[control_fteid(10, 6)]),

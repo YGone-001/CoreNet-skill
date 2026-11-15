@@ -78,6 +78,7 @@ ACCEPTING_CAUSES = frozenset({CAUSE_ACCEPTED, CAUSE_ACCEPTED_PARTIALLY})
 
 FAMILY_LABELS = {
     "create-session": "Create Session",
+    "create-bearer": "Create Bearer",
     "modify-bearer": "Modify Bearer",
     "delete-session": "Delete Session",
     "release-access-bearers": "Release Access Bearers",
@@ -85,6 +86,7 @@ FAMILY_LABELS = {
 }
 FAMILY_ORDER = (
     "create-session",
+    "create-bearer",
     "modify-bearer",
     "delete-session",
     "release-access-bearers",
@@ -92,6 +94,7 @@ FAMILY_ORDER = (
 )
 
 DEVIATION_CREATE_REJECTED = "CREATE_SESSION_REJECTED_OBSERVED"
+DEVIATION_CREATE_BEARER_REJECTED = "CREATE_BEARER_REJECTED_OBSERVED"
 DEVIATION_MODIFY_REJECTED = "MODIFY_BEARER_REJECTED_OBSERVED"
 DEVIATION_DELETE_REJECTED = "DELETE_SESSION_REJECTED_OBSERVED"
 DEVIATION_BEARER_REJECTED = "BEARER_CONTEXT_REJECTED_OBSERVED"
@@ -761,6 +764,7 @@ def _deviations_for_observation(observation: dict[str, Any]) -> list[dict[str, A
     if outcome == OUTCOME_REJECTED:
         mapping = {
             "create-session": DEVIATION_CREATE_REJECTED,
+            "create-bearer": DEVIATION_CREATE_BEARER_REJECTED,
             "modify-bearer": DEVIATION_MODIFY_REJECTED,
             "delete-session": DEVIATION_DELETE_REJECTED,
         }
