@@ -465,6 +465,47 @@ class AttributionNegativeTests(AttributionTestCase):
             )
         self.assertEqual(raised.exception.code, "MIXED_CAPTURE_ARTIFACT")
 
+    def test_control_only_partial_and_unsupported_evidence(self) -> None:
+        tx, items, ctx = self.base_fixture()
+        control_only = self.build(
+            control_document([tx], items),
+            identity_document([ctx]),
+            [gtpv2_event(100, 1000, "10.0.0.1", "10.0.0.2")],
+            nas_present=False,
+            s1ap_present=False,
+        )
+        entry = control_only["attribution_entries"][0]
+        self.assertEqual(entry["control_session"]["status"], "ESTABLISHED_BY_EVIDENCE")
+        self.assertEqual(entry["nas_access"]["status"], "NOT_OBSERVED")
+        self.assertEqual(entry["s1ap_access"]["status"], "NOT_OBSERVED")
+        self.assertEqual(entry["overall_status"], "CANDIDATE_UNCONFIRMED")
+        self.assertIn("CONTROL_TO_SESSION", entry["established_links"])
+
+        unsupported_nas = nas_event(105)
+        unsupported_nas["esm_messages"][0]["support_status"] = "UNSUPPORTED"
+        unsupported = self.build(
+            control_document([tx], items),
+            identity_document([ctx]),
+            [gtpv2_event(100, 1000, "10.0.0.1", "10.0.0.2")],
+            [unsupported_nas],
+            [s1ap_event(105)],
+        )
+        self.assertEqual(
+            unsupported["attribution_entries"][0]["nas_access"]["status"],
+            "UNSUPPORTED_EVIDENCE",
+        )
+
+        temporal_only = self.build(
+            control_document([tx], items),
+            identity_document([ctx]),
+            [gtpv2_event(100, 1000, "10.0.0.1", "10.0.0.2")],
+            [nas_event(105)],
+            [s1ap_event(105, teid=999999)],
+        )
+        entry = temporal_only["attribution_entries"][0]
+        self.assertEqual(entry["s1ap_access"]["status"], "CANDIDATE_UNCONFIRMED")
+        self.assertNotEqual(entry["overall_status"], "ESTABLISHED_BY_EVIDENCE")
+
     def test_no_fabricated_activation_or_chain(self) -> None:
         tx, items, ctx = self.base_fixture()
         attribution = self.build(
