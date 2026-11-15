@@ -94,6 +94,12 @@ backward-compatible enrichment: earlier events keep their
 A cause is protocol evidence of a stated rejection reason and is never an
 end-to-end root cause.
 
+5GMM and 5GSM names are looked up in separate reviewed tables keyed by the
+exact cause number from TS 24.501, cross-checked against the TShark 4.2.2
+`nas-5gs.mm.5gmm_cause` / `nas-5gs.sm.5gsm_cause` value tables. A value
+absent from a table keeps the observed numeric code and a null
+`cause.name`; values are never remapped by position or index.
+
 ## Authentication and security-mode metadata
 
 | Field | Meaning | Source | Evidence |

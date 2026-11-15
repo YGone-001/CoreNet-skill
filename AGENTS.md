@@ -159,6 +159,8 @@ Keep transport, protocol, procedure, and implementation behavior distinct:
 
 When packet-analysis functionality is authorized and implemented, prefer reproducible extraction over visual guesswork. Wireshark, tshark, and tcpdump may support workflows, but never state a field was observed unless the capture or extracted output contains it. Prefer stable correlation identifiers—subscriber, session, transaction, tunnel, dialog, or stream IDs—over timestamp-only correlation when stronger identifiers exist.
 
+Protocol cause tables must be keyed by the exact normative cause number and kept namespace-separate where the protocol defines more than one cause space. Never shift, re-index, or merge cause dictionaries to fit a neighbouring value; unlisted values retain their numeric code and an unavailable name.
+
 ### Source-Code Analysis Discipline
 
 Implementation-specific source analysis does not redefine protocol truth, and implementation internals are not CoreNet Skill ownership. When a user supplies implementation logs, source code, or configuration, an agent may analyze them as external evidence for the observed failure; the repository itself never owns implementation Skills for specific products. Use this reasoning direction:

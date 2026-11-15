@@ -267,9 +267,10 @@ SM_MESSAGE_RESULTS = {
     "5GSM status": "STATUS",
 }
 
-# Reviewed 5GSM cause values (TS 24.501 19.8.0 table 9.11.4.2.1). Only
-# reviewed values carry names; anything else stays UNKNOWN with its numeric
-# code preserved. A 5GSM cause is protocol evidence, never a root cause.
+# Reviewed 5GSM cause values (TS 24.501 19.8.0 table 9.11.4.2.1), cross-checked
+# against the TShark 4.2.2 value table for nas-5gs.sm.5gsm_cause. Only reviewed
+# values carry names; anything else stays UNKNOWN with its numeric code
+# preserved. A 5GSM cause is protocol evidence, never a root cause.
 SM_CAUSE_NAMES = {
     8: "Operator determined barring",
     26: "Insufficient resources",
@@ -279,6 +280,7 @@ SM_CAUSE_NAMES = {
     31: "Request rejected, unspecified",
     32: "Service option not supported",
     33: "Requested service option not subscribed",
+    34: "Service option temporarily out of order",
     35: "PTI already in use",
     36: "Regular deactivation",
     37: "5GS QoS not accepted",
@@ -296,27 +298,27 @@ SM_CAUSE_NAMES = {
     54: "PDU session does not exist",
     57: "PDU session type IPv4v6 only allowed",
     58: "PDU session type Unstructured only allowed",
-    61: "Unsupported 5QI value",
-    67: "PDU session type Ethernet only allowed",
-    68: "Insufficient resources for specific slice and DNN",
-    69: "Not supported SSC mode",
-    70: "Insufficient resources for specific slice",
-    81: "Missing or unknown DNN in a slice",
-    82: "Invalid PTI value",
-    83: "Maximum data rate per UE for user-plane integrity protection is too low",
-    84: "Semantic error in the QoS operation",
-    85: "Syntactical error in the QoS operation",
-    86: "Invalid mapped EPS bearer identity",
-    87: "UAS services not allowed",
-    95: "QoS differentiation for non-3GPP device identifier(s) not available",
-    96: "Semantically incorrect message",
-    97: "Invalid mandatory information",
-    98: "Message type non-existent or not implemented",
-    99: "Message type not compatible with the protocol state",
-    100: "Information element non-existent or not implemented",
-    101: "Conditional IE error",
-    111: "Message not compatible with the protocol state",
-    127: "Protocol error, unspecified",
+    59: "Unsupported 5QI value",
+    61: "PDU session type Ethernet only allowed",
+    67: "Insufficient resources for specific slice and DNN",
+    68: "Not supported SSC mode",
+    69: "Insufficient resources for specific slice",
+    70: "Missing or unknown DNN in a slice",
+    81: "Invalid PTI value",
+    82: "Maximum data rate per UE for user-plane integrity protection is too low",
+    83: "Semantic error in the QoS operation",
+    84: "Syntactical error in the QoS operation",
+    85: "Invalid mapped EPS bearer identity",
+    86: "UAS services not allowed",
+    87: "QoS differentiation for non-3GPP device identifier(s) not available",
+    95: "Semantically incorrect message",
+    96: "Invalid mandatory information",
+    97: "Message type non-existent or not implemented",
+    98: "Message type not compatible with the protocol state",
+    99: "Information element non-existent or not implemented",
+    100: "Conditional IE error",
+    101: "Message not compatible with the protocol state",
+    111: "Protocol error, unspecified",
 }
 
 # TS 24.501 19.8.0 table 9.11.3.47.1 (Request type value).
@@ -407,6 +409,14 @@ CAUSE_NAMES = {
     90: "Payload was not forwarded",
     91: "DNN not supported or not subscribed in the slice",
     92: "Insufficient user-plane resources for the PDU session",
+    95: "Semantically incorrect message",
+    96: "Invalid mandatory information",
+    97: "Message type non-existent or not implemented",
+    98: "Message type not compatible with the protocol state",
+    99: "Information element non-existent or not implemented",
+    100: "Conditional IE error",
+    101: "Message not compatible with the protocol state",
+    111: "Protocol error, unspecified",
 }
 
 CIPHERING_ALGORITHMS = {

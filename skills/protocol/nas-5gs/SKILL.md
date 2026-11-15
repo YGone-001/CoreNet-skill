@@ -34,6 +34,11 @@ Wireshark/TShark 4.7.1.
   transaction identity, request type, PDU session type, SSC mode, DNN,
   S-NSSAI, PDU address, always-on indication, bounded QoS presence with
   QFI/5QI values, EPCO presence, and 5GSM cause code/name.
+- Cause names are derived from separately reviewed 5GMM and 5GSM tables
+  keyed by the exact normative cause number (TS 24.501), cross-checked
+  against the reviewed dissector value table. The two namespaces are
+  never merged or index-shifted; unlisted values keep their numeric code
+  and a null name.
 - Emit detailed NAS-5GS JSONL events and optionally shared trace-event
   projections; render a protocol-local message timeline.
 - Default privacy behavior: identity presence and type only; raw

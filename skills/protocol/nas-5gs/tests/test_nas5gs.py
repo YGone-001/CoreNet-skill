@@ -231,10 +231,75 @@ class RegistrationSemanticsTests(unittest.TestCase):
 
     def test_unknown_cause_code_preserves_number(self):
         event = MODEL.normalize_record(
-            {"frame.number": "6", "frame.time_epoch": "0", "nas-5gs.mm.message_type": "68", "nas-5gs.mm.5gmm_cause": "99"},
+            {"frame.number": "6", "frame.time_epoch": "0", "nas-5gs.mm.message_type": "68", "nas-5gs.mm.5gmm_cause": "102"},
             "x.jsonl",
         )
-        self.assertEqual(event["cause"], {"code": 99, "name": None, "family": "5GMM"})
+        self.assertEqual(event["cause"], {"code": 102, "name": None, "family": "5GMM"})
+
+
+class CauseSemanticsTests(unittest.TestCase):
+    """Reviewed 5GMM and 5GSM cause semantics stay separate and evidence-bounded."""
+
+    def test_5gmm_protocol_error_causes_are_named(self):
+        expected = {
+            95: "Semantically incorrect message",
+            96: "Invalid mandatory information",
+            97: "Message type non-existent or not implemented",
+            98: "Message type not compatible with the protocol state",
+            99: "Information element non-existent or not implemented",
+            100: "Conditional IE error",
+            101: "Message not compatible with the protocol state",
+            111: "Protocol error, unspecified",
+        }
+        for code, name in expected.items():
+            with self.subTest(code=code):
+                self.assertEqual(MODEL.CAUSE_NAMES.get(code), name)
+
+    def test_5gmm_unknown_cause_stays_numeric(self):
+        event = MODEL.normalize_record(
+            {"frame.number": "9", "frame.time_epoch": "0", "nas-5gs.mm.message_type": "68", "nas-5gs.mm.5gmm_cause": "102"},
+            "x.jsonl",
+        )
+        self.assertEqual(event["cause"], {"code": 102, "name": None, "family": "5GMM"})
+
+    def test_5gsm_reviewed_causes_are_named(self):
+        expected = {
+            34: "Service option temporarily out of order",
+            59: "Unsupported 5QI value",
+            61: "PDU session type Ethernet only allowed",
+            67: "Insufficient resources for specific slice and DNN",
+            86: "UAS services not allowed",
+            87: "QoS differentiation for non-3GPP device identifier(s) not available",
+            95: "Semantically incorrect message",
+            96: "Invalid mandatory information",
+            111: "Protocol error, unspecified",
+        }
+        for code, name in expected.items():
+            with self.subTest(code=code):
+                self.assertEqual(MODEL.SM_CAUSE_NAMES.get(code), name)
+        self.assertNotIn(127, MODEL.SM_CAUSE_NAMES)
+
+    def test_same_code_keeps_family_namespace_separate(self):
+        mm = MODEL.normalize_record(
+            {"frame.number": "10", "frame.time_epoch": "0", "nas-5gs.mm.message_type": "68", "nas-5gs.mm.5gmm_cause": "87"},
+            "x.jsonl",
+        )
+        sm = MODEL.normalize_record(
+            {"frame.number": "11", "frame.time_epoch": "0", "nas-5gs.sm.message_type": "214", "nas-5gs.sm.5gsm_cause": "87"},
+            "x.jsonl",
+        )
+        self.assertEqual(mm["cause"], {"code": 87, "name": None, "family": "5GMM"})
+        self.assertEqual(
+            sm["cause"],
+            {"code": 87, "name": "QoS differentiation for non-3GPP device identifier(s) not available", "family": "5GSM"},
+        )
+
+    def test_absent_cause_is_not_invented(self):
+        event = MODEL.normalize_record(
+            {"frame.number": "12", "frame.time_epoch": "0", "nas-5gs.mm.message_type": "68"},
+            "x.jsonl",
+        )
+        self.assertEqual(event["cause"], {"code": None, "name": None, "family": "5GMM"})
 
 
 class IdentityPrivacyTests(unittest.TestCase):
@@ -462,7 +527,7 @@ class SessionManagementTests(unittest.TestCase):
         self.assertEqual(event["message_type"], "5GSM status")
         self.assertEqual(event["result"], "STATUS")
         self.assertEqual(event["procedure_family"], "SESSION_MANAGEMENT_STATUS")
-        self.assertEqual(event["cause"]["name"], "Semantically incorrect message")
+        self.assertEqual(event["cause"]["name"], "Invalid mandatory information")
 
     def test_unknown_values_stay_explicit(self):
         events = events_of("sm-recognition.jsonl")

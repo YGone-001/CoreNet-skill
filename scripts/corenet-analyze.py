@@ -1509,7 +1509,8 @@ def render_text_report(report: dict[str, Any]) -> str:
                 f"RAND present {_value(auth.get('rand_present'))}, "
                 f"AUTN present {_value(auth.get('autn_present'))}"
             )
-        for event in evidence.get("events") or []:
+        events = evidence.get("events") or []
+        for event in events:
             cause = event.get("cause") or {}
             if event.get("message_type") in (
                 "Authentication failure",
@@ -1521,10 +1522,29 @@ def render_text_report(report: dict[str, Any]) -> str:
                     f"cause {_value(cause.get('family'))} {_value(cause.get('code'))} "
                     f"{_value(cause.get('name'))}"
                 )
-        lines.append(
-            "    interpretation: Authentication Reject may omit a 5GMM Cause; MAC failure and "
-            "Synch failure are distinct; a Cause 20 does not by itself prove a K/OPc mismatch"
+        authentication_context = bool(auth) or any(
+            event.get("message_type") in ("Authentication failure", "Authentication reject")
+            for event in events
         )
+        cause_20_observed = any(
+            (event.get("cause") or {}).get("family") == "5GMM"
+            and (event.get("cause") or {}).get("code") == 20
+            for event in events
+        )
+        if authentication_context:
+            lines.append(
+                "    interpretation: Authentication Reject may omit a 5GMM Cause; MAC failure and "
+                "Synch failure are distinct; a Cause 20 does not by itself prove a K/OPc mismatch"
+            )
+        elif cause_20_observed:
+            lines.append(
+                "    interpretation: Cause 20 reports MAC failure; it does not by itself prove a K/OPc mismatch"
+            )
+        else:
+            lines.append(
+                "    next checks: inspect AMF NAS parsing and registration handling logs as external "
+                "evidence for deeper diagnosis"
+            )
 
     _section(lines, "Diagnostic Subjects")
     subject_any = False

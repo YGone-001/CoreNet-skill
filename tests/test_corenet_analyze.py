@@ -973,6 +973,97 @@ class MultiSubjectTests(WorkflowTestCase):
 # ---------------------------------------------------------------------------
 
 
+class RegistrationEvidenceRenderingTests(WorkflowTestCase):
+    """Registration evidence rendering stays scenario-relevant and evidence-bounded."""
+
+    def fake_pipeline(self, capture: Path, work_dir: Path, case_id: str):
+        artifacts = work_dir / "5gc" / "fake-run" / "raw_skill_artifacts"
+        artifacts.mkdir(parents=True, exist_ok=True)
+        events = getattr(self, "registration_events", [])
+        (artifacts / "5gc-registration-mobility-analysis.json").write_text(
+            json.dumps({"analyses": [{"confidence": "MEDIUM", "events": events}]}),
+            encoding="utf-8",
+        )
+        nas_lines = [json.dumps(event) for event in getattr(self, "nas_events", [])]
+        (artifacts / "nas-5gs-events.jsonl").write_text(
+            "\n".join(nas_lines) + ("\n" if nas_lines else ""),
+            encoding="utf-8",
+        )
+        return self.summary_factory(), self.orchestration_factory(), artifacts
+
+    def registration_summary(self) -> dict:
+        summary = summary_selected()
+        summary["selected_boundary"] = {
+            **summary["selected_boundary"],
+            "selected_procedure_stage": "registration-decision",
+            "deviation_type": "PROTOCOL_REJECT_OBSERVED",
+            "boundary_message": "Registration reject",
+            "boundary_frame": 4,
+        }
+        self.summary_factory = lambda: summary
+        return summary
+
+    def test_registration_reject_95_is_named_and_skips_authentication_warning(self) -> None:
+        self.registration_summary()
+        self.registration_events = [{
+            "frame_number": 4,
+            "protocol": "NAS-5GS",
+            "message_type": "Registration reject",
+            "cause": {"code": 95, "name": "Semantically incorrect message", "family": "5GMM"},
+        }]
+        self.nas_events = [{"frame_number": 3, "requested_nssai": [{"sst": 1, "sd": None}]}]
+        self.run_cli(domains="5gc")
+        text = self.read_text()
+        self.assertIn("5GC Registration Evidence", text)
+        self.assertIn("Registration reject: frame 4", text)
+        self.assertIn("cause 5GMM 95 Semantically incorrect message", text)
+        self.assertIn("next checks:", text)
+        self.assertNotIn("K/OPc mismatch", text)
+
+    def test_authentication_failure_cause_20_keeps_evidence_safe_warning(self) -> None:
+        self.registration_summary()
+        self.registration_events = [{
+            "frame_number": 11,
+            "protocol": "NAS-5GS",
+            "message_type": "Authentication failure",
+            "cause": {"code": 20, "name": "MAC failure", "family": "5GMM"},
+        }]
+        self.nas_events = [{
+            "frame_number": 5,
+            "message_type": "Authentication request",
+            "authentication": {"rand_present": True, "autn_present": True, "res_present": False, "auts_present": False},
+        }]
+        self.run_cli(domains="5gc")
+        text = self.read_text()
+        self.assertIn("cause 5GMM 20 MAC failure", text)
+        self.assertIn("K/OPc mismatch", text)
+
+    def test_authentication_reject_without_cause_does_not_invent_one(self) -> None:
+        self.registration_summary()
+        self.registration_events = [{
+            "frame_number": 12,
+            "protocol": "NAS-5GS",
+            "message_type": "Authentication reject",
+            "cause": {},
+        }]
+        self.run_cli(domains="5gc")
+        text = self.read_text()
+        self.assertIn("Authentication reject: frame 12", text)
+        self.assertNotIn("cause 5GMM 20", text)
+
+    def test_normal_registration_has_no_fabricated_reject(self) -> None:
+        self.registration_summary()
+        self.registration_events = [{
+            "frame_number": 3,
+            "protocol": "NAS-5GS",
+            "message_type": "Registration request",
+            "cause": {},
+        }]
+        self.run_cli(domains="5gc")
+        text = self.read_text()
+        self.assertNotIn("Registration reject:", text)
+
+
 class TextReportTests(WorkflowTestCase):
     def test_required_sections_are_present(self) -> None:
         self.run_cli(domains="5gc")
