@@ -645,6 +645,7 @@
   "procedure_local_deviation_count": 0,
   "procedure_local_deviations": [],
   "release_observation_count": 2,
+  "release_observations_omitted": 0,
   "unbound_evidence": [],
   "unresolved_packet_observation_count": 1,
   "unresolved_packet_observations": [

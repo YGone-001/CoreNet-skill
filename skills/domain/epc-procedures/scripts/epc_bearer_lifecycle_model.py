@@ -2242,6 +2242,7 @@ def analyze(
         "advertisement_families_omitted": max(0, len(families) - MAX_SUBJECTS),
         "generation_observations": _generation_observations(generations),
         "generation_boundary_evidence": boundaries[:MAX_SUBJECTS],
+        "release_observations_omitted": max(0, len(boundaries) - MAX_SUBJECTS),
         "generation_boundary_count": sum(
             1 for generation in generations if generation.get("generation_boundary")
         ),

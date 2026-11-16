@@ -860,6 +860,14 @@ class CliContractTests(unittest.TestCase):
         expected.pop("input_provenance", None)
         self.assertEqual(produced, expected)
 
+    def test_release_observations_are_counted_separately(self) -> None:
+        analysis = load_json(self.analyze_example("release-observations.json"))
+        boundaries = analysis["generation_boundary_evidence"]
+        self.assertEqual(analysis["release_observation_count"], len(boundaries))
+        self.assertEqual(analysis["release_observations_omitted"], 0)
+        self.assertEqual(analysis["generation_boundary_count"], 0)
+        self.assertGreater(analysis["release_observation_count"], 0)
+
     def test_timeline_output_is_written(self) -> None:
         output = self.analyze_example("analysis.json", ("--timeline-output", str(self.base / "timeline.jsonl")))
         self.assertTrue(output.is_file())

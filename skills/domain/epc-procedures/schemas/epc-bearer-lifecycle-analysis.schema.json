@@ -84,12 +84,19 @@
       }
     },
     "generation_boundary_evidence": {
+      "description": "Bounded release boundary observations, including releases that prove no bearer-generation closure.",
       "type": "array",
       "items": {
         "$ref": "#/$defs/boundary"
       }
     },
+    "release_observations_omitted": {
+      "description": "Release boundary observations omitted from the bounded publication; zero when the published collection is complete.",
+      "type": "integer",
+      "minimum": 0
+    },
     "generation_boundary_count": {
+      "description": "Lifecycle generations with a proved generation boundary. This is not the length of generation_boundary_evidence.",
       "type": "integer",
       "minimum": 0
     },
@@ -180,6 +187,7 @@
       "type": "string"
     },
     "release_observation_count": {
+      "description": "Total release boundary observations, including accepted releases that prove no generation closure.",
       "type": "integer",
       "minimum": 0
     }

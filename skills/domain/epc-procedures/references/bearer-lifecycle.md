@@ -79,6 +79,23 @@ An accepted Delete Session that carries no endpoint still closes the session
 control-plane context as the session-control capability already reports. It does
 not close an independently linked S1-U generation.
 
+## Published boundary collections
+
+The publication keeps release observations and proved closures as separate facts:
+
+```text
+generation_boundary_evidence     bounded release boundary observations
+release_observation_count        total release observations, including unproved ones
+release_observations_omitted     observations omitted from the bounded array
+generation_boundary_count        generations with a proved generation boundary
+```
+
+The array length is not `generation_boundary_count`. A release that is accepted at
+the control plane but names no S1-U endpoint remains a release observation and adds
+nothing to the proved closure count. `generation_boundary_count` is never derived
+from the published array, and an omitted release observation is never treated as a
+proved closure.
+
 ## Release initiation and confirmation
 
 ```text

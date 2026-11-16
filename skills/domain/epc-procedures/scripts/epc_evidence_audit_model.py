@@ -299,8 +299,8 @@ COLLECTION_CONTRACTS = (
     (
         ARTIFACT_LIFECYCLE,
         "generation_boundary_evidence",
-        "generation_boundary_count",
-        None,
+        "release_observation_count",
+        "release_observations_omitted",
     ),
     (
         ARTIFACT_LIFECYCLE,
@@ -529,6 +529,10 @@ def _completeness_entry(
         omitted, omitted_condition = _declared_count(document, omitted_key)
         entry["omitted_count"] = omitted
         if omitted is None:
+            if omitted_condition == CONDITION_MISSING:
+                entry["status"] = COMPLETE_COLLECTION
+                entry["condition"] = CONDITION_MATCHES
+                return entry
             entry["status"] = COMPLETENESS_METADATA_INVALID
             entry["condition"] = (
                 CONDITION_OMITTED_MISSING
@@ -1109,25 +1113,45 @@ def audit_reference_integrity(
     for (capture, transaction), records in sorted(index["bindings"].items()):
         binding = records[0]
         target = binding.get("target_subject_reference")
-        resolved, ambiguous = _one(index["contexts"], (capture, target)) if isinstance(target, str) else (None, False)
-        checks = [
-            _check(CHECK_REFERENCE_UNIQUE, len(records) == 1),
-            _check(CHECK_CONTEXT_PRESENT, resolved is not None),
-            _check(
-                CHECK_RELATIONSHIP_TYPE,
-                binding.get("relationship_type") == REL_RELEASE_BINDING,
-            ),
-        ]
+        claimed = binding.get("association_status")
+        named_target = isinstance(target, str)
+        resolved, ambiguous = _one(index["contexts"], (capture, target)) if named_target else (None, False)
         competing = _strings(binding.get("competing_candidates"))
         competing_resolved = all(
             _one(index["contexts"], (capture, item))[0] is not None for item in competing
         ) if competing else True
-        checks.append(_check(CHECK_RECORD_PRESENT, competing_resolved))
+        checks = [
+            _check(CHECK_REFERENCE_UNIQUE, len(records) == 1),
+            _check(
+                CHECK_CONTEXT_PRESENT,
+                resolved is not None
+                if named_target
+                else False
+                if claimed == ESTABLISHED
+                else None,
+            ),
+            _check(
+                CHECK_RELATIONSHIP_TYPE,
+                binding.get("relationship_type") == REL_RELEASE_BINDING,
+            ),
+            _check(CHECK_RECORD_PRESENT, competing_resolved),
+        ]
+        limitations: list[str] = []
+        if competing or claimed == AMBIGUOUS:
+            limitations.append(
+                "the identity analysis publishes competing hop-local contexts and no single "
+                "context is selected"
+            )
+        if claimed == ESTABLISHED and not named_target:
+            limitations.append(
+                "the identity analysis claims an established release binding without a "
+                "published target context"
+            )
         ledger.add(
             CATEGORY_REFERENCE_INTEGRITY,
             _status(
                 checks,
-                ambiguous=ambiguous or len(records) > 1,
+                ambiguous=ambiguous or len(records) > 1 or claimed == AMBIGUOUS,
                 completeness=binding_status,
             ),
             source_analysis="epc-session-identity",
@@ -1144,9 +1168,11 @@ def audit_reference_integrity(
             proof_sufficiency_status=(
                 PROOF_SUFFICIENT
                 if resolved is not None
+                and claimed == ESTABLISHED
                 and binding_status == COMPLETE_COLLECTION
                 else PROOF_INSUFFICIENT
             ),
+            limitations=limitations,
         )
 
     identity_link_status = collection_status(
@@ -1874,31 +1900,59 @@ def audit_session_context_links(
             else None
         )
         context = record.get("session_context_reference")
+        claimed = record.get("release_session_binding_status")
+        named_context = isinstance(context, str)
         context_record = (
             _one(index["contexts"], (str(capture), context))[0]
-            if isinstance(capture, str) and isinstance(context, str)
+            if isinstance(capture, str) and named_context
             else None
         )
         checks = [
-            _check(CHECK_CONTEXT_PRESENT, context_record is not None),
+            _check(
+                CHECK_CONTEXT_PRESENT,
+                context_record is not None
+                if named_context
+                else False
+                if claimed == ESTABLISHED
+                else None,
+            ),
             _check(
                 CHECK_RELATIONSHIP_TYPE,
                 (
                     binding.get("target_subject_reference") == context
                 )
-                if isinstance(binding, dict)
+                if isinstance(binding, dict) and named_context
                 else None,
             ),
             _check(
                 CHECK_CAPTURE_AGREES,
                 context_record is not None
-                and context_record.get("interface_class") == record.get("interface_class"),
+                and context_record.get("interface_class") == record.get("interface_class")
+                if named_context
+                else None,
             ),
         ]
+        limitations: list[str] = []
+        if _failed(checks):
+            limitations.append(
+                "the release narrative and the release binding do not name the same "
+                "hop-local session context, or the context interface class disagrees"
+            )
+        elif claimed == AMBIGUOUS:
+            limitations.append(
+                "the release narrative publishes no single hop-local context because "
+                "several candidate contexts compete"
+            )
+        elif not named_context:
+            limitations.append(
+                "no hop-local session context is named, so no context or interface "
+                "comparison is possible"
+            )
         ledger.add(
             CATEGORY_SESSION_CONTEXT_LINK,
             _status(
                 checks,
+                ambiguous=claimed == AMBIGUOUS,
                 completeness=collection_status(
                     completeness, ARTIFACT_IDENTITY, "hop_local_contexts"
                 ),
@@ -1917,16 +1971,11 @@ def audit_session_context_links(
                 completeness, ARTIFACT_IDENTITY, "release_session_bindings"
             ),
             proof_sufficiency_status=(
-                PROOF_SUFFICIENT if not _failed(checks) else PROOF_INSUFFICIENT
+                PROOF_SUFFICIENT
+                if not _failed(checks) and claimed == ESTABLISHED
+                else PROOF_INSUFFICIENT
             ),
-            limitations=(
-                []
-                if not _failed(checks)
-                else [
-                    "the release narrative and the release binding do not name the same "
-                    "hop-local session context, or the context interface class disagrees"
-                ]
-            ),
+            limitations=limitations,
         )
 
 
@@ -2100,7 +2149,10 @@ def audit_release_bindings(
                     and binding.get("association_status") == ESTABLISHED
                 ),
             ),
-            _check(CHECK_CANDIDATES_COMPLETE, not competing),
+            _check(
+                CHECK_CANDIDATES_COMPLETE,
+                None if binding_completeness != COMPLETE_COLLECTION else True,
+            ),
         ]
         limitations: list[str] = []
         if competing:

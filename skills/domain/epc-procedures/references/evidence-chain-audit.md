@@ -61,11 +61,18 @@ unique, and both the candidate and link collections are complete. A resolvable
 reference with `NOT_ESTABLISHED`, `AMBIGUOUS`, a missing status or duplicate link
 records is reference-consistent but proof-insufficient.
 
+An unavailable comparison target is not a contradiction. When the producer names
+no target context and publishes no single binding, the audit leaves the context,
+relationship and capture checks `NOT_EVALUATED`, preserves the competing candidates
+and reports `AMBIGUOUS`. It never fabricates a capture mismatch or an interface-class
+disagreement. An established claim with a missing or unresolvable target, or a
+positively contradictory capture or interface class, remains `INCONSISTENT`.
+
 ## Audit Categories
 
 | Category | Audited relationship |
 | --- | --- |
-| `SOURCE_ARTIFACT` | supplied artifact identity, expected analysis name, domain and per-collection completeness |
+| `SOURCE_ARTIFACT` | supplied artifact identity, expected analysis name, domain and per-collection completeness; a release-observation collection is checked against `release_observation_count`, not `generation_boundary_count` |
 | `REFERENCE_INTEGRITY` | resolution of every published cross-artifact reference inside its namespace |
 | `CAPTURE_SCOPE` | capture identity of every artifact, and value collisions that must not become relationships |
 | `TRANSACTION_ANCHOR` | release transaction membership and frame anchors |

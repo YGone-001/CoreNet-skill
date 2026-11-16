@@ -281,6 +281,14 @@ capability keeps `boundary_selection_status` at `NOT_APPLICABLE` and never selec
 a first abnormal boundary. See `references/bearer-lifecycle.md` and
 `references/advertisement-family.md`.
 
+Release observations and proved generation closures are published separately:
+`generation_boundary_evidence` contains the bounded release observations,
+`release_observation_count` counts all of them, `release_observations_omitted`
+counts observations outside the bounded array, and `generation_boundary_count`
+counts only generations with a proved boundary. The array length never substitutes
+for the proved closure count, and an accepted release without a named S1-U endpoint
+remains an observation rather than a closure.
+
 The lifecycle accepts one optional additional input, an accepted session-identity
 analysis (`--session-identity`): when its release binding, session-to-generation
 link and closure candidate are all `ESTABLISHED` for the same capture, a release
@@ -512,6 +520,15 @@ cross-interface identity record is proved only when the producer publishes
 and both the candidate and link collections are complete. A resolvable reference
 with `NOT_ESTABLISHED`, `AMBIGUOUS`, a missing status or duplicate link records is
 reference-consistent but proof-insufficient.
+
+An intentionally unestablished or ambiguous relationship is not a broken
+established reference. When the producer publishes no target context and no
+single binding, the audit records the reference checks as `NOT_EVALUATED` and
+reports `AMBIGUOUS` with the competing candidates preserved. It never invents a
+capture mismatch, an interface-class disagreement or a target context that the
+producer did not publish. An established claim with a missing target, a named
+target that does not resolve, or a positively contradictory capture or interface
+class remains `INCONSISTENT`.
 
 The audit resolves references inside their documented namespaces, with the
 capture as a mandatory component: hop-local context, release transaction, bearer

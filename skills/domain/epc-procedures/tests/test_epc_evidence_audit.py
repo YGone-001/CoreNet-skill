@@ -465,7 +465,9 @@ def lifecycle_document(
         "advertisement_families_omitted": 0,
         "generation_observations": [],
         "generation_boundary_evidence": boundaries,
-        "generation_boundary_count": len(boundaries),
+        "release_observations_omitted": 0,
+        "generation_boundary_count": 0,
+        "release_observation_count": len(boundaries),
         "endpoint_reuse_observations": [],
         "endpoint_reuse_observation_count": 0,
         "generation_scoped_s1u_observations": scoped_records,
@@ -1142,7 +1144,7 @@ def two_capture_documents() -> dict:
             "generation_closure_candidate_count",
         ),
         ("lifecycle", "lifecycle_subjects", "lifecycle_subject_count"),
-        ("lifecycle", "generation_boundary_evidence", "generation_boundary_count"),
+        ("lifecycle", "generation_boundary_evidence", "release_observation_count"),
         (
             "lifecycle",
             "generation_scoped_s1u_observations",
@@ -3217,6 +3219,145 @@ class EvidenceAuditDuplicateOwnershipScopeTest(unittest.TestCase):
         result = audit(documents)
         self.assert_conflicted(self.observation_record(result, "obs-b1"))
         self.assert_conflicted(self.observation_record(result, "obs-a1"))
+
+
+class EvidenceAuditReleaseContextSemanticsTest(unittest.TestCase):
+    def collection(self, result: dict, name: str) -> dict:
+        return next(
+            entry
+            for entry in result["source_completeness"]["collections"]
+            if entry["collection"] == name
+        )
+
+    def binding_reference(self, result: dict) -> dict:
+        return next(
+            record
+            for record in records(result, "REFERENCE_INTEGRITY")
+            if record.get("source_artifact_reference")
+            == "epc-session-identity:release_session_bindings"
+            and record.get("source_subject_reference") == TX
+        )
+
+    def ambiguous_release(self, documents: dict) -> dict:
+        documents["identity"]["hop_local_contexts"].append(
+            context(CONTEXT_B, interface_class="S5/S8")
+        )
+        documents["identity"]["hop_local_context_count"] += 1
+        binding = documents["identity"]["release_session_bindings"][0]
+        binding["association_status"] = "AMBIGUOUS"
+        binding["target_subject_reference"] = None
+        binding["competing_candidates"] = [CONTEXT, CONTEXT_B]
+        narrative = documents["narrative"]["release_narratives"][0]
+        narrative["release_session_binding_status"] = "AMBIGUOUS"
+        narrative["session_context_reference"] = None
+        narrative["interface_class"] = None
+        return documents
+
+    def test_release_observations_are_not_proved_generation_boundaries(self) -> None:
+        result = audit(scenario())
+        entry = self.collection(result, "generation_boundary_evidence")
+        self.assertEqual(entry["status"], "COMPLETE")
+        self.assertEqual(entry["declared_count"], entry["published_count"])
+        self.assertEqual(entry["omitted_count"], 0)
+        self.assertNotIn(
+            "generation_boundary_evidence",
+            [
+                item["collection"]
+                for item in result["source_completeness"]["collections"]
+                if item["status"] != "COMPLETE"
+            ],
+        )
+
+    def test_underdeclared_release_observations_are_metadata_invalid(self) -> None:
+        documents = scenario()
+        documents["lifecycle"]["release_observation_count"] = 0
+        result = audit(documents)
+        entry = self.collection(result, "generation_boundary_evidence")
+        self.assertEqual(entry["status"], "SOURCE_METADATA_INVALID")
+        self.assertEqual(entry["condition"], "COUNT_UNDERDECLARED")
+
+    def test_truncated_release_observations_are_source_truncated(self) -> None:
+        documents = scenario()
+        documents["lifecycle"]["release_observation_count"] = (
+            len(documents["lifecycle"]["generation_boundary_evidence"]) + 1
+        )
+        result = audit(documents)
+        entry = self.collection(result, "generation_boundary_evidence")
+        self.assertEqual(entry["status"], "SOURCE_TRUNCATED")
+        self.assertEqual(entry["condition"], "COUNT_TRUNCATED")
+
+    def test_nonzero_release_omissions_are_metadata_invalid(self) -> None:
+        documents = scenario()
+        documents["lifecycle"]["release_observations_omitted"] = 1
+        result = audit(documents)
+        entry = self.collection(result, "generation_boundary_evidence")
+        self.assertEqual(entry["status"], "SOURCE_METADATA_INVALID")
+        self.assertEqual(entry["condition"], "OMITTED_COUNT_NONZERO")
+
+    def test_legacy_lifecycle_without_omission_field_remains_complete(self) -> None:
+        documents = scenario()
+        del documents["lifecycle"]["release_observations_omitted"]
+        result = audit(documents)
+        entry = self.collection(result, "generation_boundary_evidence")
+        self.assertEqual(entry["status"], "COMPLETE")
+
+    def test_ambiguous_binding_without_target_is_not_a_broken_reference(self) -> None:
+        result = audit(self.ambiguous_release(scenario()))
+        record = self.binding_reference(result)
+        self.assertEqual(record["audit_status"], "AMBIGUOUS")
+        self.assertEqual(
+            check_result(record, "session_context_present"), "NOT_EVALUATED"
+        )
+        self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
+        self.assertTrue(
+            any("competing" in item for item in record["limitations"]), record
+        )
+
+    def test_established_binding_without_target_stays_inconsistent(self) -> None:
+        documents = scenario()
+        binding = documents["identity"]["release_session_bindings"][0]
+        binding["association_status"] = "ESTABLISHED"
+        binding["target_subject_reference"] = None
+        result = audit(documents)
+        record = self.binding_reference(result)
+        self.assertEqual(record["audit_status"], "INCONSISTENT")
+        self.assertEqual(check_result(record, "session_context_present"), "FAIL")
+
+    def test_ambiguous_narrative_is_not_a_capture_contradiction(self) -> None:
+        result = audit(self.ambiguous_release(scenario()))
+        record = record_for(result, "SESSION_CONTEXT_LINK", RELEASE)
+        self.assertEqual(record["audit_status"], "AMBIGUOUS")
+        for token in (
+            "session_context_present",
+            "relationship_type_agrees",
+            "capture_identity_agrees",
+        ):
+            self.assertEqual(check_result(record, token), "NOT_EVALUATED")
+        self.assertFalse(
+            any("interface class disagrees" in item for item in record["limitations"])
+        )
+        self.assertTrue(
+            any("several candidate contexts" in item for item in record["limitations"])
+        )
+
+    def test_named_narrative_context_missing_from_identity_stays_inconsistent(self) -> None:
+        documents = scenario()
+        documents["narrative"]["release_narratives"][0][
+            "session_context_reference"
+        ] = CONTEXT_B
+        result = audit(documents)
+        record = record_for(result, "SESSION_CONTEXT_LINK", RELEASE)
+        self.assertEqual(record["audit_status"], "INCONSISTENT")
+        self.assertEqual(check_result(record, "session_context_present"), "FAIL")
+
+    def test_ambiguous_release_binding_preserves_candidate_completeness(self) -> None:
+        result = audit(self.ambiguous_release(scenario()))
+        record = record_for(result, "RELEASE_SESSION_BINDING", RELEASE)
+        self.assertEqual(record["audit_status"], "AMBIGUOUS")
+        self.assertEqual(
+            check_result(record, "candidate_collection_complete"), "PASS"
+        )
+        self.assertEqual(record["proof_sufficiency_status"], "INSUFFICIENT")
 
 
 if __name__ == "__main__":
