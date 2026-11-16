@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/diameter-epc-analysis.schema.json",
+  "title": "Bounded Diameter EPC S6a/S6d Application Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_name",
+    "analysis_version",
+    "domain",
+    "capability",
+    "input_provenance",
+    "command_inventory",
+    "observations",
+    "completeness",
+    "not_confirmed",
+    "limitations"
+  ],
+  "properties": {
+    "analysis_name": {"const": "diameter-epc"},
+    "analysis_version": {"type": "string"},
+    "domain": {"const": "protocol"},
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supported_commands",
+        "recognized_unsupported_commands",
+        "application_id",
+        "application_name",
+        "interface_identity",
+        "interface_identity_basis"
+      ],
+      "properties": {
+        "supported_commands": {"type": "array", "items": {"type": "string"}},
+        "recognized_unsupported_commands": {"type": "array", "items": {"type": "string"}},
+        "application_id": {"const": 16777251},
+        "application_name": {"const": "S6a/S6d"},
+        "interface_identity": {"type": "string", "enum": ["UNPROVED"]},
+        "interface_identity_basis": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "input_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capture_files", "event_count", "transaction_count", "events_sha256", "transactions_sha256"],
+      "properties": {
+        "capture_files": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"type": "string"}},
+        "event_count": {"type": "integer", "minimum": 1},
+        "transaction_count": {"type": "integer", "minimum": 0},
+        "events_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "transactions_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "command_inventory": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["application_id", "command_code", "command_name", "direction", "event_count", "transaction_count", "scope"],
+        "properties": {
+          "application_id": {"type": "integer"},
+          "command_code": {"type": "integer"},
+          "command_name": {"type": ["string", "null"]},
+          "direction": {"type": "string", "enum": ["REQUEST", "ANSWER"]},
+          "event_count": {"type": "integer", "minimum": 1},
+          "transaction_count": {"type": "integer", "minimum": 0},
+          "scope": {"type": "string", "enum": ["SUPPORTED", "KNOWN_UNSUPPORTED", "BASE_OR_UNKNOWN", "NON_S6A_APPLICATION"]}
+        }
+      }
+    },
+    "observations": {"type": "array", "maxItems": 256, "items": {"$ref": "#/$defs/observation"}},
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_count",
+        "observations_omitted",
+        "s6a_event_count",
+        "s6a_transaction_count",
+        "events_with_avp_omissions",
+        "unresolved_core_transactions",
+        "truncated_observations"
+      ],
+      "properties": {
+        "observation_count": {"type": "integer", "minimum": 0},
+        "observations_omitted": {"type": "integer", "minimum": 0},
+        "s6a_event_count": {"type": "integer", "minimum": 0},
+        "s6a_transaction_count": {"type": "integer", "minimum": 0},
+        "events_with_avp_omissions": {"type": "integer", "minimum": 0},
+        "unresolved_core_transactions": {"type": "integer", "minimum": 0},
+        "truncated_observations": {"type": "integer", "minimum": 0}
+      }
+    },
+    "not_confirmed": {"type": "array", "items": {"type": "string"}},
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_reference", "frame_number", "message_occurrence", "direction", "command_code", "command_name", "application_id", "hop_by_hop_id", "end_to_end_id", "source_endpoint", "destination_endpoint"],
+      "properties": {
+        "event_reference": {"type": "string", "minLength": 1},
+        "frame_number": {"type": "integer", "minimum": 1},
+        "message_occurrence": {"type": "integer", "minimum": 1},
+        "direction": {"type": "string", "enum": ["REQUEST", "ANSWER"]},
+        "command_code": {"type": "integer"},
+        "command_name": {"type": ["string", "null"]},
+        "application_id": {"type": "integer"},
+        "hop_by_hop_id": {"type": ["integer", "null"]},
+        "end_to_end_id": {"type": ["integer", "null"]},
+        "source_endpoint": {"type": "string"},
+        "destination_endpoint": {"type": "string"}
+      }
+    },
+    "presence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "name", "vendor_id", "status", "value_kind", "sensitive", "grouping_status", "children_omitted", "value_published"],
+      "properties": {
+        "code": {"type": "integer"},
+        "name": {"type": "string"},
+        "vendor_id": {"type": ["integer", "null"]},
+        "status": {"type": "string", "enum": ["PRESENT", "PRESENT_REDACTED", "PRESENT_STRUCTURE_ONLY", "NOT_OBSERVED", "NOT_OBSERVED_IN_PUBLISHED_SUBSET"]},
+        "value_kind": {"type": ["string", "null"]},
+        "sensitive": {"type": "boolean"},
+        "grouping_status": {"type": ["string", "null"]},
+        "children_omitted": {"type": "integer", "minimum": 0},
+        "value_published": {"const": false}
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace_status", "application_result", "base_result_code", "base_result_code_name", "experimental_result_code", "experimental_result_code_name", "experimental_vendor_id", "limitations"],
+      "properties": {
+        "namespace_status": {"type": "string", "enum": ["BASE_RFC6733", "3GPP_TS_29_272_EXPERIMENTAL", "UNKNOWN_VENDOR_EXPERIMENTAL", "MISSING", "CONFLICTING"]},
+        "application_result": {"type": "string", "enum": ["SUCCESS_REPORTED", "FAILURE_REPORTED", "UNRESOLVED", "NOT_APPLICABLE"]},
+        "base_result_code": {"type": ["integer", "null"]},
+        "base_result_code_name": {"type": ["string", "null"]},
+        "experimental_result_code": {"type": ["integer", "null"]},
+        "experimental_result_code_name": {"type": ["string", "null"]},
+        "experimental_vendor_id": {"type": ["integer", "null"]},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_reference",
+        "procedure",
+        "procedure_family",
+        "command_code",
+        "command_name",
+        "message_status",
+        "transaction_status",
+        "application_result",
+        "authentication_information",
+        "request",
+        "answer",
+        "response_candidates",
+        "latency_seconds",
+        "transaction_reference",
+        "result",
+        "request_avp_presence",
+        "answer_avp_presence",
+        "limitations",
+        "not_confirmed"
+      ],
+      "properties": {
+        "observation_reference": {"type": "string", "minLength": 1},
+        "procedure": {"type": ["string", "null"]},
+        "procedure_family": {"type": ["string", "null"]},
+        "command_code": {"type": "integer"},
+        "command_name": {"type": ["string", "null"]},
+        "message_status": {"type": "string", "enum": ["OBSERVED", "UNSUPPORTED", "INSUFFICIENT"]},
+        "transaction_status": {"type": "string", "enum": ["MATCHED", "OPEN_REQUEST", "RESPONSE_ONLY", "AMBIGUOUS"]},
+        "application_result": {"type": "string", "enum": ["SUCCESS_REPORTED", "FAILURE_REPORTED", "UNRESOLVED", "NOT_APPLICABLE"]},
+        "authentication_information": {"type": "string", "enum": ["PRESENT_REDACTED", "NOT_OBSERVED", "NOT_OBSERVED_IN_PUBLISHED_SUBSET", "UNAVAILABLE", "INCOMPLETE", "NOT_APPLICABLE"]},
+        "request": {"anyOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]},
+        "answer": {"anyOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]},
+        "response_candidates": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
+        "latency_seconds": {"type": ["string", "null"]},
+        "transaction_reference": {"type": "string", "minLength": 1},
+        "result": {"$ref": "#/$defs/result"},
+        "request_avp_presence": {"type": "array", "items": {"$ref": "#/$defs/presence"}},
+        "answer_avp_presence": {"type": "array", "items": {"$ref": "#/$defs/presence"}},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "not_confirmed": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

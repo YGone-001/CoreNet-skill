@@ -160,7 +160,14 @@ addresses or raw IE bytes, and it does not model session, PDN-connection or
 bearer lifecycle state.
 
 Planned: `sip`, `sdp-rtp`,
-`diameter-epc`, `diameter-ims`, `diameter-charging`, and remaining 5GC SBI services.
+`diameter-ims`, `diameter-charging`, and remaining 5GC SBI services.
+
+Implemented: `diameter-epc`, the bounded S6a/S6d application-message Skill. It
+consumes accepted `diameter-core` events and transactions and publishes AIR/AIA
+authentication-information presence, ULR/ULA message and result evidence,
+independent base and 3GPP Experimental-Result namespaces, and privacy-safe
+presence-only AVP evidence. It does not prove EPS Attach, UE authentication or
+subscriber authorization, and it does not infer S6a versus S6d interface identity.
 
 Implemented: `diameter-core`, the Diameter base-protocol Protocol Skill. Version
 0.1.0 publishes bounded header, AVP, base result and vendor experimental-result

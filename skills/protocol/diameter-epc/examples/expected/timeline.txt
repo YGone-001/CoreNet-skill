@@ -1,0 +1,12 @@
+frame     direction  command  core-status    result                 auth-information  latency
+--------  ---------  -------  -------------  ---------------------  ----------------  -------
+1.1->2.1  REQUEST    AIR      MATCHED        base:2001(DIAMETER_SUCCESS) PRESENT_REDACTED  0.100000
+3.1->4.1  REQUEST    ULR      MATCHED        base:2001(DIAMETER_SUCCESS) NOT_APPLICABLE    0.200000
+5.1->6.1  REQUEST    NOR      MATCHED        base:2001(DIAMETER_SUCCESS) NOT_APPLICABLE    0.300000
+9.1       ANSWER     AIA      RESPONSE_ONLY  base:2001(DIAMETER_SUCCESS) NOT_OBSERVED      -
+10.1      REQUEST    AIR      OPEN_REQUEST   unresolved             NOT_APPLICABLE    -
+13.1      ANSWER     AIA      AMBIGUOUS      base:2001(DIAMETER_SUCCESS) NOT_OBSERVED      -
+14.1->16.1 REQUEST    AIR      MATCHED        base:2001(DIAMETER_SUCCESS) NOT_OBSERVED      0.500000
+15.1->17.1 REQUEST    AIR      MATCHED        base:2001(DIAMETER_SUCCESS) NOT_OBSERVED      0.600000
+18.1      REQUEST    AIR      OPEN_REQUEST   unresolved             NOT_APPLICABLE    -
+18.2      REQUEST    ULR      OPEN_REQUEST   unresolved             NOT_APPLICABLE    -

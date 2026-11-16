@@ -1,0 +1,1823 @@
+{
+  "analysis_name": "diameter-epc",
+  "analysis_version": "1.0.0",
+  "capability": {
+    "application_id": 16777251,
+    "application_name": "S6a/S6d",
+    "interface_identity": "UNPROVED",
+    "interface_identity_basis": [],
+    "recognized_unsupported_commands": [
+      "317 Cancel-Location",
+      "319 Insert-Subscriber-Data",
+      "320 Delete-Subscriber-Data",
+      "321 Notify",
+      "322 Purge-UE",
+      "323 Reset"
+    ],
+    "supported_commands": [
+      "316 ULR/ULA",
+      "318 AIR/AIA"
+    ]
+  },
+  "command_inventory": [
+    {
+      "application_id": 16777238,
+      "command_code": 318,
+      "command_name": null,
+      "direction": "ANSWER",
+      "event_count": 1,
+      "scope": "NON_S6A_APPLICATION",
+      "transaction_count": 1
+    },
+    {
+      "application_id": 16777238,
+      "command_code": 318,
+      "command_name": null,
+      "direction": "REQUEST",
+      "event_count": 1,
+      "scope": "NON_S6A_APPLICATION",
+      "transaction_count": 1
+    },
+    {
+      "application_id": 16777251,
+      "command_code": 316,
+      "command_name": "Update-Location",
+      "direction": "ANSWER",
+      "event_count": 1,
+      "scope": "SUPPORTED",
+      "transaction_count": 2
+    },
+    {
+      "application_id": 16777251,
+      "command_code": 316,
+      "command_name": "Update-Location",
+      "direction": "REQUEST",
+      "event_count": 2,
+      "scope": "SUPPORTED",
+      "transaction_count": 2
+    },
+    {
+      "application_id": 16777251,
+      "command_code": 318,
+      "command_name": "Authentication-Information",
+      "direction": "ANSWER",
+      "event_count": 5,
+      "scope": "SUPPORTED",
+      "transaction_count": 7
+    },
+    {
+      "application_id": 16777251,
+      "command_code": 318,
+      "command_name": "Authentication-Information",
+      "direction": "REQUEST",
+      "event_count": 7,
+      "scope": "SUPPORTED",
+      "transaction_count": 7
+    },
+    {
+      "application_id": 16777251,
+      "command_code": 321,
+      "command_name": "Notify",
+      "direction": "ANSWER",
+      "event_count": 1,
+      "scope": "KNOWN_UNSUPPORTED",
+      "transaction_count": 1
+    },
+    {
+      "application_id": 16777251,
+      "command_code": 321,
+      "command_name": "Notify",
+      "direction": "REQUEST",
+      "event_count": 1,
+      "scope": "KNOWN_UNSUPPORTED",
+      "transaction_count": 1
+    }
+  ],
+  "completeness": {
+    "events_with_avp_omissions": 3,
+    "observation_count": 10,
+    "observations_omitted": 0,
+    "s6a_event_count": 17,
+    "s6a_transaction_count": 10,
+    "truncated_observations": 2,
+    "unresolved_core_transactions": 0
+  },
+  "domain": "protocol",
+  "input_provenance": {
+    "capture_files": [
+      "epc-synthetic.pcapng"
+    ],
+    "event_count": 19,
+    "events_sha256": "8670a0950f1550dad26ff5f9252a0bebc6da6e850e201c64fab49dd4f53dd0c2",
+    "transaction_count": 11,
+    "transactions_sha256": "4e0d8dc9399b75dcd89fb43e7a154235c6c863d133c295558492eca24d096e1c"
+  },
+  "limitations": [
+    "the S6a/S6d Application-ID does not distinguish an MME from an SGSN interface",
+    "a Diameter Result-Code or 3GPP Experimental-Result is protocol evidence only; it is not an EPS Attach, UE authentication, registration or network-access verdict",
+    "subscriber identity, authentication vectors and subscription profiles are never published",
+    "the analysis consumes accepted Diameter Core correlation and never constructs a new Request/Answer pair"
+  ],
+  "not_confirmed": [
+    "UE authentication success is not proven",
+    "EPS Attach success or failure is not proven",
+    "HSS subscriber authorization beyond the reported Diameter result is not proven",
+    "MME or SGSN context installation is not proven",
+    "usable authentication-vector correctness is not proven",
+    "S6a versus S6d interface identity is not proven"
+  ],
+  "observations": [
+    {
+      "answer": {
+        "application_id": 16777251,
+        "command_code": 318,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.1:40000",
+        "direction": "ANSWER",
+        "end_to_end_id": 500,
+        "event_reference": "diameter-event:2.1",
+        "frame_number": 2,
+        "hop_by_hop_id": 100,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.2:3868"
+      },
+      "answer_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1413,
+          "grouping_status": "NOT_DECODED",
+          "name": "E-UTRAN-Authentication-Info",
+          "sensitive": true,
+          "status": "PRESENT_REDACTED",
+          "value_kind": "SENSITIVE_REDACTED",
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1414,
+          "grouping_status": null,
+          "name": "UTRAN-GERAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        }
+      ],
+      "application_result": "SUCCESS_REPORTED",
+      "authentication_information": "PRESENT_REDACTED",
+      "command_code": 318,
+      "command_name": "Authentication-Information",
+      "latency_seconds": "0.100000",
+      "limitations": [],
+      "message_status": "OBSERVED",
+      "not_confirmed": [
+        "the Diameter result does not prove EPS Attach, UE authentication or network access",
+        "usable authentication-vector correctness is not proven",
+        "AIA success does not prove that the UE later authenticated successfully"
+      ],
+      "observation_reference": "diameter-epc-observation:epc-synthetic.pcapng:1.1",
+      "procedure": "AIR",
+      "procedure_family": "AUTHENTICATION_INFORMATION",
+      "request": {
+        "application_id": 16777251,
+        "command_code": 318,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.2:3868",
+        "direction": "REQUEST",
+        "end_to_end_id": 500,
+        "event_reference": "diameter-event:1.1",
+        "frame_number": 1,
+        "hop_by_hop_id": 100,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.1:40000"
+      },
+      "request_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1408,
+          "grouping_status": "NOT_DECODED",
+          "name": "Requested-EUTRAN-Authentication-Info",
+          "sensitive": true,
+          "status": "PRESENT_REDACTED",
+          "value_kind": "SENSITIVE_REDACTED",
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1409,
+          "grouping_status": null,
+          "name": "Requested-UTRAN-GERAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1407,
+          "grouping_status": "NOT_GROUPED",
+          "name": "Visited-PLMN-Id",
+          "sensitive": false,
+          "status": "PRESENT",
+          "value_kind": "OPAQUE",
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1,
+          "grouping_status": "NOT_GROUPED",
+          "name": "User-Name",
+          "sensitive": true,
+          "status": "PRESENT_REDACTED",
+          "value_kind": "SENSITIVE_REDACTED",
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 263,
+          "grouping_status": "NOT_GROUPED",
+          "name": "Session-Id",
+          "sensitive": false,
+          "status": "PRESENT",
+          "value_kind": "OPAQUE",
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 264,
+          "grouping_status": "NOT_GROUPED",
+          "name": "Origin-Host",
+          "sensitive": false,
+          "status": "PRESENT",
+          "value_kind": "STRING",
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 296,
+          "grouping_status": null,
+          "name": "Origin-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 283,
+          "grouping_status": null,
+          "name": "Destination-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 293,
+          "grouping_status": null,
+          "name": "Destination-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 277,
+          "grouping_status": null,
+          "name": "Auth-Session-State",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        }
+      ],
+      "response_candidates": [],
+      "result": {
+        "application_result": "SUCCESS_REPORTED",
+        "base_result_code": 2001,
+        "base_result_code_name": "DIAMETER_SUCCESS",
+        "experimental_result_code": null,
+        "experimental_result_code_name": null,
+        "experimental_vendor_id": null,
+        "limitations": [],
+        "namespace_status": "BASE_RFC6733"
+      },
+      "transaction_reference": "tx-air",
+      "transaction_status": "MATCHED"
+    },
+    {
+      "answer": {
+        "application_id": 16777251,
+        "command_code": 316,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.1:40000",
+        "direction": "ANSWER",
+        "end_to_end_id": 501,
+        "event_reference": "diameter-event:4.1",
+        "frame_number": 4,
+        "hop_by_hop_id": 101,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.2:3868"
+      },
+      "answer_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1400,
+          "grouping_status": "NOT_DECODED",
+          "name": "Subscription-Data",
+          "sensitive": false,
+          "status": "PRESENT_STRUCTURE_ONLY",
+          "value_kind": "OPAQUE",
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1407,
+          "grouping_status": null,
+          "name": "Visited-PLMN-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 628,
+          "grouping_status": null,
+          "name": "Supported-Features",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 263,
+          "grouping_status": null,
+          "name": "Session-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 264,
+          "grouping_status": null,
+          "name": "Origin-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 296,
+          "grouping_status": null,
+          "name": "Origin-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        }
+      ],
+      "application_result": "SUCCESS_REPORTED",
+      "authentication_information": "NOT_APPLICABLE",
+      "command_code": 316,
+      "command_name": "Update-Location",
+      "latency_seconds": "0.200000",
+      "limitations": [],
+      "message_status": "OBSERVED",
+      "not_confirmed": [
+        "the Diameter result does not prove EPS Attach, UE authentication or network access",
+        "subscription-profile contents and HSS authorization beyond the Diameter result are not proven",
+        "MME or SGSN context installation and registration success are not proven"
+      ],
+      "observation_reference": "diameter-epc-observation:epc-synthetic.pcapng:3.1",
+      "procedure": "ULR",
+      "procedure_family": "UPDATE_LOCATION",
+      "request": {
+        "application_id": 16777251,
+        "command_code": 316,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.2:3868",
+        "direction": "REQUEST",
+        "end_to_end_id": 501,
+        "event_reference": "diameter-event:3.1",
+        "frame_number": 3,
+        "hop_by_hop_id": 101,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.1:40000"
+      },
+      "request_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1032,
+          "grouping_status": "NOT_GROUPED",
+          "name": "RAT-Type",
+          "sensitive": false,
+          "status": "PRESENT",
+          "value_kind": "OPAQUE",
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1405,
+          "grouping_status": "NOT_GROUPED",
+          "name": "ULR-Flags",
+          "sensitive": false,
+          "status": "PRESENT",
+          "value_kind": "OPAQUE",
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1407,
+          "grouping_status": "NOT_GROUPED",
+          "name": "Visited-PLMN-Id",
+          "sensitive": false,
+          "status": "PRESENT",
+          "value_kind": "OPAQUE",
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 628,
+          "grouping_status": "NOT_GROUPED",
+          "name": "Supported-Features",
+          "sensitive": false,
+          "status": "PRESENT",
+          "value_kind": "OPAQUE",
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1,
+          "grouping_status": null,
+          "name": "User-Name",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 263,
+          "grouping_status": "NOT_GROUPED",
+          "name": "Session-Id",
+          "sensitive": false,
+          "status": "PRESENT",
+          "value_kind": "OPAQUE",
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 264,
+          "grouping_status": null,
+          "name": "Origin-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 296,
+          "grouping_status": null,
+          "name": "Origin-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 283,
+          "grouping_status": null,
+          "name": "Destination-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 293,
+          "grouping_status": null,
+          "name": "Destination-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        }
+      ],
+      "response_candidates": [],
+      "result": {
+        "application_result": "SUCCESS_REPORTED",
+        "base_result_code": 2001,
+        "base_result_code_name": "DIAMETER_SUCCESS",
+        "experimental_result_code": null,
+        "experimental_result_code_name": null,
+        "experimental_vendor_id": null,
+        "limitations": [],
+        "namespace_status": "BASE_RFC6733"
+      },
+      "transaction_reference": "tx-ulr",
+      "transaction_status": "MATCHED"
+    },
+    {
+      "answer": {
+        "application_id": 16777251,
+        "command_code": 321,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.1:40000",
+        "direction": "ANSWER",
+        "end_to_end_id": 502,
+        "event_reference": "diameter-event:6.1",
+        "frame_number": 6,
+        "hop_by_hop_id": 102,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.2:3868"
+      },
+      "answer_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1400,
+          "grouping_status": null,
+          "name": "Subscription-Data",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1407,
+          "grouping_status": null,
+          "name": "Visited-PLMN-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 628,
+          "grouping_status": null,
+          "name": "Supported-Features",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 263,
+          "grouping_status": null,
+          "name": "Session-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 264,
+          "grouping_status": null,
+          "name": "Origin-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 296,
+          "grouping_status": null,
+          "name": "Origin-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        }
+      ],
+      "application_result": "NOT_APPLICABLE",
+      "authentication_information": "NOT_APPLICABLE",
+      "command_code": 321,
+      "command_name": "Notify",
+      "latency_seconds": "0.300000",
+      "limitations": [
+        "the command is recognized as S6a/S6d but detailed semantics are outside this capability"
+      ],
+      "message_status": "UNSUPPORTED",
+      "not_confirmed": [
+        "the Diameter result does not prove EPS Attach, UE authentication or network access"
+      ],
+      "observation_reference": "diameter-epc-observation:epc-synthetic.pcapng:5.1",
+      "procedure": "NOR",
+      "procedure_family": "NOTIFY",
+      "request": {
+        "application_id": 16777251,
+        "command_code": 321,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.2:3868",
+        "direction": "REQUEST",
+        "end_to_end_id": 502,
+        "event_reference": "diameter-event:5.1",
+        "frame_number": 5,
+        "hop_by_hop_id": 102,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.1:40000"
+      },
+      "request_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1032,
+          "grouping_status": null,
+          "name": "RAT-Type",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1405,
+          "grouping_status": null,
+          "name": "ULR-Flags",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1407,
+          "grouping_status": null,
+          "name": "Visited-PLMN-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 628,
+          "grouping_status": null,
+          "name": "Supported-Features",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1,
+          "grouping_status": null,
+          "name": "User-Name",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 263,
+          "grouping_status": "NOT_GROUPED",
+          "name": "Session-Id",
+          "sensitive": false,
+          "status": "PRESENT",
+          "value_kind": "OPAQUE",
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 264,
+          "grouping_status": null,
+          "name": "Origin-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 296,
+          "grouping_status": null,
+          "name": "Origin-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 283,
+          "grouping_status": null,
+          "name": "Destination-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 293,
+          "grouping_status": null,
+          "name": "Destination-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        }
+      ],
+      "response_candidates": [],
+      "result": {
+        "application_result": "NOT_APPLICABLE",
+        "base_result_code": 2001,
+        "base_result_code_name": "DIAMETER_SUCCESS",
+        "experimental_result_code": null,
+        "experimental_result_code_name": null,
+        "experimental_vendor_id": null,
+        "limitations": [],
+        "namespace_status": "BASE_RFC6733"
+      },
+      "transaction_reference": "tx-nor",
+      "transaction_status": "MATCHED"
+    },
+    {
+      "answer": {
+        "application_id": 16777251,
+        "command_code": 318,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.1:40000",
+        "direction": "ANSWER",
+        "end_to_end_id": 504,
+        "event_reference": "diameter-event:9.1",
+        "frame_number": 9,
+        "hop_by_hop_id": 104,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.2:3868"
+      },
+      "answer_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1413,
+          "grouping_status": null,
+          "name": "E-UTRAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1414,
+          "grouping_status": null,
+          "name": "UTRAN-GERAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        }
+      ],
+      "application_result": "SUCCESS_REPORTED",
+      "authentication_information": "NOT_OBSERVED",
+      "command_code": 318,
+      "command_name": "Authentication-Information",
+      "latency_seconds": null,
+      "limitations": [
+        "the Diameter Core transaction is not MATCHED; no application Request/Answer pairing is claimed"
+      ],
+      "message_status": "OBSERVED",
+      "not_confirmed": [
+        "the Diameter result does not prove EPS Attach, UE authentication or network access",
+        "usable authentication-vector correctness is not proven",
+        "AIA success does not prove that the UE later authenticated successfully"
+      ],
+      "observation_reference": "diameter-epc-observation:epc-synthetic.pcapng:9.1",
+      "procedure": "AIA",
+      "procedure_family": "AUTHENTICATION_INFORMATION",
+      "request": null,
+      "request_avp_presence": [],
+      "response_candidates": [],
+      "result": {
+        "application_result": "SUCCESS_REPORTED",
+        "base_result_code": 2001,
+        "base_result_code_name": "DIAMETER_SUCCESS",
+        "experimental_result_code": null,
+        "experimental_result_code_name": null,
+        "experimental_vendor_id": null,
+        "limitations": [],
+        "namespace_status": "BASE_RFC6733"
+      },
+      "transaction_reference": "tx-answer-only",
+      "transaction_status": "RESPONSE_ONLY"
+    },
+    {
+      "answer": null,
+      "answer_avp_presence": [],
+      "application_result": "NOT_APPLICABLE",
+      "authentication_information": "NOT_APPLICABLE",
+      "command_code": 318,
+      "command_name": "Authentication-Information",
+      "latency_seconds": null,
+      "limitations": [
+        "the Diameter Core transaction is not MATCHED; no application Request/Answer pairing is claimed"
+      ],
+      "message_status": "OBSERVED",
+      "not_confirmed": [
+        "the Diameter result does not prove EPS Attach, UE authentication or network access",
+        "usable authentication-vector correctness is not proven"
+      ],
+      "observation_reference": "diameter-epc-observation:epc-synthetic.pcapng:10.1",
+      "procedure": "AIR",
+      "procedure_family": "AUTHENTICATION_INFORMATION",
+      "request": {
+        "application_id": 16777251,
+        "command_code": 318,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.2:3868",
+        "direction": "REQUEST",
+        "end_to_end_id": 505,
+        "event_reference": "diameter-event:10.1",
+        "frame_number": 10,
+        "hop_by_hop_id": 105,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.1:40000"
+      },
+      "request_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1408,
+          "grouping_status": null,
+          "name": "Requested-EUTRAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1409,
+          "grouping_status": null,
+          "name": "Requested-UTRAN-GERAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1407,
+          "grouping_status": null,
+          "name": "Visited-PLMN-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1,
+          "grouping_status": null,
+          "name": "User-Name",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 263,
+          "grouping_status": "NOT_GROUPED",
+          "name": "Session-Id",
+          "sensitive": false,
+          "status": "PRESENT",
+          "value_kind": "OPAQUE",
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 264,
+          "grouping_status": null,
+          "name": "Origin-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 296,
+          "grouping_status": null,
+          "name": "Origin-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 283,
+          "grouping_status": null,
+          "name": "Destination-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 293,
+          "grouping_status": null,
+          "name": "Destination-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 277,
+          "grouping_status": null,
+          "name": "Auth-Session-State",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        }
+      ],
+      "response_candidates": [],
+      "result": {
+        "application_result": "NOT_APPLICABLE",
+        "base_result_code": null,
+        "base_result_code_name": null,
+        "experimental_result_code": null,
+        "experimental_result_code_name": null,
+        "experimental_vendor_id": null,
+        "limitations": [],
+        "namespace_status": "MISSING"
+      },
+      "transaction_reference": "tx-open-air",
+      "transaction_status": "OPEN_REQUEST"
+    },
+    {
+      "answer": {
+        "application_id": 16777251,
+        "command_code": 318,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.1:40000",
+        "direction": "ANSWER",
+        "end_to_end_id": 506,
+        "event_reference": "diameter-event:13.1",
+        "frame_number": 13,
+        "hop_by_hop_id": 106,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.2:3868"
+      },
+      "answer_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1413,
+          "grouping_status": null,
+          "name": "E-UTRAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1414,
+          "grouping_status": null,
+          "name": "UTRAN-GERAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        }
+      ],
+      "application_result": "SUCCESS_REPORTED",
+      "authentication_information": "NOT_OBSERVED",
+      "command_code": 318,
+      "command_name": "Authentication-Information",
+      "latency_seconds": null,
+      "limitations": [
+        "the Diameter Core transaction is not MATCHED; no application Request/Answer pairing is claimed"
+      ],
+      "message_status": "OBSERVED",
+      "not_confirmed": [
+        "the Diameter result does not prove EPS Attach, UE authentication or network access",
+        "usable authentication-vector correctness is not proven",
+        "AIA success does not prove that the UE later authenticated successfully"
+      ],
+      "observation_reference": "diameter-epc-observation:epc-synthetic.pcapng:13.1",
+      "procedure": "AIA",
+      "procedure_family": "AUTHENTICATION_INFORMATION",
+      "request": null,
+      "request_avp_presence": [],
+      "response_candidates": [
+        {
+          "application_id": 16777251,
+          "command_code": 318,
+          "command_name": null,
+          "destination_endpoint": "10.1.0.2:3868",
+          "direction": "REQUEST",
+          "end_to_end_id": 506,
+          "event_reference": "diameter-event:11.1",
+          "frame_number": 11,
+          "hop_by_hop_id": 106,
+          "message_occurrence": 1,
+          "source_endpoint": "10.1.0.1:40000"
+        },
+        {
+          "application_id": 16777251,
+          "command_code": 318,
+          "command_name": null,
+          "destination_endpoint": "10.1.0.2:3868",
+          "direction": "REQUEST",
+          "end_to_end_id": 506,
+          "event_reference": "diameter-event:12.1",
+          "frame_number": 12,
+          "hop_by_hop_id": 106,
+          "message_occurrence": 1,
+          "source_endpoint": "10.1.0.1:40000"
+        }
+      ],
+      "result": {
+        "application_result": "SUCCESS_REPORTED",
+        "base_result_code": 2001,
+        "base_result_code_name": "DIAMETER_SUCCESS",
+        "experimental_result_code": null,
+        "experimental_result_code_name": null,
+        "experimental_vendor_id": null,
+        "limitations": [],
+        "namespace_status": "BASE_RFC6733"
+      },
+      "transaction_reference": "tx-ambiguous",
+      "transaction_status": "AMBIGUOUS"
+    },
+    {
+      "answer": {
+        "application_id": 16777251,
+        "command_code": 318,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.1:40000",
+        "direction": "ANSWER",
+        "end_to_end_id": 507,
+        "event_reference": "diameter-event:16.1",
+        "frame_number": 16,
+        "hop_by_hop_id": 107,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.2:3868"
+      },
+      "answer_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1413,
+          "grouping_status": null,
+          "name": "E-UTRAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1414,
+          "grouping_status": null,
+          "name": "UTRAN-GERAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        }
+      ],
+      "application_result": "SUCCESS_REPORTED",
+      "authentication_information": "NOT_OBSERVED",
+      "command_code": 318,
+      "command_name": "Authentication-Information",
+      "latency_seconds": "0.500000",
+      "limitations": [],
+      "message_status": "OBSERVED",
+      "not_confirmed": [
+        "the Diameter result does not prove EPS Attach, UE authentication or network access",
+        "usable authentication-vector correctness is not proven",
+        "AIA success does not prove that the UE later authenticated successfully"
+      ],
+      "observation_reference": "diameter-epc-observation:epc-synthetic.pcapng:14.1",
+      "procedure": "AIR",
+      "procedure_family": "AUTHENTICATION_INFORMATION",
+      "request": {
+        "application_id": 16777251,
+        "command_code": 318,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.2:3868",
+        "direction": "REQUEST",
+        "end_to_end_id": 507,
+        "event_reference": "diameter-event:14.1",
+        "frame_number": 14,
+        "hop_by_hop_id": 107,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.1:40000"
+      },
+      "request_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1408,
+          "grouping_status": null,
+          "name": "Requested-EUTRAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1409,
+          "grouping_status": null,
+          "name": "Requested-UTRAN-GERAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1407,
+          "grouping_status": null,
+          "name": "Visited-PLMN-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1,
+          "grouping_status": null,
+          "name": "User-Name",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 263,
+          "grouping_status": null,
+          "name": "Session-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 264,
+          "grouping_status": null,
+          "name": "Origin-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 296,
+          "grouping_status": null,
+          "name": "Origin-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 283,
+          "grouping_status": null,
+          "name": "Destination-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 293,
+          "grouping_status": null,
+          "name": "Destination-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 277,
+          "grouping_status": null,
+          "name": "Auth-Session-State",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        }
+      ],
+      "response_candidates": [],
+      "result": {
+        "application_result": "SUCCESS_REPORTED",
+        "base_result_code": 2001,
+        "base_result_code_name": "DIAMETER_SUCCESS",
+        "experimental_result_code": null,
+        "experimental_result_code_name": null,
+        "experimental_vendor_id": null,
+        "limitations": [],
+        "namespace_status": "BASE_RFC6733"
+      },
+      "transaction_reference": "tx-reuse-0",
+      "transaction_status": "MATCHED"
+    },
+    {
+      "answer": {
+        "application_id": 16777251,
+        "command_code": 318,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.1:40000",
+        "direction": "ANSWER",
+        "end_to_end_id": 507,
+        "event_reference": "diameter-event:17.1",
+        "frame_number": 17,
+        "hop_by_hop_id": 107,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.2:3868"
+      },
+      "answer_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1413,
+          "grouping_status": null,
+          "name": "E-UTRAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1414,
+          "grouping_status": null,
+          "name": "UTRAN-GERAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        }
+      ],
+      "application_result": "SUCCESS_REPORTED",
+      "authentication_information": "NOT_OBSERVED",
+      "command_code": 318,
+      "command_name": "Authentication-Information",
+      "latency_seconds": "0.600000",
+      "limitations": [],
+      "message_status": "OBSERVED",
+      "not_confirmed": [
+        "the Diameter result does not prove EPS Attach, UE authentication or network access",
+        "usable authentication-vector correctness is not proven",
+        "AIA success does not prove that the UE later authenticated successfully"
+      ],
+      "observation_reference": "diameter-epc-observation:epc-synthetic.pcapng:15.1",
+      "procedure": "AIR",
+      "procedure_family": "AUTHENTICATION_INFORMATION",
+      "request": {
+        "application_id": 16777251,
+        "command_code": 318,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.2:3868",
+        "direction": "REQUEST",
+        "end_to_end_id": 507,
+        "event_reference": "diameter-event:15.1",
+        "frame_number": 15,
+        "hop_by_hop_id": 107,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.1:40000"
+      },
+      "request_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1408,
+          "grouping_status": null,
+          "name": "Requested-EUTRAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1409,
+          "grouping_status": null,
+          "name": "Requested-UTRAN-GERAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1407,
+          "grouping_status": null,
+          "name": "Visited-PLMN-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1,
+          "grouping_status": null,
+          "name": "User-Name",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 263,
+          "grouping_status": null,
+          "name": "Session-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 264,
+          "grouping_status": null,
+          "name": "Origin-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 296,
+          "grouping_status": null,
+          "name": "Origin-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 283,
+          "grouping_status": null,
+          "name": "Destination-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 293,
+          "grouping_status": null,
+          "name": "Destination-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 277,
+          "grouping_status": null,
+          "name": "Auth-Session-State",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        }
+      ],
+      "response_candidates": [],
+      "result": {
+        "application_result": "SUCCESS_REPORTED",
+        "base_result_code": 2001,
+        "base_result_code_name": "DIAMETER_SUCCESS",
+        "experimental_result_code": null,
+        "experimental_result_code_name": null,
+        "experimental_vendor_id": null,
+        "limitations": [],
+        "namespace_status": "BASE_RFC6733"
+      },
+      "transaction_reference": "tx-reuse-1",
+      "transaction_status": "MATCHED"
+    },
+    {
+      "answer": null,
+      "answer_avp_presence": [],
+      "application_result": "NOT_APPLICABLE",
+      "authentication_information": "NOT_APPLICABLE",
+      "command_code": 318,
+      "command_name": "Authentication-Information",
+      "latency_seconds": null,
+      "limitations": [
+        "the Diameter Core transaction is not MATCHED; no application Request/Answer pairing is claimed"
+      ],
+      "message_status": "OBSERVED",
+      "not_confirmed": [
+        "the Diameter result does not prove EPS Attach, UE authentication or network access",
+        "usable authentication-vector correctness is not proven"
+      ],
+      "observation_reference": "diameter-epc-observation:epc-synthetic.pcapng:18.1",
+      "procedure": "AIR",
+      "procedure_family": "AUTHENTICATION_INFORMATION",
+      "request": {
+        "application_id": 16777251,
+        "command_code": 318,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.2:3868",
+        "direction": "REQUEST",
+        "end_to_end_id": 508,
+        "event_reference": "diameter-event:18.1",
+        "frame_number": 18,
+        "hop_by_hop_id": 108,
+        "message_occurrence": 1,
+        "source_endpoint": "10.1.0.1:40000"
+      },
+      "request_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1408,
+          "grouping_status": null,
+          "name": "Requested-EUTRAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1409,
+          "grouping_status": null,
+          "name": "Requested-UTRAN-GERAN-Authentication-Info",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1407,
+          "grouping_status": null,
+          "name": "Visited-PLMN-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1,
+          "grouping_status": null,
+          "name": "User-Name",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 263,
+          "grouping_status": null,
+          "name": "Session-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 264,
+          "grouping_status": null,
+          "name": "Origin-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 296,
+          "grouping_status": null,
+          "name": "Origin-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 283,
+          "grouping_status": null,
+          "name": "Destination-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 293,
+          "grouping_status": null,
+          "name": "Destination-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 277,
+          "grouping_status": null,
+          "name": "Auth-Session-State",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        }
+      ],
+      "response_candidates": [],
+      "result": {
+        "application_result": "NOT_APPLICABLE",
+        "base_result_code": null,
+        "base_result_code_name": null,
+        "experimental_result_code": null,
+        "experimental_result_code_name": null,
+        "experimental_vendor_id": null,
+        "limitations": [],
+        "namespace_status": "MISSING"
+      },
+      "transaction_reference": "tx-multi-air",
+      "transaction_status": "OPEN_REQUEST"
+    },
+    {
+      "answer": null,
+      "answer_avp_presence": [],
+      "application_result": "NOT_APPLICABLE",
+      "authentication_information": "NOT_APPLICABLE",
+      "command_code": 316,
+      "command_name": "Update-Location",
+      "latency_seconds": null,
+      "limitations": [
+        "the Diameter Core transaction is not MATCHED; no application Request/Answer pairing is claimed"
+      ],
+      "message_status": "OBSERVED",
+      "not_confirmed": [
+        "the Diameter result does not prove EPS Attach, UE authentication or network access",
+        "subscription-profile contents and HSS authorization beyond the Diameter result are not proven",
+        "MME or SGSN context installation and registration success are not proven"
+      ],
+      "observation_reference": "diameter-epc-observation:epc-synthetic.pcapng:18.2",
+      "procedure": "ULR",
+      "procedure_family": "UPDATE_LOCATION",
+      "request": {
+        "application_id": 16777251,
+        "command_code": 316,
+        "command_name": null,
+        "destination_endpoint": "10.1.0.2:3868",
+        "direction": "REQUEST",
+        "end_to_end_id": 509,
+        "event_reference": "diameter-event:18.2",
+        "frame_number": 18,
+        "hop_by_hop_id": 109,
+        "message_occurrence": 2,
+        "source_endpoint": "10.1.0.1:40000"
+      },
+      "request_avp_presence": [
+        {
+          "children_omitted": 0,
+          "code": 1032,
+          "grouping_status": null,
+          "name": "RAT-Type",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1405,
+          "grouping_status": null,
+          "name": "ULR-Flags",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1407,
+          "grouping_status": null,
+          "name": "Visited-PLMN-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 628,
+          "grouping_status": null,
+          "name": "Supported-Features",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": 10415
+        },
+        {
+          "children_omitted": 0,
+          "code": 1,
+          "grouping_status": null,
+          "name": "User-Name",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 263,
+          "grouping_status": null,
+          "name": "Session-Id",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 264,
+          "grouping_status": null,
+          "name": "Origin-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 296,
+          "grouping_status": null,
+          "name": "Origin-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 283,
+          "grouping_status": null,
+          "name": "Destination-Realm",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        },
+        {
+          "children_omitted": 0,
+          "code": 293,
+          "grouping_status": null,
+          "name": "Destination-Host",
+          "sensitive": false,
+          "status": "NOT_OBSERVED",
+          "value_kind": null,
+          "value_published": false,
+          "vendor_id": null
+        }
+      ],
+      "response_candidates": [],
+      "result": {
+        "application_result": "NOT_APPLICABLE",
+        "base_result_code": null,
+        "base_result_code_name": null,
+        "experimental_result_code": null,
+        "experimental_result_code_name": null,
+        "experimental_vendor_id": null,
+        "limitations": [],
+        "namespace_status": "MISSING"
+      },
+      "transaction_reference": "tx-multi-ulr",
+      "transaction_status": "OPEN_REQUEST"
+    }
+  ]
+}

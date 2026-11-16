@@ -1,0 +1,59 @@
+name: "diameter-epc"
+version: "0.1.0"
+category: protocol
+description: "Bounded Diameter EPC S6a/S6d application evidence over accepted diameter-core events and transactions: AIR/AIA authentication-information presence, ULR/ULA location-message presence, independent base and 3GPP experimental result namespaces, privacy-safe redacted evidence, and explicit unsupported-command and interface-identity limitations."
+scope:
+  includes:
+    - "S6a/S6d Application-ID 16777251 command identity"
+    - "AIR/AIA bounded authentication-information presence and result evidence"
+    - "ULR/ULA bounded message, result and safe presence evidence"
+    - "recognition of command codes 317, 319, 320, 321, 322 and 323 as known unsupported"
+    - "independent base Result-Code and 3GPP Vendor-ID 10415 Experimental-Result namespaces"
+    - "exact Diameter Core frame, occurrence and transaction provenance"
+    - "strict analysis JSON Schema and human-readable timeline"
+  excludes:
+    - "Diameter base-header, AVP structure, transport association and Request/Answer correlation parsing"
+    - "EPS Attach, EMM registration, UE authentication, HSS authorization, context installation or network-access verdicts"
+    - "subscriber identity, authentication vectors, RAND, AUTN, XRES, KASME or subscription-profile publication"
+    - "S6a versus S6d interface inference from Application-ID, port or hostname"
+    - "Gx, Rx, Cx, credit-control, Diameter IMS, charging, SIP or cross-protocol joins"
+dependencies:
+  required:
+    - "diameter-core >=0.1.0"
+  optional: []
+inputs:
+  - "diameter-core event JSONL"
+  - "diameter-core transaction JSON"
+outputs:
+  - "Diameter EPC application analysis JSON (schemas/diameter-epc-analysis.schema.json)"
+  - "application timeline text"
+protocols:
+  - "Diameter"
+interfaces: []
+network_functions: []
+evidence_levels:
+  - "OBSERVED"
+  - "DERIVED"
+  - "INFERRED"
+  - "HYPOTHESIS"
+  - "CONFIRMED"
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: "Original CoreNet Protocol-layer package; no upstream material imported."
+testing:
+  fixtures:
+    - "examples/core/events.jsonl"
+    - "examples/core/transactions.json"
+  expected_results:
+    - "examples/expected/analysis.json"
+    - "examples/expected/timeline.txt"
+references:
+  - "references/standards.md"
+  - "references/application-model.md"
+  - "references/result-namespaces.md"
+  - "references/privacy.md"
+  - "references/evidence-model.md"
+  - "references/failure-cases.md"

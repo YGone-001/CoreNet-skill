@@ -87,7 +87,7 @@ NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
 relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
 semantics), remaining
-5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (SIP, SDP/RTP, Diameter application layers), IMS Domain procedures,
+5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (SIP, SDP/RTP, Diameter IMS and charging), IMS Domain procedures,
 broader EPC procedures (bearer and session lifecycle, Diameter EPC, cross-interface session association, end-to-end EPC diagnosis),
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper
 diagnosis orchestration.
@@ -116,7 +116,7 @@ CoreNet Skill focuses on network signaling evidence analysis rather than impleme
 
 Future EPC procedures will reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS procedures will reuse SIP, SDP/RTP, Diameter IMS, and Diameter Charging. 5GC procedures will reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
 
-Diameter is explicitly cross-domain—not an IMS-owned protocol. `diameter-core` owns base-protocol behavior; `diameter-epc`, `diameter-ims`, and `diameter-charging` will own their bounded applications and shared credit-control semantics and remain planned. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Diameter is explicitly cross-domain—not an IMS-owned protocol. `diameter-core` owns base-protocol behavior; `diameter-epc` owns bounded S6a/S6d AIR/AIA and ULR/ULA application-message evidence; `diameter-ims` and `diameter-charging` will own their bounded applications and shared credit-control semantics and remain planned. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Evidence first
 
