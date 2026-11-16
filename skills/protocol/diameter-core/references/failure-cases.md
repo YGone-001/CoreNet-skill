@@ -26,8 +26,22 @@ not a decoder failure and not a successful Diameter analysis.
 - An unanswered request is `OPEN_REQUEST`, not a timeout.
 - An answer without a request is `RESPONSE_ONLY`.
 - Competing requests or answers are `AMBIGUOUS`; all candidates stay visible.
-- A missing End-to-End Identifier prevents `STRONG` correlation but does not
-  fabricate a pair.
+- A missing End-to-End Identifier prevents a pair; it never produces latency.
+- A contradictory End-to-End Identifier removes the Request from eligibility and
+  keeps the Answer `RESPONSE_ONLY`.
+- When the decoder publishes no TCP stream or SCTP Association Index, the
+  identity status is `ENDPOINT_ONLY` and correlation is fail-closed. Endpoint
+  tuple reuse cannot be excluded without decoder association evidence.
+- Distinct Association Indices or TCP streams with the same endpoint tuple stay
+  separate.
+
+## AVP input bounds
+
+- JSONL input above 4096 AVP nodes or 64 nesting levels is rejected as malformed.
+- Malformed `children` values are rejected, not partially interpreted.
+- Publication is bounded to 128 AVP nodes and 4 nesting levels per message.
+- Omitted descendants are counted in `avps_omitted` and `children_omitted`; they
+  are never silently discarded.
 
 ## Unsupported scope
 

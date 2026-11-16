@@ -51,7 +51,7 @@
       "result_code_name": null,
       "result_namespace": null,
       "transaction_reference": "diameter-tx:negative.pcapng:280:10.1",
-      "transport_association_reference": "diameter-assoc:negative.pcapng:SCTP-10.0.0.1:40000|10.0.0.2:3868"
+      "transport_association_reference": "diameter-assoc:negative.pcapng:sctp-assoc-0"
     },
     {
       "answer": null,
@@ -88,7 +88,7 @@
       "result_code_name": null,
       "result_namespace": null,
       "transaction_reference": "diameter-tx:negative.pcapng:280:11.1",
-      "transport_association_reference": "diameter-assoc:negative.pcapng:SCTP-10.0.0.1:40000|10.0.0.2:3868"
+      "transport_association_reference": "diameter-assoc:negative.pcapng:sctp-assoc-0"
     },
     {
       "answer": {
@@ -151,7 +151,7 @@
       "result_code_name": "DIAMETER_SUCCESS",
       "result_namespace": "BASE",
       "transaction_reference": "diameter-tx:negative.pcapng:280:12.1",
-      "transport_association_reference": "diameter-assoc:negative.pcapng:SCTP-10.0.0.1:40000|10.0.0.2:3868"
+      "transport_association_reference": "diameter-assoc:negative.pcapng:sctp-assoc-0"
     },
     {
       "answer": {
@@ -200,26 +200,12 @@
         "message_occurrence": 1,
         "source_endpoint": "10.0.0.3:40000"
       },
-      "response_candidates": [
-        {
-          "application_id": 0,
-          "command_code": 280,
-          "command_name": "Device-Watchdog",
-          "destination_endpoint": "10.0.0.4:3868",
-          "direction": "REQUEST",
-          "end_to_end_id": 178,
-          "frame_number": 13,
-          "frame_time_epoch": "1700000011.000000000",
-          "hop_by_hop_id": 119,
-          "message_occurrence": 1,
-          "source_endpoint": "10.0.0.3:40000"
-        }
-      ],
+      "response_candidates": [],
       "result_code": 2001,
       "result_code_name": "DIAMETER_SUCCESS",
       "result_namespace": "BASE",
       "transaction_reference": "diameter-tx:negative.pcapng:280:13.1",
-      "transport_association_reference": "diameter-assoc:negative.pcapng:SCTP-10.0.0.3:40000|10.0.0.4:3868"
+      "transport_association_reference": "diameter-assoc:negative.pcapng:sctp-assoc-1"
     },
     {
       "answer": {
@@ -255,7 +241,7 @@
       "result_code_name": "DIAMETER_UNKNOWN_SESSION_ID",
       "result_namespace": "BASE",
       "transaction_reference": "diameter-tx:negative.pcapng:280:15.1",
-      "transport_association_reference": "diameter-assoc:negative.pcapng:SCTP-10.0.0.5:40000|10.0.0.6:3868"
+      "transport_association_reference": "diameter-assoc:negative.pcapng:sctp-assoc-2"
     },
     {
       "answer": null,
@@ -291,7 +277,7 @@
       "result_code_name": null,
       "result_namespace": null,
       "transaction_reference": "diameter-tx:negative.pcapng:280:16.1",
-      "transport_association_reference": "diameter-assoc:negative.pcapng:SCTP-10.0.0.5:40000|10.0.0.6:3868"
+      "transport_association_reference": "diameter-assoc:negative.pcapng:sctp-assoc-2"
     },
     {
       "answer": null,
@@ -327,7 +313,7 @@
       "result_code_name": null,
       "result_namespace": null,
       "transaction_reference": "diameter-tx:negative.pcapng:280:17.1",
-      "transport_association_reference": "diameter-assoc:negative.pcapng:SCTP-10.0.0.1:40000|10.0.0.2:3868"
+      "transport_association_reference": "diameter-assoc:negative.pcapng:sctp-assoc-0"
     }
   ]
 }

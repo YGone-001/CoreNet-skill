@@ -63,26 +63,12 @@
         "message_occurrence": 1,
         "source_endpoint": "192.0.2.10:40001"
       },
-      "response_candidates": [
-        {
-          "application_id": 0,
-          "command_code": 257,
-          "command_name": "Capabilities-Exchange",
-          "destination_endpoint": "192.0.2.20:3868",
-          "direction": "REQUEST",
-          "end_to_end_id": 161,
-          "frame_number": 1,
-          "frame_time_epoch": "1700000000.100000000",
-          "hop_by_hop_id": 1,
-          "message_occurrence": 1,
-          "source_endpoint": "192.0.2.10:40001"
-        }
-      ],
+      "response_candidates": [],
       "result_code": 2001,
       "result_code_name": "DIAMETER_SUCCESS",
       "result_namespace": "BASE",
       "transaction_reference": "diameter-tx:base-exchange.pdml:257:1.1",
-      "transport_association_reference": "diameter-assoc:base-exchange.pdml:SCTP-192.0.2.10:40001|192.0.2.20:3868"
+      "transport_association_reference": "diameter-assoc:base-exchange.pdml:sctp-assoc-0"
     },
     {
       "answer": {
@@ -131,21 +117,7 @@
         "message_occurrence": 1,
         "source_endpoint": "198.51.100.5:45000"
       },
-      "response_candidates": [
-        {
-          "application_id": 0,
-          "command_code": 280,
-          "command_name": "Device-Watchdog",
-          "destination_endpoint": "198.51.100.9:3868",
-          "direction": "REQUEST",
-          "end_to_end_id": 162,
-          "frame_number": 3,
-          "frame_time_epoch": "1700000000.200000000",
-          "hop_by_hop_id": 2,
-          "message_occurrence": 1,
-          "source_endpoint": "198.51.100.5:45000"
-        }
-      ],
+      "response_candidates": [],
       "result_code": 2001,
       "result_code_name": "DIAMETER_SUCCESS",
       "result_namespace": "BASE",
@@ -199,26 +171,12 @@
         "message_occurrence": 1,
         "source_endpoint": "192.0.2.10:40001"
       },
-      "response_candidates": [
-        {
-          "application_id": 0,
-          "command_code": 280,
-          "command_name": "Device-Watchdog",
-          "destination_endpoint": "192.0.2.20:3868",
-          "direction": "REQUEST",
-          "end_to_end_id": 163,
-          "frame_number": 5,
-          "frame_time_epoch": "1700000000.300000000",
-          "hop_by_hop_id": 3,
-          "message_occurrence": 1,
-          "source_endpoint": "192.0.2.10:40001"
-        }
-      ],
+      "response_candidates": [],
       "result_code": 2001,
       "result_code_name": "DIAMETER_SUCCESS",
       "result_namespace": "BASE",
       "transaction_reference": "diameter-tx:base-exchange.pdml:280:5.1",
-      "transport_association_reference": "diameter-assoc:base-exchange.pdml:SCTP-192.0.2.10:40001|192.0.2.20:3868"
+      "transport_association_reference": "diameter-assoc:base-exchange.pdml:sctp-assoc-0"
     },
     {
       "answer": {
@@ -267,26 +225,12 @@
         "message_occurrence": 2,
         "source_endpoint": "192.0.2.10:40001"
       },
-      "response_candidates": [
-        {
-          "application_id": 0,
-          "command_code": 282,
-          "command_name": "Disconnect-Peer",
-          "destination_endpoint": "192.0.2.20:3868",
-          "direction": "REQUEST",
-          "end_to_end_id": 164,
-          "frame_number": 5,
-          "frame_time_epoch": "1700000000.300000000",
-          "hop_by_hop_id": 4,
-          "message_occurrence": 2,
-          "source_endpoint": "192.0.2.10:40001"
-        }
-      ],
+      "response_candidates": [],
       "result_code": 2001,
       "result_code_name": "DIAMETER_SUCCESS",
       "result_namespace": "BASE",
       "transaction_reference": "diameter-tx:base-exchange.pdml:282:5.2",
-      "transport_association_reference": "diameter-assoc:base-exchange.pdml:SCTP-192.0.2.10:40001|192.0.2.20:3868"
+      "transport_association_reference": "diameter-assoc:base-exchange.pdml:sctp-assoc-0"
     },
     {
       "answer": null,
@@ -322,7 +266,7 @@
       "result_code_name": null,
       "result_namespace": null,
       "transaction_reference": "diameter-tx:base-exchange.pdml:316:7.1",
-      "transport_association_reference": "diameter-assoc:base-exchange.pdml:SCTP-192.0.2.10:40001|192.0.2.30:3868"
+      "transport_association_reference": "diameter-assoc:base-exchange.pdml:sctp-assoc-1"
     },
     {
       "answer": {
@@ -358,7 +302,7 @@
       "result_code_name": null,
       "result_namespace": "VENDOR_SPECIFIC",
       "transaction_reference": "diameter-tx:base-exchange.pdml:316:8.1",
-      "transport_association_reference": "diameter-assoc:base-exchange.pdml:SCTP-192.0.2.10:40001|192.0.2.30:3868"
+      "transport_association_reference": "diameter-assoc:base-exchange.pdml:sctp-assoc-1"
     },
     {
       "answer": null,
@@ -394,7 +338,7 @@
       "result_code_name": null,
       "result_namespace": null,
       "transaction_reference": "diameter-tx:base-exchange.pdml:280:9.1",
-      "transport_association_reference": "diameter-assoc:base-exchange.pdml:SCTP-192.0.2.10:40001|192.0.2.20:3868"
+      "transport_association_reference": "diameter-assoc:base-exchange.pdml:sctp-assoc-0"
     }
   ]
 }

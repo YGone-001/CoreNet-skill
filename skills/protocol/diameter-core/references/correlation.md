@@ -32,10 +32,46 @@ independent. A duplicate Request on the same association is published as a
 separate `OPEN_REQUEST`; if several such Requests compete for one Answer, the
 Answer is `AMBIGUOUS` and every candidate is published.
 
+## Matching eligibility
+
+Only Requests whose End-to-End Identifier equals the Answer's identifier are
+eligible. A Request with the same Hop-by-Hop Identifier but a contradictory
+End-to-End Identifier is not a candidate; it does not create false ambiguity and
+it is never attached to the Answer.
+
+A Request becomes selected only after every mandatory condition succeeds:
+capture, proven transport association, opposite direction, ordering, Command
+Code, Application-ID, Hop-by-Hop Identifier and End-to-End Identifier.
+
+## Status invariants
+
+```text
+MATCHED        request != null, answer != null, latency published
+OPEN_REQUEST   request != null, answer == null, latency null
+RESPONSE_ONLY  request == null, answer != null, latency null
+AMBIGUOUS      request == null, candidates retained, latency null
+```
+
+An Answer occurrence is assigned at most once. A previously consumed Request is
+not reused for a duplicate Answer; the duplicate remains `RESPONSE_ONLY`.
+
+## Transport association identity
+
+Correlation requires decoder-proven association identity:
+
+- TCP uses the decoder stream identifier.
+- SCTP uses the decoder Association Index.
+- When the decoder exposes no stream or Association Index, the event publishes
+  `ENDPOINT_ONLY`; the pair is fail-closed and no `MATCHED` transaction is
+  produced. An endpoint tuple alone is never treated as proof of Association
+  continuity.
+- The SCTP Verification Tag is direction-specific evidence. It is published but
+  is not used as an association key.
+
 ## Latency
 
 Latency is calculated from the frame timestamps only for `MATCHED` pairs. An
-open or response-only record publishes no latency.
+open, response-only or ambiguous record publishes no latency.
 
 ## What correlation does not prove
 

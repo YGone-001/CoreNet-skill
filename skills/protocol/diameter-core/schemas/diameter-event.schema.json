@@ -63,7 +63,7 @@
     "transport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["protocol", "source_address", "source_port", "destination_address", "destination_port", "verification_tag", "stream_id", "association_reference"],
+      "required": ["protocol", "source_address", "source_port", "destination_address", "destination_port", "verification_tag", "stream_id", "association_index", "association_identity_status", "association_reference"],
       "properties": {
         "protocol": {"type": "string", "enum": ["TCP", "SCTP", "UNKNOWN"]},
         "source_address": {"type": ["string", "null"]},
@@ -72,6 +72,8 @@
         "destination_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
         "verification_tag": {"type": ["string", "null"]},
         "stream_id": {"type": ["integer", "null"]},
+        "association_index": {"type": ["integer", "null"], "minimum": 0},
+        "association_identity_status": {"type": "string", "enum": ["DECODER_INDEX", "TCP_STREAM", "ENDPOINT_ONLY"]},
         "association_reference": {"type": "string", "minLength": 1}
       }
     },

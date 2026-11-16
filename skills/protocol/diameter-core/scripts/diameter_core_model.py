@@ -28,6 +28,8 @@ EXIT_OUTPUT_FAILURE = 6
 
 MAX_AVPS = 128
 MAX_AVP_DEPTH = 4
+MAX_AVP_INPUT_NODES = 4096
+MAX_AVP_INPUT_DEPTH = 64
 
 BASE_COMMANDS = {
     257: "Capabilities-Exchange",
@@ -202,6 +204,9 @@ def _transport(packet: ElementTree.Element) -> dict[str, Any]:
         tag = _show(sctp, "sctp.verification_tag")
         tag_value = _int_text(tag)
         tag_text = None if tag_value is None else f"0x{tag_value:08x}"
+        association_index = _int_text(_show(sctp, "sctp.assoc_index"))
+        if association_index is None or association_index == 65535:
+            association_index = None
         return {
             "protocol": "SCTP",
             "source_address": source_address,
@@ -210,8 +215,11 @@ def _transport(packet: ElementTree.Element) -> dict[str, Any]:
             "destination_port": _int_text(_show(sctp, "sctp.dstport")),
             "verification_tag": tag_text,
             "stream_id": None,
+            "association_index": association_index,
+            "association_identity_status": "DECODER_INDEX" if association_index is not None else "ENDPOINT_ONLY",
         }
     if tcp is not None:
+        stream_id = _int_text(_show(tcp, "tcp.stream"))
         return {
             "protocol": "TCP",
             "source_address": source_address,
@@ -219,7 +227,9 @@ def _transport(packet: ElementTree.Element) -> dict[str, Any]:
             "destination_address": destination_address,
             "destination_port": _int_text(_show(tcp, "tcp.dstport")),
             "verification_tag": None,
-            "stream_id": _int_text(_show(tcp, "tcp.stream")),
+            "stream_id": stream_id,
+            "association_index": None,
+            "association_identity_status": "TCP_STREAM" if stream_id is not None else "ENDPOINT_ONLY",
         }
     return {
         "protocol": "UNKNOWN",
@@ -229,6 +239,8 @@ def _transport(packet: ElementTree.Element) -> dict[str, Any]:
         "destination_port": None,
         "verification_tag": None,
         "stream_id": None,
+        "association_index": None,
+        "association_identity_status": "ENDPOINT_ONLY",
     }
 
 
@@ -243,10 +255,13 @@ def _association_reference(capture: str, transport: dict[str, Any]) -> str:
     left = _endpoint(transport, "source")
     right = _endpoint(transport, "destination")
     endpoints = "|".join(sorted((left, right)))
-    if transport.get("protocol") == "TCP" and transport.get("stream_id") is not None:
+    identity = transport.get("association_identity_status")
+    if identity == "DECODER_INDEX" and transport.get("association_index") is not None:
+        key = f"sctp-assoc-{transport['association_index']}"
+    elif identity == "TCP_STREAM" and transport.get("stream_id") is not None:
         key = f"tcp-stream-{transport['stream_id']}"
     else:
-        key = f"{protocol}-{endpoints}"
+        key = f"{protocol}-{endpoints}-unproven"
     return f"diameter-assoc:{capture}:{key}"
 
 
@@ -257,9 +272,12 @@ def _sensitive_name(value: str) -> bool:
 
 def _count_avps(node: ElementTree.Element) -> int:
     total = 0
-    for child in node.findall("field"):
+    stack = list(node.findall("field"))
+    while stack:
+        child = stack.pop()
         if child.get("name") == "diameter.avp":
-            total += 1 + _count_avps(child)
+            total += 1
+        stack.extend(child.findall("field"))
     return total
 
 
@@ -383,7 +401,8 @@ def _parse_avps(proto: ElementTree.Element, capture: str, frame: int, occurrence
         )
         if parsed is not None:
             avps.append(parsed)
-    return avps, max(0, total - MAX_AVPS)
+    published = sum(1 + _count_projected(avp) for avp in avps)
+    return avps, max(0, total - published)
 
 
 def _find_avp(avps: Iterable[dict[str, Any]], code: int) -> dict[str, Any] | None:
@@ -462,6 +481,11 @@ def _base_event(
         limitations.append("the Application-ID is outside the base common-message scope; application semantics remain unsupported")
     if avps_omitted:
         limitations.append("AVP publication is bounded; the omitted count is published and no ownership is inferred for omitted AVPs")
+    if transport.get("association_identity_status") == "ENDPOINT_ONLY":
+        limitations.append(
+            "no decoder-proven transport association identity is available; endpoint tuple reuse cannot "
+            "be excluded and correlation is fail-closed"
+        )
     if _find_avp(avps, 263) is not None:
         limitations.append(
             "Session-Id values are withheld as opaque presence and length metadata because they may embed a subscription identifier"
@@ -564,7 +588,47 @@ def parse_pdml(text: str, capture_file: str | None = None) -> list[dict[str, Any
     return events
 
 
-def _normalize_avp(raw: dict[str, Any], path: str, depth: int) -> dict[str, Any]:
+def _validate_avp_input(raw_avps: list[Any]) -> dict[int, int]:
+    sizes: dict[int, int] = {}
+    stack: list[tuple[Any, int, bool]] = []
+    for raw in reversed(raw_avps):
+        stack.append((raw, 1, False))
+    nodes = 0
+    while stack:
+        node, depth, expanded = stack.pop()
+        if not isinstance(node, dict):
+            raise InputError("each AVP record must be an object")
+        if depth > MAX_AVP_INPUT_DEPTH:
+            raise InputError(
+                f"AVP input nesting exceeds the bounded depth of {MAX_AVP_INPUT_DEPTH}"
+            )
+        children = node.get("children") or []
+        if not isinstance(children, list):
+            raise InputError("AVP children must be an array")
+        if not expanded:
+            nodes += 1
+            if nodes > MAX_AVP_INPUT_NODES:
+                raise InputError(
+                    f"AVP input exceeds the bounded node count of {MAX_AVP_INPUT_NODES}"
+                )
+            stack.append((node, depth, True))
+            for child in reversed(children):
+                stack.append((child, depth + 1, False))
+        else:
+            sizes[id(node)] = 1 + sum(sizes[id(child)] for child in children)
+    return sizes
+
+
+def _normalize_avp(
+    raw: dict[str, Any],
+    path: str,
+    depth: int,
+    budget: list[int],
+    sizes: dict[int, int],
+) -> dict[str, Any] | None:
+    if budget[0] <= 0:
+        return None
+    budget[0] -= 1
     code = raw.get("code")
     if isinstance(code, bool) or not isinstance(code, int) or code < 0:
         raise InputError("AVP code must be a non-negative integer")
@@ -588,8 +652,37 @@ def _normalize_avp(raw: dict[str, Any], path: str, depth: int) -> dict[str, Any]
     else:
         value, value_kind = None, "OPAQUE"
     children_raw = raw.get("children") or []
-    children = [_normalize_avp(child, f"{path}.{index}", depth + 1) for index, child in enumerate(children_raw, start=1)]
-    grouping_status = "DECODED" if children else ("NOT_DECODED" if code in GROUPED_AVP_CODES else "NOT_GROUPED")
+    children: list[dict[str, Any]] = []
+    omitted = 0
+    if sensitive:
+        children_omitted = max(0, sizes[id(raw)] - 1)
+        grouping_status = (
+            "REDACTED"
+            if children_raw
+            else ("NOT_DECODED" if code in GROUPED_AVP_CODES else "NOT_GROUPED")
+        )
+    elif depth >= MAX_AVP_DEPTH and children_raw:
+        children_omitted = max(0, sizes[id(raw)] - 1)
+        grouping_status = "DEPTH_LIMITED"
+    else:
+        for index, child in enumerate(children_raw, start=1):
+            parsed = _normalize_avp(
+                child,
+                f"{path}.{index}",
+                depth + 1,
+                budget,
+                sizes,
+            )
+            if parsed is None:
+                omitted += sizes[id(child)]
+            else:
+                children.append(parsed)
+        children_omitted = omitted
+        grouping_status = (
+            "DECODED"
+            if children
+            else ("NOT_DECODED" if code in GROUPED_AVP_CODES else "NOT_GROUPED")
+        )
     return {
         "avp_reference": raw.get("avp_reference") or f"diameter-avp:record:{path}",
         "code": code,
@@ -607,7 +700,7 @@ def _normalize_avp(raw: dict[str, Any], path: str, depth: int) -> dict[str, Any]
         "value": value,
         "value_kind": value_kind,
         "grouping_status": grouping_status,
-        "children_omitted": raw.get("children_omitted", 0),
+        "children_omitted": children_omitted,
         "children": children,
     }
 
@@ -628,7 +721,34 @@ def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
     raw_avps = record.get("avps") or []
     if not isinstance(raw_avps, list):
         raise InputError("avps must be an array")
-    avps = [_normalize_avp(raw, str(index), 1) for index, raw in enumerate(raw_avps, start=1)]
+    sizes = _validate_avp_input(raw_avps)
+    budget = [MAX_AVPS]
+    avps: list[dict[str, Any]] = []
+    for index, raw in enumerate(raw_avps, start=1):
+        parsed = _normalize_avp(raw, str(index), 1, budget, sizes)
+        if parsed is not None:
+            avps.append(parsed)
+    total_nodes = sum(sizes[id(raw)] for raw in raw_avps)
+    published_nodes = sum(1 + _count_projected(avp) for avp in avps)
+    structural_omitted = max(0, total_nodes - published_nodes)
+    explicit_omitted = max(0, int(record.get("avps_omitted") or 0))
+    protocol = transport.get("protocol", "UNKNOWN")
+    stream_id = transport.get("stream_id")
+    if isinstance(stream_id, bool) or (stream_id is not None and not isinstance(stream_id, int)):
+        raise InputError("transport.stream_id must be an integer or null")
+    association_index = transport.get("association_index")
+    if isinstance(association_index, bool) or (
+        association_index is not None and not isinstance(association_index, int)
+    ):
+        raise InputError("transport.association_index must be an integer or null")
+    if association_index == 65535:
+        association_index = None
+    if protocol == "SCTP" and association_index is not None:
+        identity_status = "DECODER_INDEX"
+    elif protocol == "TCP" and stream_id is not None:
+        identity_status = "TCP_STREAM"
+    else:
+        identity_status = "ENDPOINT_ONLY"
     flags = header.get("flags") or {}
     flag_value = 0
     if flags.get("request"):
@@ -646,13 +766,15 @@ def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
         frame_time_epoch=str(record.get("frame_time_epoch") or ""),
         occurrence=occurrence,
         transport={
-            "protocol": transport.get("protocol", "UNKNOWN"),
+            "protocol": protocol,
             "source_address": transport.get("source_address"),
             "source_port": transport.get("source_port"),
             "destination_address": transport.get("destination_address"),
             "destination_port": transport.get("destination_port"),
             "verification_tag": transport.get("verification_tag"),
-            "stream_id": transport.get("stream_id"),
+            "stream_id": stream_id,
+            "association_index": association_index,
+            "association_identity_status": identity_status,
         },
         version=header.get("version"),
         declared_length=header.get("length"),
@@ -663,7 +785,7 @@ def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
         hop_by_hop_id=header.get("hop_by_hop_id"),
         end_to_end_id=header.get("end_to_end_id"),
         avps=avps,
-        avps_omitted=max(0, int(record.get("avps_omitted") or 0)),
+        avps_omitted=structural_omitted + explicit_omitted,
     )
 
 
@@ -698,7 +820,17 @@ def pdml_for_capture(capture: Path, tshark_bin: str | None = None) -> str:
     exe = tshark_bin or shutil.which("tshark") or "tshark"
     try:
         completed = subprocess.run(
-            [exe, "-r", str(capture), "-Y", "diameter", "-T", "pdml"],
+            [
+                exe,
+                "-o",
+                "sctp.association_index:TRUE",
+                "-r",
+                str(capture),
+                "-Y",
+                "diameter",
+                "-T",
+                "pdml",
+            ],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -778,11 +910,8 @@ def correlate(events: list[dict[str, Any]]) -> dict[str, Any]:
     transactions: list[dict[str, Any]] = []
     for answer in answers:
         answer_transport = answer["transport"]
-        candidates = []
+        same_hop = []
         for request in requests:
-            request_id = (request["capture_file"], request["frame_number"], request["message_occurrence"])
-            if request_id in assigned:
-                continue
             if request["frame_number"] >= answer["frame_number"]:
                 continue
             if request_transport_key(request) != answer_transport["association_reference"]:
@@ -795,49 +924,93 @@ def correlate(events: list[dict[str, Any]]) -> dict[str, Any]:
                 continue
             if request["transport"]["destination_address"] != answer_transport["source_address"]:
                 continue
-            candidates.append(request)
-        same_hop = [
-            request
-            for request in requests
-            if request_transport_key(request) == answer_transport["association_reference"]
-            and request["command_code"] == answer["command_code"]
-            and request["application_id"] == answer["application_id"]
-            and request["hop_by_hop_id"] == answer["hop_by_hop_id"]
-            and request["frame_number"] < answer["frame_number"]
-        ]
+            same_hop.append(request)
+        answer_proven = answer_transport.get("association_identity_status") in {
+            "DECODER_INDEX",
+            "TCP_STREAM",
+        }
+        eligible: list[dict[str, Any]] = []
+        if answer_proven:
+            for request in same_hop:
+                request_id = (request["capture_file"], request["frame_number"], request["message_occurrence"])
+                if request_id in assigned:
+                    continue
+                if request["transport"].get("association_identity_status") not in {
+                    "DECODER_INDEX",
+                    "TCP_STREAM",
+                }:
+                    continue
+                if request["end_to_end_id"] != answer["end_to_end_id"]:
+                    continue
+                eligible.append(request)
         matched = None
         basis: list[str] = []
         limitations: list[str] = []
-        if len(candidates) == 1:
-            matched = candidates[0]
-            matched_id = (matched["capture_file"], matched["frame_number"], matched["message_occurrence"])
-            if matched["end_to_end_id"] == answer["end_to_end_id"]:
-                assigned.add(matched_id)
-                basis.extend(
-                    [
-                        "same_transport_association",
-                        "opposite_endpoint_direction",
-                        "command_code_match",
-                        "application_id_match",
-                        "hop_by_hop_match",
-                        "end_to_end_match",
-                        "unique_open_request",
-                    ]
-                )
-                status, strength = "MATCHED", "STRONG"
-            else:
-                limitations.append(
-                    "a request with the same hop-by-hop identifier publishes a different end-to-end identifier; no pairing is claimed"
-                )
-                status, strength = "RESPONSE_ONLY", "NONE"
-        elif len(candidates) > 1:
-            status, strength = "AMBIGUOUS", "NONE"
-            limitations.append("several open requests share the same command, application, hop-by-hop and end-to-end identifiers")
-        else:
+        candidates: list[dict[str, Any]] = []
+        if not answer_proven:
             status, strength = "RESPONSE_ONLY", "NONE"
+            limitations.append(
+                "the decoder did not prove a transport association identity for this answer; no pairing is claimed"
+            )
             if same_hop:
                 limitations.append(
-                    "an earlier request shares the hop-by-hop identifier but its end-to-end identifier differs or it was already answered"
+                    "endpoint and identifier compatible requests exist but association continuity is unproven"
+                )
+        elif len(eligible) == 1:
+            matched = eligible[0]
+            matched_id = (matched["capture_file"], matched["frame_number"], matched["message_occurrence"])
+            assigned.add(matched_id)
+            basis.extend(
+                [
+                    "same_transport_association",
+                    "opposite_endpoint_direction",
+                    "command_code_match",
+                    "application_id_match",
+                    "hop_by_hop_match",
+                    "end_to_end_match",
+                    "unique_open_request",
+                ]
+            )
+            status, strength = "MATCHED", "STRONG"
+        elif len(eligible) > 1:
+            candidates = eligible
+            status, strength = "AMBIGUOUS", "NONE"
+            limitations.append(
+                "several open requests share the same command, application, hop-by-hop and end-to-end identifiers"
+            )
+        else:
+            status, strength = "RESPONSE_ONLY", "NONE"
+            conflicting = [
+                request for request in same_hop
+                if request["end_to_end_id"] != answer["end_to_end_id"]
+            ]
+            consumed = [
+                request for request in same_hop
+                if (request["capture_file"], request["frame_number"], request["message_occurrence"])
+                in assigned
+            ]
+            unproven = [
+                request for request in same_hop
+                if request["transport"].get("association_identity_status")
+                not in {"DECODER_INDEX", "TCP_STREAM"}
+            ]
+            if conflicting:
+                limitations.append(
+                    "a request with the same hop-by-hop identifier publishes a different end-to-end "
+                    "identifier; no pairing is claimed"
+                )
+            elif consumed:
+                limitations.append(
+                    "the only identifier-compatible request was already assigned to another answer; "
+                    "the answer occurrence is not reused"
+                )
+            elif unproven:
+                limitations.append(
+                    "identifier-compatible requests exist but their transport association identity is unproven"
+                )
+            elif same_hop:
+                limitations.append(
+                    "identifier-compatible requests exist but no eligible unique request remains"
                 )
             else:
                 limitations.append("no observed request matches this answer within the capture")

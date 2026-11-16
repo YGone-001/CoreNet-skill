@@ -70,9 +70,12 @@ Diameter is supported over TCP and SCTP where the installed decoder reassembles
 a complete message.
 
 - TCP association identity uses `tcp.stream` when available.
-- SCTP association identity uses the unordered endpoint and port pair; the
-  verification tag remains published evidence but is direction-specific and is
-  not used as the association key.
+- SCTP association identity uses the decoder Association Index exposed by
+  `sctp.assoc_index` when association tracking is enabled. The Verification Tag
+  is direction-specific evidence; it is never used as the Association key.
+- When neither a TCP stream nor an SCTP Association Index is available, the
+  published identity status is `ENDPOINT_ONLY`. Correlation is fail-closed:
+  endpoint tuple reuse cannot be excluded without decoder association evidence.
 - A transport segment without a complete Diameter message is not published as a
   complete observed message.
 

@@ -377,7 +377,7 @@ class DiameterCorrelationSemanticsTest(unittest.TestCase):
                 "application_id": 0,
                 "hop_by_hop_id": 1,
                 "end_to_end_id": 2,
-                "transport": {"association_reference": "assoc", "source_address": "a", "destination_address": "b", "source_port": 1, "destination_port": 2},
+                "transport": {"association_reference": "assoc", "association_identity_status": "DECODER_INDEX", "association_index": 0, "source_address": "a", "destination_address": "b", "source_port": 1, "destination_port": 2},
                 "command_name": "Device-Watchdog",
                 "result": {"result_code": None},
             },
@@ -391,7 +391,7 @@ class DiameterCorrelationSemanticsTest(unittest.TestCase):
                 "application_id": 0,
                 "hop_by_hop_id": 1,
                 "end_to_end_id": 2,
-                "transport": {"association_reference": "assoc", "source_address": "a", "destination_address": "b", "source_port": 1, "destination_port": 2},
+                "transport": {"association_reference": "assoc", "association_identity_status": "DECODER_INDEX", "association_index": 0, "source_address": "a", "destination_address": "b", "source_port": 1, "destination_port": 2},
                 "command_name": "Device-Watchdog",
                 "result": {"result_code": None},
             },
@@ -405,7 +405,7 @@ class DiameterCorrelationSemanticsTest(unittest.TestCase):
                 "application_id": 0,
                 "hop_by_hop_id": 1,
                 "end_to_end_id": 2,
-                "transport": {"association_reference": "assoc", "source_address": "b", "destination_address": "a", "source_port": 2, "destination_port": 1},
+                "transport": {"association_reference": "assoc", "association_identity_status": "DECODER_INDEX", "association_index": 0, "source_address": "b", "destination_address": "a", "source_port": 2, "destination_port": 1},
                 "command_name": "Device-Watchdog",
                 "result": {"result_code": 2001},
             },
@@ -436,6 +436,295 @@ class DiameterCorrelationSemanticsTest(unittest.TestCase):
                     "does not prove a timeout or a peer failure",
                     " ".join(transaction["limitations"]),
                 )
+
+
+def make_record(
+    *,
+    frame: int,
+    occurrence: int = 1,
+    request: bool = True,
+    command: int = 280,
+    application: int = 0,
+    hop: int,
+    end_to_end: int,
+    association_index: int | None = 0,
+    protocol: str = "SCTP",
+    stream_id: int | None = None,
+    avps: list | None = None,
+    capture: str = "synthetic.pcapng",
+) -> dict:
+    sctp = protocol == "SCTP"
+    transport = {
+        "protocol": protocol,
+        "source_address": "10.9.0.1" if request else "10.9.0.2",
+        "source_port": 40000 if request else 3868,
+        "destination_address": "10.9.0.2" if request else "10.9.0.1",
+        "destination_port": 3868 if request else 40000,
+        "verification_tag": "0x00000001" if sctp else None,
+        "stream_id": stream_id,
+        "association_index": association_index if sctp else None,
+    }
+    return model.normalize_record(
+        {
+            "capture_file": capture,
+            "frame_number": frame,
+            "frame_time_epoch": f"{1700000000 + frame}.0",
+            "message_occurrence": occurrence,
+            "transport": transport,
+            "header": {
+                "version": 1,
+                "length": 68,
+                "flags": {
+                    "request": request,
+                    "proxyable": False,
+                    "error": False,
+                    "retransmitted": False,
+                },
+                "command_code": command,
+                "application_id": application,
+                "hop_by_hop_id": hop,
+                "end_to_end_id": end_to_end,
+            },
+            "avps": avps or [],
+        }
+    )
+
+
+class DiameterCorrelationIdentityTest(unittest.TestCase):
+    def test_end_to_end_mismatch_never_attaches_request(self) -> None:
+        request = make_record(frame=10, request=True, command=318, application=16777251, hop=100, end_to_end=500)
+        answer = make_record(frame=11, request=False, command=318, application=16777251, hop=100, end_to_end=501)
+        document = model.correlate([request, answer])
+        response = [item for item in document["transactions"] if item["answer"]][0]
+        self.assertEqual(response["correlation_status"], "RESPONSE_ONLY")
+        self.assertIsNone(response["request"])
+        self.assertIsNone(response["latency_seconds"])
+        self.assertTrue(
+            any("different end-to-end identifier" in item for item in response["limitations"])
+        )
+        open_requests = [item for item in document["transactions"] if item["correlation_status"] == "OPEN_REQUEST"]
+        self.assertEqual([item["request"]["frame_number"] for item in open_requests], [10])
+        self.assertEqual(document["matched_count"], 0)
+
+    def test_one_valid_candidate_is_selected_over_contradictory_one(self) -> None:
+        contradictory = make_record(frame=1, hop=100, end_to_end=500)
+        valid = make_record(frame=2, hop=100, end_to_end=501)
+        answer = make_record(frame=3, request=False, hop=100, end_to_end=501)
+        document = model.correlate([contradictory, valid, answer])
+        self.assertEqual(document["matched_count"], 1)
+        matched = [item for item in document["transactions"] if item["correlation_status"] == "MATCHED"][0]
+        self.assertEqual(matched["request"]["frame_number"], 2)
+        self.assertEqual(document["open_request_count"], 1)
+        self.assertEqual(document["ambiguous_count"], 0)
+
+    def test_multiple_valid_candidates_remain_ambiguous(self) -> None:
+        first = make_record(frame=1, hop=100, end_to_end=500)
+        second = make_record(frame=2, hop=100, end_to_end=500)
+        answer = make_record(frame=3, request=False, hop=100, end_to_end=500)
+        document = model.correlate([first, second, answer])
+        self.assertEqual(document["ambiguous_count"], 1)
+        self.assertEqual(document["matched_count"], 0)
+        ambiguous = [item for item in document["transactions"] if item["correlation_status"] == "AMBIGUOUS"][0]
+        self.assertIsNone(ambiguous["request"])
+        self.assertIsNone(ambiguous["latency_seconds"])
+        self.assertEqual(len(ambiguous["response_candidates"]), 2)
+        self.assertEqual(document["open_request_count"], 2)
+
+    def test_consumed_request_is_not_reused_for_duplicate_answer(self) -> None:
+        request = make_record(frame=1, hop=100, end_to_end=500)
+        first_answer = make_record(frame=2, request=False, hop=100, end_to_end=500)
+        duplicate_answer = make_record(frame=3, request=False, hop=100, end_to_end=500)
+        document = model.correlate([request, first_answer, duplicate_answer])
+        self.assertEqual(document["matched_count"], 1)
+        self.assertEqual(document["response_only_count"], 1)
+        reused = [item for item in document["transactions"] if item["answer"] and item["answer"]["frame_number"] == 3][0]
+        self.assertIsNone(reused["request"])
+        self.assertIsNone(reused["latency_seconds"])
+        self.assertTrue(any("already assigned" in item for item in reused["limitations"]))
+
+    def test_reused_hop_identifier_across_associations_stays_independent(self) -> None:
+        documents = load_jsonl(EXAMPLES / "expected/association-reuse-events.jsonl")
+        document = model.correlate(documents)
+        self.assertEqual(document["matched_count"], 2)
+        pairs = {
+            (item["request"]["frame_number"], item["answer"]["frame_number"])
+            for item in document["transactions"]
+            if item["correlation_status"] == "MATCHED"
+        }
+        self.assertEqual(pairs, {(30, 33), (31, 32)})
+
+    def test_tcp_streams_with_same_tuple_do_not_cross_pair(self) -> None:
+        events = load_jsonl(EXAMPLES / "expected/tcp-stream-reuse-events.jsonl")
+        document = model.correlate(events)
+        self.assertEqual(document["matched_count"], 2)
+        pairs = {
+            (item["request"]["frame_number"], item["answer"]["frame_number"])
+            for item in document["transactions"]
+        }
+        self.assertEqual(pairs, {(40, 43), (41, 42)})
+
+    def test_missing_association_identity_is_fail_closed(self) -> None:
+        for fixture in ("incomplete-association", "mid-capture-start"):
+            events = load_jsonl(EXAMPLES / f"expected/{fixture}-events.jsonl")
+            document = model.correlate(events)
+            self.assertEqual(document["matched_count"], 0, fixture)
+            self.assertEqual(document["open_request_count"], 1, fixture)
+            self.assertEqual(document["response_only_count"], 1, fixture)
+            response = [item for item in document["transactions"] if item["answer"]][0]
+            self.assertIsNone(response["request"])
+            self.assertIsNone(response["latency_seconds"])
+            self.assertTrue(
+                any("association identity" in item for item in response["limitations"])
+            )
+
+    def test_every_non_matched_transaction_has_no_selected_pair(self) -> None:
+        for name in (
+            "base-transactions.json",
+            "negative-transactions.json",
+            "association-reuse-transactions.json",
+            "tcp-stream-reuse-transactions.json",
+            "incomplete-association-transactions.json",
+            "mid-capture-start-transactions.json",
+        ):
+            document = load_json(EXPECTED / name)
+            for transaction in document["transactions"]:
+                if transaction["correlation_status"] == "MATCHED":
+                    self.assertIsNotNone(transaction["request"])
+                    self.assertIsNotNone(transaction["answer"])
+                    self.assertIsNotNone(transaction["latency_seconds"])
+                    continue
+                self.assertIsNone(transaction["latency_seconds"], name)
+                if transaction["correlation_status"] == "RESPONSE_ONLY":
+                    self.assertIsNone(transaction["request"], name)
+                if transaction["correlation_status"] == "OPEN_REQUEST":
+                    self.assertIsNone(transaction["answer"], name)
+                if transaction["correlation_status"] == "AMBIGUOUS":
+                    self.assertIsNone(transaction["request"], name)
+
+
+class DiameterAvpBoundsTest(unittest.TestCase):
+    def make_event(self, avps: list, **kwargs) -> dict:
+        return make_record(frame=70, hop=700, end_to_end=800, avps=avps, **kwargs)
+
+    def test_jsonl_avp_count_limit_and_omission_accounting(self) -> None:
+        avps = [
+            {"code": 264, "name": "Origin-Host", "length": 20, "value": "peer.example"}
+            for _ in range(200)
+        ]
+        event = self.make_event(avps)
+        self.assertEqual(event["avp_count"], model.MAX_AVPS)
+        self.assertEqual(len(event["avps"]), model.MAX_AVPS)
+        self.assertEqual(event["avps_omitted"], 200 - model.MAX_AVPS)
+        self.assertTrue(any("bounded" in item for item in event["limitations"]))
+
+    def test_jsonl_nesting_depth_limit_and_omission_accounting(self) -> None:
+        node = {"code": 9999, "length": 12, "children": []}
+        root = node
+        for index in range(7):
+            child = {"code": 9999 + index, "length": 12, "children": []}
+            node["children"] = [child]
+            node = child
+        event = self.make_event([root])
+        self.assertEqual(event["avp_count"], model.MAX_AVP_DEPTH)
+        deepest = event["avps"][0]
+        for _ in range(model.MAX_AVP_DEPTH - 1):
+            deepest = deepest["children"][0]
+        self.assertEqual(deepest["depth"], model.MAX_AVP_DEPTH)
+        self.assertEqual(deepest["grouping_status"], "DEPTH_LIMITED")
+        self.assertGreater(deepest["children_omitted"], 0)
+        self.assertEqual(event["avp_count"] + event["avps_omitted"], 8)
+
+    def test_jsonl_malformed_children_are_rejected(self) -> None:
+        with self.assertRaises(model.InputError):
+            self.make_event([{"code": 264, "children": "not-an-array"}])
+        with self.assertRaises(model.InputError):
+            self.make_event([{"code": 264, "children": [42]}])
+
+    def test_jsonl_oversized_node_count_is_rejected(self) -> None:
+        avps = [{"code": 9999, "length": 8} for _ in range(model.MAX_AVP_INPUT_NODES + 1)]
+        with self.assertRaises(model.InputError) as raised:
+            self.make_event(avps)
+        self.assertIn("node count", str(raised.exception))
+
+    def test_jsonl_excessive_input_depth_is_rejected(self) -> None:
+        root = {"code": 9999, "children": []}
+        node = root
+        for index in range(model.MAX_AVP_INPUT_DEPTH):
+            child = {"code": 9999, "children": []}
+            node["children"] = [child]
+            node = child
+        with self.assertRaises(model.InputError) as raised:
+            self.make_event([root])
+        self.assertIn("depth", str(raised.exception))
+
+    def test_sensitive_grouped_jsonl_omits_nested_authentication_vectors(self) -> None:
+        event = self.make_event(
+            [
+                {
+                    "code": 1408,
+                    "length": 64,
+                    "children": [
+                        {"code": 1413, "length": 32, "children": [
+                            {"code": 9998, "value": "RAND-SYNTHETIC-VALUE"},
+                            {"code": 9997, "value": "AUTN-SYNTHETIC-VALUE"},
+                        ]},
+                        {"code": 9996, "value": "XRES-SYNTHETIC-VALUE"},
+                    ],
+                }
+            ]
+        )
+        root = event["avps"][0]
+        self.assertTrue(root["sensitive"])
+        self.assertEqual(root["children"], [])
+        self.assertEqual(root["grouping_status"], "REDACTED")
+        self.assertGreater(root["children_omitted"], 0)
+        self.assertEqual(event["avps_omitted"], 4)
+        serialized = json.dumps(event)
+        for secret in ("RAND-SYNTHETIC-VALUE", "AUTN-SYNTHETIC-VALUE", "XRES-SYNTHETIC-VALUE"):
+            self.assertNotIn(secret, serialized)
+
+    def test_pdml_and_jsonl_privacy_projection_parity(self) -> None:
+        pdml_event = [
+            event for event in load_jsonl(EXPECTED / "base-events.jsonl")
+            if event["frame_number"] == 7
+        ][0]
+        jsonl_event = load_jsonl(EXPECTED / "privacy-events.jsonl")[0]
+        for code in (1, 1408):
+            left = [avp for avp in pdml_event["avps"] if avp["code"] == code][0]
+            right = [avp for avp in jsonl_event["avps"] if avp["code"] == code][0]
+            for field in (
+                "sensitive",
+                "value",
+                "value_kind",
+                "grouping_status",
+                "children",
+                "children_omitted",
+            ):
+                self.assertEqual(left[field], right[field], f"{code}:{field}")
+        session = [avp for avp in pdml_event["avps"] if avp["code"] == 263][0]
+        self.assertIsNone(session["value"])
+        self.assertEqual(session["value_kind"], "OPAQUE")
+
+    def test_privacy_is_safe_across_all_outputs(self) -> None:
+        documents = load_jsonl(EXAMPLES / "expected/privacy-events.jsonl")
+        transactions = model.correlate(documents)
+        trace = [model.project_trace_event(event) for event in documents]
+        payloads = [
+            json.dumps(documents),
+            json.dumps(transactions),
+            json.dumps(trace),
+            model.render_timeline(transactions),
+        ]
+        for payload in payloads:
+            for secret in (
+                "001010000000001",
+                "a1b2c3d4e5f6",
+                "IMSI",
+                "RAND-SYNTHETIC-VALUE",
+                "AUTN-SYNTHETIC-VALUE",
+                "XRES-SYNTHETIC-VALUE",
+            ):
+                self.assertNotIn(secret, payload)
 
 
 if __name__ == "__main__":

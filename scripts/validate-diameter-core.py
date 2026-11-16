@@ -39,6 +39,10 @@ REQUIRED = (
     "examples/pdml/no-diameter.pdml",
     "examples/dissector/negative-cases.jsonl",
     "examples/dissector/privacy-cases.jsonl",
+    "examples/dissector/association-reuse.jsonl",
+    "examples/dissector/tcp-stream-reuse.jsonl",
+    "examples/dissector/incomplete-association.jsonl",
+    "examples/dissector/mid-capture-start.jsonl",
 )
 
 PRIVACY_SECRETS = ("001010000000001", "a1b2c3d4e5f6", "IMSI999")
@@ -270,12 +274,82 @@ def main() -> int:
         if empty.returncode != 3:
             errors.append(f"no-Diameter input did not return exit code 3: {empty.returncode}")
 
+        for stem in (
+            "association-reuse",
+            "tcp-stream-reuse",
+            "incomplete-association",
+            "mid-capture-start",
+        ):
+            events_path = directory / f"{stem}-events.jsonl"
+            transactions_path = directory / f"{stem}-transactions.json"
+            result = run(
+                [
+                    sys.executable,
+                    str(EXTRACT),
+                    str(EXAMPLES / f"dissector/{stem}.jsonl"),
+                    "--output",
+                    str(events_path),
+                ]
+            )
+            if result.returncode != 0:
+                errors.append(f"{stem} extraction failed: {result.stderr.strip()}")
+                continue
+            if events_path.read_bytes() != (EXPECTED / f"{stem}-events.jsonl").read_bytes():
+                errors.append(f"{stem} event output differs from the committed expectation")
+            result = run(
+                [
+                    sys.executable,
+                    str(CORRELATE),
+                    str(events_path),
+                    "--output",
+                    str(transactions_path),
+                ]
+            )
+            if result.returncode != 0:
+                errors.append(f"{stem} correlation failed: {result.stderr.strip()}")
+            elif transactions_path.read_bytes() != (EXPECTED / f"{stem}-transactions.json").read_bytes():
+                errors.append(f"{stem} transaction output differs from the committed expectation")
+
+        for name in (
+            "base-transactions.json",
+            "negative-transactions.json",
+            "association-reuse-transactions.json",
+            "tcp-stream-reuse-transactions.json",
+            "incomplete-association-transactions.json",
+            "mid-capture-start-transactions.json",
+        ):
+            document = load_json(EXPECTED / name)
+            for transaction in document["transactions"]:
+                status = transaction["correlation_status"]
+                if status == "MATCHED":
+                    if transaction["request"] is None or transaction["answer"] is None:
+                        errors.append(f"{name}: MATCHED transaction lacks a request or answer")
+                    if transaction["latency_seconds"] is None:
+                        errors.append(f"{name}: MATCHED transaction lacks latency")
+                else:
+                    if transaction["latency_seconds"] is not None:
+                        errors.append(f"{name}: non-MATCHED transaction publishes latency")
+                    if status == "RESPONSE_ONLY" and transaction["request"] is not None:
+                        errors.append(f"{name}: RESPONSE_ONLY transaction publishes a request")
+                if status == "OPEN_REQUEST" and transaction["answer"] is not None:
+                    errors.append(f"{name}: OPEN_REQUEST transaction publishes an answer")
+                if status == "AMBIGUOUS" and transaction["request"] is not None:
+                    errors.append(f"{name}: AMBIGUOUS transaction selects a request")
+
         for label, path in (
             ("base events", EXPECTED / "base-events.jsonl"),
             ("base transactions", EXPECTED / "base-transactions.json"),
             ("negative events", EXPECTED / "negative-events.jsonl"),
             ("negative transactions", EXPECTED / "negative-transactions.json"),
             ("privacy events", EXPECTED / "privacy-events.jsonl"),
+            ("association events", EXPECTED / "association-reuse-events.jsonl"),
+            ("association transactions", EXPECTED / "association-reuse-transactions.json"),
+            ("tcp events", EXPECTED / "tcp-stream-reuse-events.jsonl"),
+            ("tcp transactions", EXPECTED / "tcp-stream-reuse-transactions.json"),
+            ("incomplete events", EXPECTED / "incomplete-association-events.jsonl"),
+            ("incomplete transactions", EXPECTED / "incomplete-association-transactions.json"),
+            ("mid-capture events", EXPECTED / "mid-capture-start-events.jsonl"),
+            ("mid-capture transactions", EXPECTED / "mid-capture-start-transactions.json"),
         ):
             text = path.read_text(encoding="utf-8")
             for token in FORBIDDEN_OUTPUT_TOKENS:

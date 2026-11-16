@@ -24,6 +24,19 @@ outputs never publish raw sensitive values.
 
 RAND, AUTN, XRES, KASME and equivalent keying material are never published.
 
+## Grouped sensitive AVPs
+
+A sensitive grouped AVP is not recursed in either input path. PDML extraction and
+JSONL replay both publish `grouping_status = REDACTED`, an empty child list and
+an accurate `children_omitted` count. Nested Subscription-Id, authentication
+information, RAND, AUTN, XRES, KASME or equivalent values are never published.
+
+## Input bounds
+
+Both input paths enforce the same publication budget and depth limit. A JSONL
+input that exceeds the bounded structural limits is rejected before recursive
+normalization; it is never partially published without an omission count.
+
 ## Session-Id
 
 A Session-Id value can embed an IMSI or another subscription identifier. The

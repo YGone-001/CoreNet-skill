@@ -1,0 +1,128 @@
+{
+  "ambiguous_count": 0,
+  "capture_files": [
+    "association-reuse.pcapng"
+  ],
+  "limitations": [
+    "an open request at the capture boundary does not prove a timeout, retransmission or peer failure",
+    "a matched answer proves protocol-local request/answer evidence only, not application, subscriber or procedure success",
+    "unavailable End-to-End Identifier evidence limits correlation strength; frame proximity is never used",
+    "Application-specific and vendor-specific semantics remain outside this base-protocol Skill"
+  ],
+  "matched_count": 2,
+  "open_request_count": 0,
+  "protocol": "Diameter",
+  "response_only_count": 0,
+  "retransmission_count": 0,
+  "transaction_count": 2,
+  "transactions": [
+    {
+      "answer": {
+        "application_id": 0,
+        "command_code": 280,
+        "command_name": "Device-Watchdog",
+        "destination_endpoint": "10.0.2.1:40000",
+        "direction": "ANSWER",
+        "end_to_end_id": 900,
+        "frame_number": 33,
+        "frame_time_epoch": "1700000030.300000000",
+        "hop_by_hop_id": 200,
+        "message_occurrence": 1,
+        "source_endpoint": "10.0.2.2:3868"
+      },
+      "application_id": 0,
+      "application_semantics": "BASE_COMMON_MESSAGES",
+      "command_code": 280,
+      "command_name": "Device-Watchdog",
+      "command_scope": "BASE",
+      "correlation_basis": [
+        "same_transport_association",
+        "opposite_endpoint_direction",
+        "command_code_match",
+        "application_id_match",
+        "hop_by_hop_match",
+        "end_to_end_match",
+        "unique_open_request"
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
+      "experimental_result_code": null,
+      "experimental_vendor_id": null,
+      "latency_seconds": "0.300000",
+      "limitations": [],
+      "request": {
+        "application_id": 0,
+        "command_code": 280,
+        "command_name": "Device-Watchdog",
+        "destination_endpoint": "10.0.2.2:3868",
+        "direction": "REQUEST",
+        "end_to_end_id": 900,
+        "frame_number": 30,
+        "frame_time_epoch": "1700000030.000000000",
+        "hop_by_hop_id": 200,
+        "message_occurrence": 1,
+        "source_endpoint": "10.0.2.1:40000"
+      },
+      "response_candidates": [],
+      "result_code": 2001,
+      "result_code_name": "DIAMETER_SUCCESS",
+      "result_namespace": "BASE",
+      "transaction_reference": "diameter-tx:association-reuse.pcapng:280:30.1",
+      "transport_association_reference": "diameter-assoc:association-reuse.pcapng:sctp-assoc-0"
+    },
+    {
+      "answer": {
+        "application_id": 0,
+        "command_code": 280,
+        "command_name": "Device-Watchdog",
+        "destination_endpoint": "10.0.2.1:40000",
+        "direction": "ANSWER",
+        "end_to_end_id": 900,
+        "frame_number": 32,
+        "frame_time_epoch": "1700000030.200000000",
+        "hop_by_hop_id": 200,
+        "message_occurrence": 1,
+        "source_endpoint": "10.0.2.2:3868"
+      },
+      "application_id": 0,
+      "application_semantics": "BASE_COMMON_MESSAGES",
+      "command_code": 280,
+      "command_name": "Device-Watchdog",
+      "command_scope": "BASE",
+      "correlation_basis": [
+        "same_transport_association",
+        "opposite_endpoint_direction",
+        "command_code_match",
+        "application_id_match",
+        "hop_by_hop_match",
+        "end_to_end_match",
+        "unique_open_request"
+      ],
+      "correlation_status": "MATCHED",
+      "correlation_strength": "STRONG",
+      "experimental_result_code": null,
+      "experimental_vendor_id": null,
+      "latency_seconds": "0.100000",
+      "limitations": [],
+      "request": {
+        "application_id": 0,
+        "command_code": 280,
+        "command_name": "Device-Watchdog",
+        "destination_endpoint": "10.0.2.2:3868",
+        "direction": "REQUEST",
+        "end_to_end_id": 900,
+        "frame_number": 31,
+        "frame_time_epoch": "1700000030.100000000",
+        "hop_by_hop_id": 200,
+        "message_occurrence": 1,
+        "source_endpoint": "10.0.2.1:40000"
+      },
+      "response_candidates": [],
+      "result_code": 2001,
+      "result_code_name": "DIAMETER_SUCCESS",
+      "result_namespace": "BASE",
+      "transaction_reference": "diameter-tx:association-reuse.pcapng:280:31.1",
+      "transport_association_reference": "diameter-assoc:association-reuse.pcapng:sctp-assoc-1"
+    }
+  ]
+}

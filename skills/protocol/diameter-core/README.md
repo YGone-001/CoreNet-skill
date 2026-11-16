@@ -75,7 +75,8 @@ A sanitized record has this shape:
     "destination_address": "192.0.2.20",
     "destination_port": 3868,
     "verification_tag": "0x00000011",
-    "stream_id": null
+    "stream_id": null,
+    "association_index": 0
   },
   "header": {
     "version": 1,
@@ -104,7 +105,14 @@ values are discarded again during normalization.
 | Timeline | Plain text, one transaction per line |
 
 All collections are deterministically ordered. AVP publication is bounded to
-128 nodes per message and the omitted count is published.
+128 nodes per message and 4 nesting levels; omitted descendants are published in
+`avps_omitted` and `children_omitted`. JSONL input above 4096 AVP nodes or 64
+nesting levels is rejected as malformed.
+
+Correlation requires a decoder-proven TCP stream or SCTP Association Index.
+Endpoint-only evidence is published as `ENDPOINT_ONLY` and correlation is
+fail-closed. A Request with a contradictory End-to-End Identifier is never
+selected; non-`MATCHED` records never publish a Request/latency pair.
 
 ## Exit codes
 
@@ -121,7 +129,8 @@ All collections are deterministically ordered. AVP publication is bounded to
 
 - User-Name, Subscription-Id, authentication information and authentication
   vectors publish no value.
-- Grouped sensitive AVPs do not publish child values.
+- Grouped sensitive AVPs do not publish child values in either input path; the
+  record keeps `REDACTED` grouping status and an omitted-child count.
 - Session-Id publishes presence, length and opaque kind only because a real value
   may embed a subscription identifier.
 - Unknown and vendor-specific AVPs publish code, Vendor-ID, flags and length
@@ -133,6 +142,9 @@ All collections are deterministically ordered. AVP publication is bounded to
   unsupported.
 - Experimental-Result-Code is never translated to a base Result-Code name.
 - Grouped AVP children are published only when the decoder proves nesting.
+- Correlation requires decoder-proven transport association identity; SCTP
+  endpoint tuple reuse without a decoder Association Index is fail-closed.
+- AVP publication and JSONL input are bounded; oversized input is rejected.
 - Incomplete transport reassembly does not produce a complete message.
 - Protocol-local success does not imply Attach, registration, bearer, call or
   service success.

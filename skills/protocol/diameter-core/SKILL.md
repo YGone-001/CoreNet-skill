@@ -87,6 +87,15 @@ An unanswered request is `OPEN_REQUEST`; it does not prove a timeout. An Answer
 without a matching Request is `RESPONSE_ONLY`. Competing Requests or Answers
 remain `AMBIGUOUS` with every candidate published.
 
+A Request is never selected before the End-to-End Identifier matches. A
+contradictory identifier is not an eligible candidate and does not create false
+ambiguity. Non-`MATCHED` records never publish a selected Request or latency.
+
+Association identity is decoder-proven: TCP stream or SCTP Association Index.
+Without that evidence the event is `ENDPOINT_ONLY` and correlation is
+fail-closed; an endpoint tuple alone never proves Association continuity. The
+SCTP Verification Tag is direction-specific evidence, not an association key.
+
 ## Privacy
 
 Sensitive AVPs publish only structural metadata: code, flags, Vendor-ID, length,
@@ -104,9 +113,13 @@ emitted by that decoder and does not decode packet bytes itself.
 
 - Application-specific semantics are unsupported and remain numeric.
 - Grouped structure is published only when the decoder exposes child AVPs.
+- PDML and JSONL are bounded to 128 published AVP nodes and 4 nesting levels per
+  message; JSONL input above 4096 nodes or 64 nesting levels is rejected.
 - A transport segment without a complete dissected Diameter message is not
   published as a complete message.
 - The Skill does not reassemble TCP or SCTP streams itself.
+- Correlation requires a decoder-proven TCP stream or SCTP Association Index;
+  endpoint-only evidence is fail-closed.
 - Experimental-Result-Code names are not interpreted.
 - Result success is protocol-local and never an EPC, IMS or VoLTE outcome.
 

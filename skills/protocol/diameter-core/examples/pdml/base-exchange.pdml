@@ -13,6 +13,7 @@
     <field name="sctp.srcport" show="40001"/>
     <field name="sctp.dstport" show="3868"/>
     <field name="sctp.verification_tag" show="0x00000011"/>
+    <field name="sctp.assoc_index" show="0"/>
   </proto>
   <proto name="diameter" showname="Diameter Protocol" size="68">
     <field name="diameter.version" show="0x01"/>
@@ -56,6 +57,7 @@
     <field name="sctp.srcport" show="3868"/>
     <field name="sctp.dstport" show="40001"/>
     <field name="sctp.verification_tag" show="0x00000022"/>
+    <field name="sctp.assoc_index" show="0"/>
   </proto>
   <proto name="diameter" showname="Diameter Protocol" size="84">
     <field name="diameter.version" show="0x01"/>
@@ -164,6 +166,7 @@
     <field name="sctp.srcport" show="40001"/>
     <field name="sctp.dstport" show="3868"/>
     <field name="sctp.verification_tag" show="0x00000011"/>
+    <field name="sctp.assoc_index" show="0"/>
   </proto>
   <proto name="diameter" showname="Diameter Protocol" size="56">
     <field name="diameter.version" show="0x01"/>
@@ -211,6 +214,7 @@
     <field name="sctp.srcport" show="3868"/>
     <field name="sctp.dstport" show="40001"/>
     <field name="sctp.verification_tag" show="0x00000022"/>
+    <field name="sctp.assoc_index" show="0"/>
   </proto>
   <proto name="diameter" showname="Diameter Protocol" size="68">
     <field name="diameter.version" show="0x01"/>
@@ -258,6 +262,7 @@
     <field name="sctp.srcport" show="40001"/>
     <field name="sctp.dstport" show="3868"/>
     <field name="sctp.verification_tag" show="0x00000033"/>
+    <field name="sctp.assoc_index" show="1"/>
   </proto>
   <proto name="diameter" showname="Diameter Protocol" size="180">
     <field name="diameter.version" show="0x01"/>
@@ -327,6 +332,7 @@
     <field name="sctp.srcport" show="3868"/>
     <field name="sctp.dstport" show="40001"/>
     <field name="sctp.verification_tag" show="0x00000044"/>
+    <field name="sctp.assoc_index" show="1"/>
   </proto>
   <proto name="diameter" showname="Diameter Protocol" size="96">
     <field name="diameter.version" show="0x01"/>
@@ -371,6 +377,7 @@
     <field name="sctp.srcport" show="40001"/>
     <field name="sctp.dstport" show="3868"/>
     <field name="sctp.verification_tag" show="0x00000055"/>
+    <field name="sctp.assoc_index" show="0"/>
   </proto>
   <proto name="diameter" showname="Diameter Protocol" size="20">
     <field name="diameter.version" show="0x01"/>
