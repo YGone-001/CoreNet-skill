@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/trace-event.schema.json",
+  "title": "Normalized Trace Event",
+  "type": "object",
+  "required": ["timestamp", "protocol"],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {"type": "string", "format": "date-time"}, "protocol": {"type": "string", "minLength": 1}, "interface": {"type": ["string", "null"]}, "procedure": {"type": ["string", "null"]}, "message_type": {"type": ["string", "null"]},
+    "source": {"$ref": "#/$defs/endpoint"}, "destination": {"$ref": "#/$defs/endpoint"},
+    "subscriber": {"$ref": "#/$defs/subscriber"}, "session": {"$ref": "#/$defs/session"}, "correlation": {"$ref": "#/$defs/correlation"}, "result": {"$ref": "#/$defs/result"}, "packet": {"$ref": "#/$defs/packet"},
+    "evidence": {"type": "object", "required": ["level", "source"], "additionalProperties": false, "properties": {"level": {"type": "string", "enum": ["OBSERVED", "DERIVED", "INFERRED", "HYPOTHESIS", "CONFIRMED"]}, "source": {"type": "string", "minLength": 1}}}
+  },
+  "$defs": {
+    "nullableString": {"type": ["string", "null"]},
+    "endpoint": {"type": "object", "additionalProperties": false, "properties": {"address": {"$ref": "#/$defs/nullableString"}, "port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535}, "network_function": {"$ref": "#/$defs/nullableString"}}},
+    "subscriber": {"type": "object", "additionalProperties": false, "properties": {"supi": {"$ref": "#/$defs/nullableString"}, "suci": {"$ref": "#/$defs/nullableString"}, "imsi": {"$ref": "#/$defs/nullableString"}, "msisdn": {"$ref": "#/$defs/nullableString"}, "guti": {"$ref": "#/$defs/nullableString"}, "fiveg_guti": {"$ref": "#/$defs/nullableString"}}},
+    "session": {"type": "object", "additionalProperties": false, "properties": {"pdu_session_id": {"type": ["integer", "null"]}, "apn": {"$ref": "#/$defs/nullableString"}, "dnn": {"$ref": "#/$defs/nullableString"}, "seid": {"$ref": "#/$defs/nullableString"}, "teid": {"$ref": "#/$defs/nullableString"}, "bearer_id": {"type": ["integer", "null"]}, "qfi": {"type": ["integer", "null"]}}},
+    "correlation": {"type": "object", "additionalProperties": false, "properties": {"transaction_id": {"$ref": "#/$defs/nullableString"}, "dialog_id": {"$ref": "#/$defs/nullableString"}, "session_id": {"$ref": "#/$defs/nullableString"}, "stream_id": {"$ref": "#/$defs/nullableString"}}},
+    "result": {"type": "object", "additionalProperties": false, "properties": {"status": {"$ref": "#/$defs/nullableString"}, "cause": {"$ref": "#/$defs/nullableString"}, "code": {"type": ["string", "integer", "null"]}}},
+    "packet": {"type": "object", "additionalProperties": false, "properties": {"frame_number": {"type": ["integer", "null"], "minimum": 1}, "capture_file": {"$ref": "#/$defs/nullableString"}}}
+  }
+}

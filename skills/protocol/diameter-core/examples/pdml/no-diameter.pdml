@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pdml version="0" creator="wireshark/4.2.2" capture_file="/sanitized/diameter-core/no-diameter.pcapng">
+<packet>
+  <proto name="frame" showname="Frame 1">
+    <field name="frame.number" show="1"/>
+    <field name="frame.time_epoch" show="1700000001.000000000"/>
+  </proto>
+  <proto name="ip" showname="Internet Protocol Version 4">
+    <field name="ip.src" show="192.0.2.10"/>
+    <field name="ip.dst" show="192.0.2.20"/>
+  </proto>
+  <proto name="udp" showname="User Datagram Protocol">
+    <field name="udp.srcport" show="1000"/>
+    <field name="udp.dstport" show="2000"/>
+  </proto>
+</packet>
+</pdml>

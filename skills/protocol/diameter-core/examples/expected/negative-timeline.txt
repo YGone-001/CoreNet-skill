@@ -1,0 +1,9 @@
+frame  direction  command  application  result  status  latency
+-----  ---------  -------  -----------  ------  ------  -------
+10     REQUEST   280 Device-Watchdog 0           -      OPEN_REQUEST -
+11     REQUEST   280 Device-Watchdog 0           -      OPEN_REQUEST -
+12     ANSWER    280 Device-Watchdog 0           2001   AMBIGUOUS -
+13     REQUEST   280 Device-Watchdog 0           2001   MATCHED 0.100000
+15     ANSWER    280 Device-Watchdog 0           5002   RESPONSE_ONLY -
+16     REQUEST   280 Device-Watchdog 0           -      OPEN_REQUEST -
+17     REQUEST   280 Device-Watchdog 0           -      OPEN_REQUEST -

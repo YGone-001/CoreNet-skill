@@ -1,0 +1,73 @@
+name: "diameter-core"
+version: "0.1.0"
+category: protocol
+description: "Bounded Diameter base-protocol evidence extraction over TCP and SCTP: header and flag semantics, reviewed base command identity, numeric Application-ID preservation, bounded AVP structure with decoder-proven grouped nesting, base Result-Code and vendor Experimental-Result-Code namespace separation, privacy-safe sensitive-AVP handling, and deterministic protocol-local Request/Answer correlation."
+scope:
+  includes:
+    - "Diameter version, message length, R/P/E/T flags, command code, Application-ID, Hop-by-Hop and End-to-End identifiers"
+    - "reviewed base command identity for Capabilities-Exchange, Re-Auth, Accounting, Abort-Session, Session-Termination, Device-Watchdog and Disconnect-Peer"
+    - "bounded AVP metadata with code, flags, Vendor-ID, length, occurrence, nesting depth and decoder-proven grouped children"
+    - "base Result-Code names and separate vendor Experimental-Result-Code namespace"
+    - "privacy-safe redaction of User-Name, Subscription-Id, authentication information and authentication vectors"
+    - "deterministic Request/Answer correlation with MATCHED, OPEN_REQUEST, RESPONSE_ONLY and AMBIGUOUS"
+    - "detailed event JSONL, transaction JSON, shared trace-event projection and protocol-local timeline"
+    - "TShark capture extraction, stored PDML replay and sanitized dissector-record JSONL replay"
+  excludes:
+    - "S6a, S6d, Gx, Rx, Cx, credit-control, IMS and other application procedure semantics"
+    - "EPC Attach, IMS registration, bearer, call or service outcome verdicts"
+    - "custom TCP or SCTP reassembly"
+    - "subscriber identity, authentication vectors, raw User-Name, Subscription-Id values or raw grouped payloads"
+    - "grouping inferred from AVP list position or timestamp proximity"
+dependencies:
+  required: []
+  optional:
+    - "tshark"
+    - "core-network-pcap >=0.1.0"
+inputs:
+  - "PCAP or PCAPNG capture containing Diameter over TCP or SCTP (requires user-installed TShark)"
+  - "stored PDML dissection of the same capture (no decoder required at run time)"
+  - "sanitized Diameter dissector-record JSONL (deterministic offline input)"
+outputs:
+  - "detailed Diameter event JSON Lines (schemas/diameter-event.schema.json)"
+  - "protocol-local transaction JSON (schemas/diameter-transaction.schema.json)"
+  - "normalized trace-event JSON Lines projection (schemas/trace-event.schema.json)"
+  - "protocol-local Diameter timeline (text)"
+protocols:
+  - "Diameter"
+interfaces: []
+network_functions: []
+evidence_levels:
+  - "OBSERVED"
+  - "DERIVED"
+  - "INFERRED"
+  - "HYPOTHESIS"
+  - "CONFIRMED"
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: "Original CoreNet Protocol-layer package; no upstream material imported."
+testing:
+  fixtures:
+    - "examples/pdml/base-exchange.pdml"
+    - "examples/pdml/no-diameter.pdml"
+    - "examples/dissector/negative-cases.jsonl"
+    - "examples/dissector/privacy-cases.jsonl"
+    - "examples/dissector/malformed.jsonl"
+    - "examples/dissector/missing-required.jsonl"
+  expected_results:
+    - "examples/expected/base-events.jsonl"
+    - "examples/expected/base-trace.jsonl"
+    - "examples/expected/base-transactions.json"
+    - "examples/expected/base-timeline.txt"
+    - "examples/expected/negative-events.jsonl"
+    - "examples/expected/negative-transactions.json"
+    - "examples/expected/negative-timeline.txt"
+    - "examples/expected/privacy-events.jsonl"
+references:
+  - "references/protocol-model.md"
+  - "references/field-reference.md"
+  - "references/correlation.md"
+  - "references/privacy.md"
+  - "references/failure-cases.md"

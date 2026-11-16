@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/diameter-transaction.schema.json",
+  "title": "Bounded Diameter Base-Protocol Transaction Correlation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "capture_files",
+    "transaction_count",
+    "matched_count",
+    "open_request_count",
+    "response_only_count",
+    "ambiguous_count",
+    "retransmission_count",
+    "transactions",
+    "limitations"
+  ],
+  "properties": {
+    "protocol": {"const": "Diameter"},
+    "capture_files": {"type": "array", "items": {"type": "string"}},
+    "transaction_count": {"type": "integer", "minimum": 0},
+    "matched_count": {"type": "integer", "minimum": 0},
+    "open_request_count": {"type": "integer", "minimum": 0},
+    "response_only_count": {"type": "integer", "minimum": 0},
+    "ambiguous_count": {"type": "integer", "minimum": 0},
+    "retransmission_count": {"type": "integer", "minimum": 0},
+    "transactions": {"type": "array", "items": {"$ref": "#/$defs/transaction"}},
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame_number", "message_occurrence", "frame_time_epoch", "command_code", "command_name", "application_id", "direction", "hop_by_hop_id", "end_to_end_id", "source_endpoint", "destination_endpoint"],
+      "properties": {
+        "frame_number": {"type": "integer", "minimum": 1},
+        "message_occurrence": {"type": "integer", "minimum": 1},
+        "frame_time_epoch": {"type": ["string", "null"]},
+        "command_code": {"type": ["integer", "null"]},
+        "command_name": {"type": ["string", "null"]},
+        "application_id": {"type": ["integer", "null"]},
+        "direction": {"type": "string", "enum": ["REQUEST", "ANSWER"]},
+        "hop_by_hop_id": {"type": ["integer", "null"]},
+        "end_to_end_id": {"type": ["integer", "null"]},
+        "source_endpoint": {"type": "string"},
+        "destination_endpoint": {"type": "string"}
+      }
+    },
+    "transaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transaction_reference",
+        "command_code",
+        "command_name",
+        "command_scope",
+        "application_id",
+        "application_semantics",
+        "transport_association_reference",
+        "request",
+        "answer",
+        "response_candidates",
+        "correlation_status",
+        "correlation_strength",
+        "correlation_basis",
+        "latency_seconds",
+        "result_code",
+        "result_code_name",
+        "result_namespace",
+        "experimental_result_code",
+        "experimental_vendor_id",
+        "limitations"
+      ],
+      "properties": {
+        "transaction_reference": {"type": "string", "minLength": 1},
+        "command_code": {"type": ["integer", "null"]},
+        "command_name": {"type": ["string", "null"]},
+        "command_scope": {"type": "string", "enum": ["BASE", "APPLICATION_OR_UNKNOWN"]},
+        "application_id": {"type": ["integer", "null"]},
+        "application_semantics": {"type": "string", "enum": ["BASE_COMMON_MESSAGES", "UNSUPPORTED"]},
+        "transport_association_reference": {"type": "string", "minLength": 1},
+        "request": {"anyOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]},
+        "answer": {"anyOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]},
+        "response_candidates": {"type": "array", "items": {"$ref": "#/$defs/reference"}},
+        "correlation_status": {"type": "string", "enum": ["MATCHED", "OPEN_REQUEST", "RESPONSE_ONLY", "AMBIGUOUS"]},
+        "correlation_strength": {"type": "string", "enum": ["STRONG", "SUPPORTED", "NONE"]},
+        "correlation_basis": {"type": "array", "items": {"type": "string"}},
+        "latency_seconds": {"type": ["string", "null"]},
+        "result_code": {"type": ["integer", "null"]},
+        "result_code_name": {"type": ["string", "null"]},
+        "result_namespace": {"type": ["string", "null"], "enum": ["BASE", "VENDOR_SPECIFIC", null]},
+        "experimental_result_code": {"type": ["integer", "null"]},
+        "experimental_vendor_id": {"type": ["integer", "null"]},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

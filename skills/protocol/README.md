@@ -160,4 +160,11 @@ addresses or raw IE bytes, and it does not model session, PDN-connection or
 bearer lifecycle state.
 
 Planned: `sip`, `sdp-rtp`,
-`diameter-core` and its domain layers, and remaining 5GC SBI services.
+`diameter-epc`, `diameter-ims`, `diameter-charging`, and remaining 5GC SBI services.
+
+Implemented: `diameter-core`, the Diameter base-protocol Protocol Skill. Version
+0.1.0 publishes bounded header, AVP, base result and vendor experimental-result
+evidence over TCP and SCTP, with decoder-proven grouped-AVP structure,
+privacy-safe sensitive-AVP handling, and deterministic protocol-local
+Request/Answer correlation. It does not implement S6a, Gx, Rx, Cx, IMS,
+credit-control or any application procedure verdict.

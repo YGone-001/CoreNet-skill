@@ -1,0 +1,43 @@
+# Wireshark display filters
+
+Base Diameter traffic:
+
+```text
+diameter
+```
+
+Diameter over SCTP only:
+
+```text
+diameter && sctp
+```
+
+Diameter over TCP only:
+
+```text
+diameter && tcp
+```
+
+Requests:
+
+```text
+diameter.flags.request == 1
+```
+
+Answers:
+
+```text
+diameter.flags.request == 0
+```
+
+Reviewed base commands:
+
+```text
+diameter.cmd.code in {257 258 271 274 275 280 282}
+```
+
+Common base application:
+
+```text
+diameter.applicationId == 0
+```

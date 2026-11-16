@@ -1,0 +1,9 @@
+frame  direction  command  application  result  status  latency
+-----  ---------  -------  -----------  ------  ------  -------
+1      REQUEST   257 Capabilities-Exchange 0           2001   MATCHED 0.000500
+3      REQUEST   280 Device-Watchdog 0           2001   MATCHED 0.000250
+5      REQUEST   280 Device-Watchdog 0           2001   MATCHED 0.000400
+5      REQUEST   282 Disconnect-Peer 0           2001   MATCHED 0.000400
+7      REQUEST   316 UNREVIEWED 16777251    -      OPEN_REQUEST -
+8      ANSWER    316 UNREVIEWED 16777251    exp:5001 RESPONSE_ONLY -
+9      REQUEST   280 Device-Watchdog 0           -      OPEN_REQUEST -

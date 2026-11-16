@@ -56,7 +56,7 @@ already-extracted NGAP/PFCP/GTP-U/SBI evidence: separate `handover_attempts` and
 branch-aware conditional stages, item-scoped PDU Session resource outcomes,
 bounded N11/N4/N3 supporting evidence, and procedure-local deviations with
 structured evidence_refs; no success/failure verdicts, no root-cause output),
-and the `5gc-failure-boundary` Analysis Orchestration
+and the bounded `5gc-failure-boundary` Analysis Orchestration
 Skill (v0.2.0, evidence-safe first abnormal boundary localization across the
 supported 5GC Domain analyses: diagnostic groups linked by exact common context,
 separately addressable handover and Path Switch attempts with Domain-authorized
@@ -65,7 +65,12 @@ and their machine-readable evidence_refs (Domain contracts 5gc-registration-mobi
 >=0.2.0, 5gc-pdu-session >=0.4.0, and 5gc-handover-mobility >=0.1.0), provenance-based
 ordering with no severity ranking, and no root-cause or blame output). The unified
 `scripts/corenet-analyze.py` analysis workflow executes that accepted 5GC chain from
-a single command-line entry point. The bounded `s1ap` S1-MME Protocol Skill, the bounded
+a single command-line entry point. The bounded `diameter-core` Protocol Skill
+extracts Diameter base-protocol header, AVP, base result and vendor
+experimental-result evidence from TCP/SCTP captures, with decoder-proven grouped
+AVP structure, privacy-safe sensitive-AVP redaction and protocol-local
+Request/Answer correlation; it does not implement S6a, Gx, Rx, Cx, IMS or any
+application procedure verdict. The bounded `s1ap` S1-MME Protocol Skill, the bounded
 `nas-eps` EPS NAS Protocol Skill and the bounded `gtpv2` GTPv2-C session-control
 Protocol Skill extract EPC access-signaling, NAS message and session-control
 evidence from LTE captures, and the bounded `epc-procedures` Domain Skill analyzes
@@ -82,7 +87,7 @@ NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
 relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
 semantics), remaining
-5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (SIP, SDP/RTP, Diameter), IMS Domain procedures,
+5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (SIP, SDP/RTP, Diameter application layers), IMS Domain procedures,
 broader EPC procedures (bearer and session lifecycle, Diameter EPC, cross-interface session association, end-to-end EPC diagnosis),
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper
 diagnosis orchestration.
@@ -111,7 +116,7 @@ CoreNet Skill focuses on network signaling evidence analysis rather than impleme
 
 Future EPC procedures will reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS procedures will reuse SIP, SDP/RTP, Diameter IMS, and Diameter Charging. 5GC procedures will reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
 
-Diameter is explicitly cross-domain—not an IMS-owned protocol. `diameter-core` will own base-protocol behavior; `diameter-epc`, `diameter-ims`, and `diameter-charging` will own their bounded applications and shared credit-control semantics. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Diameter is explicitly cross-domain—not an IMS-owned protocol. `diameter-core` owns base-protocol behavior; `diameter-epc`, `diameter-ims`, and `diameter-charging` will own their bounded applications and shared credit-control semantics and remain planned. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Evidence first
 
