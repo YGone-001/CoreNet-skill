@@ -335,6 +335,12 @@ COLLECTION_CONTRACTS = (
     (ARTIFACT_S1U, "stream_observations", "stream_count", "streams_omitted"),
 )
 
+LEGACY_MISSING_OMITTED_ALLOWLIST = frozenset(
+    {
+        (ARTIFACT_LIFECYCLE, "generation_boundary_evidence"),
+    }
+)
+
 NOT_CONFIRMED = (
     "reference consistency is a necessary audit condition, not a replacement for the accepted protocol and domain evidence gates",
     "a verified audit record does not prove bearer identity, packet delivery, network correctness or a forwarding-stop instant",
@@ -529,7 +535,10 @@ def _completeness_entry(
         omitted, omitted_condition = _declared_count(document, omitted_key)
         entry["omitted_count"] = omitted
         if omitted is None:
-            if omitted_condition == CONDITION_MISSING:
+            if (
+                omitted_condition == CONDITION_MISSING
+                and (document_name, collection) in LEGACY_MISSING_OMITTED_ALLOWLIST
+            ):
                 entry["status"] = COMPLETE_COLLECTION
                 entry["condition"] = CONDITION_MATCHES
                 return entry

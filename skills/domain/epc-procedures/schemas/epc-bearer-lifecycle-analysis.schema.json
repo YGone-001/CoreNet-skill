@@ -388,6 +388,18 @@
                 "items": {
                   "type": "integer"
                 }
+              },
+              "session_teid": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "bearer_identity_scope": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
               }
             }
           }

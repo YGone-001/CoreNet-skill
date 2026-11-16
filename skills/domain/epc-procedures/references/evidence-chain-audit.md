@@ -148,6 +148,15 @@ invalid count, an underdeclared count, a truncated collection, a nonzero omitted
 count and an unsupplied document. No omitted count is invented for a collection
 whose producer publishes none.
 
+An omission-count field declared by the collection contract is mandatory. The only
+legacy allowance is the lifecycle release-observation collection
+`epc-bearer-lifecycle:generation_boundary_evidence`: an older artifact may omit
+`release_observations_omitted` only when `release_observation_count` is present,
+valid and equal to the published array length. Every other collection that requires
+an omission count and omits it is `SOURCE_METADATA_INVALID` with condition
+`OMITTED_COUNT_MISSING`. Missing omission metadata is never inferred from the array
+length.
+
 A complete-looking visible subset never establishes uniqueness when the source
 declares more candidates than it publishes. An absent optional artifact is a
 coverage limitation, not an internally inconsistent artifact.

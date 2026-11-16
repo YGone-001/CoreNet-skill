@@ -4,16 +4,23 @@
 from __future__ import annotations
 
 import json
+import copy
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+try:
+    import jsonschema
+except ImportError:  # pragma: no cover - optional local dependency
+    jsonschema = None
+
 PACKAGE = Path(__file__).resolve().parents[1]
 SCRIPTS = PACKAGE / "scripts"
 CLI = SCRIPTS / "analyze_epc_bearer_lifecycle.py"
 EXAMPLES = PACKAGE / "examples" / "lifecycle"
+LIFECYCLE_SCHEMA = PACKAGE / "schemas" / "epc-bearer-lifecycle-analysis.schema.json"
 
 sys.path.insert(0, str(SCRIPTS))
 import epc_bearer_lifecycle_model as model  # noqa: E402
@@ -867,6 +874,73 @@ class CliContractTests(unittest.TestCase):
         self.assertEqual(analysis["release_observations_omitted"], 0)
         self.assertEqual(analysis["generation_boundary_count"], 0)
         self.assertGreater(analysis["release_observation_count"], 0)
+
+    def require_jsonschema(self) -> dict:
+        if jsonschema is None:
+            self.skipTest("jsonschema unavailable")
+        return load_json(LIFECYCLE_SCHEMA)
+
+    def generated_partitions(self, name: str = "schema.json") -> tuple[dict, list[dict]]:
+        analysis = load_json(self.analyze_example(name))
+        partitions = [
+            partition
+            for family in analysis["advertisement_families"]
+            for partition in family.get("partitions") or []
+        ]
+        self.assertTrue(partitions, "generated lifecycle publishes no partition")
+        return analysis, partitions
+
+    def test_generated_artifact_validates_against_schema(self) -> None:
+        schema = self.require_jsonschema()
+        analysis, _partitions = self.generated_partitions()
+        jsonschema.validate(analysis, schema)
+
+    def test_partition_session_teid_and_bearer_scope_validate(self) -> None:
+        schema = self.require_jsonschema()
+        analysis, partitions = self.generated_partitions()
+        for partition in partitions:
+            partition["session_teid"] = None
+        jsonschema.validate(analysis, schema)
+        for partition in partitions:
+            partition["session_teid"] = 12345
+        jsonschema.validate(analysis, schema)
+        for partition in partitions:
+            partition["bearer_identity_scope"] = []
+        jsonschema.validate(analysis, schema)
+        for partition in partitions:
+            partition["bearer_identity_scope"] = [5, 7]
+        jsonschema.validate(analysis, schema)
+
+    def test_partition_invalid_field_types_are_rejected(self) -> None:
+        schema = self.require_jsonschema()
+        analysis, partitions = self.generated_partitions()
+        for value in ("7", True, 7.5):
+            mutated = copy.deepcopy(analysis)
+            mutated["advertisement_families"][0]["partitions"][0]["session_teid"] = value
+            with self.assertRaises(jsonschema.ValidationError, msg=repr(value)):
+                jsonschema.validate(mutated, schema)
+        for value in ({"a": 1}, [5, "7"], [True]):
+            mutated = copy.deepcopy(analysis)
+            mutated["advertisement_families"][0]["partitions"][0][
+                "bearer_identity_scope"
+            ] = value
+            with self.assertRaises(jsonschema.ValidationError, msg=repr(value)):
+                jsonschema.validate(mutated, schema)
+
+    def test_unexpected_partition_property_is_rejected(self) -> None:
+        schema = self.require_jsonschema()
+        analysis, partitions = self.generated_partitions()
+        partitions[0]["unexpected_partition_property"] = 1
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(analysis, schema)
+
+    def test_legacy_partition_without_new_fields_validates(self) -> None:
+        schema = self.require_jsonschema()
+        analysis, partitions = self.generated_partitions()
+        for partition in partitions:
+            partition.pop("session_teid", None)
+            partition.pop("bearer_identity_scope", None)
+        jsonschema.validate(analysis, schema)
 
     def test_timeline_output_is_written(self) -> None:
         output = self.analyze_example("analysis.json", ("--timeline-output", str(self.base / "timeline.jsonl")))

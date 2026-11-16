@@ -3350,6 +3350,57 @@ class EvidenceAuditReleaseContextSemanticsTest(unittest.TestCase):
         self.assertEqual(record["audit_status"], "INCONSISTENT")
         self.assertEqual(check_result(record, "session_context_present"), "FAIL")
 
+    def assert_omission_required(self, documents: dict, collection: str) -> None:
+        result = audit(documents)
+        entry = self.collection(result, collection)
+        self.assertEqual(entry["status"], "SOURCE_METADATA_INVALID", collection)
+        self.assertEqual(entry["condition"], "OMITTED_COUNT_MISSING", collection)
+        self.assertGreater(
+            result["audit_summary"]["source_metadata_invalid_count"], 0
+        )
+
+    def test_missing_release_session_binding_omission_is_metadata_invalid(self) -> None:
+        documents = scenario()
+        del documents["identity"]["release_session_bindings_omitted"]
+        self.assert_omission_required(documents, "release_session_bindings")
+
+    def test_missing_session_to_generation_omission_is_metadata_invalid(self) -> None:
+        documents = scenario()
+        del documents["identity"]["session_to_generation_omitted"]
+        self.assert_omission_required(documents, "session_to_generation_links")
+
+    def test_missing_release_narrative_omission_is_metadata_invalid(self) -> None:
+        documents = scenario()
+        del documents["narrative"]["release_narratives_omitted"]
+        self.assert_omission_required(documents, "release_narratives")
+
+    def test_missing_advertisement_family_omission_is_metadata_invalid(self) -> None:
+        documents = scenario()
+        del documents["lifecycle"]["advertisement_families_omitted"]
+        self.assert_omission_required(documents, "advertisement_families")
+
+    def test_legacy_release_omission_with_mismatched_count_is_not_accepted(self) -> None:
+        documents = scenario()
+        del documents["lifecycle"]["release_observations_omitted"]
+        documents["lifecycle"]["release_observation_count"] = (
+            len(documents["lifecycle"]["generation_boundary_evidence"]) + 1
+        )
+        result = audit(documents)
+        entry = self.collection(result, "generation_boundary_evidence")
+        self.assertEqual(entry["status"], "SOURCE_TRUNCATED")
+        self.assertEqual(entry["condition"], "COUNT_TRUNCATED")
+
+    def test_invalid_omission_count_types_are_metadata_invalid(self) -> None:
+        for value in (-1, True, "0", 1.5):
+            documents = scenario()
+            documents["lifecycle"]["release_observations_omitted"] = value
+            result = audit(documents)
+            entry = self.collection(result, "generation_boundary_evidence")
+            self.assertEqual(
+                entry["status"], "SOURCE_METADATA_INVALID", repr(value)
+            )
+            self.assertEqual(entry["condition"], "COUNT_INVALID", repr(value))
+
     def test_ambiguous_release_binding_preserves_candidate_completeness(self) -> None:
         result = audit(self.ambiguous_release(scenario()))
         record = record_for(result, "RELEASE_SESSION_BINDING", RELEASE)
