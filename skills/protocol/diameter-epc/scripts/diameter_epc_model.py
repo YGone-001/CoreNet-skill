@@ -296,6 +296,21 @@ def validate_core(
                     raise InputError(f"MATCHED transaction disagrees on {field}")
         for candidate in transaction.get("response_candidates") or []:
             _resolve(index, candidate, "ambiguous candidate")
+    referenced: set[tuple[int, int]] = set()
+    for transaction in transactions:
+        for reference in (
+            [transaction["request"]] if transaction["request"] is not None else []
+        ) + ([transaction["answer"]] if transaction["answer"] is not None else []) + list(transaction.get("response_candidates") or []):
+            referenced.add((reference["frame_number"], reference["message_occurrence"]))
+    for event in events:
+        if event["application_id"] != S6A_APPLICATION_ID:
+            continue
+        key = (event["frame_number"], event["message_occurrence"])
+        if key not in referenced:
+            raise InputError(
+                "supplied Core transactions do not cover every S6a/S6d event: "
+                f"frame {event['frame_number']} occurrence {event['message_occurrence']}"
+            )
     return index, transactions
 
 
@@ -303,12 +318,32 @@ def _string(value: Any) -> str | None:
     return value if isinstance(value, str) else None
 
 
+def _avp_namespace(avp: dict[str, Any]) -> str:
+    namespace = avp.get("namespace")
+    if isinstance(namespace, str):
+        return namespace
+    vendor_id = avp.get("vendor_id")
+    vendor_specific = bool(avp.get("vendor_specific"))
+    if vendor_specific and vendor_id == THREEGPP_VENDOR_ID:
+        return "3GPP"
+    if not vendor_specific and vendor_id in (None, 0):
+        return "BASE"
+    return "UNKNOWN_VENDOR"
+
+
 def _presence(
-    avps: list[dict[str, Any]], code: int, name: str, vendor_id: int | None, omitted: int
+    avps: list[dict[str, Any]],
+    code: int,
+    name: str,
+    vendor_id: int | None,
+    namespace: str,
+    omitted: int,
 ) -> dict[str, Any]:
     matches = [
         avp for avp in avps
-        if avp.get("code") == code and (vendor_id is None or avp.get("vendor_id") == vendor_id)
+        if avp.get("code") == code
+        and _avp_namespace(avp) == namespace
+        and (namespace != "3GPP" or avp.get("vendor_id") == THREEGPP_VENDOR_ID)
     ]
     if matches:
         avp = matches[0]
@@ -348,12 +383,73 @@ def _presence_set(
     if event is None:
         return []
     omitted = int(event.get("avps_omitted") or 0)
-    return [_presence(event["avps"], code, name, vendor, omitted) for code, name, vendor in definitions]
+    return [
+        _presence(
+            event["avps"],
+            code,
+            name,
+            vendor,
+            "3GPP" if vendor == THREEGPP_VENDOR_ID else "BASE",
+            omitted,
+        )
+        for code, name, vendor in definitions
+    ]
+
+
+def _core_result_evidence(result: dict[str, Any]) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
+    base = result.get("base_result_codes")
+    experimental = result.get("experimental_results")
+    status = result.get("result_status")
+    if isinstance(base, list) and isinstance(experimental, list):
+        if status is None:
+            if base and experimental:
+                status = "CONFLICTING"
+            elif len(base) > 1 or len(experimental) > 1:
+                status = "DUPLICATE"
+            elif base:
+                status = "SINGLE_BASE"
+            elif experimental:
+                status = "SINGLE_EXPERIMENTAL"
+            else:
+                status = "MISSING"
+        return status, base, experimental
+    base_entries = []
+    experimental_entries = []
+    if result.get("result_code") is not None:
+        base_entries.append(
+            {
+                "code": result["result_code"],
+                "name": result.get("result_code_name"),
+                "avp_reference": None,
+            }
+        )
+    if result.get("experimental_result_present"):
+        experimental_entries.append(
+            {
+                "vendor_id": result.get("experimental_vendor_id"),
+                "code": result.get("experimental_result_code"),
+                "group_reference": None,
+                "code_reference": None,
+                "vendor_reference": None,
+            }
+        )
+    if base_entries and experimental_entries:
+        status = "CONFLICTING"
+    elif len(base_entries) > 1 or len(experimental_entries) > 1:
+        status = "DUPLICATE"
+    elif base_entries:
+        status = "SINGLE_BASE"
+    elif experimental_entries:
+        status = "SINGLE_EXPERIMENTAL"
+    else:
+        status = "MISSING"
+    return status, base_entries, experimental_entries
 
 
 def classify_result(answer: dict[str, Any] | None) -> dict[str, Any]:
     if answer is None:
         return {
+            "core_result_status": "MISSING",
             "namespace_status": "MISSING",
             "application_result": "NOT_APPLICABLE",
             "base_result_code": None,
@@ -361,29 +457,34 @@ def classify_result(answer: dict[str, Any] | None) -> dict[str, Any]:
             "experimental_result_code": None,
             "experimental_result_code_name": None,
             "experimental_vendor_id": None,
+            "base_results": [],
+            "experimental_results": [],
             "limitations": [],
         }
     result = answer.get("result") or {}
-    base_code = result.get("result_code")
-    experimental_present = bool(result.get("experimental_result_present"))
-    experimental_code = result.get("experimental_result_code")
-    vendor_id = result.get("experimental_vendor_id")
-    base_name = result.get("result_code_name")
+    status, base_entries, experimental_entries = _core_result_evidence(result)
     limitations: list[str] = []
-    if base_code is not None and experimental_present:
+    if status in ("CONFLICTING", "DUPLICATE"):
+        limitations.append(
+            "the supplied Core result evidence is conflicting or duplicated; no single result is selected"
+        )
         return {
+            "core_result_status": status,
             "namespace_status": "CONFLICTING",
             "application_result": "UNRESOLVED",
-            "base_result_code": base_code,
-            "base_result_code_name": base_name,
-            "experimental_result_code": experimental_code,
+            "base_result_code": None,
+            "base_result_code_name": None,
+            "experimental_result_code": None,
             "experimental_result_code_name": None,
-            "experimental_vendor_id": vendor_id,
-            "limitations": [
-                "both base Result-Code and Experimental-Result are present; the result is unresolved rather than merged"
-            ],
+            "experimental_vendor_id": None,
+            "base_results": base_entries,
+            "experimental_results": experimental_entries,
+            "limitations": limitations,
         }
-    if base_code is not None:
+    if status == "SINGLE_BASE" and base_entries:
+        entry = base_entries[0]
+        base_code = entry.get("code")
+        base_name = entry.get("name")
         if base_code in BASE_SUCCESS:
             application_result = "SUCCESS_REPORTED"
         elif isinstance(base_code, int) and base_code >= 3000:
@@ -391,6 +492,7 @@ def classify_result(answer: dict[str, Any] | None) -> dict[str, Any]:
         else:
             application_result = "UNRESOLVED"
         return {
+            "core_result_status": status,
             "namespace_status": "BASE_RFC6733",
             "application_result": application_result,
             "base_result_code": base_code,
@@ -398,11 +500,17 @@ def classify_result(answer: dict[str, Any] | None) -> dict[str, Any]:
             "experimental_result_code": None,
             "experimental_result_code_name": None,
             "experimental_vendor_id": None,
+            "base_results": base_entries,
+            "experimental_results": [],
             "limitations": [] if base_name else ["the base Result-Code has no reviewed name and remains numeric"],
         }
-    if experimental_present:
+    if status == "SINGLE_EXPERIMENTAL" and experimental_entries:
+        entry = experimental_entries[0]
+        vendor_id = entry.get("vendor_id")
+        experimental_code = entry.get("code")
         if vendor_id == THREEGPP_VENDOR_ID and experimental_code in THREEGPP_RESULT_NAMES:
             return {
+                "core_result_status": status,
                 "namespace_status": "3GPP_TS_29_272_EXPERIMENTAL",
                 "application_result": "FAILURE_REPORTED",
                 "base_result_code": None,
@@ -410,6 +518,8 @@ def classify_result(answer: dict[str, Any] | None) -> dict[str, Any]:
                 "experimental_result_code": experimental_code,
                 "experimental_result_code_name": THREEGPP_RESULT_NAMES[experimental_code],
                 "experimental_vendor_id": vendor_id,
+                "base_results": [],
+                "experimental_results": experimental_entries,
                 "limitations": [],
             }
         if vendor_id == THREEGPP_VENDOR_ID:
@@ -428,6 +538,7 @@ def classify_result(answer: dict[str, Any] | None) -> dict[str, Any]:
             )
             namespace = "UNKNOWN_VENDOR_EXPERIMENTAL"
         return {
+            "core_result_status": status,
             "namespace_status": namespace,
             "application_result": "UNRESOLVED",
             "base_result_code": None,
@@ -435,9 +546,12 @@ def classify_result(answer: dict[str, Any] | None) -> dict[str, Any]:
             "experimental_result_code": experimental_code,
             "experimental_result_code_name": None,
             "experimental_vendor_id": vendor_id,
+            "base_results": [],
+            "experimental_results": experimental_entries,
             "limitations": limitations,
         }
     return {
+        "core_result_status": "MISSING",
         "namespace_status": "MISSING",
         "application_result": "UNRESOLVED",
         "base_result_code": None,
@@ -445,6 +559,8 @@ def classify_result(answer: dict[str, Any] | None) -> dict[str, Any]:
         "experimental_result_code": None,
         "experimental_result_code_name": None,
         "experimental_vendor_id": None,
+        "base_results": base_entries,
+        "experimental_results": experimental_entries,
         "limitations": ["no base Result-Code or Experimental-Result is published"],
     }
 
@@ -455,10 +571,9 @@ def _auth_information(expected_name: str, answer: dict[str, Any] | None) -> str:
     omitted = int(answer.get("avps_omitted") or 0)
     matches = [
         avp for avp in answer["avps"]
-        if (avp.get("code"), avp.get("vendor_id")) in {
-            (1413, THREEGPP_VENDOR_ID),
-            (1414, THREEGPP_VENDOR_ID),
-        }
+        if avp.get("code") in (1413, 1414)
+        and _avp_namespace(avp) == "3GPP"
+        and avp.get("vendor_id") == THREEGPP_VENDOR_ID
     ]
     if matches:
         if all(avp.get("sensitive") for avp in matches):
@@ -571,7 +686,6 @@ def analyze(
     index, transactions = validate_core(events, transaction_document)
     capture = events[0]["capture_file"]
     observations: list[dict[str, Any]] = []
-    referenced: set[tuple[int, int]] = set()
 
     for transaction in transactions:
         request = transaction["request"]
@@ -582,11 +696,6 @@ def analyze(
             _resolve(index, candidate, "ambiguous candidate")
             for candidate in transaction.get("response_candidates") or []
         ]
-        for event in (request_event, answer_event):
-            if event is not None:
-                referenced.add((event["frame_number"], event["message_occurrence"]))
-        for candidate in candidates:
-            referenced.add((candidate["frame_number"], candidate["message_occurrence"]))
         if transaction["application_id"] != S6A_APPLICATION_ID:
             continue
         command = int(transaction["command_code"])
@@ -615,38 +724,6 @@ def analyze(
                     procedure_family=COMMANDS[command][0].upper().replace("-", "_"),
                 )
             )
-
-    for event in events:
-        key = (event["frame_number"], event["message_occurrence"])
-        if key in referenced or event["application_id"] != S6A_APPLICATION_ID:
-            continue
-        command = int(event["command_code"])
-        if command not in SUPPORTED_COMMANDS and command not in REVIEWED_UNSUPPORTED_COMMANDS:
-            continue
-        synthetic = {
-            "transaction_reference": f"diameter-epc-unresolved:{capture}:{event['frame_number']}.{event['message_occurrence']}",
-            "command_code": command,
-            "application_id": event["application_id"],
-            "correlation_status": "RESPONSE_ONLY" if event["direction"] == "ANSWER" else "OPEN_REQUEST",
-            "request": {"frame_number": event["frame_number"], "message_occurrence": event["message_occurrence"], "direction": event["direction"], "command_code": event["command_code"], "application_id": event["application_id"], "hop_by_hop_id": event["hop_by_hop_id"], "end_to_end_id": event["end_to_end_id"], "source_endpoint": "unknown", "destination_endpoint": "unknown"} if event["direction"] == "REQUEST" else None,
-            "answer": {"frame_number": event["frame_number"], "message_occurrence": event["message_occurrence"], "direction": event["direction"], "command_code": event["command_code"], "application_id": event["application_id"], "hop_by_hop_id": event["hop_by_hop_id"], "end_to_end_id": event["end_to_end_id"], "source_endpoint": "unknown", "destination_endpoint": "unknown"} if event["direction"] == "ANSWER" else None,
-            "response_candidates": [],
-            "latency_seconds": None,
-            "limitations": ["no accepted Diameter Core transaction references this event; application pairing is unresolved"],
-        }
-        if event["direction"] == "ANSWER":
-            synthetic["response_candidates"] = [synthetic["answer"]]
-        observations.append(
-            _observation(
-                capture=capture,
-                transaction=synthetic,
-                request=event if event["direction"] == "REQUEST" else None,
-                answer=event if event["direction"] == "ANSWER" else None,
-                candidates=[],
-                message_status="INSUFFICIENT",
-                procedure_family=("AUTHENTICATION_INFORMATION" if command == 318 else "UPDATE_LOCATION"),
-            )
-        )
 
     observations.sort(
         key=lambda item: (

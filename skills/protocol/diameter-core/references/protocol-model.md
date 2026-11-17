@@ -58,6 +58,35 @@ observed header flag and is not turned into a procedure verdict.
 - Session-Id is a Diameter AVP and is published only as opaque presence and
   length metadata because a real value may embed a subscription identifier.
 
+## AVP namespace identity
+
+AVP meaning is resolved by Code **and** Vendor namespace, never by Code alone:
+
+```text
+BASE             no Vendor-Specific flag; Vendor-ID absent or zero
+3GPP             Vendor-ID 10415 with the Vendor-Specific flag
+UNKNOWN_VENDOR   any other Vendor-ID
+INVALID_VENDOR   Vendor-Specific flag without a usable Vendor-ID
+```
+
+A Code 1 AVP in an unknown vendor namespace is not User-Name. A Code 263 AVP in
+an unknown vendor namespace is not Session-Id. Unknown vendor AVPs publish
+numeric code, Vendor-ID, flags and length only. Sensitive code families remain
+redacted even when their semantic identity is not recognized.
+
+## Result provenance
+
+Only a top-level AVP 268 in the BASE namespace is a Base Result-Code. Only a
+top-level AVP 297 in the BASE namespace is the standard Experimental-Result
+group. Its child 298 and 266 are read inside that group. A nested 268 under
+Failed-AVP or another grouped AVP is not promoted.
+
+The event publishes independent `base_result_codes` and `experimental_results`
+arrays with AVP references. `result_status` distinguishes `MISSING`,
+`SINGLE_BASE`, `SINGLE_EXPERIMENTAL`, `DUPLICATE` and `CONFLICTING`. Duplicate or
+conflicting evidence never selects an arbitrary value; the legacy single-value
+fields remain null while the arrays preserve every numeric observation.
+
 ## Message occurrence
 
 A frame may contain more than one Diameter message. The Skill publishes a

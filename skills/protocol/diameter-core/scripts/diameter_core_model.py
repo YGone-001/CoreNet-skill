@@ -77,7 +77,9 @@ BASE_RESULT_NAMES = {
     5017: "DIAMETER_NO_COMMON_SECURITY",
 }
 
-AVP_NAMES = {
+THREEGPP_VENDOR_ID = 10415
+
+BASE_AVP_NAMES = {
     1: "User-Name",
     260: "Vendor-Specific-Application-Id",
     263: "Session-Id",
@@ -94,17 +96,28 @@ AVP_NAMES = {
     296: "Origin-Realm",
     297: "Experimental-Result",
     298: "Experimental-Result-Code",
+}
+
+THREEGPP_AVP_NAMES = {
     443: "Subscription-Id",
     444: "Subscription-Id-Data",
+    628: "Supported-Features",
+    1032: "RAT-Type",
+    1400: "Subscription-Data",
+    1405: "ULR-Flags",
+    1407: "Visited-PLMN-Id",
     1408: "Requested-EUTRAN-Authentication-Info",
     1409: "Requested-UTRAN-GERAN-Authentication-Info",
     1413: "E-UTRAN-Authentication-Info",
     1414: "UTRAN-GERAN-Authentication-Info",
 }
 
-GROUPED_AVP_CODES = {260, 279, 284, 297, 443, 1408, 1409, 1413, 1414}
+BASE_GROUPED_AVP_CODES = {260, 279, 284, 297}
+THREEGPP_GROUPED_AVP_CODES = {443, 1400, 1408, 1409, 1413, 1414}
 
-SENSITIVE_AVP_CODES = {1, 2, 3, 27, 28, 29, 79, 102, 443, 444, 1408, 1409, 1413, 1414}
+BASE_SENSITIVE_AVP_CODES = {1, 2, 3, 27, 28, 29, 79, 102}
+THREEGPP_SENSITIVE_AVP_CODES = {443, 444, 1408, 1409, 1413, 1414}
+SENSITIVE_AVP_CODES = BASE_SENSITIVE_AVP_CODES | THREEGPP_SENSITIVE_AVP_CODES
 SENSITIVE_NAME_MARKERS = (
     "user-name",
     "user-password",
@@ -120,10 +133,52 @@ SENSITIVE_NAME_MARKERS = (
     "kasme",
 )
 
-SAFE_VALUE_CODES = {264, 265, 266, 268, 277, 278, 283, 293, 296, 298}
-INTEGER_VALUE_CODES = {266, 268, 277, 278, 298}
+BASE_SAFE_VALUE_CODES = {264, 265, 266, 268, 277, 278, 283, 293, 296, 298}
+BASE_INTEGER_VALUE_CODES = {266, 268, 277, 278, 298}
 
 SENSITIVE_VALUE_PATTERN = re.compile(r"^(?:[0-9]{10,16}|[0-9a-fA-F]{16,})$")
+
+
+def avp_identity(code: int | None, vendor_id: int | None, vendor_specific: bool) -> dict[str, Any]:
+    if vendor_specific and vendor_id not in (None, 0):
+        if vendor_id == THREEGPP_VENDOR_ID:
+            return {
+                "namespace": "3GPP",
+                "name": THREEGPP_AVP_NAMES.get(code),
+                "name_reviewed": code in THREEGPP_AVP_NAMES,
+                "grouped": code in THREEGPP_GROUPED_AVP_CODES,
+                "safe": False,
+                "integer": False,
+                "sensitive": code in THREEGPP_SENSITIVE_AVP_CODES,
+            }
+        return {
+            "namespace": "UNKNOWN_VENDOR",
+            "name": None,
+            "name_reviewed": False,
+            "grouped": False,
+            "safe": False,
+            "integer": False,
+            "sensitive": code in SENSITIVE_AVP_CODES,
+        }
+    if vendor_specific or vendor_id not in (None, 0):
+        return {
+            "namespace": "INVALID_VENDOR",
+            "name": None,
+            "name_reviewed": False,
+            "grouped": False,
+            "safe": False,
+            "integer": False,
+            "sensitive": code in SENSITIVE_AVP_CODES,
+        }
+    return {
+        "namespace": "BASE",
+        "name": BASE_AVP_NAMES.get(code),
+        "name_reviewed": code in BASE_AVP_NAMES,
+        "grouped": code in BASE_GROUPED_AVP_CODES,
+        "safe": code in BASE_SAFE_VALUE_CODES,
+        "integer": code in BASE_INTEGER_VALUE_CODES,
+        "sensitive": code in BASE_SENSITIVE_AVP_CODES,
+    }
 
 
 class InputError(Exception):
@@ -281,19 +336,19 @@ def _count_avps(node: ElementTree.Element) -> int:
     return total
 
 
-def _avp_value(code: int, name: str | None, semantic: ElementTree.Element | None) -> tuple[Any, str]:
-    if code in SENSITIVE_AVP_CODES or (name and _sensitive_name(name)):
+def _avp_value(code: int, identity: dict[str, Any], semantic: ElementTree.Element | None) -> tuple[Any, str]:
+    if identity["sensitive"]:
         return None, "SENSITIVE_REDACTED"
-    if code in GROUPED_AVP_CODES:
+    if identity["grouped"]:
         return None, "GROUPED"
-    if code not in SAFE_VALUE_CODES:
+    if not identity["safe"]:
         return None, "OPAQUE"
     if semantic is None:
         return None, "OPAQUE"
     raw = semantic.get("show")
     if raw is None or raw == "":
         return None, "OPAQUE"
-    if code in INTEGER_VALUE_CODES:
+    if identity["integer"]:
         number = _int_text(raw)
         return (number, "INTEGER") if number is not None else (None, "OPAQUE")
     if SENSITIVE_VALUE_PATTERN.match(raw):
@@ -325,13 +380,11 @@ def _parse_avp(
             continue
         semantic = child
         break
-    decoded_name = None
-    if semantic is not None:
-        prefix = "diameter."
-        decoded_name = semantic.get("name")[len(prefix):] if semantic.get("name", "").startswith(prefix) else semantic.get("name")
-    name = AVP_NAMES.get(code) if code in AVP_NAMES else (decoded_name if code is not None else None)
-    sensitive = bool(code in SENSITIVE_AVP_CODES or (name and _sensitive_name(name)))
-    value, value_kind = _avp_value(code, name, semantic)
+    vendor_specific = bool((flags or 0) & 0x80)
+    identity = avp_identity(code, vendor_id, vendor_specific)
+    name = identity["name"]
+    sensitive = identity["sensitive"]
+    value, value_kind = _avp_value(code, identity, semantic)
     child_nodes = [child for child in node.findall("field") if child.get("name") == "diameter.avp"]
     children: list[dict[str, Any]] = []
     omitted = 0
@@ -357,18 +410,19 @@ def _parse_avp(
     elif child_nodes:
         omitted = sum(1 + _count_avps(child) for child in child_nodes)
         grouping_status = "DEPTH_LIMITED"
-    elif code in GROUPED_AVP_CODES:
+    elif identity["grouped"]:
         grouping_status = "NOT_DECODED"
     else:
         grouping_status = "NOT_GROUPED"
     projection = {
         "avp_reference": f"diameter-avp:{capture}:{frame}.{occurrence}:{path}",
         "code": code,
+        "namespace": identity["namespace"],
         "name": name,
-        "name_reviewed": bool(code in AVP_NAMES),
+        "name_reviewed": identity["name_reviewed"],
         "occurrence_index": int(path.rsplit(".", 1)[-1]),
         "depth": depth,
-        "vendor_specific": bool((flags or 0) & 0x80),
+        "vendor_specific": vendor_specific,
         "mandatory": bool((flags or 0) & 0x40),
         "protected": bool((flags or 0) & 0x20),
         "vendor_id": vendor_id,
@@ -405,36 +459,96 @@ def _parse_avps(proto: ElementTree.Element, capture: str, frame: int, occurrence
     return avps, max(0, total - published)
 
 
-def _find_avp(avps: Iterable[dict[str, Any]], code: int) -> dict[str, Any] | None:
+def _find_base_avp(avps: list[dict[str, Any]], code: int) -> dict[str, Any] | None:
     for avp in avps:
-        if avp.get("code") == code:
+        if avp.get("code") == code and avp.get("namespace") == "BASE":
             return avp
-        found = _find_avp(avp.get("children") or [], code)
+        found = _find_base_avp(avp.get("children") or [], code)
         if found is not None:
             return found
     return None
 
 
 def _result(avps: list[dict[str, Any]], limitations: list[str]) -> dict[str, Any]:
-    base = _find_avp(avps, 268)
-    grouped = _find_avp(avps, 297)
-    experimental = _find_avp(grouped.get("children") or [], 298) if grouped else None
-    vendor = _find_avp(grouped.get("children") or [], 266) if grouped else None
-    result_code = None if base is None else base.get("value")
-    experimental_code = None if experimental is None else experimental.get("value")
-    vendor_id = None if vendor is None else vendor.get("value")
-    result_name = BASE_RESULT_NAMES.get(result_code) if isinstance(result_code, int) else None
-    if experimental is not None or grouped is not None:
+    base_entries: list[dict[str, Any]] = []
+    experimental_entries: list[dict[str, Any]] = []
+    for avp in avps:
+        if avp.get("depth") != 1:
+            continue
+        if avp.get("code") == 268 and avp.get("namespace") == "BASE":
+            value = avp.get("value")
+            if isinstance(value, int) and not isinstance(value, bool):
+                base_entries.append(
+                    {
+                        "code": value,
+                        "name": BASE_RESULT_NAMES.get(value),
+                        "avp_reference": avp.get("avp_reference"),
+                    }
+                )
+        elif avp.get("code") == 297 and avp.get("namespace") == "BASE":
+            children = avp.get("children") or []
+            codes = [
+                child for child in children
+                if child.get("code") == 298 and child.get("namespace") == "BASE"
+            ]
+            vendors = [
+                child for child in children
+                if child.get("code") == 266 and child.get("namespace") == "BASE"
+            ]
+            code_value = None
+            if len(codes) == 1 and isinstance(codes[0].get("value"), int):
+                code_value = codes[0]["value"]
+            vendor_value = None
+            if len(vendors) == 1 and isinstance(vendors[0].get("value"), int):
+                vendor_value = vendors[0]["value"]
+            experimental_entries.append(
+                {
+                    "vendor_id": vendor_value,
+                    "code": code_value,
+                    "group_reference": avp.get("avp_reference"),
+                    "code_reference": codes[0].get("avp_reference") if len(codes) == 1 else None,
+                    "vendor_reference": vendors[0].get("avp_reference") if len(vendors) == 1 else None,
+                }
+            )
+    base_count = len(base_entries)
+    experimental_count = len(experimental_entries)
+    if base_count == 0 and experimental_count == 0:
+        result_status = "MISSING"
+    elif base_count and experimental_count:
+        result_status = "CONFLICTING"
+        limitations.append(
+            "base Result-Code and Experimental-Result are both present; no single result is selected"
+        )
+    elif base_count > 1:
+        result_status = "DUPLICATE"
+        limitations.append("multiple top-level base Result-Code AVPs are present; no arbitrary value is selected")
+    elif experimental_count > 1:
+        result_status = "DUPLICATE"
+        limitations.append("multiple top-level Experimental-Result AVPs are present; no arbitrary value is selected")
+    elif base_count == 1:
+        result_status = "SINGLE_BASE"
+    else:
+        result_status = "SINGLE_EXPERIMENTAL"
+    if experimental_count:
         limitations.append(
             "Experimental-Result-Code is a vendor-specific namespace and is never mapped to a base Result-Code name"
         )
+    single_base = base_entries[0] if result_status == "SINGLE_BASE" else None
+    single_experimental = experimental_entries[0] if result_status == "SINGLE_EXPERIMENTAL" else None
     return {
-        "result_code": result_code if isinstance(result_code, int) else None,
-        "result_code_name": result_name,
-        "result_namespace": "BASE" if base is not None else ("VENDOR_SPECIFIC" if grouped is not None else None),
-        "experimental_result_present": grouped is not None,
-        "experimental_result_code": experimental_code if isinstance(experimental_code, int) else None,
-        "experimental_vendor_id": vendor_id if isinstance(vendor_id, int) else None,
+        "result_status": result_status,
+        "result_code": None if single_base is None else single_base["code"],
+        "result_code_name": None if single_base is None else single_base["name"],
+        "result_namespace": (
+            "BASE" if single_base is not None
+            else "VENDOR_SPECIFIC" if single_experimental is not None
+            else None
+        ),
+        "experimental_result_present": experimental_count > 0,
+        "experimental_result_code": None if single_experimental is None else single_experimental["code"],
+        "experimental_vendor_id": None if single_experimental is None else single_experimental["vendor_id"],
+        "base_result_codes": base_entries,
+        "experimental_results": experimental_entries,
     }
 
 
@@ -486,7 +600,7 @@ def _base_event(
             "no decoder-proven transport association identity is available; endpoint tuple reuse cannot "
             "be excluded and correlation is fail-closed"
         )
-    if _find_avp(avps, 263) is not None:
+    if _find_base_avp(avps, 263) is not None:
         limitations.append(
             "Session-Id values are withheld as opaque presence and length metadata because they may embed a subscription identifier"
         )
@@ -632,15 +746,18 @@ def _normalize_avp(
     code = raw.get("code")
     if isinstance(code, bool) or not isinstance(code, int) or code < 0:
         raise InputError("AVP code must be a non-negative integer")
-    name = AVP_NAMES.get(code, raw.get("name"))
-    sensitive = bool(code in SENSITIVE_AVP_CODES or (isinstance(name, str) and _sensitive_name(name)))
+    vendor_specific = bool(raw.get("vendor_specific"))
+    vendor_id = raw.get("vendor_id")
+    identity = avp_identity(code, vendor_id, vendor_specific)
+    name = identity["name"]
+    sensitive = identity["sensitive"]
     raw_value = raw.get("value")
     if sensitive:
         value, value_kind = None, "SENSITIVE_REDACTED"
-    elif code in GROUPED_AVP_CODES:
+    elif identity["grouped"]:
         value, value_kind = None, "GROUPED"
-    elif code in SAFE_VALUE_CODES and raw_value is not None:
-        if code in INTEGER_VALUE_CODES and not isinstance(raw_value, bool) and isinstance(raw_value, int):
+    elif identity["safe"] and raw_value is not None:
+        if identity["integer"] and not isinstance(raw_value, bool) and isinstance(raw_value, int):
             value, value_kind = raw_value, "INTEGER"
         elif isinstance(raw_value, str):
             if SENSITIVE_VALUE_PATTERN.match(raw_value):
@@ -659,7 +776,7 @@ def _normalize_avp(
         grouping_status = (
             "REDACTED"
             if children_raw
-            else ("NOT_DECODED" if code in GROUPED_AVP_CODES else "NOT_GROUPED")
+            else ("NOT_DECODED" if identity["grouped"] else "NOT_GROUPED")
         )
     elif depth >= MAX_AVP_DEPTH and children_raw:
         children_omitted = max(0, sizes[id(raw)] - 1)
@@ -681,16 +798,17 @@ def _normalize_avp(
         grouping_status = (
             "DECODED"
             if children
-            else ("NOT_DECODED" if code in GROUPED_AVP_CODES else "NOT_GROUPED")
+            else ("NOT_DECODED" if identity["grouped"] else "NOT_GROUPED")
         )
     return {
         "avp_reference": raw.get("avp_reference") or f"diameter-avp:record:{path}",
         "code": code,
+        "namespace": identity["namespace"],
         "name": name,
-        "name_reviewed": code in AVP_NAMES,
+        "name_reviewed": identity["name_reviewed"],
         "occurrence_index": int(path.rsplit(".", 1)[-1]),
         "depth": depth,
-        "vendor_specific": bool(raw.get("vendor_specific")),
+        "vendor_specific": vendor_specific,
         "mandatory": bool(raw.get("mandatory")),
         "protected": bool(raw.get("protected")),
         "vendor_id": raw.get("vendor_id"),

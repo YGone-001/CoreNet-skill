@@ -125,6 +125,18 @@ selected; non-`MATCHED` records never publish a Request/latency pair.
 | 5 | TShark failure |
 | 6 | Output destination failure |
 
+## AVP namespace identity
+
+AVP semantics are resolved by Code and Vendor namespace, never by Code alone.
+Vendor-Specific AVPs without the 3GPP Vendor-ID 10415 remain opaque even when
+their Code collides with a base AVP. Sensitive code families remain redacted
+under unknown vendor namespaces.
+
+Only a top-level base AVP 268 is a Base Result-Code. Only a top-level base AVP
+297 is the standard Experimental-Result group. The event publishes
+`base_result_codes`, `experimental_results` and `result_status`; duplicate or
+conflicting evidence selects no arbitrary single value.
+
 ## Privacy behavior
 
 - User-Name, Subscription-Id, authentication information and authentication

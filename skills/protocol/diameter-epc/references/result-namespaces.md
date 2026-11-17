@@ -34,6 +34,14 @@ Reviewed names:
 An unknown 3GPP code keeps its numeric value and gets no name. A different
 Vendor-ID or a missing Vendor-ID receives neither a 3GPP name nor a base name.
 
+## Core provenance input
+
+The producer consumes Core `base_result_codes`, `experimental_results` and
+`result_status`. A `CONFLICTING` or `DUPLICATE` Core result is copied as
+unresolved evidence; the compatibility single-value fields remain null and both
+arrays are preserved. A vendor-specific Code 268 never reaches this path as a
+Base Result-Code.
+
 ## Conflicts and absence
 
 - Both base and experimental results present: `CONFLICTING`, `UNRESOLVED`, both

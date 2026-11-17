@@ -80,6 +80,12 @@ succeeded.
 - The same numeric value in different namespaces never shares a name.
 - An unknown vendor or missing Vendor-ID receives no 3GPP meaning.
 - Simultaneous base and experimental results are `CONFLICTING` and unresolved.
+- Core result arrays retain AVP provenance; duplicate results are not collapsed
+  into an arbitrary success.
+
+Presence is matched by exact reviewed namespace: base User-Name/Session-Id cannot
+be satisfied by an unknown vendor Code 1/263, and 3GPP AVPs require Vendor-ID
+10415.
 
 ## Privacy
 

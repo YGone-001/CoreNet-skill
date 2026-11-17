@@ -662,9 +662,11 @@ class DiameterAvpBoundsTest(unittest.TestCase):
             [
                 {
                     "code": 1408,
+                    "vendor_specific": True,
+                    "vendor_id": 10415,
                     "length": 64,
                     "children": [
-                        {"code": 1413, "length": 32, "children": [
+                        {"code": 1413, "vendor_specific": True, "vendor_id": 10415, "length": 32, "children": [
                             {"code": 9998, "value": "RAND-SYNTHETIC-VALUE"},
                             {"code": 9997, "value": "AUTN-SYNTHETIC-VALUE"},
                         ]},
@@ -725,6 +727,156 @@ class DiameterAvpBoundsTest(unittest.TestCase):
                 "XRES-SYNTHETIC-VALUE",
             ):
                 self.assertNotIn(secret, payload)
+
+
+class DiameterNamespaceProvenanceTest(unittest.TestCase):
+    def event_with(self, avps):
+        return make_record(frame=80, hop=800, end_to_end=801, avps=avps)
+
+    def test_base_result_code_requires_base_namespace(self) -> None:
+        event = self.event_with([{"code": 268, "length": 12, "value": 2001}])
+        self.assertEqual(event["result"]["result_status"], "SINGLE_BASE")
+        self.assertEqual(event["result"]["result_code"], 2001)
+        self.assertEqual(event["result"]["result_code_name"], "DIAMETER_SUCCESS")
+        self.assertEqual(event["result"]["base_result_codes"][0]["avp_reference"], event["avps"][0]["avp_reference"])
+
+    def test_vendor_specific_code_268_is_not_a_base_result(self) -> None:
+        event = self.event_with(
+            [{"code": 268, "vendor_specific": True, "vendor_id": 9999, "length": 12, "value": 2001}]
+        )
+        self.assertEqual(event["avps"][0]["namespace"], "UNKNOWN_VENDOR")
+        self.assertEqual(event["result"]["result_status"], "MISSING")
+        self.assertIsNone(event["result"]["result_code"])
+        self.assertIsNone(event["result"]["result_code_name"])
+
+    def test_vendor_specific_code_297_is_not_experimental_result(self) -> None:
+        event = self.event_with(
+            [
+                {
+                    "code": 297,
+                    "vendor_specific": True,
+                    "vendor_id": 9999,
+                    "length": 32,
+                    "children": [
+                        {"code": 298, "vendor_specific": True, "vendor_id": 9999, "length": 12, "value": 5001},
+                        {"code": 266, "vendor_specific": True, "vendor_id": 9999, "length": 12, "value": 9999},
+                    ],
+                }
+            ]
+        )
+        self.assertEqual(event["avps"][0]["namespace"], "UNKNOWN_VENDOR")
+        self.assertEqual(event["result"]["result_status"], "MISSING")
+        self.assertEqual(event["result"]["experimental_results"], [])
+
+    def test_nested_result_code_is_not_promoted(self) -> None:
+        event = self.event_with(
+            [
+                {
+                    "code": 279,
+                    "length": 24,
+                    "children": [{"code": 268, "length": 12, "value": 2001}],
+                }
+            ]
+        )
+        self.assertEqual(event["result"]["result_status"], "MISSING")
+        self.assertIsNone(event["result"]["result_code"])
+
+    def test_valid_experimental_result_preserves_group_and_children(self) -> None:
+        event = self.event_with(
+            [
+                {
+                    "code": 297,
+                    "length": 32,
+                    "children": [
+                        {"code": 298, "length": 12, "value": 5001},
+                        {"code": 266, "length": 12, "value": 10415},
+                    ],
+                }
+            ]
+        )
+        self.assertEqual(event["result"]["result_status"], "SINGLE_EXPERIMENTAL")
+        entry = event["result"]["experimental_results"][0]
+        self.assertEqual(entry["vendor_id"], 10415)
+        self.assertEqual(entry["code"], 5001)
+        self.assertIsNotNone(entry["group_reference"])
+        self.assertIsNotNone(entry["code_reference"])
+        self.assertIsNotNone(entry["vendor_reference"])
+        self.assertEqual(event["result"]["experimental_vendor_id"], 10415)
+
+    def test_other_vendor_experimental_result_stays_unresolved(self) -> None:
+        event = self.event_with(
+            [
+                {
+                    "code": 297,
+                    "length": 32,
+                    "children": [
+                        {"code": 298, "length": 12, "value": 5001},
+                        {"code": 266, "length": 12, "value": 9999},
+                    ],
+                }
+            ]
+        )
+        entry = event["result"]["experimental_results"][0]
+        self.assertEqual(entry["vendor_id"], 9999)
+        self.assertEqual(entry["code"], 5001)
+
+    def test_duplicate_base_results_do_not_select_arbitrarily(self) -> None:
+        event = self.event_with(
+            [
+                {"code": 268, "length": 12, "value": 2001},
+                {"code": 268, "length": 12, "value": 5001},
+            ]
+        )
+        self.assertEqual(event["result"]["result_status"], "DUPLICATE")
+        self.assertIsNone(event["result"]["result_code"])
+        self.assertEqual(len(event["result"]["base_result_codes"]), 2)
+
+    def test_conflicting_result_namespaces_preserve_both(self) -> None:
+        event = self.event_with(
+            [
+                {"code": 268, "length": 12, "value": 2001},
+                {
+                    "code": 297,
+                    "length": 32,
+                    "children": [
+                        {"code": 298, "length": 12, "value": 5001},
+                        {"code": 266, "length": 12, "value": 10415},
+                    ],
+                },
+            ]
+        )
+        self.assertEqual(event["result"]["result_status"], "CONFLICTING")
+        self.assertIsNone(event["result"]["result_code"])
+        self.assertIsNone(event["result"]["experimental_result_code"])
+        self.assertEqual(event["result"]["base_result_codes"][0]["code"], 2001)
+        self.assertEqual(event["result"]["experimental_results"][0]["code"], 5001)
+
+    def test_vendor_code_1_is_not_user_name_and_stays_redacted(self) -> None:
+        event = self.event_with(
+            [{"code": 1, "vendor_specific": True, "vendor_id": 9999, "length": 12, "value": "001010000000001"}]
+        )
+        avp = event["avps"][0]
+        self.assertEqual(avp["namespace"], "UNKNOWN_VENDOR")
+        self.assertIsNone(avp["name"])
+        self.assertTrue(avp["sensitive"])
+        self.assertIsNone(avp["value"])
+
+    def test_base_code_1_is_user_name(self) -> None:
+        event = self.event_with([{"code": 1, "length": 12, "value": "001010000000001"}])
+        avp = event["avps"][0]
+        self.assertEqual(avp["namespace"], "BASE")
+        self.assertEqual(avp["name"], "User-Name")
+        self.assertTrue(avp["sensitive"])
+        self.assertIsNone(avp["value"])
+
+    def test_vendor_code_263_is_not_session_id(self) -> None:
+        event = self.event_with(
+            [{"code": 263, "vendor_specific": True, "vendor_id": 9999, "length": 12, "value": "session"}]
+        )
+        avp = event["avps"][0]
+        self.assertEqual(avp["namespace"], "UNKNOWN_VENDOR")
+        self.assertIsNone(avp["name"])
+        self.assertIsNone(avp["value"])
 
 
 if __name__ == "__main__":

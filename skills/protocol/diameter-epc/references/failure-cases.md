@@ -11,6 +11,9 @@
 - A reference whose direction, command, application, hop or end-to-end identifier
   disagrees with the event is rejected.
 - A MATCHED transaction without both references is rejected.
+- An S6a/S6d event without any Core transaction representation is rejected as
+  incomplete supplied evidence. No local `diameter-epc-unresolved:` transaction
+  is created.
 - A non-MATCHED transaction with a selected pair or latency is rejected.
 - An AMBIGUOUS transaction without candidate references is rejected.
 

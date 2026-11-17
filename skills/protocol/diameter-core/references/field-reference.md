@@ -24,6 +24,7 @@ Verified against Wireshark/TShark 4.2.2.
 | --- | --- |
 | `diameter.avp` | one AVP node, including nested group children |
 | `diameter.avp.code` | AVP Code |
+| `diameter.avp` code plus Vendor-ID | namespace-safe AVP identity (`BASE`, `3GPP`, `UNKNOWN_VENDOR`, `INVALID_VENDOR`) |
 | `diameter.avp.flags` | AVP flags octet |
 | `diameter.flags.vendorspecific` | V bit |
 | `diameter.flags.mandatory` | M bit |

@@ -349,15 +349,13 @@
       <field name="diameter.avp.len" show="32"/>
       <field name="diameter.avp" show="298">
         <field name="diameter.avp.code" show="298"/>
-        <field name="diameter.avp.flags" show="0xc0"/>
-        <field name="diameter.avp.vendorId" show="10415"/>
+        <field name="diameter.avp.flags" show="0x40"/>
         <field name="diameter.avp.len" show="12"/>
         <field name="diameter.Experimental-Result-Code" show="5001"/>
       </field>
       <field name="diameter.avp" show="266">
         <field name="diameter.avp.code" show="266"/>
-        <field name="diameter.avp.flags" show="0xc0"/>
-        <field name="diameter.avp.vendorId" show="10415"/>
+        <field name="diameter.avp.flags" show="0x40"/>
         <field name="diameter.avp.len" show="12"/>
         <field name="diameter.Vendor-Id" show="10415"/>
       </field>

@@ -108,7 +108,7 @@
       "epc-synthetic.pcapng"
     ],
     "event_count": 19,
-    "events_sha256": "8670a0950f1550dad26ff5f9252a0bebc6da6e850e201c64fab49dd4f53dd0c2",
+    "events_sha256": "6d63ba891239672c7529fb55f1d426985e7f3c8ba4ea20695a189d315dcef7c0",
     "transaction_count": 11,
     "transactions_sha256": "4e0d8dc9399b75dcd89fb43e7a154235c6c863d133c295558492eca24d096e1c"
   },
@@ -310,8 +310,17 @@
         "application_result": "SUCCESS_REPORTED",
         "base_result_code": 2001,
         "base_result_code_name": "DIAMETER_SUCCESS",
+        "base_results": [
+          {
+            "avp_reference": null,
+            "code": 2001,
+            "name": "DIAMETER_SUCCESS"
+          }
+        ],
+        "core_result_status": "SINGLE_BASE",
         "experimental_result_code": null,
         "experimental_result_code_name": null,
+        "experimental_results": [],
         "experimental_vendor_id": null,
         "limitations": [],
         "namespace_status": "BASE_RFC6733"
@@ -546,8 +555,17 @@
         "application_result": "SUCCESS_REPORTED",
         "base_result_code": 2001,
         "base_result_code_name": "DIAMETER_SUCCESS",
+        "base_results": [
+          {
+            "avp_reference": null,
+            "code": 2001,
+            "name": "DIAMETER_SUCCESS"
+          }
+        ],
+        "core_result_status": "SINGLE_BASE",
         "experimental_result_code": null,
         "experimental_result_code_name": null,
+        "experimental_results": [],
         "experimental_vendor_id": null,
         "limitations": [],
         "namespace_status": "BASE_RFC6733"
@@ -782,8 +800,17 @@
         "application_result": "NOT_APPLICABLE",
         "base_result_code": 2001,
         "base_result_code_name": "DIAMETER_SUCCESS",
+        "base_results": [
+          {
+            "avp_reference": null,
+            "code": 2001,
+            "name": "DIAMETER_SUCCESS"
+          }
+        ],
+        "core_result_status": "SINGLE_BASE",
         "experimental_result_code": null,
         "experimental_result_code_name": null,
+        "experimental_results": [],
         "experimental_vendor_id": null,
         "limitations": [],
         "namespace_status": "BASE_RFC6733"
@@ -853,8 +880,17 @@
         "application_result": "SUCCESS_REPORTED",
         "base_result_code": 2001,
         "base_result_code_name": "DIAMETER_SUCCESS",
+        "base_results": [
+          {
+            "avp_reference": null,
+            "code": 2001,
+            "name": "DIAMETER_SUCCESS"
+          }
+        ],
+        "core_result_status": "SINGLE_BASE",
         "experimental_result_code": null,
         "experimental_result_code_name": null,
+        "experimental_results": [],
         "experimental_vendor_id": null,
         "limitations": [],
         "namespace_status": "BASE_RFC6733"
@@ -1011,8 +1047,11 @@
         "application_result": "NOT_APPLICABLE",
         "base_result_code": null,
         "base_result_code_name": null,
+        "base_results": [],
+        "core_result_status": "MISSING",
         "experimental_result_code": null,
         "experimental_result_code_name": null,
+        "experimental_results": [],
         "experimental_vendor_id": null,
         "limitations": [],
         "namespace_status": "MISSING"
@@ -1109,8 +1148,17 @@
         "application_result": "SUCCESS_REPORTED",
         "base_result_code": 2001,
         "base_result_code_name": "DIAMETER_SUCCESS",
+        "base_results": [
+          {
+            "avp_reference": null,
+            "code": 2001,
+            "name": "DIAMETER_SUCCESS"
+          }
+        ],
+        "core_result_status": "SINGLE_BASE",
         "experimental_result_code": null,
         "experimental_result_code_name": null,
+        "experimental_results": [],
         "experimental_vendor_id": null,
         "limitations": [],
         "namespace_status": "BASE_RFC6733"
@@ -1301,8 +1349,17 @@
         "application_result": "SUCCESS_REPORTED",
         "base_result_code": 2001,
         "base_result_code_name": "DIAMETER_SUCCESS",
+        "base_results": [
+          {
+            "avp_reference": null,
+            "code": 2001,
+            "name": "DIAMETER_SUCCESS"
+          }
+        ],
+        "core_result_status": "SINGLE_BASE",
         "experimental_result_code": null,
         "experimental_result_code_name": null,
+        "experimental_results": [],
         "experimental_vendor_id": null,
         "limitations": [],
         "namespace_status": "BASE_RFC6733"
@@ -1493,8 +1550,17 @@
         "application_result": "SUCCESS_REPORTED",
         "base_result_code": 2001,
         "base_result_code_name": "DIAMETER_SUCCESS",
+        "base_results": [
+          {
+            "avp_reference": null,
+            "code": 2001,
+            "name": "DIAMETER_SUCCESS"
+          }
+        ],
+        "core_result_status": "SINGLE_BASE",
         "experimental_result_code": null,
         "experimental_result_code_name": null,
+        "experimental_results": [],
         "experimental_vendor_id": null,
         "limitations": [],
         "namespace_status": "BASE_RFC6733"
@@ -1651,8 +1717,11 @@
         "application_result": "NOT_APPLICABLE",
         "base_result_code": null,
         "base_result_code_name": null,
+        "base_results": [],
+        "core_result_status": "MISSING",
         "experimental_result_code": null,
         "experimental_result_code_name": null,
+        "experimental_results": [],
         "experimental_vendor_id": null,
         "limitations": [],
         "namespace_status": "MISSING"
@@ -1810,8 +1879,11 @@
         "application_result": "NOT_APPLICABLE",
         "base_result_code": null,
         "base_result_code_name": null,
+        "base_results": [],
+        "core_result_status": "MISSING",
         "experimental_result_code": null,
         "experimental_result_code_name": null,
+        "experimental_results": [],
         "experimental_vendor_id": null,
         "limitations": [],
         "namespace_status": "MISSING"

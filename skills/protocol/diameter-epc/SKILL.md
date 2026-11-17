@@ -79,7 +79,17 @@ authentication, EPS Attach or network service.
 Base `Result-Code` uses RFC 6733 semantics. A 3GPP `Experimental-Result` requires
 Vendor-ID 10415 and a reviewed TS 29.272 code. Identical numeric values in the two
 namespaces never share a name. Conflicting simultaneous base and experimental
-results remain `CONFLICTING` and unresolved.
+results remain `CONFLICTING` and unresolved. The producer consumes Core result
+arrays and preserves their AVP provenance; a vendor-specific Code 268 is never a
+Base Result-Code.
+
+Presence matching is namespace-exact: a base User-Name and Session-Id cannot be
+matched by an unknown vendor Code 1 or 263. A reviewed 3GPP AVP requires its
+10415 Vendor-ID.
+
+The supplied Core transaction collection is treated as complete. Every S6a/S6d
+event must have a Core transaction representation; missing coverage is rejected
+as invalid input. No synthetic transaction reference is created.
 
 ## Privacy
 

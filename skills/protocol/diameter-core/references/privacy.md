@@ -47,7 +47,9 @@ event limitation.
 
 An unknown or vendor-specific AVP publishes its numeric code, Vendor-ID, flags,
 length and presence. It never publishes raw bytes, decoded payloads or a
-guessed semantic name.
+guessed semantic name. Sensitive code families remain redacted even when the
+vendor namespace is unknown; privacy classification is deliberately conservative
+and does not depend on a recognized semantic name.
 
 ## Correlation and privacy
 

@@ -82,6 +82,20 @@ Reviewed presence-only checks:
 
 `Subscription-Data` is presence-only. No subscription profile is published.
 
+## Presence matching namespace
+
+Presence is matched by both Code and reviewed namespace:
+
+- Base User-Name requires Code 1 in the BASE namespace.
+- Base Session-Id requires Code 263 in the BASE namespace.
+- Requested-EUTRAN-Authentication-Info requires Code 1408 with Vendor-ID 10415.
+- Subscription-Data requires Code 1400 with Vendor-ID 10415.
+- An unknown vendor Code 1 or Code 263 collision does not count as reviewed
+  presence.
+
+Missing or truncated AVPs remain `NOT_OBSERVED_IN_PUBLISHED_SUBSET`; no absence is
+fabricated.
+
 ## Bounded interpretation
 
 ULR/ULA support is application-message evidence. It does not reconstruct an EPS

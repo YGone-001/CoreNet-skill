@@ -29,6 +29,11 @@ The Skill never creates a Request/Answer pair. `OPEN_REQUEST`,
 `RESPONSE_ONLY`, `AMBIGUOUS` and `INSUFFICIENT` remain explicit. A Core
 `MATCHED` transaction is protocol-local pairing evidence only.
 
+The supplied Core transaction collection is treated as complete. Every S6a/S6d
+event must be represented by a Core transaction, request, answer or candidate
+reference. A missing representation is rejected as incomplete input; no local
+`synthetic` or `diameter-epc-unresolved:` transaction identifier is emitted.
+
 ## Application evidence rules
 
 - AIR with a valid AIA pair reports request presence and answer result separately.

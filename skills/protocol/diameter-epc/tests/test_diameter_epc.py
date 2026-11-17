@@ -26,10 +26,11 @@ import diameter_epc_model as model  # noqa: E402
 CAPTURE = "epc-synthetic.pcapng"
 
 
-def avp(code, name, *, vendor=None, sensitive=False, grouping="NOT_GROUPED", kind="OPAQUE", value=None):
+def avp(code, name, *, vendor=None, sensitive=False, grouping="NOT_GROUPED", kind="OPAQUE", value=None, namespace=None):
     return {
         "avp_reference": f"diameter-avp:{CAPTURE}:{code}",
         "code": code,
+        "namespace": namespace or ("3GPP" if vendor == 10415 else "BASE"),
         "name": name,
         "name_reviewed": True,
         "occurrence_index": 1,
@@ -479,8 +480,11 @@ class DiameterEpcResultNamespaceTest(unittest.TestCase):
         result = self.build(combined)
         self.assertEqual(result["namespace_status"], "CONFLICTING")
         self.assertEqual(result["application_result"], "UNRESOLVED")
-        self.assertEqual(result["base_result_code"], 2001)
-        self.assertEqual(result["experimental_result_code"], 5001)
+        self.assertIsNone(result["base_result_code"])
+        self.assertIsNone(result["experimental_result_code"])
+        self.assertEqual(result["base_results"][0]["code"], 2001)
+        self.assertEqual(result["experimental_results"][0]["code"], 5001)
+        self.assertEqual(result["experimental_results"][0]["vendor_id"], 10415)
 
     def test_missing_result_is_unresolved(self) -> None:
         result = self.build(empty_result())
@@ -678,6 +682,130 @@ class DiameterEpcInputValidationTest(unittest.TestCase):
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(first.read_bytes(), second.read_bytes())
+
+
+class DiameterEpcNamespaceTest(unittest.TestCase):
+    def presence(self, air):
+        answer = event(
+            2,
+            request=False,
+            hop=1,
+            end_to_end=1,
+            result=base_result(2001, "DIAMETER_SUCCESS"),
+        )
+        document = {
+            "protocol": "Diameter",
+            "capture_files": [CAPTURE],
+            "transactions": [transaction("tx", "MATCHED", air, answer, latency="0.1")],
+        }
+        analysis = model.analyze(
+            events=[air, answer],
+            transaction_document=document,
+            input_provenance={
+                "capture_files": [CAPTURE],
+                "event_count": 2,
+                "transaction_count": 1,
+                "events_sha256": "a" * 64,
+                "transactions_sha256": "b" * 64,
+            },
+        )
+        return analysis["observations"][0]["request_avp_presence"]
+
+    def test_vendor_code_1_does_not_match_standard_user_name(self) -> None:
+        air = event(1, hop=1, end_to_end=1, avps=[avp(1, None, vendor=9999, namespace="UNKNOWN_VENDOR", sensitive=True)])
+        presence = [item for item in self.presence(air) if item["code"] == 1][0]
+        self.assertEqual(presence["status"], "NOT_OBSERVED")
+
+    def test_standard_user_name_matches(self) -> None:
+        air = event(1, hop=1, end_to_end=1, avps=[avp(1, "User-Name", sensitive=True)])
+        presence = [item for item in self.presence(air) if item["code"] == 1][0]
+        self.assertEqual(presence["status"], "PRESENT_REDACTED")
+
+    def test_vendor_code_263_does_not_match_standard_session_id(self) -> None:
+        air = event(1, hop=1, end_to_end=1, avps=[avp(263, None, vendor=9999, namespace="UNKNOWN_VENDOR")])
+        presence = [item for item in self.presence(air) if item["code"] == 263][0]
+        self.assertEqual(presence["status"], "NOT_OBSERVED")
+
+    def test_reviewed_3gpp_avp_requires_correct_vendor(self) -> None:
+        wrong = event(
+            1,
+            hop=1,
+            end_to_end=1,
+            avps=[avp(1408, "Requested-EUTRAN-Authentication-Info", vendor=9999, namespace="UNKNOWN_VENDOR", sensitive=True)],
+        )
+        presence = [item for item in self.presence(wrong) if item["code"] == 1408][0]
+        self.assertEqual(presence["status"], "NOT_OBSERVED")
+        correct = event(
+            1,
+            hop=1,
+            end_to_end=1,
+            avps=[avp(1408, "Requested-EUTRAN-Authentication-Info", vendor=10415, sensitive=True, grouping="NOT_DECODED")],
+        )
+        presence = [item for item in self.presence(correct) if item["code"] == 1408][0]
+        self.assertEqual(presence["status"], "PRESENT_REDACTED")
+
+    def test_missing_core_transaction_coverage_is_rejected(self) -> None:
+        events, transactions = documents()
+        transactions["transactions"] = [item for item in transactions["transactions"] if item["transaction_reference"] != "tx-open-air"]
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            events_path = base / "events.jsonl"
+            tx_path = base / "transactions.json"
+            events_path.write_text("\n".join(json.dumps(item) for item in events) + "\n", encoding="utf-8")
+            tx_path.write_text(json.dumps(transactions), encoding="utf-8")
+            completed = subprocess.run(
+                [sys.executable, str(CLI), "--events", str(events_path), "--transactions", str(tx_path), "--output", str(base / "out.json")],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("do not cover", completed.stderr)
+
+    def test_no_local_unresolved_transaction_reference_is_emitted(self) -> None:
+        events, transactions = documents()
+        analysis = model.analyze(
+            events,
+            transactions,
+            input_provenance={
+                "capture_files": [CAPTURE],
+                "event_count": len(events),
+                "transaction_count": len(transactions["transactions"]),
+                "events_sha256": "a" * 64,
+                "transactions_sha256": "b" * 64,
+            },
+        )
+        serialized = json.dumps(analysis)
+        self.assertNotIn("diameter-epc-unresolved", serialized)
+        statuses = {item["transaction_status"] for item in analysis["observations"]}
+        self.assertTrue({"MATCHED", "OPEN_REQUEST", "RESPONSE_ONLY", "AMBIGUOUS"}.issubset(statuses))
+
+    def test_core_result_arrays_are_preserved_in_epc_output(self) -> None:
+        answer_result = base_result(2001, "DIAMETER_SUCCESS")
+        answer_result.update(
+            {
+                "result_status": "SINGLE_BASE",
+                "base_result_codes": [{"code": 2001, "name": "DIAMETER_SUCCESS", "avp_reference": "ref"}],
+                "experimental_results": [],
+            }
+        )
+        analysis_air = event(1, hop=1, end_to_end=1)
+        analysis_aia = event(2, request=False, hop=1, end_to_end=1, result=answer_result)
+        document = {"protocol": "Diameter", "capture_files": [CAPTURE], "transactions": [transaction("tx", "MATCHED", analysis_air, analysis_aia, latency="0.1")]}
+        analysis = model.analyze(
+            events=[analysis_air, analysis_aia],
+            transaction_document=document,
+            input_provenance={
+                "capture_files": [CAPTURE],
+                "event_count": 2,
+                "transaction_count": 1,
+                "events_sha256": "a" * 64,
+                "transactions_sha256": "b" * 64,
+            },
+        )
+        result = analysis["observations"][0]["result"]
+        self.assertEqual(result["core_result_status"], "SINGLE_BASE")
+        self.assertEqual(result["base_results"][0]["avp_reference"], "ref")
 
 
 if __name__ == "__main__":

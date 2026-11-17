@@ -111,6 +111,7 @@
       "properties": {
         "avp_reference": {"type": "string", "minLength": 1},
         "code": {"type": ["integer", "null"]},
+        "namespace": {"type": "string", "enum": ["BASE", "3GPP", "UNKNOWN_VENDOR", "INVALID_VENDOR"]},
         "name": {"type": ["string", "null"]},
         "name_reviewed": {"type": "boolean"},
         "occurrence_index": {"type": "integer", "minimum": 1},
@@ -134,12 +135,41 @@
       "additionalProperties": false,
       "required": ["result_code", "result_code_name", "result_namespace", "experimental_result_present", "experimental_result_code", "experimental_vendor_id"],
       "properties": {
+        "result_status": {"type": "string", "enum": ["MISSING", "SINGLE_BASE", "SINGLE_EXPERIMENTAL", "CONFLICTING", "DUPLICATE"]},
         "result_code": {"type": ["integer", "null"]},
         "result_code_name": {"type": ["string", "null"]},
         "result_namespace": {"type": ["string", "null"], "enum": ["BASE", "VENDOR_SPECIFIC", null]},
         "experimental_result_present": {"type": "boolean"},
         "experimental_result_code": {"type": ["integer", "null"]},
-        "experimental_vendor_id": {"type": ["integer", "null"]}
+        "experimental_vendor_id": {"type": ["integer", "null"]},
+        "base_result_codes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "name", "avp_reference"],
+            "properties": {
+              "code": {"type": "integer"},
+              "name": {"type": ["string", "null"]},
+              "avp_reference": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "experimental_results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["vendor_id", "code", "group_reference", "code_reference", "vendor_reference"],
+            "properties": {
+              "vendor_id": {"type": ["integer", "null"]},
+              "code": {"type": ["integer", "null"]},
+              "group_reference": {"type": ["string", "null"]},
+              "code_reference": {"type": ["string", "null"]},
+              "vendor_reference": {"type": ["string", "null"]}
+            }
+          }
+        }
       }
     }
   }

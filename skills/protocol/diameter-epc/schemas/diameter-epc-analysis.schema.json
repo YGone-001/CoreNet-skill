@@ -133,8 +133,9 @@
     "result": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["namespace_status", "application_result", "base_result_code", "base_result_code_name", "experimental_result_code", "experimental_result_code_name", "experimental_vendor_id", "limitations"],
+      "required": ["core_result_status", "namespace_status", "application_result", "base_result_code", "base_result_code_name", "experimental_result_code", "experimental_result_code_name", "experimental_vendor_id", "base_results", "experimental_results", "limitations"],
       "properties": {
+        "core_result_status": {"type": "string", "enum": ["MISSING", "SINGLE_BASE", "SINGLE_EXPERIMENTAL", "CONFLICTING", "DUPLICATE"]},
         "namespace_status": {"type": "string", "enum": ["BASE_RFC6733", "3GPP_TS_29_272_EXPERIMENTAL", "UNKNOWN_VENDOR_EXPERIMENTAL", "MISSING", "CONFLICTING"]},
         "application_result": {"type": "string", "enum": ["SUCCESS_REPORTED", "FAILURE_REPORTED", "UNRESOLVED", "NOT_APPLICABLE"]},
         "base_result_code": {"type": ["integer", "null"]},
@@ -142,6 +143,34 @@
         "experimental_result_code": {"type": ["integer", "null"]},
         "experimental_result_code_name": {"type": ["string", "null"]},
         "experimental_vendor_id": {"type": ["integer", "null"]},
+        "base_results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "name", "avp_reference"],
+            "properties": {
+              "code": {"type": "integer"},
+              "name": {"type": ["string", "null"]},
+              "avp_reference": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "experimental_results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["vendor_id", "code", "group_reference", "code_reference", "vendor_reference"],
+            "properties": {
+              "vendor_id": {"type": ["integer", "null"]},
+              "code": {"type": ["integer", "null"]},
+              "group_reference": {"type": ["string", "null"]},
+              "code_reference": {"type": ["string", "null"]},
+              "vendor_reference": {"type": ["string", "null"]}
+            }
+          }
+        },
         "limitations": {"type": "array", "items": {"type": "string"}}
       }
     },
