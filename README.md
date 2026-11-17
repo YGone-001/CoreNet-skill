@@ -72,10 +72,11 @@ AVP structure, privacy-safe sensitive-AVP redaction and protocol-local
 Request/Answer correlation; it does not implement S6a, Gx, Rx, Cx, IMS or any
 application procedure verdict. The bounded `sip` Protocol Skill extracts SIP
 requests and responses over UDP and TCP, including IPv4/IPv6 and
-decoder-delivered TCP reassembly metadata, with reviewed header presence/length,
-explicit completeness and truncation classification, and privacy-safe redaction of
-identities, URIs, tags, credentials and bodies; it does not correlate transactions
-or dialogs and assigns no IMS procedure verdict. The bounded `s1ap` S1-MME Protocol Skill, the bounded
+decoder-delivered TCP reassembly metadata, correlates requests and responses at the
+RFC 3261 transaction layer, classifies retransmissions and publishes transaction
+state with explicit matching ambiguity; it preserves privacy-safe redaction of
+identities, URIs, tags, credentials and bodies, does not correlate SIP dialogs and
+assigns no IMS procedure verdict. The bounded `s1ap` S1-MME Protocol Skill, the bounded
 `nas-eps` EPS NAS Protocol Skill and the bounded `gtpv2` GTPv2-C session-control
 Protocol Skill extract EPC access-signaling, NAS message and session-control
 evidence from LTE captures, and the bounded `epc-procedures` Domain Skill analyzes

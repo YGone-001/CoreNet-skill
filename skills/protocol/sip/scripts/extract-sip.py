@@ -28,8 +28,14 @@ from sip_model import (  # noqa: E402
     InputError,
     ToolUnavailable,
     TsharkError,
-    events_for_input,
+    messages_for_input,
     project_trace_event,
+)
+from sip_transactions import (  # noqa: E402
+    TransactionError,
+    attach_transaction_references,
+    correlate,
+    validate_transaction_document,
 )
 
 
@@ -47,6 +53,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="input interpretation; auto uses the file extension",
     )
     parser.add_argument("--output", type=Path, help="SIP event JSONL destination")
+    parser.add_argument(
+        "--transaction-output", type=Path, help="SIP transaction JSON destination"
+    )
     parser.add_argument(
         "--trace-output", type=Path, help="shared trace-event JSONL projection destination"
     )
@@ -85,6 +94,27 @@ def write_jsonl(destination: Path, rows: list[dict]) -> None:
             Path(temporary).unlink(missing_ok=True)
 
 
+def write_json(destination: Path, document: dict) -> None:
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            delete=False,
+            dir=destination.parent,
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            newline="\n",
+        ) as handle:
+            temporary = handle.name
+            handle.write(json.dumps(document, sort_keys=True, indent=2) + "\n")
+        os.replace(temporary, destination)
+        temporary = None
+    finally:
+        if temporary:
+            Path(temporary).unlink(missing_ok=True)
+
+
 def _require_published(destination: Path, label: str) -> None:
     try:
         if not destination.is_file():
@@ -96,21 +126,37 @@ def _require_published(destination: Path, label: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.output is None and args.trace_output is None:
-        print("no destination requested; pass --output and/or --trace-output", file=sys.stderr)
+    if args.output is None and args.trace_output is None and args.transaction_output is None:
+        print(
+            "no destination requested; pass --output, --transaction-output and/or --trace-output",
+            file=sys.stderr,
+        )
         return EXIT_OUTPUT_FAILURE
     try:
-        events, decoder = events_for_input(args.input, args.input_format)
+        messages, decoder = messages_for_input(args.input, args.input_format)
+        events = [message["event"] for message in messages]
         if not events:
             print("input contains no SIP messages", file=sys.stderr)
             return EXIT_NO_EVENTS
         if decoder is not None:
             print(f"decoder: {decoder}", file=sys.stderr)
+        if args.transaction_output is not None:
+            document = correlate(messages)
+            attach_transaction_references(messages, document)
+            validate_transaction_document(document, messages)
         if args.output is not None:
             check_destination(args.input, args.output, args.force)
             write_jsonl(args.output, events)
             _require_published(args.output, "SIP event output")
             print(f"wrote {len(events)} SIP event(s) to {args.output.name}")
+        if args.transaction_output is not None:
+            check_destination(args.input, args.transaction_output, args.force)
+            write_json(args.transaction_output, document)
+            _require_published(args.transaction_output, "SIP transaction output")
+            print(
+                f"wrote {document['transaction_count']} SIP transaction(s) to "
+                f"{args.transaction_output.name}"
+            )
         if args.trace_output is not None:
             check_destination(args.input, args.trace_output, args.force)
             trace_events = [
@@ -134,6 +180,9 @@ def main(argv: list[str] | None = None) -> int:
     except InputError as exc:
         print(f"input error: {exc}", file=sys.stderr)
         return EXIT_MALFORMED_INPUT
+    except TransactionError as exc:
+        print(f"transaction error: {exc}", file=sys.stderr)
+        return EXIT_OUTPUT_FAILURE
     except (json.JSONDecodeError, OSError) as exc:
         print(f"output error: {exc}", file=sys.stderr)
         return EXIT_OUTPUT_FAILURE

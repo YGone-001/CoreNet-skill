@@ -1,7 +1,7 @@
 name: "sip"
-version: "0.1.0"
+version: "0.2.0"
 category: protocol
-description: "Bounded SIP message extraction over UDP and TCP: request/response identity, reviewed header presence and bounded metadata, source-frame and transport provenance, message completeness and truncation classification, privacy-safe identity/URI/credential/body handling, and deterministic JSONL events without transaction, dialog or IMS procedure semantics."
+description: "Bounded SIP message extraction and protocol-local transaction correlation over UDP and TCP: request/response identity, reviewed header presence and bounded metadata, source-frame and transport provenance, message completeness, RFC 3261 transaction matching, transaction state, retransmission classification, CANCEL and ACK roles, privacy-safe handling of identities/URIs/tags/credentials/bodies, and deterministic event and transaction output without dialog or IMS procedure semantics."
 scope:
   includes:
     - "SIP requests and responses over IPv4 and IPv6"
@@ -12,10 +12,16 @@ scope:
     - "frame number, frame epoch and capture-relative time, transport endpoints, TCP stream identity and message occurrence"
     - "message completeness, decoder findings, truncation and missing mandatory evidence"
     - "privacy-safe presence and length metadata for identities, URIs, tags, Call-ID values, credentials and bodies"
+    - "RFC 3261 transaction identity from top Via branch, top Via sent-by and request method"
+    - "response matching by branch, sent-by, CSeq method/number, Call-ID and From tag consistency"
+    - "INVITE provisional/final response handling, CANCEL association, non-2xx ACK control evidence and independent 2xx ACK transactions"
+    - "transaction state, matching status, response branches, capture completeness and missing evidence"
+    - "UDP retransmission and TCP repeated-observation classification without raw content publication"
     - "PCAP/PCAPNG through TShark PDML, stored PDML replay and sanitized dissector-record JSONL replay"
   excludes:
-    - "SIP transaction correlation and SIP dialog correlation"
+    - "SIP dialog correlation, dialog identity, 2xx ACK dialog association and forked-dialog selection"
     - "IMS registration, authentication, call, session, SDP or RTP semantics"
+    - "timer configuration or timeout inference from an unobserved response"
     - "plaintext extraction from TLS or other encrypted transports"
     - "custom TCP reassembly or packet-byte SIP decoding"
     - "raw subscriber identities, SIP URIs, dialog tags, Call-ID values, credentials, header dumps or message bodies"
@@ -30,6 +36,7 @@ inputs:
   - "sanitized SIP dissector-record JSONL (deterministic offline input)"
 outputs:
   - "detailed SIP event JSON Lines (schemas/sip-events.schema.json)"
+  - "protocol-local SIP transaction JSON (schemas/sip-transactions.schema.json)"
   - "normalized trace-event JSON Lines projection (schemas/trace-event.schema.json)"
 protocols:
   - "SIP"
@@ -59,6 +66,7 @@ testing:
     - "examples/dissector/transport-cases.jsonl"
     - "examples/dissector/negative-cases.jsonl"
     - "examples/dissector/privacy-cases.jsonl"
+    - "examples/dissector/transaction-cases.jsonl"
   expected_results:
     - "examples/expected/base-udp-events.jsonl"
     - "examples/expected/base-udp-trace.jsonl"
@@ -70,8 +78,11 @@ testing:
     - "examples/expected/transport-cases-events.jsonl"
     - "examples/expected/negative-cases-events.jsonl"
     - "examples/expected/privacy-cases-events.jsonl"
+    - "examples/expected/transaction-cases-events.jsonl"
+    - "examples/expected/transaction-cases-transactions.json"
 references:
   - "references/protocol-model.md"
   - "references/field-reference.md"
   - "references/privacy.md"
   - "references/failure-cases.md"
+  - "references/transactions.md"

@@ -375,6 +375,39 @@ def _via_from_values(entries: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _normalize_sent_by(address: Any, port: Any) -> str | None:
+    host = _text(address)
+    if host is None:
+        return None
+    normalized = host.lower()
+    number = _int_text(port)
+    return f"{normalized}:{number}" if number is not None else normalized
+
+
+def _via_raw(nodes: list[ElementTree.Element]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for node in nodes:
+        entries.append(
+            {
+                "branch": _show(node, "sip.Via.branch"),
+                "sent_by": _normalize_sent_by(
+                    _show(node, "sip.Via.sent-by.address"),
+                    _show(node, "sip.Via.sent-by.port"),
+                ),
+                "transport": _show(node, "sip.Via.transport"),
+            }
+        )
+    return entries
+
+
+def _tag_raw(nodes: list[ElementTree.Element], tag_name: str) -> str | None:
+    for node in nodes:
+        child = _field(node, tag_name)
+        if child is not None:
+            return child.get("show")
+    return None
+
+
 def _safe_media_type(value: str | None) -> str | None:
     if not value:
         return None
@@ -665,6 +698,68 @@ def _build_event(
     }
 
 
+def _content_fingerprint(event: dict[str, Any], headers: dict[str, Any]) -> tuple[Any, ...]:
+    raw_header = headers.get("msg_hdr_raw")
+    raw_body = headers.get("msg_body_raw")
+    if raw_header is not None or raw_body is not None:
+        return ("sip-pdml", raw_header or "", raw_body or "")
+    via = tuple(
+        (entry.get("branch"), entry.get("sent_by"), entry.get("transport"))
+        for entry in (headers.get("via_raw") or [])
+    )
+    return (
+        "sip-fields",
+        event["message_type"],
+        event["method"],
+        event["status_code"],
+        event["headers"]["cseq"]["sequence"],
+        event["headers"]["cseq"]["method"],
+        headers.get("call_id"),
+        headers.get("from_tag_raw"),
+        headers.get("to_tag_raw"),
+        via,
+        headers.get("content_type"),
+        headers.get("content_length"),
+        headers.get("body_length"),
+    )
+
+
+def _build_message_record(
+    event: dict[str, Any],
+    headers: dict[str, Any],
+    transport: dict[str, Any],
+) -> dict[str, Any]:
+    raw_via = headers.get("via_raw") or []
+    top = raw_via[0] if raw_via else {}
+    sent_by = _text(top.get("sent_by"))
+    match = {
+        "source_reference": event["source_reference"],
+        "capture": event["capture_file"],
+        "frame": event["frame_number"],
+        "occurrence": event["message_occurrence"],
+        "direction": event["message_type"],
+        "method": event["method"],
+        "status_code": event["status_code"],
+        "cseq_number": event["headers"]["cseq"]["sequence"],
+        "cseq_method": event["headers"]["cseq"]["method"],
+        "call_id": _text(headers.get("call_id")),
+        "from_tag": _text(headers.get("from_tag_raw")),
+        "to_tag": _text(headers.get("to_tag_raw")),
+        "via_branch": _text(top.get("branch")),
+        "via_sent_by": sent_by.lower() if sent_by else None,
+        "via_transport": _text(top.get("transport")),
+        "transport_protocol": transport.get("protocol"),
+        "stream_id": transport.get("stream_id"),
+        "source_address": transport.get("source_address"),
+        "source_port": transport.get("source_port"),
+        "destination_address": transport.get("destination_address"),
+        "destination_port": transport.get("destination_port"),
+        "message_completeness": event["message_completeness"],
+        "content_fingerprint": _content_fingerprint(event, headers),
+    }
+    return {"event": event, "match": match}
+
+
 def _pdml_headers(proto: ElementTree.Element) -> dict[str, Any]:
     method = _node_show(_descendant_field(proto, "sip.Method"))
     status_code = _int_text(_node_show(_descendant_field(proto, "sip.Status-Code")))
@@ -695,6 +790,7 @@ def _pdml_headers(proto: ElementTree.Element) -> dict[str, Any]:
     max_forwards = _int_text(_node_show(_descendant_field(proto, "sip.Max-Forwards")))
     body = _descendant_field(proto, "sip.msg_body")
     body_length = _int_text(body.get("size")) if body is not None else 0
+    msg_hdr = _descendant_field(proto, "sip.msg_hdr")
     headers: dict[str, Any] = {
         "method": method,
         "status_code": status_code,
@@ -709,8 +805,13 @@ def _pdml_headers(proto: ElementTree.Element) -> dict[str, Any]:
         "cseq_present": bool(cseq_nodes or cseq_sequence is not None or cseq_method is not None),
         "cseq_count": len(cseq_nodes),
         "via": _via_metadata(via_nodes),
+        "via_raw": _via_raw(via_nodes),
         "from": _tag_metadata(from_nodes, "sip.from.tag"),
         "to": _tag_metadata(to_nodes, "sip.to.tag"),
+        "from_tag_raw": _tag_raw(from_nodes, "sip.from.tag"),
+        "to_tag_raw": _tag_raw(to_nodes, "sip.to.tag"),
+        "msg_hdr_raw": msg_hdr.get("show") if msg_hdr is not None else None,
+        "msg_body_raw": body.get("value") if body is not None else None,
         "max_forwards": max_forwards,
         "content_type": content_type,
         "content_length": content_length,
@@ -736,13 +837,13 @@ def _pdml_integrity(proto: ElementTree.Element) -> list[str]:
     return findings
 
 
-def parse_pdml(text: str, capture_file: str | None = None) -> list[dict[str, Any]]:
+def parse_pdml_messages(text: str, capture_file: str | None = None) -> list[dict[str, Any]]:
     try:
         root = ElementTree.fromstring(text)
     except ElementTree.ParseError as exc:
         raise InputError(f"PDML is not valid XML: {exc}") from exc
     capture = capture_file or Path(root.get("capture_file") or "capture.pcap").name
-    events: list[dict[str, Any]] = []
+    records: list[dict[str, Any]] = []
     for packet in root.iter("packet"):
         frame = _int_text(_packet_field(packet, "frame.number"))
         sip_protos = _protos(packet, "sip")
@@ -756,24 +857,38 @@ def parse_pdml(text: str, capture_file: str | None = None) -> list[dict[str, Any
         truncated = _frame_truncated(packet)
         for occurrence, proto in enumerate(sip_protos, start=1):
             headers = _pdml_headers(proto)
-            events.append(
-                _build_event(
-                    capture=capture,
-                    frame=frame,
-                    frame_time_epoch=frame_time_epoch,
-                    frame_time_relative=frame_time_relative,
-                    occurrence=occurrence,
-                    transport=dict(transport),
-                    headers=headers,
-                    integrity_findings=_pdml_integrity(proto),
-                    capture_truncated=truncated,
-                )
+            event = _build_event(
+                capture=capture,
+                frame=frame,
+                frame_time_epoch=frame_time_epoch,
+                frame_time_relative=frame_time_relative,
+                occurrence=occurrence,
+                transport=dict(transport),
+                headers=headers,
+                integrity_findings=_pdml_integrity(proto),
+                capture_truncated=truncated,
             )
-    return _ordered(events)
+            records.append(_build_message_record(event, headers, transport))
+    return _ordered_records(records)
+
+
+def parse_pdml(text: str, capture_file: str | None = None) -> list[dict[str, Any]]:
+    return [record["event"] for record in parse_pdml_messages(text, capture_file)]
 
 
 def _ordered(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(events, key=lambda event: (event["capture_file"], event["frame_number"], event["message_occurrence"]))
+
+
+def _ordered_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        records,
+        key=lambda record: (
+            record["event"]["capture_file"],
+            record["event"]["frame_number"],
+            record["event"]["message_occurrence"],
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -907,10 +1022,11 @@ def _jsonl_headers(raw: Any) -> dict[str, Any]:
     for item in via:
         if not isinstance(item, dict):
             raise InputError("each headers.via entry must be an object")
-        _reject_unknown(item, {"branch", "transport"}, "headers.via entry")
+        _reject_unknown(item, {"branch", "transport", "sent_by"}, "headers.via entry")
         normalized_via.append(
             {
                 "branch": _text(item.get("branch")),
+                "sent_by": _text(item.get("sent_by")),
                 "transport": _text(item.get("transport")),
             }
         )
@@ -951,8 +1067,13 @@ def _jsonl_headers(raw: Any) -> dict[str, Any]:
         "cseq_present": raw.get("cseq_sequence") is not None or raw.get("cseq_method") is not None,
         "cseq_count": 1 if raw.get("cseq_sequence") is not None or raw.get("cseq_method") is not None else 0,
         "via": _via_from_values(normalized_via),
+        "via_raw": normalized_via,
         "from": _tag_from_values(from_count, from_entry.get("tag") if isinstance(from_entry, dict) else None),
         "to": _tag_from_values(to_count, to_entry.get("tag") if isinstance(to_entry, dict) else None),
+        "from_tag_raw": _text(from_entry.get("tag")) if isinstance(from_entry, dict) else None,
+        "to_tag_raw": _text(to_entry.get("tag")) if isinstance(to_entry, dict) else None,
+        "msg_hdr_raw": None,
+        "msg_body_raw": None,
         "max_forwards": raw.get("max_forwards"),
         "content_type": raw.get("content_type"),
         "content_length": raw.get("content_length"),
@@ -961,7 +1082,7 @@ def _jsonl_headers(raw: Any) -> dict[str, Any]:
     }
 
 
-def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
+def normalize_record_message(record: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(record, dict):
         raise InputError("each JSONL record must be an object")
     _reject_unknown(record, _RECORD_KEYS, "record")
@@ -989,7 +1110,7 @@ def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
     truncated = record.get("capture_truncated", False)
     if not isinstance(truncated, bool):
         raise InputError("capture_truncated must be a boolean")
-    return _build_event(
+    event = _build_event(
         capture=capture,
         frame=frame,
         frame_time_epoch=epoch,
@@ -1000,10 +1121,15 @@ def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
         integrity_findings=findings,
         capture_truncated=truncated,
     )
+    return _build_message_record(event, headers, transport)
 
 
-def records_from_jsonl(path: Path) -> list[dict[str, Any]]:
-    events: list[dict[str, Any]] = []
+def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
+    return normalize_record_message(record)["event"]
+
+
+def records_from_jsonl_messages(path: Path) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
             if not line.strip():
@@ -1014,8 +1140,12 @@ def records_from_jsonl(path: Path) -> list[dict[str, Any]]:
                 raise InputError(f"invalid JSON on line {line_number}: {exc}") from exc
             if not isinstance(record, dict):
                 raise InputError(f"line {line_number} is not a JSON object")
-            events.append(normalize_record(record))
-    return _ordered(events)
+            records.append(normalize_record_message(record))
+    return _ordered_records(records)
+
+
+def records_from_jsonl(path: Path) -> list[dict[str, Any]]:
+    return [record["event"] for record in records_from_jsonl_messages(path)]
 
 
 # ---------------------------------------------------------------------------
@@ -1078,10 +1208,13 @@ def pdml_for_capture(capture: Path, tshark_bin: str | None = None) -> str:
     return completed.stdout
 
 
-def events_for_input(path: Path, input_format: str = "auto") -> tuple[list[dict[str, Any]], str | None]:
+def messages_for_input(
+    path: Path, input_format: str = "auto"
+) -> tuple[list[dict[str, Any]], str | None]:
     if not path.is_file():
         raise InputError(f"input does not exist: {path}")
     fmt = input_format
+    decoder: str | None = None
     if fmt == "auto":
         suffix = path.suffix.lower()
         if suffix in {".pcap", ".pcapng", ".cap"}:
@@ -1095,12 +1228,25 @@ def events_for_input(path: Path, input_format: str = "auto") -> tuple[list[dict[
     if fmt == "capture":
         _validate_capture_input(path)
         decoder = tshark_version()
-        return parse_pdml(pdml_for_capture(path), path.name), decoder
-    if fmt == "pdml":
-        return parse_pdml(path.read_text(encoding="utf-8"), path.name), None
-    if fmt == "fields-jsonl":
-        return records_from_jsonl(path), None
-    raise InputError(f"unsupported input format: {fmt}")
+        records = parse_pdml_messages(pdml_for_capture(path), path.name)
+    elif fmt == "pdml":
+        records = parse_pdml_messages(path.read_text(encoding="utf-8"), path.name)
+    elif fmt == "fields-jsonl":
+        records = records_from_jsonl_messages(path)
+    else:
+        raise InputError(f"unsupported input format: {fmt}")
+    seen: set[str] = set()
+    for record in records:
+        reference = record["event"]["source_reference"]
+        if reference in seen:
+            raise InputError("duplicate source event reference in the input")
+        seen.add(reference)
+    return records, decoder
+
+
+def events_for_input(path: Path, input_format: str = "auto") -> tuple[list[dict[str, Any]], str | None]:
+    records, decoder = messages_for_input(path, input_format)
+    return [record["event"] for record in records], decoder
 
 
 # ---------------------------------------------------------------------------

@@ -36,38 +36,138 @@
     "limitations"
   ],
   "properties": {
-    "event_schema_version": {"const": "1.0.0"},
-    "protocol": {"const": "SIP"},
-    "capture_file": {"type": "string", "minLength": 1, "maxLength": 512},
-    "frame_number": {"type": "integer", "minimum": 1},
-    "frame_time_epoch": {"type": ["string", "null"], "maxLength": 64},
+    "event_schema_version": {
+      "const": "1.0.0"
+    },
+    "protocol": {
+      "const": "SIP"
+    },
+    "capture_file": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "frame_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "frame_time_epoch": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
     "frame_time_relative": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^[0-9]+\\.[0-9]{9}$"
     },
-    "timestamp": {"type": ["string", "null"], "format": "date-time"},
-    "message_occurrence": {"type": "integer", "minimum": 1},
-    "source_reference": {"type": "string", "minLength": 1, "maxLength": 640},
-    "message_type": {"type": "string", "enum": ["REQUEST", "RESPONSE", "UNKNOWN"]},
+    "timestamp": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "message_occurrence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 640
+    },
+    "transaction_reference": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sip-transaction:.+:(?:request|response):[0-9]+\\.[0-9]+$"
+    },
+    "message_type": {
+      "type": "string",
+      "enum": [
+        "REQUEST",
+        "RESPONSE",
+        "UNKNOWN"
+      ]
+    },
     "method": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^[A-Za-z0-9.!%*_+\\-]{1,32}$"
     },
     "method_scope": {
-      "type": ["string", "null"],
-      "enum": ["CORE", "EXTENSION", null]
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "CORE",
+        "EXTENSION",
+        null
+      ]
     },
-    "status_code": {"type": ["integer", "null"], "minimum": 100, "maximum": 699},
-    "status_code_valid": {"type": "boolean"},
-    "reason_phrase": {"type": ["string", "null"], "maxLength": 64},
-    "reason_phrase_present": {"type": "boolean"},
-    "reason_phrase_length": {"type": ["integer", "null"], "minimum": 0},
-    "request_uri_present": {"type": "boolean"},
-    "request_uri_length": {"type": ["integer", "null"], "minimum": 0},
-    "headers": {"$ref": "#/$defs/headers"},
-    "transport": {"$ref": "#/$defs/transport"},
-    "body_present": {"type": "boolean"},
-    "body_length": {"type": ["integer", "null"], "minimum": 0},
+    "status_code": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 100,
+      "maximum": 699
+    },
+    "status_code_valid": {
+      "type": "boolean"
+    },
+    "reason_phrase": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "reason_phrase_present": {
+      "type": "boolean"
+    },
+    "reason_phrase_length": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "request_uri_present": {
+      "type": "boolean"
+    },
+    "request_uri_length": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "headers": {
+      "$ref": "#/$defs/headers"
+    },
+    "transport": {
+      "$ref": "#/$defs/transport"
+    },
+    "body_present": {
+      "type": "boolean"
+    },
+    "body_length": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
     "integrity_findings": {
       "type": "array",
       "maxItems": 8,
@@ -94,36 +194,76 @@
     },
     "message_completeness": {
       "type": "string",
-      "enum": ["COMPLETE", "INCOMPLETE", "MALFORMED", "TRUNCATED", "UNKNOWN"]
+      "enum": [
+        "COMPLETE",
+        "INCOMPLETE",
+        "MALFORMED",
+        "TRUNCATED",
+        "UNKNOWN"
+      ]
     },
     "extraction_status": {
       "type": "string",
-      "enum": ["OBSERVED", "PARTIAL", "MALFORMED", "UNSUPPORTED"]
+      "enum": [
+        "OBSERVED",
+        "PARTIAL",
+        "MALFORMED",
+        "UNSUPPORTED"
+      ]
     },
-    "evidence_class": {"const": "OBSERVED"},
+    "evidence_class": {
+      "const": "OBSERVED"
+    },
     "limitations": {
       "type": "array",
       "maxItems": 12,
-      "items": {"type": "string", "minLength": 1, "maxLength": 300}
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
     }
   },
   "$defs": {
     "count_only": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["count"],
+      "required": [
+        "count"
+      ],
       "properties": {
-        "count": {"type": "integer", "minimum": 0, "maximum": 128}
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        }
       }
     },
     "tag": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["count", "tag_present", "tag_length"],
+      "required": [
+        "count",
+        "tag_present",
+        "tag_length"
+      ],
       "properties": {
-        "count": {"type": "integer", "minimum": 0, "maximum": 128},
-        "tag_present": {"type": "boolean"},
-        "tag_length": {"type": ["integer", "null"], "minimum": 0, "maximum": 1024}
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "tag_present": {
+          "type": "boolean"
+        },
+        "tag_length": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1024
+        }
       }
     },
     "headers": {
@@ -152,61 +292,164 @@
         "call_id": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["present", "length", "count"],
+          "required": [
+            "present",
+            "length",
+            "count"
+          ],
           "properties": {
-            "present": {"type": "boolean"},
-            "length": {"type": ["integer", "null"], "minimum": 0, "maximum": 4096},
-            "count": {"type": "integer", "minimum": 0, "maximum": 128}
+            "present": {
+              "type": "boolean"
+            },
+            "length": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 4096
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 128
+            }
           }
         },
         "cseq": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["present", "sequence", "method", "count"],
+          "required": [
+            "present",
+            "sequence",
+            "method",
+            "count"
+          ],
           "properties": {
-            "present": {"type": "boolean"},
-            "sequence": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295},
+            "present": {
+              "type": "boolean"
+            },
+            "sequence": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 4294967295
+            },
             "method": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "pattern": "^[A-Za-z0-9.!%*_+\\-]{1,32}$"
             },
-            "count": {"type": "integer", "minimum": 0, "maximum": 128}
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 128
+            }
           }
         },
         "via": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["count", "branch_present", "branch_length", "transports"],
+          "required": [
+            "count",
+            "branch_present",
+            "branch_length",
+            "transports"
+          ],
           "properties": {
-            "count": {"type": "integer", "minimum": 0, "maximum": 128},
-            "branch_present": {"type": "boolean"},
-            "branch_length": {"type": ["integer", "null"], "minimum": 0, "maximum": 1024},
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 128
+            },
+            "branch_present": {
+              "type": "boolean"
+            },
+            "branch_length": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1024
+            },
             "transports": {
               "type": "array",
               "maxItems": 4,
               "uniqueItems": true,
-              "items": {"type": "string", "enum": ["UDP", "TCP", "TLS", "SCTP", "OTHER"]}
+              "items": {
+                "type": "string",
+                "enum": [
+                  "UDP",
+                  "TCP",
+                  "TLS",
+                  "SCTP",
+                  "OTHER"
+                ]
+              }
             }
           }
         },
-        "from": {"$ref": "#/$defs/tag"},
-        "to": {"$ref": "#/$defs/tag"},
-        "max_forwards": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+        "from": {
+          "$ref": "#/$defs/tag"
+        },
+        "to": {
+          "$ref": "#/$defs/tag"
+        },
+        "max_forwards": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
         "content_type": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "pattern": "^[A-Za-z0-9!#$&^_.+\\-]+/[A-Za-z0-9!#$&^_.+\\-]+$",
           "maxLength": 64
         },
-        "content_length": {"type": ["integer", "null"], "minimum": 0},
-        "route": {"$ref": "#/$defs/count_only"},
-        "record_route": {"$ref": "#/$defs/count_only"},
-        "contact": {"$ref": "#/$defs/count_only"},
-        "authorization": {"$ref": "#/$defs/count_only"},
-        "proxy_authorization": {"$ref": "#/$defs/count_only"},
-        "www_authenticate": {"$ref": "#/$defs/count_only"},
-        "proxy_authenticate": {"$ref": "#/$defs/count_only"},
-        "p_asserted_identity": {"$ref": "#/$defs/count_only"},
-        "p_preferred_identity": {"$ref": "#/$defs/count_only"}
+        "content_length": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "route": {
+          "$ref": "#/$defs/count_only"
+        },
+        "record_route": {
+          "$ref": "#/$defs/count_only"
+        },
+        "contact": {
+          "$ref": "#/$defs/count_only"
+        },
+        "authorization": {
+          "$ref": "#/$defs/count_only"
+        },
+        "proxy_authorization": {
+          "$ref": "#/$defs/count_only"
+        },
+        "www_authenticate": {
+          "$ref": "#/$defs/count_only"
+        },
+        "proxy_authenticate": {
+          "$ref": "#/$defs/count_only"
+        },
+        "p_asserted_identity": {
+          "$ref": "#/$defs/count_only"
+        },
+        "p_preferred_identity": {
+          "$ref": "#/$defs/count_only"
+        }
       }
     },
     "transport": {
@@ -225,19 +468,80 @@
         "encrypted"
       ],
       "properties": {
-        "protocol": {"type": "string", "enum": ["UDP", "TCP", "TLS", "OTHER", "UNKNOWN"]},
-        "source_address": {"type": ["string", "null"], "maxLength": 64},
-        "source_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
-        "destination_address": {"type": ["string", "null"], "maxLength": 64},
-        "destination_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
-        "stream_id": {"type": ["integer", "null"], "minimum": 0},
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "UDP",
+            "TCP",
+            "TLS",
+            "OTHER",
+            "UNKNOWN"
+          ]
+        },
+        "source_address": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "source_port": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "destination_address": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "destination_port": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "stream_id": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
         "reassembly": {
           "type": "string",
-          "enum": ["NOT_APPLICABLE", "SINGLE_SEGMENT", "REASSEMBLED", "INCOMPLETE", "UNKNOWN"]
+          "enum": [
+            "NOT_APPLICABLE",
+            "SINGLE_SEGMENT",
+            "REASSEMBLED",
+            "INCOMPLETE",
+            "UNKNOWN"
+          ]
         },
-        "reassembled_length": {"type": ["integer", "null"], "minimum": 0},
-        "segment_count": {"type": ["integer", "null"], "minimum": 0},
-        "encrypted": {"const": false}
+        "reassembled_length": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "segment_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "encrypted": {
+          "const": false
+        }
       }
     }
   }

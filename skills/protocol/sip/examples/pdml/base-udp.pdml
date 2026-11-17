@@ -24,6 +24,8 @@
     <field name="sip.msg_hdr">
       <field name="sip.Via" show="SIP/2.0/UDP 192.0.2.10:5060;branch=z9hG4bK-secretbranch">
         <field name="sip.Via.transport" show="UDP"/>
+        <field name="sip.Via.sent-by.address" show="192.0.2.10"/>
+        <field name="sip.Via.sent-by.port" show="5060"/>
         <field name="sip.Via.branch" show="z9hG4bK-secretbranch"/>
       </field>
       <field name="sip.Max-Forwards" show="70"/>
@@ -74,6 +76,8 @@
     <field name="sip.msg_hdr">
       <field name="sip.Via" show="SIP/2.0/UDP 192.0.2.10:5060;branch=z9hG4bK-secretbranch">
         <field name="sip.Via.transport" show="UDP"/>
+        <field name="sip.Via.sent-by.address" show="192.0.2.10"/>
+        <field name="sip.Via.sent-by.port" show="5060"/>
         <field name="sip.Via.branch" show="z9hG4bK-secretbranch"/>
       </field>
       <field name="sip.From" show="&lt;sip:secretuser@ims.example&gt;;tag=fromtagsecret">

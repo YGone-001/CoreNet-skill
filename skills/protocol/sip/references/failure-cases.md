@@ -53,6 +53,24 @@ silently discarded and it is not promoted to a failure.
   message; missing earlier segments are a capture limitation, not a fabricated
   event.
 
+## Transaction correlation failures
+
+Transaction correlation is protocol-local and deterministic. The following are
+explicitly not failures:
+
+- a request without a response (`REQUEST_ONLY` / `OPEN_IN_CAPTURE`);
+- a response without a request (`RESPONSE_ONLY`);
+- multiple candidate requests (`AMBIGUOUS`);
+- missing CSeq, Call-ID, branch or sent-by (`INCOMPLETE_EVIDENCE`);
+- multiple final responses or To-tags (preserved, no selected final response).
+
+A transaction-document structural violation is an output failure (exit code 6):
+duplicate transaction references, duplicate source references in a transaction,
+invalid transaction/source reference syntax, a selected final response not in the
+final response list, an absent associated or candidate transaction, or an event
+reference missing from transaction coverage. The CLI validates the document before
+publication and never writes a partially valid transaction file.
+
 ## Output safety
 
 Output is written through a temporary file and atomically renamed. A successful

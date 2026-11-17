@@ -31,6 +31,8 @@
     <field name="sip.msg_hdr">
       <field name="sip.Via" show="SIP/2.0/TCP 192.0.2.10:5060;branch=z9hG4bK-tcpbranch">
         <field name="sip.Via.transport" show="TCP"/>
+        <field name="sip.Via.sent-by.address" show="192.0.2.10"/>
+        <field name="sip.Via.sent-by.port" show="5060"/>
         <field name="sip.Via.branch" show="z9hG4bK-tcpbranch"/>
       </field>
       <field name="sip.Max-Forwards" show="70"/>

@@ -62,6 +62,18 @@ index and decoder-delivered reassembly status. For TCP, reassembly status is
 The event belongs to the frame where the decoder delivers the SIP message. Earlier
 segment frames are not synthesised as SIP observations.
 
+## Transaction layer
+
+The Protocol Skill also correlates observed messages into RFC 3261 transaction
+evidence. Transaction identity is top Via branch + top Via sent-by + request
+method; CSeq method/number, Call-ID and From tag are consistency evidence.
+Call-ID alone is never a transaction identity. The transaction model is defined in
+`references/transactions.md`.
+
+Transaction correlation is not SIP dialog correlation. It does not select a
+forked dialog, associate a 2xx ACK with a dialog or infer a timeout from an absent
+response.
+
 ## Non-goals
 
 Transaction matching, dialog identity, registration state, authentication state,

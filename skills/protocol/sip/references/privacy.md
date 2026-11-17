@@ -36,6 +36,18 @@ A reviewed standard reason phrase and a safe base media type may be published
 because they are protocol vocabulary, not subscriber data. An arbitrary reason
 phrase, a non-standard media type, or a media type with parameters is withheld.
 
+## Transaction correlation boundary
+
+The transaction correlator temporarily inspects top Via branch, sent-by, Call-ID,
+From/To tags and CSeq values in memory to perform RFC 3261 matching. These values
+are not written to a temporary JSON file, are not included in the transaction
+document and are not copied into error messages. Transaction references are
+derived only from source event references and contain no header value.
+
+A transaction document may state that matching occurred and which reviewed fields
+agreed, but never the values themselves. ACK, CANCEL, response-branch and
+retransmission classifications are evidence associations, not IMS outcomes.
+
 ## Error and log boundary
 
 Input errors name the offending field or line number, never the value. Decoder

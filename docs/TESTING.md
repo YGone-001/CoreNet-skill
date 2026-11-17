@@ -8,6 +8,8 @@ Future executable or rule-driven Skills must ship focused fixtures and tests, in
 
 The `sip` Protocol Skill validates three deterministic fixture families: stored PDML dissections, sanitized dissector-record JSONL and committed expected events. Its tests cover all reviewed request methods and response classes, UDP/TCP, IPv4/IPv6, decoder-delivered TCP reassembly metadata, same-frame message occurrences, malformed/truncated/incomplete classification, privacy redaction and CLI failure codes. Tests that require a live decoder use synthetic captures and skip cleanly when TShark or text2pcap is unavailable; no binary capture is tracked.
 
+The SIP transaction tests cover RFC 3261 transaction identity, response matching, INVITE provisional/final branches, CANCEL and ACK roles, UDP retransmissions, TCP repeated observations, out-of-order and partial captures, ambiguity, missing evidence, privacy redaction, strict transaction schema validation and deterministic output. Raw matching values are consumed only in memory; committed fixtures and expected transaction documents contain no subscriber identity or credential.
+
 ## Golden Capture Differential Benchmark
 
 The repository includes an empirical differential validation framework located in `benchmarks/golden-captures/`. This infrastructure exists outside the Skill architecture layers and evaluates automated Skill pipeline outputs against independent, standards-based packet baselines across public 5GC captures.

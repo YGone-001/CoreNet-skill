@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/sip-transactions.schema.json",
+  "title": "Bounded SIP Transaction Evidence",
+  "description": "Protocol-local SIP transaction correlation results. Raw Call-ID, Via branch, dialog tags, URIs and credentials are never published; only opaque source-derived transaction references and explicit matching evidence are retained.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_name",
+    "analysis_version",
+    "protocol",
+    "capture_files",
+    "transaction_count",
+    "summary",
+    "transactions",
+    "limitations",
+    "not_confirmed"
+  ],
+  "properties": {
+    "analysis_name": {"const": "sip-transactions"},
+    "analysis_version": {"const": "1.0.0"},
+    "protocol": {"const": "SIP"},
+    "capture_files": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 512}
+    },
+    "transaction_count": {"type": "integer", "minimum": 0},
+    "summary": {"$ref": "#/$defs/summary"},
+    "transactions": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {"$ref": "#/$defs/transaction"}
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {"type": "string", "minLength": 1, "maxLength": 320}
+    },
+    "not_confirmed": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 64}
+    }
+  },
+  "$defs": {
+    "event_reference": {
+      "type": "string",
+      "pattern": "^sip-event:.+:[0-9]+\\.[0-9]+$"
+    },
+    "transaction_reference": {
+      "type": "string",
+      "pattern": "^sip-transaction:.+:(?:request|response):[0-9]+\\.[0-9]+$"
+    },
+    "reference_list": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/event_reference"}
+    },
+    "transaction_reference_list": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/transaction_reference"}
+    },
+    "message_classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_reference", "role", "classification"],
+      "properties": {
+        "event_reference": {"$ref": "#/$defs/event_reference"},
+        "role": {"type": "string", "enum": ["REQUEST", "RESPONSE", "CONTROL"]},
+        "classification": {
+          "type": "string",
+          "enum": [
+            "ORIGINAL",
+            "ORIGINAL_RESPONSE",
+            "EXACT_RETRANSMISSION",
+            "RESPONSE_RETRANSMISSION",
+            "REPEATED_OBSERVATION",
+            "REPEATED_TCP_OBSERVATION",
+            "DISTINCT_RESPONSE_BRANCH",
+            "CONFLICTING_REQUEST",
+            "ASSOCIATED_CONTROL"
+          ]
+        }
+      }
+    },
+    "transaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transaction_reference",
+        "transaction_type",
+        "transaction_method",
+        "transaction_state",
+        "matching_status",
+        "matching_basis",
+        "transaction_identity_available",
+        "request_event_references",
+        "response_event_references",
+        "provisional_response_event_references",
+        "final_response_event_references",
+        "associated_control_event_references",
+        "associated_transaction_reference",
+        "associated_transaction_references",
+        "candidate_transaction_references",
+        "retransmission_count",
+        "retransmission_event_references",
+        "repeated_observation_event_references",
+        "conflicting_request_event_references",
+        "message_classifications",
+        "first_observed_frame",
+        "last_observed_frame",
+        "request_frame",
+        "response_frame",
+        "provisional_response_count",
+        "final_response_count",
+        "distinct_final_response_count",
+        "response_branch_count",
+        "final_response_status_codes",
+        "selected_final_response_reference",
+        "capture_completeness",
+        "missing_evidence",
+        "conflict_findings",
+        "termination_basis",
+        "limitations",
+        "not_confirmed",
+        "evidence_class"
+      ],
+      "properties": {
+        "transaction_reference": {"$ref": "#/$defs/transaction_reference"},
+        "transaction_type": {
+          "type": "string",
+          "enum": [
+            "INVITE",
+            "NON_INVITE",
+            "CANCEL",
+            "ACK_2XX",
+            "ACK_ORPHAN",
+            "ACK_AMBIGUOUS",
+            "RESPONSE_ONLY",
+            "AMBIGUOUS",
+            "UNKNOWN"
+          ]
+        },
+        "transaction_method": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9.!%*_+\\-]{1,32}$"
+        },
+        "transaction_state": {
+          "type": "string",
+          "enum": [
+            "TRYING",
+            "PROCEEDING",
+            "COMPLETED",
+            "CONFIRMED",
+            "TERMINATED",
+            "OPEN_IN_CAPTURE",
+            "RESPONSE_ONLY",
+            "REQUEST_ONLY",
+            "AMBIGUOUS",
+            "INCOMPLETE_EVIDENCE"
+          ]
+        },
+        "matching_status": {
+          "type": "string",
+          "enum": ["MATCHED", "PARTIALLY_MATCHED", "REQUEST_ONLY", "RESPONSE_ONLY", "AMBIGUOUS", "NOT_ESTABLISHED"]
+        },
+        "matching_basis": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 64}
+        },
+        "transaction_identity_available": {"type": "boolean"},
+        "request_event_references": {"$ref": "#/$defs/reference_list"},
+        "response_event_references": {"$ref": "#/$defs/reference_list"},
+        "provisional_response_event_references": {"$ref": "#/$defs/reference_list"},
+        "final_response_event_references": {"$ref": "#/$defs/reference_list"},
+        "associated_control_event_references": {"$ref": "#/$defs/reference_list"},
+        "associated_transaction_reference": {
+          "anyOf": [{"$ref": "#/$defs/transaction_reference"}, {"type": "null"}]
+        },
+        "associated_transaction_references": {"$ref": "#/$defs/transaction_reference_list"},
+        "candidate_transaction_references": {"$ref": "#/$defs/transaction_reference_list"},
+        "retransmission_count": {"type": "integer", "minimum": 0},
+        "retransmission_event_references": {"$ref": "#/$defs/reference_list"},
+        "repeated_observation_event_references": {"$ref": "#/$defs/reference_list"},
+        "conflicting_request_event_references": {"$ref": "#/$defs/reference_list"},
+        "message_classifications": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {"$ref": "#/$defs/message_classification"}
+        },
+        "first_observed_frame": {"type": "integer", "minimum": 1},
+        "last_observed_frame": {"type": "integer", "minimum": 1},
+        "request_frame": {"type": ["integer", "null"], "minimum": 1},
+        "response_frame": {"type": ["integer", "null"], "minimum": 1},
+        "provisional_response_count": {"type": "integer", "minimum": 0},
+        "final_response_count": {"type": "integer", "minimum": 0},
+        "distinct_final_response_count": {"type": "integer", "minimum": 0},
+        "response_branch_count": {"type": "integer", "minimum": 0},
+        "final_response_status_codes": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"type": "integer", "minimum": 100, "maximum": 699}
+        },
+        "selected_final_response_reference": {
+          "anyOf": [{"$ref": "#/$defs/event_reference"}, {"type": "null"}]
+        },
+        "capture_completeness": {
+          "type": "string",
+          "enum": ["COMPLETE", "PARTIAL", "TRUNCATED", "UNKNOWN"]
+        },
+        "missing_evidence": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "REQUEST_NOT_OBSERVED",
+              "FINAL_RESPONSE_NOT_OBSERVED",
+              "ACK_NOT_OBSERVED",
+              "CANCEL_RESPONSE_NOT_OBSERVED",
+              "INVITE_TRANSACTION_NOT_OBSERVED",
+              "VIA_BRANCH_NOT_OBSERVED",
+              "VIA_SENT_BY_NOT_OBSERVED",
+              "CSEQ_NOT_OBSERVED",
+              "CALL_ID_NOT_OBSERVED",
+              "FROM_TAG_NOT_OBSERVED",
+              "CAPTURE_TRUNCATED",
+              "CONSISTENT_REQUEST_IDENTITY",
+              "SINGLE_REQUEST_TRANSACTION",
+              "SINGLE_FINAL_RESPONSE_NOT_ESTABLISHED",
+              "DIALOG_ASSOCIATION_UNAVAILABLE"
+            ]
+          }
+        },
+        "conflict_findings": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "CSEQ_MISMATCH",
+              "CSEQ_METHOD_MISMATCH",
+              "CALL_ID_MISMATCH",
+              "FROM_TAG_MISMATCH",
+              "METHOD_MISMATCH",
+              "MESSAGE_CONTENT_MISMATCH"
+            ]
+          }
+        },
+        "termination_basis": {
+          "type": ["string", "null"],
+          "enum": ["INVITE_487_AND_CANCEL_200", null]
+        },
+        "limitations": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"type": "string", "minLength": 1, "maxLength": 320}
+        },
+        "not_confirmed": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 64}
+        },
+        "evidence_class": {"const": "DERIVED"}
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transaction_type_counts",
+        "transaction_state_counts",
+        "matching_status_counts",
+        "retransmission_event_count"
+      ],
+      "properties": {
+        "transaction_type_counts": {"$ref": "#/$defs/counts"},
+        "transaction_state_counts": {"$ref": "#/$defs/counts"},
+        "matching_status_counts": {"$ref": "#/$defs/counts"},
+        "retransmission_event_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "counts": {
+      "type": "object",
+      "maxProperties": 16,
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    }
+  }
+}

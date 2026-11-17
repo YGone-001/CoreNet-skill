@@ -482,9 +482,10 @@ JSON report and the text report use the same counts.
 
 IMS appears in the capability contract with `implementation_status: UNSUPPORTED`, no
 domain entry point and an explicit reason. The bounded `sip` Protocol Skill now
-extracts plaintext SIP requests and responses, but SIP extraction alone does not
-implement the IMS Domain: no registration state machine, transaction or dialog
-correlation, SDP/RTP semantics or IMS procedure analysis exists. EPC is implemented
+extracts plaintext SIP requests and responses and correlates them at the RFC 3261
+transaction layer, but SIP message and transaction evidence does not implement the
+IMS Domain: no registration state machine, SIP dialog correlation, SDP/RTP semantics
+or IMS procedure analysis exists. EPC is implemented
 for the bounded EPS Attach path described in section 10, and its unimplemented scope
 is declared through `not_implemented_capabilities`.
 

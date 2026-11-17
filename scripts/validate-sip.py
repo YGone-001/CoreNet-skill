@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import py_compile
 import subprocess
@@ -17,10 +18,12 @@ EXAMPLES = SKILL / "examples"
 EXPECTED = EXAMPLES / "expected"
 CLI = SCRIPTS / "extract-sip.py"
 SCHEMA = SKILL / "schemas" / "sip-events.schema.json"
+TRANSACTION_SCHEMA = SKILL / "schemas" / "sip-transactions.schema.json"
 TRACE_SCHEMA = SKILL / "schemas" / "trace-event.schema.json"
 
 sys.path.insert(0, str(SCRIPTS))
 import sip_model  # noqa: E402
+import sip_transactions  # noqa: E402
 
 REQUIRED = (
     "SKILL.md",
@@ -30,9 +33,12 @@ REQUIRED = (
     "references/field-reference.md",
     "references/privacy.md",
     "references/failure-cases.md",
+    "references/transactions.md",
     "scripts/sip_model.py",
+    "scripts/sip_transactions.py",
     "scripts/extract-sip.py",
     "schemas/sip-events.schema.json",
+    "schemas/sip-transactions.schema.json",
     "schemas/trace-event.schema.json",
     "filters/wireshark.txt",
     "tests/test_sip.py",
@@ -46,6 +52,7 @@ REQUIRED = (
     "examples/dissector/transport-cases.jsonl",
     "examples/dissector/negative-cases.jsonl",
     "examples/dissector/privacy-cases.jsonl",
+    "examples/dissector/transaction-cases.jsonl",
     "examples/expected/base-udp-events.jsonl",
     "examples/expected/base-udp-trace.jsonl",
     "examples/expected/tcp-reassembled-events.jsonl",
@@ -56,6 +63,8 @@ REQUIRED = (
     "examples/expected/transport-cases-events.jsonl",
     "examples/expected/negative-cases-events.jsonl",
     "examples/expected/privacy-cases-events.jsonl",
+    "examples/expected/transaction-cases-events.jsonl",
+    "examples/expected/transaction-cases-transactions.json",
 )
 
 GOLDEN_CASES = (
@@ -119,6 +128,16 @@ REQUIRED_TEST_TOKENS = (
     "test_no_identity_or_uri_in_base_events",
     "test_no_message_body_or_sdp",
     "test_expected_events_validate",
+    "test_cancel_matching_invite",
+    "test_ack_for_non_2xx_invite",
+    "test_ack_for_2xx_invite_is_independent",
+    "test_udp_invite_retransmission",
+    "test_udp_response_retransmission",
+    "test_repeated_tcp_message_is_not_sip_retransmission",
+    "test_ambiguous_matching_remains_unresolved",
+    "test_transaction_schema_validation",
+    "test_invalid_transaction_reference_is_rejected",
+    "test_duplicate_source_reference_is_rejected",
 )
 
 
@@ -192,6 +211,26 @@ def main() -> int:
     if schema["$defs"]["transport"]["properties"].get("encrypted", {}).get("const") is not False:
         errors.append("event schema must forbid encrypted plaintext SIP events")
 
+
+    transaction_schema = load_json(TRANSACTION_SCHEMA)
+    if transaction_schema.get("additionalProperties") is not False:
+        errors.append("transaction schema must set additionalProperties: false")
+    for required in (
+        "analysis_name",
+        "analysis_version",
+        "protocol",
+        "capture_files",
+        "transaction_count",
+        "summary",
+        "transactions",
+        "limitations",
+        "not_confirmed",
+    ):
+        if required not in transaction_schema.get("required", []):
+            errors.append(f"transaction schema is missing required property: {required}")
+    if "transaction_reference" not in schema.get("properties", {}):
+        errors.append("event schema does not expose an optional transaction_reference")
+
     if load_json(TRACE_SCHEMA) != load_json(ROOT / "shared" / "schemas" / "trace-event.schema.json"):
         errors.append("trace-event schema diverges from the shared schema")
 
@@ -200,7 +239,10 @@ def main() -> int:
         if token not in manifest:
             errors.append(f"manifest missing {token}")
 
-    test_source = (SKILL / "tests" / "test_sip.py").read_text(encoding="utf-8")
+    test_source = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted((SKILL / "tests").glob("test_*.py"))
+    )
     for token in REQUIRED_TEST_TOKENS:
         if token not in test_source:
             errors.append(f"test suite is missing required coverage: {token}")
@@ -238,6 +280,127 @@ def main() -> int:
                     errors.append(f"{expected_name} row {index}: source reference does not match its frame provenance")
                 if row["frame_number"] < 1:
                     errors.append(f"{expected_name} row {index}: fabricated frame number")
+
+
+    with tempfile.TemporaryDirectory() as temporary:
+        directory = Path(temporary)
+        transaction_events = directory / "transaction-events.jsonl"
+        transaction_output = directory / "transaction-output.json"
+        completed = run(
+            [
+                sys.executable,
+                str(CLI),
+                str(EXAMPLES / "dissector" / "transaction-cases.jsonl"),
+                "--output",
+                str(transaction_events),
+                "--transaction-output",
+                str(transaction_output),
+                "--force",
+            ]
+        )
+        if completed.returncode != 0:
+            errors.append(f"transaction correlation failed: {completed.stderr.strip()}")
+        else:
+            if transaction_events.read_bytes() != (EXPECTED / "transaction-cases-events.jsonl").read_bytes():
+                errors.append("transaction event output differs from the committed expectation")
+            if transaction_output.read_bytes() != (EXPECTED / "transaction-cases-transactions.json").read_bytes():
+                errors.append("transaction output differs from the committed expectation")
+            document = load_json(transaction_output)
+            try:
+                jsonschema.validate(document, transaction_schema)
+            except jsonschema.ValidationError as exc:
+                errors.append(f"transaction schema validation failed: {exc.message}")
+            try:
+                sip_transactions.validate_transaction_document(document)
+            except sip_transactions.TransactionError as exc:
+                errors.append(f"transaction document validation failed: {exc}")
+            rows = load_jsonl(transaction_events)
+            for row in rows:
+                reference = row.get("transaction_reference")
+                if not isinstance(reference, str) or not sip_transactions.TRANSACTION_REFERENCE_PATTERN.fullmatch(reference):
+                    errors.append("a transaction-mode SIP event lacks a valid transaction reference")
+                    break
+                try:
+                    jsonschema.validate(row, schema)
+                except jsonschema.ValidationError as exc:
+                    errors.append(f"transaction-mode event schema validation failed: {exc.message}")
+                    break
+            transaction_text = transaction_output.read_text(encoding="utf-8")
+            for secret in PRIVACY_SECRETS:
+                if secret in transaction_text:
+                    errors.append(f"transaction output leaked a sensitive value: {secret}")
+            for raw_key in ('"call_id"', '"via_branch"', '"from_tag"', '"to_tag"', '"request_uri"', '"authorization"'):
+                if raw_key in transaction_text:
+                    errors.append(f"transaction output publishes a raw matching field: {raw_key}")
+
+            tampered = copy.deepcopy(document)
+            tampered["transactions"][0]["transaction_reference"] = "invalid"
+            try:
+                sip_transactions.validate_transaction_document(tampered)
+            except sip_transactions.TransactionError:
+                pass
+            else:
+                errors.append("invalid transaction reference was not rejected")
+
+            duplicated = copy.deepcopy(document)
+            duplicated["transactions"][0]["request_event_references"].append(
+                duplicated["transactions"][0]["request_event_references"][0]
+            )
+            try:
+                sip_transactions.validate_transaction_document(duplicated)
+            except sip_transactions.TransactionError:
+                pass
+            else:
+                errors.append("duplicate source reference was not rejected")
+
+            second_output = directory / "second-transactions.json"
+            second_events = directory / "second-events.jsonl"
+            rerun = run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    str(EXAMPLES / "dissector" / "transaction-cases.jsonl"),
+                    "--output",
+                    str(second_events),
+                    "--transaction-output",
+                    str(second_output),
+                    "--force",
+                ]
+            )
+            if rerun.returncode != 0:
+                errors.append(f"transaction deterministic rerun failed: {rerun.stderr.strip()}")
+            elif (
+                second_output.read_bytes() != transaction_output.read_bytes()
+                or second_events.read_bytes() != transaction_events.read_bytes()
+            ):
+                errors.append("transaction correlation is not deterministic")
+
+            transaction_only = directory / "transaction-only.json"
+            only = run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    str(EXAMPLES / "dissector" / "transaction-cases.jsonl"),
+                    "--transaction-output",
+                    str(transaction_only),
+                ]
+            )
+            if only.returncode != 0:
+                errors.append(f"transaction-only output failed: {only.stderr.strip()}")
+
+            missing = run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    str(EXAMPLES / "dissector" / "transaction-cases.jsonl"),
+                    "--transaction-output",
+                    str(directory / "absent" / "transactions.json"),
+                ]
+            )
+            if missing.returncode != 6:
+                errors.append(
+                    f"missing transaction output directory did not return exit code 6: {missing.returncode}"
+                )
 
     with tempfile.TemporaryDirectory() as temporary:
         directory = Path(temporary)

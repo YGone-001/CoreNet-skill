@@ -5,16 +5,19 @@ stored PDML dissections or sanitized dissector records.
 
 The extractor publishes SIP requests and responses with source-frame provenance,
 transport metadata, reviewed header facts and explicit completeness
-classifications. It does not correlate transactions or dialogs and does not assign
-IMS registration or call semantics.
+classifications. It correlates requests and responses at the RFC 3261 transaction
+layer, classifies retransmissions and publishes transaction-state evidence. It does
+not correlate SIP dialogs and does not assign IMS registration, authentication or
+call semantics.
 
 ```bash
 python3 skills/protocol/sip/scripts/extract-sip.py \
   skills/protocol/sip/examples/pdml/base-udp.pdml \
   --output /tmp/sip-events.jsonl \
+  --transaction-output /tmp/sip-transactions.json \
   --trace-output /tmp/sip-trace.jsonl \
   --force
 ```
 
-See `SKILL.md`, `references/field-reference.md`, `references/privacy.md` and
-`references/failure-cases.md`.
+See `SKILL.md`, `references/field-reference.md`, `references/transactions.md`,
+`references/privacy.md` and `references/failure-cases.md`.

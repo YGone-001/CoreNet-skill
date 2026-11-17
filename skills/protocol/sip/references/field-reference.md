@@ -89,9 +89,17 @@ Transport fields: `protocol` (`UDP` or `TCP`), endpoints, optional `stream_id`,
 declare `UDP` or `TCP`; `TLS` and other transports are rejected as invalid input.
 
 Header fields: `method`, `status_code`, `reason_phrase`, `request_uri`, `call_id`,
-`cseq_sequence`, `cseq_method`, `via` (array of `{branch, transport}`), `from` and
-`to` (objects with `count`, `tag`), `max_forwards`, `content_type`,
+`cseq_sequence`, `cseq_method`, `via` (array of `{branch, sent_by, transport}`),
+`from` and `to` (objects with `count`, `tag`), `max_forwards`, `content_type`,
 `content_length`, `body_length`, and the reviewed `*_count` occurrence fields.
+`via.sent_by` is the top Via sent-by value (`host:port` or `host`); it is mandatory
+for full transaction matching. Raw `branch`, `sent_by`, `call_id`, tags and URIs are
+consumed in memory and never published.
+
+The optional transaction output is defined by `schemas/sip-transactions.schema.json`
+and `references/transactions.md`. It contains opaque transaction references, state,
+matching basis, response-branch and retransmission classifications, capture
+completeness and missing evidence.
 
 Raw values supplied for identity, URI, tag, Call-ID, credential or body fields are
 consumed only to compute presence and length. They are never copied to the output.

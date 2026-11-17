@@ -3,10 +3,12 @@
 ## Purpose
 
 Answer WHAT SIP requests and responses, and which reviewed SIP header facts, were
-observed in a capture. This is a Protocol-layer Skill for SIP message extraction
-over UDP and TCP. It preserves source provenance and publishes privacy-safe
-presence and length metadata instead of subscriber identities, URIs, dialog tags,
-Call-ID values, credentials or message bodies.
+observed in a capture, and WHICH observed requests and responses belong to the same
+protocol-local SIP transaction. This is a Protocol-layer Skill for SIP message
+extraction and transaction correlation over UDP and TCP. It preserves source
+provenance and publishes privacy-safe presence and length metadata instead of
+subscriber identities, URIs, dialog tags, Call-ID values, credentials or message
+bodies.
 
 ## Scope
 
@@ -21,13 +23,21 @@ Call-ID values, credentials or message bodies.
   header occurrence counts.
 - Preserve message completeness, dissector findings, truncation and missing
   mandatory evidence as explicit classifications.
+- Correlate requests and responses using RFC 3261 transaction identity: top Via
+  branch, top Via sent-by and request method, with CSeq, Call-ID and From tag as
+  consistency evidence. Call-ID alone is never a transaction identity.
+- Publish transaction state, matching status, matching basis, response branches,
+  retransmission classification, capture completeness and explicit missing evidence.
+- Handle CANCEL, non-2xx ACK and 2xx ACK according to separate transaction roles.
 - Publish one sanitized JSONL event per observed SIP message, plus an optional
-  shared trace-event projection.
+  transaction JSON document and an optional shared trace-event projection.
 
 ## Non-Goals
 
-- No SIP transaction correlation and no dialog correlation.
+- No SIP dialog correlation, dialog identity, 2xx ACK dialog association or
+  forked-dialog selection.
 - No IMS registration, authentication, call, session, SDP or RTP semantics.
+- No timer configuration or timeout inference from an unobserved response.
 - No inferred transaction success from a status code.
 - No plaintext extraction from TLS or other encrypted transports.
 - No custom TCP/IP reassembly; the decoder-delivered SIP message is the observation
@@ -47,6 +57,7 @@ Call-ID values, credentials or message bodies.
 ## Outputs
 
 - SIP event JSONL (`schemas/sip-events.schema.json`).
+- Optional SIP transaction JSON (`schemas/sip-transactions.schema.json`).
 - Optional shared trace-event JSONL projection (`schemas/trace-event.schema.json`).
 
 ## Evidence semantics
@@ -56,6 +67,24 @@ reviewed dissector record. A message is `COMPLETE`, `INCOMPLETE`, `MALFORMED` or
 `TRUNCATED` according to explicit start-line, CSeq, Call-ID, decoder-finding and
 capture-truncation evidence. An unknown extension method is retained with
 `method_scope: EXTENSION`; no IMS procedure meaning is attached.
+
+Transaction state and matching status are `DERIVED` from observed message identity
+and source event references. They do not restate a network verdict. An unobserved
+response is capture incompleteness, not a timeout. A 200 OK to CANCEL acknowledges
+CANCEL only; the INVITE outcome requires the corresponding INVITE response.
+
+## Transaction correlation
+
+The correlation model follows RFC 3261 Section 17 transaction identity. A response
+matches only a request transaction with the same capture, top Via branch, top Via
+sent-by and CSeq method, and a consistent CSeq number, Call-ID and From tag. Multiple
+candidates remain `AMBIGUOUS`; conflicting evidence remains `NOT_ESTABLISHED`;
+missing requests or responses remain explicitly unresolved.
+
+CANCEL is its own transaction and is associated with an INVITE only through matching
+branch, sent-by, CSeq number, Call-ID and From tag. A non-2xx ACK is associated control
+evidence of its INVITE transaction. A 2xx ACK is an independent request transaction and
+is never merged into the INVITE transaction. See `references/transactions.md`.
 
 ## Privacy
 
@@ -88,6 +117,7 @@ decoder's reassembled segment group; the Skill does not reassemble streams itsel
 python3 skills/protocol/sip/scripts/extract-sip.py \
   skills/protocol/sip/examples/pdml/base-udp.pdml \
   --output /tmp/sip-events.jsonl \
+  --transaction-output /tmp/sip-transactions.json \
   --trace-output /tmp/sip-trace.jsonl \
   --force
 
@@ -108,4 +138,5 @@ python3 scripts/validate-sip.py
   multiple SIP protocol instances.
 - A TCP observation belongs to the frame where the decoder delivers the reassembled
   message; earlier segment frames are not synthesised as SIP events.
-- Transaction and dialog correlation belong to later Correlation and Domain layers.
+- SIP transaction correlation is protocol-local; SIP dialog correlation and IMS
+  procedure analysis remain outside this Skill.
