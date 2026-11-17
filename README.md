@@ -70,7 +70,12 @@ extracts Diameter base-protocol header, AVP, base result and vendor
 experimental-result evidence from TCP/SCTP captures, with decoder-proven grouped
 AVP structure, privacy-safe sensitive-AVP redaction and protocol-local
 Request/Answer correlation; it does not implement S6a, Gx, Rx, Cx, IMS or any
-application procedure verdict. The bounded `s1ap` S1-MME Protocol Skill, the bounded
+application procedure verdict. The bounded `sip` Protocol Skill extracts SIP
+requests and responses over UDP and TCP, including IPv4/IPv6 and
+decoder-delivered TCP reassembly metadata, with reviewed header presence/length,
+explicit completeness and truncation classification, and privacy-safe redaction of
+identities, URIs, tags, credentials and bodies; it does not correlate transactions
+or dialogs and assigns no IMS procedure verdict. The bounded `s1ap` S1-MME Protocol Skill, the bounded
 `nas-eps` EPS NAS Protocol Skill and the bounded `gtpv2` GTPv2-C session-control
 Protocol Skill extract EPC access-signaling, NAS message and session-control
 evidence from LTE captures, and the bounded `epc-procedures` Domain Skill analyzes
@@ -87,7 +92,7 @@ NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
 relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
 semantics), remaining
-5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (SIP, SDP/RTP, Diameter IMS and charging), IMS Domain procedures,
+5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (SDP/RTP, Diameter IMS and charging), IMS Domain procedures,
 broader EPC procedures (bearer and session lifecycle, Diameter EPC, cross-interface session association, end-to-end EPC diagnosis),
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper
 diagnosis orchestration.

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pdml version="0" capture_file="synthetic-base.pcapng">
+<packet>
+  <proto name="frame">
+    <field name="frame.number" show="1"/>
+    <field name="frame.time_epoch" show="1700000000.000001000"/>
+    <field name="frame.time_relative" show="0.000000000"/>
+    <field name="frame.len" show="640"/>
+    <field name="frame.cap_len" show="640"/>
+  </proto>
+  <proto name="ip">
+    <field name="ip.src" show="192.0.2.10"/>
+    <field name="ip.dst" show="192.0.2.20"/>
+  </proto>
+  <proto name="udp">
+    <field name="udp.srcport" show="5060"/>
+    <field name="udp.dstport" show="5060"/>
+  </proto>
+  <proto name="sip">
+    <field name="sip.Request-Line" show="REGISTER sip:secretuser@ims.example SIP/2.0">
+      <field name="sip.Method" show="REGISTER"/>
+      <field name="sip.r-uri" show="sip:secretuser@ims.example"/>
+    </field>
+    <field name="sip.msg_hdr">
+      <field name="sip.Via" show="SIP/2.0/UDP 192.0.2.10:5060;branch=z9hG4bK-secretbranch">
+        <field name="sip.Via.transport" show="UDP"/>
+        <field name="sip.Via.branch" show="z9hG4bK-secretbranch"/>
+      </field>
+      <field name="sip.Max-Forwards" show="70"/>
+      <field name="sip.From" show="&lt;sip:secretuser@ims.example&gt;;tag=fromtagsecret">
+        <field name="sip.from.tag" show="fromtagsecret"/>
+      </field>
+      <field name="sip.To" show="&lt;sip:secretuser@ims.example&gt;"/>
+      <field name="sip.Call-ID" show="callidsecret12345@192.0.2.10"/>
+      <field name="sip.CSeq" show="1 REGISTER">
+        <field name="sip.CSeq.seq" show="1"/>
+        <field name="sip.CSeq.method" show="REGISTER"/>
+      </field>
+      <field name="sip.Contact" show="&lt;sip:secretuser@192.0.2.10:5060&gt;"/>
+      <field name="sip.Route" show="&lt;sip:routehost.example;lr&gt;"/>
+      <field name="sip.Record-Route" show="&lt;sip:recordhost.example;lr&gt;"/>
+      <field name="sip.Authorization" show="Digest username=&quot;secretuser&quot;, nonce=&quot;noncesecret&quot;, response=&quot;digestresponse&quot;"/>
+      <field name="sip.Proxy-Authorization" show="Digest username=&quot;secretuser&quot;, nonce=&quot;proxynonce&quot;, response=&quot;proxyresponse&quot;"/>
+      <field name="sip.WWW-Authenticate" show="Digest realm=&quot;ims.example&quot;, nonce=&quot;noncesecret&quot;"/>
+      <field name="sip.Proxy-Authenticate" show="Digest realm=&quot;ims.example&quot;, nonce=&quot;proxynonce&quot;"/>
+      <field name="sip.P-Asserted-Identity" show="&lt;sip:secretuser@ims.example&gt;, &lt;tel:+1234567890&gt;"/>
+      <field name="sip.P-Preferred-Identity" show="&lt;sip:secretuser@ims.example&gt;"/>
+      <field name="sip.Content-Type" show="application/sdp; charset=utf-8"/>
+      <field name="sip.Content-Length" show="12"/>
+    </field>
+    <field name="sip.msg_body" size="12" show="v=0 a=secretbody"/>
+  </proto>
+</packet>
+<packet>
+  <proto name="frame">
+    <field name="frame.number" show="2"/>
+    <field name="frame.time_epoch" show="1700000000.100001000"/>
+    <field name="frame.time_relative" show="0.100000000"/>
+    <field name="frame.len" show="420"/>
+    <field name="frame.cap_len" show="420"/>
+  </proto>
+  <proto name="ip">
+    <field name="ip.src" show="192.0.2.20"/>
+    <field name="ip.dst" show="192.0.2.10"/>
+  </proto>
+  <proto name="udp">
+    <field name="udp.srcport" show="5060"/>
+    <field name="udp.dstport" show="5060"/>
+  </proto>
+  <proto name="sip">
+    <field name="sip.Status-Line" show="SIP/2.0 401 Unauthorized">
+      <field name="sip.Status-Code" show="401"/>
+    </field>
+    <field name="sip.msg_hdr">
+      <field name="sip.Via" show="SIP/2.0/UDP 192.0.2.10:5060;branch=z9hG4bK-secretbranch">
+        <field name="sip.Via.transport" show="UDP"/>
+        <field name="sip.Via.branch" show="z9hG4bK-secretbranch"/>
+      </field>
+      <field name="sip.From" show="&lt;sip:secretuser@ims.example&gt;;tag=fromtagsecret">
+        <field name="sip.from.tag" show="fromtagsecret"/>
+      </field>
+      <field name="sip.To" show="&lt;sip:secretuser@ims.example&gt;;tag=totagsecret">
+        <field name="sip.to.tag" show="totagsecret"/>
+      </field>
+      <field name="sip.Call-ID" show="callidsecret12345@192.0.2.10"/>
+      <field name="sip.CSeq" show="1 REGISTER">
+        <field name="sip.CSeq.seq" show="1"/>
+        <field name="sip.CSeq.method" show="REGISTER"/>
+      </field>
+      <field name="sip.WWW-Authenticate" show="Digest realm=&quot;ims.example&quot;, nonce=&quot;noncesecret&quot;"/>
+      <field name="sip.Content-Length" show="0"/>
+    </field>
+  </proto>
+</packet>
+</pdml>

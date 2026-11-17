@@ -1,0 +1,77 @@
+name: "sip"
+version: "0.1.0"
+category: protocol
+description: "Bounded SIP message extraction over UDP and TCP: request/response identity, reviewed header presence and bounded metadata, source-frame and transport provenance, message completeness and truncation classification, privacy-safe identity/URI/credential/body handling, and deterministic JSONL events without transaction, dialog or IMS procedure semantics."
+scope:
+  includes:
+    - "SIP requests and responses over IPv4 and IPv6"
+    - "SIP over UDP and SIP over TCP with decoder-delivered reassembly metadata"
+    - "request method, response status code and reviewed standard reason phrase"
+    - "CSeq number and method, Via branch presence/length, From/To tag presence/length, Max-Forwards, Content-Type and Content-Length"
+    - "bounded header occurrence counts for Route, Record-Route, Contact, authorization and identity headers"
+    - "frame number, frame epoch and capture-relative time, transport endpoints, TCP stream identity and message occurrence"
+    - "message completeness, decoder findings, truncation and missing mandatory evidence"
+    - "privacy-safe presence and length metadata for identities, URIs, tags, Call-ID values, credentials and bodies"
+    - "PCAP/PCAPNG through TShark PDML, stored PDML replay and sanitized dissector-record JSONL replay"
+  excludes:
+    - "SIP transaction correlation and SIP dialog correlation"
+    - "IMS registration, authentication, call, session, SDP or RTP semantics"
+    - "plaintext extraction from TLS or other encrypted transports"
+    - "custom TCP reassembly or packet-byte SIP decoding"
+    - "raw subscriber identities, SIP URIs, dialog tags, Call-ID values, credentials, header dumps or message bodies"
+    - "transaction success or failure inferred from a status code"
+dependencies:
+  required: []
+  optional:
+    - "tshark"
+inputs:
+  - "PCAP or PCAPNG capture containing plaintext SIP over UDP or TCP (requires user-installed TShark)"
+  - "stored PDML dissection of the same capture (no decoder required at run time)"
+  - "sanitized SIP dissector-record JSONL (deterministic offline input)"
+outputs:
+  - "detailed SIP event JSON Lines (schemas/sip-events.schema.json)"
+  - "normalized trace-event JSON Lines projection (schemas/trace-event.schema.json)"
+protocols:
+  - "SIP"
+interfaces: []
+network_functions: []
+evidence_levels:
+  - "OBSERVED"
+  - "DERIVED"
+  - "INFERRED"
+  - "HYPOTHESIS"
+  - "CONFIRMED"
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: "Original CoreNet Protocol-layer package; no upstream material imported."
+testing:
+  fixtures:
+    - "examples/pdml/base-udp.pdml"
+    - "examples/pdml/tcp-reassembled.pdml"
+    - "examples/pdml/no-sip.pdml"
+    - "examples/pdml/malformed-sip.pdml"
+    - "examples/pdml/truncated-sip.pdml"
+    - "examples/pdml/multi-message-frame.pdml"
+    - "examples/dissector/message-cases.jsonl"
+    - "examples/dissector/transport-cases.jsonl"
+    - "examples/dissector/negative-cases.jsonl"
+    - "examples/dissector/privacy-cases.jsonl"
+  expected_results:
+    - "examples/expected/base-udp-events.jsonl"
+    - "examples/expected/base-udp-trace.jsonl"
+    - "examples/expected/tcp-reassembled-events.jsonl"
+    - "examples/expected/malformed-events.jsonl"
+    - "examples/expected/truncated-events.jsonl"
+    - "examples/expected/multi-message-events.jsonl"
+    - "examples/expected/message-cases-events.jsonl"
+    - "examples/expected/transport-cases-events.jsonl"
+    - "examples/expected/negative-cases-events.jsonl"
+    - "examples/expected/privacy-cases-events.jsonl"
+references:
+  - "references/protocol-model.md"
+  - "references/field-reference.md"
+  - "references/privacy.md"
+  - "references/failure-cases.md"

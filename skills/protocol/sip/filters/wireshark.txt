@@ -1,0 +1,9 @@
+# Display filters for bounded SIP message observation.
+#
+# Plaintext SIP messages. The extractor uses "sip || tcp.segments" so a
+# decoder-reassembled SIP message retains its TCP reassembly metadata.
+sip
+
+# SIP over UDP on a non-standard port remains visible only when the dissector
+# actually identifies SIP; the extractor never applies a port-based heuristic.
+sip || tcp.segments

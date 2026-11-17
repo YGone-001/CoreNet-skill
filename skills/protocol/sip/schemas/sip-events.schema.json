@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/sip-events.schema.json",
+  "title": "Bounded SIP Protocol Event",
+  "description": "One normalized SIP request or response observation from a capture, PDML dissection or sanitized dissector record. Subscriber identities, URIs, dialog tags, Call-ID values, credentials and message bodies are reduced to presence and bounded length metadata.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_schema_version",
+    "protocol",
+    "capture_file",
+    "frame_number",
+    "frame_time_epoch",
+    "frame_time_relative",
+    "timestamp",
+    "message_occurrence",
+    "source_reference",
+    "message_type",
+    "method",
+    "method_scope",
+    "status_code",
+    "status_code_valid",
+    "reason_phrase",
+    "reason_phrase_present",
+    "reason_phrase_length",
+    "request_uri_present",
+    "request_uri_length",
+    "headers",
+    "transport",
+    "body_present",
+    "body_length",
+    "integrity_findings",
+    "message_completeness",
+    "extraction_status",
+    "evidence_class",
+    "limitations"
+  ],
+  "properties": {
+    "event_schema_version": {"const": "1.0.0"},
+    "protocol": {"const": "SIP"},
+    "capture_file": {"type": "string", "minLength": 1, "maxLength": 512},
+    "frame_number": {"type": "integer", "minimum": 1},
+    "frame_time_epoch": {"type": ["string", "null"], "maxLength": 64},
+    "frame_time_relative": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]+\\.[0-9]{9}$"
+    },
+    "timestamp": {"type": ["string", "null"], "format": "date-time"},
+    "message_occurrence": {"type": "integer", "minimum": 1},
+    "source_reference": {"type": "string", "minLength": 1, "maxLength": 640},
+    "message_type": {"type": "string", "enum": ["REQUEST", "RESPONSE", "UNKNOWN"]},
+    "method": {
+      "type": ["string", "null"],
+      "pattern": "^[A-Za-z0-9.!%*_+\\-]{1,32}$"
+    },
+    "method_scope": {
+      "type": ["string", "null"],
+      "enum": ["CORE", "EXTENSION", null]
+    },
+    "status_code": {"type": ["integer", "null"], "minimum": 100, "maximum": 699},
+    "status_code_valid": {"type": "boolean"},
+    "reason_phrase": {"type": ["string", "null"], "maxLength": 64},
+    "reason_phrase_present": {"type": "boolean"},
+    "reason_phrase_length": {"type": ["integer", "null"], "minimum": 0},
+    "request_uri_present": {"type": "boolean"},
+    "request_uri_length": {"type": ["integer", "null"], "minimum": 0},
+    "headers": {"$ref": "#/$defs/headers"},
+    "transport": {"$ref": "#/$defs/transport"},
+    "body_present": {"type": "boolean"},
+    "body_length": {"type": ["integer", "null"], "minimum": 0},
+    "integrity_findings": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "HEADER_NOT_TERMINATED",
+          "HEADER_NO_COLON",
+          "INVALID_STATUS_CODE",
+          "MISSING_CALL_ID",
+          "INVALID_CONTENT_LENGTH",
+          "MALFORMED_SECURITY_MECHANISM",
+          "UNRECOGNIZED_HEADER",
+          "INVALID_CSEQ",
+          "INVALID_METHOD",
+          "MISSING_METHOD",
+          "MISSING_STATUS_CODE",
+          "MISSING_START_LINE",
+          "MISSING_CSEQ",
+          "CAPTURE_TRUNCATED"
+        ]
+      }
+    },
+    "message_completeness": {
+      "type": "string",
+      "enum": ["COMPLETE", "INCOMPLETE", "MALFORMED", "TRUNCATED", "UNKNOWN"]
+    },
+    "extraction_status": {
+      "type": "string",
+      "enum": ["OBSERVED", "PARTIAL", "MALFORMED", "UNSUPPORTED"]
+    },
+    "evidence_class": {"const": "OBSERVED"},
+    "limitations": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {"type": "string", "minLength": 1, "maxLength": 300}
+    }
+  },
+  "$defs": {
+    "count_only": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count"],
+      "properties": {
+        "count": {"type": "integer", "minimum": 0, "maximum": 128}
+      }
+    },
+    "tag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "tag_present", "tag_length"],
+      "properties": {
+        "count": {"type": "integer", "minimum": 0, "maximum": 128},
+        "tag_present": {"type": "boolean"},
+        "tag_length": {"type": ["integer", "null"], "minimum": 0, "maximum": 1024}
+      }
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "call_id",
+        "cseq",
+        "via",
+        "from",
+        "to",
+        "max_forwards",
+        "content_type",
+        "content_length",
+        "route",
+        "record_route",
+        "contact",
+        "authorization",
+        "proxy_authorization",
+        "www_authenticate",
+        "proxy_authenticate",
+        "p_asserted_identity",
+        "p_preferred_identity"
+      ],
+      "properties": {
+        "call_id": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["present", "length", "count"],
+          "properties": {
+            "present": {"type": "boolean"},
+            "length": {"type": ["integer", "null"], "minimum": 0, "maximum": 4096},
+            "count": {"type": "integer", "minimum": 0, "maximum": 128}
+          }
+        },
+        "cseq": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["present", "sequence", "method", "count"],
+          "properties": {
+            "present": {"type": "boolean"},
+            "sequence": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295},
+            "method": {
+              "type": ["string", "null"],
+              "pattern": "^[A-Za-z0-9.!%*_+\\-]{1,32}$"
+            },
+            "count": {"type": "integer", "minimum": 0, "maximum": 128}
+          }
+        },
+        "via": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["count", "branch_present", "branch_length", "transports"],
+          "properties": {
+            "count": {"type": "integer", "minimum": 0, "maximum": 128},
+            "branch_present": {"type": "boolean"},
+            "branch_length": {"type": ["integer", "null"], "minimum": 0, "maximum": 1024},
+            "transports": {
+              "type": "array",
+              "maxItems": 4,
+              "uniqueItems": true,
+              "items": {"type": "string", "enum": ["UDP", "TCP", "TLS", "SCTP", "OTHER"]}
+            }
+          }
+        },
+        "from": {"$ref": "#/$defs/tag"},
+        "to": {"$ref": "#/$defs/tag"},
+        "max_forwards": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+        "content_type": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9!#$&^_.+\\-]+/[A-Za-z0-9!#$&^_.+\\-]+$",
+          "maxLength": 64
+        },
+        "content_length": {"type": ["integer", "null"], "minimum": 0},
+        "route": {"$ref": "#/$defs/count_only"},
+        "record_route": {"$ref": "#/$defs/count_only"},
+        "contact": {"$ref": "#/$defs/count_only"},
+        "authorization": {"$ref": "#/$defs/count_only"},
+        "proxy_authorization": {"$ref": "#/$defs/count_only"},
+        "www_authenticate": {"$ref": "#/$defs/count_only"},
+        "proxy_authenticate": {"$ref": "#/$defs/count_only"},
+        "p_asserted_identity": {"$ref": "#/$defs/count_only"},
+        "p_preferred_identity": {"$ref": "#/$defs/count_only"}
+      }
+    },
+    "transport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "source_address",
+        "source_port",
+        "destination_address",
+        "destination_port",
+        "stream_id",
+        "reassembly",
+        "reassembled_length",
+        "segment_count",
+        "encrypted"
+      ],
+      "properties": {
+        "protocol": {"type": "string", "enum": ["UDP", "TCP", "TLS", "OTHER", "UNKNOWN"]},
+        "source_address": {"type": ["string", "null"], "maxLength": 64},
+        "source_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+        "destination_address": {"type": ["string", "null"], "maxLength": 64},
+        "destination_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+        "stream_id": {"type": ["integer", "null"], "minimum": 0},
+        "reassembly": {
+          "type": "string",
+          "enum": ["NOT_APPLICABLE", "SINGLE_SEGMENT", "REASSEMBLED", "INCOMPLETE", "UNKNOWN"]
+        },
+        "reassembled_length": {"type": ["integer", "null"], "minimum": 0},
+        "segment_count": {"type": ["integer", "null"], "minimum": 0},
+        "encrypted": {"const": false}
+      }
+    }
+  }
+}

@@ -481,10 +481,12 @@ JSON report and the text report use the same counts.
 ## 11. Roadmap for EPC and IMS
 
 IMS appears in the capability contract with `implementation_status: UNSUPPORTED`, no
-entry point and an explicit reason. It is not a placeholder: no empty Skill package,
-no stub parser and no simulated output exists for it. EPC is implemented for the
-bounded EPS Attach path described in section 10, and its unimplemented scope is
-declared through `not_implemented_capabilities`.
+domain entry point and an explicit reason. The bounded `sip` Protocol Skill now
+extracts plaintext SIP requests and responses, but SIP extraction alone does not
+implement the IMS Domain: no registration state machine, transaction or dialog
+correlation, SDP/RTP semantics or IMS procedure analysis exists. EPC is implemented
+for the bounded EPS Attach path described in section 10, and its unimplemented scope
+is declared through `not_implemented_capabilities`.
 
 Adding a domain means adding its real Protocol and Domain Skills, then registering a
 domain adapter that produces the same `domain_results` shape. The report envelope,

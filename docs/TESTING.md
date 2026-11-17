@@ -6,6 +6,8 @@ The default validation path requires no third-party validator. The GitHub Action
 
 Future executable or rule-driven Skills must ship focused fixtures and tests, including normal, malformed, and inconclusive evidence cases. Protocol/domain Skills must prove evidence-level handling and preserve source provenance.
 
+The `sip` Protocol Skill validates three deterministic fixture families: stored PDML dissections, sanitized dissector-record JSONL and committed expected events. Its tests cover all reviewed request methods and response classes, UDP/TCP, IPv4/IPv6, decoder-delivered TCP reassembly metadata, same-frame message occurrences, malformed/truncated/incomplete classification, privacy redaction and CLI failure codes. Tests that require a live decoder use synthetic captures and skip cleanly when TShark or text2pcap is unavailable; no binary capture is tracked.
+
 ## Golden Capture Differential Benchmark
 
 The repository includes an empirical differential validation framework located in `benchmarks/golden-captures/`. This infrastructure exists outside the Skill architecture layers and evaluates automated Skill pipeline outputs against independent, standards-based packet baselines across public 5GC captures.

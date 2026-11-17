@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pdml version="0" capture_file="synthetic-tcp.pcapng">
+<packet>
+  <proto name="frame">
+    <field name="frame.number" show="2"/>
+    <field name="frame.time_epoch" show="1700000001.000001000"/>
+    <field name="frame.time_relative" show="0.200000000"/>
+    <field name="frame.len" show="180"/>
+    <field name="frame.cap_len" show="180"/>
+  </proto>
+  <proto name="ip">
+    <field name="ip.src" show="192.0.2.10"/>
+    <field name="ip.dst" show="192.0.2.20"/>
+  </proto>
+  <proto name="tcp">
+    <field name="tcp.srcport" show="5060"/>
+    <field name="tcp.dstport" show="5060"/>
+    <field name="tcp.stream" show="0"/>
+    <field name="tcp.len" show="120"/>
+    <field name="tcp.segment_data" show="..." />
+  </proto>
+  <proto name="fake-field-wrapper">
+    <field name="tcp.segment.count" show="2"/>
+    <field name="tcp.reassembled.length" show="240"/>
+  </proto>
+  <proto name="sip">
+    <field name="sip.Request-Line" show="INVITE sip:callee@ims.example SIP/2.0">
+      <field name="sip.Method" show="INVITE"/>
+      <field name="sip.r-uri" show="sip:callee@ims.example"/>
+    </field>
+    <field name="sip.msg_hdr">
+      <field name="sip.Via" show="SIP/2.0/TCP 192.0.2.10:5060;branch=z9hG4bK-tcpbranch">
+        <field name="sip.Via.transport" show="TCP"/>
+        <field name="sip.Via.branch" show="z9hG4bK-tcpbranch"/>
+      </field>
+      <field name="sip.Max-Forwards" show="70"/>
+      <field name="sip.From" show="&lt;sip:caller@ims.example&gt;;tag=callertag">
+        <field name="sip.from.tag" show="callertag"/>
+      </field>
+      <field name="sip.To" show="&lt;sip:callee@ims.example&gt;"/>
+      <field name="sip.Call-ID" show="callidcaller@192.0.2.10"/>
+      <field name="sip.CSeq" show="1 INVITE">
+        <field name="sip.CSeq.seq" show="1"/>
+        <field name="sip.CSeq.method" show="INVITE"/>
+      </field>
+      <field name="sip.Contact" show="&lt;sip:caller@192.0.2.10:5060&gt;"/>
+      <field name="sip.Content-Type" show="application/sdp"/>
+      <field name="sip.Content-Length" show="0"/>
+    </field>
+  </proto>
+</packet>
+</pdml>

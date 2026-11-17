@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pdml version="0" capture_file="synthetic-no-sip.pcapng">
+<packet>
+  <proto name="frame">
+    <field name="frame.number" show="1"/>
+    <field name="frame.time_epoch" show="1700000000.000001000"/>
+    <field name="frame.time_relative" show="0.000000000"/>
+    <field name="frame.len" show="80"/>
+    <field name="frame.cap_len" show="80"/>
+  </proto>
+  <proto name="ip">
+    <field name="ip.src" show="192.0.2.10"/>
+    <field name="ip.dst" show="192.0.2.20"/>
+  </proto>
+  <proto name="udp">
+    <field name="udp.srcport" show="5060"/>
+    <field name="udp.dstport" show="5060"/>
+  </proto>
+</packet>
+</pdml>
