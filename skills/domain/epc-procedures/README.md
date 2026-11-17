@@ -2,6 +2,12 @@
 
 Bounded EPS Attach procedure analysis over accepted S1AP and NAS-EPS events.
 
+The package also provides a bounded joint Attach/S6a evidence CLI that combines
+accepted EPS Attach and Diameter EPC artifacts. It preserves both producers'
+evidence, publishes a frame-anchored timeline, and never invents a per-UE
+cross-protocol identity from timing, endpoints or ordering. See
+`references/attach-s6a-joint.md`.
+
 ```text
 skills/domain/epc-procedures/
 ├── SKILL.md        Skill contract

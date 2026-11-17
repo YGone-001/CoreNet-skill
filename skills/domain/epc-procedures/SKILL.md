@@ -8,7 +8,12 @@ explicit protocol rejection or failure the network or the UE emitted, and which
 evidence is missing or protected.
 
 This is a Domain-layer Skill with eight independently executable capabilities. The
-EPS Attach capability consumes already-extracted S1AP and NAS-EPS events. The EPC
+EPS Attach capability consumes already-extracted S1AP and NAS-EPS events. A
+bounded joint companion consumes accepted EPS Attach and Diameter EPC artifacts,
+publishes independent Attach/S6a inventory and a frame-anchored timeline, and
+reports cross-protocol identity as `INSUFFICIENT_EVIDENCE` unless a reviewed
+bridge exists. It never re-correlates either producer or fabricates a per-UE
+association. The EPC
 session-control capability consumes already-extracted GTPv2-C events and
 transactions. The EPS default-bearer capability consumes already-extracted NAS-EPS
 ESM evidence, S1AP E-RAB items and GTPv2-C tunnel endpoints. The S1-U observation

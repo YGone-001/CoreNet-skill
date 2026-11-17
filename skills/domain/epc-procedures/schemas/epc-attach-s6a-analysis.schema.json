@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://core-net-skill.dev/schemas/epc-attach-s6a-analysis.schema.json",
+  "title": "Bounded EPS Attach and Diameter S6a/S6d Joint Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_name",
+    "analysis_version",
+    "domain",
+    "analysis_scope",
+    "input_provenance",
+    "attach_inventory",
+    "attach_instances_omitted",
+    "diameter_inventory",
+    "diameter_observations_omitted",
+    "timeline",
+    "timeline_rows_omitted",
+    "timeline_ordering",
+    "identity_association",
+    "diagnostics",
+    "limitations",
+    "not_confirmed"
+  ],
+  "properties": {
+    "analysis_name": {"const": "epc-attach-s6a"},
+    "analysis_version": {"type": "string"},
+    "domain": {"const": "epc-procedures"},
+    "analysis_scope": {"type": "string"},
+    "input_provenance": {"$ref": "#/$defs/provenance"},
+    "attach_inventory": {"type": "array", "maxItems": 128, "items": {"$ref": "#/$defs/attach"}},
+    "attach_instances_omitted": {"type": "integer", "minimum": 0},
+    "diameter_inventory": {"type": "array", "maxItems": 256, "items": {"$ref": "#/$defs/diameter"}},
+    "diameter_observations_omitted": {"type": "integer", "minimum": 0},
+    "timeline": {"type": "array", "maxItems": 512, "items": {"$ref": "#/$defs/timeline_row"}},
+    "timeline_rows_omitted": {"type": "integer", "minimum": 0},
+    "timeline_ordering": {"type": "string", "enum": ["VERIFIED_COMMON_CAPTURE", "SOURCE_LOCAL_ONLY"]},
+    "identity_association": {"$ref": "#/$defs/identity"},
+    "diagnostics": {"$ref": "#/$defs/diagnostics"},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "not_confirmed": {"type": "array", "items": {"type": "string"}},
+    "attach_s6a_status": {"type": "string"}
+  },
+  "$defs": {
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capture", "attach_artifact", "diameter_artifact", "common_capture"],
+      "properties": {
+        "capture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file", "sha256"],
+          "properties": {
+            "file": {"type": ["string", "null"]},
+            "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$|^$"}
+          }
+        },
+        "attach_artifact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file", "sha256", "domain", "domain_version", "model_version", "instance_count"],
+          "properties": {
+            "file": {"type": "string"},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "domain": {"type": ["string", "null"]},
+            "domain_version": {"type": ["string", "null"]},
+            "model_version": {"type": ["string", "null"]},
+            "instance_count": {"type": "integer", "minimum": 0}
+          }
+        },
+        "diameter_artifact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file", "sha256", "analysis_name", "analysis_version", "observation_count", "capture_files"],
+          "properties": {
+            "file": {"type": "string"},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "analysis_name": {"type": "string"},
+            "analysis_version": {"type": ["string", "null"]},
+            "observation_count": {"type": "integer", "minimum": 0},
+            "capture_files": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "common_capture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "basis"],
+          "properties": {
+            "status": {"type": "string", "enum": ["VERIFIED_COORDINATED_CAPTURE_CONTEXT", "FILENAME_MATCH_ONLY", "UNVERIFIED"]},
+            "basis": {"type": "array", "items": {"type": "string"}}
+          }
+        }
+      }
+    },
+    "attach": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["procedure_reference", "attempt_index", "first_frame", "last_frame", "association", "stage_summary", "observed_stage_count", "incomplete_stage_count", "deviation_count", "status", "evidence_limitations", "source_reference"],
+      "properties": {
+        "procedure_reference": {"type": "string", "minLength": 1},
+        "attempt_index": {"type": "integer", "minimum": 1},
+        "first_frame": {"type": ["integer", "null"]},
+        "last_frame": {"type": ["integer", "null"]},
+        "association": {"type": "object"},
+        "stage_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["OBSERVED", "INCOMPLETE", "NOT_OBSERVED", "UNAVAILABLE_PROTECTED"],
+          "properties": {
+            "OBSERVED": {"type": "integer", "minimum": 0},
+            "INCOMPLETE": {"type": "integer", "minimum": 0},
+            "NOT_OBSERVED": {"type": "integer", "minimum": 0},
+            "UNAVAILABLE_PROTECTED": {"type": "integer", "minimum": 0}
+          }
+        },
+        "observed_stage_count": {"type": "integer", "minimum": 0},
+        "incomplete_stage_count": {"type": "integer", "minimum": 0},
+        "deviation_count": {"type": "integer", "minimum": 0},
+        "status": {"type": "string", "enum": ["OBSERVED", "INCOMPLETE"]},
+        "evidence_limitations": {"type": "array", "items": {"type": "string"}},
+        "source_reference": {"type": "string", "minLength": 1}
+      }
+    },
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_reference", "frame_number", "message_occurrence", "direction", "command_code", "command_name", "application_id", "hop_by_hop_id", "end_to_end_id", "source_endpoint", "destination_endpoint"],
+      "properties": {
+        "event_reference": {"type": "string"},
+        "frame_number": {"type": "integer", "minimum": 1},
+        "message_occurrence": {"type": "integer", "minimum": 1},
+        "direction": {"type": "string", "enum": ["REQUEST", "ANSWER"]},
+        "command_code": {"type": "integer"},
+        "command_name": {"type": ["string", "null"]},
+        "application_id": {"type": "integer"},
+        "hop_by_hop_id": {"type": ["integer", "null"]},
+        "end_to_end_id": {"type": ["integer", "null"]},
+        "source_endpoint": {"type": "string"},
+        "destination_endpoint": {"type": "string"}
+      }
+    },
+    "diameter_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["core_result_status", "namespace_status", "application_result", "base_result_code", "base_result_code_name", "experimental_result_code", "experimental_result_code_name", "experimental_vendor_id"],
+      "properties": {
+        "core_result_status": {"type": ["string", "null"]},
+        "namespace_status": {"type": ["string", "null"]},
+        "application_result": {"type": "string"},
+        "base_result_code": {"type": ["integer", "null"]},
+        "base_result_code_name": {"type": ["string", "null"]},
+        "experimental_result_code": {"type": ["integer", "null"]},
+        "experimental_result_code_name": {"type": ["string", "null"]},
+        "experimental_vendor_id": {"type": ["integer", "null"]}
+      }
+    },
+    "diameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_reference", "procedure", "command_code", "application_id", "message_status", "transaction_status", "transaction_reference", "request", "answer", "response_candidates", "result", "authentication_information", "latency_seconds", "limitations", "privacy_status"],
+      "properties": {
+        "observation_reference": {"type": "string"},
+        "procedure": {"type": ["string", "null"]},
+        "command_code": {"type": "integer"},
+        "application_id": {"type": "integer"},
+        "message_status": {"type": "string"},
+        "transaction_status": {"type": "string", "enum": ["MATCHED", "OPEN_REQUEST", "RESPONSE_ONLY", "AMBIGUOUS"]},
+        "transaction_reference": {"type": "string", "pattern": "^diameter-tx:"},
+        "request": {"anyOf": [{"$ref": "#/$defs/ref"}, {"type": "null"}]},
+        "answer": {"anyOf": [{"$ref": "#/$defs/ref"}, {"type": "null"}]},
+        "response_candidates": {"type": "array", "items": {"$ref": "#/$defs/ref"}},
+        "result": {"$ref": "#/$defs/diameter_result"},
+        "authentication_information": {"type": "string"},
+        "latency_seconds": {"type": ["string", "null"]},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "privacy_status": {"const": "REDACTED_PRESENCE_ONLY"}
+      }
+    },
+    "timeline_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "protocol", "frame_number", "message_occurrence", "event_type", "procedure", "source_reference", "transaction_reference", "result", "status"],
+      "properties": {
+        "family": {"type": "string", "enum": ["EPS_ATTACH", "DIAMETER_S6A"]},
+        "protocol": {"type": "string"},
+        "frame_number": {"type": "integer", "minimum": 1},
+        "message_occurrence": {"type": ["integer", "null"]},
+        "event_type": {"type": ["string", "null"]},
+        "procedure": {"type": "string"},
+        "source_reference": {"type": "string"},
+        "transaction_reference": {"type": ["string", "null"]},
+        "result": {"type": ["object", "null"]},
+        "status": {"type": ["string", "null"]}
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "status", "basis", "established_pair_count", "ambiguous_pair_count", "candidate_pairs", "candidates_omitted", "limitations", "required_evidence"],
+      "properties": {
+        "scope": {"const": "ATTACH_TO_DIAMETER"},
+        "status": {"type": "string", "enum": ["ESTABLISHED", "SUPPORTED", "AMBIGUOUS", "NOT_ESTABLISHED", "INSUFFICIENT_EVIDENCE", "NOT_APPLICABLE"]},
+        "basis": {"type": "array", "items": {"type": "string"}},
+        "established_pair_count": {"const": 0},
+        "ambiguous_pair_count": {"const": 0},
+        "candidate_pairs": {"type": "array", "maxItems": 0},
+        "candidates_omitted": {"type": "integer", "minimum": 0},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "required_evidence": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attach_instance_count", "attach_incomplete_instance_count", "attach_deviation_count", "diameter_observation_count", "diameter_matched_count", "diameter_failure_reported_count", "diameter_open_or_ambiguous_count", "diameter_returned_latency_count", "earliest_attach_deviation_frame", "earliest_diameter_abnormal_frame", "cross_protocol_attribution_established", "root_cause_inferred"],
+      "properties": {
+        "attach_instance_count": {"type": "integer", "minimum": 0},
+        "attach_incomplete_instance_count": {"type": "integer", "minimum": 0},
+        "attach_deviation_count": {"type": "integer", "minimum": 0},
+        "diameter_observation_count": {"type": "integer", "minimum": 0},
+        "diameter_matched_count": {"type": "integer", "minimum": 0},
+        "diameter_failure_reported_count": {"type": "integer", "minimum": 0},
+        "diameter_open_or_ambiguous_count": {"type": "integer", "minimum": 0},
+        "diameter_returned_latency_count": {"type": "integer", "minimum": 0},
+        "earliest_attach_deviation_frame": {"type": ["integer", "null"]},
+        "earliest_diameter_abnormal_frame": {"type": ["integer", "null"]},
+        "cross_protocol_attribution_established": {"const": false},
+        "root_cause_inferred": {"const": false}
+      }
+    }
+  }
+}

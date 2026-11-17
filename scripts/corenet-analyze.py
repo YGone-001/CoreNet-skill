@@ -68,6 +68,10 @@ EPC_LIFECYCLE_ANALYZE_SCRIPT = (
 EPC_SESSION_IDENTITY_ANALYZE_SCRIPT = (
     ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_session_identity.py"
 )
+DIAMETER_CORE_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "diameter-core" / "scripts" / "extract-diameter-core.py"
+DIAMETER_CORE_CORRELATE_SCRIPT = ROOT / "skills" / "protocol" / "diameter-core" / "scripts" / "correlate-diameter-core.py"
+DIAMETER_EPC_ANALYZE_SCRIPT = ROOT / "skills" / "protocol" / "diameter-epc" / "scripts" / "analyze-diameter-epc.py"
+EPC_ATTACH_S6A_ANALYZE_SCRIPT = ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_attach_s6a.py"
 EPC_DEFAULT_BEARER_ANALYZE_SCRIPT = (
     ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_default_bearer.py"
 )
@@ -1737,6 +1741,59 @@ def render_text_report(report: dict[str, Any]) -> str:
             "(a lifecycle generation boundary is not an abnormal failure boundary)"
         )
 
+    joint_blocks = [
+        (result, result.get("attach_s6a"))
+        for result in results
+        if isinstance(result.get("attach_s6a"), dict)
+    ]
+    if joint_blocks:
+        _section(lines, "EPC Attach and S6a/S6d Joint Evidence")
+    for result, block in joint_blocks:
+        lines.append(
+            f"  {result['domain']}: {_value(block.get('execution_status'))} "
+            f"(analysis {_value(block.get('analysis_status'))}), "
+            f"{_value(block.get('attach_instance_count'))} Attach instance(s), "
+            f"{_value(block.get('diameter_observation_count'))} Diameter observation(s), "
+            f"{_value(block.get('diameter_matched_count'))} matched"
+        )
+        lines.append(
+            f"    identity association: {_value(block.get('identity_association_status'))}; "
+            f"common capture: {_value(block.get('common_capture_status'))}; "
+            f"timeline rows: {_value(block.get('timeline_row_count'))}"
+        )
+        if block.get("failure_code"):
+            lines.append(
+                f"    failure: {_value(block.get('failure_code'))} "
+                f"{_value(block.get('failure_message'))}"
+            )
+        for item in (block.get("attach_inventory") or [])[:MAX_LIST_ITEMS]:
+            lines.append(
+                f"    Attach {item.get('procedure_reference')}: "
+                f"frames {_value(item.get('first_frame'))}-{_value(item.get('last_frame'))}, "
+                f"status {_value(item.get('status'))}, deviations {_value(item.get('deviation_count'))}"
+            )
+        for item in (block.get("diameter_inventory") or [])[:MAX_LIST_ITEMS]:
+            request = item.get("request") or {}
+            answer = item.get("answer") or {}
+            result_block = item.get("result") or {}
+            lines.append(
+                f"    Diameter {item.get('procedure')}: {item.get('transaction_status')}, "
+                f"req {_value(request.get('frame_number'))}.{_value(request.get('message_occurrence'))}, "
+                f"ans {_value(answer.get('frame_number'))}.{_value(answer.get('message_occurrence'))}, "
+                f"result {_value(result_block.get('base_result_code') or result_block.get('experimental_result_code'))}, "
+                f"latency {_value(item.get('latency_seconds'))}"
+            )
+        for row in (block.get("timeline") or [])[:MAX_LIST_ITEMS]:
+            occurrence = "" if row.get("message_occurrence") is None else f".{row.get('message_occurrence')}"
+            lines.append(
+                f"    {row.get('frame_number')}{occurrence} {row.get('family')} "
+                f"{row.get('event_type')} ({row.get('status')})"
+            )
+        lines.append(
+            "    limitation: the shared timeline is ordering evidence only; no per-UE "
+            "Attach/S6a association is established without reviewed identity evidence"
+        )
+
     dedicated_blocks = [
         (result, result.get("dedicated_bearer_control"))
         for result in results
@@ -2295,7 +2352,12 @@ def build_failure_report(capture: Path | None, error: AnalysisError) -> dict[str
 DomainAdapter = Callable[[Path, Path, str, dict[str, Any], set[str]], dict[str, Any]]
 
 
-def _run_component(command: list[str], label: str, allow_empty: bool = False) -> bool:
+def _run_component(
+    command: list[str],
+    label: str,
+    allow_empty: bool = False,
+    empty_exit_codes: tuple[int, ...] = (6,),
+) -> bool:
     """Run one accepted component; return False only for a legitimate empty result."""
     try:
         completed = subprocess.run(command, capture_output=True, text=True, check=False)
@@ -2303,7 +2365,7 @@ def _run_component(command: list[str], label: str, allow_empty: bool = False) ->
         raise AnalysisError("COMPONENT_UNAVAILABLE", f"{label} could not start: {exc}") from exc
     if completed.returncode == 0:
         return True
-    if allow_empty and completed.returncode == 6:
+    if allow_empty and completed.returncode in empty_exit_codes:
         return False
     detail = (completed.stderr or completed.stdout or "").strip().splitlines()
     first = detail[0] if detail else "no diagnostic output"
@@ -2675,6 +2737,87 @@ def _producer_outcome_counts(
             return None
         counts[name] = strict
     return {name: counts[name] for name in sorted(counts)}
+
+
+def _project_attach_s6a(
+    joint: Any,
+    diameter_status: Any,
+    error: Any,
+    diameter_event_count: int,
+    diameter_observation_count: int,
+) -> dict[str, Any]:
+    """Project bounded joint Attach/S6a evidence without inventing identity."""
+    status = diameter_status if isinstance(diameter_status, str) else "NOT_OBSERVED_IN_CAPTURE"
+    payload: dict[str, Any] = {
+        "execution_status": (
+            "EXECUTED"
+            if isinstance(joint, dict) and status == "EXECUTED"
+            else "FAILED"
+            if isinstance(error, dict) or status == "COMPONENT_FAILED"
+            else status
+        ),
+        "analysis_status": status,
+        "diameter_event_count": max(0, diameter_event_count),
+        "diameter_observation_count": max(0, diameter_observation_count),
+        "attach_instance_count": 0,
+        "attach_incomplete_instance_count": 0,
+        "diameter_matched_count": 0,
+        "diameter_failure_reported_count": 0,
+        "diameter_open_or_ambiguous_count": 0,
+        "identity_association_status": "NOT_APPLICABLE",
+        "common_capture_status": None,
+        "timeline_ordering": None,
+        "timeline_row_count": 0,
+        "timeline_rows_omitted": 0,
+        "cross_protocol_attribution_established": False,
+        "root_cause_inferred": False,
+        "attach_inventory": [],
+        "diameter_inventory": [],
+        "timeline": [],
+        "limitations": [],
+        "not_confirmed": [],
+    }
+    if isinstance(error, dict):
+        payload["failure_code"] = error.get("code")
+        payload["failure_message"] = error.get("message")
+    if not isinstance(joint, dict):
+        return payload
+    provenance = _dict(joint.get("input_provenance"))
+    diagnostics = _dict(joint.get("diagnostics"))
+    association = _dict(joint.get("identity_association"))
+    attach_inventory = _list(joint.get("attach_inventory"))
+    diameter_inventory = _list(joint.get("diameter_inventory"))
+    timeline = _list(joint.get("timeline"))
+    payload.update(
+        {
+            "attach_instance_count": len(attach_inventory),
+            "attach_incomplete_instance_count": diagnostics.get(
+                "attach_incomplete_instance_count", 0
+            ),
+            "diameter_matched_count": diagnostics.get("diameter_matched_count", 0),
+            "diameter_failure_reported_count": diagnostics.get(
+                "diameter_failure_reported_count", 0
+            ),
+            "diameter_open_or_ambiguous_count": diagnostics.get(
+                "diameter_open_or_ambiguous_count", 0
+            ),
+            "identity_association_status": association.get("status"),
+            "common_capture_status": _dict(provenance.get("common_capture")).get("status"),
+            "timeline_ordering": joint.get("timeline_ordering"),
+            "timeline_row_count": len(timeline),
+            "timeline_rows_omitted": joint.get("timeline_rows_omitted", 0),
+            "cross_protocol_attribution_established": bool(
+                diagnostics.get("cross_protocol_attribution_established")
+            ),
+            "root_cause_inferred": bool(diagnostics.get("root_cause_inferred")),
+            "attach_inventory": attach_inventory[:MAX_LIST_ITEMS],
+            "diameter_inventory": diameter_inventory[:MAX_LIST_ITEMS],
+            "timeline": timeline[:MAX_LIST_ITEMS],
+            "limitations": _list(joint.get("limitations"))[:MAX_LIST_ITEMS],
+            "not_confirmed": _list(joint.get("not_confirmed"))[:MAX_LIST_ITEMS],
+        }
+    )
+    return payload
 
 
 def _project_dedicated_bearer_control(
@@ -3207,6 +3350,102 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
     if not isinstance(analysis, dict):
         raise AnalysisError("PIPELINE_OUTPUT_UNREADABLE", "EPC Attach analysis is not an object")
 
+    diameter_status = "NOT_OBSERVED_IN_CAPTURE"
+    diameter_event_count = 0
+    diameter_observation_count = 0
+    diameter_epc_analysis: dict[str, Any] | None = None
+    diameter_epc_error: dict[str, Any] | None = None
+    attach_s6a_analysis: dict[str, Any] | None = None
+    attach_s6a_error: dict[str, Any] | None = None
+    diameter_events = run_dir / "diameter-events.jsonl"
+    diameter_trace = run_dir / "diameter-trace.jsonl"
+    diameter_transactions = run_dir / "diameter-transactions.json"
+    diameter_epc_path = run_dir / "diameter-epc-analysis.json"
+    attach_s6a_path = run_dir / "epc-attach-s6a-analysis.json"
+    attach_s6a_report_path = run_dir / "epc-attach-s6a-report.txt"
+    try:
+        diameter_present = _run_component(
+            [
+                sys.executable,
+                str(DIAMETER_CORE_EXTRACT_SCRIPT),
+                str(capture),
+                "--output",
+                str(diameter_events),
+                "--trace-output",
+                str(diameter_trace),
+                "--force",
+            ],
+            "Diameter Core extraction",
+            allow_empty=True,
+            empty_exit_codes=(3, 6),
+        )
+        diameter_event_count = _count_lines(diameter_events) if diameter_present else 0
+        if diameter_event_count:
+            _run_component(
+                [
+                    sys.executable,
+                    str(DIAMETER_CORE_CORRELATE_SCRIPT),
+                    str(diameter_events),
+                    "--output",
+                    str(diameter_transactions),
+                    "--force",
+                ],
+                "Diameter Core correlation",
+            )
+            epc_present = _run_component(
+                [
+                    sys.executable,
+                    str(DIAMETER_EPC_ANALYZE_SCRIPT),
+                    "--events",
+                    str(diameter_events),
+                    "--transactions",
+                    str(diameter_transactions),
+                    "--output",
+                    str(diameter_epc_path),
+                    "--force",
+                ],
+                "Diameter EPC analysis",
+                allow_empty=True,
+                empty_exit_codes=(3, 6),
+            )
+            if epc_present and diameter_epc_path.is_file():
+                diameter_epc_analysis = json.loads(diameter_epc_path.read_text(encoding="utf-8"))
+                diameter_observation_count = len(diameter_epc_analysis.get("observations") or [])
+            if diameter_observation_count:
+                _run_component(
+                    [
+                        sys.executable,
+                        str(EPC_ATTACH_S6A_ANALYZE_SCRIPT),
+                        "--attach",
+                        str(analysis_path),
+                        "--diameter-epc",
+                        str(diameter_epc_path),
+                        "--capture",
+                        str(capture),
+                        "--output",
+                        str(attach_s6a_path),
+                        "--report",
+                        str(attach_s6a_report_path),
+                        "--force",
+                    ],
+                    "EPC Attach/S6a joint analysis",
+                )
+                if attach_s6a_path.is_file():
+                    attach_s6a_analysis = json.loads(attach_s6a_path.read_text(encoding="utf-8"))
+                    diameter_status = "EXECUTED"
+                else:
+                    diameter_status = "JOINT_ANALYSIS_MISSING"
+            else:
+                diameter_status = "NO_S6A_OBSERVATIONS"
+    except AnalysisError as exc:
+        diameter_status = "COMPONENT_FAILED"
+        diameter_epc_error = {"code": exc.code, "message": scrub_free_text(exc.message)}
+        attach_s6a_error = diameter_epc_error
+    except (OSError, json.JSONDecodeError) as exc:
+        diameter_status = "COMPONENT_FAILED"
+        diameter_epc_error = {"code": "DIAMETER_OUTPUT_UNREADABLE", "message": scrub_free_text(str(exc))}
+        attach_s6a_error = diameter_epc_error
+
     session_analysis: dict[str, Any] | None = None
     if gtpv2_event_count:
         _run_component(
@@ -3612,6 +3851,14 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
         "nas_eps_event_count": _count_lines(nas_events),
         "gtpv2_event_count": gtpv2_event_count,
         "gtpv2_transaction_count": transaction_count,
+        "diameter_status": diameter_status,
+        "diameter_event_count": diameter_event_count,
+        "diameter_observation_count": diameter_observation_count,
+        "diameter_epc_analysis": diameter_epc_analysis,
+        "diameter_epc_error": diameter_epc_error,
+        "attach_s6a_analysis": attach_s6a_analysis,
+        "attach_s6a_error": attach_s6a_error,
+        "attach_s6a_report_path": str(attach_s6a_report_path) if attach_s6a_path.is_file() else None,
     }
 
 
@@ -4432,6 +4679,18 @@ def execute_epc_domain(
     """Run the bounded EPC Attach and session-control analyses and normalize them."""
     payload = pipeline(capture, work_dir, case_id)
     analysis = payload.get("analysis") or {}
+    attach_s6a = payload.get("attach_s6a_analysis")
+    attach_s6a_error = payload.get("attach_s6a_error")
+    diameter_status = payload.get("diameter_status", "NOT_OBSERVED_IN_CAPTURE")
+    diameter_event_count = payload.get("diameter_event_count", 0) or 0
+    diameter_observation_count = payload.get("diameter_observation_count", 0) or 0
+    attach_s6a_summary = _project_attach_s6a(
+        attach_s6a,
+        diameter_status,
+        attach_s6a_error,
+        diameter_event_count,
+        diameter_observation_count,
+    )
     session = payload.get("session_analysis")
     instances = analysis.get("procedure_instances") or []
     session_subjects = (session or {}).get("control_plane_subjects") or []
@@ -4529,7 +4788,7 @@ def execute_epc_domain(
         status = STATUS_COMPLETED
     else:
         status = STATUS_INSUFFICIENT_EVIDENCE
-    if dedicated_error or timeline_error or attribution_error:
+    if dedicated_error or timeline_error or attribution_error or attach_s6a_error:
         status = (
             STATUS_PARTIAL
             if (
@@ -4619,6 +4878,25 @@ def execute_epc_domain(
                 "execution_status": "EXECUTED",
                 "instance_count": len(instances),
                 "deviation_count": attach_deviations,
+            },
+            {
+                "procedure_domain": "epc-procedures",
+                "procedure": "epc-attach-s6a-joint",
+                "execution_status": attach_s6a_summary.get("execution_status"),
+                "instance_count": attach_s6a_summary.get("attach_instance_count", 0),
+                "incomplete_attach_instance_count": attach_s6a_summary.get(
+                    "attach_incomplete_instance_count", 0
+                ),
+                "diameter_observation_count": attach_s6a_summary.get(
+                    "diameter_observation_count", 0
+                ),
+                "diameter_matched_count": attach_s6a_summary.get(
+                    "diameter_matched_count", 0
+                ),
+                "identity_association_status": attach_s6a_summary.get(
+                    "identity_association_status"
+                ),
+                "timeline_row_count": attach_s6a_summary.get("timeline_row_count", 0),
             },
             {
                 "procedure_domain": "epc-procedures",
@@ -4864,6 +5142,7 @@ def execute_epc_domain(
         "dedicated_bearer_control": dedicated_summary,
         "dedicated_bearer_timeline": timeline_summary,
         "dedicated_bearer_attribution": attribution_summary,
+        "attach_s6a": attach_s6a_summary,
         "evidence_limitations": bounded_limitations,
         "additional_evidence_needed": bounded_additional,
         "degradation": [],
@@ -4955,6 +5234,13 @@ def execute_epc_domain(
             f"{audit_error.get('code')} {audit_error.get('message')}".strip()
             + "; every producer artifact is preserved, no EPC protocol failure is asserted "
             "and an audit failure is not a network failure"
+        )
+    if attach_s6a_error:
+        result["failure_code"] = "ATTACH_S6A_JOINT_ANALYSIS_FAILED"
+        degradation.append(
+            "EPC Attach/S6a joint analysis failed: "
+            f"{attach_s6a_error.get('code')} {attach_s6a_error.get('message')}".strip()
+            + "; EPS Attach and Diameter evidence are preserved and the joint limitation is not hidden"
         )
     result["degradation"] = degradation
     return result

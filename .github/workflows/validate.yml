@@ -43,6 +43,8 @@ jobs:
         run: python scripts/validate-diameter-epc.py
       - name: Validate epc-procedures
         run: python scripts/validate-epc-procedures.py
+      - name: Validate epc-attach-s6a
+        run: python scripts/validate-epc-attach-s6a.py
       - name: Validate epc-evidence-review
         run: python scripts/validate-epc-evidence-review.py
       - name: Validate epc-dedicated-bearer-control
