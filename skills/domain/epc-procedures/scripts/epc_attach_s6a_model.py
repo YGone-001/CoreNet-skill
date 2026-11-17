@@ -12,9 +12,25 @@ import json
 from pathlib import Path
 from typing import Any
 
+try:
+    import jsonschema
+except ImportError:  # pragma: no cover - the strict schema gate is optional locally
+    jsonschema = None
+
 ANALYSIS_NAME = "epc-attach-s6a"
 ANALYSIS_VERSION = "1.0.0"
 DOMAIN = "epc-procedures"
+
+SCHEMA_DIRECTORY = Path(__file__).resolve().parents[1] / "schemas"
+PROTOCOL_SKILLS_DIRECTORY = Path(__file__).resolve().parents[3] / "protocol"
+ATTACH_SCHEMA_PATH = SCHEMA_DIRECTORY / "epc-attach-analysis.schema.json"
+DIAMETER_EPC_SCHEMA_PATH = (
+    PROTOCOL_SKILLS_DIRECTORY / "diameter-epc" / "schemas" / "diameter-epc-analysis.schema.json"
+)
+
+MANIFEST_NAME = "epc-attach-s6a-coordinated-run"
+MANIFEST_SCHEMA_VERSION = "1.0.0"
+MANIFEST_PRODUCER_ROLES = ("attach", "diameter_core", "diameter_epc")
 
 MAX_ATTACH_INSTANCES = 128
 MAX_DIAMETER_OBSERVATIONS = 256
@@ -22,6 +38,8 @@ MAX_TIMELINE_ROWS = 512
 
 DIAMETER_STATUSES = {"MATCHED", "OPEN_REQUEST", "RESPONSE_ONLY", "AMBIGUOUS"}
 ATTACH_INCOMPLETE_STAGES = {"INCOMPLETE", "UNAVAILABLE_PROTECTED"}
+_SHA256_LENGTH = 64
+_SCHEMA_CACHE: dict[Path, dict[str, Any]] = {}
 
 
 class InputError(Exception):
@@ -54,6 +72,39 @@ def _require(container: dict[str, Any], fields: tuple[str, ...], label: str) -> 
             raise InputError(f"{label} is missing required field: {field}")
 
 
+def _is_sha256(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == _SHA256_LENGTH
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def strict_schema_available() -> bool:
+    """Report whether the accepted source schemas can be enforced in this runtime."""
+    return jsonschema is not None and hasattr(jsonschema, "Draft202012Validator")
+
+
+def _validate_source_schema(document: dict[str, Any], schema_path: Path, label: str) -> None:
+    """Reject an artifact that violates the schema it declares, when the gate is available."""
+    if not strict_schema_available():
+        return
+    schema = _SCHEMA_CACHE.get(schema_path)
+    if schema is None:
+        try:
+            schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        except OSError as exc:
+            raise InputError(f"{label} schema could not be read: {exc}") from exc
+        except json.JSONDecodeError as exc:
+            raise InputError(f"{label} schema is not valid JSON: {exc}") from exc
+        _SCHEMA_CACHE[schema_path] = schema
+    try:
+        jsonschema.Draft202012Validator(schema).validate(document)
+    except jsonschema.ValidationError as exc:
+        location = "/".join(str(item) for item in exc.absolute_path) or "<root>"
+        raise InputError(f"{label} violates its accepted schema at {location}: {exc.message}") from exc
+
+
 def _list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
@@ -67,6 +118,7 @@ def _frame(value: Any) -> int | None:
 
 
 def validate_attach(analysis: dict[str, Any]) -> None:
+    _validate_source_schema(analysis, ATTACH_SCHEMA_PATH, "attach analysis")
     _require(
         analysis,
         ("domain", "domain_version", "model_version", "procedure_instances", "instance_count", "input_provenance"),
@@ -97,6 +149,7 @@ def validate_attach(analysis: dict[str, Any]) -> None:
 
 
 def validate_diameter(analysis: dict[str, Any]) -> None:
+    _validate_source_schema(analysis, DIAMETER_EPC_SCHEMA_PATH, "diameter EPC analysis")
     _require(
         analysis,
         ("analysis_name", "analysis_version", "domain", "input_provenance", "observations", "completeness"),
@@ -396,13 +449,87 @@ def _diagnostics(
     }
 
 
+def _load_and_validate_manifest(manifest: dict[str, Any]) -> set[str]:
+    """Validate a coordinated-run manifest and return the producers it declares executed."""
+    _require(
+        manifest,
+        (
+            "manifest_name",
+            "manifest_schema_version",
+            "coordinated_run_id",
+            "capture",
+            "artifacts",
+            "producers",
+            "executed_invocations",
+        ),
+        "coordinated run manifest",
+    )
+    if manifest["manifest_name"] != MANIFEST_NAME:
+        raise InputError("coordinated run manifest_name is not accepted")
+    if manifest["manifest_schema_version"] != MANIFEST_SCHEMA_VERSION:
+        raise InputError("coordinated run manifest_schema_version is not accepted")
+    run_id = manifest["coordinated_run_id"]
+    if not isinstance(run_id, str) or not run_id.strip():
+        raise InputError("coordinated run manifest has no run identifier")
+    capture = manifest["capture"]
+    if not isinstance(capture, dict):
+        raise InputError("coordinated run manifest capture is malformed")
+    _require(capture, ("file", "sha256"), "coordinated run manifest capture")
+    if not isinstance(capture["file"], str) or not capture["file"]:
+        raise InputError("coordinated run manifest capture has no file identity")
+    if not _is_sha256(capture["sha256"]):
+        raise InputError("coordinated run manifest capture digest is malformed")
+    artifacts = manifest["artifacts"]
+    if not isinstance(artifacts, dict):
+        raise InputError("coordinated run manifest artifacts are malformed")
+    for role in ("attach", "diameter_epc"):
+        artifact = artifacts.get(role)
+        if not isinstance(artifact, dict):
+            raise InputError(f"coordinated run manifest has no {role} artifact entry")
+        _require(artifact, ("file", "sha256", "producer"), f"manifest {role} artifact")
+        if not isinstance(artifact["file"], str) or not artifact["file"]:
+            raise InputError(f"manifest {role} artifact has no file identity")
+        if not _is_sha256(artifact["sha256"]):
+            raise InputError(f"manifest {role} artifact digest is malformed")
+        if not isinstance(artifact["producer"], str) or not artifact["producer"]:
+            raise InputError(f"manifest {role} artifact has no producer identity")
+    producers = manifest["producers"]
+    if not isinstance(producers, dict):
+        raise InputError("coordinated run manifest producers are malformed")
+    for role in MANIFEST_PRODUCER_ROLES:
+        identity = producers.get(role)
+        if not isinstance(identity, str) or not identity:
+            raise InputError(f"coordinated run manifest has no {role} producer identity")
+    invocations = manifest["executed_invocations"]
+    if not isinstance(invocations, list) or not invocations:
+        raise InputError("coordinated run manifest lists no executed producer invocation")
+    executed: set[str] = set()
+    for invocation in invocations:
+        if not isinstance(invocation, dict):
+            raise InputError("coordinated run manifest invocation is malformed")
+        _require(invocation, ("producer", "capture_sha256"), "manifest invocation")
+        producer = invocation["producer"]
+        if not isinstance(producer, str) or not producer:
+            raise InputError("coordinated run manifest invocation has no producer")
+        if invocation["capture_sha256"] != capture["sha256"]:
+            raise InputError(
+                "coordinated run manifest invocation capture digest disagrees with the run capture"
+            )
+        executed.add(producer)
+    return executed
+
+
 def _provenance(
     attach_path: Path,
     diameter_path: Path,
     attach: dict[str, Any],
     diameter: dict[str, Any],
     capture: Path | None,
+    manifest: dict[str, Any] | None,
+    manifest_path: Path | None,
 ) -> dict[str, Any]:
+    attach_digest = sha256_file(attach_path)
+    diameter_digest = sha256_file(diameter_path)
     diameter_captures = _dict(diameter.get("input_provenance")).get("capture_files") or []
     attach_captures = {
         _dict(instance.get("association")).get("capture_file")
@@ -414,31 +541,97 @@ def _provenance(
         if len(diameter_captures) == 1 and isinstance(diameter_captures[0], str)
         else None
     )
-    filename_match = bool(diameter_capture) and diameter_capture in attach_captures
-    if capture is not None and diameter_capture is not None and capture.name == diameter_capture:
-        filename_match = True
-    if capture is not None and filename_match and capture.name == diameter_capture:
-        status = "VERIFIED_COORDINATED_CAPTURE_CONTEXT"
-        basis = ["supplied_capture_sha256", "single_capture_filename_match"]
-        capture_hash = sha256_file(capture)
-        capture_file = capture.name
-    elif capture is not None:
+    if diameter_capture is not None and attach_captures and diameter_capture not in attach_captures:
+        raise InputError(
+            "Attach source capture identity contradicts the Diameter EPC capture identity"
+        )
+    if capture is not None and diameter_capture is not None and capture.name != diameter_capture:
         raise InputError("supplied capture filename contradicts the Diameter EPC capture identity")
-    elif filename_match:
-        status = "FILENAME_MATCH_ONLY"
-        basis = ["filename_equality"]
-        capture_hash = None
-        capture_file = diameter_capture
+    if capture is not None and attach_captures and capture.name not in attach_captures:
+        raise InputError("supplied capture filename contradicts the Attach source capture identity")
+
+    filename_match = bool(diameter_capture) and diameter_capture in attach_captures
+    capture_digest = sha256_file(capture) if capture is not None else None
+    coordinated_run: dict[str, Any] | None = None
+
+    if manifest is not None:
+        executed = _load_and_validate_manifest(manifest)
+        declared_producers = {
+            manifest["producers"][role] for role in MANIFEST_PRODUCER_ROLES
+        }
+        verified_producers = sorted(executed & declared_producers)
+        verified = False
+        if capture is None:
+            status = "DECLARED_PROVENANCE_UNVERIFIED"
+            basis = ["run_manifest_declared", "capture_digest_not_observed"]
+        else:
+            if capture_digest != manifest["capture"]["sha256"]:
+                raise InputError(
+                    "coordinated run manifest capture digest contradicts the supplied capture"
+                )
+            if attach_digest != manifest["artifacts"]["attach"]["sha256"]:
+                raise InputError(
+                    "coordinated run manifest Attach artifact digest does not match the supplied artifact"
+                )
+            if diameter_digest != manifest["artifacts"]["diameter_epc"]["sha256"]:
+                raise InputError(
+                    "coordinated run manifest Diameter EPC artifact digest does not match the supplied artifact"
+                )
+            missing = sorted(declared_producers - executed)
+            if missing:
+                status = "DECLARED_PROVENANCE_UNVERIFIED"
+                basis = [
+                    "coordinated_run_manifest",
+                    "manifest_capture_digest_match",
+                    "declared_producer_invocation_missing",
+                ]
+            else:
+                verified = True
+                status = "VERIFIED_COORDINATED_CAPTURE_CONTEXT"
+                basis = [
+                    "coordinated_run_manifest",
+                    "manifest_capture_digest_match",
+                    "manifest_artifact_digest_match",
+                    "controlled_producer_invocations",
+                ]
+        coordinated_run = {
+            "run_id": manifest["coordinated_run_id"],
+            "manifest_file": manifest_path.name if manifest_path is not None else None,
+            "manifest_sha256": sha256_file(manifest_path) if manifest_path is not None else None,
+            "producer_identities": {
+                role: manifest["producers"][role] for role in MANIFEST_PRODUCER_ROLES
+            },
+            "verified_producers": verified_producers,
+            "verification_basis": "DIGEST_BOUND_RUN_MANIFEST" if verified else "DECLARED_ONLY",
+        }
+        capture_observed = capture is not None
+        artifacts_bound = verified
+        capture_file = (
+            capture.name
+            if capture is not None
+            else Path(manifest["capture"]["file"]).name
+        )
     else:
-        status = "UNVERIFIED"
-        basis = []
-        capture_hash = None
+        capture_observed = capture is not None
+        artifacts_bound = False
         capture_file = diameter_capture
+        if capture is None and filename_match:
+            status = "FILENAME_MATCH_ONLY"
+            basis = ["filename_equality"]
+        elif capture is None:
+            status = "UNVERIFIED"
+            basis = []
+        else:
+            status = "CAPTURE_HASH_OBSERVED_UNBOUND"
+            basis = ["supplied_capture_sha256", "artifacts_not_bound_to_capture"]
+            if filename_match:
+                basis.insert(1, "single_capture_filename_match")
+
     return {
-        "capture": {"file": capture_file, "sha256": capture_hash},
+        "capture": {"file": capture_file, "sha256": capture_digest},
         "attach_artifact": {
             "file": attach_path.name,
-            "sha256": sha256_file(attach_path),
+            "sha256": attach_digest,
             "domain": attach.get("domain"),
             "domain_version": attach.get("domain_version"),
             "model_version": attach.get("model_version"),
@@ -446,13 +639,19 @@ def _provenance(
         },
         "diameter_artifact": {
             "file": diameter_path.name,
-            "sha256": sha256_file(diameter_path),
+            "sha256": diameter_digest,
             "analysis_name": diameter.get("analysis_name"),
             "analysis_version": diameter.get("analysis_version"),
             "observation_count": len(diameter.get("observations") or []),
             "capture_files": diameter_captures,
         },
-        "common_capture": {"status": status, "basis": basis},
+        "common_capture": {
+            "status": status,
+            "basis": basis,
+            "capture_digest_observed": capture_observed,
+            "artifacts_bound_to_capture": artifacts_bound,
+            "coordinated_run": coordinated_run,
+        },
     }
 
 
@@ -463,16 +662,36 @@ def analyze(
     attach_path: Path,
     diameter_path: Path,
     capture: Path | None,
+    run_manifest: dict[str, Any] | None = None,
+    run_manifest_path: Path | None = None,
 ) -> dict[str, Any]:
     validate_attach(attach)
     validate_diameter(diameter)
-    provenance = _provenance(attach_path, diameter_path, attach, diameter, capture)
+    provenance = _provenance(
+        attach_path, diameter_path, attach, diameter, capture, run_manifest, run_manifest_path
+    )
     attach_records, attach_omitted = _attach_inventory(attach)
     diameter_records, diameter_omitted = _diameter_inventory(diameter)
     verified = provenance["common_capture"]["status"] == "VERIFIED_COORDINATED_CAPTURE_CONTEXT"
     timeline, timeline_omitted, ordering = _timeline(attach, diameter_records, verified_capture=verified)
     association = _association_status(len(attach_records), len(diameter_records))
     diagnostics = _diagnostics(attach, diameter_records)
+    limitations = [
+        "the joint analysis does not re-decode, re-correlate or re-verdict either source",
+        "a shared timeline is ordering evidence only, not proof of causation or shared UE identity",
+        "a matched Diameter transaction and an EPS Attach instance remain independent unless reviewed identity evidence establishes a bridge",
+        "a slow Diameter exchange is not automatically the first causal failure boundary",
+    ]
+    if not verified:
+        limitations.append(
+            "a capture digest identifies the supplied capture only; it does not prove that the "
+            "supplied analysis artifacts were generated from those capture bytes"
+        )
+    if not strict_schema_available():
+        limitations.append(
+            "source artifacts were checked against structural contracts only because the JSON "
+            "Schema validation dependency is unavailable in this runtime"
+        )
     return {
         "analysis_name": ANALYSIS_NAME,
         "analysis_version": ANALYSIS_VERSION,
@@ -488,12 +707,7 @@ def analyze(
         "timeline_ordering": ordering,
         "identity_association": association,
         "diagnostics": diagnostics,
-        "limitations": [
-            "the joint analysis does not re-decode, re-correlate or re-verdict either source",
-            "a shared timeline is ordering evidence only, not proof of causation or shared UE identity",
-            "a matched Diameter transaction and an EPS Attach instance remain independent unless reviewed identity evidence establishes a bridge",
-            "a slow Diameter exchange is not automatically the first causal failure boundary",
-        ],
+        "limitations": limitations,
         "not_confirmed": [
             "per-UE association between any Attach instance and any S6a/S6d transaction is not established",
             "AIA success does not prove EPS-AKA completion or EPS Attach success",

@@ -29,6 +29,11 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--output", type=Path, required=True, help="joint analysis JSON destination")
     result.add_argument("--report", type=Path, help="human-readable joint report destination")
     result.add_argument("--capture", type=Path, help="optional coordinated capture for verified provenance")
+    result.add_argument(
+        "--run-manifest",
+        type=Path,
+        help="optional coordinated-run manifest recording producer invocations and digests",
+    )
     result.add_argument("--force", action="store_true", help="explicitly replace existing outputs")
     return result
 
@@ -63,12 +68,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         attach = load_json(args.attach)
         diameter = load_json(args.diameter_epc)
+        run_manifest = load_json(args.run_manifest) if args.run_manifest is not None else None
         document = analyze(
             attach,
             diameter,
             attach_path=args.attach,
             diameter_path=args.diameter_epc,
             capture=args.capture,
+            run_manifest=run_manifest,
+            run_manifest_path=args.run_manifest,
         )
         _check(args.attach, args.output, args.force)
         if args.report is not None:

@@ -17,6 +17,8 @@ def _result_text(result: dict[str, Any]) -> str:
 def render_report(document: dict[str, Any]) -> str:
     lines = ["EPC Attach and S6a/S6d Joint Evidence", "=" * 38]
     provenance = document["input_provenance"]
+    common_capture = provenance["common_capture"]
+    basis = ", ".join(common_capture.get("basis") or []) or "none"
     lines.extend(
         [
             f"Attach artifact: {provenance['attach_artifact']['file']} "
@@ -25,9 +27,29 @@ def render_report(document: dict[str, Any]) -> str:
             f"sha256={provenance['diameter_artifact']['sha256']}",
             f"Capture: {provenance['capture']['file'] or 'unavailable'} "
             f"sha256={provenance['capture']['sha256'] or 'unverified'}",
-            f"Common capture provenance: {provenance['common_capture']['status']}",
+            f"Common capture provenance: {common_capture['status']}",
+            f"  capture digest observed: {common_capture.get('capture_digest_observed')}; "
+            f"artifacts bound to capture: {common_capture.get('artifacts_bound_to_capture')}",
+            f"  basis: {basis}",
+        ]
+    )
+    coordinated_run = common_capture.get("coordinated_run")
+    if isinstance(coordinated_run, dict):
+        lines.append(
+            f"  coordinated run: {coordinated_run.get('run_id')} "
+            f"(manifest sha256={coordinated_run.get('manifest_sha256') or 'unverified'}, "
+            f"verification={coordinated_run.get('verification_basis')})"
+        )
+    attach_total = len(document["attach_inventory"]) + document["attach_instances_omitted"]
+    diameter_total = (
+        len(document["diameter_inventory"]) + document["diameter_observations_omitted"]
+    )
+    timeline_total = len(document["timeline"]) + document["timeline_rows_omitted"]
+    lines.extend(
+        [
             "",
-            "EPS Attach inventory",
+            f"EPS Attach inventory (published {len(document['attach_inventory'])} of {attach_total}; "
+            f"producer omitted {document['attach_instances_omitted']})",
             "--------------------",
         ]
     )
@@ -43,7 +65,14 @@ def render_report(document: dict[str, Any]) -> str:
     if document["attach_instances_omitted"]:
         lines.append(f"- omitted Attach instances: {document['attach_instances_omitted']}")
 
-    lines.extend(["", "Diameter S6a/S6d inventory", "--------------------------"])
+    lines.extend(
+        [
+            "",
+            f"Diameter S6a/S6d inventory (published {len(document['diameter_inventory'])} of "
+            f"{diameter_total}; producer omitted {document['diameter_observations_omitted']})",
+            "--------------------------",
+        ]
+    )
     if not document["diameter_inventory"]:
         lines.append("- no S6a/S6d application observation observed")
     for observation in document["diameter_inventory"]:
@@ -64,7 +93,14 @@ def render_report(document: dict[str, Any]) -> str:
     if document["diameter_observations_omitted"]:
         lines.append(f"- omitted Diameter observations: {document['diameter_observations_omitted']}")
 
-    lines.extend(["", "Frame-anchored timeline", "-----------------------"])
+    lines.extend(
+        [
+            "",
+            f"Frame-anchored timeline (published {len(document['timeline'])} of {timeline_total}; "
+            f"producer omitted {document['timeline_rows_omitted']})",
+            "-----------------------",
+        ]
+    )
     lines.append(f"ordering: {document['timeline_ordering']} (ordering only; not causation)")
     for row in document["timeline"]:
         occurrence = "" if row["message_occurrence"] is None else f".{row['message_occurrence']}"

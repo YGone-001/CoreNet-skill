@@ -13,11 +13,42 @@ artifacts. It is presentation and evidence composition only.
 
 ## Provenance
 
-`input_provenance` records both artifact SHA-256 values and producer identities.
-A capture SHA-256 and `VERIFIED_COORDINATED_CAPTURE_CONTEXT` are recorded only
-when one capture is supplied by the coordinated workflow. A filename match alone
-is reported as `FILENAME_MATCH_ONLY`; it never becomes verified same-capture
-identity.
+`input_provenance` records both artifact SHA-256 values, the supplied capture
+digest when one is available, and producer identities. The captured distinction is
+deliberate:
+
+- A capture digest identifies the supplied capture file.
+- An artifact digest identifies the supplied analysis artifact.
+- Neither digest by itself proves that an artifact was generated from that capture.
+- A matching filename proves none of those relationships.
+
+The accepted statuses are:
+
+| Status | Meaning |
+| --- | --- |
+| `VERIFIED_COORDINATED_CAPTURE_CONTEXT` | A coordinated-run manifest binds the capture and both artifacts by digest, and the run declares the required producer invocations. |
+| `CAPTURE_HASH_OBSERVED_UNBOUND` | A capture was supplied, but no run-level evidence binds the artifacts to those capture bytes. |
+| `DECLARED_PROVENANCE_UNVERIFIED` | A run manifest was declared but its capture or producer evidence could not be verified. |
+| `FILENAME_MATCH_ONLY` | The artifacts merely agree on a filename. |
+| `UNVERIFIED` | No source relationship could be established. |
+
+The standalone CLI never promotes `--capture` alone to verified coordinated
+provenance. The unified analyzers write a coordinated-run manifest recording the
+run identifier, capture digest, Attach and Diameter EPC artifact digests, producer
+identities and the producer invocations executed during that run. The joint model
+verifies the manifest's capture and artifact digests before using it. A capture or
+artifact digest contradiction fails closed as invalid input. A verified context
+affects ordering only; it never creates a per-UE identity association.
+
+## Collection publication
+
+The joint artifact publishes counts separately from the retained records. Each of
+`attach_inventory`, `diameter_inventory` and `timeline` records the number of
+records omitted by this producer. A consumer that applies a stricter presentation
+limit must add its projection omissions to that source omission count and must never
+label the truncated list as the complete collection. The unified report publishes
+`source_total = published + omitted_by_producer + omitted_by_projection` for each
+collection.
 
 ## Identity association
 

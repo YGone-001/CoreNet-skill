@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import subprocess
 import sys
@@ -78,6 +79,18 @@ def attach_instance(reference, attempt, start, end, *, incomplete=False, deviati
                 "protocol": "NAS-EPS",
                 "message_type": "Authentication reject",
                 "frame_number": start + 2,
+                "evidence_level": "OBSERVED",
+                "evidence_refs": [
+                    {
+                        "protocol": "NAS-EPS",
+                        "frame_number": start + 2,
+                        "message_type": "Authentication reject",
+                        "evidence_level": "OBSERVED",
+                    }
+                ],
+                "observation_window": {"start_frame": start, "end_frame": start + 2},
+                "explanation": "synthetic observed reject used for a bounded fixture",
+                "limitations": [],
             }
             for _ in range(deviations)
         ],
@@ -136,6 +149,25 @@ def result(code=None, exp=None, vendor=None, application_result="SUCCESS_REPORTE
         "experimental_result_code": exp,
         "experimental_result_code_name": None,
         "experimental_vendor_id": vendor,
+        "base_results": (
+            [{"code": code, "name": "DIAMETER_SUCCESS" if code in (2001, 2002) else None, "avp_reference": None}]
+            if code is not None
+            else []
+        ),
+        "experimental_results": (
+            [
+                {
+                    "vendor_id": vendor,
+                    "code": exp,
+                    "group_reference": None,
+                    "code_reference": None,
+                    "vendor_reference": None,
+                }
+            ]
+            if exp is not None
+            else []
+        ),
+        "limitations": [],
     }
 
 
@@ -167,7 +199,9 @@ def diameter_observation(
     return {
         "observation_reference": f"diameter-epc-observation:capture.pcapng:{start}.{occurrence}",
         "procedure": procedure,
+        "procedure_family": procedure.split("-")[0] if isinstance(procedure, str) else None,
         "command_code": command,
+        "command_name": "Authentication-Information" if command == 318 else "Update-Location",
         "message_status": message_status,
         "application_result": (result_value or result(2001))["application_result"],
         "transaction_status": status,
@@ -178,7 +212,10 @@ def diameter_observation(
         "result": result_value or result(2001),
         "authentication_information": auth,
         "latency_seconds": "0.100000" if status == "MATCHED" else None,
+        "request_avp_presence": [],
+        "answer_avp_presence": [],
         "limitations": [],
+        "not_confirmed": [],
     }
 
 
@@ -187,9 +224,34 @@ def diameter_document(observations, capture="capture.pcapng"):
         "analysis_name": "diameter-epc",
         "analysis_version": "1.0.0",
         "domain": "protocol",
-        "input_provenance": {"capture_files": [capture]},
+        "capability": {
+            "supported_commands": ["AIR", "AIA", "ULR", "ULA"],
+            "recognized_unsupported_commands": ["NOR", "NOA"],
+            "application_id": 16777251,
+            "application_name": "S6a/S6d",
+            "interface_identity": "UNPROVED",
+            "interface_identity_basis": ["bounded application evidence"],
+        },
+        "input_provenance": {
+            "capture_files": [capture],
+            "event_count": max(1, 2 * len(observations)),
+            "transaction_count": len(observations),
+            "events_sha256": "0" * 64,
+            "transactions_sha256": "1" * 64,
+        },
+        "command_inventory": [],
         "observations": observations,
-        "completeness": {"observation_count": len(observations)},
+        "completeness": {
+            "observation_count": len(observations),
+            "observations_omitted": 0,
+            "s6a_event_count": 2 * len(observations),
+            "s6a_transaction_count": len(observations),
+            "events_with_avp_omissions": 0,
+            "unresolved_core_transactions": 0,
+            "truncated_observations": 0,
+        },
+        "not_confirmed": [],
+        "limitations": [],
     }
 
 
@@ -208,10 +270,53 @@ class JointModelTest(unittest.TestCase):
         diameter_path.write_text(json.dumps(diameter or diameter_document([diameter_observation("obs", "AIR", 318, 11, response_frame=12)])), encoding="utf-8")
         return attach_path, diameter_path
 
-    def analyze(self, attach, diameter, *, capture=None):
+    def analyze(self, attach, diameter, *, capture=None, manifest=None, manifest_path=None):
         attach = attach or attach_document([attach_instance("epc-attach-aaaaaaaaaa", 1, 10, 20)])
         attach_path, diameter_path = self.write(attach, diameter)
-        return model.analyze(attach, diameter, attach_path=attach_path, diameter_path=diameter_path, capture=capture)
+        return model.analyze(
+            attach,
+            diameter,
+            attach_path=attach_path,
+            diameter_path=diameter_path,
+            capture=capture,
+            run_manifest=manifest,
+            run_manifest_path=manifest_path,
+        )
+
+    def manifest_for(self, attach_path, diameter_path, capture, **overrides):
+        capture_digest = hashlib.sha256(capture.read_bytes()).hexdigest()
+        document = {
+            "manifest_name": model.MANIFEST_NAME,
+            "manifest_schema_version": model.MANIFEST_SCHEMA_VERSION,
+            "coordinated_run_id": "test-coordinated-run",
+            "capture": {"file": capture.name, "sha256": capture_digest},
+            "artifacts": {
+                "attach": {
+                    "file": attach_path.name,
+                    "sha256": hashlib.sha256(attach_path.read_bytes()).hexdigest(),
+                    "producer": "epc-attach-analysis",
+                },
+                "diameter_epc": {
+                    "file": diameter_path.name,
+                    "sha256": hashlib.sha256(diameter_path.read_bytes()).hexdigest(),
+                    "producer": "diameter-epc-analysis",
+                },
+            },
+            "producers": {
+                "attach": "epc-attach-analysis",
+                "diameter_core": "diameter-core-extraction",
+                "diameter_epc": "diameter-epc-analysis",
+            },
+            "executed_invocations": [
+                {"producer": "epc-attach-analysis", "capture_sha256": capture_digest},
+                {"producer": "diameter-core-extraction", "capture_sha256": capture_digest},
+                {"producer": "diameter-epc-analysis", "capture_sha256": capture_digest},
+            ],
+        }
+        document.update(overrides)
+        path = self.base / "run-manifest.json"
+        path.write_text(json.dumps(document), encoding="utf-8")
+        return document, path
 
     def test_one_attach_and_one_matched_air_remains_unlinked(self):
         document = self.analyze(attach_document([attach_instance("epc-attach-aaaaaaaaaa", 1, 10, 20)]), diameter_document([diameter_observation("obs", "AIR", 318, 11, response_frame=12)]))
@@ -261,12 +366,17 @@ class JointModelTest(unittest.TestCase):
         self.assertEqual(document["input_provenance"]["common_capture"]["status"], "FILENAME_MATCH_ONLY")
         self.assertEqual(document["timeline_ordering"], "SOURCE_LOCAL_ONLY")
 
-    def test_supplied_capture_context_verifies_order_but_not_identity(self):
+    def test_supplied_capture_is_observed_but_not_bound_without_a_run_manifest(self):
         capture = self.base / "capture.pcapng"
         capture.write_bytes(b"synthetic")
         document = self.analyze(None, diameter_document([diameter_observation("a", "AIR", 318, 11, response_frame=12)]), capture=capture)
-        self.assertEqual(document["input_provenance"]["common_capture"]["status"], "VERIFIED_COORDINATED_CAPTURE_CONTEXT")
-        self.assertEqual(document["timeline_ordering"], "VERIFIED_COMMON_CAPTURE")
+        common_capture = document["input_provenance"]["common_capture"]
+        self.assertEqual(common_capture["status"], "CAPTURE_HASH_OBSERVED_UNBOUND")
+        self.assertTrue(common_capture["capture_digest_observed"])
+        self.assertFalse(common_capture["artifacts_bound_to_capture"])
+        self.assertIsNone(common_capture["coordinated_run"])
+        self.assertEqual(len(document["input_provenance"]["capture"]["sha256"]), 64)
+        self.assertEqual(document["timeline_ordering"], "SOURCE_LOCAL_ONLY")
         self.assertEqual(document["identity_association"]["status"], "INSUFFICIENT_EVIDENCE")
 
     def test_contradictory_capture_filename_is_rejected(self):
@@ -276,6 +386,143 @@ class JointModelTest(unittest.TestCase):
         diameter = diameter_document([diameter_observation("a", "AIR", 318, 11, response_frame=12)], capture="capture.pcapng")
         with self.assertRaises(model.InputError):
             self.analyze(attach, diameter, capture=capture)
+
+    def test_attach_capture_identity_contradicting_diameter_is_rejected(self):
+        attach = attach_document([attach_instance("epc-attach-aaaaaaaaaa", 1, 10, 20)])
+        for instance in attach["procedure_instances"]:
+            instance["association"]["capture_file"] = "different.pcapng"
+        diameter = diameter_document([diameter_observation("a", "AIR", 318, 11, response_frame=12)], capture="capture.pcapng")
+        with self.assertRaises(model.InputError):
+            self.analyze(attach, diameter)
+
+    def test_missing_source_provenance_is_unverified(self):
+        attach = attach_document([attach_instance("epc-attach-aaaaaaaaaa", 1, 10, 20)])
+        for instance in attach["procedure_instances"]:
+            instance["association"]["capture_file"] = ""
+        diameter = diameter_document([diameter_observation("a", "AIR", 318, 11, response_frame=12)], capture="")
+        document = self.analyze(attach, diameter)
+        self.assertEqual(document["input_provenance"]["common_capture"]["status"], "UNVERIFIED")
+        self.assertIsNone(document["input_provenance"]["capture"]["sha256"])
+        self.assertFalse(document["input_provenance"]["common_capture"]["artifacts_bound_to_capture"])
+
+    def test_coordinated_run_manifest_verifies_digest_bound_provenance(self):
+        attach = attach_document([attach_instance("epc-attach-aaaaaaaaaa", 1, 10, 20)])
+        diameter = diameter_document([diameter_observation("a", "AIR", 318, 11, response_frame=12)])
+        attach_path, diameter_path = self.write(attach, diameter)
+        capture = self.base / "capture.pcapng"
+        capture.write_bytes(b"synthetic capture bytes")
+        manifest, manifest_path = self.manifest_for(attach_path, diameter_path, capture)
+        document = model.analyze(
+            attach,
+            diameter,
+            attach_path=attach_path,
+            diameter_path=diameter_path,
+            capture=capture,
+            run_manifest=manifest,
+            run_manifest_path=manifest_path,
+        )
+        common_capture = document["input_provenance"]["common_capture"]
+        self.assertEqual(common_capture["status"], "VERIFIED_COORDINATED_CAPTURE_CONTEXT")
+        self.assertTrue(common_capture["capture_digest_observed"])
+        self.assertTrue(common_capture["artifacts_bound_to_capture"])
+        self.assertEqual(common_capture["coordinated_run"]["run_id"], "test-coordinated-run")
+        self.assertEqual(document["timeline_ordering"], "VERIFIED_COMMON_CAPTURE")
+        self.assertEqual(document["identity_association"]["status"], "INSUFFICIENT_EVIDENCE")
+        self.assertEqual(document["identity_association"]["candidate_pairs"], [])
+
+    def test_manifest_without_supplied_capture_is_declared_not_verified(self):
+        attach = attach_document([attach_instance("epc-attach-aaaaaaaaaa", 1, 10, 20)])
+        diameter = diameter_document([diameter_observation("a", "AIR", 318, 11, response_frame=12)])
+        attach_path, diameter_path = self.write(attach, diameter)
+        capture = self.base / "capture.pcapng"
+        capture.write_bytes(b"synthetic capture bytes")
+        manifest, manifest_path = self.manifest_for(attach_path, diameter_path, capture)
+        document = self.analyze(attach, diameter, manifest=manifest, manifest_path=manifest_path)
+        common_capture = document["input_provenance"]["common_capture"]
+        self.assertEqual(common_capture["status"], "DECLARED_PROVENANCE_UNVERIFIED")
+        self.assertIsNone(document["input_provenance"]["capture"]["sha256"])
+        self.assertFalse(common_capture["artifacts_bound_to_capture"])
+        self.assertEqual(document["timeline_ordering"], "SOURCE_LOCAL_ONLY")
+        self.assertEqual(common_capture["coordinated_run"]["verification_basis"], "DECLARED_ONLY")
+
+    def test_manifest_missing_producer_invocation_is_declared_only(self):
+        attach = attach_document([attach_instance("epc-attach-aaaaaaaaaa", 1, 10, 20)])
+        diameter = diameter_document([diameter_observation("a", "AIR", 318, 11, response_frame=12)])
+        attach_path, diameter_path = self.write(attach, diameter)
+        capture = self.base / "capture.pcapng"
+        capture.write_bytes(b"synthetic capture bytes")
+        manifest, manifest_path = self.manifest_for(attach_path, diameter_path, capture)
+        manifest["executed_invocations"] = manifest["executed_invocations"][:2]
+        document = model.analyze(
+            attach,
+            diameter,
+            attach_path=attach_path,
+            diameter_path=diameter_path,
+            capture=capture,
+            run_manifest=manifest,
+            run_manifest_path=manifest_path,
+        )
+        common_capture = document["input_provenance"]["common_capture"]
+        self.assertEqual(common_capture["status"], "DECLARED_PROVENANCE_UNVERIFIED")
+        self.assertFalse(common_capture["artifacts_bound_to_capture"])
+
+    def test_tampered_attach_artifact_digest_rejects_verified_provenance(self):
+        attach = attach_document([attach_instance("epc-attach-aaaaaaaaaa", 1, 10, 20)])
+        diameter = diameter_document([diameter_observation("a", "AIR", 318, 11, response_frame=12)])
+        attach_path, diameter_path = self.write(attach, diameter)
+        capture = self.base / "capture.pcapng"
+        capture.write_bytes(b"synthetic capture bytes")
+        manifest, manifest_path = self.manifest_for(attach_path, diameter_path, capture)
+        manifest["artifacts"]["attach"]["sha256"] = "f" * 64
+        with self.assertRaises(model.InputError):
+            model.analyze(
+                attach,
+                diameter,
+                attach_path=attach_path,
+                diameter_path=diameter_path,
+                capture=capture,
+                run_manifest=manifest,
+                run_manifest_path=manifest_path,
+            )
+
+    def test_tampered_diameter_artifact_digest_rejects_verified_provenance(self):
+        attach = attach_document([attach_instance("epc-attach-aaaaaaaaaa", 1, 10, 20)])
+        diameter = diameter_document([diameter_observation("a", "AIR", 318, 11, response_frame=12)])
+        attach_path, diameter_path = self.write(attach, diameter)
+        capture = self.base / "capture.pcapng"
+        capture.write_bytes(b"synthetic capture bytes")
+        manifest, manifest_path = self.manifest_for(attach_path, diameter_path, capture)
+        manifest["artifacts"]["diameter_epc"]["sha256"] = "f" * 64
+        with self.assertRaises(model.InputError):
+            model.analyze(
+                attach,
+                diameter,
+                attach_path=attach_path,
+                diameter_path=diameter_path,
+                capture=capture,
+                run_manifest=manifest,
+                run_manifest_path=manifest_path,
+            )
+
+    def test_manifest_capture_digest_contradiction_is_rejected(self):
+        attach = attach_document([attach_instance("epc-attach-aaaaaaaaaa", 1, 10, 20)])
+        diameter = diameter_document([diameter_observation("a", "AIR", 318, 11, response_frame=12)])
+        attach_path, diameter_path = self.write(attach, diameter)
+        capture = self.base / "capture.pcapng"
+        capture.write_bytes(b"synthetic capture bytes")
+        manifest, manifest_path = self.manifest_for(attach_path, diameter_path, capture)
+        different = self.base / "capture.pcapng"
+        different.write_bytes(b"different capture bytes")
+        with self.assertRaises(model.InputError):
+            model.analyze(
+                attach,
+                diameter,
+                attach_path=attach_path,
+                diameter_path=diameter_path,
+                capture=different,
+                run_manifest=manifest,
+                run_manifest_path=manifest_path,
+            )
 
     def test_zero_diameter_observations_is_not_applicable(self):
         document = self.analyze(None, diameter_document([]))
@@ -353,8 +600,12 @@ class JointModelTest(unittest.TestCase):
         first = self.analyze(attach, diameter, capture=capture)
         second = self.analyze(attach, diameter, capture=capture)
         self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
-        frames = [(row["frame_number"], row["message_occurrence"] or 0) for row in first["timeline"]]
-        self.assertEqual(frames, sorted(frames))
+        self.assertEqual(first["timeline_ordering"], "SOURCE_LOCAL_ONLY")
+        keys = [
+            (row["family"], row["frame_number"], row["source_reference"])
+            for row in first["timeline"]
+        ]
+        self.assertEqual(keys, sorted(keys))
 
     def test_sensitive_values_and_root_cause_are_absent(self):
         document = self.analyze(None, diameter_document([diameter_observation("a", "AIR", 318, 11, response_frame=12)]))

@@ -375,7 +375,7 @@ carry item-scoped bearer evidence, and state `cross_interface_association` and
 `attach_association` as `NOT_ESTABLISHED`. The result never reports a bearer, PDN or
 service verdict, and it never selects a global first-abnormal boundary: EPC boundary
 selection is reported as `NOT_EVALUATED` until an EPC Analysis Orchestration Skill
-exists. Diameter EPC, complete ESM semantics, dedicated-bearer lifecycle, PDN-disconnect
+exists. Complete ESM semantics, dedicated-bearer lifecycle, PDN-disconnect
 lifecycle, cross-interface session association and user-plane verification remain
 outside the implemented scope.
 
@@ -443,6 +443,40 @@ and insufficient metadata remain explicitly classified and are never silently
 converted into resolved targets. `navigation_summary` reports resolved and
 unresolved reference counts, classification counts and separate source-omission
 and display-omission counts; unresolved references may remain in a correct pack.
+
+### EPS Attach and S6a/S6d joint evidence
+
+When a capture carries readable Diameter evidence, the unified EPC path runs the
+Diameter Core extraction, Diameter Core transaction correlation, Diameter EPC
+application analysis and the bounded EPS Attach/S6a joint producer. Each component
+is interpreted by its accepted exit-code contract: exit 0 is success, exit 3 is the
+only legitimate empty result, and exit 2, 4, 5, 6 or any unexpected code is a
+component failure. A reported success without its required output artifact, an
+unreadable artifact and a stale artifact are failures as well. The machine-readable
+failure code identifies the responsible stage: `DIAMETER_CORE_EXTRACTION_FAILED`,
+`DIAMETER_CORE_CORRELATION_FAILED`, `DIAMETER_EPC_ANALYSIS_FAILED` or
+`ATTACH_S6A_JOINT_ANALYSIS_FAILED`. An observed Diameter failure keeps independently
+valid Attach evidence and makes the EPC domain `PARTIAL`; `FAILED` is used only when
+no trustworthy EPC result remains.
+
+The joint producer records capture and artifact SHA-256 values, but a digest
+identifies a supplied file and does not by itself prove that an analysis artifact
+was generated from a capture. A standalone `--capture` without coordinated-run
+evidence is published as `CAPTURE_HASH_OBSERVED_UNBOUND`; equal filenames remain
+`FILENAME_MATCH_ONLY`. The unified path writes a coordinated-run manifest recording
+the run identifier, capture digest, both artifact digests, producer identities and
+the producer invocations executed during that run. The joint model verifies those
+digests before publishing `VERIFIED_COORDINATED_CAPTURE_CONTEXT`. A capture or
+artifact digest contradiction is rejected as invalid input, and a manifest supplied
+without a verifiable capture remains `DECLARED_PROVENANCE_UNVERIFIED`. Verified
+common-capture provenance affects frame ordering only and never creates a per-UE
+Attach/S6a identity link.
+
+Each projected collection publishes an explicit conservation model:
+`source_total = published + omitted_by_producer + omitted_by_projection`. The
+`timeline`, `attach_inventory` and `diameter_inventory` blocks retain the source
+order of published records, and a truncated subset is never labelled complete. The
+JSON report and the text report use the same counts.
 
 ## 11. Roadmap for EPC and IMS
 

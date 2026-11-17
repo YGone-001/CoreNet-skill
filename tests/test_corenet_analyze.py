@@ -4266,5 +4266,454 @@ class DedicatedBearerAttributionStageTests(WorkflowTestCase):
         )
 
 
+class DiameterComponentFailureTests(unittest.TestCase):
+    """A failed Diameter component is never read as absent Diameter evidence."""
+
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.base = Path(self._temporary.name)
+        self.capture = self.base / "fixture.pcapng"
+        self.capture.write_bytes(b"\x0a\x0d\x0d\x0a" + b"\x00" * 60)
+        self.work = self.base / "work"
+        self._original = MODULE._run_component
+
+    def tearDown(self) -> None:
+        MODULE._run_component = self._original
+        self._temporary.cleanup()
+
+    @staticmethod
+    def _output(command):
+        return Path(command[command.index("--output") + 1])
+
+    def joint_artifact(self, instances: int, observations: int) -> dict:
+        return {
+            "analysis_name": "epc-attach-s6a",
+            "analysis_version": "1.0.0",
+            "domain": "epc-procedures",
+            "input_provenance": {
+                "common_capture": {
+                    "status": "VERIFIED_COORDINATED_CAPTURE_CONTEXT",
+                    "basis": ["controlled_producer_invocations"],
+                    "capture_digest_observed": True,
+                    "artifacts_bound_to_capture": True,
+                    "coordinated_run": {"run_id": "fixture-run"},
+                }
+            },
+            "diagnostics": {
+                "attach_incomplete_instance_count": 0,
+                "diameter_matched_count": observations,
+                "diameter_failure_reported_count": 0,
+                "diameter_open_or_ambiguous_count": 0,
+                "cross_protocol_attribution_established": False,
+                "root_cause_inferred": False,
+            },
+            "identity_association": {"status": "INSUFFICIENT_EVIDENCE"},
+            "attach_inventory": [
+                {
+                    "procedure_reference": f"epc-attach-{index:010x}",
+                    "first_frame": index + 1,
+                    "last_frame": index + 2,
+                    "status": "OBSERVED",
+                    "deviation_count": 0,
+                }
+                for index in range(instances)
+            ],
+            "attach_instances_omitted": 0,
+            "diameter_inventory": [
+                {"procedure": "AIR", "transaction_status": "MATCHED"}
+                for _ in range(observations)
+            ],
+            "diameter_observations_omitted": 0,
+            "timeline": [
+                {
+                    "family": "EPS_ATTACH",
+                    "protocol": "NAS-EPS",
+                    "frame_number": index + 1,
+                    "message_occurrence": None,
+                    "event_type": "Attach request",
+                    "status": "OBSERVED",
+                }
+                for index in range(instances)
+            ],
+            "timeline_rows_omitted": 0,
+            "timeline_ordering": "VERIFIED_COMMON_CAPTURE",
+            "limitations": [],
+            "not_confirmed": [],
+        }
+
+    def install(
+        self,
+        *,
+        instances: int = 2,
+        core: str = "success",
+        core_exit: int = 6,
+        correlation: str = "success",
+        epc: str = "success",
+        epc_exit: int = 6,
+        joint: str = "success",
+    ) -> None:
+        def raise_failure(label: str, code: int) -> None:
+            raise MODULE.AnalysisError("EXTRACTION_FAILED", f"{label} exited with {code}")
+
+        def fake(command, label, **kwargs):
+            output = self._output(command)
+            if label == "S1AP extraction":
+                output.write_text('{"event":"s1ap"}\n', encoding="utf-8")
+                return True
+            if label == "NAS-EPS extraction":
+                output.write_text('{"event":"nas"}\n', encoding="utf-8")
+                return True
+            if label == "GTPv2-C extraction":
+                output.write_text('{"event":"gtpv2"}\n', encoding="utf-8")
+                return True
+            if label == "GTPv2-C transaction correlation":
+                output.write_text('{"transactions": []}', encoding="utf-8")
+                return True
+            if label == "EPC Attach analysis":
+                output.write_text(
+                    json.dumps(epc_payload(instances=instances)["analysis"]), encoding="utf-8"
+                )
+                return True
+            if label == "Diameter Core extraction":
+                if core == "failure":
+                    raise_failure(label, core_exit)
+                if core == "empty":
+                    return False
+                if core == "missing":
+                    return True
+                output.write_text(
+                    '{"event":"diameter"}\n{"event":"diameter"}\n', encoding="utf-8"
+                )
+                return True
+            if label == "Diameter Core correlation":
+                if correlation == "failure":
+                    raise_failure(label, 5)
+                if correlation == "missing":
+                    return True
+                output.write_text('{"transactions": []}', encoding="utf-8")
+                return True
+            if label == "Diameter EPC analysis":
+                if epc == "failure":
+                    raise_failure(label, epc_exit)
+                if epc == "empty":
+                    return False
+                if epc == "missing":
+                    return True
+                output.write_text(
+                    json.dumps({"observations": [{}, {}]}), encoding="utf-8"
+                )
+                return True
+            if label == "EPC Attach/S6a joint analysis":
+                if joint == "failure":
+                    raise_failure(label, 5)
+                if joint == "missing":
+                    return True
+                output.write_text(
+                    json.dumps(self.joint_artifact(instances, 2)), encoding="utf-8"
+                )
+                return True
+            if label == "EPC failure-boundary orchestration":
+                output.write_text("{}", encoding="utf-8")
+                return True
+            return True
+
+        MODULE._run_component = fake
+
+    def run_pipeline(self, **kwargs) -> dict:
+        self.install(**kwargs)
+        return MODULE.execute_epc_pipeline(self.capture, self.work, "fixture-case")
+
+    def test_core_exit_three_is_neutral(self) -> None:
+        payload = self.run_pipeline(core="empty")
+        self.assertEqual(payload["diameter_status"], "NOT_OBSERVED_IN_CAPTURE")
+        self.assertIsNone(payload["attach_s6a_error"])
+        self.assertEqual(payload["diameter_event_count"], 0)
+        self.assertIsNone(payload["attach_s6a_analysis"])
+
+    def test_core_exit_six_is_component_failure(self) -> None:
+        payload = self.run_pipeline(core="failure", core_exit=6)
+        self.assertEqual(payload["diameter_status"], "COMPONENT_FAILED")
+        self.assertEqual(
+            payload["diameter_epc_error"]["code"], MODULE.DIAMETER_CORE_EXTRACTION_FAILURE
+        )
+        self.assertEqual(
+            payload["diameter_epc_error"]["stage"], "DIAMETER_CORE_EXTRACTION"
+        )
+        self.assertIsNone(payload["attach_s6a_analysis"])
+
+    def test_epc_exit_three_keeps_valid_core_events_neutral(self) -> None:
+        payload = self.run_pipeline(epc="empty")
+        self.assertEqual(payload["diameter_status"], "NO_S6A_OBSERVATIONS")
+        self.assertEqual(payload["diameter_event_count"], 2)
+        self.assertIsNone(payload["attach_s6a_error"])
+        self.assertIsNone(payload["diameter_epc_analysis"])
+
+    def test_epc_exit_six_is_component_failure(self) -> None:
+        payload = self.run_pipeline(epc="failure", epc_exit=6)
+        self.assertEqual(payload["diameter_status"], "COMPONENT_FAILED")
+        self.assertEqual(
+            payload["diameter_epc_error"]["code"], MODULE.DIAMETER_EPC_ANALYSIS_FAILURE
+        )
+        self.assertIsNone(payload["diameter_epc_analysis"])
+
+    def test_core_invalid_input_exit_two_is_failure(self) -> None:
+        payload = self.run_pipeline(core="failure", core_exit=2)
+        self.assertEqual(payload["diameter_status"], "COMPONENT_FAILED")
+        self.assertEqual(
+            payload["diameter_epc_error"]["code"], MODULE.DIAMETER_CORE_EXTRACTION_FAILURE
+        )
+
+    def test_tshark_unavailable_is_failure(self) -> None:
+        payload = self.run_pipeline(core="failure", core_exit=4)
+        self.assertEqual(payload["diameter_status"], "COMPONENT_FAILED")
+        self.assertEqual(
+            payload["diameter_epc_error"]["code"], MODULE.DIAMETER_CORE_EXTRACTION_FAILURE
+        )
+
+    def test_tshark_decode_failure_is_failure(self) -> None:
+        payload = self.run_pipeline(core="failure", core_exit=5)
+        self.assertEqual(payload["diameter_status"], "COMPONENT_FAILED")
+        self.assertEqual(
+            payload["diameter_epc_error"]["code"], MODULE.DIAMETER_CORE_EXTRACTION_FAILURE
+        )
+
+    def test_core_correlation_failure_is_failure(self) -> None:
+        payload = self.run_pipeline(correlation="failure")
+        self.assertEqual(payload["diameter_status"], "COMPONENT_FAILED")
+        self.assertEqual(
+            payload["diameter_epc_error"]["code"],
+            MODULE.DIAMETER_CORE_CORRELATION_FAILURE,
+        )
+        self.assertIsNone(payload["attach_s6a_analysis"])
+
+    def test_missing_artifact_after_success_is_failure(self) -> None:
+        for kwargs, expected in (
+            ({"core": "missing"}, MODULE.DIAMETER_CORE_EXTRACTION_FAILURE),
+            ({"correlation": "missing"}, MODULE.DIAMETER_CORE_CORRELATION_FAILURE),
+            ({"epc": "missing"}, MODULE.DIAMETER_EPC_ANALYSIS_FAILURE),
+            ({"joint": "missing"}, MODULE.ATTACH_S6A_JOINT_FAILURE),
+        ):
+            with self.subTest(**kwargs):
+                payload = self.run_pipeline(**kwargs)
+                self.assertEqual(payload["diameter_status"], "COMPONENT_FAILED")
+                self.assertEqual(payload["attach_s6a_error"]["code"], expected)
+                self.assertIsNone(payload["attach_s6a_analysis"])
+
+    def test_failed_diameter_preserves_independently_valid_attach_evidence(self) -> None:
+        payload = self.run_pipeline(core="failure", core_exit=6)
+        self.assertEqual(payload["analysis"]["instance_count"], 2)
+        self.assertEqual(payload["diameter_observation_count"], 0)
+        self.assertIsNone(payload["diameter_epc_analysis"])
+        self.assertIsNone(payload["attach_s6a_analysis"])
+
+    def test_usable_attach_becomes_partial(self) -> None:
+        payload = self.run_pipeline(core="failure", core_exit=6)
+        result = MODULE.execute_epc_domain(
+            self.capture, self.work, "fixture-case", {}, lambda *args: payload
+        )
+        self.assertEqual(result["execution_status"], MODULE.STATUS_PARTIAL)
+        self.assertEqual(result["failure_code"], MODULE.ATTACH_S6A_JOINT_FAILURE)
+        block = result["attach_s6a"]
+        self.assertEqual(block["execution_status"], "FAILED")
+        self.assertEqual(
+            block["failure_code"], MODULE.DIAMETER_CORE_EXTRACTION_FAILURE
+        )
+        self.assertEqual(block["failure_stage"], "DIAMETER_CORE_EXTRACTION")
+
+    def test_no_trustworthy_evidence_becomes_failed(self) -> None:
+        payload = self.run_pipeline(core="failure", core_exit=6, instances=0)
+        result = MODULE.execute_epc_domain(
+            self.capture, self.work, "fixture-case", {}, lambda *args: payload
+        )
+        self.assertEqual(result["execution_status"], MODULE.STATUS_FAILED)
+        self.assertEqual(result["failure_code"], MODULE.ATTACH_S6A_JOINT_FAILURE)
+
+    def test_failed_component_invents_no_protocol_evidence(self) -> None:
+        payload = self.run_pipeline(core="failure", core_exit=6)
+        block = MODULE._project_attach_s6a(
+            payload["attach_s6a_analysis"],
+            payload["diameter_status"],
+            payload["attach_s6a_error"],
+            payload["diameter_event_count"],
+            payload["diameter_observation_count"],
+        )
+        self.assertEqual(block["execution_status"], "FAILED")
+        self.assertEqual(block["diameter_observation_count"], 0)
+        self.assertEqual(block["attach_inventory"], [])
+        self.assertEqual(block["diameter_inventory"], [])
+        self.assertEqual(block["timeline"], [])
+
+
+def attach_s6a_joint(
+    timeline_rows: int,
+    *,
+    producer_omitted: int = 0,
+    attach_rows: int = 2,
+    attach_omitted: int = 0,
+    diameter_rows: int = 4,
+    diameter_omitted: int = 0,
+) -> dict:
+    return {
+        "analysis_name": "epc-attach-s6a",
+        "analysis_version": "1.0.0",
+        "domain": "epc-procedures",
+        "input_provenance": {
+            "common_capture": {
+                "status": "VERIFIED_COORDINATED_CAPTURE_CONTEXT",
+                "basis": ["controlled_producer_invocations"],
+                "capture_digest_observed": True,
+                "artifacts_bound_to_capture": True,
+                "coordinated_run": {"run_id": "fixture-run"},
+            }
+        },
+        "diagnostics": {
+            "attach_incomplete_instance_count": 0,
+            "diameter_matched_count": diameter_rows,
+            "diameter_failure_reported_count": 0,
+            "diameter_open_or_ambiguous_count": 0,
+            "cross_protocol_attribution_established": False,
+            "root_cause_inferred": False,
+        },
+        "identity_association": {"status": "INSUFFICIENT_EVIDENCE"},
+        "attach_inventory": [
+            {
+                "procedure_reference": f"epc-attach-{index:010x}",
+                "first_frame": index + 1,
+                "last_frame": index + 2,
+                "status": "OBSERVED",
+                "deviation_count": 0,
+            }
+            for index in range(attach_rows)
+        ],
+        "attach_instances_omitted": attach_omitted,
+        "diameter_inventory": [
+            {"procedure": "AIR", "transaction_status": "MATCHED"}
+            for _ in range(diameter_rows)
+        ],
+        "diameter_observations_omitted": diameter_omitted,
+        "timeline": [
+            {
+                "family": "EPS_ATTACH",
+                "protocol": "NAS-EPS",
+                "frame_number": index + 1,
+                "message_occurrence": None,
+                "event_type": "Attach request",
+                "source_reference": f"attach-observation:epc-attach-{index + 1}",
+                "status": "OBSERVED",
+            }
+            for index in range(timeline_rows)
+        ],
+        "timeline_rows_omitted": producer_omitted,
+        "timeline_ordering": "VERIFIED_COMMON_CAPTURE",
+        "limitations": [],
+        "not_confirmed": [],
+    }
+
+
+class AttachS6aProjectionAccountingTests(WorkflowTestCase):
+    """A truncated unified collection is never presented as the complete collection."""
+
+    def project(self, joint: dict) -> dict:
+        return MODULE._project_attach_s6a(
+            joint, "EXECUTED", None, 2, len(joint["diameter_inventory"])
+        )
+
+    def test_zero_rows(self) -> None:
+        block = self.project(attach_s6a_joint(0))
+        self.assertEqual(block["timeline_row_count"], 0)
+        self.assertEqual(block["timeline_source_row_count"], 0)
+        self.assertEqual(block["timeline_rows_omitted"], 0)
+        self.assertTrue(block["timeline_accounting_conserved"])
+
+    def test_exactly_the_projection_limit(self) -> None:
+        block = self.project(attach_s6a_joint(20))
+        self.assertEqual(block["timeline_row_count"], 20)
+        self.assertEqual(block["timeline_source_row_count"], 20)
+        self.assertEqual(block["timeline_rows_omitted_by_projection"], 0)
+        self.assertTrue(block["timeline_accounting_conserved"])
+
+    def test_one_row_above_the_projection_limit(self) -> None:
+        block = self.project(attach_s6a_joint(21))
+        self.assertEqual(block["timeline_row_count"], 20)
+        self.assertEqual(block["timeline_rows_omitted_by_projection"], 1)
+        self.assertEqual(block["timeline_rows_omitted"], 1)
+        self.assertTrue(block["timeline_accounting_conserved"])
+
+    def test_primary_capture_twenty_two_rows(self) -> None:
+        block = self.project(attach_s6a_joint(22))
+        self.assertEqual(block["timeline_row_count"], 20)
+        self.assertEqual(block["timeline_source_row_count"], 22)
+        self.assertEqual(block["timeline_rows_omitted_by_producer"], 0)
+        self.assertEqual(block["timeline_rows_omitted_by_projection"], 2)
+        self.assertEqual(block["timeline_rows_omitted"], 2)
+        self.assertTrue(block["timeline_accounting_conserved"])
+
+    def test_secondary_capture_twenty_eight_rows(self) -> None:
+        block = self.project(attach_s6a_joint(28))
+        self.assertEqual(block["timeline_row_count"], 20)
+        self.assertEqual(block["timeline_source_row_count"], 28)
+        self.assertEqual(block["timeline_rows_omitted_by_projection"], 8)
+        self.assertEqual(block["timeline_rows_omitted"], 8)
+        self.assertTrue(block["timeline_accounting_conserved"])
+
+    def test_upstream_and_projection_omissions_are_separate(self) -> None:
+        block = self.project(attach_s6a_joint(22, producer_omitted=5))
+        self.assertEqual(block["timeline_source_row_count"], 27)
+        self.assertEqual(block["timeline_rows_omitted_by_producer"], 5)
+        self.assertEqual(block["timeline_rows_omitted_by_projection"], 2)
+        self.assertEqual(block["timeline_rows_omitted"], 7)
+        self.assertEqual(block["timeline_row_count"], 20)
+        self.assertTrue(block["timeline_accounting_conserved"])
+
+    def test_attach_inventory_above_projection_limit(self) -> None:
+        block = self.project(attach_s6a_joint(22, attach_rows=25, attach_omitted=3))
+        self.assertEqual(block["attach_instance_count"], 25)
+        self.assertEqual(block["attach_source_instance_count"], 28)
+        self.assertEqual(block["attach_published_count"], 20)
+        self.assertEqual(block["attach_instances_omitted_by_producer"], 3)
+        self.assertEqual(block["attach_instances_omitted_by_projection"], 5)
+        self.assertEqual(block["attach_instances_omitted"], 8)
+        self.assertTrue(block["attach_accounting_conserved"])
+
+    def test_diameter_inventory_above_projection_limit(self) -> None:
+        block = self.project(attach_s6a_joint(22, diameter_rows=30, diameter_omitted=2))
+        self.assertEqual(block["diameter_observation_count"], 30)
+        self.assertEqual(block["diameter_source_observation_count"], 32)
+        self.assertEqual(block["diameter_published_count"], 20)
+        self.assertEqual(block["diameter_observations_omitted_by_producer"], 2)
+        self.assertEqual(block["diameter_observations_omitted_by_projection"], 10)
+        self.assertEqual(block["diameter_observations_omitted"], 12)
+        self.assertTrue(block["diameter_accounting_conserved"])
+
+    def test_retained_rows_keep_source_order_and_references(self) -> None:
+        joint = attach_s6a_joint(28)
+        block = self.project(joint)
+        self.assertEqual(
+            [row["source_reference"] for row in block["timeline"]],
+            [row["source_reference"] for row in joint["timeline"][:20]],
+        )
+        self.assertEqual(
+            len({row["source_reference"] for row in block["timeline"]}), 20
+        )
+
+    def test_json_and_text_reporting_agree(self) -> None:
+        payload = epc_payload(instances=2)
+        payload["attach_s6a_analysis"] = attach_s6a_joint(22)
+        payload["diameter_status"] = "EXECUTED"
+        payload["attach_s6a_error"] = None
+        MODULE.execute_epc_pipeline = lambda capture, work_dir, case_id: payload
+        self.assertEqual(self.run_cli(domains="epc"), 0)
+        block = self.domain_result()["attach_s6a"]
+        self.assertEqual(block["timeline_row_count"], 20)
+        self.assertEqual(block["timeline_source_row_count"], 22)
+        self.assertEqual(block["timeline_rows_omitted"], 2)
+        text = self.read_text()
+        self.assertIn(
+            "timeline accounting: published 20 of source 22 "
+            "(producer omitted 0, projection omitted 2, total omitted 2, conserved True)",
+            text,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

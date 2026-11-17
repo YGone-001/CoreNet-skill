@@ -87,8 +87,49 @@
           "additionalProperties": false,
           "required": ["status", "basis"],
           "properties": {
-            "status": {"type": "string", "enum": ["VERIFIED_COORDINATED_CAPTURE_CONTEXT", "FILENAME_MATCH_ONLY", "UNVERIFIED"]},
-            "basis": {"type": "array", "items": {"type": "string"}}
+            "status": {
+              "type": "string",
+              "enum": [
+                "VERIFIED_COORDINATED_CAPTURE_CONTEXT",
+                "CAPTURE_HASH_OBSERVED_UNBOUND",
+                "DECLARED_PROVENANCE_UNVERIFIED",
+                "FILENAME_MATCH_ONLY",
+                "UNVERIFIED"
+              ]
+            },
+            "basis": {"type": "array", "items": {"type": "string"}},
+            "capture_digest_observed": {"type": "boolean"},
+            "artifacts_bound_to_capture": {"type": "boolean"},
+            "coordinated_run": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "required": [
+                "run_id",
+                "manifest_file",
+                "manifest_sha256",
+                "producer_identities",
+                "verified_producers",
+                "verification_basis"
+              ],
+              "properties": {
+                "run_id": {"type": "string", "minLength": 1},
+                "manifest_file": {"type": ["string", "null"]},
+                "manifest_sha256": {
+                  "type": ["string", "null"],
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "producer_identities": {
+                  "type": "object",
+                  "additionalProperties": {"type": "string", "minLength": 1},
+                  "required": ["attach", "diameter_core", "diameter_epc"]
+                },
+                "verified_producers": {"type": "array", "items": {"type": "string"}},
+                "verification_basis": {
+                  "type": "string",
+                  "enum": ["DIGEST_BOUND_RUN_MANIFEST", "DECLARED_ONLY"]
+                }
+              }
+            }
           }
         }
       }

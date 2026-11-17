@@ -72,6 +72,18 @@ DIAMETER_CORE_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "diameter-core" / 
 DIAMETER_CORE_CORRELATE_SCRIPT = ROOT / "skills" / "protocol" / "diameter-core" / "scripts" / "correlate-diameter-core.py"
 DIAMETER_EPC_ANALYZE_SCRIPT = ROOT / "skills" / "protocol" / "diameter-epc" / "scripts" / "analyze-diameter-epc.py"
 EPC_ATTACH_S6A_ANALYZE_SCRIPT = ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_attach_s6a.py"
+DIAMETER_CORE_EXTRACTION_FAILURE = "DIAMETER_CORE_EXTRACTION_FAILED"
+DIAMETER_CORE_CORRELATION_FAILURE = "DIAMETER_CORE_CORRELATION_FAILED"
+DIAMETER_EPC_ANALYSIS_FAILURE = "DIAMETER_EPC_ANALYSIS_FAILED"
+ATTACH_S6A_JOINT_FAILURE = "ATTACH_S6A_JOINT_ANALYSIS_FAILED"
+ATTACH_S6A_FAILURE_STAGES = {
+    DIAMETER_CORE_EXTRACTION_FAILURE: "DIAMETER_CORE_EXTRACTION",
+    DIAMETER_CORE_CORRELATION_FAILURE: "DIAMETER_CORE_CORRELATION",
+    DIAMETER_EPC_ANALYSIS_FAILURE: "DIAMETER_EPC_APPLICATION",
+    ATTACH_S6A_JOINT_FAILURE: "ATTACH_S6A_JOINT",
+}
+ATTACH_S6A_MANIFEST_NAME = "epc-attach-s6a-coordinated-run"
+ATTACH_S6A_MANIFEST_SCHEMA_VERSION = "1.0.0"
 EPC_DEFAULT_BEARER_ANALYZE_SCRIPT = (
     ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_default_bearer.py"
 )
@@ -1759,12 +1771,55 @@ def render_text_report(report: dict[str, Any]) -> str:
         lines.append(
             f"    identity association: {_value(block.get('identity_association_status'))}; "
             f"common capture: {_value(block.get('common_capture_status'))}; "
-            f"timeline rows: {_value(block.get('timeline_row_count'))}"
+            f"artifacts bound to capture: {_value(block.get('common_capture_artifacts_bound'))}; "
+            f"run manifest: {_value(block.get('run_manifest_present'))}"
         )
+        if block.get("execution_status") == "EXECUTED":
+            for label, prefix in (
+                ("timeline", "timeline"),
+                ("Attach inventory", "attach"),
+                ("Diameter inventory", "diameter"),
+            ):
+                published_key = (
+                    "timeline_row_count"
+                    if prefix == "timeline"
+                    else "attach_published_count"
+                    if prefix == "attach"
+                    else "diameter_published_count"
+                )
+                source_key = (
+                    "timeline_source_row_count"
+                    if prefix == "timeline"
+                    else "attach_source_instance_count"
+                    if prefix == "attach"
+                    else "diameter_source_observation_count"
+                )
+                omitted_key = (
+                    "timeline_rows_omitted"
+                    if prefix == "timeline"
+                    else "attach_instances_omitted"
+                    if prefix == "attach"
+                    else "diameter_observations_omitted"
+                )
+                producer_key = f"{omitted_key}_by_producer"
+                projection_key = f"{omitted_key}_by_projection"
+                conserved_key = f"{prefix}_accounting_conserved"
+                lines.append(
+                    f"    {label} accounting: published {_value(block.get(published_key))} of "
+                    f"source {_value(block.get(source_key))} "
+                    f"(producer omitted {_value(block.get(producer_key))}, "
+                    f"projection omitted {_value(block.get(projection_key))}, "
+                    f"total omitted {_value(block.get(omitted_key))}, "
+                    f"conserved {_value(block.get(conserved_key))})"
+                )
+            if block.get("source_artifact"):
+                lines.append(
+                    f"    complete joint artifact: {_value(block.get('source_artifact'))}"
+                )
         if block.get("failure_code"):
             lines.append(
-                f"    failure: {_value(block.get('failure_code'))} "
-                f"{_value(block.get('failure_message'))}"
+                f"    failure [{_value(block.get('failure_stage'))}]: "
+                f"{_value(block.get('failure_code'))} {_value(block.get('failure_message'))}"
             )
         for item in (block.get("attach_inventory") or [])[:MAX_LIST_ITEMS]:
             lines.append(
@@ -2382,6 +2437,109 @@ def _count_lines(path: Path) -> int:
         return 0
 
 
+def _require_component_artifact(path: Path, label: str, failure_code: str) -> None:
+    """Fail closed when a component reports success but publishes no artifact."""
+    if not path.is_file():
+        raise AnalysisError(
+            failure_code, f"{label} reported success but produced no output artifact"
+        )
+
+
+def _read_component_artifact(
+    path: Path, label: str, failure_code: str
+) -> dict[str, Any]:
+    """Read a component artifact; a missing or unreadable result is a failure."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise AnalysisError(
+            failure_code, f"{label} output is unreadable: {exc}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise AnalysisError(failure_code, f"{label} output is not an object")
+    return payload
+
+
+def _count_component_events(path: Path, label: str, failure_code: str) -> int:
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as handle:
+            return sum(1 for line in handle if line.strip())
+    except OSError as exc:
+        raise AnalysisError(
+            failure_code, f"{label} event artifact is unreadable: {exc}"
+        ) from exc
+
+
+def _run_named_stage(
+    command: list[str],
+    label: str,
+    failure_code: str,
+    *,
+    allow_empty: bool = False,
+) -> bool:
+    """Run a component and preserve the responsible stage in a failure code."""
+    try:
+        return _run_component(
+            command,
+            label,
+            allow_empty=allow_empty,
+            empty_exit_codes=(3,) if allow_empty else (),
+        )
+    except AnalysisError as exc:
+        raise AnalysisError(failure_code, exc.message) from exc
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _attach_s6a_run_manifest(
+    run_dir: Path,
+    capture: Path,
+    attach_path: Path,
+    diameter_path: Path,
+) -> dict[str, Any]:
+    """Record the controlled producer invocations that generated the joint evidence."""
+    capture_digest = _sha256_file(capture)
+    return {
+        "manifest_name": ATTACH_S6A_MANIFEST_NAME,
+        "manifest_schema_version": ATTACH_S6A_MANIFEST_SCHEMA_VERSION,
+        "coordinated_run_id": run_dir.name,
+        "capture": {"file": capture.name, "sha256": capture_digest},
+        "artifacts": {
+            "attach": {
+                "file": attach_path.name,
+                "sha256": _sha256_file(attach_path),
+                "producer": "epc-attach-analysis",
+            },
+            "diameter_epc": {
+                "file": diameter_path.name,
+                "sha256": _sha256_file(diameter_path),
+                "producer": "diameter-epc-analysis",
+            },
+        },
+        "producers": {
+            "attach": "epc-attach-analysis",
+            "diameter_core": "diameter-core-extraction",
+            "diameter_epc": "diameter-epc-analysis",
+        },
+        "executed_invocations": [
+            {"producer": "diameter-core-extraction", "capture_sha256": capture_digest},
+            {"producer": "diameter-core-correlation", "capture_sha256": capture_digest},
+            {"producer": "diameter-epc-analysis", "capture_sha256": capture_digest},
+            {"producer": "epc-attach-analysis", "capture_sha256": capture_digest},
+        ],
+        "accepted_source_contracts": {
+            "attach": {"domain": "epc-procedures", "model_version": "1.0.0"},
+            "diameter_epc": {"analysis_name": "diameter-epc", "analysis_version": "1.0.0"},
+        },
+    }
+
+
 def _dedicated_bearer_transaction_counts(path: Path) -> dict[str, int]:
     """Count accepted dedicated-bearer transaction families without re-correlating."""
     try:
@@ -2739,6 +2897,35 @@ def _producer_outcome_counts(
     return {name: counts[name] for name in sorted(counts)}
 
 
+def _non_negative_count(value: Any) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
+
+
+def _collection_accounting(
+    source_total: int,
+    producer_published: int,
+    published: int,
+    producer_omitted: int,
+) -> dict[str, Any]:
+    """Publish one conservation model for a bounded collection.
+
+    total_source_records = published_records
+                         + records_omitted_by_producer
+                         + records_omitted_by_projection
+    """
+    projection_omitted = max(0, producer_published - published)
+    total_omitted = producer_omitted + projection_omitted
+    return {
+        "source_total": source_total,
+        "producer_published": producer_published,
+        "published": published,
+        "omitted_by_producer": producer_omitted,
+        "omitted_by_projection": projection_omitted,
+        "omitted_total": total_omitted,
+        "conserved": published + total_omitted == source_total,
+    }
+
+
 def _project_attach_s6a(
     joint: Any,
     diameter_status: Any,
@@ -2760,15 +2947,35 @@ def _project_attach_s6a(
         "diameter_event_count": max(0, diameter_event_count),
         "diameter_observation_count": max(0, diameter_observation_count),
         "attach_instance_count": 0,
+        "attach_source_instance_count": 0,
+        "attach_published_count": 0,
+        "attach_instances_omitted": 0,
+        "attach_instances_omitted_by_producer": 0,
+        "attach_instances_omitted_by_projection": 0,
+        "attach_accounting_conserved": True,
         "attach_incomplete_instance_count": 0,
         "diameter_matched_count": 0,
         "diameter_failure_reported_count": 0,
         "diameter_open_or_ambiguous_count": 0,
+        "diameter_source_observation_count": 0,
+        "diameter_published_count": 0,
+        "diameter_observations_omitted": 0,
+        "diameter_observations_omitted_by_producer": 0,
+        "diameter_observations_omitted_by_projection": 0,
+        "diameter_accounting_conserved": True,
         "identity_association_status": "NOT_APPLICABLE",
         "common_capture_status": None,
+        "common_capture_artifacts_bound": False,
+        "run_manifest_present": False,
+        "source_artifact": None,
         "timeline_ordering": None,
         "timeline_row_count": 0,
+        "timeline_source_row_count": 0,
+        "timeline_producer_published_count": 0,
         "timeline_rows_omitted": 0,
+        "timeline_rows_omitted_by_producer": 0,
+        "timeline_rows_omitted_by_projection": 0,
+        "timeline_accounting_conserved": True,
         "cross_protocol_attribution_established": False,
         "root_cause_inferred": False,
         "attach_inventory": [],
@@ -2779,18 +2986,48 @@ def _project_attach_s6a(
     }
     if isinstance(error, dict):
         payload["failure_code"] = error.get("code")
+        payload["failure_stage"] = error.get("stage") or error.get("code")
         payload["failure_message"] = error.get("message")
     if not isinstance(joint, dict):
         return payload
     provenance = _dict(joint.get("input_provenance"))
+    common_capture = _dict(provenance.get("common_capture"))
     diagnostics = _dict(joint.get("diagnostics"))
     association = _dict(joint.get("identity_association"))
     attach_inventory = _list(joint.get("attach_inventory"))
     diameter_inventory = _list(joint.get("diameter_inventory"))
     timeline = _list(joint.get("timeline"))
+    published_attach = attach_inventory[:MAX_LIST_ITEMS]
+    published_diameter = diameter_inventory[:MAX_LIST_ITEMS]
+    published_timeline = timeline[:MAX_LIST_ITEMS]
+    attach_accounting = _collection_accounting(
+        len(attach_inventory) + _non_negative_count(joint.get("attach_instances_omitted")),
+        len(attach_inventory),
+        len(published_attach),
+        _non_negative_count(joint.get("attach_instances_omitted")),
+    )
+    diameter_accounting = _collection_accounting(
+        len(diameter_inventory)
+        + _non_negative_count(joint.get("diameter_observations_omitted")),
+        len(diameter_inventory),
+        len(published_diameter),
+        _non_negative_count(joint.get("diameter_observations_omitted")),
+    )
+    timeline_accounting = _collection_accounting(
+        len(timeline) + _non_negative_count(joint.get("timeline_rows_omitted")),
+        len(timeline),
+        len(published_timeline),
+        _non_negative_count(joint.get("timeline_rows_omitted")),
+    )
     payload.update(
         {
             "attach_instance_count": len(attach_inventory),
+            "attach_source_instance_count": attach_accounting["source_total"],
+            "attach_published_count": attach_accounting["published"],
+            "attach_instances_omitted": attach_accounting["omitted_total"],
+            "attach_instances_omitted_by_producer": attach_accounting["omitted_by_producer"],
+            "attach_instances_omitted_by_projection": attach_accounting["omitted_by_projection"],
+            "attach_accounting_conserved": attach_accounting["conserved"],
             "attach_incomplete_instance_count": diagnostics.get(
                 "attach_incomplete_instance_count", 0
             ),
@@ -2801,18 +3038,38 @@ def _project_attach_s6a(
             "diameter_open_or_ambiguous_count": diagnostics.get(
                 "diameter_open_or_ambiguous_count", 0
             ),
+            "diameter_source_observation_count": diameter_accounting["source_total"],
+            "diameter_published_count": diameter_accounting["published"],
+            "diameter_observations_omitted": diameter_accounting["omitted_total"],
+            "diameter_observations_omitted_by_producer": diameter_accounting[
+                "omitted_by_producer"
+            ],
+            "diameter_observations_omitted_by_projection": diameter_accounting[
+                "omitted_by_projection"
+            ],
+            "diameter_accounting_conserved": diameter_accounting["conserved"],
             "identity_association_status": association.get("status"),
-            "common_capture_status": _dict(provenance.get("common_capture")).get("status"),
+            "common_capture_status": common_capture.get("status"),
+            "common_capture_artifacts_bound": bool(
+                common_capture.get("artifacts_bound_to_capture")
+            ),
+            "run_manifest_present": isinstance(common_capture.get("coordinated_run"), dict),
+            "source_artifact": "epc-attach-s6a-analysis.json",
             "timeline_ordering": joint.get("timeline_ordering"),
-            "timeline_row_count": len(timeline),
-            "timeline_rows_omitted": joint.get("timeline_rows_omitted", 0),
+            "timeline_row_count": timeline_accounting["published"],
+            "timeline_source_row_count": timeline_accounting["source_total"],
+            "timeline_producer_published_count": timeline_accounting["producer_published"],
+            "timeline_rows_omitted": timeline_accounting["omitted_total"],
+            "timeline_rows_omitted_by_producer": timeline_accounting["omitted_by_producer"],
+            "timeline_rows_omitted_by_projection": timeline_accounting["omitted_by_projection"],
+            "timeline_accounting_conserved": timeline_accounting["conserved"],
             "cross_protocol_attribution_established": bool(
                 diagnostics.get("cross_protocol_attribution_established")
             ),
             "root_cause_inferred": bool(diagnostics.get("root_cause_inferred")),
-            "attach_inventory": attach_inventory[:MAX_LIST_ITEMS],
-            "diameter_inventory": diameter_inventory[:MAX_LIST_ITEMS],
-            "timeline": timeline[:MAX_LIST_ITEMS],
+            "attach_inventory": published_attach,
+            "diameter_inventory": published_diameter,
+            "timeline": published_timeline,
             "limitations": _list(joint.get("limitations"))[:MAX_LIST_ITEMS],
             "not_confirmed": _list(joint.get("not_confirmed"))[:MAX_LIST_ITEMS],
         }
@@ -3363,8 +3620,22 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
     diameter_epc_path = run_dir / "diameter-epc-analysis.json"
     attach_s6a_path = run_dir / "epc-attach-s6a-analysis.json"
     attach_s6a_report_path = run_dir / "epc-attach-s6a-report.txt"
+    attach_s6a_manifest_path = run_dir / "epc-attach-s6a-run-manifest.json"
+    # A stale artifact from an earlier invocation is never accepted as this run's evidence.
+    for stale in (
+        diameter_events,
+        diameter_trace,
+        diameter_transactions,
+        diameter_epc_path,
+        attach_s6a_path,
+        attach_s6a_report_path,
+        attach_s6a_manifest_path,
+    ):
+        stale.unlink(missing_ok=True)
     try:
-        diameter_present = _run_component(
+        # Exit 3 is the Diameter CLI's only legitimate empty result. Exit 2, 4,
+        # 5, 6 and any unexpected code are component failures, never absence.
+        diameter_present = _run_named_stage(
             [
                 sys.executable,
                 str(DIAMETER_CORE_EXTRACT_SCRIPT),
@@ -3376,12 +3647,25 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                 "--force",
             ],
             "Diameter Core extraction",
+            DIAMETER_CORE_EXTRACTION_FAILURE,
             allow_empty=True,
-            empty_exit_codes=(3, 6),
         )
-        diameter_event_count = _count_lines(diameter_events) if diameter_present else 0
+        if diameter_present:
+            _require_component_artifact(
+                diameter_events, "Diameter Core extraction", DIAMETER_CORE_EXTRACTION_FAILURE
+            )
+            diameter_event_count = _count_component_events(
+                diameter_events,
+                "Diameter Core extraction",
+                DIAMETER_CORE_EXTRACTION_FAILURE,
+            )
+            if not diameter_event_count:
+                raise AnalysisError(
+                    DIAMETER_CORE_EXTRACTION_FAILURE,
+                    "Diameter Core extraction reported success with no Diameter events",
+                )
         if diameter_event_count:
-            _run_component(
+            _run_named_stage(
                 [
                     sys.executable,
                     str(DIAMETER_CORE_CORRELATE_SCRIPT),
@@ -3391,8 +3675,14 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                     "--force",
                 ],
                 "Diameter Core correlation",
+                DIAMETER_CORE_CORRELATION_FAILURE,
             )
-            epc_present = _run_component(
+            _require_component_artifact(
+                diameter_transactions,
+                "Diameter Core correlation",
+                DIAMETER_CORE_CORRELATION_FAILURE,
+            )
+            epc_present = _run_named_stage(
                 [
                     sys.executable,
                     str(DIAMETER_EPC_ANALYZE_SCRIPT),
@@ -3405,14 +3695,43 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                     "--force",
                 ],
                 "Diameter EPC analysis",
+                DIAMETER_EPC_ANALYSIS_FAILURE,
                 allow_empty=True,
-                empty_exit_codes=(3, 6),
             )
-            if epc_present and diameter_epc_path.is_file():
-                diameter_epc_analysis = json.loads(diameter_epc_path.read_text(encoding="utf-8"))
-                diameter_observation_count = len(diameter_epc_analysis.get("observations") or [])
+            if epc_present:
+                _require_component_artifact(
+                    diameter_epc_path,
+                    "Diameter EPC analysis",
+                    DIAMETER_EPC_ANALYSIS_FAILURE,
+                )
+                diameter_epc_analysis = _read_component_artifact(
+                    diameter_epc_path,
+                    "Diameter EPC analysis",
+                    DIAMETER_EPC_ANALYSIS_FAILURE,
+                )
+                diameter_observation_count = len(
+                    diameter_epc_analysis.get("observations") or []
+                )
+                if not diameter_observation_count:
+                    raise AnalysisError(
+                        DIAMETER_EPC_ANALYSIS_FAILURE,
+                        "Diameter EPC analysis reported success with no S6a/S6d observation",
+                    )
             if diameter_observation_count:
-                _run_component(
+                try:
+                    manifest = _attach_s6a_run_manifest(
+                        run_dir, capture, analysis_path, diameter_epc_path
+                    )
+                    attach_s6a_manifest_path.write_text(
+                        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                        encoding="utf-8",
+                    )
+                except OSError as exc:
+                    raise AnalysisError(
+                        ATTACH_S6A_JOINT_FAILURE,
+                        f"coordinated run manifest could not be written: {exc}",
+                    ) from exc
+                _run_named_stage(
                     [
                         sys.executable,
                         str(EPC_ATTACH_S6A_ANALYZE_SCRIPT),
@@ -3422,6 +3741,8 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                         str(diameter_epc_path),
                         "--capture",
                         str(capture),
+                        "--run-manifest",
+                        str(attach_s6a_manifest_path),
                         "--output",
                         str(attach_s6a_path),
                         "--report",
@@ -3429,21 +3750,28 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
                         "--force",
                     ],
                     "EPC Attach/S6a joint analysis",
+                    ATTACH_S6A_JOINT_FAILURE,
                 )
-                if attach_s6a_path.is_file():
-                    attach_s6a_analysis = json.loads(attach_s6a_path.read_text(encoding="utf-8"))
-                    diameter_status = "EXECUTED"
-                else:
-                    diameter_status = "JOINT_ANALYSIS_MISSING"
+                _require_component_artifact(
+                    attach_s6a_path,
+                    "EPC Attach/S6a joint analysis",
+                    ATTACH_S6A_JOINT_FAILURE,
+                )
+                attach_s6a_analysis = _read_component_artifact(
+                    attach_s6a_path,
+                    "EPC Attach/S6a joint analysis",
+                    ATTACH_S6A_JOINT_FAILURE,
+                )
+                diameter_status = "EXECUTED"
             else:
                 diameter_status = "NO_S6A_OBSERVATIONS"
     except AnalysisError as exc:
         diameter_status = "COMPONENT_FAILED"
-        diameter_epc_error = {"code": exc.code, "message": scrub_free_text(exc.message)}
-        attach_s6a_error = diameter_epc_error
-    except (OSError, json.JSONDecodeError) as exc:
-        diameter_status = "COMPONENT_FAILED"
-        diameter_epc_error = {"code": "DIAMETER_OUTPUT_UNREADABLE", "message": scrub_free_text(str(exc))}
+        diameter_epc_error = {
+            "code": exc.code,
+            "stage": ATTACH_S6A_FAILURE_STAGES.get(exc.code, exc.code),
+            "message": scrub_free_text(exc.message),
+        }
         attach_s6a_error = diameter_epc_error
 
     session_analysis: dict[str, Any] | None = None
@@ -3859,6 +4187,11 @@ def execute_epc_pipeline(capture: Path, work_dir: Path, case_id: str) -> dict[st
         "attach_s6a_analysis": attach_s6a_analysis,
         "attach_s6a_error": attach_s6a_error,
         "attach_s6a_report_path": str(attach_s6a_report_path) if attach_s6a_path.is_file() else None,
+        "attach_s6a_manifest_path": (
+            str(attach_s6a_manifest_path)
+            if attach_s6a_manifest_path.is_file()
+            else None
+        ),
     }
 
 
@@ -4896,7 +5229,14 @@ def execute_epc_domain(
                 "identity_association_status": attach_s6a_summary.get(
                     "identity_association_status"
                 ),
+                "common_capture_status": attach_s6a_summary.get("common_capture_status"),
                 "timeline_row_count": attach_s6a_summary.get("timeline_row_count", 0),
+                "timeline_source_row_count": attach_s6a_summary.get(
+                    "timeline_source_row_count", 0
+                ),
+                "timeline_rows_omitted": attach_s6a_summary.get(
+                    "timeline_rows_omitted", 0
+                ),
             },
             {
                 "procedure_domain": "epc-procedures",
