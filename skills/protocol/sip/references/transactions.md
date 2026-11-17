@@ -63,8 +63,19 @@ step that verifies:
 - original INVITE request-line method and CSeq method equal `INVITE`.
 
 A matching branch alone is not proof that these construction requirements were
-satisfied. A contradiction leaves the CANCEL independently observed with a conflict
-finding.
+satisfied. Association is fail-closed and distinguishes three outcomes:
+
+| Outcome | Condition | Published result |
+| --- | --- | --- |
+| `MATCH` | every required value is observed and consistent | `ASSOCIATED` |
+| `CONFLICT` | required values are observed but contradict | `NOT_ESTABLISHED` plus a conflict finding |
+| `INSUFFICIENT_EVIDENCE` | one or more required values are unavailable | `NOT_ESTABLISHED` plus precise missing evidence |
+
+A missing Request-URI, Call-ID, From URI, To URI or CSeq number is insufficient
+evidence, never a successful comparison. An absent initial To tag on both the INVITE
+and the CANCEL is legitimate; a To tag present on only one side is a
+`TO_TAG_MISMATCH` conflict. A conflict is never downgraded to missing evidence, and
+missing evidence is never reported as a contradiction.
 
 The CANCEL transaction outcome, the INVITE final response and the INVITE transaction
 state are published as separate evidence:
@@ -88,12 +99,20 @@ matching mode and all of the following are consistent:
 
 - same original INVITE Request-URI;
 - same Call-ID;
-- same From value;
+- same From URI and From tag;
 - same CSeq number;
 - ACK request-line method and CSeq method equal `ACK`;
+- original INVITE request-line method and CSeq method equal `INVITE`;
 - correct top Via relationship;
 - ACK To-tag equals the observed non-2xx final-response To-tag;
 - same To URI.
+
+The same required-field policy applies: an unavailable Request-URI, Call-ID, From
+URI, To URI, From tag, CSeq number, ACK To-tag or Via identity yields
+`INSUFFICIENT_EVIDENCE` and no association. A diagnostic conflict helper never
+substitutes for the eligibility check: one shared eligibility result decides
+association, and it reports missing and conflicting fields separately. A missing
+required field cannot produce server `CONFIRMED` or client `TERMINATED`.
 
 Any contradiction leaves the ACK as an independent unresolved observation with a
 conflict finding and never changes the INVITE transaction state. An ACK for a 2xx
@@ -121,8 +140,10 @@ When the role is known, the applicable state machine is used:
 
 - INVITE 2xx → `ACCEPTED` (RFC 6026), preserving multiple 2xx responses.
 - INVITE non-2xx without ACK → `COMPLETED`.
-- INVITE non-2xx with ACK → `CONFIRMED` on the server side and `TERMINATED` on the
-  client side.
+- INVITE non-2xx with ACK → `CONFIRMED` on the server side and `COMPLETED` on the
+  client side. The client-generated ACK is not termination evidence; the transition
+  from `COMPLETED` to `TERMINATED` requires the applicable RFC timer or equivalent
+  independently observed transition, which a passive capture does not provide.
 - non-INVITE final response → `COMPLETED`; provisional-only → `PROCEEDING`;
   request-only → `TRYING`.
 

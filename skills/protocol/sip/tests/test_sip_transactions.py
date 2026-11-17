@@ -107,8 +107,8 @@ def record(
                 "transport": protocol,
             }
         ],
-        "from": {"count": 1, "tag": from_tag},
-        "to": {"count": 1, "tag": to_tag},
+        "from": {"count": 1, "tag": from_tag, "uri": "sip:PRIVATE-USER@ims.private.example"},
+        "to": {"count": 1, "tag": to_tag, "uri": "sip:PRIVATE-USER@ims.private.example"},
         "content_length": content_length,
         "body_length": body_length,
         "request_uri": f"sip:{'PRIVATE-USER'}@ims.private.example",
@@ -476,7 +476,7 @@ class CancelAckTests(TransactionTestBase):
         document = self.invite_with_cancel(cancel_branch="z9hG4bK-B")
         cancel = tx_of_type(document, "CANCEL")
         self.assertIsNone(cancel["associated_transaction_reference"])
-        self.assertIn("INVITE_TRANSACTION_NOT_OBSERVED", cancel["missing_evidence"])
+        self.assertIn("VIA_BRANCH_MISMATCH", cancel["conflict_findings"])
 
     def test_cancel_mismatched_cseq(self) -> None:
         document = self.invite_with_cancel(cancel_cseq=9)

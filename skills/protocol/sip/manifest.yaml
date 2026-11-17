@@ -1,7 +1,7 @@
 name: "sip"
-version: "0.3.0"
+version: "0.3.1"
 category: protocol
-description: "Bounded SIP message extraction and protocol-local transaction correlation over UDP and TCP: request/response identity, reviewed header presence and bounded metadata, source-frame and transport provenance, message completeness, RFC 3261 magic-cookie and legacy matching, request/CSeq method validation, RFC 6026 Accepted-state projection, observed evidence status versus client/server role, CANCEL and ACK header consistency, retransmission fingerprint confidence, privacy-safe handling of identities/URIs/tags/credentials/bodies, and deterministic event and transaction output without dialog or IMS procedure semantics."
+description: "Bounded SIP message extraction and protocol-local transaction correlation over UDP and TCP: request/response identity, reviewed header presence and bounded metadata, source-frame and transport provenance, message completeness, RFC 3261 magic-cookie and legacy matching, request/CSeq method validation, RFC 6026 Accepted-state projection, observed evidence status versus client/server role, RFC 3261 client/server non-2xx state semantics, fail-closed CANCEL and ACK required-field eligibility, retransmission fingerprint confidence, privacy-safe handling of identities/URIs/tags/credentials/bodies, and deterministic event and transaction output without dialog or IMS procedure semantics."
 scope:
   includes:
     - "SIP requests and responses over IPv4 and IPv6"

@@ -394,6 +394,7 @@
               "CSEQ_NOT_OBSERVED",
               "CALL_ID_NOT_OBSERVED",
               "FROM_TAG_NOT_OBSERVED",
+              "TO_TAG_NOT_OBSERVED",
               "CAPTURE_TRUNCATED",
               "CONSISTENT_REQUEST_IDENTITY",
               "SINGLE_REQUEST_TRANSACTION",

@@ -103,6 +103,7 @@ MISSING_EVIDENCE = (
     "CSEQ_NOT_OBSERVED",
     "CALL_ID_NOT_OBSERVED",
     "FROM_TAG_NOT_OBSERVED",
+    "TO_TAG_NOT_OBSERVED",
     "REQUEST_URI_NOT_OBSERVED",
     "FROM_VALUE_NOT_OBSERVED",
     "TO_VALUE_NOT_OBSERVED",
@@ -560,7 +561,7 @@ def _rfc_transaction_state(transaction: dict[str, Any]) -> str | None:
         if has_non_2xx:
             if role == "SERVER":
                 return "CONFIRMED" if transaction["control"] else "COMPLETED"
-            return "TERMINATED" if transaction["control"] else "COMPLETED"
+            return "COMPLETED"
         return "PROCEEDING" if has_provisional else "TRYING"
     if transaction["type"] == "NON_INVITE":
         if statuses:
@@ -919,100 +920,79 @@ def _final_statuses(transaction: dict[str, Any]) -> list[int]:
     return list(transaction["final_status_codes"])
 
 
-def _ack_header_conflicts(
-    ack: dict[str, Any], invite_transactions: list[dict[str, Any]]
-) -> tuple[list[dict[str, Any]], list[str]]:
-    match = _match(ack)
-    compatible: list[dict[str, Any]] = []
+def _ack_eligibility(
+    match: dict[str, Any], identity: dict[str, Any], *, strict_branch: bool
+) -> tuple[list[str], list[str]]:
+    """Return (missing, conflicts) for fail-closed non-2xx ACK association."""
+    missing: list[str] = []
     conflicts: list[str] = []
-    for transaction in invite_transactions:
-        identity = transaction["identity"]
-        if identity is None or identity.get("capture") != match.get("capture"):
-            continue
-        same_branch = (
-            identity.get("via_branch") is not None
-            and identity.get("via_branch") == match.get("via_branch")
-            and identity.get("via_sent_by") == match.get("via_sent_by")
-        )
-        if not same_branch and identity.get("cseq_number") != match.get("cseq_number"):
-            continue
-        if not transaction["identity_available"] or "CONSISTENT_REQUEST_IDENTITY" in transaction["missing"]:
-            continue
-        if identity.get("cseq_method") != "INVITE" or match.get("cseq_method") != "ACK":
-            continue
-        if not _present(match.get("request_uri")) or not _present(match.get("from_uri")):
-            continue
-        local: list[str] = []
-        if identity.get("request_uri") != match.get("request_uri"):
-            local.append("REQUEST_URI_MISMATCH")
-        if _address_value(identity, "to") is not None and _address_value(match, "to") is not None:
-            if identity.get("to_uri") != match.get("to_uri"):
-                local.append("TO_VALUE_MISMATCH")
-        if _address_value(identity, "from") != _address_value(match, "from"):
-            local.append("FROM_VALUE_MISMATCH")
-        if _present(identity.get("call_id")) and _present(match.get("call_id")):
-            if identity["call_id"] != match["call_id"]:
-                local.append("CALL_ID_MISMATCH")
-        if identity.get("cseq_number") != match.get("cseq_number"):
-            local.append("CSEQ_MISMATCH")
-        if same_branch:
-            if _matching_mode(match) == "MODERN":
-                if identity.get("via_branch") != match.get("via_branch"):
-                    local.append("VIA_BRANCH_MISMATCH")
-                if identity.get("via_sent_by") != match.get("via_sent_by"):
-                    local.append("VIA_SENT_BY_MISMATCH")
-            elif _top_via_value(identity) != _top_via_value(match):
-                local.append("VIA_BRANCH_MISMATCH")
-        if local:
-            conflicts.extend(local)
-        else:
-            compatible.append(transaction)
-    return compatible, sorted(dict.fromkeys(conflicts))
-
-
-def _ack_candidates(
-    ack: dict[str, Any],
-    invite_transactions: list[dict[str, Any]],
-    *,
-    strict_branch: bool,
-) -> list[dict[str, Any]]:
-    match = _match(ack)
-    candidates: list[dict[str, Any]] = []
-    if match.get("cseq_method") != "ACK":
-        return candidates
-    for transaction in invite_transactions:
-        identity = transaction["identity"]
-        if identity is None or identity.get("capture") != match.get("capture"):
-            continue
-        if not transaction["identity_available"] or "CONSISTENT_REQUEST_IDENTITY" in transaction["missing"]:
-            continue
-        if identity.get("cseq_method") != "INVITE":
-            continue
-        if identity.get("cseq_number") != match.get("cseq_number"):
-            continue
-        if _present(identity.get("call_id")) and _present(match.get("call_id")):
-            if identity["call_id"] != match["call_id"]:
-                continue
-        if _present(identity.get("request_uri")) and _present(match.get("request_uri")):
-            if identity["request_uri"] != match["request_uri"]:
-                continue
-        if _present(identity.get("to_uri")) and _present(match.get("to_uri")):
-            if identity["to_uri"] != match["to_uri"]:
-                continue
-        if _address_value(identity, "from") is not None and _address_value(match, "from") is not None:
-            if _address_value(identity, "from") != _address_value(match, "from"):
-                continue
+    mode = _matching_mode(match)
+    if mode == "UNAVAILABLE" or mode != _matching_mode(identity):
+        missing.append("VIA_BRANCH_NOT_OBSERVED")
+    elif mode == "MODERN":
         if strict_branch:
-            if _matching_mode(match) == "LEGACY":
-                if _top_via_value(identity) != _top_via_value(match):
-                    continue
-            elif (
-                identity.get("via_branch") != match.get("via_branch")
-                or identity.get("via_sent_by") != match.get("via_sent_by")
-            ):
-                continue
-        candidates.append(transaction)
-    return candidates
+            _required_pair(
+                match,
+                identity,
+                "via_branch",
+                "VIA_BRANCH_NOT_OBSERVED",
+                "VIA_BRANCH_MISMATCH",
+                missing,
+                conflicts,
+            )
+            _required_pair(
+                match,
+                identity,
+                "via_sent_by",
+                "VIA_SENT_BY_NOT_OBSERVED",
+                "VIA_SENT_BY_MISMATCH",
+                missing,
+                conflicts,
+            )
+    elif strict_branch:
+        left = _top_via_value(match)
+        right = _top_via_value(identity)
+        if left is None or right is None:
+            missing.append("VIA_BRANCH_NOT_OBSERVED")
+        elif left != right:
+            conflicts.append("VIA_BRANCH_MISMATCH")
+
+    if strict_branch:
+        _required_pair(
+            match, identity, "request_uri", "REQUEST_URI_NOT_OBSERVED", "REQUEST_URI_MISMATCH", missing, conflicts
+        )
+        _required_pair(match, identity, "call_id", "CALL_ID_NOT_OBSERVED", "CALL_ID_MISMATCH", missing, conflicts)
+        _required_pair(match, identity, "from_uri", "FROM_VALUE_NOT_OBSERVED", "FROM_VALUE_MISMATCH", missing, conflicts)
+        _required_pair(match, identity, "to_uri", "TO_VALUE_NOT_OBSERVED", "TO_VALUE_MISMATCH", missing, conflicts)
+        _required_pair(match, identity, "from_tag", "FROM_TAG_NOT_OBSERVED", "FROM_TAG_MISMATCH", missing, conflicts)
+        _required_pair(match, identity, "cseq_number", "CSEQ_NOT_OBSERVED", "CSEQ_MISMATCH", missing, conflicts)
+    else:
+        for field, conflict_label in (
+            ("request_uri", "REQUEST_URI_MISMATCH"),
+            ("call_id", "CALL_ID_MISMATCH"),
+            ("from_uri", "FROM_VALUE_MISMATCH"),
+            ("to_uri", "TO_VALUE_MISMATCH"),
+            ("from_tag", "FROM_TAG_MISMATCH"),
+            ("cseq_number", "CSEQ_MISMATCH"),
+        ):
+            left = match.get(field)
+            right = identity.get(field)
+            if _present(left) and _present(right) and left != right:
+                conflicts.append(conflict_label)
+    if match.get("cseq_method") != "ACK":
+        conflicts.append("CSEQ_METHOD_MISMATCH")
+    if identity.get("cseq_method") != "INVITE":
+        conflicts.append("METHOD_MISMATCH")
+    if strict_branch and not _present(match.get("to_tag")):
+        missing.append("TO_TAG_NOT_OBSERVED")
+    return missing, conflicts
+
+
+def _ack_eligible(
+    match: dict[str, Any], identity: dict[str, Any], *, strict_branch: bool
+) -> bool:
+    missing, conflicts = _ack_eligibility(match, identity, strict_branch=strict_branch)
+    return not missing and not conflicts
 
 
 def _group_ack_transactions(
@@ -1020,6 +1000,7 @@ def _group_ack_transactions(
     transaction_type: str,
     *,
     conflicts: list[str] | None = None,
+    missing: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
     for ack in acks:
@@ -1060,6 +1041,9 @@ def _group_ack_transactions(
             )
         if conflicts:
             transaction["conflicts"] = sorted(set(transaction["conflicts"]) | set(conflicts))
+        if missing:
+            for label in missing:
+                _add_unique(transaction["missing"], label)
         _classify_duplicates(transaction, ordered, response=False)
         if transaction_type == "ACK_2XX":
             transaction["basis"].extend(["ack_method_observed"])
@@ -1096,36 +1080,89 @@ def _non_2xx_to_tag_matches(transaction: dict[str, Any], ack_match: dict[str, An
 def _associate_ack(
     ack: dict[str, Any],
     invite_transactions: list[dict[str, Any]],
-) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]], list[str]]:
+) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]], list[str], list[str]]:
     match = _match(ack)
-    compatible, conflicts = _ack_header_conflicts(ack, invite_transactions)
-    strict = _ack_candidates(ack, invite_transactions, strict_branch=True)
+    if match.get("cseq_method") != "ACK":
+        return "ACK_ORPHAN", None, [], ["CSEQ_METHOD_MISMATCH", "METHOD_MISMATCH"], []
+    strict: list[dict[str, Any]] = []
+    loose: list[dict[str, Any]] = []
+    conflicts: list[str] = []
+    missing: list[str] = []
+    for transaction in invite_transactions:
+        identity = transaction["identity"]
+        if identity is None or identity.get("capture") != match.get("capture"):
+            continue
+        if not transaction["identity_available"] or "CONSISTENT_REQUEST_IDENTITY" in transaction["missing"]:
+            continue
+        same_branch = (
+            _matching_mode(match) != "LEGACY"
+            and _present(identity.get("via_branch"))
+            and identity.get("via_branch") == match.get("via_branch")
+            and identity.get("via_sent_by") == match.get("via_sent_by")
+        ) or (
+            _matching_mode(match) == "LEGACY"
+            and _top_via_value(identity) is not None
+            and _top_via_value(identity) == _top_via_value(match)
+        )
+        if same_branch:
+            local_missing, local_conflicts = _ack_eligibility(
+                match, identity, strict_branch=True
+            )
+            if local_conflicts:
+                conflicts.extend(local_conflicts)
+            elif local_missing:
+                missing.extend(local_missing)
+            else:
+                strict.append(transaction)
+        elif identity.get("cseq_number") == match.get("cseq_number"):
+            local_missing, local_conflicts = _ack_eligibility(
+                match, identity, strict_branch=False
+            )
+            if local_conflicts:
+                conflicts.extend(local_conflicts)
+            elif local_missing:
+                missing.extend(local_missing)
+            else:
+                loose.append(transaction)
+
+    def result(
+        kind: str,
+        transaction: dict[str, Any] | None = None,
+        candidates: list[dict[str, Any]] | None = None,
+        extra_conflicts: list[str] | None = None,
+        extra_missing: list[str] | None = None,
+    ) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]], list[str], list[str]]:
+        return (
+            kind,
+            transaction,
+            candidates or [],
+            sorted(set(conflicts) | set(extra_conflicts or [])),
+            sorted(set(missing) | set(extra_missing or [])),
+        )
+
     if len(strict) == 1:
         transaction = strict[0]
         statuses = _final_statuses(transaction)
         has_2xx = any(200 <= status < 300 for status in statuses)
         has_non_2xx = any(status >= 300 for status in statuses)
         if has_2xx and has_non_2xx:
-            return "ACK_AMBIGUOUS", None, strict, sorted(set(conflicts))
+            return result("ACK_AMBIGUOUS", candidates=strict)
         if has_2xx:
-            return "ACK_2XX", None, strict, sorted(set(conflicts))
+            return result("ACK_2XX", candidates=strict)
         if has_non_2xx:
             if _non_2xx_to_tag_matches(transaction, match):
-                return "ASSOCIATED", transaction, strict, sorted(set(conflicts))
-            return "ACK_ORPHAN", None, strict, sorted(set(conflicts) | {"TO_TAG_MISMATCH"})
-        return "ACK_ORPHAN", None, strict, sorted(set(conflicts))
+                return result("ASSOCIATED", transaction, strict)
+            return result("ACK_ORPHAN", None, strict, {"TO_TAG_MISMATCH"})
+        return result("ACK_ORPHAN", None, strict, extra_missing=["FINAL_RESPONSE_NOT_OBSERVED"])
     if len(strict) > 1:
-        return "ACK_AMBIGUOUS", None, strict, sorted(set(conflicts))
-    loose = _ack_candidates(ack, invite_transactions, strict_branch=False)
+        return result("ACK_AMBIGUOUS", candidates=strict)
     if len(loose) == 1 and any(
         200 <= status < 300 for status in _final_statuses(loose[0])
     ):
-        return "ACK_2XX", None, loose, sorted(set(conflicts))
+        return result("ACK_2XX", candidates=loose)
     if len(loose) > 1:
-        return "ACK_AMBIGUOUS", None, loose, sorted(set(conflicts))
-    if not strict and not loose and compatible:
-        return "ACK_ORPHAN", None, compatible, sorted(set(conflicts) | {"TO_TAG_MISMATCH"})
-    return "ACK_ORPHAN", None, [], sorted(set(conflicts))
+        return result("ACK_AMBIGUOUS", candidates=loose)
+    return result("ACK_ORPHAN", candidates=[])
 
 
 def _attach_ack_control(transaction: dict[str, Any], ack: dict[str, Any]) -> None:
@@ -1167,32 +1204,124 @@ def _attach_ack_control(transaction: dict[str, Any], ack: dict[str, Any]) -> Non
     )
 
 
-def _cancel_header_conflicts(
+def _required_pair(
+    identity: dict[str, Any],
+    invite: dict[str, Any],
+    field: str,
+    missing_label: str,
+    conflict_label: str,
+    missing: list[str],
+    conflicts: list[str],
+) -> None:
+    left = identity.get(field)
+    right = invite.get(field)
+    if not (_present(left) and _present(right)):
+        missing.append(missing_label)
+    elif left != right:
+        conflicts.append(conflict_label)
+
+
+def _cancel_eligibility(
     identity: dict[str, Any], invite: dict[str, Any]
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
+    """Return (missing, conflicts) for a fail-closed CANCEL-to-INVITE association."""
+    missing: list[str] = []
     conflicts: list[str] = []
-    if _present(identity.get("request_uri")) and _present(invite.get("request_uri")):
-        if identity["request_uri"] != invite["request_uri"]:
-            conflicts.append("REQUEST_URI_MISMATCH")
-    if _address_value(identity, "from") is not None and _address_value(invite, "from") is not None:
-        if _address_value(identity, "from") != _address_value(invite, "from"):
-            conflicts.append("FROM_VALUE_MISMATCH")
-    if _address_value(identity, "to") is not None and _address_value(invite, "to") is not None:
-        if _address_value(identity, "to") != _address_value(invite, "to"):
-            conflicts.append("TO_VALUE_MISMATCH")
-    if _present(identity.get("call_id")) and _present(invite.get("call_id")):
-        if identity["call_id"] != invite["call_id"]:
-            conflicts.append("CALL_ID_MISMATCH")
-    if identity.get("cseq_number") != invite.get("cseq_number"):
-        conflicts.append("CSEQ_MISMATCH")
-    if _matching_mode(identity) == "MODERN":
-        if identity.get("via_branch") != invite.get("via_branch"):
+    mode = _matching_mode(identity)
+    if mode == "UNAVAILABLE" or mode != _matching_mode(invite):
+        missing.append("VIA_BRANCH_NOT_OBSERVED")
+    elif mode == "MODERN":
+        _required_pair(
+            identity,
+            invite,
+            "via_branch",
+            "VIA_BRANCH_NOT_OBSERVED",
+            "VIA_BRANCH_MISMATCH",
+            missing,
+            conflicts,
+        )
+        _required_pair(
+            identity,
+            invite,
+            "via_sent_by",
+            "VIA_SENT_BY_NOT_OBSERVED",
+            "VIA_SENT_BY_MISMATCH",
+            missing,
+            conflicts,
+        )
+    else:
+        left = _top_via_value(identity)
+        right = _top_via_value(invite)
+        if left is None or right is None:
+            missing.append("VIA_BRANCH_NOT_OBSERVED")
+        elif left != right:
             conflicts.append("VIA_BRANCH_MISMATCH")
-        if identity.get("via_sent_by") != invite.get("via_sent_by"):
-            conflicts.append("VIA_SENT_BY_MISMATCH")
-    elif _top_via_value(identity) != _top_via_value(invite):
-        conflicts.append("VIA_BRANCH_MISMATCH")
-    return conflicts
+
+    _required_pair(
+        identity,
+        invite,
+        "request_uri",
+        "REQUEST_URI_NOT_OBSERVED",
+        "REQUEST_URI_MISMATCH",
+        missing,
+        conflicts,
+    )
+    _required_pair(
+        identity,
+        invite,
+        "call_id",
+        "CALL_ID_NOT_OBSERVED",
+        "CALL_ID_MISMATCH",
+        missing,
+        conflicts,
+    )
+    _required_pair(
+        identity,
+        invite,
+        "from_uri",
+        "FROM_VALUE_NOT_OBSERVED",
+        "FROM_VALUE_MISMATCH",
+        missing,
+        conflicts,
+    )
+    _required_pair(
+        identity,
+        invite,
+        "to_uri",
+        "TO_VALUE_NOT_OBSERVED",
+        "TO_VALUE_MISMATCH",
+        missing,
+        conflicts,
+    )
+    _required_pair(
+        identity,
+        invite,
+        "from_tag",
+        "FROM_TAG_NOT_OBSERVED",
+        "FROM_TAG_MISMATCH",
+        missing,
+        conflicts,
+    )
+    left_to_tag = identity.get("to_tag")
+    right_to_tag = invite.get("to_tag")
+    if not (_present(left_to_tag) or _present(right_to_tag)):
+        pass
+    elif not (_present(left_to_tag) and _present(right_to_tag)):
+        conflicts.append("TO_TAG_MISMATCH")
+    elif left_to_tag != right_to_tag:
+        conflicts.append("TO_TAG_MISMATCH")
+    _required_pair(
+        identity,
+        invite,
+        "cseq_number",
+        "CSEQ_NOT_OBSERVED",
+        "CSEQ_MISMATCH",
+        missing,
+        conflicts,
+    )
+    if invite.get("cseq_method") != "INVITE":
+        conflicts.append("METHOD_MISMATCH")
+    return missing, conflicts
 
 
 def _associate_cancel(
@@ -1211,6 +1340,7 @@ def _associate_cancel(
         return
     candidates: list[dict[str, Any]] = []
     conflicts: list[str] = []
+    missing_evidence: list[str] = []
     for transaction in invite_transactions:
         invite = transaction["identity"]
         if invite is None or invite.get("capture") != identity.get("capture"):
@@ -1219,9 +1349,31 @@ def _associate_cancel(
             continue
         if invite.get("cseq_method") != "INVITE":
             continue
-        local = _cancel_header_conflicts(identity, invite)
-        if local:
-            conflicts.extend(local)
+        if _matching_mode(identity) == "LEGACY":
+            same_via = (
+                _top_via_value(identity) is not None
+                and _top_via_value(identity) == _top_via_value(invite)
+            )
+        else:
+            same_via = (
+                _present(identity.get("via_branch"))
+                and identity.get("via_branch") == invite.get("via_branch")
+                and identity.get("via_sent_by") == invite.get("via_sent_by")
+            )
+        same_key = (
+            _present(identity.get("call_id"))
+            and _present(identity.get("cseq_number"))
+            and identity.get("call_id") == invite.get("call_id")
+            and identity.get("cseq_number") == invite.get("cseq_number")
+        )
+        if not (same_via or same_key):
+            continue
+        local_missing, local_conflicts = _cancel_eligibility(identity, invite)
+        if local_conflicts:
+            conflicts.extend(local_conflicts)
+            continue
+        if local_missing:
+            missing_evidence.extend(local_missing)
             continue
         candidates.append(transaction)
     if len(candidates) == 1:
@@ -1273,13 +1425,19 @@ def _associate_cancel(
         )
     else:
         cancel_transaction["cancel_invite_association_status"] = "NOT_ESTABLISHED"
-        _add_unique(cancel_transaction["missing"], "INVITE_TRANSACTION_NOT_OBSERVED")
         if conflicts:
             cancel_transaction["conflicts"] = sorted(set(conflicts))
             cancel_transaction["limitations"].append(
                 "an INVITE transaction shares the CANCEL transaction identity but contradicts required header evidence; no association is claimed"
             )
+        elif missing_evidence:
+            for label in missing_evidence:
+                _add_unique(cancel_transaction["missing"], label)
+            cancel_transaction["limitations"].append(
+                "required CANCEL-to-INVITE association evidence is unavailable; the CANCEL remains independently observed"
+            )
         else:
+            _add_unique(cancel_transaction["missing"], "INVITE_TRANSACTION_NOT_OBSERVED")
             cancel_transaction["limitations"].append(
                 "no INVITE transaction matches the CANCEL identity; the CANCEL remains independently observed"
             )
@@ -1449,16 +1607,17 @@ def correlate(messages: list[dict[str, Any]]) -> dict[str, Any]:
     }
     ack_candidates: dict[str, list[str]] = {}
     ack_conflicts: dict[str, list[str]] = {}
+    ack_missing: dict[str, list[str]] = {}
     for ack in _sort(ack_requests):
-        kind, invite, candidates, conflicts = _associate_ack(ack, invite_transactions)
-        ack_conflicts[_match(ack)["source_reference"]] = conflicts
+        kind, invite, candidates, conflicts, missing = _associate_ack(ack, invite_transactions)
+        reference = _match(ack)["source_reference"]
+        ack_conflicts[reference] = conflicts
+        ack_missing[reference] = missing
         if kind == "ASSOCIATED" and invite is not None:
             _attach_ack_control(invite, ack)
             continue
         ack_groups[kind].append(ack)
-        ack_candidates[_match(ack)["source_reference"]] = sorted(
-            item["reference"] for item in candidates
-        )
+        ack_candidates[reference] = sorted(item["reference"] for item in candidates)
 
     for kind in ("ACK_2XX", "ACK_ORPHAN", "ACK_AMBIGUOUS"):
         group = ack_groups.get(kind, [])
@@ -1480,10 +1639,13 @@ def correlate(messages: list[dict[str, Any]]) -> dict[str, Any]:
                 groups_by_identity.setdefault(key, []).append(ack)
             for ack_group in groups_by_identity.values():
                 group_conflicts: list[str] = []
+                group_missing: list[str] = []
                 for ack in ack_group:
-                    group_conflicts.extend(ack_conflicts.get(_match(ack)["source_reference"], []))
+                    reference = _match(ack)["source_reference"]
+                    group_conflicts.extend(ack_conflicts.get(reference, []))
+                    group_missing.extend(ack_missing.get(reference, []))
                 transaction = _group_ack_transactions(
-                    ack_group, "ACK_AMBIGUOUS", conflicts=group_conflicts
+                    ack_group, "ACK_AMBIGUOUS", conflicts=group_conflicts, missing=group_missing
                 )[0]
                 transaction["matching_status"] = "AMBIGUOUS"
                 _add_unique(transaction["missing"], "SINGLE_REQUEST_TRANSACTION")
@@ -1501,6 +1663,11 @@ def correlate(messages: list[dict[str, Any]]) -> dict[str, Any]:
                     conflict
                     for ack in group
                     for conflict in ack_conflicts.get(_match(ack)["source_reference"], [])
+                ],
+                missing=[
+                    label
+                    for ack in group
+                    for label in ack_missing.get(_match(ack)["source_reference"], [])
                 ],
             ):
                 for ack in transaction["requests"]:
@@ -1753,6 +1920,44 @@ def validate_transaction_document(
             raise TransactionError("evidence-only state must match the observed evidence status")
         if transaction.get("state_semantics") not in {"RFC_STATE", "EVIDENCE_ONLY"}:
             raise TransactionError("invalid state semantics")
+        if transaction.get("transaction_role") == "CLIENT" and rfc_state == "TERMINATED":
+            raise TransactionError(
+                "client TERMINATED cannot be established from ACK evidence or capture silence"
+            )
+        control_refs = _refs_in(transaction, "associated_control_event_references")
+        if rfc_state == "CONFIRMED" and not control_refs:
+            raise TransactionError("CONFIRMED requires associated non-2xx ACK evidence")
+        if transaction.get("observed_evidence_status") == "NON_2XX_ACK_OBSERVED" and not control_refs:
+            raise TransactionError("NON_2XX_ACK_OBSERVED requires associated ACK evidence")
+        cancel_status = transaction.get("cancel_invite_association_status")
+        if transaction.get("transaction_type") == "CANCEL" and cancel_status == "ASSOCIATED":
+            if transaction.get("associated_transaction_reference") is None:
+                raise TransactionError(
+                    "an associated CANCEL requires an INVITE transaction reference"
+                )
+            if not transaction.get("associated_transaction_references"):
+                raise TransactionError(
+                    "an associated CANCEL requires its association reference list"
+                )
+        if cancel_status in {"NOT_ESTABLISHED", "AMBIGUOUS"} and transaction.get(
+            "transaction_type"
+        ) == "CANCEL" and transaction.get("associated_transaction_reference") is not None:
+            raise TransactionError(
+                "an unestablished CANCEL association cannot carry a transaction reference"
+            )
+        if transaction.get("observed_evidence_status") == "CANCEL_RESPONSE_SEQUENCE_OBSERVED":
+            if transaction.get("invite_final_response_status") != 487:
+                raise TransactionError(
+                    "CANCEL_RESPONSE_SEQUENCE_OBSERVED requires an observed 487 INVITE response"
+                )
+            if transaction.get("cancel_final_response_status") != 200:
+                raise TransactionError(
+                    "CANCEL_RESPONSE_SEQUENCE_OBSERVED requires an observed 200 CANCEL response"
+                )
+            if transaction.get("invite_transaction_termination_established"):
+                raise TransactionError(
+                    "transaction termination cannot be established from a response sequence"
+                )
         if transaction.get("retransmission_candidate_count") != len(
             transaction.get("retransmission_candidate_event_references") or []
         ):

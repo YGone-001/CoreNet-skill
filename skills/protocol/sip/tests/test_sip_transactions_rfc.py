@@ -429,7 +429,10 @@ class StateSemanticsTests(unittest.TestCase):
                 rec(3, method="ACK", cseq_method="ACK", to_tag="T", role="CLIENT"),
             ]
         )
-        self.assertEqual(tx(client, "INVITE")["rfc_transaction_state"], "TERMINATED")
+        client_invite = tx(client, "INVITE")
+        self.assertEqual(client_invite["rfc_transaction_state"], "COMPLETED")
+        self.assertNotEqual(client_invite["rfc_transaction_state"], "TERMINATED")
+        self.assertEqual(client_invite["observed_evidence_status"], "NON_2XX_ACK_OBSERVED")
         server = correlate(
             [
                 rec(1, method="INVITE", role="SERVER"),

@@ -91,21 +91,29 @@ From, Call-ID, CSeq and top Via. Missing legacy evidence yields `NOT_ESTABLISHED
 and never falls back to Call-ID. Request method and CSeq method must agree.
 
 CANCEL is its own transaction and is associated with an INVITE only when the
-applicable Via relationship, Request-URI, Call-ID, To, From, numeric CSeq and both
-request-line/CSeq methods are consistent. A 200 OK to CANCEL and a 487 INVITE are
-published as a `CANCEL_RESPONSE_SEQUENCE_OBSERVED` evidence sequence; they do not
-establish RFC `TERMINATED` because timer evidence is unavailable.
+applicable Via relationship, Request-URI, Call-ID, To URI, From URI, tags, numeric
+CSeq and both request-line/CSeq methods are observed and consistent. A missing
+required value is insufficient evidence and never establishes the association; a
+contradiction is reported separately as a conflict. An absent initial To tag on both
+messages is legitimate; a tag present on only one side is a conflict. A 200 OK to
+CANCEL and a 487 INVITE are published as a `CANCEL_RESPONSE_SEQUENCE_OBSERVED`
+evidence sequence; they do not establish RFC `TERMINATED` because timer evidence is
+unavailable.
 
-A non-2xx ACK is attached only when its Request-URI, Call-ID, From value, CSeq
-number, Via relationship and To-tag against the observed final response are
-consistent. A contradictory ACK remains unresolved and changes no transaction
-state. A 2xx ACK is an independent request transaction and is never merged. See
-`references/transactions.md`.
+A non-2xx ACK is attached only when its Request-URI, Call-ID, From URI and tag, To
+URI, CSeq number, Via relationship and To-tag against the observed final response
+are observed and consistent. One shared eligibility result decides association and
+reports missing and conflicting fields separately; a missing required field cannot
+produce server `CONFIRMED` or client `TERMINATED`. An invalid ACK remains unresolved
+and changes no transaction state. A 2xx ACK is an independent request transaction
+and is never merged. See `references/transactions.md`.
 
 `transaction_role` is `UNKNOWN` for a passive capture unless the input declares a
 side. `observed_evidence_status` describes the capture; `rfc_transaction_state` is
 published only when the role is established and `state_semantics` distinguishes the
-two. `CONFIRMED` requires a server-side INVITE transaction with a valid non-2xx ACK.
+two. A client INVITE that observes a non-2xx final response plus ACK stays
+`COMPLETED`; only the server projection becomes `CONFIRMED`. `TERMINATED` requires
+timer or equivalent independently observed transition evidence.
 
 ## Privacy
 
