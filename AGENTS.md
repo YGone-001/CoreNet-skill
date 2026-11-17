@@ -159,6 +159,7 @@ Keep transport, protocol, procedure, and implementation behavior distinct:
 - A protocol-local transaction correlator is not cross-protocol Correlation and not Domain procedure analysis; it never establishes a SIP dialog or an IMS outcome.
 - A passive capture cannot establish a SIP client/server stack role or RFC timer state; an observed 487 INVITE plus 200 CANCEL is evidence of a response sequence, never proof of `TERMINATED`.
 - RFC 3261 magic-cookie and legacy SIP Via matching are distinct algorithms; a non-cookie branch must not silently use the modern branch-only identity.
+- A SIP dialog is a signaling construct identified by Call-ID plus local and remote tags; a confirmed dialog never proves RTP delivery, two-way audio, IMS registration, authentication or call success, and forked branches must not be collapsed into one selected call.
 - Encrypted transports (for example SIP over TLS or DTLS) are never decrypted or presented as plaintext protocol evidence; absence of decrypted evidence is reported as encrypted or unavailable, never as absence of traffic.
 
 When packet-analysis functionality is authorized and implemented, prefer reproducible extraction over visual guesswork. Wireshark, tshark, and tcpdump may support workflows, but never state a field was observed unless the capture or extracted output contains it. Prefer stable correlation identifiers—subscriber, session, transaction, tunnel, dialog, or stream IDs—over timestamp-only correlation when stronger identifiers exist.

@@ -19,10 +19,12 @@ EXPECTED = EXAMPLES / "expected"
 CLI = SCRIPTS / "extract-sip.py"
 SCHEMA = SKILL / "schemas" / "sip-events.schema.json"
 TRANSACTION_SCHEMA = SKILL / "schemas" / "sip-transactions.schema.json"
+DIALOG_SCHEMA = SKILL / "schemas" / "sip-dialogs.schema.json"
 TRACE_SCHEMA = SKILL / "schemas" / "trace-event.schema.json"
 
 sys.path.insert(0, str(SCRIPTS))
 import sip_model  # noqa: E402
+import sip_dialogs  # noqa: E402
 import sip_transactions  # noqa: E402
 
 REQUIRED = (
@@ -34,14 +36,18 @@ REQUIRED = (
     "references/privacy.md",
     "references/failure-cases.md",
     "references/transactions.md",
+    "references/dialogs.md",
     "scripts/sip_model.py",
     "scripts/sip_transactions.py",
+    "scripts/sip_dialogs.py",
     "scripts/extract-sip.py",
     "schemas/sip-events.schema.json",
     "schemas/sip-transactions.schema.json",
+    "schemas/sip-dialogs.schema.json",
     "schemas/trace-event.schema.json",
     "filters/wireshark.txt",
     "tests/test_sip.py",
+    "tests/test_sip_dialogs.py",
     "examples/pdml/base-udp.pdml",
     "examples/pdml/tcp-reassembled.pdml",
     "examples/pdml/no-sip.pdml",
@@ -53,6 +59,7 @@ REQUIRED = (
     "examples/dissector/negative-cases.jsonl",
     "examples/dissector/privacy-cases.jsonl",
     "examples/dissector/transaction-cases.jsonl",
+    "examples/dissector/dialog-cases.jsonl",
     "examples/expected/base-udp-events.jsonl",
     "examples/expected/base-udp-trace.jsonl",
     "examples/expected/tcp-reassembled-events.jsonl",
@@ -65,6 +72,9 @@ REQUIRED = (
     "examples/expected/privacy-cases-events.jsonl",
     "examples/expected/transaction-cases-events.jsonl",
     "examples/expected/transaction-cases-transactions.json",
+    "examples/expected/dialog-cases-events.jsonl",
+    "examples/expected/dialog-cases-transactions.json",
+    "examples/expected/dialog-cases-dialogs.json",
 )
 
 GOLDEN_CASES = (
@@ -138,6 +148,14 @@ REQUIRED_TEST_TOKENS = (
     "test_transaction_schema_validation",
     "test_invalid_transaction_reference_is_rejected",
     "test_duplicate_source_reference_is_rejected",
+    "test_fixture_dialog_schema_validation",
+    "test_forking_produces_two_independent_dialogs",
+    "test_valid_2xx_ack_is_bound",
+    "test_bye_reverse_direction",
+    "test_mid_capture_bye_is_unbound",
+    "test_same_frame_multiple_occurrences_are_distinct",
+    "test_no_raw_identity_or_secret_is_published",
+    "test_replay_is_deterministic",
 )
 
 
@@ -230,6 +248,36 @@ def main() -> int:
             errors.append(f"transaction schema is missing required property: {required}")
     if "transaction_reference" not in schema.get("properties", {}):
         errors.append("event schema does not expose an optional transaction_reference")
+
+    dialog_schema = load_json(DIALOG_SCHEMA)
+    if dialog_schema.get("additionalProperties") is not False:
+        errors.append("dialog schema must set additionalProperties: false")
+    for required in (
+        "analysis_name",
+        "analysis_version",
+        "protocol",
+        "capture_provenance",
+        "dialog_count",
+        "dialog_summary",
+        "dialogs",
+        "unbound_observations",
+        "ambiguous_observations",
+        "limitations",
+        "not_confirmed",
+    ):
+        if required not in dialog_schema.get("required", []):
+            errors.append(f"dialog schema is missing required property: {required}")
+    for definition in (
+        "capture_provenance",
+        "dialog",
+        "unbound_observation",
+        "ambiguous_observation",
+        "cseq_observations",
+    ):
+        if dialog_schema["$defs"][definition].get("additionalProperties") is not False:
+            errors.append(f"dialog schema definition {definition} is not strict")
+    if dialog_schema["properties"]["analysis_version"].get("const") != sip_dialogs.DIALOG_SCHEMA_VERSION:
+        errors.append("dialog schema version diverges from the dialog model constant")
 
     if load_json(TRACE_SCHEMA) != load_json(ROOT / "shared" / "schemas" / "trace-event.schema.json"):
         errors.append("trace-event schema diverges from the shared schema")
@@ -401,6 +449,148 @@ def main() -> int:
                 errors.append(
                     f"missing transaction output directory did not return exit code 6: {missing.returncode}"
                 )
+
+    with tempfile.TemporaryDirectory() as temporary:
+        directory = Path(temporary)
+        dialog_events = directory / "dialog-events.jsonl"
+        dialog_transactions = directory / "dialog-transactions.json"
+        dialog_output = directory / "dialog-dialogs.json"
+        dialog_input = EXAMPLES / "dissector" / "dialog-cases.jsonl"
+        completed = run(
+            [
+                sys.executable,
+                str(CLI),
+                str(dialog_input),
+                "--output",
+                str(dialog_events),
+                "--transaction-output",
+                str(dialog_transactions),
+                "--dialog-output",
+                str(dialog_output),
+                "--force",
+            ]
+        )
+        if completed.returncode != 0:
+            errors.append(f"dialog analysis failed: {completed.stderr.strip()}")
+        else:
+            for path, expected_name in (
+                (dialog_events, "dialog-cases-events.jsonl"),
+                (dialog_transactions, "dialog-cases-transactions.json"),
+                (dialog_output, "dialog-cases-dialogs.json"),
+            ):
+                if path.read_bytes() != (EXPECTED / expected_name).read_bytes():
+                    errors.append(f"{expected_name} differs from the committed expectation")
+            transaction_document = load_json(dialog_transactions)
+            dialog_document = load_json(dialog_output)
+            messages, _ = sip_model.messages_for_input(dialog_input, "fields-jsonl")
+            try:
+                jsonschema.validate(transaction_document, transaction_schema)
+                jsonschema.validate(dialog_document, dialog_schema)
+            except jsonschema.ValidationError as exc:
+                errors.append(f"dialog artifact schema validation failed: {exc.message}")
+            try:
+                sip_transactions.validate_transaction_document(transaction_document, messages)
+                sip_dialogs.validate_dialog_document(
+                    dialog_document, messages, transaction_document
+                )
+            except (sip_transactions.TransactionError, sip_dialogs.DialogError) as exc:
+                errors.append(f"dialog semantic validation failed: {exc}")
+
+            dialog_text = dialog_output.read_text(encoding="utf-8")
+            for secret in PRIVACY_SECRETS:
+                if secret in dialog_text:
+                    errors.append(f"dialog output leaked a sensitive value: {secret}")
+            for token in (
+                "alice@",
+                "bob@",
+                "TAG-INIT",
+                '"call_id"',
+                '"from_tag"',
+                '"to_tag"',
+                '"request_uri"',
+                '"from_uri"',
+                '"to_uri"',
+                '"via_branch"',
+                '"dialog_id"',
+            ):
+                if token in dialog_text:
+                    errors.append(f"dialog output publishes a raw identity field: {token}")
+
+            tampered = copy.deepcopy(dialog_document)
+            tampered["dialogs"][0]["dialog_reference"] = "invalid"
+            try:
+                sip_dialogs.validate_dialog_document(tampered, messages, transaction_document)
+            except sip_dialogs.DialogError:
+                pass
+            else:
+                errors.append("invalid dialog reference was not rejected")
+
+            duplicated = copy.deepcopy(dialog_document)
+            if len(duplicated["dialogs"]) > 1:
+                duplicated["dialogs"][1]["dialog_reference"] = duplicated["dialogs"][0][
+                    "dialog_reference"
+                ]
+                try:
+                    sip_dialogs.validate_dialog_document(
+                        duplicated, messages, transaction_document
+                    )
+                except sip_dialogs.DialogError:
+                    pass
+                else:
+                    errors.append("duplicate dialog reference was not rejected")
+
+            missing_transaction = copy.deepcopy(dialog_document)
+            missing_transaction["dialogs"][0][
+                "initiating_transaction_reference"
+            ] = "sip-transaction:missing.pcapng:request:1.1"
+            try:
+                sip_dialogs.validate_dialog_document(
+                    missing_transaction, messages, transaction_document
+                )
+            except sip_dialogs.DialogError:
+                pass
+            else:
+                errors.append("unknown initiating transaction reference was not rejected")
+
+            dialog_only = directory / "dialog-only.json"
+            only_dialog = run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    str(dialog_input),
+                    "--dialog-output",
+                    str(dialog_only),
+                    "--force",
+                ]
+            )
+            if only_dialog.returncode != 0 or not dialog_only.is_file():
+                errors.append(f"dialog-only output failed: {only_dialog.stderr.strip()}")
+
+            second_dialog = directory / "second-dialogs.json"
+            second_transactions = directory / "second-transactions.json"
+            second_events = directory / "second-events.jsonl"
+            rerun = run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    str(dialog_input),
+                    "--output",
+                    str(second_events),
+                    "--transaction-output",
+                    str(second_transactions),
+                    "--dialog-output",
+                    str(second_dialog),
+                    "--force",
+                ]
+            )
+            if rerun.returncode != 0:
+                errors.append(f"dialog deterministic rerun failed: {rerun.stderr.strip()}")
+            elif (
+                second_dialog.read_bytes() != dialog_output.read_bytes()
+                or second_transactions.read_bytes() != dialog_transactions.read_bytes()
+                or second_events.read_bytes() != dialog_events.read_bytes()
+            ):
+                errors.append("dialog analysis is not deterministic")
 
     with tempfile.TemporaryDirectory() as temporary:
         directory = Path(temporary)

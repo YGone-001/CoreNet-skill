@@ -3,12 +3,13 @@
 ## Purpose
 
 Answer WHAT SIP requests and responses, and which reviewed SIP header facts, were
-observed in a capture, and WHICH observed requests and responses belong to the same
-protocol-local SIP transaction. This is a Protocol-layer Skill for SIP message
-extraction and transaction correlation over UDP and TCP. It preserves source
-provenance and publishes privacy-safe presence and length metadata instead of
-subscriber identities, URIs, dialog tags, Call-ID values, credentials or message
-bodies.
+observed in a capture; WHICH observed requests and responses belong to the same
+protocol-local SIP transaction; and WHICH observed INVITE-created SIP dialog branches
+are supported by the accepted transaction evidence. This is a Protocol-layer Skill
+for SIP message extraction, transaction correlation and bounded dialog evidence over
+UDP and TCP. It preserves source provenance and publishes privacy-safe presence and
+length metadata instead of subscriber identities, URIs, dialog tags, Call-ID values,
+credentials or message bodies.
 
 ## Scope
 
@@ -39,13 +40,42 @@ bodies.
 - Handle CANCEL, non-2xx ACK and 2xx ACK according to separate transaction roles,
   and preserve RFC 6026 `ACCEPTED` for INVITE 2xx transactions.
 - Publish one sanitized JSONL event per observed SIP message, plus an optional
-  transaction JSON document and an optional shared trace-event projection.
+  transaction JSON document, an optional dialog evidence JSON document and an
+  optional shared trace-event projection.
+
+## Dialog evidence
+
+Dialog analysis consumes the same capture-local private message records and the
+accepted transaction document:
+
+- Dialog identity requires Call-ID, the initial INVITE From tag and a response To
+  tag. Call-ID alone is never a dialog identity.
+- A tagged 180/183 establishes Early Dialog evidence; 100 Trying never creates a
+  dialog.
+- A 2xx response with a To tag establishes or confirms the matching dialog branch.
+- One INVITE may produce multiple independently identified forked dialogs with
+  distinct To tags; repeated responses on one branch do not duplicate a dialog.
+- A 2xx ACK is associated only with a uniquely supported Confirmed Dialog; its Via
+  branch may differ from the INVITE.
+- BYE, re-INVITE, UPDATE, INFO, PRACK, REFER and MESSAGE are associated to one
+  established dialog using the tag pair, Call-ID and direction. A re-INVITE does not
+  create a new dialog.
+- BYE with a 2xx response on a confirmed dialog publishes `TERMINATED`; a BYE without
+  a response keeps the dialog `CONFIRMED` and publishes termination signaling without
+  claiming completion.
+- Incomplete captures and dialog-shaped contexts without a creator remain explicit
+  unbound or ambiguous observations; no preceding INVITE or confirmed dialog is
+  fabricated.
+
+See `references/dialogs.md` for the identity, forking, ACK, in-dialog and lifecycle
+rules. Dialog evidence never establishes IMS registration, call success, RTP media or
+two-way audio.
 
 ## Non-Goals
 
-- No SIP dialog correlation, dialog identity, 2xx ACK dialog association or
-  forked-dialog selection.
 - No IMS registration, authentication, call, session, SDP or RTP semantics.
+- No dialog timeout or capture-boundary termination inference.
+- No full SUBSCRIBE/NOTIFY subscription-dialog state machine.
 - No timer configuration or timeout inference from an unobserved response.
 - No inferred transaction success from a status code.
 - No plaintext extraction from TLS or other encrypted transports.
@@ -67,6 +97,7 @@ bodies.
 
 - SIP event JSONL (`schemas/sip-events.schema.json`).
 - Optional SIP transaction JSON (`schemas/sip-transactions.schema.json`).
+- Optional SIP dialog evidence JSON (`schemas/sip-dialogs.schema.json`).
 - Optional shared trace-event JSONL projection (`schemas/trace-event.schema.json`).
 
 ## Evidence semantics
@@ -147,6 +178,7 @@ python3 skills/protocol/sip/scripts/extract-sip.py \
   skills/protocol/sip/examples/pdml/base-udp.pdml \
   --output /tmp/sip-events.jsonl \
   --transaction-output /tmp/sip-transactions.json \
+  --dialog-output /tmp/sip-dialogs.json \
   --trace-output /tmp/sip-trace.jsonl \
   --force
 
@@ -175,5 +207,12 @@ python3 scripts/validate-sip.py
   values remain `NOT_ESTABLISHED` rather than using a weaker fallback.
 - A sanitized field-only fingerprint cannot prove exact message equality; repeats are
   reported as retransmission candidates.
-- SIP transaction correlation is protocol-local; SIP dialog correlation and IMS
-  procedure analysis remain outside this Skill.
+- Dialog identity is capture-scoped and derived from the initiating INVITE From tag
+  plus a response To tag; it is not a portable subscriber identity.
+- Dialog state reflects signaling evidence only. `TERMINATED` requires a BYE with a
+  2xx response on a confirmed dialog; no RTP, media or IMS outcome is inferred.
+- Dialogs that begin before the capture are reported as unbound observations, never
+  as fabricated initial INVITEs.
+- Non-INVITE dialog usages such as SUBSCRIBE/NOTIFY are recognized but not modelled.
+- SIP dialog evidence is protocol-local; IMS Domain procedure analysis remains
+  outside this Skill.

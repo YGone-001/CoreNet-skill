@@ -9,17 +9,21 @@ classifications. It correlates requests and responses at the RFC 3261 transactio
 layer, distinguishes magic-cookie and legacy Via matching, validates CANCEL and ACK
 header consistency with fail-closed required-field eligibility, separates observed
 evidence status from RFC 3261/RFC 6026 state, and reports retransmission confidence.
-It does not correlate SIP dialogs and does not assign IMS registration,
-authentication or call semantics.
+It also derives bounded, privacy-safe INVITE dialog evidence: Early and Confirmed
+branches, forked dialog isolation, 2xx ACK association, in-dialog request association
+and BYE lifecycle signaling. It does not assign IMS registration, authentication or
+call semantics.
 
 ```bash
 python3 skills/protocol/sip/scripts/extract-sip.py \
   skills/protocol/sip/examples/pdml/base-udp.pdml \
   --output /tmp/sip-events.jsonl \
   --transaction-output /tmp/sip-transactions.json \
+  --dialog-output /tmp/sip-dialogs.json \
   --trace-output /tmp/sip-trace.jsonl \
   --force
 ```
 
 See `SKILL.md`, `references/field-reference.md`, `references/transactions.md`,
-`references/privacy.md` and `references/failure-cases.md`.
+`references/dialogs.md`, `references/privacy.md` and
+`references/failure-cases.md`.

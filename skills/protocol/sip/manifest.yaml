@@ -1,7 +1,7 @@
 name: "sip"
-version: "0.3.1"
+version: "0.4.0"
 category: protocol
-description: "Bounded SIP message extraction and protocol-local transaction correlation over UDP and TCP: request/response identity, reviewed header presence and bounded metadata, source-frame and transport provenance, message completeness, RFC 3261 magic-cookie and legacy matching, request/CSeq method validation, RFC 6026 Accepted-state projection, observed evidence status versus client/server role, RFC 3261 client/server non-2xx state semantics, fail-closed CANCEL and ACK required-field eligibility, retransmission fingerprint confidence, privacy-safe handling of identities/URIs/tags/credentials/bodies, and deterministic event and transaction output without dialog or IMS procedure semantics."
+description: "Bounded SIP message extraction, protocol-local transaction correlation and privacy-safe INVITE dialog evidence over UDP and TCP: request/response identity, reviewed header presence and bounded metadata, source-frame and transport provenance, message completeness, RFC 3261 magic-cookie and legacy matching, request/CSeq method validation, RFC 6026 Accepted-state projection, observed evidence status versus client/server role, RFC 3261 client/server non-2xx state semantics, fail-closed CANCEL and ACK required-field eligibility, Early and Confirmed dialog branches with forking isolation, 2xx ACK and in-dialog request association, BYE lifecycle signaling, retransmission fingerprint confidence, privacy-safe handling of identities/URIs/tags/credentials/bodies, and deterministic event, transaction and dialog output without IMS or media semantics."
 scope:
   includes:
     - "SIP requests and responses over IPv4 and IPv6"
@@ -21,10 +21,17 @@ scope:
     - "CANCEL outcome, INVITE final response and transaction termination kept as separate evidence"
     - "matching status, response branches, capture completeness and missing evidence"
     - "retransmission fingerprint completeness and candidate classification without raw content publication"
+    - "INVITE dialog identity from Call-ID plus initiating From tag and response To tag"
+    - "tagged provisional Early Dialog evidence, 2xx Confirmed Dialog evidence and forked branch isolation"
+    - "bounded 2xx ACK, re-INVITE, UPDATE, INFO, PRACK, REFER and MESSAGE dialog association"
+    - "BYE signaling, termination-signaling observation and dialog lifecycle axes kept separate"
+    - "mid-capture, incomplete and ambiguous dialog-shaped observations without fabricated dialog creators"
     - "PCAP/PCAPNG through TShark PDML, stored PDML replay and sanitized dissector-record JSONL replay"
   excludes:
-    - "SIP dialog correlation, dialog identity, 2xx ACK dialog association and forked-dialog selection"
     - "IMS registration, authentication, call, session, SDP or RTP semantics"
+    - "dialog timeout inference from elapsed capture time"
+    - "full SUBSCRIBE/NOTIFY subscription-dialog state machines"
+    - "re-INVITE SDP or media renegotiation interpretation"
     - "timer configuration or timeout inference from an unobserved response"
     - "plaintext extraction from TLS or other encrypted transports"
     - "custom TCP reassembly or packet-byte SIP decoding"
@@ -41,6 +48,7 @@ inputs:
 outputs:
   - "detailed SIP event JSON Lines (schemas/sip-events.schema.json)"
   - "protocol-local SIP transaction JSON (schemas/sip-transactions.schema.json)"
+  - "bounded SIP dialog evidence JSON (schemas/sip-dialogs.schema.json)"
   - "normalized trace-event JSON Lines projection (schemas/trace-event.schema.json)"
 protocols:
   - "SIP"

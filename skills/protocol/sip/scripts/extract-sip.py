@@ -12,6 +12,7 @@ transactions or dialogs and assigns no IMS registration or call semantics.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -30,6 +31,11 @@ from sip_model import (  # noqa: E402
     TsharkError,
     messages_for_input,
     project_trace_event,
+)
+from sip_dialogs import (  # noqa: E402
+    DialogError,
+    build_dialog_document,
+    validate_dialog_document,
 )
 from sip_transactions import (  # noqa: E402
     TransactionError,
@@ -55,6 +61,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path, help="SIP event JSONL destination")
     parser.add_argument(
         "--transaction-output", type=Path, help="SIP transaction JSON destination"
+    )
+    parser.add_argument(
+        "--dialog-output", type=Path, help="SIP dialog evidence JSON destination"
     )
     parser.add_argument(
         "--trace-output", type=Path, help="shared trace-event JSONL projection destination"
@@ -124,15 +133,54 @@ def _require_published(destination: Path, label: str) -> None:
         raise OSError(f"{label} is missing or unreadable: {exc}") from exc
 
 
+def _resolved_input_format(source: Path, requested: str) -> str:
+    if requested != "auto":
+        return requested
+    suffix = source.suffix.lower()
+    if suffix == ".pdml":
+        return "pdml"
+    if suffix in {".jsonl", ".ndjson"}:
+        return "fields-jsonl"
+    return "capture"
+
+
+def _capture_digest(source: Path, input_format: str) -> dict[str, str] | None:
+    if input_format != "capture":
+        return None
+    digest = hashlib.sha256()
+    with source.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return {source.name: digest.hexdigest()}
+
+
+def _capture_completeness(messages: list[dict]) -> str:
+    if not messages:
+        return "UNKNOWN"
+    if any(
+        message["event"]["message_completeness"] != "COMPLETE" for message in messages
+    ):
+        return "PARTIAL"
+    return "COMPLETE"
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.output is None and args.trace_output is None and args.transaction_output is None:
+    if (
+        args.output is None
+        and args.trace_output is None
+        and args.transaction_output is None
+        and args.dialog_output is None
+    ):
         print(
-            "no destination requested; pass --output, --transaction-output and/or --trace-output",
+            "no destination requested; pass --output, --transaction-output, "
+            "--dialog-output and/or --trace-output",
             file=sys.stderr,
         )
         return EXIT_OUTPUT_FAILURE
     try:
+        input_format = _resolved_input_format(args.input, args.input_format)
+        capture_digest = _capture_digest(args.input, input_format)
         messages, decoder = messages_for_input(args.input, args.input_format)
         events = [message["event"] for message in messages]
         if not events:
@@ -140,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
             return EXIT_NO_EVENTS
         if decoder is not None:
             print(f"decoder: {decoder}", file=sys.stderr)
-        if args.transaction_output is not None:
+        if args.transaction_output is not None or args.dialog_output is not None:
             document = correlate(messages)
             attach_transaction_references(messages, document)
             validate_transaction_document(document, messages)
@@ -156,6 +204,25 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"wrote {document['transaction_count']} SIP transaction(s) to "
                 f"{args.transaction_output.name}"
+            )
+        if args.dialog_output is not None:
+            dialog_document = build_dialog_document(
+                messages,
+                document,
+                capture_provenance={
+                    "input_format": input_format,
+                    "capture_sha256": capture_digest,
+                    "decoder": decoder,
+                    "capture_completeness": _capture_completeness(messages),
+                },
+            )
+            validate_dialog_document(dialog_document, messages, document)
+            check_destination(args.input, args.dialog_output, args.force)
+            write_json(args.dialog_output, dialog_document)
+            _require_published(args.dialog_output, "SIP dialog output")
+            print(
+                f"wrote {dialog_document['dialog_count']} SIP dialog(s) to "
+                f"{args.dialog_output.name}"
             )
         if args.trace_output is not None:
             check_destination(args.input, args.trace_output, args.force)
@@ -182,6 +249,9 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_MALFORMED_INPUT
     except TransactionError as exc:
         print(f"transaction error: {exc}", file=sys.stderr)
+        return EXIT_OUTPUT_FAILURE
+    except DialogError as exc:
+        print(f"dialog error: {exc}", file=sys.stderr)
         return EXIT_OUTPUT_FAILURE
     except (json.JSONDecodeError, OSError) as exc:
         print(f"output error: {exc}", file=sys.stderr)

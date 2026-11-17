@@ -1,0 +1,731 @@
+{
+  "ambiguous_observations": [],
+  "analysis_name": "sip-dialogs",
+  "analysis_version": "1.0.0",
+  "capture_provenance": {
+    "accepted_transaction_count": 26,
+    "capture_completeness": "COMPLETE",
+    "capture_files": [
+      "synthetic-dialog-cases.pcapng"
+    ],
+    "capture_sha256": null,
+    "decoder": null,
+    "input_format": "fields-jsonl",
+    "source_event_count": 48
+  },
+  "dialog_count": 10,
+  "dialog_summary": {
+    "ambiguous_observation_count": 0,
+    "dialog_state_counts": {
+      "CONFIRMED": 8,
+      "TERMINATED": 2
+    },
+    "forked_initiating_transaction_count": 1,
+    "identity_status_counts": {
+      "ESTABLISHED": 10
+    },
+    "observed_lifecycle_status_counts": {
+      "CONFIRMATION_OBSERVED": 7,
+      "TERMINATION_SIGNALING_OBSERVED": 3
+    },
+    "unbound_observation_count": 6
+  },
+  "dialogs": [
+    {
+      "ack_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:6.1"
+      ],
+      "associated_message_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:1.1",
+        "sip-event:synthetic-dialog-cases.pcapng:2.1",
+        "sip-event:synthetic-dialog-cases.pcapng:4.1",
+        "sip-event:synthetic-dialog-cases.pcapng:6.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:4.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_values": [],
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-dialog-cases.pcapng:2.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [],
+      "early_response_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:2.1"
+      ],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 1,
+      "fork_branch_reference": "sip-fork:synthetic-dialog-cases.pcapng:2.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [],
+      "initiating_transaction_reference": "sip-transaction:synthetic-dialog-cases.pcapng:request:1.1",
+      "last_observed_frame": 6,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "dialog_scoped_2xx_ack",
+        "tagged_provisional_response"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+      "omitted_associated_event_count": 0
+    },
+    {
+      "ack_event_references": [],
+      "associated_message_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:1.1",
+        "sip-event:synthetic-dialog-cases.pcapng:3.1",
+        "sip-event:synthetic-dialog-cases.pcapng:5.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:5.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_values": [],
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-dialog-cases.pcapng:3.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [],
+      "early_response_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:3.1"
+      ],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 1,
+      "fork_branch_reference": "sip-fork:synthetic-dialog-cases.pcapng:3.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [],
+      "initiating_transaction_reference": "sip-transaction:synthetic-dialog-cases.pcapng:request:1.1",
+      "last_observed_frame": 5,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "tagged_provisional_response"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+      "omitted_associated_event_count": 0
+    },
+    {
+      "ack_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:17.1"
+      ],
+      "associated_message_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:15.1",
+        "sip-event:synthetic-dialog-cases.pcapng:16.1",
+        "sip-event:synthetic-dialog-cases.pcapng:17.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:16.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_values": [],
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-dialog-cases.pcapng:16.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 15,
+      "fork_branch_reference": "sip-fork:synthetic-dialog-cases.pcapng:16.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [],
+      "initiating_transaction_reference": "sip-transaction:synthetic-dialog-cases.pcapng:request:15.1",
+      "last_observed_frame": 17,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "confirmation_without_provisional",
+        "dialog_scoped_2xx_ack"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+      "omitted_associated_event_count": 0
+    },
+    {
+      "ack_event_references": [],
+      "associated_message_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:18.1",
+        "sip-event:synthetic-dialog-cases.pcapng:19.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:19.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_values": [],
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-dialog-cases.pcapng:19.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 18,
+      "fork_branch_reference": "sip-fork:synthetic-dialog-cases.pcapng:19.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [],
+      "initiating_transaction_reference": "sip-transaction:synthetic-dialog-cases.pcapng:request:18.1",
+      "last_observed_frame": 19,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "confirmation_without_provisional"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+      "omitted_associated_event_count": 0
+    },
+    {
+      "ack_event_references": [],
+      "associated_message_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:21.1",
+        "sip-event:synthetic-dialog-cases.pcapng:22.1",
+        "sip-event:synthetic-dialog-cases.pcapng:23.1",
+        "sip-event:synthetic-dialog-cases.pcapng:24.1"
+      ],
+      "bye_transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:23.1"
+      ],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:22.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_values": [
+          2
+        ],
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-dialog-cases.pcapng:22.1",
+      "dialog_state": "TERMINATED",
+      "direction_observations": [
+        "ORIGINAL"
+      ],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 21,
+      "fork_branch_reference": "sip-fork:synthetic-dialog-cases.pcapng:22.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:23.1"
+      ],
+      "initiating_transaction_reference": "sip-transaction:synthetic-dialog-cases.pcapng:request:21.1",
+      "last_observed_frame": 24,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "bye_2xx_response",
+        "confirmation_without_provisional",
+        "in_dialog_bye"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "TERMINATION_SIGNALING_OBSERVED",
+      "omitted_associated_event_count": 0
+    },
+    {
+      "ack_event_references": [],
+      "associated_message_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:25.1",
+        "sip-event:synthetic-dialog-cases.pcapng:26.1",
+        "sip-event:synthetic-dialog-cases.pcapng:27.1",
+        "sip-event:synthetic-dialog-cases.pcapng:28.1"
+      ],
+      "bye_transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:27.1"
+      ],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:26.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_values": [],
+        "responder_direction_values": [
+          1
+        ],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-dialog-cases.pcapng:26.1",
+      "dialog_state": "TERMINATED",
+      "direction_observations": [
+        "REVERSE"
+      ],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 25,
+      "fork_branch_reference": "sip-fork:synthetic-dialog-cases.pcapng:26.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:27.1"
+      ],
+      "initiating_transaction_reference": "sip-transaction:synthetic-dialog-cases.pcapng:request:25.1",
+      "last_observed_frame": 28,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "bye_2xx_response",
+        "confirmation_without_provisional",
+        "in_dialog_bye"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "TERMINATION_SIGNALING_OBSERVED",
+      "omitted_associated_event_count": 0
+    },
+    {
+      "ack_event_references": [],
+      "associated_message_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:29.1",
+        "sip-event:synthetic-dialog-cases.pcapng:30.1",
+        "sip-event:synthetic-dialog-cases.pcapng:31.1"
+      ],
+      "bye_transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:31.1"
+      ],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:30.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_values": [
+          2
+        ],
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-dialog-cases.pcapng:30.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [
+        "ORIGINAL"
+      ],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 29,
+      "fork_branch_reference": "sip-fork:synthetic-dialog-cases.pcapng:30.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:31.1"
+      ],
+      "initiating_transaction_reference": "sip-transaction:synthetic-dialog-cases.pcapng:request:29.1",
+      "last_observed_frame": 31,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "confirmation_without_provisional",
+        "in_dialog_bye",
+        "termination_signaling_only"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published"
+      ],
+      "missing_evidence": [
+        "BYE_RESPONSE_NOT_OBSERVED"
+      ],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "TERMINATION_SIGNALING_OBSERVED",
+      "omitted_associated_event_count": 0
+    },
+    {
+      "ack_event_references": [],
+      "associated_message_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:32.1",
+        "sip-event:synthetic-dialog-cases.pcapng:33.1",
+        "sip-event:synthetic-dialog-cases.pcapng:34.1",
+        "sip-event:synthetic-dialog-cases.pcapng:35.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:33.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_values": [
+          2
+        ],
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-dialog-cases.pcapng:33.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [
+        "ORIGINAL"
+      ],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 32,
+      "fork_branch_reference": "sip-fork:synthetic-dialog-cases.pcapng:33.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:34.1"
+      ],
+      "initiating_transaction_reference": "sip-transaction:synthetic-dialog-cases.pcapng:request:32.1",
+      "last_observed_frame": 35,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "confirmation_without_provisional",
+        "in_dialog_invite"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+      "omitted_associated_event_count": 0
+    },
+    {
+      "ack_event_references": [],
+      "associated_message_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:36.1",
+        "sip-event:synthetic-dialog-cases.pcapng:37.1",
+        "sip-event:synthetic-dialog-cases.pcapng:38.1",
+        "sip-event:synthetic-dialog-cases.pcapng:39.1",
+        "sip-event:synthetic-dialog-cases.pcapng:40.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:37.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_values": [
+          3,
+          4
+        ],
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-dialog-cases.pcapng:37.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [
+        "ORIGINAL"
+      ],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 36,
+      "fork_branch_reference": "sip-fork:synthetic-dialog-cases.pcapng:37.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:38.1",
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:39.1"
+      ],
+      "initiating_transaction_reference": "sip-transaction:synthetic-dialog-cases.pcapng:request:36.1",
+      "last_observed_frame": 40,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "confirmation_without_provisional",
+        "in_dialog_info",
+        "in_dialog_update"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+      "omitted_associated_event_count": 0
+    },
+    {
+      "ack_event_references": [],
+      "associated_message_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:46.1",
+        "sip-event:synthetic-dialog-cases.pcapng:47.1",
+        "sip-event:synthetic-dialog-cases.pcapng:48.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:47.1",
+        "sip-event:synthetic-dialog-cases.pcapng:48.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_values": [],
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-dialog-cases.pcapng:47.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 46,
+      "fork_branch_reference": "sip-fork:synthetic-dialog-cases.pcapng:47.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [],
+      "initiating_transaction_reference": "sip-transaction:synthetic-dialog-cases.pcapng:request:46.1",
+      "last_observed_frame": 48,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "confirmation_without_provisional"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+      "omitted_associated_event_count": 0
+    }
+  ],
+  "limitations": [
+    "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+    "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+    "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+    "one Call-ID may carry multiple forked dialog branches",
+    "the raw dialog identity tuple is never published"
+  ],
+  "not_confirmed": [
+    "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+    "ready-state and confirmed-state branches are capture-local observations",
+    "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+    "dialog timeout is not inferred from elapsed capture time",
+    "non-INVITE dialog usages such as event subscriptions are not modelled"
+  ],
+  "protocol": "SIP",
+  "unbound_observations": [
+    {
+      "conflict_findings": [],
+      "event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:10.1"
+      ],
+      "identity_status": "INSUFFICIENT_EVIDENCE",
+      "limitations": [],
+      "missing_evidence": [
+        "TO_TAG_NOT_OBSERVED"
+      ],
+      "observation_reference": "sip-observation:synthetic-dialog-cases.pcapng:10.1",
+      "reason": "PROVISIONAL_WITHOUT_TO_TAG",
+      "tag_pair_observed": false,
+      "transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:9.1"
+      ]
+    },
+    {
+      "conflict_findings": [
+        "CONFIRMATION_WITHOUT_IDENTITY"
+      ],
+      "event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:12.1"
+      ],
+      "identity_status": "INSUFFICIENT_EVIDENCE",
+      "limitations": [],
+      "missing_evidence": [
+        "TO_TAG_NOT_OBSERVED"
+      ],
+      "observation_reference": "sip-observation:synthetic-dialog-cases.pcapng:12.1",
+      "reason": "CONFIRMATION_WITHOUT_TO_TAG",
+      "tag_pair_observed": false,
+      "transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:11.1"
+      ]
+    },
+    {
+      "conflict_findings": [],
+      "event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:20.1"
+      ],
+      "identity_status": "NOT_ESTABLISHED",
+      "limitations": [],
+      "missing_evidence": [
+        "CONFIRMING_RESPONSE_NOT_OBSERVED"
+      ],
+      "observation_reference": "sip-observation:synthetic-dialog-cases.pcapng:20.1",
+      "reason": "CONFIRMING_RESPONSE_NOT_OBSERVED",
+      "tag_pair_observed": true,
+      "transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:20.1"
+      ]
+    },
+    {
+      "conflict_findings": [],
+      "event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:41.1"
+      ],
+      "identity_status": "NOT_ESTABLISHED",
+      "limitations": [],
+      "missing_evidence": [
+        "INITIAL_INVITE_NOT_OBSERVED"
+      ],
+      "observation_reference": "sip-observation:synthetic-dialog-cases.pcapng:41.1",
+      "reason": "DIALOG_CREATOR_NOT_OBSERVED",
+      "tag_pair_observed": true,
+      "transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:41.1"
+      ]
+    },
+    {
+      "conflict_findings": [],
+      "event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:42.1"
+      ],
+      "identity_status": "NOT_ESTABLISHED",
+      "limitations": [],
+      "missing_evidence": [
+        "INITIAL_INVITE_NOT_OBSERVED"
+      ],
+      "observation_reference": "sip-observation:synthetic-dialog-cases.pcapng:42.1",
+      "reason": "DIALOG_CREATOR_NOT_OBSERVED",
+      "tag_pair_observed": true,
+      "transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:42.1"
+      ]
+    },
+    {
+      "conflict_findings": [],
+      "event_references": [
+        "sip-event:synthetic-dialog-cases.pcapng:43.1"
+      ],
+      "identity_status": "NOT_ESTABLISHED",
+      "limitations": [],
+      "missing_evidence": [
+        "SUBSCRIPTION_DIALOG_UNSUPPORTED"
+      ],
+      "observation_reference": "sip-observation:synthetic-dialog-cases.pcapng:43.1",
+      "reason": "UNSUPPORTED_SUBSCRIPTION_DIALOG",
+      "tag_pair_observed": true,
+      "transaction_references": [
+        "sip-transaction:synthetic-dialog-cases.pcapng:request:43.1"
+      ]
+    }
+  ]
+}
