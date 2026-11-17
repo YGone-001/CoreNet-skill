@@ -82,6 +82,7 @@ Optional record fields:
 | `message_occurrence` | positive occurrence within the frame; defaults to 1 |
 | `integrity_findings` | reviewed decoder finding labels |
 | `capture_truncated` | boolean capture truncation evidence |
+| `observation_role` | optional `CLIENT`, `SERVER` or `UNKNOWN` capture-side declaration; defaults to `UNKNOWN` |
 
 Transport fields: `protocol` (`UDP` or `TCP`), endpoints, optional `stream_id`,
 `reassembly` (`NOT_APPLICABLE`, `SINGLE_SEGMENT`, `REASSEMBLED`, `INCOMPLETE`,
@@ -90,16 +91,18 @@ declare `UDP` or `TCP`; `TLS` and other transports are rejected as invalid input
 
 Header fields: `method`, `status_code`, `reason_phrase`, `request_uri`, `call_id`,
 `cseq_sequence`, `cseq_method`, `via` (array of `{branch, sent_by, transport}`),
-`from` and `to` (objects with `count`, `tag`), `max_forwards`, `content_type`,
-`content_length`, `body_length`, and the reviewed `*_count` occurrence fields.
-`via.sent_by` is the top Via sent-by value (`host:port` or `host`); it is mandatory
-for full transaction matching. Raw `branch`, `sent_by`, `call_id`, tags and URIs are
-consumed in memory and never published.
+`from` and `to` (objects with `count`, `tag` and optional `uri`), `max_forwards`,
+`content_type`, `content_length`, `body_length`, and the reviewed `*_count`
+occurrence fields. `via.sent_by` is the top Via sent-by value (`host:port` or
+`host`); it is mandatory for modern matching. `from.uri` and `to.uri` are required
+for legacy matching but are never published. Raw `branch`, `sent_by`, `call_id`,
+tags and URIs are consumed in memory and never published.
 
 The optional transaction output is defined by `schemas/sip-transactions.schema.json`
-and `references/transactions.md`. It contains opaque transaction references, state,
-matching basis, response-branch and retransmission classifications, capture
-completeness and missing evidence.
+and `references/transactions.md`. It contains opaque transaction references,
+matching mode, observed evidence status, optional RFC transaction state and role,
+response-branch and retransmission classifications with fingerprint confidence,
+capture completeness, CANCEL/ACK association evidence and missing evidence.
 
 Raw values supplied for identity, URI, tag, Call-ID, credential or body fields are
 consumed only to compute presence and length. They are never copied to the output.

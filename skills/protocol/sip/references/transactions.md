@@ -1,124 +1,165 @@
 # SIP transaction correlation
 
 This reference defines the protocol-local transaction model used by `sip_transactions.py`.
-It follows RFC 3261 transaction-layer identity and matching rules. It does not define
-SIP dialogs, IMS registration, authentication, calls, SDP or RTP.
+It follows RFC 3261 transaction identity and matching rules, and RFC 6026 for INVITE
+2xx transaction behavior. It does not define SIP dialogs, IMS registration,
+authentication, calls, SDP or RTP.
 
-## Transaction identity
+## Matching modes
 
-A request or response transaction identity is built from the top Via branch, the top
-Via sent-by value and the request method. CSeq number, CSeq method, Call-ID and From tag
-are consistency evidence. Call-ID alone, CSeq alone, addresses, ports, frame adjacency,
-timestamps and endpoint tuples are never transaction identities.
+RFC 3261 section 17.2.3 distinguishes a modern Via branch from a legacy RFC 2543
+branch. The two are never conflated.
 
-The top Via sent-by is normalized as host (case-folded) plus optional port. The branch
-value is compared exactly. The raw branch, sent-by, Call-ID, tags and URIs are kept only
-inside the in-memory message records and are never written to the transaction document.
-
-| Evidence | Role |
-| --- | --- |
-| top Via branch | transaction key |
-| top Via sent-by | transaction key |
-| request method | transaction key |
-| CSeq method | response-to-request method consistency |
-| CSeq number | request/response consistency |
-| Call-ID | consistency only |
-| From tag | consistency only |
-| To tag | response branch distinction, not transaction identity |
-
-## Request/response matching
-
-A response is matched only to a request transaction with the same capture, top Via
-branch, top Via sent-by and CSeq method. CSeq number must agree. Call-ID and From tag must
-agree when both sides expose them; a missing value is published as missing evidence and
-can yield `PARTIALLY_MATCHED`. A conflict does not attach the response; it produces a
-separate response-only transaction with `NOT_ESTABLISHED` and conflict findings.
-
-A response without a request is `RESPONSE_ONLY`. A request without a response is
-`REQUEST_ONLY` with state `TRYING` for non-INVITE and `OPEN_IN_CAPTURE` for INVITE.
-The absence of a response is capture incompleteness, never proof of a timeout.
-
-Multiple responses are preserved in source order. Provisional responses drive
-`PROCEEDING`. Final responses drive `COMPLETED`. Multiple distinct final responses or
-To tags are preserved as separate response branches; no final response is selected and
-`SINGLE_FINAL_RESPONSE_NOT_ESTABLISHED` is published. A retransmitted response is
-classified only when its protocol fields and in-memory content fingerprint agree.
-
-Out-of-order messages are matched by identity, not by frame adjacency. A response may be
-observed before its request. The transaction reports both frame anchors without
-fabricating order.
-
-## INVITE behavior
-
-- 100, 180, 183 and other provisional responses → `PROCEEDING`.
-- Final non-2xx response → `COMPLETED`; missing ACK is `ACK_NOT_OBSERVED`.
-- Final 2xx response → `COMPLETED`; dialog and 2xx ACK association remain unavailable.
-- Multiple final branches → `COMPLETED` with no selected final response.
-- Missing final response → `OPEN_IN_CAPTURE`, not a timeout.
-
-## CANCEL behavior
-
-CANCEL has its own transaction identity because its method is CANCEL. It is associated
-with an INVITE transaction only when the capture, top Via branch, top Via sent-by, CSeq
-number, Call-ID and From tag are consistent. The 200 OK to CANCEL is matched to the
-CANCEL transaction, not to the INVITE transaction.
-
-A 200 OK to CANCEL acknowledges the CANCEL request only. The INVITE transaction is
-`TERMINATED` only when the matching INVITE also has a 487 final response. Otherwise the
-INVITE state remains based on its own response evidence and the limitation is published.
-
-## ACK behavior
-
-An ACK for a non-2xx INVITE response uses the INVITE transaction key and CSeq number. It
-is attached to the INVITE transaction as associated control evidence and sets
-`CONFIRMED`. It does not create a second INVITE transaction.
-
-An ACK for a 2xx INVITE response is an independent request transaction (`ACK_2XX`).
-Even when it happens to reuse the INVITE branch, it is never merged. Dialog association
-is `DIALOG_ASSOCIATION_UNAVAILABLE`. An ACK without an established INVITE outcome is
-`ACK_ORPHAN`; multiple competing INVITE candidates yield `ACK_AMBIGUOUS`.
-
-## Retransmission classification
-
-| Observation | UDP | TCP |
+| Top Via branch | Mode | Request identity |
 | --- | --- | --- |
-| first request/response | `ORIGINAL` / `ORIGINAL_RESPONSE` | same |
-| identical repeat in a later frame | `EXACT_RETRANSMISSION` / `RESPONSE_RETRANSMISSION` | `REPEATED_TCP_OBSERVATION` |
-| repeat with different content | `CONFLICTING_REQUEST` or distinct response branch | same |
-| repeated control ACK | exact retransmission on UDP | repeated TCP observation |
+| starts with `z9hG4bK` | `MODERN` | capture, top Via branch, top Via sent-by, request method |
+| present but no magic cookie | `LEGACY` | capture, Request-URI, To value, From value, Call-ID, CSeq number, CSeq method, top Via |
+| absent | `UNAVAILABLE` | no transaction identity |
 
-TCP segmentation and decoder reassembly are not SIP retransmissions. A repeated TCP
-SIP message is classified as a repeated observation unless independent SIP retransmission
-evidence exists. The model never publishes raw SIP content to prove retransmission.
+A response uses a marker shared with its request transaction:
 
-## Transaction state model
+- `MODERN`: capture, top Via branch, top Via sent-by, CSeq method.
+- `LEGACY`: capture, From value, Call-ID, CSeq number, CSeq method, top Via.
 
-| State | Meaning |
+Legacy matching does not apply the modern branch-only algorithm. If a required
+legacy value is missing, the observation is preserved with
+`matching_status: NOT_ESTABLISHED`; Call-ID alone is never used as a fallback.
+Raw Request-URI, To/From URI and tags, Via values and Call-ID are retained only in
+the in-memory message record and are never published.
+
+## Request and CSeq method consistency
+
+Every request must have a CSeq method equal to its request-line method. A
+contradiction such as `INVITE` with `CSeq: 1 REGISTER` is retained as an incomplete
+observation with `METHOD_MISMATCH` and cannot form a valid transaction identity or
+receive a response association. The correlator never silently rewrites CSeq.
+
+## Response matching
+
+A matching response contributes CSeq number, Call-ID and From-tag consistency
+evidence. A conflict does not attach the response; it produces a separate
+response-only transaction with `NOT_ESTABLISHED` and a conflict finding. A response
+without a request is `RESPONSE_ONLY`. A request without a response is
+`REQUEST_OBSERVED` for non-INVITE and `OPEN_IN_CAPTURE` for INVITE; absence is
+capture incompleteness, never a timeout.
+
+Multiple provisional responses produce `PROVISIONAL_RESPONSE_OBSERVED`. Final
+responses produce `FINAL_RESPONSE_OBSERVED`. Multiple distinct final responses or
+To tags remain separate branches and yield `SINGLE_FINAL_RESPONSE_NOT_ESTABLISHED`.
+
+## CANCEL consistency
+
+CANCEL is its own transaction. Association with the original INVITE is a separate
+step that verifies:
+
+- same capture;
+- matching Via relationship for the applicable matching mode;
+- same Request-URI;
+- same Call-ID;
+- same From value including tag;
+- same To value including tag;
+- same numeric CSeq;
+- CANCEL request-line method and CSeq method equal `CANCEL`;
+- original INVITE request-line method and CSeq method equal `INVITE`.
+
+A matching branch alone is not proof that these construction requirements were
+satisfied. A contradiction leaves the CANCEL independently observed with a conflict
+finding.
+
+The CANCEL transaction outcome, the INVITE final response and the INVITE transaction
+state are published as separate evidence:
+
+- `cancel_response_sequence_observed`;
+- `cancel_final_response_status`;
+- `invite_final_response_status`;
+- `cancel_invite_association_status`.
+
+A 200 OK acknowledges the CANCEL transaction. A 487 is an observed final response to
+the INVITE. When both are present and the association is valid the INVITE reports
+`CANCEL_RESPONSE_SEQUENCE_OBSERVED`. It does not report `TERMINATED`: RFC timer I,
+timer D, timer H, timer J and timer M expiration cannot be inferred from capture
+silence, so `invite_transaction_termination_established` remains false and
+`TRANSACTION_TERMINATION_NOT_ESTABLISHED` is published.
+
+## ACK consistency
+
+An ACK for a non-2xx INVITE final response is attached only when the applicable
+matching mode and all of the following are consistent:
+
+- same original INVITE Request-URI;
+- same Call-ID;
+- same From value;
+- same CSeq number;
+- ACK request-line method and CSeq method equal `ACK`;
+- correct top Via relationship;
+- ACK To-tag equals the observed non-2xx final-response To-tag;
+- same To URI.
+
+Any contradiction leaves the ACK as an independent unresolved observation with a
+conflict finding and never changes the INVITE transaction state. An ACK for a 2xx
+response remains an independent `ACK_2XX` request transaction; dialog association is
+`DIALOG_ASSOCIATION_UNAVAILABLE`. Multiple competing INVITE candidates yield
+`ACK_AMBIGUOUS`.
+
+## Transaction role and state
+
+A passive capture does not establish which stack side owns a transaction. The model
+therefore separates:
+
+- `transaction_role`: `CLIENT`, `SERVER` or `UNKNOWN`;
+- `observed_evidence_status`: what the capture actually shows;
+- `rfc_transaction_state`: an RFC 3261/RFC 6026 projection, present only when the
+  role is explicitly known;
+- `state_semantics`: `RFC_STATE` or `EVIDENCE_ONLY`.
+
+Observed evidence statuses are `REQUEST_OBSERVED`, `PROVISIONAL_RESPONSE_OBSERVED`,
+`FINAL_RESPONSE_OBSERVED`, `NON_2XX_ACK_OBSERVED`,
+`CANCEL_RESPONSE_SEQUENCE_OBSERVED`, `OPEN_IN_CAPTURE`, `RESPONSE_ONLY`,
+`REQUEST_ONLY`, `AMBIGUOUS` and `INCOMPLETE_EVIDENCE`.
+
+When the role is known, the applicable state machine is used:
+
+- INVITE 2xx → `ACCEPTED` (RFC 6026), preserving multiple 2xx responses.
+- INVITE non-2xx without ACK → `COMPLETED`.
+- INVITE non-2xx with ACK → `CONFIRMED` on the server side and `TERMINATED` on the
+  client side.
+- non-INVITE final response → `COMPLETED`; provisional-only → `PROCEEDING`;
+  request-only → `TRYING`.
+
+`CONFIRMED` is a server INVITE transaction state after a valid non-2xx ACK. It is
+never published for an unknown role. `transaction_state` remains a compatibility
+field: it carries the RFC state when one is established and the evidence status
+otherwise.
+
+## Retransmission fingerprint confidence
+
+The fingerprint has an explicit completeness class:
+
+| Class | Meaning |
 | --- | --- |
-| `TRYING` | non-INVITE request observed without a response |
-| `OPEN_IN_CAPTURE` | INVITE request observed without a final response |
-| `PROCEEDING` | provisional response(s) observed, no final response |
-| `COMPLETED` | final response observed; no ACK requirement is pending for the observed family |
-| `CONFIRMED` | INVITE final non-2xx response plus matching non-2xx ACK |
-| `TERMINATED` | INVITE 487 plus matching CANCEL transaction with 200 OK |
-| `RESPONSE_ONLY` | response observed with no request association |
-| `REQUEST_ONLY` | independent ACK/request transaction without a response |
-| `AMBIGUOUS` | more than one candidate transaction remains |
-| `INCOMPLETE_EVIDENCE` | required transaction identity or consistency evidence is missing |
+| `FULL_MESSAGE` | decoder-delivered header and body are available |
+| `HEADER_ONLY` | header is available but the body is unavailable |
+| `FIELDS_ONLY` | sanitized reviewed fields only, including Request-URI |
+| `UNAVAILABLE` | insufficient identity fields |
 
-`matching_status`, `capture_completeness`, `missing_evidence` and `conflict_findings` are
-separate axes. `MATCHED` describes evidence association, not IMS procedure success.
-`COMPLETE` describes capture evidence completeness, not a network verdict.
+Only `FULL_MESSAGE` equality may produce `EXACT_RETRANSMISSION` or
+`RESPONSE_RETRANSMISSION`. `HEADER_ONLY` and `FIELDS_ONLY` equality produces
+`RETRANSMISSION_CANDIDATE` and publishes `RETRANSMISSION_FINGERPRINT_INCOMPLETE`. An
+unavailable fingerprint produces `FINGERPRINT_UNAVAILABLE`. A TCP repeat is a
+`REPEATED_TCP_OBSERVATION`, never a SIP retransmission. Bodies are never
+reconstructed and raw contents are never published.
 
 ## Privacy
 
-The correlator consumes raw matching values only in memory. Transaction references are
-derived from source event references (`sip-event:<capture>:<frame>.<occurrence>`) and
-never contain a Call-ID, branch, tag, URI or credential. The transaction document has no
-raw matching fields. Error messages identify the field or line, never its value.
+The correlator consumes raw matching values only in memory. Transaction references
+are derived from source event references (`sip-event:<capture>:<frame>.<occurrence>`)
+and never contain a Call-ID, branch, tag, URI or credential. The transaction
+document has no raw matching fields. Error messages identify the field or line,
+never its value.
 
 ## Unsupported behavior
 
-SIP dialog identity, 2xx ACK dialog association, forked-dialog selection, registration
-state, authentication state, SDP/RTP, timers, timeout inference, cross-protocol
-Diameter/SIP association and IMS procedure verdicts are outside this phase.
+SIP dialog identity, 2xx ACK dialog association, forked-dialog selection,
+registration state, authentication state, SDP/RTP, RFC timer state, timeout
+inference, cross-protocol Diameter/SIP association and IMS procedure verdicts are
+outside this phase.

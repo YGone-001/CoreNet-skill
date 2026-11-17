@@ -1,6 +1,6 @@
 {
   "analysis_name": "sip-transactions",
-  "analysis_version": "1.0.0",
+  "analysis_version": "1.1.0",
   "capture_files": [
     "synthetic-transaction-cases.pcapng"
   ],
@@ -11,7 +11,11 @@
     "ACK for a 2xx INVITE is an independent request transaction; dialog association is unavailable",
     "multiple final responses are preserved as separate branches; no SIP dialog is inferred",
     "TCP repeated messages are not automatically SIP retransmissions",
-    "retransmission equality is evaluated from reviewed protocol fields and the in-memory content fingerprint available in the input; an unavailable message body is never reconstructed"
+    "retransmission equality is evaluated from reviewed protocol fields and the in-memory content fingerprint available in the input; an unavailable message body is never reconstructed",
+    "RFC 3261 magic-cookie and legacy Via matching are kept separate; legacy matching does not fall back to Call-ID-only association",
+    "passive capture cannot establish client or server stack role, so RFC transaction state is published only when the observed role is explicitly known; otherwise an evidence status is published",
+    "RFC 6026 Accepted state is an INVITE 2xx transaction projection, not a capture-observed timer state",
+    "487 INVITE plus 200 CANCEL are separately observed evidence; RFC timer expiration and TERMINATED state are never inferred from capture silence"
   ],
   "not_confirmed": [
     "SIP_DIALOG",
@@ -28,14 +32,23 @@
       "REQUEST_ONLY": 3,
       "RESPONSE_ONLY": 1
     },
-    "retransmission_event_count": 1,
+    "observed_evidence_status_counts": {
+      "CANCEL_RESPONSE_SEQUENCE_OBSERVED": 1,
+      "FINAL_RESPONSE_OBSERVED": 3,
+      "NON_2XX_ACK_OBSERVED": 1,
+      "REQUEST_OBSERVED": 3,
+      "RESPONSE_ONLY": 1
+    },
+    "retransmission_event_count": 0,
+    "transaction_role_counts": {
+      "UNKNOWN": 9
+    },
     "transaction_state_counts": {
-      "COMPLETED": 3,
-      "CONFIRMED": 1,
-      "REQUEST_ONLY": 1,
-      "RESPONSE_ONLY": 1,
-      "TERMINATED": 1,
-      "TRYING": 2
+      "CANCEL_RESPONSE_SEQUENCE_OBSERVED": 1,
+      "FINAL_RESPONSE_OBSERVED": 3,
+      "NON_2XX_ACK_OBSERVED": 1,
+      "REQUEST_OBSERVED": 3,
+      "RESPONSE_ONLY": 1
     },
     "transaction_type_counts": {
       "ACK_2XX": 1,
@@ -51,6 +64,9 @@
       "associated_control_event_references": [],
       "associated_transaction_reference": null,
       "associated_transaction_references": [],
+      "cancel_final_response_status": null,
+      "cancel_invite_association_status": null,
+      "cancel_response_sequence_observed": false,
       "candidate_transaction_references": [],
       "capture_completeness": "COMPLETE",
       "conflict_findings": [],
@@ -65,6 +81,8 @@
         401
       ],
       "first_observed_frame": 1,
+      "invite_final_response_status": null,
+      "invite_transaction_termination_established": false,
       "last_observed_frame": 3,
       "limitations": [
         "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
@@ -81,9 +99,11 @@
         "from_tag_observed",
         "opposite_endpoint_direction",
         "request_method_match",
+        "rfc3261_magic_cookie_branch",
         "top_via_branch_match",
         "top_via_sent_by_match"
       ],
+      "matching_mode": "MODERN",
       "matching_status": "MATCHED",
       "message_classifications": [
         {
@@ -97,12 +117,14 @@
           "role": "RESPONSE"
         },
         {
-          "classification": "EXACT_RETRANSMISSION",
+          "classification": "RETRANSMISSION_CANDIDATE",
           "event_reference": "sip-event:synthetic-transaction-cases.pcapng:3.1",
           "role": "REQUEST"
         }
       ],
-      "missing_evidence": [],
+      "missing_evidence": [
+        "RETRANSMISSION_FINGERPRINT_INCOMPLETE"
+      ],
       "not_confirmed": [
         "SIP_DIALOG",
         "IMS_REGISTRATION",
@@ -111,6 +133,7 @@
         "SIP_TIMEOUT",
         "CROSS_PROTOCOL_ASSOCIATION"
       ],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
       "provisional_response_count": 0,
       "provisional_response_event_references": [],
       "repeated_observation_event_references": [],
@@ -124,22 +147,30 @@
         "sip-event:synthetic-transaction-cases.pcapng:2.1"
       ],
       "response_frame": 2,
-      "retransmission_count": 1,
-      "retransmission_event_references": [
+      "retransmission_candidate_count": 1,
+      "retransmission_candidate_event_references": [
         "sip-event:synthetic-transaction-cases.pcapng:3.1"
       ],
+      "retransmission_count": 0,
+      "retransmission_event_references": [],
+      "rfc_transaction_state": null,
       "selected_final_response_reference": "sip-event:synthetic-transaction-cases.pcapng:2.1",
+      "state_semantics": "EVIDENCE_ONLY",
       "termination_basis": null,
       "transaction_identity_available": true,
       "transaction_method": "REGISTER",
       "transaction_reference": "sip-transaction:synthetic-transaction-cases.pcapng:request:1.1",
-      "transaction_state": "COMPLETED",
+      "transaction_role": "UNKNOWN",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED",
       "transaction_type": "NON_INVITE"
     },
     {
       "associated_control_event_references": [],
       "associated_transaction_reference": null,
       "associated_transaction_references": [],
+      "cancel_final_response_status": null,
+      "cancel_invite_association_status": null,
+      "cancel_response_sequence_observed": false,
       "candidate_transaction_references": [],
       "capture_completeness": "COMPLETE",
       "conflict_findings": [],
@@ -154,6 +185,8 @@
         200
       ],
       "first_observed_frame": 4,
+      "invite_final_response_status": null,
+      "invite_transaction_termination_established": false,
       "last_observed_frame": 6,
       "limitations": [
         "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
@@ -172,9 +205,11 @@
         "from_tag_observed",
         "opposite_endpoint_direction",
         "request_method_match",
+        "rfc3261_magic_cookie_branch",
         "top_via_branch_match",
         "top_via_sent_by_match"
       ],
+      "matching_mode": "MODERN",
       "matching_status": "MATCHED",
       "message_classifications": [
         {
@@ -204,6 +239,7 @@
         "SIP_TIMEOUT",
         "CROSS_PROTOCOL_ASSOCIATION"
       ],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
       "provisional_response_count": 1,
       "provisional_response_event_references": [
         "sip-event:synthetic-transaction-cases.pcapng:5.1"
@@ -219,20 +255,28 @@
         "sip-event:synthetic-transaction-cases.pcapng:6.1"
       ],
       "response_frame": 5,
+      "retransmission_candidate_count": 0,
+      "retransmission_candidate_event_references": [],
       "retransmission_count": 0,
       "retransmission_event_references": [],
+      "rfc_transaction_state": null,
       "selected_final_response_reference": "sip-event:synthetic-transaction-cases.pcapng:6.1",
+      "state_semantics": "EVIDENCE_ONLY",
       "termination_basis": null,
       "transaction_identity_available": true,
       "transaction_method": "INVITE",
       "transaction_reference": "sip-transaction:synthetic-transaction-cases.pcapng:request:4.1",
-      "transaction_state": "COMPLETED",
+      "transaction_role": "UNKNOWN",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED",
       "transaction_type": "INVITE"
     },
     {
       "associated_control_event_references": [],
       "associated_transaction_reference": null,
       "associated_transaction_references": [],
+      "cancel_final_response_status": null,
+      "cancel_invite_association_status": null,
+      "cancel_response_sequence_observed": false,
       "candidate_transaction_references": [
         "sip-transaction:synthetic-transaction-cases.pcapng:request:4.1"
       ],
@@ -245,6 +289,8 @@
       "final_response_event_references": [],
       "final_response_status_codes": [],
       "first_observed_frame": 7,
+      "invite_final_response_status": null,
+      "invite_transaction_termination_established": false,
       "last_observed_frame": 7,
       "limitations": [
         "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
@@ -258,6 +304,7 @@
         "cseq_number_observed",
         "from_tag_observed"
       ],
+      "matching_mode": "MODERN",
       "matching_status": "REQUEST_ONLY",
       "message_classifications": [
         {
@@ -277,6 +324,7 @@
         "SIP_TIMEOUT",
         "CROSS_PROTOCOL_ASSOCIATION"
       ],
+      "observed_evidence_status": "REQUEST_OBSERVED",
       "provisional_response_count": 0,
       "provisional_response_event_references": [],
       "repeated_observation_event_references": [],
@@ -287,14 +335,19 @@
       "response_branch_count": 0,
       "response_event_references": [],
       "response_frame": null,
+      "retransmission_candidate_count": 0,
+      "retransmission_candidate_event_references": [],
       "retransmission_count": 0,
       "retransmission_event_references": [],
+      "rfc_transaction_state": null,
       "selected_final_response_reference": null,
+      "state_semantics": "EVIDENCE_ONLY",
       "termination_basis": null,
       "transaction_identity_available": true,
       "transaction_method": "ACK",
       "transaction_reference": "sip-transaction:synthetic-transaction-cases.pcapng:request:7.1",
-      "transaction_state": "REQUEST_ONLY",
+      "transaction_role": "UNKNOWN",
+      "transaction_state": "REQUEST_OBSERVED",
       "transaction_type": "ACK_2XX"
     },
     {
@@ -303,6 +356,9 @@
       ],
       "associated_transaction_reference": null,
       "associated_transaction_references": [],
+      "cancel_final_response_status": null,
+      "cancel_invite_association_status": null,
+      "cancel_response_sequence_observed": false,
       "candidate_transaction_references": [],
       "capture_completeness": "COMPLETE",
       "conflict_findings": [],
@@ -317,6 +373,8 @@
         486
       ],
       "first_observed_frame": 8,
+      "invite_final_response_status": null,
+      "invite_transaction_termination_established": false,
       "last_observed_frame": 10,
       "limitations": [
         "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
@@ -328,8 +386,10 @@
         "ack_branch_match",
         "ack_call_id_match",
         "ack_cseq_number_match",
-        "ack_from_tag_match",
+        "ack_from_value_match",
+        "ack_request_uri_match",
         "ack_sent_by_match",
+        "ack_to_tag_matches_final_response",
         "call_id_match",
         "call_id_observed",
         "cseq_method_match",
@@ -340,9 +400,11 @@
         "non_2xx_final_response_observed",
         "opposite_endpoint_direction",
         "request_method_match",
+        "rfc3261_magic_cookie_branch",
         "top_via_branch_match",
         "top_via_sent_by_match"
       ],
+      "matching_mode": "MODERN",
       "matching_status": "MATCHED",
       "message_classifications": [
         {
@@ -370,6 +432,7 @@
         "SIP_TIMEOUT",
         "CROSS_PROTOCOL_ASSOCIATION"
       ],
+      "observed_evidence_status": "NON_2XX_ACK_OBSERVED",
       "provisional_response_count": 0,
       "provisional_response_event_references": [],
       "repeated_observation_event_references": [],
@@ -382,14 +445,19 @@
         "sip-event:synthetic-transaction-cases.pcapng:9.1"
       ],
       "response_frame": 9,
+      "retransmission_candidate_count": 0,
+      "retransmission_candidate_event_references": [],
       "retransmission_count": 0,
       "retransmission_event_references": [],
+      "rfc_transaction_state": null,
       "selected_final_response_reference": "sip-event:synthetic-transaction-cases.pcapng:9.1",
+      "state_semantics": "EVIDENCE_ONLY",
       "termination_basis": null,
       "transaction_identity_available": true,
       "transaction_method": "INVITE",
       "transaction_reference": "sip-transaction:synthetic-transaction-cases.pcapng:request:8.1",
-      "transaction_state": "CONFIRMED",
+      "transaction_role": "UNKNOWN",
+      "transaction_state": "NON_2XX_ACK_OBSERVED",
       "transaction_type": "INVITE"
     },
     {
@@ -398,6 +466,9 @@
       "associated_transaction_references": [
         "sip-transaction:synthetic-transaction-cases.pcapng:request:12.1"
       ],
+      "cancel_final_response_status": 200,
+      "cancel_invite_association_status": "ASSOCIATED",
+      "cancel_response_sequence_observed": true,
       "candidate_transaction_references": [],
       "capture_completeness": "COMPLETE",
       "conflict_findings": [],
@@ -412,13 +483,15 @@
         487
       ],
       "first_observed_frame": 11,
+      "invite_final_response_status": 487,
+      "invite_transaction_termination_established": false,
       "last_observed_frame": 14,
       "limitations": [
         "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
         "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
         "an unobserved final response or ACK is capture incompleteness, not proof of a transaction timeout or network failure",
         "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome",
-        "the INVITE transaction is classified TERMINATED from the observed 487 INVITE response and matching 200 CANCEL response"
+        "487 INVITE and 200 CANCEL are separately observed; RFC timer and TERMINATED state evidence is unavailable from a passive capture"
       ],
       "matching_basis": [
         "call_id_match",
@@ -430,9 +503,11 @@
         "from_tag_observed",
         "opposite_endpoint_direction",
         "request_method_match",
+        "rfc3261_magic_cookie_branch",
         "top_via_branch_match",
         "top_via_sent_by_match"
       ],
+      "matching_mode": "MODERN",
       "matching_status": "MATCHED",
       "message_classifications": [
         {
@@ -447,7 +522,8 @@
         }
       ],
       "missing_evidence": [
-        "ACK_NOT_OBSERVED"
+        "ACK_NOT_OBSERVED",
+        "TRANSACTION_TERMINATION_NOT_ESTABLISHED"
       ],
       "not_confirmed": [
         "SIP_DIALOG",
@@ -457,6 +533,7 @@
         "SIP_TIMEOUT",
         "CROSS_PROTOCOL_ASSOCIATION"
       ],
+      "observed_evidence_status": "CANCEL_RESPONSE_SEQUENCE_OBSERVED",
       "provisional_response_count": 0,
       "provisional_response_event_references": [],
       "repeated_observation_event_references": [],
@@ -469,14 +546,19 @@
         "sip-event:synthetic-transaction-cases.pcapng:14.1"
       ],
       "response_frame": 14,
+      "retransmission_candidate_count": 0,
+      "retransmission_candidate_event_references": [],
       "retransmission_count": 0,
       "retransmission_event_references": [],
+      "rfc_transaction_state": null,
       "selected_final_response_reference": "sip-event:synthetic-transaction-cases.pcapng:14.1",
-      "termination_basis": "INVITE_487_AND_CANCEL_200",
+      "state_semantics": "EVIDENCE_ONLY",
+      "termination_basis": null,
       "transaction_identity_available": true,
       "transaction_method": "INVITE",
       "transaction_reference": "sip-transaction:synthetic-transaction-cases.pcapng:request:11.1",
-      "transaction_state": "TERMINATED",
+      "transaction_role": "UNKNOWN",
+      "transaction_state": "CANCEL_RESPONSE_SEQUENCE_OBSERVED",
       "transaction_type": "INVITE"
     },
     {
@@ -485,6 +567,9 @@
       "associated_transaction_references": [
         "sip-transaction:synthetic-transaction-cases.pcapng:request:11.1"
       ],
+      "cancel_final_response_status": 200,
+      "cancel_invite_association_status": "ASSOCIATED",
+      "cancel_response_sequence_observed": false,
       "candidate_transaction_references": [],
       "capture_completeness": "COMPLETE",
       "conflict_findings": [],
@@ -499,6 +584,8 @@
         200
       ],
       "first_observed_frame": 12,
+      "invite_final_response_status": 487,
+      "invite_transaction_termination_established": false,
       "last_observed_frame": 13,
       "limitations": [
         "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
@@ -512,8 +599,10 @@
         "cancel_branch_match",
         "cancel_call_id_match",
         "cancel_cseq_number_match",
-        "cancel_from_tag_match",
+        "cancel_from_value_match",
+        "cancel_request_uri_match",
         "cancel_sent_by_match",
+        "cancel_to_value_match",
         "cseq_method_match",
         "cseq_number_match",
         "cseq_number_observed",
@@ -521,9 +610,11 @@
         "from_tag_observed",
         "opposite_endpoint_direction",
         "request_method_match",
+        "rfc3261_magic_cookie_branch",
         "top_via_branch_match",
         "top_via_sent_by_match"
       ],
+      "matching_mode": "MODERN",
       "matching_status": "MATCHED",
       "message_classifications": [
         {
@@ -546,6 +637,7 @@
         "SIP_TIMEOUT",
         "CROSS_PROTOCOL_ASSOCIATION"
       ],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
       "provisional_response_count": 0,
       "provisional_response_event_references": [],
       "repeated_observation_event_references": [],
@@ -558,20 +650,28 @@
         "sip-event:synthetic-transaction-cases.pcapng:13.1"
       ],
       "response_frame": 13,
+      "retransmission_candidate_count": 0,
+      "retransmission_candidate_event_references": [],
       "retransmission_count": 0,
       "retransmission_event_references": [],
+      "rfc_transaction_state": null,
       "selected_final_response_reference": "sip-event:synthetic-transaction-cases.pcapng:13.1",
+      "state_semantics": "EVIDENCE_ONLY",
       "termination_basis": null,
       "transaction_identity_available": true,
       "transaction_method": "CANCEL",
       "transaction_reference": "sip-transaction:synthetic-transaction-cases.pcapng:request:12.1",
-      "transaction_state": "COMPLETED",
+      "transaction_role": "UNKNOWN",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED",
       "transaction_type": "CANCEL"
     },
     {
       "associated_control_event_references": [],
       "associated_transaction_reference": null,
       "associated_transaction_references": [],
+      "cancel_final_response_status": null,
+      "cancel_invite_association_status": null,
+      "cancel_response_sequence_observed": false,
       "candidate_transaction_references": [],
       "capture_completeness": "PARTIAL",
       "conflict_findings": [],
@@ -582,6 +682,8 @@
       "final_response_event_references": [],
       "final_response_status_codes": [],
       "first_observed_frame": 15,
+      "invite_final_response_status": null,
+      "invite_transaction_termination_established": false,
       "last_observed_frame": 15,
       "limitations": [
         "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
@@ -592,9 +694,11 @@
         "cseq_number_observed",
         "from_tag_observed",
         "request_method_match",
+        "rfc3261_magic_cookie_branch",
         "top_via_branch_match",
         "top_via_sent_by_match"
       ],
+      "matching_mode": "MODERN",
       "matching_status": "REQUEST_ONLY",
       "message_classifications": [
         {
@@ -614,6 +718,7 @@
         "SIP_TIMEOUT",
         "CROSS_PROTOCOL_ASSOCIATION"
       ],
+      "observed_evidence_status": "REQUEST_OBSERVED",
       "provisional_response_count": 0,
       "provisional_response_event_references": [],
       "repeated_observation_event_references": [],
@@ -624,20 +729,28 @@
       "response_branch_count": 0,
       "response_event_references": [],
       "response_frame": null,
+      "retransmission_candidate_count": 0,
+      "retransmission_candidate_event_references": [],
       "retransmission_count": 0,
       "retransmission_event_references": [],
+      "rfc_transaction_state": null,
       "selected_final_response_reference": null,
+      "state_semantics": "EVIDENCE_ONLY",
       "termination_basis": null,
       "transaction_identity_available": true,
       "transaction_method": "REGISTER",
       "transaction_reference": "sip-transaction:synthetic-transaction-cases.pcapng:request:15.1",
-      "transaction_state": "TRYING",
+      "transaction_role": "UNKNOWN",
+      "transaction_state": "REQUEST_OBSERVED",
       "transaction_type": "NON_INVITE"
     },
     {
       "associated_control_event_references": [],
       "associated_transaction_reference": null,
       "associated_transaction_references": [],
+      "cancel_final_response_status": null,
+      "cancel_invite_association_status": null,
+      "cancel_response_sequence_observed": false,
       "candidate_transaction_references": [],
       "capture_completeness": "PARTIAL",
       "conflict_findings": [],
@@ -652,6 +765,8 @@
         200
       ],
       "first_observed_frame": 16,
+      "invite_final_response_status": null,
+      "invite_transaction_termination_established": false,
       "last_observed_frame": 16,
       "limitations": [
         "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
@@ -660,6 +775,7 @@
         "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
       ],
       "matching_basis": [],
+      "matching_mode": null,
       "matching_status": "RESPONSE_ONLY",
       "message_classifications": [
         {
@@ -684,6 +800,7 @@
         "SIP_TIMEOUT",
         "CROSS_PROTOCOL_ASSOCIATION"
       ],
+      "observed_evidence_status": "RESPONSE_ONLY",
       "provisional_response_count": 0,
       "provisional_response_event_references": [],
       "repeated_observation_event_references": [],
@@ -694,13 +811,18 @@
         "sip-event:synthetic-transaction-cases.pcapng:16.1"
       ],
       "response_frame": 16,
+      "retransmission_candidate_count": 0,
+      "retransmission_candidate_event_references": [],
       "retransmission_count": 0,
       "retransmission_event_references": [],
+      "rfc_transaction_state": null,
       "selected_final_response_reference": "sip-event:synthetic-transaction-cases.pcapng:16.1",
+      "state_semantics": "EVIDENCE_ONLY",
       "termination_basis": null,
       "transaction_identity_available": false,
       "transaction_method": "REGISTER",
       "transaction_reference": "sip-transaction:synthetic-transaction-cases.pcapng:response:16.1",
+      "transaction_role": "UNKNOWN",
       "transaction_state": "RESPONSE_ONLY",
       "transaction_type": "RESPONSE_ONLY"
     },
@@ -708,6 +830,9 @@
       "associated_control_event_references": [],
       "associated_transaction_reference": null,
       "associated_transaction_references": [],
+      "cancel_final_response_status": null,
+      "cancel_invite_association_status": null,
+      "cancel_response_sequence_observed": false,
       "candidate_transaction_references": [],
       "capture_completeness": "PARTIAL",
       "conflict_findings": [],
@@ -718,6 +843,8 @@
       "final_response_event_references": [],
       "final_response_status_codes": [],
       "first_observed_frame": 17,
+      "invite_final_response_status": null,
+      "invite_transaction_termination_established": false,
       "last_observed_frame": 18,
       "limitations": [
         "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
@@ -728,9 +855,11 @@
         "cseq_number_observed",
         "from_tag_observed",
         "request_method_match",
+        "rfc3261_magic_cookie_branch",
         "top_via_branch_match",
         "top_via_sent_by_match"
       ],
+      "matching_mode": "MODERN",
       "matching_status": "REQUEST_ONLY",
       "message_classifications": [
         {
@@ -755,6 +884,7 @@
         "SIP_TIMEOUT",
         "CROSS_PROTOCOL_ASSOCIATION"
       ],
+      "observed_evidence_status": "REQUEST_OBSERVED",
       "provisional_response_count": 0,
       "provisional_response_event_references": [],
       "repeated_observation_event_references": [
@@ -768,14 +898,19 @@
       "response_branch_count": 0,
       "response_event_references": [],
       "response_frame": null,
+      "retransmission_candidate_count": 0,
+      "retransmission_candidate_event_references": [],
       "retransmission_count": 0,
       "retransmission_event_references": [],
+      "rfc_transaction_state": null,
       "selected_final_response_reference": null,
+      "state_semantics": "EVIDENCE_ONLY",
       "termination_basis": null,
       "transaction_identity_available": true,
       "transaction_method": "REGISTER",
       "transaction_reference": "sip-transaction:synthetic-transaction-cases.pcapng:request:17.1",
-      "transaction_state": "TRYING",
+      "transaction_role": "UNKNOWN",
+      "transaction_state": "REQUEST_OBSERVED",
       "transaction_type": "NON_INVITE"
     }
   ]

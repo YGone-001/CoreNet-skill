@@ -147,6 +147,15 @@ HEADER_COUNT_FIELDS = {
 
 KNOWN_VIA_TRANSPORTS = {"UDP", "TCP", "TLS", "SCTP"}
 
+OBSERVATION_ROLES = ("CLIENT", "SERVER", "UNKNOWN")
+FINGERPRINT_COMPLETENESS = (
+    "FULL_MESSAGE",
+    "HEADER_ONLY",
+    "FIELDS_ONLY",
+    "UNAVAILABLE",
+)
+ADDRESS_VALUE_PATTERN = re.compile(r"^(?:<([^>]*)>|([^;\s]+))(?:\s*;\s*(.*))?$")
+
 
 class InputError(Exception):
     pass
@@ -395,6 +404,7 @@ def _via_raw(nodes: list[ElementTree.Element]) -> list[dict[str, Any]]:
                     _show(node, "sip.Via.sent-by.port"),
                 ),
                 "transport": _show(node, "sip.Via.transport"),
+                "value": node.get("show"),
             }
         )
     return entries
@@ -405,6 +415,28 @@ def _tag_raw(nodes: list[ElementTree.Element], tag_name: str) -> str | None:
         child = _field(node, tag_name)
         if child is not None:
             return child.get("show")
+    return None
+
+
+def _address_uri(value: Any) -> str | None:
+    """Extract the angle-bracket or bare URI from an in-memory address value."""
+    text = _text(value)
+    if text is None:
+        return None
+    match = ADDRESS_VALUE_PATTERN.match(text.strip())
+    if match is None:
+        return None
+    return match.group(1) or match.group(2)
+
+
+def _header_uri_raw(nodes: list[ElementTree.Element], address_field: str) -> str | None:
+    for node in nodes:
+        child = _field(node, address_field)
+        if child is not None and child.get("show"):
+            return child.get("show")
+        parsed = _address_uri(node.get("show"))
+        if parsed is not None:
+            return parsed
     return None
 
 
@@ -698,6 +730,19 @@ def _build_event(
     }
 
 
+def _fingerprint_completeness(event: dict[str, Any], headers: dict[str, Any]) -> str:
+    raw_header = headers.get("msg_hdr_raw")
+    raw_body = headers.get("msg_body_raw")
+    body_length = event.get("body_length")
+    if raw_header is not None and (raw_body is not None or not body_length):
+        return "FULL_MESSAGE"
+    if raw_header is not None:
+        return "HEADER_ONLY"
+    if headers.get("call_id") is not None and event.get("headers", {}).get("cseq", {}).get("present"):
+        return "FIELDS_ONLY"
+    return "UNAVAILABLE"
+
+
 def _content_fingerprint(event: dict[str, Any], headers: dict[str, Any]) -> tuple[Any, ...]:
     raw_header = headers.get("msg_hdr_raw")
     raw_body = headers.get("msg_body_raw")
@@ -712,6 +757,7 @@ def _content_fingerprint(event: dict[str, Any], headers: dict[str, Any]) -> tupl
         event["message_type"],
         event["method"],
         event["status_code"],
+        headers.get("request_uri"),
         event["headers"]["cseq"]["sequence"],
         event["headers"]["cseq"]["method"],
         headers.get("call_id"),
@@ -728,6 +774,8 @@ def _build_message_record(
     event: dict[str, Any],
     headers: dict[str, Any],
     transport: dict[str, Any],
+    *,
+    observation_role: str = "UNKNOWN",
 ) -> dict[str, Any]:
     raw_via = headers.get("via_raw") or []
     top = raw_via[0] if raw_via else {}
@@ -740,11 +788,15 @@ def _build_message_record(
         "direction": event["message_type"],
         "method": event["method"],
         "status_code": event["status_code"],
+        "request_uri": _address_uri(headers.get("request_uri")),
         "cseq_number": event["headers"]["cseq"]["sequence"],
         "cseq_method": event["headers"]["cseq"]["method"],
         "call_id": _text(headers.get("call_id")),
+        "from_uri": _address_uri(headers.get("from_uri_raw")),
         "from_tag": _text(headers.get("from_tag_raw")),
+        "to_uri": _address_uri(headers.get("to_uri_raw")),
         "to_tag": _text(headers.get("to_tag_raw")),
+        "top_via": _text(top.get("value")),
         "via_branch": _text(top.get("branch")),
         "via_sent_by": sent_by.lower() if sent_by else None,
         "via_transport": _text(top.get("transport")),
@@ -756,6 +808,8 @@ def _build_message_record(
         "destination_port": transport.get("destination_port"),
         "message_completeness": event["message_completeness"],
         "content_fingerprint": _content_fingerprint(event, headers),
+        "fingerprint_completeness": _fingerprint_completeness(event, headers),
+        "observation_role": observation_role,
     }
     return {"event": event, "match": match}
 
@@ -808,7 +862,9 @@ def _pdml_headers(proto: ElementTree.Element) -> dict[str, Any]:
         "via_raw": _via_raw(via_nodes),
         "from": _tag_metadata(from_nodes, "sip.from.tag"),
         "to": _tag_metadata(to_nodes, "sip.to.tag"),
+        "from_uri_raw": _header_uri_raw(from_nodes, "sip.from.addr"),
         "from_tag_raw": _tag_raw(from_nodes, "sip.from.tag"),
+        "to_uri_raw": _header_uri_raw(to_nodes, "sip.to.addr"),
         "to_tag_raw": _tag_raw(to_nodes, "sip.to.tag"),
         "msg_hdr_raw": msg_hdr.get("show") if msg_hdr is not None else None,
         "msg_body_raw": body.get("value") if body is not None else None,
@@ -906,6 +962,7 @@ _RECORD_KEYS = {
     "headers",
     "integrity_findings",
     "capture_truncated",
+    "observation_role",
 }
 _TRANSPORT_KEYS = {
     "protocol",
@@ -1036,7 +1093,7 @@ def _jsonl_headers(raw: Any) -> dict[str, Any]:
         if entry is not None and not isinstance(entry, dict):
             raise InputError(f"{label} must be an object when present")
         if isinstance(entry, dict):
-            _reject_unknown(entry, {"count", "tag"}, label)
+            _reject_unknown(entry, {"count", "tag", "uri"}, label)
     from_count = _record_count(from_entry, "headers.from")
     to_count = _record_count(to_entry, "headers.to")
     count_values = {
@@ -1070,7 +1127,9 @@ def _jsonl_headers(raw: Any) -> dict[str, Any]:
         "via_raw": normalized_via,
         "from": _tag_from_values(from_count, from_entry.get("tag") if isinstance(from_entry, dict) else None),
         "to": _tag_from_values(to_count, to_entry.get("tag") if isinstance(to_entry, dict) else None),
+        "from_uri_raw": _text(from_entry.get("uri")) if isinstance(from_entry, dict) else None,
         "from_tag_raw": _text(from_entry.get("tag")) if isinstance(from_entry, dict) else None,
+        "to_uri_raw": _text(to_entry.get("uri")) if isinstance(to_entry, dict) else None,
         "to_tag_raw": _text(to_entry.get("tag")) if isinstance(to_entry, dict) else None,
         "msg_hdr_raw": None,
         "msg_body_raw": None,
@@ -1110,6 +1169,9 @@ def normalize_record_message(record: dict[str, Any]) -> dict[str, Any]:
     truncated = record.get("capture_truncated", False)
     if not isinstance(truncated, bool):
         raise InputError("capture_truncated must be a boolean")
+    observation_role = record.get("observation_role", "UNKNOWN")
+    if observation_role not in OBSERVATION_ROLES:
+        raise InputError("observation_role must be CLIENT, SERVER or UNKNOWN")
     event = _build_event(
         capture=capture,
         frame=frame,
@@ -1121,7 +1183,9 @@ def normalize_record_message(record: dict[str, Any]) -> dict[str, Any]:
         integrity_findings=findings,
         capture_truncated=truncated,
     )
-    return _build_message_record(event, headers, transport)
+    return _build_message_record(
+        event, headers, transport, observation_role=observation_role
+    )
 
 
 def normalize_record(record: dict[str, Any]) -> dict[str, Any]:

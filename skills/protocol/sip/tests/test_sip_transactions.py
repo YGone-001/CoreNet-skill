@@ -214,7 +214,7 @@ class BasicTransactionTests(TransactionTestBase):
         self,
         method: str,
         status: int,
-        expected_state: str = "COMPLETED",
+        expected_state: str = "FINAL_RESPONSE_OBSERVED",
         expected_matching: str = "MATCHED",
     ) -> dict:
         document, events, _ = self.correlate(
@@ -236,7 +236,7 @@ class BasicTransactionTests(TransactionTestBase):
         return transaction
 
     def test_register_401(self) -> None:
-        transaction = self.assert_pair("REGISTER", 401, "COMPLETED")
+        transaction = self.assert_pair("REGISTER", 401, "FINAL_RESPONSE_OBSERVED")
         self.assertEqual(transaction["transaction_type"], "NON_INVITE")
         self.assertIn(401, transaction["final_response_status_codes"])
 
@@ -244,25 +244,25 @@ class BasicTransactionTests(TransactionTestBase):
         self.assert_pair("REGISTER", 200)
 
     def test_invite_100(self) -> None:
-        transaction = self.assert_pair("INVITE", 100, "PROCEEDING", "PARTIALLY_MATCHED")
+        transaction = self.assert_pair("INVITE", 100, "PROVISIONAL_RESPONSE_OBSERVED", "PARTIALLY_MATCHED")
         self.assertIn("FINAL_RESPONSE_NOT_OBSERVED", transaction["missing_evidence"])
 
     def test_invite_180(self) -> None:
-        self.assert_pair("INVITE", 180, "PROCEEDING", "PARTIALLY_MATCHED")
+        self.assert_pair("INVITE", 180, "PROVISIONAL_RESPONSE_OBSERVED", "PARTIALLY_MATCHED")
 
     def test_invite_183(self) -> None:
-        self.assert_pair("INVITE", 183, "PROCEEDING", "PARTIALLY_MATCHED")
+        self.assert_pair("INVITE", 183, "PROVISIONAL_RESPONSE_OBSERVED", "PARTIALLY_MATCHED")
 
     def test_invite_200(self) -> None:
-        transaction = self.assert_pair("INVITE", 200, "COMPLETED")
+        transaction = self.assert_pair("INVITE", 200, "FINAL_RESPONSE_OBSERVED")
         self.assertIn("DIALOG_ASSOCIATION_UNAVAILABLE", transaction["missing_evidence"])
 
     def test_invite_486(self) -> None:
-        transaction = self.assert_pair("INVITE", 486, "COMPLETED")
+        transaction = self.assert_pair("INVITE", 486, "FINAL_RESPONSE_OBSERVED")
         self.assertIn("ACK_NOT_OBSERVED", transaction["missing_evidence"])
 
     def test_invite_487(self) -> None:
-        self.assert_pair("INVITE", 487, "COMPLETED")
+        self.assert_pair("INVITE", 487, "FINAL_RESPONSE_OBSERVED")
 
     def test_options_200(self) -> None:
         self.assert_pair("OPTIONS", 200)
@@ -303,8 +303,8 @@ class MatchingIntegrityTests(TransactionTestBase):
     def test_same_call_id_different_branch(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="REGISTER", branch="A", call_id="C"),
-                record(2, status=200, branch="B", call_id="C", cseq_method="REGISTER", addressed_from_client=False),
+                record(1, method="REGISTER", branch="z9hG4bK-A", call_id="C"),
+                record(2, status=200, branch="z9hG4bK-B", call_id="C", cseq_method="REGISTER", addressed_from_client=False),
             ]
         )
         self.assertEqual(document["transaction_count"], 2)
@@ -324,8 +324,8 @@ class MatchingIntegrityTests(TransactionTestBase):
     def test_same_branch_different_sent_by(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="REGISTER", branch="A", sent_by="192.0.2.10:5060"),
-                record(2, status=200, branch="A", sent_by="192.0.2.99:5060", cseq_method="REGISTER", addressed_from_client=False),
+                record(1, method="REGISTER", branch="z9hG4bK-A", sent_by="192.0.2.10:5060"),
+                record(2, status=200, branch="z9hG4bK-A", sent_by="192.0.2.99:5060", cseq_method="REGISTER", addressed_from_client=False),
             ]
         )
         self.assertEqual(document["transaction_count"], 2)
@@ -333,8 +333,8 @@ class MatchingIntegrityTests(TransactionTestBase):
     def test_same_branch_and_sent_by_incompatible_cseq(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="REGISTER", branch="A", cseq=1),
-                record(2, status=200, branch="A", cseq=2, cseq_method="REGISTER", addressed_from_client=False),
+                record(1, method="REGISTER", branch="z9hG4bK-A", cseq=1),
+                record(2, status=200, branch="z9hG4bK-A", cseq=2, cseq_method="REGISTER", addressed_from_client=False),
             ]
         )
         self.assertEqual(document["transaction_count"], 2)
@@ -355,7 +355,7 @@ class MatchingIntegrityTests(TransactionTestBase):
     def test_request_without_matching_response(self) -> None:
         document, _, _ = self.correlate([record(1, method="REGISTER")])
         transaction = tx_of_type(document, "NON_INVITE")
-        self.assertEqual(transaction["transaction_state"], "TRYING")
+        self.assertEqual(transaction["transaction_state"], "REQUEST_OBSERVED")
         self.assertEqual(transaction["matching_status"], "REQUEST_ONLY")
 
     def test_response_with_inconsistent_cseq(self) -> None:
@@ -407,9 +407,9 @@ class MatchingIntegrityTests(TransactionTestBase):
     def test_multiple_candidate_transactions(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="INVITE", branch="A", call_id="A", cseq=1),
-                record(2, method="INVITE", branch="A", call_id="B", cseq=2),
-                record(3, status=200, branch="A", call_id="A", cseq=1, cseq_method="INVITE", addressed_from_client=False),
+                record(1, method="INVITE", branch="z9hG4bK-A", call_id="A", cseq=1),
+                record(2, method="INVITE", branch="z9hG4bK-A", call_id="B", cseq=2),
+                record(3, status=200, branch="z9hG4bK-A", call_id="A", cseq=1, cseq_method="INVITE", addressed_from_client=False),
             ]
         )
         request_tx = tx_of_type(document, "INVITE")
@@ -422,8 +422,8 @@ class MatchingIntegrityTests(TransactionTestBase):
     def test_conflicting_matching_fields(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="REGISTER", branch="A", call_id="A"),
-                record(2, method="REGISTER", branch="A", call_id="B"),
+                record(1, method="REGISTER", branch="z9hG4bK-A", call_id="A"),
+                record(2, method="REGISTER", branch="z9hG4bK-A", call_id="B"),
             ]
         )
         transaction = tx_of_type(document, "NON_INVITE")
@@ -434,8 +434,8 @@ class MatchingIntegrityTests(TransactionTestBase):
     def test_call_id_alone_never_matches(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="REGISTER", branch="A", call_id="SAME"),
-                record(2, status=200, branch="B", call_id="SAME", cseq_method="REGISTER", addressed_from_client=False),
+                record(1, method="REGISTER", branch="z9hG4bK-A", call_id="SAME"),
+                record(2, status=200, branch="z9hG4bK-B", call_id="SAME", cseq_method="REGISTER", addressed_from_client=False),
             ]
         )
         self.assertEqual(document["transaction_count"], 2)
@@ -445,17 +445,17 @@ class MatchingIntegrityTests(TransactionTestBase):
 class CancelAckTests(TransactionTestBase):
     def invite_with_cancel(self, cancel_branch: str | None = None, cancel_cseq: int = 1, cancel_call_id: str = "PRIVATE-CALL-ID") -> dict:
         records = [
-            record(1, method="INVITE", branch="A", cseq=1, call_id="PRIVATE-CALL-ID"),
+            record(1, method="INVITE", branch="z9hG4bK-A", cseq=1, call_id="PRIVATE-CALL-ID"),
             record(
                 2,
                 method="CANCEL",
-                branch=cancel_branch or "A",
+                branch=cancel_branch or "z9hG4bK-A",
                 cseq=cancel_cseq,
                 cseq_method="CANCEL",
                 call_id=cancel_call_id,
             ),
-            record(3, status=200, branch=cancel_branch or "A", cseq=cancel_cseq, cseq_method="CANCEL", call_id=cancel_call_id, to_tag="CANCEL-TAG", addressed_from_client=False),
-            record(4, status=487, branch="A", cseq=1, cseq_method="INVITE", call_id="PRIVATE-CALL-ID", to_tag="INVITE-TAG", addressed_from_client=False),
+            record(3, status=200, branch=cancel_branch or "z9hG4bK-A", cseq=cancel_cseq, cseq_method="CANCEL", call_id=cancel_call_id, to_tag="CANCEL-TAG", addressed_from_client=False),
+            record(4, status=487, branch="z9hG4bK-A", cseq=1, cseq_method="INVITE", call_id="PRIVATE-CALL-ID", to_tag="INVITE-TAG", addressed_from_client=False),
         ]
         document, _, _ = self.correlate(records)
         return document
@@ -465,13 +465,15 @@ class CancelAckTests(TransactionTestBase):
         invite = tx_of_type(document, "INVITE")
         cancel = tx_of_type(document, "CANCEL")
         self.assertEqual(cancel["associated_transaction_reference"], invite["transaction_reference"])
-        self.assertEqual(invite["transaction_state"], "TERMINATED")
-        self.assertEqual(invite["termination_basis"], "INVITE_487_AND_CANCEL_200")
+        self.assertEqual(invite["transaction_state"], "CANCEL_RESPONSE_SEQUENCE_OBSERVED")
+        self.assertIsNone(invite["termination_basis"])
+        self.assertFalse(invite["invite_transaction_termination_established"])
+        self.assertEqual(invite["cancel_invite_association_status"], "ASSOCIATED")
         self.assertEqual(cancel["matching_status"], "MATCHED")
         self.assertEqual(cancel["final_response_status_codes"], [200])
 
     def test_cancel_mismatched_branch(self) -> None:
-        document = self.invite_with_cancel(cancel_branch="B")
+        document = self.invite_with_cancel(cancel_branch="z9hG4bK-B")
         cancel = tx_of_type(document, "CANCEL")
         self.assertIsNone(cancel["associated_transaction_reference"])
         self.assertIn("INVITE_TRANSACTION_NOT_OBSERVED", cancel["missing_evidence"])
@@ -499,13 +501,15 @@ class CancelAckTests(TransactionTestBase):
     def test_ack_for_non_2xx_invite(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="INVITE", branch="A", cseq=1),
-                record(2, status=486, branch="A", cseq=1, cseq_method="INVITE", to_tag="T", addressed_from_client=False),
-                record(3, method="ACK", branch="A", cseq=1, cseq_method="ACK"),
+                record(1, method="INVITE", branch="z9hG4bK-A", cseq=1),
+                record(2, status=486, branch="z9hG4bK-A", cseq=1, cseq_method="INVITE", to_tag="T", addressed_from_client=False),
+                record(3, method="ACK", branch="z9hG4bK-A", cseq=1, cseq_method="ACK", to_tag="T"),
             ]
         )
         invite = tx_of_type(document, "INVITE")
-        self.assertEqual(invite["transaction_state"], "CONFIRMED")
+        self.assertEqual(invite["transaction_state"], "NON_2XX_ACK_OBSERVED")
+        self.assertEqual(invite["observed_evidence_status"], "NON_2XX_ACK_OBSERVED")
+        self.assertIsNone(invite["rfc_transaction_state"])
         self.assertEqual(invite["associated_control_event_references"], [event_ref(3)])
         self.assertNotIn("ACK_NOT_OBSERVED", invite["missing_evidence"])
         self.assertFalse(any(tx["transaction_type"].startswith("ACK") for tx in document["transactions"]))
@@ -513,9 +517,9 @@ class CancelAckTests(TransactionTestBase):
     def test_ack_for_2xx_invite_is_independent(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="INVITE", branch="A", cseq=1),
-                record(2, status=200, branch="A", cseq=1, cseq_method="INVITE", to_tag="T", addressed_from_client=False),
-                record(3, method="ACK", branch="B", cseq=1, cseq_method="ACK", to_tag="T"),
+                record(1, method="INVITE", branch="z9hG4bK-A", cseq=1),
+                record(2, status=200, branch="z9hG4bK-A", cseq=1, cseq_method="INVITE", to_tag="T", addressed_from_client=False),
+                record(3, method="ACK", branch="z9hG4bK-B", cseq=1, cseq_method="ACK", to_tag="T"),
             ]
         )
         invite = tx_of_type(document, "INVITE")
@@ -528,9 +532,9 @@ class CancelAckTests(TransactionTestBase):
     def test_2xx_ack_with_same_branch_is_not_merged(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="INVITE", branch="A", cseq=1),
-                record(2, status=200, branch="A", cseq=1, cseq_method="INVITE", to_tag="T", addressed_from_client=False),
-                record(3, method="ACK", branch="A", cseq=1, cseq_method="ACK", to_tag="T"),
+                record(1, method="INVITE", branch="z9hG4bK-A", cseq=1),
+                record(2, status=200, branch="z9hG4bK-A", cseq=1, cseq_method="INVITE", to_tag="T", addressed_from_client=False),
+                record(3, method="ACK", branch="z9hG4bK-A", cseq=1, cseq_method="ACK", to_tag="T"),
             ]
         )
         invite = tx_of_type(document, "INVITE")
@@ -539,7 +543,7 @@ class CancelAckTests(TransactionTestBase):
         self.assertNotEqual(invite["transaction_reference"], ack["transaction_reference"])
 
     def test_ack_without_invite_outcome(self) -> None:
-        document, _, _ = self.correlate([record(1, method="ACK", branch="A", cseq=1, cseq_method="ACK")])
+        document, _, _ = self.correlate([record(1, method="ACK", branch="z9hG4bK-A", cseq=1, cseq_method="ACK")])
         ack = tx_of_type(document, "ACK_ORPHAN")
         self.assertEqual(ack["transaction_state"], "REQUEST_ONLY")
         self.assertEqual(ack["matching_status"], "NOT_ESTABLISHED")
@@ -554,11 +558,13 @@ class RetransmissionTests(TransactionTestBase):
             ]
         )
         transaction = tx_of_type(document, "INVITE")
-        self.assertEqual(transaction["retransmission_count"], 1)
-        self.assertEqual(transaction["retransmission_event_references"], [event_ref(2)])
+        self.assertEqual(transaction["retransmission_count"], 0)
+        self.assertEqual(transaction["retransmission_candidate_count"], 1)
+        self.assertEqual(transaction["retransmission_candidate_event_references"], [event_ref(2)])
+        self.assertIn("RETRANSMISSION_FINGERPRINT_INCOMPLETE", transaction["missing_evidence"])
         classifications = {item["event_reference"]: item["classification"] for item in transaction["message_classifications"]}
         self.assertEqual(classifications[event_ref(1)], "ORIGINAL")
-        self.assertEqual(classifications[event_ref(2)], "EXACT_RETRANSMISSION")
+        self.assertEqual(classifications[event_ref(2)], "RETRANSMISSION_CANDIDATE")
 
     def test_udp_response_retransmission(self) -> None:
         document, _, _ = self.correlate(
@@ -569,7 +575,8 @@ class RetransmissionTests(TransactionTestBase):
             ]
         )
         transaction = tx_of_type(document, "NON_INVITE")
-        self.assertEqual(transaction["retransmission_count"], 1)
+        self.assertEqual(transaction["retransmission_count"], 0)
+        self.assertEqual(transaction["retransmission_candidate_count"], 1)
         self.assertEqual(transaction["final_response_count"], 2)
         self.assertEqual(transaction["distinct_final_response_count"], 1)
         self.assertEqual(transaction["selected_final_response_reference"], event_ref(2))
@@ -581,13 +588,13 @@ class RetransmissionTests(TransactionTestBase):
                 record(8, method="OPTIONS"),
             ]
         )
-        self.assertEqual(tx_of_type(document, "NON_INVITE")["retransmission_count"], 1)
+        self.assertEqual(tx_of_type(document, "NON_INVITE")["retransmission_candidate_count"], 1)
 
     def test_same_call_id_and_cseq_different_branch(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="REGISTER", branch="A", call_id="C", cseq=1),
-                record(2, method="REGISTER", branch="B", call_id="C", cseq=1),
+                record(1, method="REGISTER", branch="z9hG4bK-A", call_id="C", cseq=1),
+                record(2, method="REGISTER", branch="z9hG4bK-B", call_id="C", cseq=1),
             ]
         )
         invites = [tx for tx in document["transactions"] if tx["transaction_type"] == "NON_INVITE"]
@@ -620,7 +627,7 @@ class AdvancedTransactionTests(TransactionTestBase):
             ]
         )
         transaction = tx_of_type(document, "INVITE")
-        self.assertEqual(transaction["transaction_state"], "PROCEEDING")
+        self.assertEqual(transaction["transaction_state"], "PROVISIONAL_RESPONSE_OBSERVED")
         self.assertEqual(transaction["provisional_response_count"], 3)
         self.assertEqual(transaction["final_response_count"], 0)
         self.assertEqual(len(transaction["provisional_response_event_references"]), 3)
@@ -681,9 +688,9 @@ class AdvancedTransactionTests(TransactionTestBase):
     def test_multiple_independent_transactions(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="REGISTER", branch="A", call_id="A"),
-                record(2, method="REGISTER", branch="B", call_id="B"),
-                record(3, method="OPTIONS", branch="C", call_id="C"),
+                record(1, method="REGISTER", branch="z9hG4bK-A", call_id="A"),
+                record(2, method="REGISTER", branch="z9hG4bK-B", call_id="B"),
+                record(3, method="OPTIONS", branch="z9hG4bK-C", call_id="C"),
             ]
         )
         self.assertEqual(document["transaction_count"], 3)
@@ -737,7 +744,7 @@ class PrivacyAndDefensiveTests(TransactionTestBase):
             ]
         )
         text = json.dumps(document)
-        for raw_key in ('"call_id"', '"via_branch"', '"from_tag"', '"to_tag"', '"request_uri"', '"authorization"', '"cseq_sequence"'):
+        for raw_key in ('"call_id"', '"via_branch"', '"from_tag"', '"to_tag"', '"request_uri"', '"from_uri"', '"to_uri"', '"top_via"', '"observation_role"', '"authorization"', '"cseq_sequence"'):
             self.assertNotIn(raw_key, text)
         for transaction in document["transactions"]:
             for token in PRIVATE_TOKENS:
@@ -813,9 +820,9 @@ class PrivacyAndDefensiveTests(TransactionTestBase):
     def test_ambiguous_matching_remains_unresolved(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="INVITE", branch="A", call_id="A"),
-                record(2, method="INVITE", branch="A", call_id="B"),
-                record(3, status=200, branch="A", call_id="A", cseq_method="INVITE", addressed_from_client=False),
+                record(1, method="INVITE", branch="z9hG4bK-A", call_id="A"),
+                record(2, method="INVITE", branch="z9hG4bK-A", call_id="B"),
+                record(3, status=200, branch="z9hG4bK-A", call_id="A", cseq_method="INVITE", addressed_from_client=False),
             ]
         )
         ambiguous = tx_of_type(document, "AMBIGUOUS")
@@ -828,7 +835,7 @@ class PrivacyAndDefensiveTests(TransactionTestBase):
             record(1, method="INVITE"),
             record(2, status=180, cseq_method="INVITE", to_tag="A", addressed_from_client=False),
             record(3, status=200, cseq_method="INVITE", to_tag="A", addressed_from_client=False),
-            record(4, method="ACK", branch="B", cseq=1, cseq_method="ACK", to_tag="A"),
+            record(4, method="ACK", branch="z9hG4bK-B", cseq=1, cseq_method="ACK", to_tag="A"),
         ]
         first_completed, first_document, first_events = run_transactions(self.base, records)
         second_completed, second_document, second_events = run_transactions(self.base, records)
@@ -846,9 +853,9 @@ class PrivacyAndDefensiveTests(TransactionTestBase):
     def test_200_ok_to_cancel_does_not_claim_invite_cancelled(self) -> None:
         document, _, _ = self.correlate(
             [
-                record(1, method="INVITE", branch="A", cseq=1),
-                record(2, method="CANCEL", branch="A", cseq=1, cseq_method="CANCEL"),
-                record(3, status=200, branch="A", cseq=1, cseq_method="CANCEL", addressed_from_client=False),
+                record(1, method="INVITE", branch="z9hG4bK-A", cseq=1),
+                record(2, method="CANCEL", branch="z9hG4bK-A", cseq=1, cseq_method="CANCEL"),
+                record(3, status=200, branch="z9hG4bK-A", cseq=1, cseq_method="CANCEL", addressed_from_client=False),
             ]
         )
         invite = tx_of_type(document, "INVITE")

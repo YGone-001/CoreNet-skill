@@ -1,7 +1,7 @@
 name: "sip"
-version: "0.2.0"
+version: "0.3.0"
 category: protocol
-description: "Bounded SIP message extraction and protocol-local transaction correlation over UDP and TCP: request/response identity, reviewed header presence and bounded metadata, source-frame and transport provenance, message completeness, RFC 3261 transaction matching, transaction state, retransmission classification, CANCEL and ACK roles, privacy-safe handling of identities/URIs/tags/credentials/bodies, and deterministic event and transaction output without dialog or IMS procedure semantics."
+description: "Bounded SIP message extraction and protocol-local transaction correlation over UDP and TCP: request/response identity, reviewed header presence and bounded metadata, source-frame and transport provenance, message completeness, RFC 3261 magic-cookie and legacy matching, request/CSeq method validation, RFC 6026 Accepted-state projection, observed evidence status versus client/server role, CANCEL and ACK header consistency, retransmission fingerprint confidence, privacy-safe handling of identities/URIs/tags/credentials/bodies, and deterministic event and transaction output without dialog or IMS procedure semantics."
 scope:
   includes:
     - "SIP requests and responses over IPv4 and IPv6"
@@ -12,11 +12,15 @@ scope:
     - "frame number, frame epoch and capture-relative time, transport endpoints, TCP stream identity and message occurrence"
     - "message completeness, decoder findings, truncation and missing mandatory evidence"
     - "privacy-safe presence and length metadata for identities, URIs, tags, Call-ID values, credentials and bodies"
-    - "RFC 3261 transaction identity from top Via branch, top Via sent-by and request method"
-    - "response matching by branch, sent-by, CSeq method/number, Call-ID and From tag consistency"
-    - "INVITE provisional/final response handling, CANCEL association, non-2xx ACK control evidence and independent 2xx ACK transactions"
-    - "transaction state, matching status, response branches, capture completeness and missing evidence"
-    - "UDP retransmission and TCP repeated-observation classification without raw content publication"
+    - "RFC 3261 magic-cookie transaction identity from top Via branch, top Via sent-by and request method"
+    - "RFC 2543 legacy matching from Request-URI, To, From, Call-ID, CSeq and top Via without Call-ID-only fallback"
+    - "request-line versus CSeq method validation that rejects contradictory identity"
+    - "response matching by the applicable branch mode, CSeq method/number, Call-ID and From tag consistency"
+    - "INVITE provisional/final response handling, CANCEL header-consistency association, non-2xx ACK header-consistency control evidence and independent 2xx ACK transactions"
+    - "observed evidence status, optional client/server role and RFC 6026 Accepted-state projection"
+    - "CANCEL outcome, INVITE final response and transaction termination kept as separate evidence"
+    - "matching status, response branches, capture completeness and missing evidence"
+    - "retransmission fingerprint completeness and candidate classification without raw content publication"
     - "PCAP/PCAPNG through TShark PDML, stored PDML replay and sanitized dissector-record JSONL replay"
   excludes:
     - "SIP dialog correlation, dialog identity, 2xx ACK dialog association and forked-dialog selection"

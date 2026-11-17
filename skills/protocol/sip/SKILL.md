@@ -23,12 +23,21 @@ bodies.
   header occurrence counts.
 - Preserve message completeness, dissector findings, truncation and missing
   mandatory evidence as explicit classifications.
-- Correlate requests and responses using RFC 3261 transaction identity: top Via
-  branch, top Via sent-by and request method, with CSeq, Call-ID and From tag as
-  consistency evidence. Call-ID alone is never a transaction identity.
-- Publish transaction state, matching status, matching basis, response branches,
-  retransmission classification, capture completeness and explicit missing evidence.
-- Handle CANCEL, non-2xx ACK and 2xx ACK according to separate transaction roles.
+- Correlate requests and responses using RFC 3261 transaction identity: modern
+  magic-cookie matching uses top Via branch, top Via sent-by and request method;
+  legacy RFC 2543 branches use Request-URI, To, From, Call-ID, CSeq and top Via.
+  Call-ID alone is never a transaction identity.
+- Validate request-line method against CSeq method; a contradiction cannot form a
+  valid transaction identity.
+- Verify CANCEL and non-2xx ACK header consistency against the original INVITE,
+  including Request-URI, To/From values, Call-ID, CSeq number and top Via relationship.
+- Publish observed evidence status separately from RFC transaction state, with the
+  transaction role explicit and `UNKNOWN` when a passive capture cannot establish it.
+- Publish matching mode, response branches, transaction state, retransmission
+  classification with fingerprint completeness, capture completeness and explicit
+  missing evidence.
+- Handle CANCEL, non-2xx ACK and 2xx ACK according to separate transaction roles,
+  and preserve RFC 6026 `ACCEPTED` for INVITE 2xx transactions.
 - Publish one sanitized JSONL event per observed SIP message, plus an optional
   transaction JSON document and an optional shared trace-event projection.
 
@@ -75,16 +84,28 @@ CANCEL only; the INVITE outcome requires the corresponding INVITE response.
 
 ## Transaction correlation
 
-The correlation model follows RFC 3261 Section 17 transaction identity. A response
-matches only a request transaction with the same capture, top Via branch, top Via
-sent-by and CSeq method, and a consistent CSeq number, Call-ID and From tag. Multiple
-candidates remain `AMBIGUOUS`; conflicting evidence remains `NOT_ESTABLISHED`;
-missing requests or responses remain explicitly unresolved.
+The correlation model follows RFC 3261 Section 17 and RFC 6026. A branch beginning
+with `z9hG4bK` uses modern matching: capture, top Via branch, top Via sent-by and
+CSeq method. Any other present branch uses legacy matching over Request-URI, To,
+From, Call-ID, CSeq and top Via. Missing legacy evidence yields `NOT_ESTABLISHED`
+and never falls back to Call-ID. Request method and CSeq method must agree.
 
-CANCEL is its own transaction and is associated with an INVITE only through matching
-branch, sent-by, CSeq number, Call-ID and From tag. A non-2xx ACK is associated control
-evidence of its INVITE transaction. A 2xx ACK is an independent request transaction and
-is never merged into the INVITE transaction. See `references/transactions.md`.
+CANCEL is its own transaction and is associated with an INVITE only when the
+applicable Via relationship, Request-URI, Call-ID, To, From, numeric CSeq and both
+request-line/CSeq methods are consistent. A 200 OK to CANCEL and a 487 INVITE are
+published as a `CANCEL_RESPONSE_SEQUENCE_OBSERVED` evidence sequence; they do not
+establish RFC `TERMINATED` because timer evidence is unavailable.
+
+A non-2xx ACK is attached only when its Request-URI, Call-ID, From value, CSeq
+number, Via relationship and To-tag against the observed final response are
+consistent. A contradictory ACK remains unresolved and changes no transaction
+state. A 2xx ACK is an independent request transaction and is never merged. See
+`references/transactions.md`.
+
+`transaction_role` is `UNKNOWN` for a passive capture unless the input declares a
+side. `observed_evidence_status` describes the capture; `rfc_transaction_state` is
+published only when the role is established and `state_semantics` distinguishes the
+two. `CONFIRMED` requires a server-side INVITE transaction with a valid non-2xx ACK.
 
 ## Privacy
 
@@ -138,5 +159,13 @@ python3 scripts/validate-sip.py
   multiple SIP protocol instances.
 - A TCP observation belongs to the frame where the decoder delivers the reassembled
   message; earlier segment frames are not synthesised as SIP events.
+- A passive capture cannot establish client or server stack role, so RFC transaction
+  state stays unavailable unless the sanitized input declares `observation_role`.
+- RFC timer expiry (`TERMINATED`, timer D/H/I/J/M) is never inferred from capture
+  silence.
+- Legacy matching requires Request-URI, To, From, Call-ID, CSeq and top Via; missing
+  values remain `NOT_ESTABLISHED` rather than using a weaker fallback.
+- A sanitized field-only fingerprint cannot prove exact message equality; repeats are
+  reported as retransmission candidates.
 - SIP transaction correlation is protocol-local; SIP dialog correlation and IMS
   procedure analysis remain outside this Skill.
