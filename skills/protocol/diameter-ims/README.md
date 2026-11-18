@@ -15,8 +15,11 @@ The Release 19-aligned result handling recognizes Cx Experimental-Result success
 codes 2001–2004 (`DIAMETER_FIRST_REGISTRATION`,
 `DIAMETER_SUBSEQUENT_REGISTRATION`, `DIAMETER_UNREGISTERED_SERVICE`,
 `DIAMETER_SUCCESS_SERVER_NAME_NOT_STORED`) and permanent failures 5001–5009,
-5011 and 5012. Code 2005 and code 5010 are Void and remain numeric and
-`UNRESOLVED`; codes 5013–5020 are reserved and receive no invented names.
+5011 and 5012. Code 2005 is Void and Deprecated, and code 5010 is Void and
+unassigned; both remain numeric and `UNRESOLVED`. The separate TS 29.230
+reserved success range 2006–2020 and reserved permanent-failure range 5013–5020
+retain numeric identity and receive no invented names. Codes 5021–5040 are
+reserved for TS 32.299 and are not Cx/Dx result codes.
 
 It does not prove IMS registration, subscriber authentication, HSS
 authorization, S-CSCF assignment, media delivery or call success. It does not

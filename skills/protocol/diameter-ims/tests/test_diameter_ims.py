@@ -561,6 +561,84 @@ class DiameterImsResultNamespaceTest(unittest.TestCase):
         self.assertEqual(classified["experimental_result_code"], 5999)
         self.assertIsNone(classified["experimental_result_code_name"])
 
+    def test_registry_reserved_ranges_are_separate(self) -> None:
+        success = set(model.THREEGPP_CX_RESERVED_SUCCESS_RESULT_CODES)
+        permanent = set(model.THREEGPP_CX_RESERVED_PERMANENT_FAILURE_RESULT_CODES)
+        other = set(model.THREEGPP_OTHER_SPEC_RESERVED_RESULT_CODES)
+        self.assertEqual(success, set(range(2006, 2021)))
+        self.assertEqual(permanent, set(range(5013, 5021)))
+        self.assertEqual(other, set(range(5021, 5041)))
+        self.assertFalse(success & permanent)
+        self.assertFalse(success & other)
+        self.assertFalse(permanent & other)
+        self.assertEqual(
+            model.THREEGPP_CX_RESERVED_RESULT_CODES,
+            model.THREEGPP_CX_RESERVED_PERMANENT_FAILURE_RESULT_CODES,
+        )
+
+    def test_reserved_success_range_2006_to_2020(self) -> None:
+        for code in (2006, 2020):
+            classified = model.classify_result(self.answer(experimental_result(code, VENDOR)))
+            self.assertEqual(classified["application_result"], "UNRESOLVED")
+            self.assertEqual(classified["experimental_result_code"], code)
+            self.assertIsNone(classified["experimental_result_code_name"])
+            self.assertTrue(
+                any(
+                    "8.1.2" in limitation and "2006-2020" in limitation
+                    for limitation in classified["limitations"]
+                )
+            )
+        boundary = model.classify_result(self.answer(experimental_result(2021, VENDOR)))
+        self.assertEqual(boundary["application_result"], "UNRESOLVED")
+        self.assertEqual(boundary["experimental_result_code"], 2021)
+        self.assertIsNone(boundary["experimental_result_code_name"])
+        self.assertFalse(any("2006-2020" in item for item in boundary["limitations"]))
+
+    def test_reserved_permanent_failure_range_5013_to_5020(self) -> None:
+        for code in (5013, 5020):
+            classified = model.classify_result(self.answer(experimental_result(code, VENDOR)))
+            self.assertEqual(classified["application_result"], "UNRESOLVED")
+            self.assertEqual(classified["experimental_result_code"], code)
+            self.assertIsNone(classified["experimental_result_code_name"])
+            self.assertTrue(
+                any(
+                    "8.1.4" in limitation and "5013-5020" in limitation
+                    for limitation in classified["limitations"]
+                )
+            )
+
+    def test_other_specification_reserved_range_is_not_cx_semantics(self) -> None:
+        for code in (5021, 5040):
+            classified = model.classify_result(self.answer(experimental_result(code, VENDOR)))
+            self.assertEqual(classified["application_result"], "UNRESOLVED")
+            self.assertEqual(classified["experimental_result_code"], code)
+            self.assertIsNone(classified["experimental_result_code_name"])
+            self.assertTrue(
+                any("TS 32.299" in limitation for limitation in classified["limitations"])
+            )
+            self.assertNotIn(code, model.THREEGPP_CX_RESERVED_PERMANENT_FAILURE_RESULT_CODES)
+
+    def test_2005_reconciles_void_and_deprecated(self) -> None:
+        classified = model.classify_result(self.answer(experimental_result(2005, VENDOR)))
+        text = " ".join(classified["limitations"])
+        self.assertIn("6.2.1.5", text)
+        self.assertIn("Void", text)
+        self.assertIn("8.1.2", text)
+        self.assertIn("Deprecated", text)
+        self.assertEqual(classified["application_result"], "UNRESOLVED")
+        self.assertIsNone(classified["experimental_result_code_name"])
+        self.assertNotIn(2005, model.THREEGPP_CX_SUCCESS_RESULT_NAMES)
+
+    def test_5010_reconciles_void_and_unassigned(self) -> None:
+        classified = model.classify_result(self.answer(experimental_result(5010, VENDOR)))
+        text = " ".join(classified["limitations"])
+        self.assertIn("6.2.2.10", text)
+        self.assertIn("Void", text)
+        self.assertIn("8.1.4", text)
+        self.assertIn("unassigned", text)
+        self.assertEqual(classified["application_result"], "UNRESOLVED")
+        self.assertIsNone(classified["experimental_result_code_name"])
+
     def test_success_and_failure_result_maps_do_not_overlap(self) -> None:
         self.assertFalse(
             set(model.THREEGPP_CX_SUCCESS_RESULT_NAMES)

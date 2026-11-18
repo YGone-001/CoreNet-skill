@@ -103,14 +103,24 @@ These values are not RFC 6733 base Result-Code semantics. Base Result-Code
 Experimental-Result codes 5001–5009, 5011 and 5012 with Vendor-ID 10415 publish
 `FAILURE_REPORTED` and their exact TS 29.229 names.
 
-### Void and reserved values
+### Void, reserved and unassigned values
 
-- 2005 is Void in clause 6.2.1.5; numeric only, `UNRESOLVED`, no name.
-- 5010 is Void in clause 6.2.2.10; numeric only, `UNRESOLVED`, no name, with an
-  explicit limitation.
-- 5013–5020 are reserved/unreviewed; numeric only, no name.
+- 2005 is Void in TS 29.229 clause 6.2.1.5 and a Deprecated value in TS 29.230
+  table 8.1.2; numeric only, `UNRESOLVED`, no name, never a valid success.
+- 2006–2020 is the TS 29.230 table 8.1.2 reserved success range; numeric only,
+  `UNRESOLVED`, no name.
+- 5010 is Void in TS 29.229 clause 6.2.2.10 and unassigned in TS 29.230 table
+  8.1.4; numeric only, `UNRESOLVED`, no name, with an explicit limitation.
+- 5013–5020 is the TS 29.230 table 8.1.4 reserved permanent-failure range for
+  TS 29.229; numeric only, no name.
+- 5021–5040 is reserved for TS 32.299 and is not a Cx/Dx result code; numeric
+  only, no Cx/Dx semantics.
 - Other unreviewed 3GPP codes and other vendor namespaces remain numeric with no
   semantic name.
+
+Success and permanent-failure reserved ranges are independent and are never
+merged. The producer never assigns Cx/Dx semantics to a code inside the
+TS 32.299-owned range.
 
 Conflicting or duplicated result evidence is never collapsed into one value.
 

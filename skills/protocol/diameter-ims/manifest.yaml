@@ -1,14 +1,14 @@
 name: "diameter-ims"
 version: "0.1.1"
 category: protocol
-description: "Bounded Diameter IMS Cx/Dx application evidence over accepted diameter-core events and transactions: UAR/UAA, SAR/SAA, LIR/LIA, MAR/MAA, RTR/RTA and PPR/PPA command identity, reviewed Cx/Dx AVP presence with normative TS 29.229 names and decoder aliases, decoder-proven grouped structure, Release 19 Cx success results 2001-2004, permanent failures 5001-5009/5011/5012, Void 2005/5010 handling, independent base and 3GPP experimental result namespaces, and explicit unproved Cx-versus-Dx interface identity."
+description: "Bounded Diameter IMS Cx/Dx application evidence over accepted diameter-core events and transactions: UAR/UAA, SAR/SAA, LIR/LIA, MAR/MAA, RTR/RTA and PPR/PPA command identity, reviewed Cx/Dx AVP presence with normative TS 29.229 names and decoder aliases, decoder-proven grouped structure, Release 19 Cx success results 2001-2004, permanent failures 5001-5009/5011/5012, Void/Deprecated 2005, Void/unassigned 5010, reserved success 2006-2020, reserved permanent-failure 5013-5020, TS 32.299-reserved 5021-5040, independent base and 3GPP experimental result namespaces, and explicit unproved Cx-versus-Dx interface identity."
 scope:
   includes:
     - "Cx/Dx Application-ID 16777216 command identity for User-Authorization, Server-Assignment, Location-Info, Multimedia-Auth, Registration-Termination and Push-Profile"
     - "reviewed bounded Cx/Dx AVP presence, occurrence count, canonical TS 29.229 name, decoder alias and decoder-proven grouped child structure"
     - "presence-only privacy for Public-Identity, User-Data (decoder alias Cx-User-Data), SIP authentication material and keying material"
     - "independent base Result-Code and 3GPP Vendor-ID 10415 Experimental-Result namespaces"
-    - "Release 19 Cx Experimental-Result success 2001-2004, permanent failures 5001-5009/5011/5012 and Void 2005/5010 handling"
+    - "Release 19 Cx Experimental-Result success 2001-2004, permanent failures 5001-5009/5011/5012, Void/Deprecated 2005, Void/unassigned 5010, reserved success 2006-2020, reserved permanent-failure 5013-5020 and TS 32.299-reserved 5021-5040"
     - "exact Diameter Core frame, occurrence and transaction provenance"
     - "strict analysis JSON Schema and human-readable timeline"
   excludes:

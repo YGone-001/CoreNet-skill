@@ -82,11 +82,13 @@ keeps the base and experimental namespaces separate even when both are supplied.
 | 5011 | `DIAMETER_ERROR_FEATURE_UNSUPPORTED` | `FAILURE_REPORTED` |
 | 5012 | `DIAMETER_ERROR_SERVING_NODE_FEATURE_UNSUPPORTED` | `FAILURE_REPORTED` |
 
-Code 2005 is Void (clause 6.2.1.5). Code 5010 is Void (clause 6.2.2.10).
-Codes 5013–5020 are reserved in the reviewed baseline. Void, reserved and
-unreviewed codes keep their numeric identity and publish no semantic name;
-their application result stays `UNRESOLVED`. A missing or non-3GPP Vendor-ID
-never receives Cx semantics.
+Code 2005 is Void (TS 29.229 clause 6.2.1.5) and a Deprecated value (TS 29.230
+table 8.1.2). Code 5010 is Void (TS 29.229 clause 6.2.2.10) and unassigned
+(TS 29.230 table 8.1.4). The TS 29.230 table 8.1.2 reserved success range
+2006–2020 and the table 8.1.4 reserved permanent-failure range 5013–5020 keep
+their numeric identity and publish no semantic name. Codes 5021–5040 are
+reserved for TS 32.299 and are not Cx/Dx result codes. All such values remain
+`UNRESOLVED`; a missing or non-3GPP Vendor-ID never receives Cx semantics.
 
 Base Result-Code 2001/2002 remains base-protocol success and is never merged with
 Experimental-Result 2001/2002. Simultaneous base and experimental results remain

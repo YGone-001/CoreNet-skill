@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Validate the standalone diameter-ims Protocol Skill contract."""
+"""Validate the standalone diameter-ims Protocol Skill contract, including the
+TS 29.230 Release 19 result-code registry crosswalk."""
 
 from __future__ import annotations
 
@@ -279,21 +280,71 @@ def namespace_checks() -> list[str]:
         errors.append("5010 numeric identity was not preserved")
     if not any("6.2.2.10" in item for item in void_5010.get("limitations", [])):
         errors.append("5010 limitation does not record the TS 29.229 Void clause")
+    void_5010_text = " ".join(void_5010.get("limitations", []))
+    if "8.1.4" not in void_5010_text or "unassigned" not in void_5010_text:
+        errors.append("5010 does not record the TS 29.230 unassigned classification")
     if 5010 in model.THREEGPP_CX_FAILURE_RESULT_NAMES or 5010 in model.THREEGPP_CX_RESULT_NAMES:
         errors.append("5010 is still present in the reviewed result-name maps")
 
     void_2005 = model.classify_result(_experimental(2005, model.THREEGPP_VENDOR_ID))
     if void_2005.get("application_result") != "UNRESOLVED" or void_2005.get("experimental_result_code_name") is not None:
         errors.append("2005 Void was not left unresolved without a name")
+    void_2005_text = " ".join(void_2005.get("limitations", []))
+    if "6.2.1.5" not in void_2005_text or "Deprecated" not in void_2005_text or "8.1.2" not in void_2005_text:
+        errors.append("2005 does not reconcile TS 29.229 Void with TS 29.230 Deprecated terminology")
+
+    for code in (2006, 2020):
+        classified = model.classify_result(_experimental(code, model.THREEGPP_VENDOR_ID))
+        text = " ".join(classified.get("limitations", []))
+        if classified.get("application_result") != "UNRESOLVED":
+            errors.append(f"reserved success result {code} was not left unresolved")
+        if classified.get("experimental_result_code_name") is not None:
+            errors.append(f"reserved success result {code} received a semantic name")
+        if classified.get("experimental_result_code") != code:
+            errors.append(f"reserved success result {code} lost numeric identity")
+        if "8.1.2" not in text or "2006-2020" not in text:
+            errors.append(f"reserved success result {code} lacks the TS 29.230 8.1.2 limitation")
+
+    boundary_success = model.classify_result(_experimental(2021, model.THREEGPP_VENDOR_ID))
+    if boundary_success.get("experimental_result_code_name") is not None:
+        errors.append("result 2021 received Cx success semantics")
+    if any("2006-2020" in item for item in boundary_success.get("limitations", [])):
+        errors.append("result 2021 was incorrectly classified into the reserved success range")
 
     for code in (5013, 5020):
         classified = model.classify_result(_experimental(code, model.THREEGPP_VENDOR_ID))
-        if classified.get("experimental_result_code_name") is not None:
-            errors.append(f"reserved result {code} received a semantic name")
+        text = " ".join(classified.get("limitations", []))
         if classified.get("application_result") != "UNRESOLVED":
-            errors.append(f"reserved result {code} was not left unresolved")
+            errors.append(f"reserved permanent-failure result {code} was not left unresolved")
+        if classified.get("experimental_result_code_name") is not None:
+            errors.append(f"reserved permanent-failure result {code} received a semantic name")
         if classified.get("experimental_result_code") != code:
-            errors.append(f"reserved result {code} lost numeric identity")
+            errors.append(f"reserved permanent-failure result {code} lost numeric identity")
+        if "8.1.4" not in text or "5013-5020" not in text:
+            errors.append(f"reserved permanent-failure result {code} lacks the TS 29.230 8.1.4 limitation")
+
+    for code in (5021, 5040):
+        classified = model.classify_result(_experimental(code, model.THREEGPP_VENDOR_ID))
+        text = " ".join(classified.get("limitations", []))
+        if classified.get("experimental_result_code_name") is not None:
+            errors.append(f"result {code} received Cx/Dx semantics outside the TS 29.229 range")
+        if classified.get("application_result") != "UNRESOLVED":
+            errors.append(f"result {code} was not left unresolved")
+        if "TS 32.299" not in text:
+            errors.append(f"result {code} does not record the TS 32.299 reserved ownership")
+        if code in model.THREEGPP_CX_RESERVED_PERMANENT_FAILURE_RESULT_CODES:
+            errors.append(f"result {code} was conflated with the Cx permanent-failure reserved range")
+
+    if model.THREEGPP_CX_RESERVED_SUCCESS_RESULT_CODES != frozenset(range(2006, 2021)):
+        errors.append("reserved success range is not 2006-2020")
+    if model.THREEGPP_CX_RESERVED_PERMANENT_FAILURE_RESULT_CODES != frozenset(range(5013, 5021)):
+        errors.append("reserved permanent-failure range is not 5013-5020")
+    if model.THREEGPP_OTHER_SPEC_RESERVED_RESULT_CODES != frozenset(range(5021, 5041)):
+        errors.append("other-specification reserved range is not 5021-5040")
+    if set(model.THREEGPP_CX_RESERVED_SUCCESS_RESULT_CODES) & set(
+        model.THREEGPP_CX_RESERVED_PERMANENT_FAILURE_RESULT_CODES
+    ):
+        errors.append("success and permanent-failure reserved ranges overlap")
 
     unreviewed = model.classify_result(_experimental(5999, model.THREEGPP_VENDOR_ID))
     if unreviewed.get("experimental_result_code_name") is not None:

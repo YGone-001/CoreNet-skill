@@ -173,8 +173,15 @@ THREEGPP_CX_RESULT_NAMES = {
 
 # TS 29.229 V19.1.0 clause 6.2.1.5 and clause 6.2.2.10 define these as Void.
 THREEGPP_CX_VOID_RESULT_CODES = {2005, 5010}
-# TS 29.229 reserves 5013-5020 in the reviewed Release 19 baseline.
-THREEGPP_CX_RESERVED_RESULT_CODES = frozenset(range(5013, 5021))
+
+# TS 29.230 V19.3.0 registry ranges. Success and permanent-failure reserved
+# ranges are intentionally separate.
+THREEGPP_CX_RESERVED_SUCCESS_RESULT_CODES = frozenset(range(2006, 2021))
+THREEGPP_CX_RESERVED_PERMANENT_FAILURE_RESULT_CODES = frozenset(range(5013, 5021))
+# Reserved for TS 32.299, not owned by the Cx/Dx application.
+THREEGPP_OTHER_SPEC_RESERVED_RESULT_CODES = frozenset(range(5021, 5041))
+# Backward-compatible alias for the permanent-failure reserved range only.
+THREEGPP_CX_RESERVED_RESULT_CODES = THREEGPP_CX_RESERVED_PERMANENT_FAILURE_RESULT_CODES
 
 BASE_SUCCESS = {2001, 2002}
 
@@ -756,10 +763,25 @@ def classify_result(answer: dict[str, Any] | None) -> dict[str, Any]:
                     "the Experimental-Result-Code is Void in TS 29.229 V19.1.0 clause "
                     f"{clause}; no semantic name is assigned and the numeric value is preserved"
                 )
-            elif experimental_code in THREEGPP_CX_RESERVED_RESULT_CODES:
+                if experimental_code == 2005:
+                    limitations.append(
+                        "TS 29.230 V19.3.0 table 8.1.2 classifies 2005 as a Deprecated value; it is not a valid Cx success result"
+                    )
+                else:
+                    limitations.append(
+                        "TS 29.230 V19.3.0 table 8.1.4 classifies 5010 as unassigned"
+                    )
+            elif experimental_code in THREEGPP_CX_RESERVED_SUCCESS_RESULT_CODES:
                 limitations.append(
-                    "the Experimental-Result-Code is in the reserved 5013-5020 range; "
-                    "numeric identity is preserved without a semantic name"
+                    "the Experimental-Result-Code is in the TS 29.230 V19.3.0 table 8.1.2 reserved success range 2006-2020; numeric identity is preserved without a semantic name"
+                )
+            elif experimental_code in THREEGPP_CX_RESERVED_PERMANENT_FAILURE_RESULT_CODES:
+                limitations.append(
+                    "the Experimental-Result-Code is in the TS 29.230 V19.3.0 table 8.1.4 reserved permanent-failure range 5013-5020; numeric identity is preserved without a semantic name"
+                )
+            elif experimental_code in THREEGPP_OTHER_SPEC_RESERVED_RESULT_CODES:
+                limitations.append(
+                    "the Experimental-Result-Code is reserved for TS 32.299 (5021-5040) in TS 29.230 V19.3.0 and is not a Cx/Dx result code; no Cx/Dx semantics are assigned"
                 )
             else:
                 limitations.append(

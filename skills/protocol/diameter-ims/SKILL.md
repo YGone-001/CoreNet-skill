@@ -103,9 +103,13 @@ Reviewed Cx success results (Experimental-Result, Vendor-ID 10415) are 2001
 Reviewed permanent failures are 5001–5009, 5011 and 5012 and publish
 `FAILURE_REPORTED`.
 
-Code 2005 is Void (clause 6.2.1.5). Code 5010 is Void (clause 6.2.2.10). Codes
-5013–5020 are reserved in the reviewed baseline. Void, reserved and unreviewed
-codes keep their numeric identity, publish no name and remain `UNRESOLVED`.
+Code 2005 is Void (TS 29.229 clause 6.2.1.5) and a Deprecated value (TS 29.230
+table 8.1.2). Code 5010 is Void (TS 29.229 clause 6.2.2.10) and unassigned
+(TS 29.230 table 8.1.4). The TS 29.230 table 8.1.2 reserved success range
+2006–2020 and table 8.1.4 reserved permanent-failure range 5013–5020 are kept
+separately. Codes 5021–5040 are reserved for TS 32.299 and are not Cx/Dx result
+codes. Void, reserved, unassigned and unreviewed codes keep their numeric
+identity, publish no name and remain `UNRESOLVED`.
 
 Simultaneous base and experimental results remain `CONFLICTING` and unresolved.
 The producer consumes Core result arrays and preserves their AVP provenance; a
@@ -153,9 +157,11 @@ as malformed.
 - The reviewed command, AVP and result set follows 3GPP TS 29.229 V19.1.0
   Release 19, clauses 6.1, 6.2, 6.3.0 and 6.3.7–6.3.14. The official ETSI PDF
   was downloaded and reviewed for those clauses. TS 29.228 V19.2.0 and
-  TS 29.230 V19.3.0 were not retrievable in this environment and were not
-  clause-audited. Later releases were not compared clause by clause, and this
-  Skill does not claim full Release 19 conformance.
+  TS 29.230 V19.3.0 were not retrievable in this environment. The TS 29.230
+  registry crosswalk (success table 8.1.2 and permanent-failure table 8.1.4) is
+  recorded from the Release 19 classifications mandated for this correction and
+  was not independently re-read. Later releases were not compared clause by
+  clause, and this Skill does not claim full Release 19 conformance.
 - The installed TShark/Wireshark 4.2.2 dictionary is used only as the reviewed
   decoder-alias and grouping reference.
 - Grouped structure is limited to decoder-proven direct children.
@@ -168,6 +174,7 @@ as malformed.
 Original CoreNet Protocol-layer package. No upstream material imported.
 Standards basis: 3GPP TS 29.229 V19.1.0 for Cx/Dx commands, AVPs and result
 codes; 3GPP TS 29.228 V19.2.0 for stage-2 procedure context (not clause-audited);
-3GPP TS 29.230 V19.3.0 for registry ownership (not clause-audited); RFC 6733 for
-the Diameter base protocol. The reviewed TShark 4.2.2 dictionary supplies only
-decoder display aliases and grouped-AVP decoding.
+3GPP TS 29.230 V19.3.0 for registry ownership and the result-code crosswalk (not
+independently re-read); RFC 6733 for the Diameter base protocol. The reviewed
+TShark 4.2.2 dictionary supplies only decoder display aliases and grouped-AVP
+decoding.

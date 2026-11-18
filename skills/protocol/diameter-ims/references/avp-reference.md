@@ -131,14 +131,16 @@ Reviewed permanent failures:
 | 5011 | `DIAMETER_ERROR_FEATURE_UNSUPPORTED` |
 | 5012 | `DIAMETER_ERROR_SERVING_NODE_FEATURE_UNSUPPORTED` |
 
-Void and reserved values:
+Void, reserved and unassigned values:
 
-| Code | Reviewed status |
-| --- | --- |
-| 2005 | Void in clause 6.2.1.5; numeric only, `UNRESOLVED` |
-| 5010 | Void in clause 6.2.2.10; numeric only, `UNRESOLVED` |
-| 5013–5020 | Reserved/unreviewed; numeric only, no name |
-| Other 3GPP codes | Unreviewed; numeric only, no name |
+| Code or range | Registry status | Cx/Dx treatment |
+| --- | --- | --- |
+| 2005 | Void in TS 29.229 clause 6.2.1.5; Deprecated value in TS 29.230 table 8.1.2 | Numeric only, `UNRESOLVED`, no name; never a valid success |
+| 2006–2020 | Reserved success range in TS 29.230 table 8.1.2 | Numeric only, `UNRESOLVED`, no name |
+| 5010 | Void in TS 29.229 clause 6.2.2.10; unassigned in TS 29.230 table 8.1.4 | Numeric only, `UNRESOLVED`, no name |
+| 5013–5020 | Reserved permanent-failure range for TS 29.229 in TS 29.230 table 8.1.4 | Numeric only, `UNRESOLVED`, no name |
+| 5021–5040 | Reserved for TS 32.299 in TS 29.230 table 8.1.4 | Numeric only; not a Cx/Dx result code and no Cx/Dx semantics |
+| Other 3GPP codes | Unknown/unreviewed | Numeric only, no name |
 
 Base Result-Code values retain RFC 6733 semantics. Base 2001/2002 are not Cx
 success codes and are never merged with Experimental-Result 2001/2002.
