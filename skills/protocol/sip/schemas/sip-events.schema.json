@@ -244,7 +244,6 @@
       "additionalProperties": false,
       "required": [
         "present",
-        "valid",
         "seconds"
       ],
       "properties": {
@@ -307,7 +306,6 @@
         "record_route",
         "contact",
         "contact_expires",
-        "contact_non_wildcard",
         "contact_wildcard",
         "expires",
         "min_expires",
