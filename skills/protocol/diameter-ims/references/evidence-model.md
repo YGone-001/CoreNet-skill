@@ -42,17 +42,25 @@ The observation reference is derived from the anchor frame and occurrence
 
 ## AVP presence
 
-Each reviewed AVP publishes:
+Each reviewed AVP publishes two names:
 
-- code, reviewed name and expected Vendor-ID;
+- `canonical_name`: the normative 3GPP name from TS 29.229 clause 6.3;
+- `name`: the reviewed decoder alias used by the installed Diameter decoder.
+
+For most AVPs the two names are identical. For 606–610 and 612–613 they differ;
+the code and Vendor-ID are the stable identity. See `avp-reference.md`.
+
+Each reviewed AVP also publishes:
+
+- code, expected Vendor-ID and sensitivity;
 - occurrence count across the published Core AVP subset;
 - one of `PRESENT`, `PRESENT_REDACTED`, `PRESENT_STRUCTURE_ONLY`,
   `NOT_OBSERVED` or `NOT_OBSERVED_IN_PUBLISHED_SUBSET`;
-- sensitivity and grouped classification;
-- decoder-reported grouping status;
+- grouped classification and decoder-reported grouping status;
 - whether grouped child structure is proven;
 - reviewed enumerated values only where the vocabulary permits them;
-- direct child summaries when the parent structure is proven.
+- direct child summaries, each with both names, when the parent structure is
+  proven.
 
 `NOT_OBSERVED_IN_PUBLISHED_SUBSET` is used when Diameter Core reported omitted
 AVPs. It is not proof that the AVP was absent from the message.
@@ -62,6 +70,11 @@ publishes children from the first proven occurrence and preserves the Core child
 omission count.
 
 ## Result evidence
+
+Cx/Dx result values are carried inside Experimental-Result with Vendor-ID 10415;
+Result-Code is absent when such a value is present (TS 29.229 clause 6.2). The
+producer does not require the input to omit Result-Code, but it refuses to merge
+the two namespaces when both are supplied.
 
 The result object preserves every Core base and experimental result entry,
 including AVP references where the Core supplied them. It publishes:
@@ -73,6 +86,31 @@ including AVP references where the Core supplied them. It publishes:
 - the selected reviewed base or experimental code and name, or null when the
   evidence is conflicting, duplicated or unreviewed;
 - separate arrays for base and experimental result evidence.
+
+### Cx success results
+
+Experimental-Result codes 2001–2004 with Vendor-ID 10415 are reviewed Cx success
+results. They publish `SUCCESS_REPORTED` and the exact TS 29.229 names
+`DIAMETER_FIRST_REGISTRATION`, `DIAMETER_SUBSEQUENT_REGISTRATION`,
+`DIAMETER_UNREGISTERED_SERVICE` and `DIAMETER_SUCCESS_SERVER_NAME_NOT_STORED`.
+The numeric code and Vendor-ID are preserved.
+
+These values are not RFC 6733 base Result-Code semantics. Base Result-Code
+2001/2002 retain their own base-protocol success classification.
+
+### Cx permanent failures
+
+Experimental-Result codes 5001–5009, 5011 and 5012 with Vendor-ID 10415 publish
+`FAILURE_REPORTED` and their exact TS 29.229 names.
+
+### Void and reserved values
+
+- 2005 is Void in clause 6.2.1.5; numeric only, `UNRESOLVED`, no name.
+- 5010 is Void in clause 6.2.2.10; numeric only, `UNRESOLVED`, no name, with an
+  explicit limitation.
+- 5013–5020 are reserved/unreviewed; numeric only, no name.
+- Other unreviewed 3GPP codes and other vendor namespaces remain numeric with no
+  semantic name.
 
 Conflicting or duplicated result evidence is never collapsed into one value.
 

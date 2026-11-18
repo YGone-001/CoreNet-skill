@@ -9,7 +9,7 @@ The following values are never published, even when Diameter Core exposes them:
 - SIP authentication credentials, RAND, AUTN, XRES, KASME or any
   authentication vector.
 - SIP-Authenticate, SIP-Authorization or SIP-Authentication-Context contents.
-- Cx-User-Data contents.
+- User-Data (decoder alias Cx-User-Data) contents.
 - Confidentiality-Key or Integrity-Key contents.
 - Reason-Info free text.
 - Raw SIP identity or registration state.
@@ -22,9 +22,9 @@ sensitivity flag:
 | Code | AVP |
 | --- | --- |
 | 601 | Public-Identity |
-| 606 | Cx-User-Data |
-| 609 | 3GPP-SIP-Authenticate |
-| 610 | 3GPP-SIP-Authorization |
+| 606 | User-Data (Cx-User-Data) |
+| 609 | SIP-Authenticate (3GPP-SIP-Authenticate) |
+| 610 | SIP-Authorization (3GPP-SIP-Authorization) |
 | 611 | SIP-Authentication-Context |
 | 617 | Reason-Info |
 | 625 | Confidentiality-Key |

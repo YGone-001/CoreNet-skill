@@ -175,9 +175,12 @@ success.
 Implemented: `diameter-ims`, the Diameter IMS Cx/Dx application-message Skill. It
 consumes accepted `diameter-core` events and transactions and publishes bounded
 UAR/UAA, SAR/SAA, LIR/LIA, MAR/MAA, RTR/RTA and PPR/PPA command identity,
-reviewed AVP presence with decoder-proven grouped structure, independent base and
-3GPP Experimental-Result namespaces, and an explicitly `UNPROVED` Cx/Dx interface
-identity. It does not prove IMS registration, subscriber authentication, HSS
+reviewed AVP presence with normative TS 29.229 names and decoder aliases,
+decoder-proven grouped structure, independent base and 3GPP Experimental-Result
+namespaces, and an explicitly `UNPROVED` Cx/Dx interface identity. Its Release 19
+result handling recognizes Cx success 2001–2004 and permanent failures 5001–5009,
+5011 and 5012, treats 2005 and 5010 as Void, and leaves reserved or unreviewed
+codes numeric. It does not prove IMS registration, subscriber authentication, HSS
 authorization or S-CSCF assignment, and the Diameter IMS Sh and Rx applications
 remain planned.
 

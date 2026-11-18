@@ -18,7 +18,7 @@ application identity.
   Server-Capabilities. The Skill does not decide whether the I-CSCF or HSS
   authorized the user.
 - SAR/SAA: server-assignment request and answer evidence. The answer may carry
-  Cx-User-Data and Supported-Features. The Skill does not decide S-CSCF
+  User-Data (decoder alias Cx-User-Data) and Supported-Features. The Skill does not decide S-CSCF
   assignment, profile installation or registration success.
 - LIR/LIA: location-information request and answer evidence. The answer may carry
   Server-Name. The Skill does not decide the serving S-CSCF location.
@@ -29,7 +29,7 @@ application identity.
   carry Deregistration-Reason. The Skill does not decide that the subscriber was
   deregistered or lost service.
 - PPR/PPA: push-profile request and answer evidence. The request may carry
-  Cx-User-Data. The Skill does not decide that a profile update was installed.
+  User-Data (decoder alias Cx-User-Data). The Skill does not decide that a profile update was installed.
 
 ## Unreviewed command codes
 
@@ -57,3 +57,37 @@ Transactions for other Diameter applications are not interpreted. They appear in
 the command inventory with a non-Cx/Dx scope and are omitted from observations,
 except that a reviewed Cx/Dx command code under a wrong Application-ID is kept as
 `CONFLICTING`.
+
+## Result evidence
+
+TS 29.229 clause 6.2 requires Cx/Dx result values to be carried inside
+Experimental-Result with Vendor-ID 10415; Result-Code shall be absent. The Skill
+keeps the base and experimental namespaces separate even when both are supplied.
+
+| Experimental-Result-Code | Reviewed name | Application result |
+| --- | --- | --- |
+| 2001 | `DIAMETER_FIRST_REGISTRATION` | `SUCCESS_REPORTED` |
+| 2002 | `DIAMETER_SUBSEQUENT_REGISTRATION` | `SUCCESS_REPORTED` |
+| 2003 | `DIAMETER_UNREGISTERED_SERVICE` | `SUCCESS_REPORTED` |
+| 2004 | `DIAMETER_SUCCESS_SERVER_NAME_NOT_STORED` | `SUCCESS_REPORTED` |
+| 5001 | `DIAMETER_ERROR_USER_UNKNOWN` | `FAILURE_REPORTED` |
+| 5002 | `DIAMETER_ERROR_IDENTITIES_DONT_MATCH` | `FAILURE_REPORTED` |
+| 5003 | `DIAMETER_ERROR_IDENTITY_NOT_REGISTERED` | `FAILURE_REPORTED` |
+| 5004 | `DIAMETER_ERROR_ROAMING_NOT_ALLOWED` | `FAILURE_REPORTED` |
+| 5005 | `DIAMETER_ERROR_IDENTITY_ALREADY_REGISTERED` | `FAILURE_REPORTED` |
+| 5006 | `DIAMETER_ERROR_AUTH_SCHEME_NOT_SUPPORTED` | `FAILURE_REPORTED` |
+| 5007 | `DIAMETER_ERROR_IN_ASSIGNMENT_TYPE` | `FAILURE_REPORTED` |
+| 5008 | `DIAMETER_ERROR_TOO_MUCH_DATA` | `FAILURE_REPORTED` |
+| 5009 | `DIAMETER_ERROR_NOT_SUPPORTED_USER_DATA` | `FAILURE_REPORTED` |
+| 5011 | `DIAMETER_ERROR_FEATURE_UNSUPPORTED` | `FAILURE_REPORTED` |
+| 5012 | `DIAMETER_ERROR_SERVING_NODE_FEATURE_UNSUPPORTED` | `FAILURE_REPORTED` |
+
+Code 2005 is Void (clause 6.2.1.5). Code 5010 is Void (clause 6.2.2.10).
+Codes 5013–5020 are reserved in the reviewed baseline. Void, reserved and
+unreviewed codes keep their numeric identity and publish no semantic name;
+their application result stays `UNRESOLVED`. A missing or non-3GPP Vendor-ID
+never receives Cx semantics.
+
+Base Result-Code 2001/2002 remains base-protocol success and is never merged with
+Experimental-Result 2001/2002. Simultaneous base and experimental results remain
+`CONFLICTING` and `UNRESOLVED`.

@@ -5,10 +5,18 @@ accepted `diameter-core` events and transactions.
 
 The Skill recognizes the Cx/Dx Application-ID 16777216 command families
 UAR/UAA, SAR/SAA, LIR/LIA, MAR/MAA, RTR/RTA and PPR/PPA. It publishes reviewed
-AVP presence, occurrence counts and decoder-proven grouped structure, keeps base
-`Result-Code` and 3GPP `Experimental-Result` namespaces separate, and always
-publishes `interface_identity = UNPROVED` because Cx and Dx share the same
-application semantics.
+AVP presence with both the normative TS 29.229 name and the decoder alias,
+occurrence counts and decoder-proven grouped structure, keeps base `Result-Code`
+and 3GPP `Experimental-Result` namespaces separate, and always publishes
+`interface_identity = UNPROVED` because Cx and Dx share the same application
+semantics.
+
+The Release 19-aligned result handling recognizes Cx Experimental-Result success
+codes 2001–2004 (`DIAMETER_FIRST_REGISTRATION`,
+`DIAMETER_SUBSEQUENT_REGISTRATION`, `DIAMETER_UNREGISTERED_SERVICE`,
+`DIAMETER_SUCCESS_SERVER_NAME_NOT_STORED`) and permanent failures 5001–5009,
+5011 and 5012. Code 2005 and code 5010 are Void and remain numeric and
+`UNRESOLVED`; codes 5013–5020 are reserved and receive no invented names.
 
 It does not prove IMS registration, subscriber authentication, HSS
 authorization, S-CSCF assignment, media delivery or call success. It does not

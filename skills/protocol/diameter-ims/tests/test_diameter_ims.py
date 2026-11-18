@@ -306,6 +306,9 @@ class DiameterImsFixtureBehaviorTest(unittest.TestCase):
         self.assertEqual(completeness["conflicting_observations"], 1)
         self.assertEqual(completeness["observations_with_unproven_grouping"], 1)
 
+    def test_analysis_version_is_corrected(self) -> None:
+        self.assertEqual(self.document["analysis_version"], "1.1.0")
+
     def test_no_ims_registration_or_call_verdict(self) -> None:
         text = json.dumps(self.document) + model.render_timeline(self.document)
         for token in (
@@ -462,6 +465,113 @@ class DiameterImsResultNamespaceTest(unittest.TestCase):
         self.assertEqual(len(observation["result"]["base_results"]), 1)
         self.assertEqual(len(observation["result"]["experimental_results"]), 1)
 
+    def test_cx_success_results_2001_to_2004(self) -> None:
+        expected = {
+            2001: "DIAMETER_FIRST_REGISTRATION",
+            2002: "DIAMETER_SUBSEQUENT_REGISTRATION",
+            2003: "DIAMETER_UNREGISTERED_SERVICE",
+            2004: "DIAMETER_SUCCESS_SERVER_NAME_NOT_STORED",
+        }
+        for code, name in expected.items():
+            classified = model.classify_result(self.answer(experimental_result(code, VENDOR)))
+            self.assertEqual(classified["namespace_status"], "3GPP_TS_29_229_EXPERIMENTAL")
+            self.assertEqual(classified["application_result"], "SUCCESS_REPORTED")
+            self.assertEqual(classified["experimental_result_code"], code)
+            self.assertEqual(classified["experimental_result_code_name"], name)
+            self.assertEqual(classified["experimental_vendor_id"], VENDOR)
+            self.assertIsNone(classified["base_result_code"])
+            self.assertIsNone(classified["base_result_code_name"])
+
+    def test_base_2001_and_2002_remain_base_success(self) -> None:
+        for code in (2001, 2002):
+            classified = model.classify_result(self.answer(base_result(code, "DIAMETER_SUCCESS")))
+            self.assertEqual(classified["namespace_status"], "BASE_RFC6733")
+            self.assertEqual(classified["application_result"], "SUCCESS_REPORTED")
+            self.assertEqual(classified["base_result_code"], code)
+            self.assertIsNone(classified["experimental_result_code_name"])
+
+    def test_experimental_2001_missing_vendor_is_numeric_only(self) -> None:
+        classified = model.classify_result(self.answer(experimental_result(2001, None)))
+        self.assertEqual(classified["namespace_status"], "UNKNOWN_VENDOR_EXPERIMENTAL")
+        self.assertEqual(classified["application_result"], "UNRESOLVED")
+        self.assertEqual(classified["experimental_result_code"], 2001)
+        self.assertIsNone(classified["experimental_result_code_name"])
+
+    def test_experimental_2001_wrong_vendor_is_numeric_only(self) -> None:
+        classified = model.classify_result(self.answer(experimental_result(2001, 9999)))
+        self.assertEqual(classified["namespace_status"], "UNKNOWN_VENDOR_EXPERIMENTAL")
+        self.assertEqual(classified["application_result"], "UNRESOLVED")
+        self.assertIsNone(classified["experimental_result_code_name"])
+
+    def test_experimental_2002_wrong_vendor_is_numeric_only(self) -> None:
+        classified = model.classify_result(self.answer(experimental_result(2002, 9999)))
+        self.assertEqual(classified["namespace_status"], "UNKNOWN_VENDOR_EXPERIMENTAL")
+        self.assertEqual(classified["application_result"], "UNRESOLVED")
+        self.assertIsNone(classified["experimental_result_code_name"])
+
+    def test_reviewed_permanent_failure_results(self) -> None:
+        expected = {
+            5001: "DIAMETER_ERROR_USER_UNKNOWN",
+            5002: "DIAMETER_ERROR_IDENTITIES_DONT_MATCH",
+            5003: "DIAMETER_ERROR_IDENTITY_NOT_REGISTERED",
+            5004: "DIAMETER_ERROR_ROAMING_NOT_ALLOWED",
+            5005: "DIAMETER_ERROR_IDENTITY_ALREADY_REGISTERED",
+            5006: "DIAMETER_ERROR_AUTH_SCHEME_NOT_SUPPORTED",
+            5007: "DIAMETER_ERROR_IN_ASSIGNMENT_TYPE",
+            5008: "DIAMETER_ERROR_TOO_MUCH_DATA",
+            5009: "DIAMETER_ERROR_NOT_SUPPORTED_USER_DATA",
+            5011: "DIAMETER_ERROR_FEATURE_UNSUPPORTED",
+            5012: "DIAMETER_ERROR_SERVING_NODE_FEATURE_UNSUPPORTED",
+        }
+        for code, name in expected.items():
+            classified = model.classify_result(self.answer(experimental_result(code, VENDOR)))
+            self.assertEqual(classified["namespace_status"], "3GPP_TS_29_229_EXPERIMENTAL")
+            self.assertEqual(classified["application_result"], "FAILURE_REPORTED")
+            self.assertEqual(classified["experimental_result_code"], code)
+            self.assertEqual(classified["experimental_result_code_name"], name)
+
+    def test_5010_is_unassigned_void(self) -> None:
+        classified = model.classify_result(self.answer(experimental_result(5010, VENDOR)))
+        self.assertEqual(classified["namespace_status"], "3GPP_TS_29_229_EXPERIMENTAL")
+        self.assertEqual(classified["application_result"], "UNRESOLVED")
+        self.assertEqual(classified["experimental_result_code"], 5010)
+        self.assertIsNone(classified["experimental_result_code_name"])
+        self.assertTrue(
+            any("Void" in limitation and "6.2.2.10" in limitation for limitation in classified["limitations"])
+        )
+        self.assertNotIn(5010, model.THREEGPP_CX_FAILURE_RESULT_NAMES)
+        self.assertNotIn(5010, model.THREEGPP_CX_RESULT_NAMES)
+
+    def test_2005_is_void(self) -> None:
+        classified = model.classify_result(self.answer(experimental_result(2005, VENDOR)))
+        self.assertEqual(classified["application_result"], "UNRESOLVED")
+        self.assertEqual(classified["experimental_result_code"], 2005)
+        self.assertIsNone(classified["experimental_result_code_name"])
+        self.assertTrue(any("6.2.1.5" in limitation for limitation in classified["limitations"]))
+
+    def test_reserved_and_unknown_codes_keep_numeric_identity(self) -> None:
+        for code in (5013, 5020):
+            classified = model.classify_result(self.answer(experimental_result(code, VENDOR)))
+            self.assertEqual(classified["application_result"], "UNRESOLVED")
+            self.assertEqual(classified["experimental_result_code"], code)
+            self.assertIsNone(classified["experimental_result_code_name"])
+            self.assertTrue(any("reserved" in limitation for limitation in classified["limitations"]))
+        classified = model.classify_result(self.answer(experimental_result(5999, VENDOR)))
+        self.assertEqual(classified["application_result"], "UNRESOLVED")
+        self.assertEqual(classified["experimental_result_code"], 5999)
+        self.assertIsNone(classified["experimental_result_code_name"])
+
+    def test_success_and_failure_result_maps_do_not_overlap(self) -> None:
+        self.assertFalse(
+            set(model.THREEGPP_CX_SUCCESS_RESULT_NAMES)
+            & set(model.THREEGPP_CX_FAILURE_RESULT_NAMES)
+        )
+        self.assertEqual(set(model.THREEGPP_CX_SUCCESS_RESULT_NAMES), {2001, 2002, 2003, 2004})
+        self.assertEqual(
+            set(model.THREEGPP_CX_FAILURE_RESULT_NAMES),
+            {5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 5009, 5011, 5012},
+        )
+
 
 class DiameterImsAvpEvidenceTest(unittest.TestCase):
     def test_present_grouped_avp_requires_proven_children(self) -> None:
@@ -522,6 +632,36 @@ class DiameterImsAvpEvidenceTest(unittest.TestCase):
         record = event([avp(999, "Unreviewed", vendor=VENDOR)])
         self.assertNotIn(999, model.AVP_NAMES)
         self.assertIsNone(model.AVP_NAMES.get(999))
+
+    def test_canonical_names_reconcile_decoder_aliases(self) -> None:
+        expected = {
+            606: ("Cx-User-Data", "User-Data"),
+            607: ("3GPP-SIP-Number-Auth-Items", "SIP-Number-Auth-Items"),
+            608: ("3GPP-SIP-Authentication-Scheme", "SIP-Authentication-Scheme"),
+            609: ("3GPP-SIP-Authenticate", "SIP-Authenticate"),
+            610: ("3GPP-SIP-Authorization", "SIP-Authorization"),
+            612: ("3GPP-SIP-Auth-Data-Item", "SIP-Auth-Data-Item"),
+            613: ("3GPP-SIP-Item-Number", "SIP-Item-Number"),
+        }
+        for code, (decoder_name, canonical_name) in expected.items():
+            record = event([avp(code, decoder_name, vendor=VENDOR)])
+            item = model._presence(record, code, 0)
+            self.assertEqual(item["name"], decoder_name)
+            self.assertEqual(item["canonical_name"], canonical_name)
+
+    def test_grouped_child_carries_canonical_name(self) -> None:
+        parent = avp(612, "3GPP-SIP-Auth-Data-Item", vendor=VENDOR, grouping="DECODED", kind="GROUPED")
+        parent["children"] = [avp(613, "3GPP-SIP-Item-Number", vendor=VENDOR, kind="INTEGER", value=1)]
+        item = model._presence(event([parent]), 612, 0)
+        self.assertEqual(item["children"][0]["name"], "3GPP-SIP-Item-Number")
+        self.assertEqual(item["children"][0]["canonical_name"], "SIP-Item-Number")
+
+    def test_implemented_avps_expose_both_names(self) -> None:
+        document = analyze_documents()
+        for observation in document["observations"]:
+            for item in observation["request_avp_presence"] + observation["answer_avp_presence"]:
+                self.assertIn("canonical_name", item)
+                self.assertTrue(item["canonical_name"])
 
 
 class DiameterImsPrivacyTest(unittest.TestCase):
@@ -639,6 +779,14 @@ class DiameterImsInputValidationTest(unittest.TestCase):
         completed = self.run_cli(path, tx_path)
         self.assertEqual(completed.returncode, 2)
         self.assertIn("missing required event field", completed.stderr)
+
+    def test_malformed_result_structure_is_rejected(self) -> None:
+        events, transactions = load_documents()
+        events[0]["result"] = []
+        path, tx_path = self.write(events, transactions)
+        completed = self.run_cli(path, tx_path)
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("result must be an object", completed.stderr)
 
     def test_inconsistent_matched_transaction_is_rejected(self) -> None:
         events, transactions = load_documents()

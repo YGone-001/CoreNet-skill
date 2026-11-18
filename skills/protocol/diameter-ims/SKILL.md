@@ -17,13 +17,15 @@ S-CSCF is assigned, or whether IMS service is available.
   PPR/PPA.
 - Reviewed, bounded Cx/Dx AVP presence for the command family actually observed:
   Public-Identity, Server-Name, Server-Capabilities, Mandatory-Capability,
-  Optional-Capability, Cx-User-Data, 3GPP-SIP-Number-Auth-Items,
-  3GPP-SIP-Authentication-Scheme, 3GPP-SIP-Authenticate,
-  3GPP-SIP-Authorization, SIP-Authentication-Context, 3GPP-SIP-Auth-Data-Item,
-  3GPP-SIP-Item-Number, Server-Assignment-Type, Deregistration-Reason,
-  Reason-Code, Reason-Info, User-Authorization-Type,
-  User-Data-Already-Available, Confidentiality-Key, Integrity-Key,
-  Supported-Features, Feature-List-ID and Feature-List.
+  Optional-Capability, User-Data (decoder alias Cx-User-Data),
+  SIP-Number-Auth-Items (3GPP-SIP-Number-Auth-Items),
+  SIP-Authentication-Scheme (3GPP-SIP-Authentication-Scheme),
+  SIP-Authenticate (3GPP-SIP-Authenticate), SIP-Authorization
+  (3GPP-SIP-Authorization), SIP-Authentication-Context, SIP-Auth-Data-Item
+  (3GPP-SIP-Auth-Data-Item), SIP-Item-Number (3GPP-SIP-Item-Number),
+  Server-Assignment-Type, Deregistration-Reason, Reason-Code, Reason-Info,
+  User-Authorization-Type, User-Data-Already-Available, Confidentiality-Key,
+  Integrity-Key, Supported-Features, Feature-List-ID and Feature-List.
 - Decoder-proven grouped AVP child structure for Server-Capabilities,
   3GPP-SIP-Auth-Data-Item, Deregistration-Reason and Supported-Features. Child
   relationships are never inferred from AVP list order.
@@ -44,7 +46,8 @@ S-CSCF is assigned, or whether IMS service is available.
   call-success verdict.
 - No SIP REGISTER correlation or IMS subscriber identity establishment.
 - No Sh, Rx or Ro/Gy application procedures.
-- No raw Public-Identity, IMPI, IMPU, MSISDN, Cx-User-Data, authentication
+- No raw Public-Identity, IMPI, IMPU, MSISDN, User-Data (decoder alias
+  Cx-User-Data), authentication
   vector, SIP-Authenticate, SIP-Authorization or keying-material publication.
 - No Cx-versus-Dx interface inference from Application-ID, command code, TCP
   port, hostname, IP address, Origin-Host, message ordering or endpoint role.
@@ -87,16 +90,33 @@ registration, subscriber authentication, HSS authorization or IMS service.
 ## Result namespaces
 
 Base `Result-Code` follows RFC 6733 value classes. A 3GPP `Experimental-Result`
-requires Vendor-ID 10415 and a reviewed TS 29.229 Cx/Dx code. Identical numeric
-values in the two namespaces never share a name. Simultaneous base and
-experimental results remain `CONFLICTING` and unresolved. The producer consumes
-Core result arrays and preserves their AVP provenance; a vendor-specific code is
-never treated as a base Result-Code.
+requires Vendor-ID 10415 and a reviewed TS 29.229 Cx/Dx code. TS 29.229 clause
+6.2 requires Cx/Dx values to be carried in Experimental-Result with Result-Code
+absent. Identical numeric values in the two namespaces never share a name:
+Experimental-Result 2001 is `DIAMETER_FIRST_REGISTRATION`, while base 2001 is
+`DIAMETER_SUCCESS`.
+
+Reviewed Cx success results (Experimental-Result, Vendor-ID 10415) are 2001
+`DIAMETER_FIRST_REGISTRATION`, 2002 `DIAMETER_SUBSEQUENT_REGISTRATION`, 2003
+`DIAMETER_UNREGISTERED_SERVICE` and 2004
+`DIAMETER_SUCCESS_SERVER_NAME_NOT_STORED`; each publishes `SUCCESS_REPORTED`.
+Reviewed permanent failures are 5001–5009, 5011 and 5012 and publish
+`FAILURE_REPORTED`.
+
+Code 2005 is Void (clause 6.2.1.5). Code 5010 is Void (clause 6.2.2.10). Codes
+5013–5020 are reserved in the reviewed baseline. Void, reserved and unreviewed
+codes keep their numeric identity, publish no name and remain `UNRESOLVED`.
+
+Simultaneous base and experimental results remain `CONFLICTING` and unresolved.
+The producer consumes Core result arrays and preserves their AVP provenance; a
+vendor-specific code is never treated as a base Result-Code.
 
 ## AVP semantics
 
 Only reviewed AVPs are classified. A reviewed AVP requires its expected
 namespace: 3GPP AVPs require Vendor-ID 10415 and base AVPs require no vendor.
+Each AVP publishes `canonical_name` (the normative TS 29.229 name) and `name`
+(the reviewed decoder alias); the code and Vendor-ID remain the stable identity.
 Repeated occurrences are counted, not collapsed into one. A present grouped AVP
 publishes child structure only when Diameter Core reports `DECODED`; otherwise
 `structure_proven` is false and children are not inferred. A missing reviewed AVP
@@ -130,10 +150,14 @@ as malformed.
 
 ## Limits
 
-- The reviewed command and AVP set follows the Cx/Dx block of the installed
-  TShark/Wireshark 4.2.2 Diameter dictionary, which cites 3GPP TS 29.229
-  version 6.7.0 Release 6. The specification PDF was not downloaded; later
-  releases were not compared clause by clause.
+- The reviewed command, AVP and result set follows 3GPP TS 29.229 V19.1.0
+  Release 19, clauses 6.1, 6.2, 6.3.0 and 6.3.7–6.3.14. The official ETSI PDF
+  was downloaded and reviewed for those clauses. TS 29.228 V19.2.0 and
+  TS 29.230 V19.3.0 were not retrievable in this environment and were not
+  clause-audited. Later releases were not compared clause by clause, and this
+  Skill does not claim full Release 19 conformance.
+- The installed TShark/Wireshark 4.2.2 dictionary is used only as the reviewed
+  decoder-alias and grouping reference.
 - Grouped structure is limited to decoder-proven direct children.
 - An unanswered request is not a timeout.
 - Cx/Dx interface identity and network-function roles remain unproved.
@@ -142,7 +166,8 @@ as malformed.
 ## Provenance
 
 Original CoreNet Protocol-layer package. No upstream material imported.
-Standards basis: 3GPP TS 29.229 for Cx/Dx commands, AVPs and experimental
-results; 3GPP TS 29.228 for stage-2 procedure context; RFC 6733 for the Diameter
-base protocol. Command and AVP codes were checked against the reviewed TShark
-4.2.2 decoder dictionary.
+Standards basis: 3GPP TS 29.229 V19.1.0 for Cx/Dx commands, AVPs and result
+codes; 3GPP TS 29.228 V19.2.0 for stage-2 procedure context (not clause-audited);
+3GPP TS 29.230 V19.3.0 for registry ownership (not clause-audited); RFC 6733 for
+the Diameter base protocol. The reviewed TShark 4.2.2 dictionary supplies only
+decoder display aliases and grouped-AVP decoding.

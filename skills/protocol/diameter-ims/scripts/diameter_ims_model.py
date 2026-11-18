@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 ANALYSIS_NAME = "diameter-ims"
-ANALYSIS_VERSION = "1.0.0"
+ANALYSIS_VERSION = "1.1.0"
 
 CX_APPLICATION_ID = 16777216
 THREEGPP_VENDOR_ID = 10415
@@ -79,6 +79,23 @@ AVP_NAMES = {code: name for code, name, _, _ in AVP_VOCABULARY}
 GROUPED_CODES = {code for code, _, _, grouped in AVP_VOCABULARY if grouped}
 AVP_VENDORS = {code: vendor for code, _, vendor, _ in AVP_VOCABULARY}
 
+# TS 29.229 clause 6.3 uses the normative 3GPP AVP names below. The installed
+# Wireshark dictionary exposes the "3GPP-" prefixed aliases for several of them.
+CANONICAL_AVP_NAMES = {
+    606: "User-Data",
+    607: "SIP-Number-Auth-Items",
+    608: "SIP-Authentication-Scheme",
+    609: "SIP-Authenticate",
+    610: "SIP-Authorization",
+    612: "SIP-Auth-Data-Item",
+    613: "SIP-Item-Number",
+}
+
+
+def canonical_avp_name(code: int) -> str | None:
+    return CANONICAL_AVP_NAMES.get(code, AVP_NAMES.get(code))
+
+
 # AVPs whose contents are never published, regardless of Diameter Core marking.
 PROTECTED_CODES = {
     1,  # User-Name
@@ -127,7 +144,14 @@ REVIEWED_ENUMS = {
     },
 }
 
-THREEGPP_CX_RESULT_NAMES = {
+THREEGPP_CX_SUCCESS_RESULT_NAMES = {
+    2001: "DIAMETER_FIRST_REGISTRATION",
+    2002: "DIAMETER_SUBSEQUENT_REGISTRATION",
+    2003: "DIAMETER_UNREGISTERED_SERVICE",
+    2004: "DIAMETER_SUCCESS_SERVER_NAME_NOT_STORED",
+}
+
+THREEGPP_CX_FAILURE_RESULT_NAMES = {
     5001: "DIAMETER_ERROR_USER_UNKNOWN",
     5002: "DIAMETER_ERROR_IDENTITIES_DONT_MATCH",
     5003: "DIAMETER_ERROR_IDENTITY_NOT_REGISTERED",
@@ -137,10 +161,20 @@ THREEGPP_CX_RESULT_NAMES = {
     5007: "DIAMETER_ERROR_IN_ASSIGNMENT_TYPE",
     5008: "DIAMETER_ERROR_TOO_MUCH_DATA",
     5009: "DIAMETER_ERROR_NOT_SUPPORTED_USER_DATA",
-    5010: "DIAMETER_MISSING_USER_ID",
     5011: "DIAMETER_ERROR_FEATURE_UNSUPPORTED",
     5012: "DIAMETER_ERROR_SERVING_NODE_FEATURE_UNSUPPORTED",
 }
+
+# Combined view retained for callers that need all reviewed Cx result names.
+THREEGPP_CX_RESULT_NAMES = {
+    **THREEGPP_CX_SUCCESS_RESULT_NAMES,
+    **THREEGPP_CX_FAILURE_RESULT_NAMES,
+}
+
+# TS 29.229 V19.1.0 clause 6.2.1.5 and clause 6.2.2.10 define these as Void.
+THREEGPP_CX_VOID_RESULT_CODES = {2005, 5010}
+# TS 29.229 reserves 5013-5020 in the reviewed Release 19 baseline.
+THREEGPP_CX_RESERVED_RESULT_CODES = frozenset(range(5013, 5021))
 
 BASE_SUCCESS = {2001, 2002}
 
@@ -467,6 +501,7 @@ def _grouped_children(avp: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
             entry = {
                 "code": code,
                 "name": AVP_NAMES.get(code) or child.get("name"),
+                "canonical_name": canonical_avp_name(code) or child.get("name"),
                 "vendor_id": child.get("vendor_id"),
                 "occurrence_count": 0,
                 "sensitive": bool(child.get("sensitive")) or code in PROTECTED_CODES,
@@ -523,6 +558,7 @@ def _presence(
         return {
             "code": code,
             "name": AVP_NAMES[code],
+            "canonical_name": canonical_avp_name(code),
             "vendor_id": AVP_VENDORS[code],
             "occurrence_count": len(matches),
             "status": status,
@@ -538,6 +574,7 @@ def _presence(
     return {
         "code": code,
         "name": AVP_NAMES[code],
+        "canonical_name": canonical_avp_name(code),
         "vendor_id": AVP_VENDORS[code],
         "occurrence_count": 0,
         "status": "NOT_OBSERVED_IN_PUBLISHED_SUBSET" if omitted else "NOT_OBSERVED",
@@ -684,7 +721,21 @@ def classify_result(answer: dict[str, Any] | None) -> dict[str, Any]:
         entry = experimental_entries[0]
         vendor_id = entry.get("vendor_id")
         experimental_code = entry.get("code")
-        if vendor_id == THREEGPP_VENDOR_ID and experimental_code in THREEGPP_CX_RESULT_NAMES:
+        if vendor_id == THREEGPP_VENDOR_ID and experimental_code in THREEGPP_CX_SUCCESS_RESULT_NAMES:
+            return {
+                "core_result_status": status,
+                "namespace_status": "3GPP_TS_29_229_EXPERIMENTAL",
+                "application_result": "SUCCESS_REPORTED",
+                "base_result_code": None,
+                "base_result_code_name": None,
+                "experimental_result_code": experimental_code,
+                "experimental_result_code_name": THREEGPP_CX_SUCCESS_RESULT_NAMES[experimental_code],
+                "experimental_vendor_id": vendor_id,
+                "base_results": [],
+                "experimental_results": experimental_entries,
+                "limitations": [],
+            }
+        if vendor_id == THREEGPP_VENDOR_ID and experimental_code in THREEGPP_CX_FAILURE_RESULT_NAMES:
             return {
                 "core_result_status": status,
                 "namespace_status": "3GPP_TS_29_229_EXPERIMENTAL",
@@ -692,16 +743,28 @@ def classify_result(answer: dict[str, Any] | None) -> dict[str, Any]:
                 "base_result_code": None,
                 "base_result_code_name": None,
                 "experimental_result_code": experimental_code,
-                "experimental_result_code_name": THREEGPP_CX_RESULT_NAMES[experimental_code],
+                "experimental_result_code_name": THREEGPP_CX_FAILURE_RESULT_NAMES[experimental_code],
                 "experimental_vendor_id": vendor_id,
                 "base_results": [],
                 "experimental_results": experimental_entries,
                 "limitations": [],
             }
         if vendor_id == THREEGPP_VENDOR_ID:
-            limitations.append(
-                "the 3GPP Vendor-ID is present but the Experimental-Result-Code is not reviewed; no semantic name is assigned"
-            )
+            if experimental_code in THREEGPP_CX_VOID_RESULT_CODES:
+                clause = "6.2.1.5" if experimental_code == 2005 else "6.2.2.10"
+                limitations.append(
+                    "the Experimental-Result-Code is Void in TS 29.229 V19.1.0 clause "
+                    f"{clause}; no semantic name is assigned and the numeric value is preserved"
+                )
+            elif experimental_code in THREEGPP_CX_RESERVED_RESULT_CODES:
+                limitations.append(
+                    "the Experimental-Result-Code is in the reserved 5013-5020 range; "
+                    "numeric identity is preserved without a semantic name"
+                )
+            else:
+                limitations.append(
+                    "the 3GPP Vendor-ID is present but the Experimental-Result-Code is not reviewed; no semantic name is assigned"
+                )
             namespace = "3GPP_TS_29_229_EXPERIMENTAL"
         elif vendor_id is None:
             limitations.append(

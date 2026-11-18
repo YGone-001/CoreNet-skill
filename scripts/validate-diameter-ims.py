@@ -86,6 +86,10 @@ def check_analysis(analysis: dict, errors: list[str]) -> None:
     ]
     if capability.get("supported_commands") != expected_supported:
         errors.append("supported_commands diverges from the reviewed command set")
+    if model.ANALYSIS_VERSION != "1.1.0":
+        errors.append("producer analysis version is not the corrected 1.1.0 contract")
+    if analysis.get("analysis_version") != model.ANALYSIS_VERSION:
+        errors.append("analysis_version does not match the producer version")
 
     observations = analysis.get("observations", [])
     completeness = analysis.get("completeness", {})
@@ -158,16 +162,35 @@ def check_analysis(analysis: dict, errors: list[str]) -> None:
                 if item["command_code"] != observation["command_code"]:
                     errors.append("reference command code disagrees with its observation")
         for presence in observation["request_avp_presence"] + observation["answer_avp_presence"]:
+            if presence.get("canonical_name") != model.canonical_avp_name(presence["code"]):
+                errors.append(f"AVP {presence['code']} canonical name is not the reviewed TS 29.229 name")
+            if presence["code"] in model.AVP_NAMES and presence["name"] != model.AVP_NAMES[presence["code"]]:
+                errors.append(f"AVP {presence['code']} decoder name diverges from the reviewed alias")
             if presence["code"] in model.PROTECTED_CODES:
                 if presence["value_published"] or presence["reviewed_values"]:
                     errors.append(f"protected AVP {presence['code']} publishes a value")
             if presence["value_published"] and presence["code"] not in model.REVIEWED_ENUMS:
                 errors.append(f"AVP {presence['code']} publishes a value outside the reviewed enumerations")
             for child in presence["children"]:
+                expected_child_name = model.canonical_avp_name(child["code"]) or child["name"]
+                if child.get("canonical_name") != expected_child_name:
+                    errors.append(f"child AVP {child['code']} canonical name is not the reviewed TS 29.229 name")
                 if child["code"] in model.PROTECTED_CODES and child["value_published"]:
                     errors.append(f"protected child AVP {child['code']} publishes a value")
                 if child["value_published"] and child["code"] not in model.REVIEWED_ENUMS:
                     errors.append(f"child AVP {child['code']} publishes a value outside the reviewed enumerations")
+
+
+def _experimental(code: int, vendor) -> dict:
+    return {
+        "result": {
+            "result_code": None,
+            "result_namespace": "VENDOR_SPECIFIC" if code is not None else None,
+            "experimental_result_present": True,
+            "experimental_result_code": code,
+            "experimental_vendor_id": vendor,
+        }
+    }
 
 
 def namespace_checks() -> list[str]:
@@ -191,6 +214,95 @@ def namespace_checks() -> list[str]:
         errors.append("3GPP Experimental namespace is not TS 29.229")
     if unknown.get("experimental_result_code_name") is not None:
         errors.append("unknown vendor received 3GPP semantics")
+
+    success = {
+        2001: "DIAMETER_FIRST_REGISTRATION",
+        2002: "DIAMETER_SUBSEQUENT_REGISTRATION",
+        2003: "DIAMETER_UNREGISTERED_SERVICE",
+        2004: "DIAMETER_SUCCESS_SERVER_NAME_NOT_STORED",
+    }
+    for code, name in success.items():
+        classified = model.classify_result(_experimental(code, model.THREEGPP_VENDOR_ID))
+        if classified.get("experimental_result_code_name") != name:
+            errors.append(f"Cx success {code} mapping is wrong")
+        if classified.get("application_result") != "SUCCESS_REPORTED":
+            errors.append(f"Cx success {code} is not reported as SUCCESS_REPORTED")
+
+    for code in (2001, 2002):
+        classified = model.classify_result(
+            {"result": {"result_code": code, "result_code_name": "DIAMETER_SUCCESS", "result_namespace": "BASE", "experimental_result_present": False}}
+        )
+        if classified.get("application_result") != "SUCCESS_REPORTED":
+            errors.append(f"base success {code} is no longer classified as base success")
+        if classified.get("namespace_status") != "BASE_RFC6733":
+            errors.append(f"base success {code} lost its base namespace")
+
+    missing_vendor = model.classify_result(_experimental(2001, None))
+    wrong_vendor = model.classify_result(_experimental(2001, 9999))
+    wrong_vendor_2002 = model.classify_result(_experimental(2002, 9999))
+    for label, classified in (
+        ("2001 missing Vendor-ID", missing_vendor),
+        ("2001 wrong Vendor-ID", wrong_vendor),
+        ("2002 wrong Vendor-ID", wrong_vendor_2002),
+    ):
+        if classified.get("application_result") != "UNRESOLVED":
+            errors.append(f"{label} was not left unresolved")
+        if classified.get("experimental_result_code_name") is not None:
+            errors.append(f"{label} received a 3GPP Cx name")
+
+    failures = {
+        5001: "DIAMETER_ERROR_USER_UNKNOWN",
+        5002: "DIAMETER_ERROR_IDENTITIES_DONT_MATCH",
+        5003: "DIAMETER_ERROR_IDENTITY_NOT_REGISTERED",
+        5004: "DIAMETER_ERROR_ROAMING_NOT_ALLOWED",
+        5005: "DIAMETER_ERROR_IDENTITY_ALREADY_REGISTERED",
+        5006: "DIAMETER_ERROR_AUTH_SCHEME_NOT_SUPPORTED",
+        5007: "DIAMETER_ERROR_IN_ASSIGNMENT_TYPE",
+        5008: "DIAMETER_ERROR_TOO_MUCH_DATA",
+        5009: "DIAMETER_ERROR_NOT_SUPPORTED_USER_DATA",
+        5011: "DIAMETER_ERROR_FEATURE_UNSUPPORTED",
+        5012: "DIAMETER_ERROR_SERVING_NODE_FEATURE_UNSUPPORTED",
+    }
+    for code, name in failures.items():
+        classified = model.classify_result(_experimental(code, model.THREEGPP_VENDOR_ID))
+        if classified.get("experimental_result_code_name") != name:
+            errors.append(f"permanent failure {code} mapping is wrong")
+        if classified.get("application_result") != "FAILURE_REPORTED":
+            errors.append(f"permanent failure {code} is not reported as FAILURE_REPORTED")
+
+    void_5010 = model.classify_result(_experimental(5010, model.THREEGPP_VENDOR_ID))
+    if void_5010.get("application_result") != "UNRESOLVED":
+        errors.append("5010 was not left unresolved")
+    if void_5010.get("experimental_result_code_name") is not None:
+        errors.append("5010 received an invented semantic name")
+    if void_5010.get("experimental_result_code") != 5010:
+        errors.append("5010 numeric identity was not preserved")
+    if not any("6.2.2.10" in item for item in void_5010.get("limitations", [])):
+        errors.append("5010 limitation does not record the TS 29.229 Void clause")
+    if 5010 in model.THREEGPP_CX_FAILURE_RESULT_NAMES or 5010 in model.THREEGPP_CX_RESULT_NAMES:
+        errors.append("5010 is still present in the reviewed result-name maps")
+
+    void_2005 = model.classify_result(_experimental(2005, model.THREEGPP_VENDOR_ID))
+    if void_2005.get("application_result") != "UNRESOLVED" or void_2005.get("experimental_result_code_name") is not None:
+        errors.append("2005 Void was not left unresolved without a name")
+
+    for code in (5013, 5020):
+        classified = model.classify_result(_experimental(code, model.THREEGPP_VENDOR_ID))
+        if classified.get("experimental_result_code_name") is not None:
+            errors.append(f"reserved result {code} received a semantic name")
+        if classified.get("application_result") != "UNRESOLVED":
+            errors.append(f"reserved result {code} was not left unresolved")
+        if classified.get("experimental_result_code") != code:
+            errors.append(f"reserved result {code} lost numeric identity")
+
+    unreviewed = model.classify_result(_experimental(5999, model.THREEGPP_VENDOR_ID))
+    if unreviewed.get("experimental_result_code_name") is not None:
+        errors.append("unreviewed result 5999 received a semantic name")
+    if unreviewed.get("experimental_result_code") != 5999:
+        errors.append("unreviewed result 5999 lost numeric identity")
+
+    if set(model.THREEGPP_CX_SUCCESS_RESULT_NAMES) & set(model.THREEGPP_CX_FAILURE_RESULT_NAMES):
+        errors.append("Cx success and failure result maps overlap")
     return errors
 
 
@@ -221,7 +333,7 @@ def main() -> int:
         return 1
     schema = load_json(SKILL / "schemas" / "diameter-ims-analysis.schema.json")
     manifest = (SKILL / "manifest.yaml").read_text(encoding="utf-8")
-    for token in ('name: "diameter-ims"', "category: protocol", "diameter-core >=0.1.0"):
+    for token in ('name: "diameter-ims"', 'version: "0.1.1"', "category: protocol", "diameter-core >=0.1.0"):
         if token not in manifest:
             errors.append(f"manifest missing {token}")
 
@@ -304,6 +416,27 @@ def main() -> int:
         )
         if result.returncode != 2:
             errors.append("invalid JSON input did not return exit code 2")
+
+        malformed_events = model.load_jsonl(EXAMPLES / "core/events.jsonl")
+        malformed_events[0]["result"] = []
+        malformed_path = directory / "malformed-result-events.jsonl"
+        malformed_path.write_text(
+            "\n".join(json.dumps(item) for item in malformed_events) + "\n", encoding="utf-8"
+        )
+        result = run(
+            [
+                sys.executable,
+                str(CLI),
+                "--events",
+                str(malformed_path),
+                "--transactions",
+                str(EXAMPLES / "core/transactions.json"),
+                "--output",
+                str(directory / "malformed-result-out.json"),
+            ]
+        )
+        if result.returncode != 2:
+            errors.append("malformed result structure did not return exit code 2")
 
         events = model.load_jsonl(EXAMPLES / "core/events.jsonl")
         transactions = model.load_json(EXAMPLES / "core/transactions.json")

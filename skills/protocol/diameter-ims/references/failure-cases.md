@@ -7,6 +7,7 @@ analysis:
 
 - malformed JSON or a non-object JSONL record;
 - an event missing a required identity, transport, AVP or result field;
+- a malformed result structure that is not an object;
 - events from more than one capture;
 - transaction `capture_files` that do not equal the event capture;
 - duplicate event frame/occurrence identity;
@@ -33,9 +34,16 @@ No synthetic transaction reference or synthesized message is ever created.
 ## Result outcomes
 
 - A single base result is classified by RFC 6733 value class.
-- A single reviewed 3GPP experimental result uses the TS 29.229 name.
-- A 3GPP experimental code outside the reviewed set remains numeric.
-- A non-3GPP or missing Vendor-ID receives no 3GPP semantics.
+- A single reviewed Cx Experimental-Result success code 2001–2004 uses
+  `SUCCESS_REPORTED` and the exact TS 29.229 name.
+- A single reviewed Cx permanent-failure code 5001–5009, 5011 or 5012 uses
+  `FAILURE_REPORTED` and the exact TS 29.229 name.
+- Code 2005 and code 5010 are Void; they remain numeric, `UNRESOLVED` and
+  nameless, with an explicit clause limitation.
+- Codes 5013–5020 are reserved/unreviewed; other 3GPP codes are unreviewed.
+  They remain numeric with no semantic name.
+- A missing or non-3GPP Vendor-ID receives no Cx semantics and remains
+  unresolved.
 - Simultaneous base and experimental results are `CONFLICTING` and
   `UNRESOLVED`.
 - No result evidence is `UNRESOLVED`, never success.

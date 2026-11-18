@@ -18,7 +18,7 @@
   ],
   "properties": {
     "analysis_name": {"const": "diameter-ims"},
-    "analysis_version": {"type": "string"},
+    "analysis_version": {"const": "1.1.0"},
     "domain": {"const": "protocol"},
     "capability": {
       "type": "object",
@@ -157,6 +157,7 @@
       "required": [
         "code",
         "name",
+        "canonical_name",
         "vendor_id",
         "occurrence_count",
         "sensitive",
@@ -166,6 +167,7 @@
       "properties": {
         "code": {"type": "integer"},
         "name": {"type": ["string", "null"]},
+        "canonical_name": {"type": ["string", "null"]},
         "vendor_id": {"type": ["integer", "null"]},
         "occurrence_count": {"type": "integer", "minimum": 1},
         "sensitive": {"type": "boolean"},
@@ -183,6 +185,7 @@
       "required": [
         "code",
         "name",
+        "canonical_name",
         "vendor_id",
         "occurrence_count",
         "status",
@@ -198,6 +201,7 @@
       "properties": {
         "code": {"type": "integer"},
         "name": {"type": "string", "minLength": 1},
+        "canonical_name": {"type": "string", "minLength": 1},
         "vendor_id": {"type": ["integer", "null"]},
         "occurrence_count": {"type": "integer", "minimum": 0},
         "status": {
