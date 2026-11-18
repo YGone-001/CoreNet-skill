@@ -1,0 +1,15 @@
+frame       command  core-status    result                    app-result        interface
+----------  -------  -------------  ------------------------  ----------------  ---------
+1.1->2.1    UAR     MATCHED       base:2001(DIAMETER_SUCCESS) SUCCESS_REPORTED UNPROVED
+3.1->4.1    MAR     MATCHED       base:2001(DIAMETER_SUCCESS) SUCCESS_REPORTED UNPROVED
+5.1->6.1    SAR     MATCHED       base:2001(DIAMETER_SUCCESS) SUCCESS_REPORTED UNPROVED
+7.1->8.1    LIR     MATCHED       base:2001(DIAMETER_SUCCESS) SUCCESS_REPORTED UNPROVED
+9.1->10.1   RTR     MATCHED       base:2001(DIAMETER_SUCCESS) SUCCESS_REPORTED UNPROVED
+11.1->12.1  PPR     MATCHED       base:2001(DIAMETER_SUCCESS) SUCCESS_REPORTED UNPROVED
+13.1        UAR     OPEN_REQUEST  unresolved               NOT_APPLICABLE   UNPROVED
+14.1        LIA     RESPONSE_ONLY 3gpp:5001(DIAMETER_ERROR_USER_UNKNOWN) FAILURE_REPORTED UNPROVED
+17.1        SAA     AMBIGUOUS     base:2001(DIAMETER_SUCCESS) SUCCESS_REPORTED UNPROVED
+18.1->19.1  CMD-306 MATCHED       unresolved               NOT_APPLICABLE   UNPROVED
+20.1->21.1  CMD-301 MATCHED       unresolved               NOT_APPLICABLE   UNPROVED
+22.1->23.1  LIR     MATCHED       unresolved               UNRESOLVED       UNPROVED
+24.1        MAR     OPEN_REQUEST  unresolved               NOT_APPLICABLE   UNPROVED

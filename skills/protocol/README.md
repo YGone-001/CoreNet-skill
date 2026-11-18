@@ -159,8 +159,30 @@ explicitly unbound. It never publishes subscriber identities, APN names, PAA
 addresses or raw IE bytes, and it does not model session, PDN-connection or
 bearer lifecycle state.
 
-Planned: `sip`, `sdp-rtp`,
-`diameter-ims`, `diameter-charging`, and remaining 5GC SBI services.
+Implemented: `sip`, the SIP Protocol Skill. It publishes bounded request/response
+message extraction and protocol-local RFC 3261 transaction correlation over UDP
+and TCP, with IPv4/IPv6 support, decoder-delivered TCP reassembly metadata,
+reviewed header presence/length, completeness and truncation classification,
+magic-cookie and legacy Via matching, CANCEL and ACK roles, an RFC 6026
+Accepted-state projection, and privacy-safe redaction of identities, URIs, tags,
+credentials and bodies. It additionally provides a separate bounded INVITE Dialog
+evidence producer with capture-scoped dialog identity, Early and Confirmed
+branches, forking isolation, 2xx ACK association, in-dialog request association,
+direction-specific CSeq observation and BYE lifecycle signaling. Dialog evidence is protocol-local
+and never establishes IMS registration, RTP delivery, two-way audio or call
+success.
+
+Implemented: `diameter-ims`, the Diameter IMS Cx/Dx application-message Skill. It
+consumes accepted `diameter-core` events and transactions and publishes bounded
+UAR/UAA, SAR/SAA, LIR/LIA, MAR/MAA, RTR/RTA and PPR/PPA command identity,
+reviewed AVP presence with decoder-proven grouped structure, independent base and
+3GPP Experimental-Result namespaces, and an explicitly `UNPROVED` Cx/Dx interface
+identity. It does not prove IMS registration, subscriber authentication, HSS
+authorization or S-CSCF assignment, and the Diameter IMS Sh and Rx applications
+remain planned.
+
+Planned: `sdp-rtp`, `diameter-charging`, Diameter IMS Sh/Rx applications, and
+remaining 5GC SBI services.
 
 Implemented: `diameter-epc`, the bounded S6a/S6d application-message Skill. It
 consumes accepted `diameter-core` events and transactions and publishes AIR/AIA

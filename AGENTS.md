@@ -156,7 +156,7 @@ Keep transport, protocol, procedure, and implementation behavior distinct:
 - HTTP/2 transport behavior is not automatically 5GC SBI service logic.
 - UDP reachability on port 8805 is not PFCP Session Establishment semantic correctness.
 - SIP transport reachability is not IMS registration or call-state correctness.
-- A protocol-local transaction correlator is not cross-protocol Correlation and not Domain procedure analysis; it never establishes a SIP dialog or an IMS outcome.
+- A protocol-local transaction correlator is not cross-protocol Correlation and not Domain procedure analysis; SIP transaction correlation alone does not establish an IMS outcome. The SIP Protocol Skill additionally provides a separate bounded Dialog evidence producer. SIP Dialog evidence is protocol-local, and a confirmed Dialog does not establish IMS registration, RTP delivery, two-way audio or call success.
 - A passive capture cannot establish a SIP client/server stack role or RFC timer state; an observed 487 INVITE plus 200 CANCEL is evidence of a response sequence, never proof of `TERMINATED`.
 - RFC 3261 magic-cookie and legacy SIP Via matching are distinct algorithms; a non-cookie branch must not silently use the modern branch-only identity.
 - A SIP dialog is a signaling construct identified by Call-ID plus local and remote tags; a confirmed dialog never proves RTP delivery, two-way audio, IMS registration, authentication or call success, and forked branches must not be collapsed into one selected call.

@@ -120,9 +120,9 @@ CoreNet Skill focuses on network signaling evidence analysis rather than impleme
 
 ## EPC, IMS, 5GC, and Diameter
 
-Future EPC procedures will reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS procedures will reuse SIP, SDP/RTP, Diameter IMS, and Diameter Charging. 5GC procedures will reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
+Future EPC procedures will reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS procedures will reuse the implemented SIP Protocol Skill (including its bounded Dialog evidence), SDP/RTP, the implemented Diameter IMS Cx/Dx Protocol Skill, and Diameter Charging. 5GC procedures will reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
 
-Diameter is explicitly cross-domain—not an IMS-owned protocol. `diameter-core` owns base-protocol behavior; `diameter-epc` owns bounded S6a/S6d AIR/AIA and ULR/ULA application-message evidence; `diameter-ims` and `diameter-charging` will own their bounded applications and shared credit-control semantics and remain planned. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Diameter is explicitly cross-domain—not an IMS-owned protocol. `diameter-core` owns base-protocol behavior; `diameter-epc` owns bounded S6a/S6d AIR/AIA and ULR/ULA application-message evidence; `diameter-ims` owns bounded Cx/Dx UAR/UAA, SAR/SAA, LIR/LIA, MAR/MAA, RTR/RTA and PPR/PPA application-message evidence; and `diameter-charging` will own shared credit-control semantics and remains planned, together with the Diameter IMS Sh and Rx applications. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Evidence first
 

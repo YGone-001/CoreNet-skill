@@ -1,0 +1,59 @@
+name: "diameter-ims"
+version: "0.1.0"
+category: protocol
+description: "Bounded Diameter IMS Cx/Dx application evidence over accepted diameter-core events and transactions: UAR/UAA, SAR/SAA, LIR/LIA, MAR/MAA, RTR/RTA and PPR/PPA command identity, reviewed Cx/Dx AVP presence and decoder-proven grouped structure, independent base and 3GPP experimental result namespaces, and explicit unproved Cx-versus-Dx interface identity."
+scope:
+  includes:
+    - "Cx/Dx Application-ID 16777216 command identity for User-Authorization, Server-Assignment, Location-Info, Multimedia-Auth, Registration-Termination and Push-Profile"
+    - "reviewed bounded Cx/Dx AVP presence, occurrence count and decoder-proven grouped child structure"
+    - "presence-only privacy for Public-Identity, Cx-User-Data, SIP authentication material and keying material"
+    - "independent base Result-Code and 3GPP Vendor-ID 10415 Experimental-Result namespaces"
+    - "exact Diameter Core frame, occurrence and transaction provenance"
+    - "strict analysis JSON Schema and human-readable timeline"
+  excludes:
+    - "Diameter base-header, AVP structure, transport association and Request/Answer correlation parsing"
+    - "IMS registration, authentication, session, media, SDP, RTP or call verdicts"
+    - "SIP REGISTER correlation or IMS subscriber identity establishment"
+    - "Sh, Rx or Ro/Gy application procedures"
+    - "Cx versus Dx interface inference from Application-ID, port, hostname or ordering"
+    - "subscriber identity, public identity, authentication vector, user-data or keying-material publication"
+dependencies:
+  required:
+    - "diameter-core >=0.1.0"
+  optional: []
+inputs:
+  - "diameter-core event JSONL"
+  - "diameter-core transaction JSON"
+outputs:
+  - "Diameter IMS application analysis JSON (schemas/diameter-ims-analysis.schema.json)"
+  - "application timeline text"
+protocols:
+  - "Diameter"
+interfaces: []
+network_functions: []
+evidence_levels:
+  - "OBSERVED"
+  - "DERIVED"
+  - "INFERRED"
+  - "HYPOTHESIS"
+  - "CONFIRMED"
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: "Original CoreNet Protocol-layer package; no upstream material imported."
+testing:
+  fixtures:
+    - "examples/core/events.jsonl"
+    - "examples/core/transactions.json"
+  expected_results:
+    - "examples/expected/analysis.json"
+    - "examples/expected/timeline.txt"
+references:
+  - "references/standards.md"
+  - "references/commands.md"
+  - "references/avp-reference.md"
+  - "references/evidence-model.md"
+  - "references/privacy.md"
+  - "references/failure-cases.md"
