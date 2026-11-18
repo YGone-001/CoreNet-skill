@@ -859,5 +859,772 @@ class PrivacyTests(unittest.TestCase):
         self.assertEqual(transactions["analysis_version"], "1.1.0")
 
 
+def capture_of(reference: str) -> str:
+    return reference.split(":")[1]
+
+
+def in_dialog_record(
+    frame: int,
+    method: str,
+    cseq: int,
+    *,
+    direction: str = "ORIGINAL",
+    capture: str = "sip-dialog.pcapng",
+) -> dict:
+    branch = f"z9hG4bK-{method}-{frame}"
+    if direction == "ORIGINAL":
+        return rec(
+            frame,
+            method=method,
+            cseq=cseq,
+            branch=branch,
+            to_tag="A",
+            capture=capture,
+        )
+    return rec(
+        frame,
+        method=method,
+        cseq=cseq,
+        branch=branch,
+        from_tag="A",
+        to_tag="INIT-TAG",
+        outbound=False,
+        capture=capture,
+    )
+
+
+def confirmed_dialog(*extra: dict) -> list[dict]:
+    return [
+        rec(1, method="INVITE"),
+        rec(2, status=200, cseq_method="INVITE", to_tag="A", outbound=False),
+        *extra,
+    ]
+
+
+class CaptureIsolationTests(unittest.TestCase):
+    def test_capture_identity_isolation(self) -> None:
+        _, document, _ = run_input(
+            [
+                rec(1, method="INVITE", capture="A.pcapng"),
+                rec(
+                    2,
+                    status=200,
+                    cseq_method="INVITE",
+                    to_tag="T",
+                    outbound=False,
+                    capture="A.pcapng",
+                ),
+                rec(1, method="INVITE", capture="B.pcapng"),
+                rec(
+                    2,
+                    status=200,
+                    cseq_method="INVITE",
+                    to_tag="T",
+                    outbound=False,
+                    capture="B.pcapng",
+                ),
+            ]
+        )
+        self.assertEqual(document["dialog_count"], 2)
+        references = {dialog["dialog_reference"] for dialog in document["dialogs"]}
+        self.assertEqual(len(references), 2)
+        for dialog in document["dialogs"]:
+            self.assertEqual(capture_of(dialog["dialog_reference"]), dialog["fork_branch_reference"].split(":")[1])
+            for reference in dialog["associated_message_event_references"]:
+                self.assertEqual(capture_of(reference), capture_of(dialog["dialog_reference"]))
+            for reference in dialog["in_dialog_transaction_references"]:
+                self.assertEqual(reference.split(":")[1], capture_of(dialog["dialog_reference"]))
+        transactions = {
+            dialog["initiating_transaction_reference"] for dialog in document["dialogs"]
+        }
+        self.assertEqual(len(transactions), 2)
+
+    def test_identical_identifiers_in_two_captures_stay_separate(self) -> None:
+        _, document, _ = run_input(
+            [
+                rec(1, method="INVITE", capture="A.pcapng", call_id="SAME"),
+                rec(
+                    2,
+                    status=200,
+                    cseq_method="INVITE",
+                    to_tag="SAME-TO",
+                    outbound=False,
+                    call_id="SAME",
+                    capture="A.pcapng",
+                ),
+                rec(1, method="INVITE", capture="B.pcapng", call_id="SAME"),
+                rec(
+                    2,
+                    status=200,
+                    cseq_method="INVITE",
+                    to_tag="SAME-TO",
+                    outbound=False,
+                    call_id="SAME",
+                    capture="B.pcapng",
+                ),
+            ]
+        )
+        self.assertEqual(document["dialog_count"], 2)
+        self.assertEqual(
+            len({dialog["initiating_transaction_reference"] for dialog in document["dialogs"]}),
+            2,
+        )
+        for dialog in document["dialogs"]:
+            for reference in dialog["associated_message_event_references"]:
+                self.assertEqual(capture_of(reference), capture_of(dialog["dialog_reference"]))
+
+    def test_each_capture_keeps_its_own_forked_branches(self) -> None:
+        records = []
+        for capture in ("A.pcapng", "B.pcapng"):
+            records.extend(
+                [
+                    rec(1, method="INVITE", capture=capture),
+                    rec(2, status=180, cseq_method="INVITE", to_tag="EARLY", outbound=False, reason="Ringing", capture=capture),
+                    rec(3, status=200, cseq_method="INVITE", to_tag="EARLY", outbound=False, capture=capture),
+                    rec(4, status=200, cseq_method="INVITE", to_tag="OTHER", outbound=False, capture=capture),
+                ]
+            )
+        _, document, _ = run_input(records)
+        self.assertEqual(document["dialog_count"], 4)
+        self.assertEqual(document["dialog_summary"]["forked_initiating_transaction_count"], 2)
+        self.assertEqual(len({dialog["fork_branch_reference"] for dialog in document["dialogs"]}), 4)
+
+    def test_one_capture_terminated_while_other_confirmed(self) -> None:
+        _, document, _ = run_input(
+            [
+                rec(1, method="INVITE", capture="A.pcapng"),
+                rec(2, status=200, cseq_method="INVITE", to_tag="A", outbound=False, capture="A.pcapng"),
+                rec(1, method="INVITE", capture="B.pcapng"),
+                rec(2, status=200, cseq_method="INVITE", to_tag="A", outbound=False, capture="B.pcapng"),
+                rec(3, method="BYE", cseq=2, to_tag="A", capture="B.pcapng"),
+                rec(4, status=200, cseq_method="BYE", cseq=2, to_tag="A", outbound=False, capture="B.pcapng"),
+            ]
+        )
+        states = {
+            capture_of(dialog["dialog_reference"]): dialog["dialog_state"]
+            for dialog in document["dialogs"]
+        }
+        self.assertEqual(states, {"A.pcapng": "CONFIRMED", "B.pcapng": "TERMINATED"})
+
+    def test_cross_capture_bye_is_rejected(self) -> None:
+        _, document, _ = run_input(
+            [
+                rec(1, method="INVITE", capture="A.pcapng"),
+                rec(2, status=200, cseq_method="INVITE", to_tag="A", outbound=False, capture="A.pcapng"),
+                rec(3, method="BYE", cseq=2, to_tag="A", capture="B.pcapng"),
+                rec(4, status=200, cseq_method="BYE", cseq=2, to_tag="A", outbound=False, capture="B.pcapng"),
+            ]
+        )
+        self.assertEqual(document["dialog_count"], 1)
+        self.assertEqual(document["dialogs"][0]["dialog_state"], "CONFIRMED")
+        self.assertEqual(document["dialogs"][0]["bye_transaction_references"], [])
+        self.assertTrue(
+            any(
+                item["reason"] == "DIALOG_CREATOR_NOT_OBSERVED"
+                and capture_of(item["observation_reference"]) == "B.pcapng"
+                for item in document["unbound_observations"]
+            )
+        )
+
+    def test_cross_capture_ack_is_rejected(self) -> None:
+        _, document, _ = run_input(
+            [
+                rec(1, method="INVITE", capture="A.pcapng"),
+                rec(2, status=200, cseq_method="INVITE", to_tag="A", outbound=False, capture="A.pcapng"),
+                rec(3, method="ACK", cseq_method="ACK", to_tag="A", capture="B.pcapng"),
+            ]
+        )
+        self.assertEqual(document["dialog_count"], 1)
+        self.assertEqual(document["dialogs"][0]["ack_event_references"], [])
+        self.assertTrue(
+            any(
+                item["reason"] == "CONFIRMING_RESPONSE_NOT_OBSERVED"
+                and capture_of(item["observation_reference"]) == "B.pcapng"
+                for item in document["unbound_observations"]
+            )
+        )
+
+    def test_cross_capture_update_is_rejected(self) -> None:
+        _, document, _ = run_input(
+            [
+                rec(1, method="INVITE", capture="A.pcapng"),
+                rec(2, status=200, cseq_method="INVITE", to_tag="A", outbound=False, capture="A.pcapng"),
+                rec(
+                    3,
+                    method="UPDATE",
+                    branch="z9hG4bK-B",
+                    cseq=2,
+                    to_tag="A",
+                    capture="B.pcapng",
+                ),
+            ]
+        )
+        self.assertEqual(document["dialog_count"], 1)
+        self.assertEqual(document["dialogs"][0]["in_dialog_transaction_references"], [])
+        self.assertTrue(
+            any(
+                item["reason"] == "DIALOG_CREATOR_NOT_OBSERVED"
+                and capture_of(item["observation_reference"]) == "B.pcapng"
+                for item in document["unbound_observations"]
+            )
+        )
+
+    def test_reused_initial_transaction_is_not_collapsed(self) -> None:
+        _, document, _ = run_input(
+            [
+                rec(1, method="INVITE", branch="z9hG4bK-ONE", cseq=1),
+                rec(2, status=200, branch="z9hG4bK-ONE", cseq_method="INVITE", to_tag="A", cseq=1, outbound=False),
+                rec(3, method="INVITE", branch="z9hG4bK-TWO", cseq=1),
+                rec(4, status=200, branch="z9hG4bK-TWO", cseq_method="INVITE", to_tag="A", cseq=1, outbound=False),
+            ]
+        )
+        self.assertEqual(document["dialog_count"], 1)
+        dialog = document["dialogs"][0]
+        self.assertIn("initiating_transaction_reference", dialog)
+        self.assertNotIn(
+            "sip-event:sip-dialog.pcapng:4.1",
+            dialog["confirming_response_event_references"],
+        )
+        reused = [
+            item
+            for item in document["unbound_observations"]
+            if item["reason"] == "REUSED_DIALOG_IDENTITY"
+        ]
+        self.assertEqual(len(reused), 1)
+        self.assertIn("REUSED_DIALOG_IDENTITY", reused[0]["conflict_findings"])
+        self.assertEqual(reused[0]["identity_status"], "AMBIGUOUS")
+        self.assertIn("sip-event:sip-dialog.pcapng:3.1", reused[0]["event_references"])
+        self.assertIn("sip-event:sip-dialog.pcapng:4.1", reused[0]["event_references"])
+
+    def test_duplicate_response_in_one_capture_is_one_dialog(self) -> None:
+        _, document, _ = run_input(
+            [
+                rec(1, method="INVITE", call_id="DUP", capture="A.pcapng"),
+                rec(2, status=200, cseq_method="INVITE", to_tag="A", outbound=False, call_id="DUP", capture="A.pcapng"),
+                rec(3, status=200, cseq_method="INVITE", to_tag="A", outbound=False, call_id="DUP", capture="A.pcapng"),
+                rec(1, method="INVITE", call_id="DUP", capture="B.pcapng"),
+                rec(2, status=200, cseq_method="INVITE", to_tag="A", outbound=False, call_id="DUP", capture="B.pcapng"),
+            ]
+        )
+        self.assertEqual(document["dialog_count"], 2)
+        confirmed = [
+            dialog
+            for dialog in document["dialogs"]
+            if dialog["confirming_response_event_references"]
+        ]
+        self.assertEqual(len(confirmed), 2)
+
+    def test_one_invite_with_two_to_tags_remains_two_dialogs(self) -> None:
+        _, document, _ = run_input(
+            [
+                rec(1, method="INVITE"),
+                rec(2, status=183, cseq_method="INVITE", to_tag="A", outbound=False),
+                rec(3, status=183, cseq_method="INVITE", to_tag="B", outbound=False),
+            ]
+        )
+        self.assertEqual(document["dialog_count"], 2)
+        self.assertEqual(len({dialog["fork_branch_reference"] for dialog in document["dialogs"]}), 2)
+
+    def test_cross_capture_tampering_is_rejected(self) -> None:
+        transactions, document, _ = run_input(
+            [
+                rec(1, method="INVITE"),
+                rec(2, status=200, cseq_method="INVITE", to_tag="A", outbound=False),
+            ]
+        )
+        document["dialogs"][0]["associated_message_event_references"].append(
+            "sip-event:other.pcapng:1.1"
+        )
+        with self.assertRaises(sip_dialogs.DialogError):
+            sip_dialogs.validate_dialog_document(document, None, transactions)
+
+    def test_dual_capture_document_publishes_no_raw_identity(self) -> None:
+        _, document, artifacts = run_input(
+            [
+                rec(1, method="INVITE", call_id="PRIVATE", from_tag="PRIVATE-FROM", capture="A.pcapng"),
+                rec(
+                    2,
+                    status=200,
+                    cseq_method="INVITE",
+                    to_tag="PRIVATE-TO",
+                    outbound=False,
+                    call_id="PRIVATE",
+                    from_tag="PRIVATE-FROM",
+                    capture="A.pcapng",
+                ),
+                rec(1, method="INVITE", call_id="PRIVATE", from_tag="PRIVATE-FROM", capture="B.pcapng"),
+                rec(
+                    2,
+                    status=200,
+                    cseq_method="INVITE",
+                    to_tag="PRIVATE-TO",
+                    outbound=False,
+                    call_id="PRIVATE",
+                    from_tag="PRIVATE-FROM",
+                    capture="B.pcapng",
+                ),
+            ]
+        )
+        text = json.dumps(document) + artifacts["stdout"] + artifacts["stderr"]
+        for secret in ("PRIVATE", "PRIVATE-FROM", "PRIVATE-TO", "sip:"):
+            self.assertNotIn(secret, text)
+
+
+class CseqDirectionTests(unittest.TestCase):
+    def _dialogs(self, records: list[dict]) -> dict:
+        _, document, _ = run_input(records)
+        self.assertEqual(document["dialog_count"], 1)
+        return document["dialogs"][0]["cseq_observations"]
+
+    def test_cseq_gap_is_direction_specific(self) -> None:
+        cseq = self._dialogs(
+            confirmed_dialog(
+                in_dialog_record(3, "UPDATE", 2),
+                in_dialog_record(4, "INFO", 4),
+                in_dialog_record(5, "INFO", 3, direction="REVERSE"),
+            )
+        )
+        self.assertEqual(cseq["initiator_direction_values"], [2, 4])
+        self.assertEqual(cseq["responder_direction_values"], [3])
+        self.assertTrue(cseq["initiator_direction_gap_observed"])
+        self.assertFalse(cseq["responder_direction_gap_observed"])
+        self.assertTrue(cseq["sequence_gap_observed"])
+
+    def test_cseq_cross_direction_values_do_not_form_a_gap(self) -> None:
+        cseq = self._dialogs(
+            confirmed_dialog(
+                in_dialog_record(3, "UPDATE", 1),
+                in_dialog_record(4, "INFO", 2),
+                in_dialog_record(5, "INFO", 8, direction="REVERSE"),
+                in_dialog_record(6, "INFO", 9, direction="REVERSE"),
+            )
+        )
+        self.assertFalse(cseq["initiator_direction_gap_observed"])
+        self.assertFalse(cseq["responder_direction_gap_observed"])
+        self.assertFalse(cseq["sequence_gap_observed"])
+
+    def test_adjacent_direction_values_do_not_form_a_gap(self) -> None:
+        cseq = self._dialogs(
+            confirmed_dialog(
+                in_dialog_record(3, "UPDATE", 2),
+                in_dialog_record(4, "INFO", 3),
+                in_dialog_record(5, "INFO", 1, direction="REVERSE"),
+                in_dialog_record(6, "INFO", 2, direction="REVERSE"),
+            )
+        )
+        self.assertFalse(cseq["sequence_gap_observed"])
+
+    def test_original_direction_only_gap(self) -> None:
+        cseq = self._dialogs(
+            confirmed_dialog(
+                in_dialog_record(3, "UPDATE", 5),
+                in_dialog_record(4, "INFO", 7),
+                in_dialog_record(5, "INFO", 10, direction="REVERSE"),
+                in_dialog_record(6, "INFO", 11, direction="REVERSE"),
+            )
+        )
+        self.assertTrue(cseq["initiator_direction_gap_observed"])
+        self.assertFalse(cseq["responder_direction_gap_observed"])
+
+    def test_responder_direction_only_gap(self) -> None:
+        cseq = self._dialogs(
+            confirmed_dialog(
+                in_dialog_record(3, "UPDATE", 5),
+                in_dialog_record(4, "INFO", 6),
+                in_dialog_record(5, "INFO", 10, direction="REVERSE"),
+                in_dialog_record(6, "INFO", 13, direction="REVERSE"),
+            )
+        )
+        self.assertFalse(cseq["initiator_direction_gap_observed"])
+        self.assertTrue(cseq["responder_direction_gap_observed"])
+
+    def test_both_directions_contain_gaps(self) -> None:
+        cseq = self._dialogs(
+            confirmed_dialog(
+                in_dialog_record(3, "UPDATE", 2),
+                in_dialog_record(4, "INFO", 4),
+                in_dialog_record(5, "INFO", 5, direction="REVERSE"),
+                in_dialog_record(6, "INFO", 8, direction="REVERSE"),
+            )
+        )
+        self.assertTrue(cseq["initiator_direction_gap_observed"])
+        self.assertTrue(cseq["responder_direction_gap_observed"])
+        self.assertTrue(cseq["sequence_gap_observed"])
+
+    def test_only_one_direction_observed(self) -> None:
+        cseq = self._dialogs(
+            confirmed_dialog(
+                in_dialog_record(3, "UPDATE", 2),
+                in_dialog_record(4, "INFO", 4),
+            )
+        )
+        self.assertEqual(cseq["responder_direction_values"], [])
+        self.assertTrue(cseq["initiator_direction_gap_observed"])
+        self.assertFalse(cseq["responder_direction_gap_observed"])
+
+    def test_no_cseq_observed(self) -> None:
+        cseq = self._dialogs(confirmed_dialog())
+        self.assertEqual(cseq["initiator_direction_values"], [])
+        self.assertEqual(cseq["responder_direction_values"], [])
+        self.assertFalse(cseq["initiator_direction_gap_observed"])
+        self.assertFalse(cseq["responder_direction_gap_observed"])
+        self.assertFalse(cseq["sequence_gap_observed"])
+        self.assertEqual(cseq["initiator_direction_omitted_count"], 0)
+        self.assertEqual(cseq["responder_direction_omitted_count"], 0)
+
+    def test_retransmitted_cseq_does_not_form_a_gap(self) -> None:
+        cseq = self._dialogs(
+            confirmed_dialog(
+                in_dialog_record(3, "UPDATE", 2),
+                in_dialog_record(4, "UPDATE", 2),
+                in_dialog_record(5, "UPDATE", 2),
+            )
+        )
+        self.assertEqual(cseq["initiator_direction_values"], [2])
+        self.assertFalse(cseq["sequence_gap_observed"])
+
+    def test_out_of_order_cseq_does_not_form_a_gap(self) -> None:
+        cseq = self._dialogs(
+            confirmed_dialog(
+                in_dialog_record(3, "UPDATE", 4),
+                in_dialog_record(4, "INFO", 2),
+                in_dialog_record(5, "INFO", 3),
+            )
+        )
+        self.assertEqual(cseq["initiator_direction_values"], [2, 3, 4])
+        self.assertEqual(cseq["initiator_direction_observed_sequence"], [4, 2, 3])
+        self.assertFalse(cseq["sequence_gap_observed"])
+
+    def test_direction_reversal_in_bye_is_direction_scoped(self) -> None:
+        cseq = self._dialogs(
+            confirmed_dialog(
+                in_dialog_record(3, "UPDATE", 2),
+                in_dialog_record(4, "INFO", 3),
+                rec(5, method="BYE", from_tag="A", to_tag="INIT-TAG", cseq=9, outbound=False),
+            )
+        )
+        self.assertEqual(cseq["initiator_direction_values"], [2, 3])
+        self.assertEqual(cseq["responder_direction_values"], [9])
+        self.assertFalse(cseq["initiator_direction_gap_observed"])
+        self.assertFalse(cseq["responder_direction_gap_observed"])
+        self.assertFalse(cseq["sequence_gap_observed"])
+
+    def test_large_cseq_values(self) -> None:
+        cseq = self._dialogs(
+            confirmed_dialog(
+                in_dialog_record(3, "UPDATE", 4000000),
+                in_dialog_record(4, "INFO", 4000002),
+            )
+        )
+        self.assertEqual(cseq["initiator_direction_values"], [4000000, 4000002])
+        self.assertTrue(cseq["initiator_direction_gap_observed"])
+
+    def test_bounded_cseq_publication_preserves_truthful_assessment(self) -> None:
+        extra = [in_dialog_record(3 + index, "UPDATE", index + 1) for index in range(16)]
+        extra.append(in_dialog_record(20, "UPDATE", 40))
+        cseq = self._dialogs(confirmed_dialog(*extra))
+        self.assertEqual(len(cseq["initiator_direction_values"]), 16)
+        self.assertEqual(cseq["initiator_direction_omitted_count"], 1)
+        self.assertTrue(cseq["initiator_direction_gap_observed"])
+        self.assertFalse(cseq["responder_direction_gap_observed"])
+
+    def test_cseq_gap_never_produces_packet_loss_verdict(self) -> None:
+        _, document, _ = run_input(
+            confirmed_dialog(
+                in_dialog_record(3, "UPDATE", 5),
+                in_dialog_record(4, "INFO", 9),
+            )
+        )
+        text = json.dumps(document)
+        for token in ("packet_loss", "packet-loss", "loss_observed", "media_failure"):
+            self.assertNotIn(token, text)
+        self.assertEqual(
+            document["dialogs"][0]["cseq_observations"]["assessment"],
+            "DIRECTION_AWARE_OBSERVATION_ONLY",
+        )
+
+
+class ReferenceAccountingTests(unittest.TestCase):
+    COLLECTIONS = (
+        "early_response_event_references",
+        "confirming_response_event_references",
+        "ack_event_references",
+        "in_dialog_transaction_references",
+        "bye_transaction_references",
+        "associated_message_event_references",
+    )
+
+    def assert_conserved(self, dialog: dict) -> None:
+        for name in self.COLLECTIONS:
+            entry = dialog["reference_accounting"][name]
+            self.assertEqual(entry["published_count"], len(dialog[name]))
+            self.assertEqual(
+                entry["observed_unique_count"],
+                entry["published_count"] + entry["omitted_count"],
+            )
+        associated = dialog["reference_accounting"]["associated_message_event_references"]
+        self.assertEqual(dialog["omitted_associated_event_count"], associated["omitted_count"])
+
+    def test_zero_references(self) -> None:
+        _, document, _ = run_input(confirmed_dialog())
+        dialog = document["dialogs"][0]
+        self.assert_conserved(dialog)
+        self.assertEqual(dialog["reference_accounting"]["bye_transaction_references"]["observed_unique_count"], 0)
+        self.assertEqual(document["dialogs"][0]["ack_event_references"], [])
+
+    def test_exactly_at_publication_limit(self) -> None:
+        records = [rec(1, method="INVITE")]
+        records.extend(
+            rec(frame, status=180, cseq_method="INVITE", to_tag="A", outbound=False, reason="Ringing")
+            for frame in range(2, 66)
+        )
+        _, document, _ = run_input(records)
+        accounting = document["dialogs"][0]["reference_accounting"]["early_response_event_references"]
+        self.assertEqual(accounting["observed_unique_count"], 64)
+        self.assertEqual(accounting["published_count"], 64)
+        self.assertEqual(accounting["omitted_count"], 0)
+
+    def test_one_reference_over_limit(self) -> None:
+        records = [rec(1, method="INVITE")]
+        records.extend(
+            rec(frame, status=180, cseq_method="INVITE", to_tag="A", outbound=False, reason="Ringing")
+            for frame in range(2, 67)
+        )
+        _, document, _ = run_input(records)
+        accounting = document["dialogs"][0]["reference_accounting"]["early_response_event_references"]
+        self.assertEqual(accounting["observed_unique_count"], 65)
+        self.assertEqual(accounting["published_count"], 64)
+        self.assertEqual(accounting["omitted_count"], 1)
+        self.assert_conserved(document["dialogs"][0])
+
+    def test_many_references_over_limit(self) -> None:
+        records = [rec(1, method="INVITE")]
+        records.extend(
+            rec(frame, status=183, cseq_method="INVITE", to_tag="A", outbound=False)
+            for frame in range(2, 72)
+        )
+        _, document, _ = run_input(records)
+        dialog = document["dialogs"][0]
+        accounting = dialog["reference_accounting"]["early_response_event_references"]
+        self.assertEqual(accounting["observed_unique_count"], 70)
+        self.assertEqual(accounting["omitted_count"], 6)
+        associated = dialog["reference_accounting"]["associated_message_event_references"]
+        self.assertGreater(associated["omitted_count"], 0)
+        self.assert_conserved(dialog)
+
+    def test_repeated_references_do_not_inflate_unique_counts(self) -> None:
+        dialog = sip_dialogs._new_dialog(
+            reference="sip-dialog:unit.pcapng:2.1",
+            capture="unit.pcapng",
+            call_id="C",
+            initiator_tag="F",
+            remote_tag="T",
+            invite_cseq=1,
+            initiating_transaction="sip-transaction:unit.pcapng:request:1.1",
+            first_reference="sip-event:unit.pcapng:2.1",
+        )
+        dialog["early_refs"] = ["sip-event:unit.pcapng:2.1"] * 5
+        dialog["associated_refs"] = ["sip-event:unit.pcapng:2.1"] * 5
+        public = sip_dialogs._public_dialog(dialog)
+        accounting = public["reference_accounting"]["early_response_event_references"]
+        self.assertEqual(accounting["observed_unique_count"], 1)
+        self.assertEqual(accounting["published_count"], 1)
+        self.assertEqual(accounting["omitted_count"], 0)
+
+    def test_more_than_64_confirming_responses(self) -> None:
+        records = [rec(1, method="INVITE")]
+        records.extend(
+            rec(frame, status=200, cseq_method="INVITE", to_tag="A", outbound=False)
+            for frame in range(2, 67)
+        )
+        _, document, _ = run_input(records)
+        dialog = document["dialogs"][0]
+        accounting = dialog["reference_accounting"]["confirming_response_event_references"]
+        self.assertEqual(accounting["observed_unique_count"], 65)
+        self.assertEqual(accounting["omitted_count"], 1)
+        self.assert_conserved(dialog)
+
+    def test_more_than_64_ack_observations(self) -> None:
+        records = [
+            rec(1, method="INVITE"),
+            rec(2, status=200, cseq_method="INVITE", to_tag="A", outbound=False),
+        ]
+        for index in range(65):
+            records.append(
+                rec(
+                    3 + index,
+                    method="ACK",
+                    branch=f"z9hG4bK-ACK-{index}",
+                    cseq_method="ACK",
+                    to_tag="A",
+                    cseq=1,
+                )
+            )
+        _, document, _ = run_input(records)
+        dialog = document["dialogs"][0]
+        accounting = dialog["reference_accounting"]["ack_event_references"]
+        self.assertEqual(accounting["observed_unique_count"], 65)
+        self.assertEqual(accounting["omitted_count"], 1)
+        self.assert_conserved(dialog)
+
+    def test_more_than_64_in_dialog_transactions(self) -> None:
+        records = confirmed_dialog()
+        for index in range(65):
+            records.append(
+                in_dialog_record(
+                    3 + index,
+                    "UPDATE",
+                    2 + index,
+                )
+            )
+        _, document, _ = run_input(records)
+        dialog = document["dialogs"][0]
+        accounting = dialog["reference_accounting"]["in_dialog_transaction_references"]
+        self.assertEqual(accounting["observed_unique_count"], 65)
+        self.assertEqual(accounting["omitted_count"], 1)
+        self.assert_conserved(dialog)
+
+    def test_more_than_64_bye_transactions(self) -> None:
+        records = confirmed_dialog()
+        for index in range(65):
+            records.append(
+                rec(
+                    3 + index,
+                    method="BYE",
+                    branch=f"z9hG4bK-BYE-{index}",
+                    cseq=2,
+                    to_tag="A",
+                )
+            )
+        _, document, _ = run_input(records)
+        dialog = document["dialogs"][0]
+        accounting = dialog["reference_accounting"]["bye_transaction_references"]
+        self.assertEqual(accounting["observed_unique_count"], 65)
+        self.assertEqual(accounting["omitted_count"], 1)
+        self.assert_conserved(dialog)
+
+    def test_published_ordering_is_deterministic(self) -> None:
+        records = [rec(1, method="INVITE")]
+        records.extend(
+            rec(frame, status=180, cseq_method="INVITE", to_tag="A", outbound=False, reason="Ringing")
+            for frame in range(2, 72)
+        )
+        first = run_input(records)[1]["dialogs"][0]
+        second = run_input(records)[1]["dialogs"][0]
+        self.assertEqual(first, second)
+        published = first["early_response_event_references"]
+        self.assertEqual(published, sorted(published, key=lambda item: int(item.split(":")[-1].split(".")[0])))
+
+    def test_reference_accounting_conserves_counts(self) -> None:
+        records = [rec(1, method="INVITE")]
+        records.extend(
+            rec(frame, status=180, cseq_method="INVITE", to_tag="A", outbound=False, reason="Ringing")
+            for frame in range(2, 72)
+        )
+        records.append(rec(72, method="ACK", branch="z9hG4bK-ACK", cseq_method="ACK", to_tag="A", cseq=1))
+        _, document, _ = run_input(records)
+        for dialog in document["dialogs"]:
+            self.assert_conserved(dialog)
+        self.assertEqual(document["dialog_count"], 1)
+
+    def test_reference_accounting_marks_truncated_collections(self) -> None:
+        records = [rec(1, method="INVITE")]
+        records.extend(
+            rec(frame, status=180, cseq_method="INVITE", to_tag="A", outbound=False, reason="Ringing")
+            for frame in range(2, 72)
+        )
+        _, document, _ = run_input(records)
+        accounting = document["dialogs"][0]["reference_accounting"]["early_response_event_references"]
+        self.assertGreater(accounting["omitted_count"], 0)
+        self.assertLess(accounting["published_count"], accounting["observed_unique_count"])
+
+    def test_unbound_observation_retains_omission_accounting(self) -> None:
+        event_references = [f"sip-event:unit.pcapng:{frame}.1" for frame in range(1, 70)]
+        observation = sip_dialogs._unbound(
+            reference=event_references[0],
+            capture="unit.pcapng",
+            frame=1,
+            occurrence=1,
+            identity_status="INSUFFICIENT_EVIDENCE",
+            reason="PROVISIONAL_WITHOUT_TO_TAG",
+            event_references=event_references,
+            transaction_references=["sip-transaction:unit.pcapng:request:1.1"],
+            tag_pair_observed=False,
+        )
+        accounting = observation["reference_accounting"]["event_references"]
+        self.assertEqual(accounting["observed_unique_count"], 69)
+        self.assertEqual(accounting["published_count"], 64)
+        self.assertEqual(accounting["omitted_count"], 5)
+        self.assertEqual(len(observation["event_references"]), 64)
+
+    def test_ambiguous_observation_retains_omission_accounting(self) -> None:
+        candidates = [f"sip-dialog:unit.pcapng:{frame}.1" for frame in range(1, 20)]
+        observation = sip_dialogs._ambiguous(
+            reference="sip-observation:unit.pcapng:20.1",
+            capture="unit.pcapng",
+            frame=20,
+            occurrence=1,
+            transaction_reference="sip-transaction:unit.pcapng:request:20.1",
+            reason="MULTIPLE_DIALOG_CANDIDATES",
+            candidates=candidates,
+        )
+        accounting = observation["reference_accounting"]["candidate_dialog_references"]
+        self.assertEqual(accounting["observed_unique_count"], 19)
+        self.assertEqual(accounting["published_count"], 16)
+        self.assertEqual(accounting["omitted_count"], 3)
+
+    def test_ambiguous_producer_output_is_accounted(self) -> None:
+        _, document, _ = run_input(
+            [
+                rec(1, method="INVITE", from_tag="T1", branch="z9hG4bK-X1"),
+                rec(2, status=200, cseq_method="INVITE", to_tag="T2", outbound=False, from_tag="T1", branch="z9hG4bK-X1"),
+                rec(3, method="INVITE", from_tag="T2", branch="z9hG4bK-X2"),
+                rec(4, status=200, cseq_method="INVITE", to_tag="T1", outbound=False, from_tag="T2", branch="z9hG4bK-X2"),
+                rec(5, method="UPDATE", from_tag="T1", to_tag="T2", branch="z9hG4bK-X3", cseq=2),
+            ]
+        )
+        self.assertEqual(document["dialog_count"], 2)
+        self.assertTrue(document["ambiguous_observations"])
+        observation = document["ambiguous_observations"][0]
+        accounting = observation["reference_accounting"]["candidate_dialog_references"]
+        self.assertEqual(accounting["published_count"], len(observation["candidate_dialog_references"]))
+        self.assertEqual(
+            accounting["observed_unique_count"],
+            accounting["published_count"] + accounting["omitted_count"],
+        )
+
+    def test_strict_schema_passes_over_limit(self) -> None:
+        try:
+            import jsonschema
+        except ImportError:
+            self.skipTest("jsonschema is not installed")
+        records = [rec(1, method="INVITE")]
+        records.extend(
+            rec(frame, status=183, cseq_method="INVITE", to_tag="A", outbound=False)
+            for frame in range(2, 72)
+        )
+        transactions, document, _ = run_input(records)
+        jsonschema.validate(document, json.loads(SCHEMA.read_text(encoding="utf-8")))
+        sip_dialogs.validate_dialog_document(document, None, transactions)
+
+
+class MissingSourceReferenceTests(unittest.TestCase):
+    def test_missing_event_reference_is_rejected_in_named_collection(self) -> None:
+        transactions, document, _ = run_input(confirmed_dialog())
+        document["dialogs"][0]["early_response_event_references"].append(
+            "sip-event:missing.pcapng:999.1"
+        )
+        with self.assertRaises(sip_dialogs.DialogError):
+            sip_dialogs.validate_dialog_document(document, None, transactions)
+
+    def test_inconsistent_accounting_is_rejected(self) -> None:
+        transactions, document, _ = run_input(confirmed_dialog())
+        document["dialogs"][0]["reference_accounting"][
+            "early_response_event_references"
+        ]["omitted_count"] = 1
+        with self.assertRaises(sip_dialogs.DialogError):
+            sip_dialogs.validate_dialog_document(document, None, transactions)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -48,24 +48,32 @@ credentials or message bodies.
 Dialog analysis consumes the same capture-local private message records and the
 accepted transaction document:
 
-- Dialog identity requires Call-ID, the initial INVITE From tag and a response To
-  tag. Call-ID alone is never a dialog identity.
+- Dialog identity requires the capture, Call-ID, the initial INVITE From tag and a
+  response To tag. Call-ID alone is never a dialog identity, and identical
+  identifiers in two captures never share one dialog.
 - A tagged 180/183 establishes Early Dialog evidence; 100 Trying never creates a
   dialog.
 - A 2xx response with a To tag establishes or confirms the matching dialog branch.
 - One INVITE may produce multiple independently identified forked dialogs with
   distinct To tags; repeated responses on one branch do not duplicate a dialog.
+- A distinct initial INVITE transaction that reuses an established capture-scoped
+  identity is published as a `REUSED_DIALOG_IDENTITY` unbound observation; it is
+  never silently merged and no lifecycle generation is inferred.
 - A 2xx ACK is associated only with a uniquely supported Confirmed Dialog; its Via
   branch may differ from the INVITE.
 - BYE, re-INVITE, UPDATE, INFO, PRACK, REFER and MESSAGE are associated to one
-  established dialog using the tag pair, Call-ID and direction. A re-INVITE does not
-  create a new dialog.
+  established dialog using the capture, tag pair, Call-ID and direction. A re-INVITE
+  does not create a new dialog.
 - BYE with a 2xx response on a confirmed dialog publishes `TERMINATED`; a BYE without
   a response keeps the dialog `CONFIRMED` and publishes termination signaling without
   claiming completion.
 - Incomplete captures and dialog-shaped contexts without a creator remain explicit
   unbound or ambiguous observations; no preceding INVITE or confirmed dialog is
   fabricated.
+- Every bounded reference collection publishes `reference_accounting` with observed
+  unique, published and omitted counts that conserve the observed total.
+- CSeq gaps are computed within each dialog direction separately; a numeric gap is
+  observation only and never a packet-loss or IMS verdict.
 
 See `references/dialogs.md` for the identity, forking, ACK, in-dialog and lifecycle
 rules. Dialog evidence never establishes IMS registration, call success, RTP media or
@@ -208,9 +216,13 @@ python3 scripts/validate-sip.py
 - A sanitized field-only fingerprint cannot prove exact message equality; repeats are
   reported as retransmission candidates.
 - Dialog identity is capture-scoped and derived from the initiating INVITE From tag
-  plus a response To tag; it is not a portable subscriber identity.
+  plus a response To tag; it is not a portable subscriber identity. A capture file
+  name is the accepted capture identity and does not distinguish separately acquired
+  captures that share a basename.
 - Dialog state reflects signaling evidence only. `TERMINATED` requires a BYE with a
   2xx response on a confirmed dialog; no RTP, media or IMS outcome is inferred.
+- CSeq sequence gaps are per direction; no packet-loss or call-failure verdict is
+  derived from a gap.
 - Dialogs that begin before the capture are reported as unbound observations, never
   as fabricated initial INVITEs.
 - Non-INVITE dialog usages such as SUBSCRIBE/NOTIFY are recognized but not modelled.

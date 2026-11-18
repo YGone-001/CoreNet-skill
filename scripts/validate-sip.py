@@ -156,6 +156,15 @@ REQUIRED_TEST_TOKENS = (
     "test_same_frame_multiple_occurrences_are_distinct",
     "test_no_raw_identity_or_secret_is_published",
     "test_replay_is_deterministic",
+    "test_capture_identity_isolation",
+    "test_cross_capture_bye_is_rejected",
+    "test_cross_capture_ack_is_rejected",
+    "test_cross_capture_update_is_rejected",
+    "test_reused_initial_transaction_is_not_collapsed",
+    "test_cseq_gap_is_direction_specific",
+    "test_cseq_cross_direction_values_do_not_form_a_gap",
+    "test_reference_accounting_conserves_counts",
+    "test_reference_accounting_marks_truncated_collections",
 )
 
 
@@ -273,6 +282,10 @@ def main() -> int:
         "unbound_observation",
         "ambiguous_observation",
         "cseq_observations",
+        "reference_count",
+        "dialog_reference_accounting",
+        "unbound_reference_accounting",
+        "ambiguous_reference_accounting",
     ):
         if dialog_schema["$defs"][definition].get("additionalProperties") is not False:
             errors.append(f"dialog schema definition {definition} is not strict")

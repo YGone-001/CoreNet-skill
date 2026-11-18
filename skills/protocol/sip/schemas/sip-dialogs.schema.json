@@ -19,7 +19,7 @@
   ],
   "properties": {
     "analysis_name": {"const": "sip-dialogs"},
-    "analysis_version": {"const": "1.0.0"},
+    "analysis_version": {"const": "1.1.0"},
     "protocol": {"const": "SIP"},
     "capture_provenance": {"$ref": "#/$defs/capture_provenance"},
     "dialog_count": {"type": "integer", "minimum": 0},
@@ -52,6 +52,53 @@
       "type": "array",
       "maxItems": 64,
       "items": {"$ref": "#/$defs/reference"}
+    },
+    "reference_count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed_unique_count", "published_count", "omitted_count"],
+      "properties": {
+        "observed_unique_count": {"type": "integer", "minimum": 0},
+        "published_count": {"type": "integer", "minimum": 0},
+        "omitted_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "dialog_reference_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "early_response_event_references",
+        "confirming_response_event_references",
+        "ack_event_references",
+        "in_dialog_transaction_references",
+        "bye_transaction_references",
+        "associated_message_event_references"
+      ],
+      "properties": {
+        "early_response_event_references": {"$ref": "#/$defs/reference_count"},
+        "confirming_response_event_references": {"$ref": "#/$defs/reference_count"},
+        "ack_event_references": {"$ref": "#/$defs/reference_count"},
+        "in_dialog_transaction_references": {"$ref": "#/$defs/reference_count"},
+        "bye_transaction_references": {"$ref": "#/$defs/reference_count"},
+        "associated_message_event_references": {"$ref": "#/$defs/reference_count"}
+      }
+    },
+    "unbound_reference_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_references", "transaction_references"],
+      "properties": {
+        "event_references": {"$ref": "#/$defs/reference_count"},
+        "transaction_references": {"$ref": "#/$defs/reference_count"}
+      }
+    },
+    "ambiguous_reference_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_dialog_references"],
+      "properties": {
+        "candidate_dialog_references": {"$ref": "#/$defs/reference_count"}
+      }
     },
     "limitations": {
       "type": "array",
@@ -128,6 +175,12 @@
       "required": [
         "initiator_direction_values",
         "responder_direction_values",
+        "initiator_direction_observed_sequence",
+        "responder_direction_observed_sequence",
+        "initiator_direction_omitted_count",
+        "responder_direction_omitted_count",
+        "initiator_direction_gap_observed",
+        "responder_direction_gap_observed",
         "sequence_gap_observed",
         "assessment"
       ],
@@ -142,6 +195,20 @@
           "maxItems": 16,
           "items": {"type": "integer", "minimum": 0, "maximum": 4294967295}
         },
+        "initiator_direction_observed_sequence": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"type": "integer", "minimum": 0, "maximum": 4294967295}
+        },
+        "responder_direction_observed_sequence": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"type": "integer", "minimum": 0, "maximum": 4294967295}
+        },
+        "initiator_direction_omitted_count": {"type": "integer", "minimum": 0},
+        "responder_direction_omitted_count": {"type": "integer", "minimum": 0},
+        "initiator_direction_gap_observed": {"type": "boolean"},
+        "responder_direction_gap_observed": {"type": "boolean"},
         "sequence_gap_observed": {"type": "boolean"},
         "assessment": {"const": "DIRECTION_AWARE_OBSERVATION_ONLY"}
       }
@@ -162,6 +229,7 @@
         "bye_transaction_references",
         "associated_message_event_references",
         "omitted_associated_event_count",
+        "reference_accounting",
         "first_observed_frame",
         "last_observed_frame",
         "fork_branch_reference",
@@ -206,6 +274,7 @@
         "bye_transaction_references": {"$ref": "#/$defs/reference_list"},
         "associated_message_event_references": {"$ref": "#/$defs/reference_list"},
         "omitted_associated_event_count": {"type": "integer", "minimum": 0},
+        "reference_accounting": {"$ref": "#/$defs/dialog_reference_accounting"},
         "first_observed_frame": {"type": "integer", "minimum": 1},
         "last_observed_frame": {"type": "integer", "minimum": 1},
         "fork_branch_reference": {
@@ -257,7 +326,8 @@
               "TO_TAG_MISMATCH",
               "CONFIRMATION_WITHOUT_IDENTITY",
               "MULTIPLE_DIALOG_CANDIDATES",
-              "CONTRADICTORY_TAG_EVIDENCE"
+              "CONTRADICTORY_TAG_EVIDENCE",
+              "REUSED_DIALOG_IDENTITY"
             ]
           }
         },
@@ -273,6 +343,7 @@
         "observation_reference",
         "event_references",
         "transaction_references",
+        "reference_accounting",
         "identity_status",
         "reason",
         "tag_pair_observed",
@@ -288,6 +359,7 @@
         },
         "event_references": {"$ref": "#/$defs/reference_list"},
         "transaction_references": {"$ref": "#/$defs/reference_list"},
+        "reference_accounting": {"$ref": "#/$defs/unbound_reference_accounting"},
         "identity_status": {
           "type": "string",
           "enum": ["AMBIGUOUS", "INSUFFICIENT_EVIDENCE", "NOT_ESTABLISHED"]
@@ -301,7 +373,8 @@
             "DIALOG_CREATOR_NOT_OBSERVED",
             "CONFIRMING_RESPONSE_NOT_OBSERVED",
             "CAPTURE_TRUNCATED",
-            "UNSUPPORTED_SUBSCRIPTION_DIALOG"
+            "UNSUPPORTED_SUBSCRIPTION_DIALOG",
+            "REUSED_DIALOG_IDENTITY"
           ]
         },
         "tag_pair_observed": {"type": "boolean"},
@@ -318,6 +391,7 @@
         "transaction_reference",
         "reason",
         "candidate_dialog_references",
+        "reference_accounting",
         "missing_evidence",
         "conflict_findings"
       ],
@@ -333,6 +407,7 @@
           "enum": ["MULTIPLE_DIALOG_CANDIDATES", "CONFLICTING_TAG_EVIDENCE"]
         },
         "candidate_dialog_references": {"$ref": "#/$defs/reference_list"},
+        "reference_accounting": {"$ref": "#/$defs/ambiguous_reference_accounting"},
         "missing_evidence": {"type": "array", "maxItems": 32, "items": {"type": "string"}},
         "conflict_findings": {"type": "array", "maxItems": 32, "items": {"type": "string"}}
       }

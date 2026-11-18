@@ -31,6 +31,17 @@ A capture-scoped dialog identity requires:
 - the initiating INVITE transaction reference;
 - exact source-event references.
 
+The internal branch index is keyed by capture, Call-ID, initiating From tag and
+responding To tag together. Two captures that carry identical Call-ID and tag values
+never share one dialog object. Every published event and in-dialog transaction
+reference belongs to the dialog's own capture; cross-capture association is rejected
+and retained as unbound evidence.
+
+Capture identity is the accepted capture file name. It is not a cryptographic
+acquisition identity: two separately acquired captures that share a basename are not
+independently distinguishable by this contract, and the model never claims a
+stronger capture identity than the accepted input provides.
+
 Call-ID alone, Via branch, CSeq, addresses, ports, TCP stream, timestamp proximity,
 request method and media addresses are never used as dialog identity.
 
@@ -40,6 +51,12 @@ a later response carrying a To tag.
 
 Different To tags under one Call-ID are different forked dialog branches. A repeated
 response with the same tag is not a new dialog.
+
+If a second, distinct initial INVITE transaction within one capture reuses an
+already established capture-scoped dialog identity, the evidence is not silently
+merged into the earlier dialog. The repeated identity is published as a
+`REUSED_DIALOG_IDENTITY` unbound observation with `AMBIGUOUS` identity status. No
+lifecycle generation is invented from timestamp proximity.
 
 In-dialog requests may reverse the From/To tag placement. Matching compares the tag
 pair, not the fixed From/To positions. A reverse-direction BYE is associated with the
@@ -57,6 +74,22 @@ only. Published references are derived from source-event references:
 
 A dialog reference is an internal capture-scoped analysis identifier. It is
 deterministic, replay-stable and is not a portable subscriber identity.
+
+## Reference accounting
+
+Every published bounded reference collection carries a `reference_accounting` entry
+with `observed_unique_count`, `published_count` and `omitted_count`. The invariant is:
+
+    observed_unique_count = published_count + omitted_count
+
+Accounting is published for early responses, confirming responses, ACK observations,
+in-dialog transactions, BYE transactions and associated message events. Unbound
+observations account for their event and transaction references; ambiguous
+observations account for their candidate dialog references. Repeated identical
+source references are counted once. A truncated collection is never presented as
+complete, and the publication limits themselves are not raised to hide omissions.
+`omitted_associated_event_count` remains as the associated-event projection of the
+same accounting.
 
 ## Early Dialog evidence
 
@@ -138,11 +171,21 @@ forked branches.
 
 ## CSeq observations
 
-CSeq values from in-dialog requests are tracked per direction. The model does not
-enforce one global monotonic sequence across both directions. A numeric gap is
-published as `sequence_gap_observed` with the assessment
-`DIRECTION_AWARE_OBSERVATION_ONLY`; it never implies packet loss. Missing messages
-remain capture incompleteness.
+CSeq values from in-dialog requests are tracked per direction. Original/initiating
+values and reverse/responding values are published separately, together with their
+observed frame order (`initiator_direction_observed_sequence` and
+`responder_direction_observed_sequence`) and bounded-publication omitted counts.
+
+A sequence gap is calculated only within one direction and published twice as
+`initiator_direction_gap_observed` and `responder_direction_gap_observed`.
+`sequence_gap_observed` is the conservative aggregation of those two directional
+results. Numeric values from different directions are never merged into one
+sequence, and no single global monotonically increasing counter is enforced.
+
+The model does not infer packet loss from a numeric gap. A gap is published with the
+assessment `DIRECTION_AWARE_OBSERVATION_ONLY`; it never implies packet loss and is
+never classified as an IMS call failure. Missing messages remain capture
+incompleteness.
 
 ## BYE and lifecycle evidence
 
@@ -191,6 +234,18 @@ earlier INVITE:
 - A complete tag pair without a dialog creator is an observed dialog-shaped context,
   not an established INVITE-created dialog.
 - Contradictory or multiple possible dialogs remain ambiguous or unbound.
+- A reused capture-scoped identity from a distinct initial INVITE transaction is an
+  unbound observation and is never merged.
+
+## Document contract
+
+The dialog document is produced at `analysis_version` `1.1.0`. The `1.1.0` contract
+adds `reference_accounting` to dialogs, unbound observations and ambiguous
+observations, adds the direction-specific CSeq gap and omitted-count fields, and
+adds `REUSED_DIALOG_IDENTITY` to the conflict and unbound-reason vocabularies. All
+additions are published by the producer under the same document shape; the version
+change is justified because `reference_accounting` is required evidence accounting
+rather than an optional annotation.
 
 ## Privacy
 

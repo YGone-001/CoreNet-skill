@@ -22,7 +22,7 @@ from sip_transactions import (
 )
 
 PROTOCOL = "SIP"
-DIALOG_SCHEMA_VERSION = "1.0.0"
+DIALOG_SCHEMA_VERSION = "1.1.0"
 ANALYSIS_NAME = "sip-dialogs"
 
 MAX_EVENT_REFERENCES = 64
@@ -73,6 +73,7 @@ CONFLICT_FINDINGS = (
     "CONFIRMATION_WITHOUT_IDENTITY",
     "MULTIPLE_DIALOG_CANDIDATES",
     "CONTRADICTORY_TAG_EVIDENCE",
+    "REUSED_DIALOG_IDENTITY",
 )
 
 NOT_CONFIRMED = (
@@ -89,6 +90,7 @@ BASE_LIMITATIONS = (
     "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
     "one Call-ID may carry multiple forked dialog branches",
     "the raw dialog identity tuple is never published",
+    "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract",
 )
 
 
@@ -129,6 +131,11 @@ def _capture_of(reference: str) -> str:
     return ":".join(parts[1:-1]) if len(parts) >= 3 else ""
 
 
+def _transaction_capture(reference: str) -> str:
+    parts = reference.split(":")
+    return ":".join(parts[1:-2]) if len(parts) >= 4 else ""
+
+
 def _event_reference(capture: str, frame: int, occurrence: int) -> str:
     return f"sip-event:{capture}:{frame}.{occurrence}"
 
@@ -148,6 +155,18 @@ def _observation_reference(capture: str, frame: int, occurrence: int) -> str:
 def _bounded(values: list[str], limit: int = MAX_EVENT_REFERENCES) -> tuple[list[str], int]:
     unique = _unique(values)
     return unique[:limit], max(0, len(unique) - limit)
+
+
+def _accounted(
+    values: list[str], limit: int
+) -> tuple[list[str], dict[str, int]]:
+    unique = _unique(values)
+    published = unique[:limit]
+    return published, {
+        "observed_unique_count": len(unique),
+        "published_count": len(published),
+        "omitted_count": len(unique) - len(published),
+    }
 
 
 def _new_dialog(
@@ -182,7 +201,7 @@ def _new_dialog(
         "conflicts": [],
         "limitations": [],
         "basis": [],
-        "cseq": {"ORIGINAL": [], "REVERSE": []},
+        "cseq_observations": [],
         "directions": [],
         "fork_reference": _fork_reference(capture, _frame_of(first_reference), int(first_reference.rpartition(".")[2])),
     }
@@ -195,6 +214,8 @@ def _update_frames(dialog: dict[str, Any], reference: str) -> None:
 
 
 def _add_reference(dialog: dict[str, Any], reference: str) -> None:
+    if _capture_of(reference) != dialog["capture"]:
+        raise DialogError("dialog event reference does not belong to the dialog capture")
     if reference not in dialog["associated_refs"]:
         dialog["associated_refs"].append(reference)
     _update_frames(dialog, reference)
@@ -224,10 +245,18 @@ def _unbound(
     conflicts: list[str] | None = None,
     limitations: list[str] | None = None,
 ) -> dict[str, Any]:
+    events, event_accounting = _accounted(event_references, MAX_EVENT_REFERENCES)
+    bounded_transactions, transaction_accounting = _accounted(
+        transaction_references, MAX_TRANSACTION_REFERENCES
+    )
     return {
         "observation_reference": _observation_reference(capture, frame, occurrence),
-        "event_references": _bounded(event_references)[0],
-        "transaction_references": _bounded(transaction_references)[0],
+        "event_references": events,
+        "transaction_references": bounded_transactions,
+        "reference_accounting": {
+            "event_references": event_accounting,
+            "transaction_references": transaction_accounting,
+        },
         "identity_status": identity_status,
         "reason": reason,
         "tag_pair_observed": tag_pair_observed,
@@ -249,18 +278,24 @@ def _ambiguous(
     missing: list[str] | None = None,
     conflicts: list[str] | None = None,
 ) -> dict[str, Any]:
+    published_candidates, candidate_accounting = _accounted(candidates, MAX_CANDIDATES)
     return {
         "observation_reference": _observation_reference(capture, frame, occurrence),
         "transaction_reference": transaction_reference,
         "reason": reason,
-        "candidate_dialog_references": _bounded(candidates, MAX_CANDIDATES)[0],
+        "candidate_dialog_references": published_candidates,
+        "reference_accounting": {
+            "candidate_dialog_references": candidate_accounting,
+        },
         "missing_evidence": sorted(dict.fromkeys(missing or [])),
         "conflict_findings": sorted(dict.fromkeys(conflicts or [])),
     }
 
 
-def _branch_key(call_id: str, initiator_tag: str, remote_tag: str) -> tuple[str, str, str]:
-    return (call_id, initiator_tag, remote_tag)
+def _branch_key(
+    capture: str, call_id: str, initiator_tag: str, remote_tag: str
+) -> tuple[str, str, str, str]:
+    return (capture, call_id, initiator_tag, remote_tag)
 
 
 def _build_dialogs(
@@ -269,8 +304,13 @@ def _build_dialogs(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     by_reference = {_match(message)["source_reference"]: _match(message) for message in messages}
     transactions = transaction_document["transactions"]
+    for transaction in transactions:
+        for key in ("request_event_references", "response_event_references"):
+            captures = {_capture_of(reference) for reference in _refs(transaction, key)}
+            if len(captures) > 1:
+                raise DialogError("transaction evidence spans more than one capture")
     dialogs: list[dict[str, Any]] = []
-    by_branch: dict[tuple[str, str, str], dict[str, Any]] = {}
+    by_branch: dict[tuple[str, str, str, str], dict[str, Any]] = {}
     unbound: list[dict[str, Any]] = []
     ambiguous: list[dict[str, Any]] = []
 
@@ -282,6 +322,29 @@ def _build_dialogs(
             and dialog["call_id"] == call_id
             and {dialog["initiator_tag"], dialog["remote_tag"]} == tags
         ]
+
+    def unbound_reused_identity(
+        response: dict[str, Any],
+        transaction: dict[str, Any],
+        capture: str,
+    ) -> None:
+        unbound.append(
+            _unbound(
+                reference=response["source_reference"],
+                capture=capture,
+                frame=response["frame"],
+                occurrence=response["occurrence"],
+                identity_status="AMBIGUOUS",
+                reason="REUSED_DIALOG_IDENTITY",
+                event_references=[
+                    response["source_reference"],
+                    *_refs(transaction, "request_event_references"),
+                ],
+                transaction_references=[transaction["transaction_reference"]],
+                tag_pair_observed=True,
+                conflicts=["REUSED_DIALOG_IDENTITY"],
+            )
+        )
 
     invite_transactions = [
         transaction
@@ -349,8 +412,15 @@ def _build_dialogs(
                     )
                 )
                 continue
-            key = _branch_key(call_id, initiator_tag, response["to_tag"])
+            key = _branch_key(capture, call_id, initiator_tag, response["to_tag"])
             dialog = by_branch.get(key)
+            if (
+                dialog is not None
+                and dialog["initiating_transaction"]
+                != transaction["transaction_reference"]
+            ):
+                unbound_reused_identity(response, transaction, capture)
+                continue
             if dialog is None:
                 dialog = _new_dialog(
                     reference=_dialog_reference(
@@ -395,8 +465,15 @@ def _build_dialogs(
                     )
                 )
                 continue
-            key = _branch_key(call_id, initiator_tag, response["to_tag"])
+            key = _branch_key(capture, call_id, initiator_tag, response["to_tag"])
             dialog = by_branch.get(key)
+            if (
+                dialog is not None
+                and dialog["initiating_transaction"]
+                != transaction["transaction_reference"]
+            ):
+                unbound_reused_identity(response, transaction, capture)
+                continue
             if dialog is None:
                 dialog = _new_dialog(
                     reference=_dialog_reference(
@@ -544,9 +621,14 @@ def _build_dialogs(
         candidates = dialogs_for(request["capture"], request["call_id"], tags)
         if len(candidates) == 1:
             dialog = candidates[0]
-            dialog["in_dialog_transactions"].append(transaction["transaction_reference"])
+            transaction_reference = transaction["transaction_reference"]
+            if _transaction_capture(transaction_reference) != dialog["capture"]:
+                raise DialogError(
+                    "in-dialog transaction does not belong to the dialog capture"
+                )
+            dialog["in_dialog_transactions"].append(transaction_reference)
             if method == "BYE":
-                dialog["bye_transactions"].append(transaction["transaction_reference"])
+                dialog["bye_transactions"].append(transaction_reference)
             direction = (
                 "ORIGINAL"
                 if request["from_tag"] == dialog["initiator_tag"]
@@ -559,7 +641,13 @@ def _build_dialogs(
             else:
                 dialog["directions"].append(direction)
                 if _present(request.get("cseq_number")):
-                    dialog["cseq"][direction].append(request["cseq_number"])
+                    dialog["cseq_observations"].append(
+                        {
+                            "direction": direction,
+                            "value": request["cseq_number"],
+                            "reference": request["source_reference"],
+                        }
+                    )
             dialog["basis"].append(f"in_dialog_{method.lower()}")
             for reference in refs:
                 _add_reference(dialog, reference)
@@ -613,15 +701,43 @@ def _build_dialogs(
     return dialogs, unbound, ambiguous
 
 
+def _directional_cseq(values: list[int]) -> tuple[list[int], list[int], bool, int]:
+    unique_ordered = list(dict.fromkeys(values))
+    unique_sorted = sorted(set(values))
+    gap = any(
+        right - left > 1 for left, right in zip(unique_sorted, unique_sorted[1:])
+    )
+    published = unique_sorted[:MAX_CSEQ_VALUES]
+    omitted = len(unique_sorted) - len(published)
+    return published, unique_ordered[:MAX_CSEQ_VALUES], gap, omitted
+
+
 def _cseq_observations(dialog: dict[str, Any]) -> dict[str, Any]:
-    original = sorted(set(dialog["cseq"]["ORIGINAL"]))[:MAX_CSEQ_VALUES]
-    reverse = sorted(set(dialog["cseq"]["REVERSE"]))[:MAX_CSEQ_VALUES]
-    all_values = sorted(set(original + reverse))
-    gap = any(right - left > 1 for left, right in zip(all_values, all_values[1:]))
+    observations = sorted(
+        dialog["cseq_observations"], key=lambda item: _reference_order(item["reference"])
+    )
+    initiator_values = [
+        item["value"] for item in observations if item["direction"] == "ORIGINAL"
+    ]
+    responder_values = [
+        item["value"] for item in observations if item["direction"] == "REVERSE"
+    ]
+    initiator, initiator_order, initiator_gap, initiator_omitted = _directional_cseq(
+        initiator_values
+    )
+    responder, responder_order, responder_gap, responder_omitted = _directional_cseq(
+        responder_values
+    )
     return {
-        "initiator_direction_values": original,
-        "responder_direction_values": reverse,
-        "sequence_gap_observed": gap,
+        "initiator_direction_values": initiator,
+        "responder_direction_values": responder,
+        "initiator_direction_observed_sequence": initiator_order,
+        "responder_direction_observed_sequence": responder_order,
+        "initiator_direction_omitted_count": initiator_omitted,
+        "responder_direction_omitted_count": responder_omitted,
+        "initiator_direction_gap_observed": initiator_gap,
+        "responder_direction_gap_observed": responder_gap,
+        "sequence_gap_observed": initiator_gap or responder_gap,
         "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
     }
 
@@ -641,7 +757,22 @@ def _public_dialog(dialog: dict[str, Any]) -> dict[str, Any]:
         missing.append("CONFIRMING_RESPONSE_NOT_OBSERVED")
     if not dialog["early_refs"] and not dialog["confirm_refs"]:
         missing.append("PROVISIONAL_RESPONSE_NOT_OBSERVED")
-    associated, omitted = _bounded(dialog["associated_refs"])
+    early, early_accounting = _accounted(dialog["early_refs"], MAX_EVENT_REFERENCES)
+    confirming, confirming_accounting = _accounted(
+        dialog["confirm_refs"], MAX_EVENT_REFERENCES
+    )
+    acknowledgements, ack_accounting = _accounted(
+        dialog["ack_refs"], MAX_EVENT_REFERENCES
+    )
+    in_dialog, in_dialog_accounting = _accounted(
+        dialog["in_dialog_transactions"], MAX_TRANSACTION_REFERENCES
+    )
+    bye, bye_accounting = _accounted(
+        dialog["bye_transactions"], MAX_TRANSACTION_REFERENCES
+    )
+    associated, associated_accounting = _accounted(
+        dialog["associated_refs"], MAX_EVENT_REFERENCES
+    )
     limitations = list(dict.fromkeys(dialog["limitations"] + list(BASE_LIMITATIONS)))
     return {
         "dialog_reference": dialog["reference"],
@@ -649,13 +780,21 @@ def _public_dialog(dialog: dict[str, Any]) -> dict[str, Any]:
         "dialog_state": state,
         "observed_lifecycle_status": lifecycle,
         "initiating_transaction_reference": dialog["initiating_transaction"],
-        "early_response_event_references": _bounded(dialog["early_refs"])[0],
-        "confirming_response_event_references": _bounded(dialog["confirm_refs"])[0],
-        "ack_event_references": _bounded(dialog["ack_refs"])[0],
-        "in_dialog_transaction_references": _bounded(dialog["in_dialog_transactions"])[0],
-        "bye_transaction_references": _bounded(dialog["bye_transactions"])[0],
+        "early_response_event_references": early,
+        "confirming_response_event_references": confirming,
+        "ack_event_references": acknowledgements,
+        "in_dialog_transaction_references": in_dialog,
+        "bye_transaction_references": bye,
         "associated_message_event_references": associated,
-        "omitted_associated_event_count": omitted,
+        "omitted_associated_event_count": associated_accounting["omitted_count"],
+        "reference_accounting": {
+            "early_response_event_references": early_accounting,
+            "confirming_response_event_references": confirming_accounting,
+            "ack_event_references": ack_accounting,
+            "in_dialog_transaction_references": in_dialog_accounting,
+            "bye_transaction_references": bye_accounting,
+            "associated_message_event_references": associated_accounting,
+        },
         "first_observed_frame": dialog["first_frame"],
         "last_observed_frame": dialog["last_frame"],
         "fork_branch_reference": dialog["fork_reference"],
@@ -747,6 +886,38 @@ def build_dialog_document(
     }
 
 
+def _assert_accounting(
+    accounting: Any,
+    expected_keys: tuple[str, ...],
+    published: dict[str, list[str]],
+    label: str,
+) -> None:
+    if not isinstance(accounting, dict):
+        raise DialogError(f"{label} reference accounting is missing")
+    if set(accounting) != set(expected_keys):
+        raise DialogError(f"{label} reference accounting keys are not accepted")
+    for key in expected_keys:
+        entry = accounting[key]
+        if not isinstance(entry, dict):
+            raise DialogError(f"{label} {key} accounting is not an object")
+        if set(entry) != {
+            "observed_unique_count",
+            "published_count",
+            "omitted_count",
+        }:
+            raise DialogError(f"{label} {key} accounting fields are not accepted")
+        for field in ("observed_unique_count", "published_count", "omitted_count"):
+            value = entry[field]
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise DialogError(f"{label} {key} {field} is invalid")
+        if entry["published_count"] != len(published.get(key) or []):
+            raise DialogError(f"{label} {key} published_count is inconsistent")
+        if entry["observed_unique_count"] != (
+            entry["published_count"] + entry["omitted_count"]
+        ):
+            raise DialogError(f"{label} {key} count conservation is violated")
+
+
 def validate_dialog_document(
     document: dict[str, Any],
     messages: list[dict[str, Any]] | None = None,
@@ -780,7 +951,6 @@ def validate_dialog_document(
         raise DialogError("dialog_count does not match the dialog array")
 
     dialog_references: set[str] = set()
-    assigned_events: set[str] = set()
     assigned_transactions: set[str] = set()
     known_transactions: set[str] = set()
     known_events: set[str] = set()
@@ -799,6 +969,9 @@ def validate_dialog_document(
         if reference in dialog_references:
             raise DialogError("duplicate dialog reference")
         dialog_references.add(reference)
+        dialog_capture = _capture_of(reference)
+        if not dialog_capture:
+            raise DialogError("dialog reference lacks a capture identity")
         if dialog.get("identity_status") not in IDENTITY_STATUSES:
             raise DialogError("invalid dialog identity status")
         if dialog.get("dialog_state") not in DIALOG_STATES:
@@ -818,36 +991,47 @@ def validate_dialog_document(
             raise DialogError("invalid initiating transaction reference")
         if known_transactions and initiating not in known_transactions:
             raise DialogError("initiating transaction reference is not present")
+        if _transaction_capture(initiating) != dialog_capture:
+            raise DialogError("initiating transaction is outside the dialog capture")
         if not dialog.get("confirming_response_event_references") and not dialog.get(
             "early_response_event_references"
         ):
             raise DialogError("a dialog requires at least one observed response")
-        associated = list(dialog.get("associated_message_event_references") or [])
-        for key in (
-            "early_response_event_references",
-            "confirming_response_event_references",
-            "ack_event_references",
-        ):
-            for event_reference in dialog.get(key) or []:
-                if event_reference not in associated:
-                    raise DialogError(f"{key} is not part of the associated references")
-        for event_reference in associated:
-            if not isinstance(event_reference, str) or not EVENT_REFERENCE_PATTERN.fullmatch(
-                event_reference
-            ):
-                raise DialogError("invalid associated event reference")
-            if event_reference in assigned_events:
-                continue
-            assigned_events.add(event_reference)
-            if known_events and event_reference not in known_events:
-                raise DialogError("associated event reference is not present")
+        event_collections = {
+            key: list(dialog.get(key) or [])
+            for key in (
+                "early_response_event_references",
+                "confirming_response_event_references",
+                "ack_event_references",
+                "associated_message_event_references",
+            )
+        }
+        for key, values in event_collections.items():
+            for event_reference in values:
+                if not isinstance(event_reference, str) or not EVENT_REFERENCE_PATTERN.fullmatch(
+                    event_reference
+                ):
+                    raise DialogError(f"invalid event reference in {key}")
+                if _capture_of(event_reference) != dialog_capture:
+                    raise DialogError(f"{key} is outside the dialog capture")
+                if known_events and event_reference not in known_events:
+                    raise DialogError(f"{key} is not present")
+        transaction_collections = {
+            key: list(dialog.get(key) or [])
+            for key in (
+                "in_dialog_transaction_references",
+                "bye_transaction_references",
+            )
+        }
         dialog_transactions: set[str] = set()
-        for key in ("in_dialog_transaction_references", "bye_transaction_references"):
-            for transaction_reference in dialog.get(key) or []:
+        for key, values in transaction_collections.items():
+            for transaction_reference in values:
                 if not isinstance(
                     transaction_reference, str
                 ) or not TRANSACTION_REFERENCE_PATTERN.fullmatch(transaction_reference):
                     raise DialogError(f"invalid transaction reference in {key}")
+                if _transaction_capture(transaction_reference) != dialog_capture:
+                    raise DialogError(f"{key} is outside the dialog capture")
                 if transaction_reference in dialog_transactions:
                     continue
                 if transaction_reference in assigned_transactions:
@@ -856,21 +1040,77 @@ def validate_dialog_document(
                 assigned_transactions.add(transaction_reference)
                 if known_transactions and transaction_reference not in known_transactions:
                     raise DialogError(f"{key} is not present in the transaction document")
+        _assert_accounting(
+            dialog.get("reference_accounting"),
+            (
+                "early_response_event_references",
+                "confirming_response_event_references",
+                "ack_event_references",
+                "in_dialog_transaction_references",
+                "bye_transaction_references",
+                "associated_message_event_references",
+            ),
+            {**event_collections, **transaction_collections},
+            "dialog",
+        )
+        associated_accounting = dialog["reference_accounting"][
+            "associated_message_event_references"
+        ]
+        if dialog.get("omitted_associated_event_count") != associated_accounting[
+            "omitted_count"
+        ]:
+            raise DialogError("omitted associated event count is inconsistent")
 
-    for observation in document["unbound_observations"] + document["ambiguous_observations"]:
+    for observation in document["unbound_observations"]:
+        observation_capture = _capture_of(observation.get("observation_reference", ""))
+        if not observation_capture:
+            raise DialogError("unbound observation lacks a capture identity")
+        for event_reference in observation.get("event_references") or []:
+            if _capture_of(event_reference) != observation_capture:
+                raise DialogError("unbound observation event reference is outside its capture")
+            if known_events and event_reference not in known_events:
+                raise DialogError("unbound observation event reference is not present")
+        for transaction_reference in observation.get("transaction_references") or []:
+            if _transaction_capture(transaction_reference) != observation_capture:
+                raise DialogError(
+                    "unbound observation transaction reference is outside its capture"
+                )
+            if known_transactions and transaction_reference not in known_transactions:
+                raise DialogError("observation transaction reference is not present")
+        _assert_accounting(
+            observation.get("reference_accounting"),
+            ("event_references", "transaction_references"),
+            {
+                "event_references": list(observation.get("event_references") or []),
+                "transaction_references": list(
+                    observation.get("transaction_references") or []
+                ),
+            },
+            "unbound observation",
+        )
+
+    for observation in document["ambiguous_observations"]:
         reference = observation.get("observation_reference")
         if not isinstance(reference, str) or not OBSERVATION_REFERENCE_PATTERN.fullmatch(reference):
             raise DialogError("invalid observation reference")
-        for event_reference in observation.get("event_references") or []:
-            if known_events and event_reference not in known_events:
-                raise DialogError("unbound observation event reference is not present")
-        for transaction_reference in observation.get("transaction_references") or [
-            observation.get("transaction_reference")
-        ]:
-            if transaction_reference is None:
-                continue
-            if known_transactions and transaction_reference not in known_transactions:
-                raise DialogError("observation transaction reference is not present")
+        observation_capture = _capture_of(reference)
+        transaction_reference = observation.get("transaction_reference")
+        if _transaction_capture(transaction_reference or "") != observation_capture:
+            raise DialogError(
+                "ambiguous observation transaction reference is outside its capture"
+            )
+        if known_transactions and transaction_reference not in known_transactions:
+            raise DialogError("observation transaction reference is not present")
         for candidate in observation.get("candidate_dialog_references") or []:
             if candidate not in dialog_references:
                 raise DialogError("candidate dialog reference is not present")
+        _assert_accounting(
+            observation.get("reference_accounting"),
+            ("candidate_dialog_references",),
+            {
+                "candidate_dialog_references": list(
+                    observation.get("candidate_dialog_references") or []
+                )
+            },
+            "ambiguous observation",
+        )

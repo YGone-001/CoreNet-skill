@@ -1,7 +1,7 @@
 {
   "ambiguous_observations": [],
   "analysis_name": "sip-dialogs",
-  "analysis_version": "1.0.0",
+  "analysis_version": "1.1.0",
   "capture_provenance": {
     "accepted_transaction_count": 26,
     "capture_completeness": "COMPLETE",
@@ -48,7 +48,13 @@
       "conflict_findings": [],
       "cseq_observations": {
         "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [],
+        "initiator_direction_omitted_count": 0,
         "initiator_direction_values": [],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
         "responder_direction_values": [],
         "sequence_gap_observed": false
       },
@@ -75,7 +81,8 @@
         "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
         "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
         "one Call-ID may carry multiple forked dialog branches",
-        "the raw dialog identity tuple is never published"
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
       ],
       "missing_evidence": [],
       "not_confirmed": [
@@ -86,7 +93,39 @@
         "non-INVITE dialog usages such as event subscriptions are not modelled"
       ],
       "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
-      "omitted_associated_event_count": 0
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 4,
+          "omitted_count": 0,
+          "published_count": 4
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        }
+      }
     },
     {
       "ack_event_references": [],
@@ -102,7 +141,13 @@
       "conflict_findings": [],
       "cseq_observations": {
         "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [],
+        "initiator_direction_omitted_count": 0,
         "initiator_direction_values": [],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
         "responder_direction_values": [],
         "sequence_gap_observed": false
       },
@@ -128,7 +173,8 @@
         "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
         "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
         "one Call-ID may carry multiple forked dialog branches",
-        "the raw dialog identity tuple is never published"
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
       ],
       "missing_evidence": [],
       "not_confirmed": [
@@ -139,7 +185,39 @@
         "non-INVITE dialog usages such as event subscriptions are not modelled"
       ],
       "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
-      "omitted_associated_event_count": 0
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 3,
+          "omitted_count": 0,
+          "published_count": 3
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        }
+      }
     },
     {
       "ack_event_references": [
@@ -157,7 +235,13 @@
       "conflict_findings": [],
       "cseq_observations": {
         "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [],
+        "initiator_direction_omitted_count": 0,
         "initiator_direction_values": [],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
         "responder_direction_values": [],
         "sequence_gap_observed": false
       },
@@ -182,7 +266,8 @@
         "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
         "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
         "one Call-ID may carry multiple forked dialog branches",
-        "the raw dialog identity tuple is never published"
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
       ],
       "missing_evidence": [],
       "not_confirmed": [
@@ -193,7 +278,39 @@
         "non-INVITE dialog usages such as event subscriptions are not modelled"
       ],
       "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
-      "omitted_associated_event_count": 0
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 3,
+          "omitted_count": 0,
+          "published_count": 3
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        }
+      }
     },
     {
       "ack_event_references": [],
@@ -208,7 +325,13 @@
       "conflict_findings": [],
       "cseq_observations": {
         "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [],
+        "initiator_direction_omitted_count": 0,
         "initiator_direction_values": [],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
         "responder_direction_values": [],
         "sequence_gap_observed": false
       },
@@ -232,7 +355,8 @@
         "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
         "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
         "one Call-ID may carry multiple forked dialog branches",
-        "the raw dialog identity tuple is never published"
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
       ],
       "missing_evidence": [],
       "not_confirmed": [
@@ -243,7 +367,39 @@
         "non-INVITE dialog usages such as event subscriptions are not modelled"
       ],
       "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
-      "omitted_associated_event_count": 0
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 2,
+          "omitted_count": 0,
+          "published_count": 2
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        }
+      }
     },
     {
       "ack_event_references": [],
@@ -262,9 +418,17 @@
       "conflict_findings": [],
       "cseq_observations": {
         "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [
+          2
+        ],
+        "initiator_direction_omitted_count": 0,
         "initiator_direction_values": [
           2
         ],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
         "responder_direction_values": [],
         "sequence_gap_observed": false
       },
@@ -294,7 +458,8 @@
         "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
         "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
         "one Call-ID may carry multiple forked dialog branches",
-        "the raw dialog identity tuple is never published"
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
       ],
       "missing_evidence": [],
       "not_confirmed": [
@@ -305,7 +470,39 @@
         "non-INVITE dialog usages such as event subscriptions are not modelled"
       ],
       "observed_lifecycle_status": "TERMINATION_SIGNALING_OBSERVED",
-      "omitted_associated_event_count": 0
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 4,
+          "omitted_count": 0,
+          "published_count": 4
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        }
+      }
     },
     {
       "ack_event_references": [],
@@ -324,7 +521,15 @@
       "conflict_findings": [],
       "cseq_observations": {
         "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [],
+        "initiator_direction_omitted_count": 0,
         "initiator_direction_values": [],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [
+          1
+        ],
+        "responder_direction_omitted_count": 0,
         "responder_direction_values": [
           1
         ],
@@ -356,7 +561,8 @@
         "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
         "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
         "one Call-ID may carry multiple forked dialog branches",
-        "the raw dialog identity tuple is never published"
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
       ],
       "missing_evidence": [],
       "not_confirmed": [
@@ -367,7 +573,39 @@
         "non-INVITE dialog usages such as event subscriptions are not modelled"
       ],
       "observed_lifecycle_status": "TERMINATION_SIGNALING_OBSERVED",
-      "omitted_associated_event_count": 0
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 4,
+          "omitted_count": 0,
+          "published_count": 4
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        }
+      }
     },
     {
       "ack_event_references": [],
@@ -385,9 +623,17 @@
       "conflict_findings": [],
       "cseq_observations": {
         "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [
+          2
+        ],
+        "initiator_direction_omitted_count": 0,
         "initiator_direction_values": [
           2
         ],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
         "responder_direction_values": [],
         "sequence_gap_observed": false
       },
@@ -417,7 +663,8 @@
         "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
         "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
         "one Call-ID may carry multiple forked dialog branches",
-        "the raw dialog identity tuple is never published"
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
       ],
       "missing_evidence": [
         "BYE_RESPONSE_NOT_OBSERVED"
@@ -430,7 +677,39 @@
         "non-INVITE dialog usages such as event subscriptions are not modelled"
       ],
       "observed_lifecycle_status": "TERMINATION_SIGNALING_OBSERVED",
-      "omitted_associated_event_count": 0
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 3,
+          "omitted_count": 0,
+          "published_count": 3
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        }
+      }
     },
     {
       "ack_event_references": [],
@@ -447,9 +726,17 @@
       "conflict_findings": [],
       "cseq_observations": {
         "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [
+          2
+        ],
+        "initiator_direction_omitted_count": 0,
         "initiator_direction_values": [
           2
         ],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
         "responder_direction_values": [],
         "sequence_gap_observed": false
       },
@@ -478,7 +765,8 @@
         "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
         "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
         "one Call-ID may carry multiple forked dialog branches",
-        "the raw dialog identity tuple is never published"
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
       ],
       "missing_evidence": [],
       "not_confirmed": [
@@ -489,7 +777,39 @@
         "non-INVITE dialog usages such as event subscriptions are not modelled"
       ],
       "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
-      "omitted_associated_event_count": 0
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 4,
+          "omitted_count": 0,
+          "published_count": 4
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        }
+      }
     },
     {
       "ack_event_references": [],
@@ -507,10 +827,19 @@
       "conflict_findings": [],
       "cseq_observations": {
         "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [
+          3,
+          4
+        ],
+        "initiator_direction_omitted_count": 0,
         "initiator_direction_values": [
           3,
           4
         ],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
         "responder_direction_values": [],
         "sequence_gap_observed": false
       },
@@ -541,7 +870,8 @@
         "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
         "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
         "one Call-ID may carry multiple forked dialog branches",
-        "the raw dialog identity tuple is never published"
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
       ],
       "missing_evidence": [],
       "not_confirmed": [
@@ -552,7 +882,39 @@
         "non-INVITE dialog usages such as event subscriptions are not modelled"
       ],
       "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
-      "omitted_associated_event_count": 0
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 5,
+          "omitted_count": 0,
+          "published_count": 5
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 2,
+          "omitted_count": 0,
+          "published_count": 2
+        }
+      }
     },
     {
       "ack_event_references": [],
@@ -569,7 +931,13 @@
       "conflict_findings": [],
       "cseq_observations": {
         "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [],
+        "initiator_direction_omitted_count": 0,
         "initiator_direction_values": [],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
         "responder_direction_values": [],
         "sequence_gap_observed": false
       },
@@ -593,7 +961,8 @@
         "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
         "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
         "one Call-ID may carry multiple forked dialog branches",
-        "the raw dialog identity tuple is never published"
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
       ],
       "missing_evidence": [],
       "not_confirmed": [
@@ -604,7 +973,39 @@
         "non-INVITE dialog usages such as event subscriptions are not modelled"
       ],
       "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
-      "omitted_associated_event_count": 0
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 3,
+          "omitted_count": 0,
+          "published_count": 3
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 2,
+          "omitted_count": 0,
+          "published_count": 2
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        }
+      }
     }
   ],
   "limitations": [
@@ -612,7 +1013,8 @@
     "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
     "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
     "one Call-ID may carry multiple forked dialog branches",
-    "the raw dialog identity tuple is never published"
+    "the raw dialog identity tuple is never published",
+    "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
   ],
   "not_confirmed": [
     "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
@@ -635,6 +1037,18 @@
       ],
       "observation_reference": "sip-observation:synthetic-dialog-cases.pcapng:10.1",
       "reason": "PROVISIONAL_WITHOUT_TO_TAG",
+      "reference_accounting": {
+        "event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        }
+      },
       "tag_pair_observed": false,
       "transaction_references": [
         "sip-transaction:synthetic-dialog-cases.pcapng:request:9.1"
@@ -654,6 +1068,18 @@
       ],
       "observation_reference": "sip-observation:synthetic-dialog-cases.pcapng:12.1",
       "reason": "CONFIRMATION_WITHOUT_TO_TAG",
+      "reference_accounting": {
+        "event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        }
+      },
       "tag_pair_observed": false,
       "transaction_references": [
         "sip-transaction:synthetic-dialog-cases.pcapng:request:11.1"
@@ -671,6 +1097,18 @@
       ],
       "observation_reference": "sip-observation:synthetic-dialog-cases.pcapng:20.1",
       "reason": "CONFIRMING_RESPONSE_NOT_OBSERVED",
+      "reference_accounting": {
+        "event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        }
+      },
       "tag_pair_observed": true,
       "transaction_references": [
         "sip-transaction:synthetic-dialog-cases.pcapng:request:20.1"
@@ -688,6 +1126,18 @@
       ],
       "observation_reference": "sip-observation:synthetic-dialog-cases.pcapng:41.1",
       "reason": "DIALOG_CREATOR_NOT_OBSERVED",
+      "reference_accounting": {
+        "event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        }
+      },
       "tag_pair_observed": true,
       "transaction_references": [
         "sip-transaction:synthetic-dialog-cases.pcapng:request:41.1"
@@ -705,6 +1155,18 @@
       ],
       "observation_reference": "sip-observation:synthetic-dialog-cases.pcapng:42.1",
       "reason": "DIALOG_CREATOR_NOT_OBSERVED",
+      "reference_accounting": {
+        "event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        }
+      },
       "tag_pair_observed": true,
       "transaction_references": [
         "sip-transaction:synthetic-dialog-cases.pcapng:request:42.1"
@@ -722,6 +1184,18 @@
       ],
       "observation_reference": "sip-observation:synthetic-dialog-cases.pcapng:43.1",
       "reason": "UNSUPPORTED_SUBSCRIPTION_DIALOG",
+      "reference_accounting": {
+        "event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        }
+      },
       "tag_pair_observed": true,
       "transaction_references": [
         "sip-transaction:synthetic-dialog-cases.pcapng:request:43.1"
