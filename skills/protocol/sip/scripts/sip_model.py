@@ -156,6 +156,57 @@ FINGERPRINT_COMPLETENESS = (
 )
 ADDRESS_VALUE_PATTERN = re.compile(r"^(?:<([^>]*)>|([^;\s]+))(?:\s*;\s*(.*))?$")
 
+EXPIRES_HEADER_PATTERN = re.compile(
+    r"^[ \t]*Expires[ \t]*:[ \t]*([0-9]+)[ \t]*$", re.IGNORECASE | re.MULTILINE
+)
+MIN_EXPIRES_HEADER_PATTERN = re.compile(
+    r"^[ \t]*Min-Expires[ \t]*:[ \t]*([0-9]+)[ \t]*$", re.IGNORECASE | re.MULTILINE
+)
+CONTACT_HEADER_PATTERN = re.compile(
+    r"^[ \t]*Contact[ \t]*:[ \t]*(.+)$", re.IGNORECASE | re.MULTILINE
+)
+CONTACT_EXPIRES_PATTERN = re.compile(r";[ \t]*expires[ \t]*=[ \t]*([0-9]+)", re.IGNORECASE)
+
+
+def _header_number(raw_header: str | None, pattern: re.Pattern[str]) -> int | None:
+    if not raw_header:
+        return None
+    match = pattern.search(raw_header)
+    return int(match.group(1)) if match else None
+
+
+def _contact_expiration(raw_header: str | None) -> tuple[int | None, bool]:
+    if not raw_header:
+        return None, False
+    values = [value.strip() for value in CONTACT_HEADER_PATTERN.findall(raw_header)]
+    wildcard = any(value == "*" for value in values)
+    expires = None
+    for value in values:
+        match = CONTACT_EXPIRES_PATTERN.search(value)
+        if match:
+            expires = int(match.group(1))
+            break
+    return expires, wildcard
+
+
+def _expiration_metadata(raw_header: str | None, headers: dict[str, Any]) -> dict[str, Any]:
+    expires = _header_number(raw_header, EXPIRES_HEADER_PATTERN)
+    min_expires = _header_number(raw_header, MIN_EXPIRES_HEADER_PATTERN)
+    contact_expires, contact_wildcard = _contact_expiration(raw_header)
+    if expires is None:
+        expires = _int_text(headers.get("expires_seconds"))
+    if min_expires is None:
+        min_expires = _int_text(headers.get("min_expires_seconds"))
+    if contact_expires is None:
+        contact_expires = _int_text(headers.get("contact_expires_seconds"))
+    contact_wildcard = contact_wildcard or bool(headers.get("contact_wildcard"))
+    return {
+        "expires_seconds": expires,
+        "min_expires_seconds": min_expires,
+        "contact_expires_seconds": contact_expires,
+        "contact_wildcard": contact_wildcard,
+    }
+
 
 class InputError(Exception):
     pass
@@ -712,6 +763,19 @@ def _build_event(
             "route": {"count": int(headers.get("route_count") or 0)},
             "record_route": {"count": int(headers.get("record_route_count") or 0)},
             "contact": {"count": int(headers.get("contact_count") or 0)},
+            "contact_expires": {
+                "present": headers.get("contact_expires_seconds") is not None,
+                "seconds": headers.get("contact_expires_seconds"),
+            },
+            "contact_wildcard": bool(headers.get("contact_wildcard")),
+            "expires": {
+                "present": headers.get("expires_seconds") is not None,
+                "seconds": headers.get("expires_seconds"),
+            },
+            "min_expires": {
+                "present": headers.get("min_expires_seconds") is not None,
+                "seconds": headers.get("min_expires_seconds"),
+            },
             "authorization": {"count": int(headers.get("authorization_count") or 0)},
             "proxy_authorization": {"count": int(headers.get("proxy_authorization_count") or 0)},
             "www_authenticate": {"count": int(headers.get("www_authenticate_count") or 0)},
@@ -810,6 +874,15 @@ def _build_message_record(
         "content_fingerprint": _content_fingerprint(event, headers),
         "fingerprint_completeness": _fingerprint_completeness(event, headers),
         "observation_role": observation_role,
+        "expires_seconds": headers.get("expires_seconds"),
+        "min_expires_seconds": headers.get("min_expires_seconds"),
+        "contact_expires_seconds": headers.get("contact_expires_seconds"),
+        "contact_wildcard": bool(headers.get("contact_wildcard")),
+        "contact_count": int(headers.get("contact_count") or 0),
+        "authorization_count": int(headers.get("authorization_count") or 0),
+        "proxy_authorization_count": int(headers.get("proxy_authorization_count") or 0),
+        "www_authenticate_count": int(headers.get("www_authenticate_count") or 0),
+        "proxy_authenticate_count": int(headers.get("proxy_authenticate_count") or 0),
     }
     return {"event": event, "match": match}
 
@@ -882,6 +955,7 @@ def _pdml_headers(proto: ElementTree.Element) -> dict[str, Any]:
         "p_asserted_identity_count": len(_descendant_fields(proto, HEADER_COUNT_FIELDS["p_asserted_identity"])),
         "p_preferred_identity_count": len(_descendant_fields(proto, HEADER_COUNT_FIELDS["p_preferred_identity"])),
     }
+    headers.update(_expiration_metadata(headers.get("msg_hdr_raw"), {}))
     return headers
 
 
@@ -999,6 +1073,10 @@ _HEADER_KEYS = {
     "proxy_authenticate_count",
     "p_asserted_identity_count",
     "p_preferred_identity_count",
+    "expires_seconds",
+    "min_expires_seconds",
+    "contact_expires_seconds",
+    "contact_wildcard",
 }
 _REASSEMBLY_STATUSES = {"NOT_APPLICABLE", "SINGLE_SEGMENT", "REASSEMBLED", "INCOMPLETE", "UNKNOWN"}
 _INTEGRITY_VALUES = set(INTEGRITY_MARKERS.values()) | {
@@ -1112,6 +1190,20 @@ def _jsonl_headers(raw: Any) -> dict[str, Any]:
         if count is None or count < 0:
             raise InputError(f"headers.{label} must be a non-negative integer")
         count_values[label] = count
+    expiration_values: dict[str, Any] = {}
+    for label in ("expires_seconds", "min_expires_seconds", "contact_expires_seconds"):
+        value = raw.get(label)
+        if value is None:
+            expiration_values[label] = None
+            continue
+        number = _int_text(value)
+        if number is None or number < 0:
+            raise InputError(f"headers.{label} must be a non-negative integer")
+        expiration_values[label] = number
+    contact_wildcard = raw.get("contact_wildcard", False)
+    if not isinstance(contact_wildcard, bool):
+        raise InputError("headers.contact_wildcard must be a boolean")
+    expiration_values["contact_wildcard"] = contact_wildcard
     return {
         "method": raw.get("method"),
         "status_code": raw.get("status_code"),
@@ -1138,6 +1230,7 @@ def _jsonl_headers(raw: Any) -> dict[str, Any]:
         "content_length": raw.get("content_length"),
         "body_length": raw.get("body_length", 0),
         **count_values,
+        **expiration_values,
     }
 
 

@@ -17,5 +17,10 @@ and GTPv2-C events, with frame-anchored UE association, conditional stage evalua
 item-scoped E-RAB and bearer evidence, evidence-safe cross-interface identity links,
 bounded S1-U GTP-U stream observation, procedure-local deviations and explicit
 limitations (no bearer, PDN or service verdict, no delivery verdict, and no global
-EPC boundary). The concrete packages do not own protocol
-decoding, implementation mapping, or end-to-end root-cause diagnosis.
+EPC boundary), and `ims-registration` (v0.1.0), performing bounded IMS registration
+procedure evidence analysis from already-extracted SIP REGISTER transactions and
+optional independent Diameter IMS Cx/Dx observations, with evidence-gated attempt
+grouping, challenge/retry evidence, lifecycle and de-registration observations,
+fail-closed cross-protocol association and a capture-scoped timeline. The concrete
+packages do not own protocol decoding, implementation mapping, subscriber identity
+bridging, or end-to-end root-cause diagnosis.

@@ -1,0 +1,51 @@
+IMS registration evidence
+analysis_version: 1.0.0
+sip_events: 57
+sip_transactions: 33
+register_transactions: 33
+registration_attempts: 28
+diameter_observations: 11
+cross_protocol_associations: 256
+timeline_rows: 76
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED
+attempt: INITIAL_REGISTRATION_CANDIDATE / CHALLENGE_RETRY_ASSOCIATED / SUCCESS_RESPONSE_OBSERVED
+attempt: INITIAL_REGISTRATION_CANDIDATE / CHALLENGE_RETRY_ASSOCIATED / SUCCESS_RESPONSE_OBSERVED
+attempt: INITIAL_REGISTRATION_CANDIDATE / CHALLENGE_WITHOUT_OBSERVED_RETRY / INCOMPLETE_EVIDENCE
+attempt: INITIAL_REGISTRATION_CANDIDATE / RETRY_WITHOUT_OBSERVED_CHALLENGE / SUCCESS_RESPONSE_OBSERVED
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / OPEN_IN_CAPTURE
+attempt: UNDETERMINED / NOT_OBSERVED / INCOMPLETE_EVIDENCE
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED
+attempt: DEREGISTRATION_REQUESTED / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED
+attempt: DEREGISTRATION_REQUESTED / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / NEGATIVE_RESPONSE_OBSERVED
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / NEGATIVE_RESPONSE_OBSERVED
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / OPEN_IN_CAPTURE
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / OPEN_IN_CAPTURE
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / OPEN_IN_CAPTURE
+attempt: UNDETERMINED / NOT_OBSERVED / OPEN_IN_CAPTURE
+attempt: UNDETERMINED / NOT_OBSERVED / OPEN_IN_CAPTURE
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / OPEN_IN_CAPTURE
+attempt: INITIAL_REGISTRATION_CANDIDATE / RETRY_WITHOUT_OBSERVED_CHALLENGE / SUCCESS_RESPONSE_OBSERVED
+attempt: DEREGISTRATION_REQUESTED / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / NEGATIVE_RESPONSE_OBSERVED
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / OPEN_IN_CAPTURE
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED
+attempt: REFRESH_OBSERVED / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED
+attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED
+attempt: RE_REGISTRATION_CANDIDATE / CHALLENGE_RETRY_ASSOCIATED / SUCCESS_RESPONSE_OBSERVED
+not_confirmed:
+- a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability
+- 401 and 407 are authentication challenges, not terminal registration failures
+- Authorization header presence does not prove cryptographic authentication
+- a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome
+- no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent
+- the first observed REGISTER in a capture is not necessarily the subscriber's first registration
+limitations:
+- IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis
+- SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped
+- multi-hop proxy roles are not inferred from addresses, ports or hostnames
+- missing messages at the capture boundary are incompleteness, not proof of a timeout or failure
+- Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge
+- raw Call-ID, tags, URIs, subscriber identities and authentication values are never published

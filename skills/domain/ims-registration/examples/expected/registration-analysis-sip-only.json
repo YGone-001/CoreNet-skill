@@ -1,0 +1,3655 @@
+{
+  "analysis_name": "ims-registration",
+  "analysis_version": "1.0.0",
+  "capability": {
+    "capability_status": "IMS_REGISTRATION_DOMAIN_IMPLEMENTED",
+    "cross_protocol_association_policy": "FAIL_CLOSED_WITHOUT_IDENTITY_BRIDGE",
+    "implemented": [
+      "SIP_REGISTER_TRANSACTION_INVENTORY",
+      "REGISTRATION_ATTEMPT_EVIDENCE",
+      "AUTHENTICATION_CHALLENGE_RETRY_EVIDENCE",
+      "REGISTRATION_LIFECYCLE_EVIDENCE",
+      "DIAMETER_CX_DX_INDEPENDENT_INVENTORY",
+      "REGISTRATION_TIMELINE"
+    ],
+    "interface_identity": "UNPROVED",
+    "not_implemented": [
+      "IMS_SESSION_DOMAIN",
+      "IMS_MEDIA_DOMAIN",
+      "SDP",
+      "RTP",
+      "DIAMETER_RX",
+      "DIAMETER_SH",
+      "CROSS_PROTOCOL_SUBSCRIBER_IDENTITY_BRIDGE",
+      "IMS_FAILURE_BOUNDARY"
+    ]
+  },
+  "completeness": {
+    "association_count": 0,
+    "associations_omitted": 0,
+    "attempt_count": 28,
+    "attempts_omitted": 0,
+    "diameter_observation_count": 0,
+    "diameter_observations_omitted": 0,
+    "register_transaction_count": 33,
+    "registration_inventory_count": 33,
+    "registration_inventory_omitted": 0,
+    "sip_event_count": 57,
+    "sip_transaction_count": 33,
+    "timeline_row_count": 56,
+    "timeline_rows_omitted": 0
+  },
+  "cross_protocol_associations": [],
+  "diameter_ims_inventory": [],
+  "domain": "domain",
+  "input_provenance": {
+    "capture_identities": [
+      "synthetic-ims-registration.pcapng"
+    ],
+    "capture_identity_basis": [
+      "SIP source capture name; Diameter artifact captures are compared only for equality"
+    ],
+    "common_capture_verified": false,
+    "diameter_artifact": null,
+    "diameter_status": "NOT_SUPPLIED",
+    "sip_inputs": [
+      {
+        "decoder": null,
+        "event_count": 57,
+        "input_format": "fields-jsonl",
+        "source_name": "registration-cases.jsonl",
+        "source_sha256": "70d0a532600f57b41f979f97a4ec37b6174e45663894e8c263837035d160c2c8",
+        "transaction_count": 33
+      }
+    ]
+  },
+  "limitations": [
+    "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+    "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+    "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+    "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+    "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+    "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+  ],
+  "not_confirmed": [
+    "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+    "401 and 407 are authentication challenges, not terminal registration failures",
+    "Authorization header presence does not prove cryptographic authentication",
+    "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+    "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+    "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+  ],
+  "registration_attempts": [
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:1.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:2.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:1.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:2.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:1.1",
+        "synthetic-ims-registration.pcapng:2.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:1.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:3.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "CHALLENGE_RETRY_ASSOCIATED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:4.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "INCREASING",
+        "values": [
+          1,
+          2
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:4.1",
+        "sip-event:synthetic-ims-registration.pcapng:6.1"
+      ],
+      "limitations": [
+        "Authorization presence and a 2xx response do not prove cryptographic authentication or persistent registration",
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:3.1",
+        "sip-event:synthetic-ims-registration.pcapng:5.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:4.1",
+        "sip-event:synthetic-ims-registration.pcapng:6.1"
+      ],
+      "retry_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:5.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:3.1",
+        "synthetic-ims-registration.pcapng:4.1",
+        "synthetic-ims-registration.pcapng:5.1",
+        "synthetic-ims-registration.pcapng:6.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:3.1",
+        "sip-transaction:synthetic-ims-registration.pcapng:request:5.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:7.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "CHALLENGE_RETRY_ASSOCIATED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:8.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "INCREASING",
+        "values": [
+          1,
+          2
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:8.1",
+        "sip-event:synthetic-ims-registration.pcapng:10.1"
+      ],
+      "limitations": [
+        "Authorization presence and a 2xx response do not prove cryptographic authentication or persistent registration",
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:7.1",
+        "sip-event:synthetic-ims-registration.pcapng:9.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:8.1",
+        "sip-event:synthetic-ims-registration.pcapng:10.1"
+      ],
+      "retry_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:9.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:10.1",
+        "synthetic-ims-registration.pcapng:7.1",
+        "synthetic-ims-registration.pcapng:8.1",
+        "synthetic-ims-registration.pcapng:9.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:7.1",
+        "sip-transaction:synthetic-ims-registration.pcapng:request:9.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:11.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "CHALLENGE_WITHOUT_OBSERVED_RETRY",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:12.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:12.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:11.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:12.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "INCOMPLETE_EVIDENCE",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:11.1",
+        "synthetic-ims-registration.pcapng:12.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:11.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:13.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "RETRY_WITHOUT_OBSERVED_CHALLENGE",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:14.1"
+      ],
+      "limitations": [
+        "Authorization presence and a 2xx response do not prove cryptographic authentication or persistent registration",
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:13.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:14.1"
+      ],
+      "retry_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:13.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:13.1",
+        "synthetic-ims-registration.pcapng:14.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:13.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:15.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED",
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:15.1"
+      ],
+      "response_event_references": [],
+      "retry_event_references": [],
+      "sip_outcome": "OPEN_IN_CAPTURE",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:15.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:15.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:16.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "UNKNOWN",
+        "values": []
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "limitations": [
+        "the transaction is retained as an independent observation",
+        "a REGISTER response without an observed request is retained as an independent response observation, not a successful registration attempt",
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED",
+        "REQUEST_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "UNDETERMINED",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt"
+      ],
+      "request_event_references": [],
+      "response_event_references": [],
+      "retry_event_references": [],
+      "sip_outcome": "INCOMPLETE_EVIDENCE",
+      "source_frame_references": [],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:response:16.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:17.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:18.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:17.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:18.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:17.1",
+        "synthetic-ims-registration.pcapng:18.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:17.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:19.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:20.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:19.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:20.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:19.1",
+        "synthetic-ims-registration.pcapng:20.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:19.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:21.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": {
+        "accepted_by_sip": true,
+        "contact_expires_seconds": null,
+        "contact_wildcard": false,
+        "expires_seconds": 0,
+        "outcome": "DEREGISTRATION_ACCEPTED_BY_SIP",
+        "request_observed": true,
+        "response_observed": true
+      },
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:22.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "DEREGISTRATION_REQUESTED",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:21.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:22.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:21.1",
+        "synthetic-ims-registration.pcapng:22.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:21.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:23.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": {
+        "accepted_by_sip": true,
+        "contact_expires_seconds": null,
+        "contact_wildcard": true,
+        "expires_seconds": null,
+        "outcome": "DEREGISTRATION_ACCEPTED_BY_SIP",
+        "request_observed": true,
+        "response_observed": true
+      },
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:24.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "DEREGISTRATION_REQUESTED",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:23.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:24.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:23.1",
+        "synthetic-ims-registration.pcapng:24.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:23.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:25.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:26.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:25.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:26.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "NEGATIVE_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:25.1",
+        "synthetic-ims-registration.pcapng:26.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:25.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:27.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "INCREASING",
+        "values": [
+          1,
+          2
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:28.1",
+        "sip-event:synthetic-ims-registration.pcapng:30.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": true,
+        "seconds": 120
+      },
+      "missing_evidence": [],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_prior_successful_attempt",
+        "observed_register_request",
+        "positive_expires"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:27.1",
+        "sip-event:synthetic-ims-registration.pcapng:29.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:28.1",
+        "sip-event:synthetic-ims-registration.pcapng:30.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:27.1",
+        "synthetic-ims-registration.pcapng:28.1",
+        "synthetic-ims-registration.pcapng:29.1",
+        "synthetic-ims-registration.pcapng:30.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:27.1",
+        "sip-transaction:synthetic-ims-registration.pcapng:request:29.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:31.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:32.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:31.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:32.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "NEGATIVE_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:31.1",
+        "synthetic-ims-registration.pcapng:32.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:31.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:33.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:35.1"
+      ],
+      "limitations": [
+        "a REGISTER with the same CSeq and a different Via branch was observed; a forwarding or proxy relationship is not proved",
+        "multi-hop forwarding is unproved; the observations remain one candidate attempt",
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED",
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": true,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:33.1",
+        "sip-event:synthetic-ims-registration.pcapng:34.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:35.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "OPEN_IN_CAPTURE",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:33.1",
+        "synthetic-ims-registration.pcapng:34.1",
+        "synthetic-ims-registration.pcapng:35.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:33.1",
+        "sip-transaction:synthetic-ims-registration.pcapng:request:34.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:36.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          2
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED",
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:36.1"
+      ],
+      "response_event_references": [],
+      "retry_event_references": [],
+      "sip_outcome": "OPEN_IN_CAPTURE",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:36.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:36.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:37.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [
+        "CSEQ_INCOMPATIBLE"
+      ],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "limitations": [
+        "the observed CSeq sequence is not compatible with one registration attempt",
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED",
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:37.1"
+      ],
+      "response_event_references": [],
+      "retry_event_references": [],
+      "sip_outcome": "OPEN_IN_CAPTURE",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:37.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:37.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:38.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "limitations": [
+        "registration-attempt grouping is unavailable because mandatory private identity evidence is absent",
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "CALL_ID_NOT_OBSERVED",
+        "EXPIRATION_NOT_OBSERVED",
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "UNDETERMINED",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:38.1"
+      ],
+      "response_event_references": [],
+      "retry_event_references": [],
+      "sip_outcome": "OPEN_IN_CAPTURE",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:38.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:38.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:39.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "limitations": [
+        "registration-attempt grouping is unavailable because mandatory private identity evidence is absent",
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "CALL_ID_NOT_OBSERVED",
+        "EXPIRATION_NOT_OBSERVED",
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "UNDETERMINED",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:39.1"
+      ],
+      "response_event_references": [],
+      "retry_event_references": [],
+      "sip_outcome": "OPEN_IN_CAPTURE",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:39.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:39.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:40.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "UNKNOWN",
+        "values": []
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED",
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:40.1"
+      ],
+      "response_event_references": [],
+      "retry_event_references": [],
+      "sip_outcome": "OPEN_IN_CAPTURE",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:40.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:40.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:41.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "RETRY_WITHOUT_OBSERVED_CHALLENGE",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:42.1"
+      ],
+      "limitations": [
+        "Authorization presence and a 2xx response do not prove cryptographic authentication or persistent registration",
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_prior_successful_attempt",
+        "observed_register_request",
+        "positive_expires"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:41.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:42.1"
+      ],
+      "retry_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:41.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:41.1",
+        "synthetic-ims-registration.pcapng:42.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:41.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:43.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": {
+        "accepted_by_sip": true,
+        "contact_expires_seconds": 0,
+        "contact_wildcard": false,
+        "expires_seconds": null,
+        "outcome": "DEREGISTRATION_ACCEPTED_BY_SIP",
+        "request_observed": true,
+        "response_observed": true
+      },
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:44.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "DEREGISTRATION_REQUESTED",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:43.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:44.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:43.1",
+        "synthetic-ims-registration.pcapng:44.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:43.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:45.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:46.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:45.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:46.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "NEGATIVE_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:45.1",
+        "synthetic-ims-registration.pcapng:46.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:45.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:47.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED",
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:47.1"
+      ],
+      "response_event_references": [],
+      "retry_event_references": [],
+      "sip_outcome": "OPEN_IN_CAPTURE",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:47.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:47.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:48.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:49.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:48.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:49.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:48.1",
+        "synthetic-ims-registration.pcapng:49.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:48.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:50.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          2
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:51.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "REFRESH_OBSERVED",
+      "registration_type_evidence": [
+        "observed_register_request",
+        "positive_expires",
+        "prior_successful_attempt"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:50.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:51.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:50.1",
+        "synthetic-ims-registration.pcapng:51.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:50.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:52.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "SINGLE_OBSERVATION",
+        "values": [
+          1
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:53.1"
+      ],
+      "limitations": [
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "no_prior_successful_attempt",
+        "observed_register_request"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:52.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:53.1"
+      ],
+      "retry_event_references": [],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:52.1",
+        "synthetic-ims-registration.pcapng:53.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:52.1"
+      ]
+    },
+    {
+      "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:54.1",
+      "authentication_cryptographically_verified": false,
+      "authentication_evidence_status": "CHALLENGE_RETRY_ASSOCIATED",
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:55.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "progression": "INCREASING",
+        "values": [
+          2,
+          3
+        ]
+      },
+      "deregistration": null,
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:55.1",
+        "sip-event:synthetic-ims-registration.pcapng:57.1"
+      ],
+      "limitations": [
+        "Authorization presence and a 2xx response do not prove cryptographic authentication or persistent registration",
+        "IMS registration analysis is protocol-local and does not implement IMS session, media, SDP, RTP, Rx, Sh, charging or failure-boundary diagnosis",
+        "SIP transaction and registration-attempt evidence are distinct; all attempts are capture-scoped",
+        "multi-hop proxy roles are not inferred from addresses, ports or hostnames",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "Diameter Cx/Dx observations retain independent protocol semantics and are not joined to SIP attempts without a proven identity bridge",
+        "raw Call-ID, tags, URIs, subscriber identities and authentication values are never published"
+      ],
+      "min_expires_evidence": {
+        "present": false,
+        "seconds": null
+      },
+      "missing_evidence": [
+        "EXPIRATION_NOT_OBSERVED"
+      ],
+      "multi_hop_candidate": false,
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "omitted_request_event_count": 0,
+      "omitted_response_event_count": 0,
+      "omitted_transaction_count": 0,
+      "registration_type": "RE_REGISTRATION_CANDIDATE",
+      "registration_type_evidence": [
+        "no_positive_expires",
+        "observed_register_request",
+        "prior_successful_attempt"
+      ],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:54.1",
+        "sip-event:synthetic-ims-registration.pcapng:56.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:55.1",
+        "sip-event:synthetic-ims-registration.pcapng:57.1"
+      ],
+      "retry_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:56.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "source_frame_references": [
+        "synthetic-ims-registration.pcapng:54.1",
+        "synthetic-ims-registration.pcapng:55.1",
+        "synthetic-ims-registration.pcapng:56.1",
+        "synthetic-ims-registration.pcapng:57.1"
+      ],
+      "transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:54.1",
+        "sip-transaction:synthetic-ims-registration.pcapng:request:56.1"
+      ]
+    }
+  ],
+  "sip_registration_inventory": [
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:2.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 1,
+      "last_observed_frame": 2,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:1.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:2.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:1.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:4.1"
+      ],
+      "final_response_status_codes": [
+        401
+      ],
+      "first_observed_frame": 3,
+      "last_observed_frame": 4,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:3.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:4.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:3.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:6.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 5,
+      "last_observed_frame": 6,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:5.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:6.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:5.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:8.1"
+      ],
+      "final_response_status_codes": [
+        407
+      ],
+      "first_observed_frame": 7,
+      "last_observed_frame": 8,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:7.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:8.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:7.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:10.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 9,
+      "last_observed_frame": 10,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:9.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:10.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:9.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:12.1"
+      ],
+      "final_response_status_codes": [
+        401
+      ],
+      "first_observed_frame": 11,
+      "last_observed_frame": 12,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:11.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:12.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:11.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:14.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 13,
+      "last_observed_frame": 14,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:13.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:14.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:13.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "first_observed_frame": 15,
+      "last_observed_frame": 15,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published"
+      ],
+      "matching_status": "REQUEST_ONLY",
+      "missing_evidence": [
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "observed_evidence_status": "REQUEST_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:15.1"
+      ],
+      "response_event_references": [],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:15.1",
+      "transaction_state": "REQUEST_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:16.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 16,
+      "last_observed_frame": 16,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "the response request is outside the observed capture scope; no timeout or network outcome is inferred",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "RESPONSE_ONLY",
+      "missing_evidence": [
+        "REQUEST_NOT_OBSERVED"
+      ],
+      "observed_evidence_status": "RESPONSE_ONLY",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:16.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:response:16.1",
+      "transaction_state": "RESPONSE_ONLY"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:18.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 17,
+      "last_observed_frame": 18,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:17.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:18.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:17.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:20.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 19,
+      "last_observed_frame": 20,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:19.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:20.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:19.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:22.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 21,
+      "last_observed_frame": 22,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:21.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:22.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:21.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:24.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 23,
+      "last_observed_frame": 24,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:23.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:24.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:23.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:26.1"
+      ],
+      "final_response_status_codes": [
+        403
+      ],
+      "first_observed_frame": 25,
+      "last_observed_frame": 26,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:25.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:26.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:25.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:28.1"
+      ],
+      "final_response_status_codes": [
+        423
+      ],
+      "first_observed_frame": 27,
+      "last_observed_frame": 28,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:27.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:28.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:27.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:30.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 29,
+      "last_observed_frame": 30,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:29.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:30.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:29.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:32.1"
+      ],
+      "final_response_status_codes": [
+        503
+      ],
+      "first_observed_frame": 31,
+      "last_observed_frame": 32,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:31.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:32.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:31.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:35.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 33,
+      "last_observed_frame": 35,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:33.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:35.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:33.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "first_observed_frame": 34,
+      "last_observed_frame": 34,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published"
+      ],
+      "matching_status": "REQUEST_ONLY",
+      "missing_evidence": [
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "observed_evidence_status": "REQUEST_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:34.1"
+      ],
+      "response_event_references": [],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:34.1",
+      "transaction_state": "REQUEST_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "first_observed_frame": 36,
+      "last_observed_frame": 36,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published"
+      ],
+      "matching_status": "REQUEST_ONLY",
+      "missing_evidence": [
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "observed_evidence_status": "REQUEST_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:36.1"
+      ],
+      "response_event_references": [],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:36.1",
+      "transaction_state": "REQUEST_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "first_observed_frame": 37,
+      "last_observed_frame": 37,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published"
+      ],
+      "matching_status": "REQUEST_ONLY",
+      "missing_evidence": [
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "observed_evidence_status": "REQUEST_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:37.1"
+      ],
+      "response_event_references": [],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:37.1",
+      "transaction_state": "REQUEST_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "first_observed_frame": 38,
+      "last_observed_frame": 38,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published"
+      ],
+      "matching_status": "REQUEST_ONLY",
+      "missing_evidence": [
+        "CALL_ID_NOT_OBSERVED",
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "observed_evidence_status": "REQUEST_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:38.1"
+      ],
+      "response_event_references": [],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:38.1",
+      "transaction_state": "REQUEST_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "first_observed_frame": 39,
+      "last_observed_frame": 39,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published"
+      ],
+      "matching_status": "REQUEST_ONLY",
+      "missing_evidence": [
+        "FINAL_RESPONSE_NOT_OBSERVED",
+        "FROM_TAG_NOT_OBSERVED"
+      ],
+      "observed_evidence_status": "REQUEST_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:39.1"
+      ],
+      "response_event_references": [],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:39.1",
+      "transaction_state": "REQUEST_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "first_observed_frame": 40,
+      "last_observed_frame": 40,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published"
+      ],
+      "matching_status": "REQUEST_ONLY",
+      "missing_evidence": [
+        "CSEQ_NOT_OBSERVED",
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "observed_evidence_status": "REQUEST_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:40.1"
+      ],
+      "response_event_references": [],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:40.1",
+      "transaction_state": "REQUEST_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:42.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 41,
+      "last_observed_frame": 42,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:41.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:42.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:41.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:44.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 43,
+      "last_observed_frame": 44,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:43.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:44.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:43.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:46.1"
+      ],
+      "final_response_status_codes": [
+        408
+      ],
+      "first_observed_frame": 45,
+      "last_observed_frame": 46,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:45.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:46.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:45.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "first_observed_frame": 47,
+      "last_observed_frame": 47,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published"
+      ],
+      "matching_status": "REQUEST_ONLY",
+      "missing_evidence": [
+        "FINAL_RESPONSE_NOT_OBSERVED"
+      ],
+      "observed_evidence_status": "REQUEST_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:47.1"
+      ],
+      "response_event_references": [],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:47.1",
+      "transaction_state": "REQUEST_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:49.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 48,
+      "last_observed_frame": 49,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:48.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:49.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:48.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:51.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 50,
+      "last_observed_frame": 51,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:50.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:51.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:50.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:53.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 52,
+      "last_observed_frame": 53,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:52.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:53.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:52.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:55.1"
+      ],
+      "final_response_status_codes": [
+        401
+      ],
+      "first_observed_frame": 54,
+      "last_observed_frame": 55,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:54.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:55.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:54.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    },
+    {
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:57.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "first_observed_frame": 56,
+      "last_observed_frame": 57,
+      "limitations": [
+        "SIP transaction correlation is protocol-local and is not SIP dialog correlation, cross-protocol correlation or IMS procedure analysis",
+        "raw Call-ID, Via branch, tags, URIs and credentials are used only in memory and are never published",
+        "status codes are observed protocol evidence; they do not prove an IMS registration, authentication or call outcome"
+      ],
+      "matching_status": "MATCHED",
+      "missing_evidence": [],
+      "observed_evidence_status": "FINAL_RESPONSE_OBSERVED",
+      "omitted_final_response_event_count": 0,
+      "omitted_request_event_count": 0,
+      "provisional_response_event_references": [],
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:56.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:57.1"
+      ],
+      "retransmission_event_references": [],
+      "transaction_method": "REGISTER",
+      "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:56.1",
+      "transaction_state": "FINAL_RESPONSE_OBSERVED"
+    }
+  ],
+  "timeline": {
+    "global_order_proven": true,
+    "ordering_basis": "SINGLE_CAPTURE_FRAME_ORDER",
+    "row_count": 56,
+    "rows": [
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:1.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 1,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:1.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:1.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:1.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:1.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 2,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:2.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:2.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:1.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:3.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 3,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:3.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:3.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:3.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:3.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_AUTHENTICATION_CHALLENGE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 4,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:4.1:SIP_AUTHENTICATION_CHALLENGE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:4.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:3.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:3.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_RETRY",
+        "evidence_class": "OBSERVED",
+        "frame_number": 5,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:5.1:SIP_REGISTER_RETRY",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:5.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:5.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:3.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 6,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:6.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:6.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:5.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:7.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 7,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:7.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:7.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:7.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:7.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_AUTHENTICATION_CHALLENGE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 8,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:8.1:SIP_AUTHENTICATION_CHALLENGE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:8.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:7.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:7.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_RETRY",
+        "evidence_class": "OBSERVED",
+        "frame_number": 9,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:9.1:SIP_REGISTER_RETRY",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:9.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:9.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:7.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 10,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:10.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:10.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:9.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:11.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 11,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:11.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:11.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:11.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:11.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_AUTHENTICATION_CHALLENGE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 12,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:12.1:SIP_AUTHENTICATION_CHALLENGE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:12.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:11.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:13.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 13,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:13.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:13.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:13.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:13.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 14,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:14.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:14.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:13.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:15.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 15,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:15.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:15.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:15.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:17.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 17,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:17.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:17.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:17.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:17.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 18,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:18.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:18.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:17.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:19.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 19,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:19.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:19.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:19.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:19.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 20,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:20.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:20.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:19.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:21.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 21,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:21.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:21.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:21.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:21.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 22,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:22.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:22.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:21.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:23.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 23,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:23.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:23.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:23.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:23.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 24,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:24.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:24.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:23.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:25.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 25,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:25.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:25.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:25.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:25.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 26,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:26.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:26.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:25.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:27.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 27,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:27.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:27.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:27.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:27.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 28,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:28.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:28.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:27.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:27.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 29,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:29.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:29.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:29.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:27.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 30,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:30.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:30.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:29.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:31.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 31,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:31.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:31.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:31.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:31.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 32,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:32.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:32.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:31.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:33.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 33,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:33.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:33.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:33.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:33.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 34,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:34.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:34.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:34.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:33.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 35,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:35.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:35.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:33.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:36.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 36,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:36.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:36.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:36.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:37.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 37,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:37.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:37.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:37.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:38.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 38,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:38.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:38.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:38.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:39.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 39,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:39.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:39.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:39.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:40.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 40,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:40.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:40.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:40.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:41.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 41,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:41.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:41.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:41.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:41.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 42,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:42.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:42.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:41.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:43.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 43,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:43.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:43.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:43.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:43.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 44,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:44.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:44.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:43.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:45.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 45,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:45.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:45.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:45.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:45.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 46,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:46.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:46.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:45.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:47.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 47,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:47.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:47.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:47.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:48.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 48,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:48.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:48.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:48.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:48.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 49,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:49.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:49.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:48.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:50.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 50,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:50.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:50.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:50.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:50.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 51,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:51.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:51.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:50.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:52.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 52,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:52.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:52.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:52.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:52.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 53,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:53.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:53.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:52.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:54.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_REQUEST",
+        "evidence_class": "OBSERVED",
+        "frame_number": 54,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:54.1:SIP_REGISTER_REQUEST",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:54.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:54.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:54.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_AUTHENTICATION_CHALLENGE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 55,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:55.1:SIP_AUTHENTICATION_CHALLENGE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:55.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:54.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:54.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_REGISTER_RETRY",
+        "evidence_class": "OBSERVED",
+        "frame_number": 56,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:56.1:SIP_REGISTER_RETRY",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:56.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:56.1"
+      },
+      {
+        "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:54.1",
+        "capture_identity": "synthetic-ims-registration.pcapng",
+        "event_kind": "SIP_FINAL_RESPONSE",
+        "evidence_class": "OBSERVED",
+        "frame_number": 57,
+        "row_reference": "ims-timeline:synthetic-ims-registration.pcapng:57.1:SIP_FINAL_RESPONSE",
+        "source_reference": "sip-event:synthetic-ims-registration.pcapng:57.1",
+        "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:56.1"
+      }
+    ],
+    "rows_omitted": 0
+  }
+}

@@ -1,0 +1,67 @@
+name: ims-registration
+version: 0.1.0
+category: domain
+description: >
+  Bounded IMS registration Domain evidence over already-extracted SIP and
+  optional Diameter IMS Cx/Dx protocol evidence: SIP REGISTER transaction
+  inventory, evidence-gated registration-attempt grouping, 401/407 challenge
+  and authorized-retry observations, initial/re-registration/refresh and
+  de-registration evidence, negative SIP response classification, independent
+  Cx/Dx observations, fail-closed cross-protocol association, and a
+  capture-scoped registration timeline. No packet decoding, no subscriber
+  identity bridge, no IMS session or media verdict.
+scope:
+  includes:
+    - SIP REGISTER transaction inventory from the accepted SIP Protocol evidence
+    - evidence-gated grouping of multiple REGISTER transactions into one registration attempt
+    - 401 and 407 challenge observations and authorized retry association
+    - initial registration, re-registration, refresh and de-registration evidence
+    - negative SIP response classification without timeout inference
+    - independent Diameter IMS Cx/Dx UAR/MAR/SAR/RTR/PPR/LIR observations
+    - fail-closed SIP-to-Diameter association without a subscriber identity bridge
+    - source-local or single-capture registration timeline
+  excludes:
+    - IMS session establishment, IMS media, SDP or RTP analysis
+    - Diameter Rx, Sh, charging or cross-protocol subscriber identity bridging
+    - SIP or Diameter packet decoding and transaction rematching
+    - P-CSCF, I-CSCF or S-CSCF role inference from addresses or ports
+    - cryptographic authentication verification or registration persistence claims
+    - IMS failure-boundary orchestration or end-to-end VoLTE diagnosis
+dependencies:
+  required:
+    - sip >=0.4.0
+    - diameter-ims >=1.1.0
+  optional: []
+inputs:
+  - SIP capture, stored PDML or sanitized SIP dissector-record JSONL
+  - optional Diameter IMS analysis JSON (diameter-ims analysis contract)
+outputs:
+  - bounded IMS registration analysis JSON (schemas/ims-registration-analysis.schema.json)
+  - optional plain-text registration evidence report
+protocols:
+  - SIP
+  - Diameter
+interfaces:
+  - Cx
+  - Dx
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Domain-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/input/registration-cases.jsonl
+    - examples/input/diameter-ims-cases.json
+  expected_results:
+    - examples/expected/registration-analysis-sip-only.json
+    - examples/expected/registration-analysis.json
+    - examples/expected/registration-report.txt
