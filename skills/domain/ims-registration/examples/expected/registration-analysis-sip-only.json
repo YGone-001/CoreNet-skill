@@ -1,6 +1,6 @@
 {
   "analysis_name": "ims-registration",
-  "analysis_version": "1.0.0",
+  "analysis_version": "1.1.0",
   "capability": {
     "capability_status": "IMS_REGISTRATION_DOMAIN_IMPLEMENTED",
     "cross_protocol_association_policy": "FAIL_CLOSED_WITHOUT_IDENTITY_BRIDGE",
@@ -51,6 +51,7 @@
     ],
     "common_capture_verified": false,
     "diameter_artifact": null,
+    "diameter_capture_identities": [],
     "diameter_status": "NOT_SUPPLIED",
     "sip_inputs": [
       {
@@ -86,6 +87,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -122,8 +124,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -155,6 +161,23 @@
       "challenge_event_references": [
         "sip-event:synthetic-ims-registration.pcapng:4.1"
       ],
+      "challenge_retry_association": {
+        "basis": [
+          "challenge_observed",
+          "later_register_observed",
+          "cseq_increased",
+          "authorization_present"
+        ],
+        "candidate_request_event_references": [],
+        "candidate_transaction_references": [],
+        "challenge_response_event_reference": "sip-event:synthetic-ims-registration.pcapng:4.1",
+        "challenge_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:3.1",
+        "conflict_findings": [],
+        "missing_evidence": [],
+        "retry_request_event_reference": "sip-event:synthetic-ims-registration.pcapng:5.1",
+        "retry_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:5.1",
+        "status": "ASSOCIATED"
+      },
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "INCREASING",
@@ -194,8 +217,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -234,6 +261,23 @@
       "challenge_event_references": [
         "sip-event:synthetic-ims-registration.pcapng:8.1"
       ],
+      "challenge_retry_association": {
+        "basis": [
+          "challenge_observed",
+          "later_register_observed",
+          "cseq_increased",
+          "authorization_present"
+        ],
+        "candidate_request_event_references": [],
+        "candidate_transaction_references": [],
+        "challenge_response_event_reference": "sip-event:synthetic-ims-registration.pcapng:8.1",
+        "challenge_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:7.1",
+        "conflict_findings": [],
+        "missing_evidence": [],
+        "retry_request_event_reference": "sip-event:synthetic-ims-registration.pcapng:9.1",
+        "retry_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:9.1",
+        "status": "ASSOCIATED"
+      },
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "INCREASING",
@@ -273,8 +317,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -295,10 +343,10 @@
       ],
       "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
       "source_frame_references": [
-        "synthetic-ims-registration.pcapng:10.1",
         "synthetic-ims-registration.pcapng:7.1",
         "synthetic-ims-registration.pcapng:8.1",
-        "synthetic-ims-registration.pcapng:9.1"
+        "synthetic-ims-registration.pcapng:9.1",
+        "synthetic-ims-registration.pcapng:10.1"
       ],
       "transaction_references": [
         "sip-transaction:synthetic-ims-registration.pcapng:request:7.1",
@@ -313,6 +361,22 @@
       "challenge_event_references": [
         "sip-event:synthetic-ims-registration.pcapng:12.1"
       ],
+      "challenge_retry_association": {
+        "basis": [
+          "challenge_observed"
+        ],
+        "candidate_request_event_references": [],
+        "candidate_transaction_references": [],
+        "challenge_response_event_reference": "sip-event:synthetic-ims-registration.pcapng:12.1",
+        "challenge_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:11.1",
+        "conflict_findings": [],
+        "missing_evidence": [
+          "AUTHORIZATION_NOT_OBSERVED"
+        ],
+        "retry_request_event_reference": null,
+        "retry_transaction_reference": null,
+        "status": "CHALLENGE_WITHOUT_RETRY"
+      },
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -338,6 +402,7 @@
         "seconds": null
       },
       "missing_evidence": [
+        "AUTHORIZATION_NOT_OBSERVED",
         "EXPIRATION_NOT_OBSERVED"
       ],
       "multi_hop_candidate": false,
@@ -349,8 +414,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -380,6 +449,22 @@
       "authentication_evidence_status": "RETRY_WITHOUT_OBSERVED_CHALLENGE",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": {
+        "basis": [
+          "authorization_present_without_observed_challenge"
+        ],
+        "candidate_request_event_references": [],
+        "candidate_transaction_references": [],
+        "challenge_response_event_reference": null,
+        "challenge_transaction_reference": null,
+        "conflict_findings": [],
+        "missing_evidence": [
+          "CHALLENGE_NOT_OBSERVED"
+        ],
+        "retry_request_event_reference": "sip-event:synthetic-ims-registration.pcapng:13.1",
+        "retry_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:13.1",
+        "status": "RETRY_WITHOUT_CHALLENGE"
+      },
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -406,6 +491,7 @@
         "seconds": null
       },
       "missing_evidence": [
+        "CHALLENGE_NOT_OBSERVED",
         "EXPIRATION_NOT_OBSERVED"
       ],
       "multi_hop_candidate": false,
@@ -417,8 +503,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -450,6 +540,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -485,8 +576,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -513,6 +608,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "UNKNOWN",
@@ -548,8 +644,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "UNDETERMINED",
       "registration_type_evidence": [
@@ -571,6 +671,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -607,8 +708,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -638,6 +743,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -674,8 +780,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -705,6 +815,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -715,11 +826,15 @@
       "deregistration": {
         "accepted_by_sip": true,
         "contact_expires_seconds": null,
+        "contact_non_wildcard": false,
         "contact_wildcard": false,
         "expires_seconds": 0,
+        "invalidity": [],
         "outcome": "DEREGISTRATION_ACCEPTED_BY_SIP",
         "request_observed": true,
-        "response_observed": true
+        "response_observed": true,
+        "scope": "ALL_BINDINGS",
+        "valid_all_bindings_request": true
       },
       "evidence_class": "DERIVED",
       "final_response_event_references": [
@@ -747,8 +862,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "DEREGISTRATION_REQUESTED",
       "registration_type_evidence": [
@@ -778,7 +897,11 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
-      "conflict_findings": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [
+        "INVALID_DEREGISTRATION_REQUEST",
+        "WILDCARD_WITHOUT_EXPIRES"
+      ],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
         "values": [
@@ -788,11 +911,18 @@
       "deregistration": {
         "accepted_by_sip": true,
         "contact_expires_seconds": null,
+        "contact_non_wildcard": false,
         "contact_wildcard": true,
         "expires_seconds": null,
-        "outcome": "DEREGISTRATION_ACCEPTED_BY_SIP",
+        "invalidity": [
+          "INVALID_DEREGISTRATION_REQUEST",
+          "WILDCARD_WITHOUT_EXPIRES"
+        ],
+        "outcome": "DEREGISTRATION_OUTCOME_UNPROVED",
         "request_observed": true,
-        "response_observed": true
+        "response_observed": true,
+        "scope": "NONE",
+        "valid_all_bindings_request": false
       },
       "evidence_class": "DERIVED",
       "final_response_event_references": [
@@ -822,10 +952,14 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
-      "registration_type": "DEREGISTRATION_REQUESTED",
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
         "no_prior_successful_attempt",
@@ -853,6 +987,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -889,8 +1024,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -920,6 +1059,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "INCREASING",
@@ -956,8 +1096,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -992,6 +1136,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -1028,8 +1173,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -1059,6 +1208,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -1098,8 +1248,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -1132,6 +1286,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -1167,8 +1322,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -1195,6 +1354,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [
         "CSEQ_INCOMPATIBLE"
       ],
@@ -1233,8 +1393,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -1261,6 +1425,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -1298,8 +1463,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "UNDETERMINED",
       "registration_type_evidence": [
@@ -1326,6 +1495,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -1363,8 +1533,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "UNDETERMINED",
       "registration_type_evidence": [
@@ -1391,6 +1565,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "UNKNOWN",
@@ -1424,8 +1599,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -1452,6 +1631,22 @@
       "authentication_evidence_status": "RETRY_WITHOUT_OBSERVED_CHALLENGE",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": {
+        "basis": [
+          "authorization_present_without_observed_challenge"
+        ],
+        "candidate_request_event_references": [],
+        "candidate_transaction_references": [],
+        "challenge_response_event_reference": null,
+        "challenge_transaction_reference": null,
+        "conflict_findings": [],
+        "missing_evidence": [
+          "CHALLENGE_NOT_OBSERVED"
+        ],
+        "retry_request_event_reference": "sip-event:synthetic-ims-registration.pcapng:41.1",
+        "retry_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:41.1",
+        "status": "RETRY_WITHOUT_CHALLENGE"
+      },
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -1477,7 +1672,9 @@
         "present": false,
         "seconds": null
       },
-      "missing_evidence": [],
+      "missing_evidence": [
+        "CHALLENGE_NOT_OBSERVED"
+      ],
       "multi_hop_candidate": false,
       "not_confirmed": [
         "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
@@ -1487,8 +1684,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -1520,6 +1721,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -1530,11 +1732,15 @@
       "deregistration": {
         "accepted_by_sip": true,
         "contact_expires_seconds": 0,
+        "contact_non_wildcard": false,
         "contact_wildcard": false,
         "expires_seconds": null,
+        "invalidity": [],
         "outcome": "DEREGISTRATION_ACCEPTED_BY_SIP",
         "request_observed": true,
-        "response_observed": true
+        "response_observed": true,
+        "scope": "CONTACT_SCOPED",
+        "valid_all_bindings_request": false
       },
       "evidence_class": "DERIVED",
       "final_response_event_references": [
@@ -1562,8 +1768,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "DEREGISTRATION_REQUESTED",
       "registration_type_evidence": [
@@ -1593,6 +1803,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -1629,8 +1840,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -1660,6 +1875,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -1695,8 +1911,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -1723,6 +1943,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -1759,8 +1980,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -1790,6 +2015,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -1824,8 +2050,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "REFRESH_OBSERVED",
       "registration_type_evidence": [
@@ -1855,6 +2085,7 @@
       "authentication_evidence_status": "NOT_OBSERVED",
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
+      "challenge_retry_association": null,
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
@@ -1891,8 +2122,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -1924,6 +2159,23 @@
       "challenge_event_references": [
         "sip-event:synthetic-ims-registration.pcapng:55.1"
       ],
+      "challenge_retry_association": {
+        "basis": [
+          "challenge_observed",
+          "later_register_observed",
+          "cseq_increased",
+          "authorization_present"
+        ],
+        "candidate_request_event_references": [],
+        "candidate_transaction_references": [],
+        "challenge_response_event_reference": "sip-event:synthetic-ims-registration.pcapng:55.1",
+        "challenge_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:54.1",
+        "conflict_findings": [],
+        "missing_evidence": [],
+        "retry_request_event_reference": "sip-event:synthetic-ims-registration.pcapng:56.1",
+        "retry_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:56.1",
+        "status": "ASSOCIATED"
+      },
       "conflict_findings": [],
       "cseq_observations": {
         "progression": "INCREASING",
@@ -1963,8 +2215,12 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_challenge_event_count": 0,
+      "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
       "omitted_response_event_count": 0,
+      "omitted_retry_event_count": 0,
+      "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
       "registration_type": "RE_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
@@ -3085,8 +3341,10 @@
     }
   ],
   "timeline": {
+    "diameter_row_count": 0,
     "global_order_proven": true,
     "ordering_basis": "SINGLE_CAPTURE_FRAME_ORDER",
+    "ordering_scope": "SIP_ONLY_SINGLE_CAPTURE",
     "row_count": 56,
     "rows": [
       {
@@ -3650,6 +3908,7 @@
         "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:56.1"
       }
     ],
-    "rows_omitted": 0
+    "rows_omitted": 0,
+    "sip_row_count": 56
   }
 }

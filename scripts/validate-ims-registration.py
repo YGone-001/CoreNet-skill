@@ -77,6 +77,15 @@ REQUIRED_TEST_TOKENS = (
     "test_actual_output_passes_strict_schema",
     "test_no_sensitive_identity_leakage",
     "test_deterministic_replay",
+    "test_authorized_register_then_401_without_later_register",
+    "test_wildcard_without_expires_is_invalid",
+    "test_contact_specific_expiration_is_scoped",
+    "test_wildcard_contact_deregistration",
+    "test_timeline_above_limit_conserves_rows",
+    "test_diameter_observation_conservation",
+    "test_json_output_equals_diameter_input",
+    "test_sip_and_diameter_from_different_captures",
+    "test_bounded_output_passes_schema_and_semantics",
 )
 
 
@@ -153,6 +162,8 @@ def main() -> int:
     ):
         if required not in schema.get("required", []):
             errors.append(f"schema is missing required property: {required}")
+    if schema["properties"]["analysis_version"].get("const") != ims_registration_model.ANALYSIS_VERSION:
+        errors.append("schema analysis_version diverges from the model constant")
     for definition in (
         "capability",
         "input_provenance",
@@ -162,6 +173,7 @@ def main() -> int:
         "cross_protocol_association",
         "timeline",
         "completeness",
+        "challenge_retry_association",
     ):
         if schema["$defs"][definition].get("additionalProperties") is not False:
             errors.append(f"schema definition {definition} is not strict")
@@ -243,12 +255,37 @@ def main() -> int:
                     errors.append(f"output publishes a raw identity field: {field}")
 
             completeness = document["completeness"]
-            if completeness["attempt_count"] != len(document["registration_attempts"]):
-                errors.append("attempt count does not match published attempts")
-            if completeness["association_count"] != len(document["cross_protocol_associations"]):
-                errors.append("association count does not match published associations")
-            if completeness["timeline_row_count"] != len(document["timeline"]["rows"]):
-                errors.append("timeline count does not match published rows")
+            for total_key, published, omitted_key in (
+                (
+                    "registration_inventory_count",
+                    len(document["sip_registration_inventory"]),
+                    "registration_inventory_omitted",
+                ),
+                (
+                    "attempt_count",
+                    len(document["registration_attempts"]),
+                    "attempts_omitted",
+                ),
+                (
+                    "diameter_observation_count",
+                    len(document["diameter_ims_inventory"]),
+                    "diameter_observations_omitted",
+                ),
+                (
+                    "association_count",
+                    len(document["cross_protocol_associations"]),
+                    "associations_omitted",
+                ),
+            ):
+                if completeness[total_key] != published + completeness[omitted_key]:
+                    errors.append(f"{total_key} does not satisfy count conservation")
+            timeline = document["timeline"]
+            if timeline["row_count"] != len(timeline["rows"]) + timeline["rows_omitted"]:
+                errors.append("timeline count does not satisfy count conservation")
+            if timeline["sip_row_count"] + timeline["diameter_row_count"] != timeline["row_count"]:
+                errors.append("timeline source rows do not match the total")
+            if timeline["sip_row_count"] and timeline["diameter_row_count"] and timeline["global_order_proven"]:
+                errors.append("cross-source timeline claims global frame order")
             statuses = {
                 item["association_status"] for item in document["cross_protocol_associations"]
             }
@@ -361,6 +398,46 @@ def main() -> int:
             errors.append(
                 f"existing output without --force did not return exit code 6: {refused.returncode}"
             )
+
+        import hashlib
+        import shutil
+
+        source_copy = directory / "source.jsonl"
+        shutil.copyfile(SIP_INPUT, source_copy)
+        source_hash = hashlib.sha256(source_copy.read_bytes()).hexdigest()
+        diameter_copy = directory / "diameter.json"
+        shutil.copyfile(DIAMETER_INPUT, diameter_copy)
+        diameter_hash = hashlib.sha256(diameter_copy.read_bytes()).hexdigest()
+
+        collision_cases = (
+            (
+                "output equals Diameter input",
+                ["--sip-input", str(source_copy), "--diameter-ims", str(diameter_copy), "--output", str(diameter_copy)],
+            ),
+            (
+                "report equals JSON output",
+                [
+                    "--sip-input",
+                    str(source_copy),
+                    "--output",
+                    str(directory / "same.json"),
+                    "--report",
+                    str(directory / "same.json"),
+                ],
+            ),
+            (
+                "force does not override input protection",
+                ["--sip-input", str(source_copy), "--output", str(source_copy), "--force"],
+            ),
+        )
+        for label, arguments in collision_cases:
+            completed = run([sys.executable, str(CLI), *arguments])
+            if completed.returncode == 0:
+                errors.append(f"destination collision was not rejected: {label}")
+        if hashlib.sha256(source_copy.read_bytes()).hexdigest() != source_hash:
+            errors.append("destination collision modified the SIP source")
+        if hashlib.sha256(diameter_copy.read_bytes()).hexdigest() != diameter_hash:
+            errors.append("destination collision modified the Diameter source")
 
     if errors:
         for error in errors:

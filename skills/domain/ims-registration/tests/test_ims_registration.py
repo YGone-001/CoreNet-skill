@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -48,6 +49,11 @@ def rec(
     expires: int | None = None,
     contact_expires: int | None = None,
     contact_wildcard: bool = False,
+    contact_non_wildcard: bool = False,
+    expires_present: bool | None = None,
+    expires_valid: bool = True,
+    contact_expires_present: bool | None = None,
+    contact_expires_valid: bool = True,
     min_expires: int | None = None,
     capture: str = "sip-ims.pcapng",
     truncated: bool = False,
@@ -73,6 +79,7 @@ def rec(
         "proxy_authenticate_count": proxy_auth_challenge,
         "contact_count": 0,
         "contact_wildcard": contact_wildcard,
+        "contact_non_wildcard": contact_non_wildcard,
     }
     for key, value in (
         ("expires_seconds", expires),
@@ -81,6 +88,14 @@ def rec(
     ):
         if value is not None:
             headers[key] = value
+    if expires_present is not None:
+        headers["expires_present"] = expires_present
+    if not expires_valid:
+        headers["expires_valid"] = False
+    if contact_expires_present is not None:
+        headers["contact_expires_present"] = contact_expires_present
+    if not contact_expires_valid:
+        headers["contact_expires_valid"] = False
     if method is not None:
         headers["method"] = method
         headers["max_forwards"] = 70
@@ -143,6 +158,103 @@ def run(
             "report": report.read_text(encoding="utf-8") if report.is_file() else "",
         },
     )
+
+
+def _diameter_document(count: int, capture: str | None = "sip-ims.pcapng") -> dict:
+    source = capture or "unknown"
+    observations = []
+    for index in range(count):
+        frame = index + 1
+        observations.append(
+            {
+                "observation_reference": f"diameter-observation:{source}:300:{index}",
+                "procedure": "UAR",
+                "procedure_family": "UAR",
+                "command_code": 300,
+                "command_name": "UAR",
+                "message_status": "OBSERVED",
+                "transaction_status": "MATCHED",
+                "application_result": "SUCCESS_REPORTED",
+                "request": {
+                    "event_reference": f"diameter-event:{source}:{frame}.1",
+                    "frame_number": frame,
+                    "message_occurrence": 1,
+                    "direction": "REQUEST",
+                    "application_id": 16777216,
+                    "command_code": 300,
+                    "command_name": "UAR",
+                    "message_name": "UAR",
+                    "hop_by_hop_id": frame,
+                    "end_to_end_id": frame,
+                    "source_endpoint": "192.0.2.30:3868",
+                    "destination_endpoint": "192.0.2.40:3868",
+                },
+                "answer": None,
+                "response_candidates": [],
+                "latency_seconds": None,
+                "transaction_reference": f"diameter-transaction:{source}:300:{index}",
+                "result": {
+                    "core_result_status": "MISSING",
+                    "namespace_status": "MISSING",
+                    "application_result": "NOT_APPLICABLE",
+                    "base_result_code": None,
+                    "base_result_code_name": None,
+                    "experimental_result_code": None,
+                    "experimental_result_code_name": None,
+                    "experimental_vendor_id": None,
+                    "base_results": [],
+                    "experimental_results": [],
+                    "limitations": [],
+                },
+                "request_avp_presence": [],
+                "answer_avp_presence": [],
+                "limitations": [],
+                "not_confirmed": [],
+            }
+        )
+    return {
+        "analysis_name": "diameter-ims",
+        "analysis_version": "1.1.0",
+        "domain": "protocol",
+        "capability": {
+            "supported_commands": ["UAR"],
+            "recognized_unsupported_commands": [],
+            "application_id": 16777216,
+            "application_name": "Cx/Dx",
+            "interface_identity": "UNPROVED",
+            "interface_identity_basis": [],
+            "unreviewed_command_policy": "KNOWN_UNSUPPORTED_WITH_NUMERIC_IDENTITY",
+        },
+        "input_provenance": {
+            "capture_files": [capture] if capture else [],
+            "event_count": count,
+            "transaction_count": count,
+            "events_sha256": "a" * 64,
+            "transactions_sha256": "b" * 64,
+        },
+        "command_inventory": [],
+        "observations": observations,
+        "completeness": {
+            "observation_count": count,
+            "observations_omitted": 0,
+            "cx_event_count": count,
+            "cx_transaction_count": count,
+            "events_with_avp_omissions": 0,
+            "truncated_observations": 0,
+            "unsupported_observations": 0,
+            "conflicting_observations": 0,
+            "observations_with_unproven_grouping": 0,
+        },
+        "not_confirmed": [],
+        "limitations": [],
+    }
+
+
+def _write_diameter(document: dict) -> Path:
+    directory = Path(tempfile.mkdtemp())
+    path = directory / "diameter.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    return path
 
 
 def run_fixture(*, diameter: bool = False) -> dict:
@@ -412,6 +524,174 @@ class AuthenticationEdges(unittest.TestCase):
             self.assertNotIn(token, text)
 
 
+    def test_authorized_register_then_401_without_later_register(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", auth=1),
+                rec(2, status=401, cseq_method="REGISTER", to_tag="T", outbound=False, www_auth=1),
+            ]
+        )
+        item = attempt(document)
+        self.assertNotEqual(item["authentication_evidence_status"], "CHALLENGE_RETRY_ASSOCIATED")
+        self.assertEqual(item["authentication_evidence_status"], "RETRY_NOT_ESTABLISHED")
+        self.assertIn("AUTHORIZATION_PRECEDED_CHALLENGE", item["conflict_findings"])
+        self.assertIsNone(
+            item["challenge_retry_association"]["retry_transaction_reference"]
+        )
+
+    def test_authorized_register_then_407_without_later_register(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", proxy_auth=1),
+                rec(2, status=407, cseq_method="REGISTER", to_tag="T", outbound=False, proxy_auth_challenge=1),
+            ]
+        )
+        self.assertNotEqual(
+            attempt(document)["authentication_evidence_status"],
+            "CHALLENGE_RETRY_ASSOCIATED",
+        )
+
+    def test_challenge_then_unauthenticated_register(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", cseq=1),
+                rec(2, status=401, cseq=1, cseq_method="REGISTER", to_tag="T1", outbound=False, www_auth=1),
+                rec(3, method="REGISTER", branch="z9hG4bK-B", cseq=2),
+            ]
+        )
+        self.assertNotEqual(
+            attempt(document)["authentication_evidence_status"], "CHALLENGE_RETRY_ASSOCIATED"
+        )
+
+    def test_challenge_then_conflicting_identity_is_not_associated(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", call_id="A", cseq=1),
+                rec(2, status=401, call_id="A", cseq=1, cseq_method="REGISTER", to_tag="T", outbound=False, www_auth=1),
+                rec(3, method="REGISTER", call_id="B", branch="z9hG4bK-B", cseq=2, auth=1),
+            ]
+        )
+        self.assertFalse(
+            any(
+                item["authentication_evidence_status"] == "CHALLENGE_RETRY_ASSOCIATED"
+                for item in document["registration_attempts"]
+            )
+        )
+
+    def test_challenge_retry_with_incompatible_cseq(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", cseq=2),
+                rec(2, status=401, cseq=2, cseq_method="REGISTER", to_tag="T", outbound=False, www_auth=1),
+                rec(3, method="REGISTER", branch="z9hG4bK-B", cseq=1, auth=1),
+            ]
+        )
+        self.assertFalse(
+            any(
+                item["authentication_evidence_status"] == "CHALLENGE_RETRY_ASSOCIATED"
+                for item in document["registration_attempts"]
+            )
+        )
+        self.assertTrue(
+            any(
+                "CSEQ_INCOMPATIBLE" in item["conflict_findings"]
+                for item in document["registration_attempts"]
+            )
+        )
+
+    def test_multiple_competing_retries_are_not_associated(self) -> None:
+        synthetic = {
+            "transactions": [
+                {
+                    "transaction_reference": "sip-transaction:test:request:1.1",
+                    "final_response_status_codes": [401],
+                    "request_event_references": ["sip-event:test:1.1"],
+                    "final_response_event_references": ["sip-event:test:2.1"],
+                },
+                {
+                    "transaction_reference": "sip-transaction:test:request:3.1",
+                    "final_response_status_codes": [200],
+                    "request_event_references": ["sip-event:test:3.1"],
+                    "final_response_event_references": ["sip-event:test:4.1"],
+                },
+                {
+                    "transaction_reference": "sip-transaction:test:request:5.1",
+                    "final_response_status_codes": [200],
+                    "request_event_references": ["sip-event:test:5.1"],
+                    "final_response_event_references": ["sip-event:test:6.1"],
+                },
+            ],
+            "request_matches": [
+                {"cseq_number": 1, "authorization_count": 0},
+                {"cseq_number": 2, "authorization_count": 1},
+                {"cseq_number": 3, "authorization_count": 1},
+            ],
+        }
+        association = ims_registration_model._challenge_retry_association(synthetic, {})
+        self.assertEqual(association["status"], "AMBIGUOUS")
+        self.assertIn("MULTIPLE_RETRY_CANDIDATES", association["conflict_findings"])
+
+    def test_repeated_challenges_keep_the_first_eligible_retry(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", cseq=1),
+                rec(2, status=401, cseq=1, cseq_method="REGISTER", to_tag="T1", outbound=False, www_auth=1),
+                rec(3, method="REGISTER", branch="z9hG4bK-B", cseq=2, auth=1),
+                rec(4, status=401, branch="z9hG4bK-B", cseq=2, cseq_method="REGISTER", to_tag="T2", outbound=False, www_auth=1),
+                rec(5, method="REGISTER", branch="z9hG4bK-C", cseq=3, auth=1),
+                rec(6, status=200, branch="z9hG4bK-C", cseq=3, cseq_method="REGISTER", to_tag="T3", outbound=False),
+            ]
+        )
+        item = attempt(document)
+        self.assertEqual(item["authentication_evidence_status"], "CHALLENGE_RETRY_ASSOCIATED")
+        self.assertEqual(
+            item["challenge_retry_association"]["retry_request_event_reference"],
+            "sip-event:sip-ims.pcapng:3.1",
+        )
+
+    def test_challenge_then_unrelated_register(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", call_id="A", cseq=1),
+                rec(2, status=401, call_id="A", cseq=1, cseq_method="REGISTER", to_tag="T", outbound=False, www_auth=1),
+                rec(3, method="REGISTER", call_id="B", branch="z9hG4bK-B", cseq=2, auth=1),
+            ]
+        )
+        first = document["registration_attempts"][0]
+        self.assertEqual(first["authentication_evidence_status"], "CHALLENGE_WITHOUT_OBSERVED_RETRY")
+
+    def test_multi_hop_retry_copies_are_one_logical_retry(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", cseq=1),
+                rec(2, status=401, cseq=1, cseq_method="REGISTER", to_tag="T1", outbound=False, www_auth=1),
+                rec(3, method="REGISTER", branch="z9hG4bK-B", cseq=2, auth=1),
+                rec(4, method="REGISTER", branch="z9hG4bK-C", cseq=2, auth=1),
+            ]
+        )
+        item = attempt(document)
+        self.assertTrue(item["multi_hop_candidate"])
+        self.assertEqual(item["authentication_evidence_status"], "CHALLENGE_RETRY_ASSOCIATED")
+        self.assertIn(
+            "multi_hop_copies_of_one_logical_retry",
+            item["challenge_retry_association"]["basis"],
+        )
+
+    def test_association_references_are_deterministic(self) -> None:
+        records = [
+            rec(1, method="REGISTER", cseq=1),
+            rec(2, status=401, cseq=1, cseq_method="REGISTER", to_tag="T1", outbound=False, www_auth=1),
+            rec(3, method="REGISTER", branch="z9hG4bK-B", cseq=2, auth=1),
+            rec(4, status=200, branch="z9hG4bK-B", cseq=2, cseq_method="REGISTER", to_tag="T2", outbound=False),
+        ]
+        first, _ = run(records)
+        second, _ = run(records)
+        self.assertEqual(
+            first["registration_attempts"][0]["challenge_retry_association"],
+            second["registration_attempts"][0]["challenge_retry_association"],
+        )
+
+
 class LifecycleEvidence(unittest.TestCase):
     def test_initial_candidate(self) -> None:
         document, _ = run([rec(1, method="REGISTER")])
@@ -454,9 +734,89 @@ class LifecycleEvidence(unittest.TestCase):
 
     def test_wildcard_contact_deregistration(self) -> None:
         document, _ = run(
+            [
+                rec(1, method="REGISTER", contact_wildcard=True, expires=0),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertTrue(deregistration["contact_wildcard"])
+        self.assertTrue(deregistration["valid_all_bindings_request"])
+        self.assertEqual(deregistration["scope"], "ALL_BINDINGS")
+
+    def test_wildcard_without_expires_is_invalid(self) -> None:
+        document, _ = run(
             [rec(1, method="REGISTER", contact_wildcard=True), rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False)]
         )
-        self.assertTrue(attempt(document)["deregistration"]["contact_wildcard"])
+        item = attempt(document)
+        self.assertFalse(item["deregistration"]["valid_all_bindings_request"])
+        self.assertEqual(item["deregistration"]["scope"], "NONE")
+        self.assertIn("WILDCARD_WITHOUT_EXPIRES", item["deregistration"]["invalidity"])
+        self.assertIn("INVALID_DEREGISTRATION_REQUEST", item["conflict_findings"])
+
+    def test_wildcard_with_nonzero_expires_is_invalid(self) -> None:
+        document, _ = run(
+            [rec(1, method="REGISTER", contact_wildcard=True, expires=3600), rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False)]
+        )
+        self.assertIn("WILDCARD_WITH_NONZERO_EXPIRES", attempt(document)["deregistration"]["invalidity"])
+
+    def test_wildcard_with_additional_contact_is_invalid(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", contact_wildcard=True, contact_non_wildcard=True, expires=0),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+        self.assertEqual(deregistration["scope"], "NONE")
+        self.assertIn("WILDCARD_WITH_ADDITIONAL_CONTACT", deregistration["invalidity"])
+
+    def test_contact_specific_expiration_is_scoped(self) -> None:
+        document, _ = run(
+            [rec(1, method="REGISTER", contact_expires=0), rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False)]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["scope"], "CONTACT_SCOPED")
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+
+    def test_explicit_expires_zero_without_wildcard_is_all_bindings(self) -> None:
+        document, _ = run(
+            [rec(1, method="REGISTER", expires=0), rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False)]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["scope"], "ALL_BINDINGS")
+        self.assertTrue(deregistration["valid_all_bindings_request"])
+
+    def test_absent_expiration_is_not_zero(self) -> None:
+        document, _ = run([rec(1, method="REGISTER")])
+        self.assertIsNone(attempt(document)["deregistration"])
+
+    def test_malformed_expires_is_invalid_evidence(self) -> None:
+        document, _ = run(
+            [rec(1, method="REGISTER", expires_present=True, expires_valid=False, contact_wildcard=True)]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+        self.assertIn("EXPIRES_MALFORMED", deregistration["invalidity"])
+        self.assertFalse(deregistration["accepted_by_sip"])
+
+    def test_invalid_wildcard_with_200_is_not_proven_removal(self) -> None:
+        document, _ = run(
+            [rec(1, method="REGISTER", contact_wildcard=True), rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False)]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertTrue(deregistration["accepted_by_sip"])
+        self.assertEqual(deregistration["outcome"], "DEREGISTRATION_OUTCOME_UNPROVED")
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+
+    def test_no_raw_contact_uri_is_published(self) -> None:
+        document, artifacts = run(
+            [rec(1, method="REGISTER", contact_wildcard=True, expires=0), rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False)]
+        )
+        text = json.dumps(document) + artifacts["stdout"] + artifacts["stderr"] + artifacts["report"]
+        self.assertNotIn("contact_uri", text)
+        self.assertNotIn("sip:", text)
 
     def test_missing_expiration_evidence(self) -> None:
         document, _ = run([rec(1, method="REGISTER")])
@@ -759,6 +1119,372 @@ class ExistingTransactionPreservation(unittest.TestCase):
         for item in document["registration_attempts"]:
             assigned.extend(item["transaction_references"])
         self.assertEqual(len(assigned), len(set(assigned)))
+
+
+class TimelineOrderingTests(unittest.TestCase):
+    def test_sip_only_single_capture(self) -> None:
+        document, _ = run([rec(1, method="REGISTER"), rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False)])
+        timeline = document["timeline"]
+        self.assertTrue(timeline["global_order_proven"])
+        self.assertEqual(timeline["ordering_scope"], "SIP_ONLY_SINGLE_CAPTURE")
+        self.assertEqual(timeline["ordering_basis"], "SINGLE_CAPTURE_FRAME_ORDER")
+
+    def test_sip_and_diameter_from_different_captures(self) -> None:
+        document = run_fixture(diameter=True)
+        timeline = document["timeline"]
+        self.assertFalse(timeline["global_order_proven"])
+        self.assertEqual(timeline["ordering_scope"], "CROSS_SOURCE_UNVERIFIED")
+        self.assertEqual(timeline["ordering_basis"], "SOURCE_LOCAL_ONLY")
+        self.assertGreater(timeline["sip_row_count"], 0)
+        self.assertGreater(timeline["diameter_row_count"], 0)
+
+    def test_identical_filename_is_not_verified_common_capture(self) -> None:
+        document, _ = run(
+            [rec(1, method="REGISTER")],
+            diameter=_write_diameter(_diameter_document(1, capture="sip-ims.pcapng")),
+        )
+        self.assertFalse(document["timeline"]["global_order_proven"])
+        self.assertEqual(
+            document["timeline"]["ordering_scope"], "CROSS_SOURCE_UNVERIFIED"
+        )
+
+    def test_matching_frame_numbers_do_not_prove_common_capture(self) -> None:
+        document = run_fixture(diameter=True)
+        frame_overlap = {
+            row["frame_number"]
+            for row in document["timeline"]["rows"]
+            if row["event_kind"].startswith("SIP_")
+        } & {
+            row["frame_number"]
+            for row in document["timeline"]["rows"]
+            if not row["event_kind"].startswith("SIP_")
+        }
+        self.assertFalse(document["timeline"]["global_order_proven"])
+        self.assertTrue(frame_overlap)
+
+    def test_overlapping_timestamps_do_not_prove_common_capture(self) -> None:
+        document = run_fixture(diameter=True)
+        self.assertFalse(document["input_provenance"]["common_capture_verified"])
+        self.assertFalse(document["timeline"]["global_order_proven"])
+
+    def test_missing_capture_identity_is_not_proof(self) -> None:
+        document, _ = run(
+            [rec(1, method="REGISTER")],
+            diameter=_write_diameter(_diameter_document(1, capture=None)),
+        )
+        self.assertFalse(document["timeline"]["global_order_proven"])
+
+    def test_source_local_order_is_preserved(self) -> None:
+        document = run_fixture(diameter=True)
+        rows = document["timeline"]["rows"]
+        keys = [(row["capture_identity"], row["frame_number"]) for row in rows]
+        self.assertEqual(keys, sorted(keys))
+
+    def test_no_invented_cross_protocol_causality(self) -> None:
+        document = run_fixture(diameter=True)
+        for row in document["timeline"]["rows"]:
+            if row["event_kind"].startswith("UNASSOCIATED_DIAMETER"):
+                self.assertIsNone(row["attempt_reference"])
+
+    def test_global_order_does_not_create_association(self) -> None:
+        document = run_fixture(diameter=True)
+        self.assertFalse(document["timeline"]["global_order_proven"])
+        self.assertEqual(
+            {item["association_status"] for item in document["cross_protocol_associations"]},
+            {"NOT_ESTABLISHED"},
+        )
+
+
+class CliCollisionTests(unittest.TestCase):
+    def _run(self, *arguments: object) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(SCRIPTS / "analyze-ims-registration.py"), *map(str, arguments)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def _source(self, directory: Path) -> Path:
+        import shutil
+
+        source = directory / "source.jsonl"
+        shutil.copyfile(
+            SKILL / "examples" / "input" / "registration-cases.jsonl", source
+        )
+        return source
+
+    def test_json_output_equals_sip_input(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        before = source.read_bytes()
+        completed = self._run("--sip-input", source, "--output", source, "--force")
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual(source.read_bytes(), before)
+
+    def test_json_output_equals_diameter_input(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        diameter = directory / "diameter.json"
+        diameter.write_bytes(DIAMETER_FIXTURE.read_bytes())
+        before = diameter.read_bytes()
+        completed = self._run(
+            "--sip-input", source, "--diameter-ims", diameter, "--output", diameter, "--force"
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual(diameter.read_bytes(), before)
+
+    def test_report_equals_sip_input(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        completed = self._run(
+            "--sip-input", source, "--output", directory / "out.json", "--report", source, "--force"
+        )
+        self.assertNotEqual(completed.returncode, 0)
+
+    def test_report_equals_diameter_input(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        diameter = directory / "diameter.json"
+        diameter.write_bytes(DIAMETER_FIXTURE.read_bytes())
+        completed = self._run(
+            "--sip-input", source, "--diameter-ims", diameter,
+            "--output", directory / "out.json", "--report", diameter, "--force"
+        )
+        self.assertNotEqual(completed.returncode, 0)
+
+    def test_json_and_report_same_nonexistent_file(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        target = directory / "same.json"
+        completed = self._run(
+            "--sip-input", source, "--output", target, "--report", target, "--force"
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertFalse(target.exists())
+
+    def test_json_and_report_same_existing_file(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        target = directory / "same.json"
+        target.write_text("existing", encoding="utf-8")
+        completed = self._run(
+            "--sip-input", source, "--output", target, "--report", target, "--force"
+        )
+        self.assertNotEqual(completed.returncode, 0)
+
+    def test_relative_and_absolute_aliases(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        relative = Path(os.path.relpath(source, Path.cwd()))
+        completed = self._run("--sip-input", source, "--output", relative, "--force")
+        self.assertNotEqual(completed.returncode, 0)
+
+    def test_symlink_alias_is_rejected(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        alias = directory / "alias.jsonl"
+        alias.symlink_to(source)
+        completed = self._run("--sip-input", source, "--output", alias, "--force")
+        self.assertNotEqual(completed.returncode, 0)
+
+    def test_force_does_not_override_input_protection(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        completed = self._run("--sip-input", source, "--output", source, "--force")
+        self.assertNotEqual(completed.returncode, 0)
+
+    def test_existing_safe_output_without_force_fails(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        target = directory / "out.json"
+        target.write_text("existing", encoding="utf-8")
+        completed = self._run("--sip-input", source, "--output", target)
+        self.assertNotEqual(completed.returncode, 0)
+
+    def test_existing_safe_output_with_force_succeeds(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        target = directory / "out.json"
+        target.write_text("existing", encoding="utf-8")
+        completed = self._run("--sip-input", source, "--output", target, "--force")
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_separate_safe_destinations_succeed(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        completed = self._run(
+            "--sip-input", source,
+            "--output", directory / "out.json",
+            "--report", directory / "report.txt",
+            "--force",
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_failed_preflight_leaves_inputs_unchanged(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        before = source.read_bytes()
+        self._run("--sip-input", source, "--output", source, "--report", source, "--force")
+        self.assertEqual(source.read_bytes(), before)
+
+    def test_failure_does_not_claim_publication(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = self._source(directory)
+        completed = self._run("--sip-input", source, "--output", source, "--force")
+        self.assertNotIn("wrote", completed.stdout)
+
+    def test_no_sensitive_path_or_payload_in_diagnostics(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        source = directory / "PRIVATE-SIP-INPUT.jsonl"
+        source.write_bytes((SKILL / "examples" / "input" / "registration-cases.jsonl").read_bytes())
+        completed = self._run("--sip-input", source, "--output", source, "--force")
+        self.assertNotIn("PRIVATE-SIP-INPUT", completed.stderr)
+        self.assertNotIn("call_id", completed.stderr)
+
+
+class BoundedAccountingTests(unittest.TestCase):
+    def test_zero_register_items(self) -> None:
+        document, _ = run([rec(1, method="OPTIONS")])
+        self.assertEqual(document["sip_registration_inventory"], [])
+        self.assertEqual(document["registration_attempts"], [])
+        self.assertEqual(document["completeness"]["attempt_count"], 0)
+
+    def test_attempt_boundary_conservation(self) -> None:
+        for count in (255, 256, 257):
+            with self.subTest(count=count):
+                records = [
+                    rec(
+                        index * 2 + 1,
+                        method="REGISTER",
+                        call_id=f"CALL-{index}",
+                        branch=f"z9hG4bK-{index}",
+                    )
+                    for index in range(count)
+                ]
+                document, _ = run(records)
+                completeness = document["completeness"]
+                self.assertEqual(completeness["attempt_count"], count)
+                self.assertEqual(len(document["registration_attempts"]), min(count, 256))
+                self.assertEqual(
+                    completeness["attempt_count"],
+                    len(document["registration_attempts"])
+                    + completeness["attempts_omitted"],
+                )
+
+    def test_diameter_observation_conservation(self) -> None:
+        document, _ = run(
+            [rec(1, method="REGISTER")],
+            diameter=_write_diameter(_diameter_document(300)),
+        )
+        completeness = document["completeness"]
+        self.assertEqual(completeness["diameter_observation_count"], 300)
+        self.assertEqual(len(document["diameter_ims_inventory"]), 256)
+        self.assertEqual(completeness["diameter_observations_omitted"], 44)
+        self.assertEqual(
+            completeness["association_count"],
+            len(document["cross_protocol_associations"])
+            + completeness["associations_omitted"],
+        )
+
+    def test_timeline_above_limit_conserves_rows(self) -> None:
+        records = []
+        for index in range(256):
+            call_id = f"CALL-{index}"
+            branch = f"z9hG4bK-{index}"
+            records.append(rec(index * 4 + 1, method="REGISTER", call_id=call_id, branch=branch))
+            if index == 0:
+                records.append(rec(index * 4 + 2, method="REGISTER", call_id=call_id, branch=branch + "-HOP"))
+            records.append(
+                rec(
+                    index * 4 + 3,
+                    status=200,
+                    call_id=call_id,
+                    branch=branch,
+                    cseq_method="REGISTER",
+                    to_tag="T",
+                    outbound=False,
+                )
+            )
+        document, _ = run(records)
+        timeline = document["timeline"]
+        self.assertGreater(timeline["row_count"], 512)
+        self.assertEqual(
+            timeline["row_count"], len(timeline["rows"]) + timeline["rows_omitted"]
+        )
+        self.assertEqual(timeline["sip_row_count"] + timeline["diameter_row_count"], timeline["row_count"])
+        self.assertEqual(timeline["sip_row_count"], timeline["row_count"])
+
+    def test_request_reference_omission_is_counted(self) -> None:
+        records = [
+            rec(index + 1, method="REGISTER", branch="z9hG4bK-REF", call_id="CALL-REF")
+            for index in range(70)
+        ]
+        records.append(
+            rec(100, status=200, branch="z9hG4bK-REF", call_id="CALL-REF", cseq_method="REGISTER", to_tag="T", outbound=False)
+        )
+        document, _ = run(records)
+        item = attempt(document)
+        self.assertEqual(len(item["request_event_references"]), 64)
+        self.assertGreaterEqual(item["omitted_request_event_count"], 6)
+
+    def test_response_reference_omission_is_counted(self) -> None:
+        records = [rec(1, method="REGISTER", branch="z9hG4bK-RESP", call_id="CALL-RESP")]
+        records.extend(
+            rec(
+                index + 2,
+                status=200,
+                branch="z9hG4bK-RESP",
+                call_id="CALL-RESP",
+                cseq_method="REGISTER",
+                to_tag="T",
+                outbound=False,
+            )
+            for index in range(70)
+        )
+        document, _ = run(records)
+        item = attempt(document)
+        self.assertEqual(len(item["response_event_references"]), 64)
+        self.assertGreaterEqual(item["omitted_response_event_count"], 6)
+
+    def test_duplicate_source_references_do_not_inflate_counts(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER"),
+                rec(2, method="REGISTER"),
+                rec(3, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        item = attempt(document)
+        self.assertEqual(len(item["request_event_references"]), len(set(item["request_event_references"])))
+        self.assertEqual(len(item["transaction_references"]), 1)
+
+    def test_bounded_output_passes_schema_and_semantics(self) -> None:
+        try:
+            import jsonschema
+        except ImportError:
+            self.skipTest("jsonschema is not installed")
+        records = [
+            rec(index * 2 + 1, method="REGISTER", call_id=f"CALL-{index}", branch=f"z9hG4bK-{index}")
+            for index in range(257)
+        ]
+        document, _ = run(records)
+        jsonschema.validate(document, json.loads(SCHEMA.read_text(encoding="utf-8")))
+        ims_registration_model.validate_analysis(document)
+        attempts = {item["attempt_reference"] for item in document["registration_attempts"]}
+        for association in document["cross_protocol_associations"]:
+            self.assertIn(association["sip_attempt_reference"], attempts)
+        for row in document["timeline"]["rows"]:
+            if row["attempt_reference"] is not None:
+                self.assertIn(row["attempt_reference"], attempts)
+
+    def test_boundary_replay_is_deterministic(self) -> None:
+        records = [
+            rec(index * 2 + 1, method="REGISTER", call_id=f"CALL-{index}", branch=f"z9hG4bK-{index}")
+            for index in range(256)
+        ]
+        first, _ = run(records)
+        second, _ = run(records)
+        self.assertEqual(first, second)
 
 
 if __name__ == "__main__":

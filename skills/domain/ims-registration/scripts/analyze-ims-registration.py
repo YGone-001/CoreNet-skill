@@ -72,13 +72,33 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _refuse(path: Path, source: Path, force: bool) -> None:
-    if path.resolve() == source.resolve():
-        raise OSError("output must not replace the input artifact")
-    if path.exists() and not force:
-        raise OSError(f"output already exists: {path}; use --force to replace it")
-    if not path.parent.is_dir():
-        raise OSError(f"output directory does not exist: {path.parent}")
+def _same_artifact(left: Path, right: Path) -> bool:
+    try:
+        if left.resolve() == right.resolve():
+            return True
+        return left.exists() and right.exists() and os.path.samefile(left, right)
+    except OSError:
+        return False
+
+
+def _preflight(args: argparse.Namespace) -> None:
+    inputs = [args.sip_input]
+    if args.diameter_ims is not None:
+        inputs.append(args.diameter_ims)
+    outputs = [args.output]
+    if args.report is not None:
+        outputs.append(args.report)
+    for output in outputs:
+        for source in inputs:
+            if _same_artifact(output, source):
+                raise OSError("output destination collides with an input artifact")
+    if len(outputs) == 2 and _same_artifact(outputs[0], outputs[1]):
+        raise OSError("JSON output and text report destinations must be distinct")
+    for output in outputs:
+        if output.exists() and not args.force:
+            raise OSError("output already exists; use --force to replace it")
+        if not output.parent.is_dir():
+            raise OSError("output directory does not exist")
 
 
 def _write_atomic(path: Path, payload: str) -> None:
@@ -127,9 +147,7 @@ def _report(document: dict) -> str:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        _refuse(args.output, args.sip_input, args.force)
-        if args.report is not None:
-            _refuse(args.report, args.sip_input, args.force)
+        _preflight(args)
         input_format = _resolved_format(args.sip_input, args.input_format)
         messages, decoder = sip_model.messages_for_input(args.sip_input, args.input_format)
         if not messages:

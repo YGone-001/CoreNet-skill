@@ -244,10 +244,14 @@
       "additionalProperties": false,
       "required": [
         "present",
+        "valid",
         "seconds"
       ],
       "properties": {
         "present": {
+          "type": "boolean"
+        },
+        "valid": {
           "type": "boolean"
         },
         "seconds": {
@@ -303,6 +307,7 @@
         "record_route",
         "contact",
         "contact_expires",
+        "contact_non_wildcard",
         "contact_wildcard",
         "expires",
         "min_expires",
@@ -461,6 +466,9 @@
           "$ref": "#/$defs/expiration"
         },
         "contact_wildcard": {
+          "type": "boolean"
+        },
+        "contact_non_wildcard": {
           "type": "boolean"
         },
         "expires": {

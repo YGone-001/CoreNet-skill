@@ -8,6 +8,7 @@ capture-local identity matching. The following values are never published:
 - Call-ID;
 - From tag and To tag;
 - SIP URI, Request-URI or Contact URI;
+- raw Contact values beyond safe numeric/boolean expiration metadata;
 - IMSI, IMPI, IMPU or MSISDN;
 - Authorization or Proxy-Authorization content;
 - WWW-Authenticate or Proxy-Authenticate content;
@@ -32,7 +33,16 @@ identity and is not a hash of a raw identifier.
 
 Numeric status codes, command codes, result codes, result names, presence counts,
 frame numbers, booleans, evidence states and opaque references are publishable.
+Expires, Min-Expires and Contact `expires` values are published only as reviewed
+numeric facts; wildcard and non-wildcard Contact presence is published as booleans.
 Reason phrases are published only through the accepted SIP event contract.
+
+## Diagnostics
+
+CLI preflight and output failures do not print input paths, payloads or identity
+values. They report only that a destination collides with an input artifact, that
+output destinations are duplicated, that an output exists without `--force`, or that
+an output directory is missing.
 
 ## Verification
 

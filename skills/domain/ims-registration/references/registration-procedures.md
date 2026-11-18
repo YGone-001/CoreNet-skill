@@ -67,7 +67,7 @@ The attempt reference is derived from the first observed request event:
 | `INITIAL_REGISTRATION_CANDIDATE` | An observed REGISTER for an identity without a prior successful observed attempt |
 | `RE_REGISTRATION_CANDIDATE` | A prior successful observed attempt for the same identity, followed by a challenged or authenticated REGISTER |
 | `REFRESH_OBSERVED` | A prior successful observed attempt, a subsequent REGISTER with positive Expires and no observed challenge |
-| `DEREGISTRATION_REQUESTED` | Expires=0, Contact expires=0 or a wildcard Contact in the observed REGISTER |
+| `DEREGISTRATION_REQUESTED` | Explicit all-bindings removal (`Contact: *` with `Expires: 0`, or `Expires: 0` with no wildcard) or a Contact-specific `expires=0` removal |
 | `UNDETERMINED` | Missing mandatory identity or response-only observation |
 
 `INITIAL_REGISTRATION_SUPPORTED` is reserved for a future rule with independent
@@ -84,11 +84,26 @@ Expiration evidence is published only when observed:
 
 - REGISTER `Expires` numeric value;
 - Contact `expires` numeric value;
-- wildcard Contact presence;
+- wildcard Contact presence and whether non-wildcard Contact values coexist;
 - accepted `Min-Expires` numeric value from a 423 response.
 
-Missing Expires is never treated as zero. A 200 OK to a de-registration REGISTER is
-`DEREGISTRATION_ACCEPTED_BY_SIP`; it does not prove that every binding was removed or
+RFC 3261 Section 10.2.2 requires `Contact: *` together with `Expires: 0` for an
+all-bindings removal request. Wildcard presence alone is not valid removal evidence;
+a nonzero `Expires`, a wildcard combined with another Contact value, or a malformed
+`Expires` value is retained as observed protocol evidence but never promoted to a
+valid all-bindings request.
+
+The model distinguishes:
+
+- `ALL_BINDINGS`: valid wildcard removal or explicit `Expires: 0`;
+- `CONTACT_SCOPED`: Contact-specific `expires=0`, which does not necessarily remove
+  every binding;
+- `NONE`: wildcard or expiration evidence was observed but is invalid or incomplete.
+
+Invalid requests publish `scope: NONE`, `valid_all_bindings_request: false`, the
+invalidity labels, and `DEREGISTRATION_OUTCOME_UNPROVED` even when a 200 OK was
+observed. Missing Expires is never treated as zero. A 200 OK to a valid de-registration
+REGISTER is `DEREGISTRATION_ACCEPTED_BY_SIP`; it does not prove that every binding was removed or
 that the IMS subscription is permanently disabled.
 
 ## Negative outcomes

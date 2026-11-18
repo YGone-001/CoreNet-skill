@@ -20,47 +20,83 @@
     "not_confirmed"
   ],
   "properties": {
-    "analysis_name": {"const": "ims-registration"},
-    "analysis_version": {"const": "1.0.0"},
-    "domain": {"const": "domain"},
-    "capability": {"$ref": "#/$defs/capability"},
-    "input_provenance": {"$ref": "#/$defs/input_provenance"},
+    "analysis_name": {
+      "const": "ims-registration"
+    },
+    "analysis_version": {
+      "const": "1.1.0"
+    },
+    "domain": {
+      "const": "domain"
+    },
+    "capability": {
+      "$ref": "#/$defs/capability"
+    },
+    "input_provenance": {
+      "$ref": "#/$defs/input_provenance"
+    },
     "sip_registration_inventory": {
       "type": "array",
       "maxItems": 256,
-      "items": {"$ref": "#/$defs/registration_transaction"}
+      "items": {
+        "$ref": "#/$defs/registration_transaction"
+      }
     },
     "registration_attempts": {
       "type": "array",
       "maxItems": 256,
-      "items": {"$ref": "#/$defs/registration_attempt"}
+      "items": {
+        "$ref": "#/$defs/registration_attempt"
+      }
     },
     "diameter_ims_inventory": {
       "type": "array",
       "maxItems": 256,
-      "items": {"$ref": "#/$defs/diameter_observation"}
+      "items": {
+        "$ref": "#/$defs/diameter_observation"
+      }
     },
     "cross_protocol_associations": {
       "type": "array",
       "maxItems": 256,
-      "items": {"$ref": "#/$defs/cross_protocol_association"}
+      "items": {
+        "$ref": "#/$defs/cross_protocol_association"
+      }
     },
-    "timeline": {"$ref": "#/$defs/timeline"},
-    "completeness": {"$ref": "#/$defs/completeness"},
-    "limitations": {"$ref": "#/$defs/limitations"},
-    "not_confirmed": {"$ref": "#/$defs/limitations"}
+    "timeline": {
+      "$ref": "#/$defs/timeline"
+    },
+    "completeness": {
+      "$ref": "#/$defs/completeness"
+    },
+    "limitations": {
+      "$ref": "#/$defs/limitations"
+    },
+    "not_confirmed": {
+      "$ref": "#/$defs/limitations"
+    }
   },
   "$defs": {
-    "reference": {"type": "string", "minLength": 1, "maxLength": 300},
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
     "reference_list": {
       "type": "array",
       "maxItems": 64,
-      "items": {"$ref": "#/$defs/reference"}
+      "items": {
+        "$ref": "#/$defs/reference"
+      }
     },
     "limitations": {
       "type": "array",
       "maxItems": 32,
-      "items": {"type": "string", "minLength": 1, "maxLength": 240}
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
     },
     "capability": {
       "type": "object",
@@ -73,11 +109,29 @@
         "cross_protocol_association_policy"
       ],
       "properties": {
-        "capability_status": {"const": "IMS_REGISTRATION_DOMAIN_IMPLEMENTED"},
-        "implemented": {"type": "array", "maxItems": 16, "items": {"type": "string"}},
-        "not_implemented": {"type": "array", "maxItems": 16, "items": {"type": "string"}},
-        "interface_identity": {"const": "UNPROVED"},
-        "cross_protocol_association_policy": {"const": "FAIL_CLOSED_WITHOUT_IDENTITY_BRIDGE"}
+        "capability_status": {
+          "const": "IMS_REGISTRATION_DOMAIN_IMPLEMENTED"
+        },
+        "implemented": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string"
+          }
+        },
+        "not_implemented": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string"
+          }
+        },
+        "interface_identity": {
+          "const": "UNPROVED"
+        },
+        "cross_protocol_association_policy": {
+          "const": "FAIL_CLOSED_WITHOUT_IDENTITY_BRIDGE"
+        }
       }
     },
     "input_provenance": {
@@ -89,7 +143,8 @@
         "diameter_status",
         "common_capture_verified",
         "capture_identity_basis",
-        "capture_identities"
+        "capture_identities",
+        "diameter_capture_identities"
       ],
       "properties": {
         "sip_inputs": {
@@ -108,12 +163,38 @@
               "transaction_count"
             ],
             "properties": {
-              "source_name": {"type": "string", "minLength": 1, "maxLength": 240},
-              "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-              "input_format": {"type": "string", "enum": ["capture", "pdml", "fields-jsonl"]},
-              "decoder": {"type": ["string", "null"], "maxLength": 120},
-              "event_count": {"type": "integer", "minimum": 0},
-              "transaction_count": {"type": "integer", "minimum": 0}
+              "source_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "source_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "input_format": {
+                "type": "string",
+                "enum": [
+                  "capture",
+                  "pdml",
+                  "fields-jsonl"
+                ]
+              },
+              "decoder": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 120
+              },
+              "event_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "transaction_count": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           }
         },
@@ -130,14 +211,31 @@
                 "observation_count"
               ],
               "properties": {
-                "source_name": {"type": "string", "minLength": 1, "maxLength": 240},
-                "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-                "analysis_name": {"const": "diameter-ims"},
-                "analysis_version": {"type": "string", "maxLength": 40},
-                "observation_count": {"type": "integer", "minimum": 0}
+                "source_name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "source_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "analysis_name": {
+                  "const": "diameter-ims"
+                },
+                "analysis_version": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "observation_count": {
+                  "type": "integer",
+                  "minimum": 0
+                }
               }
             },
-            {"type": "null"}
+            {
+              "type": "null"
+            }
           ]
         },
         "diameter_status": {
@@ -150,16 +248,35 @@
             "CONFLICTING"
           ]
         },
-        "common_capture_verified": {"const": false},
+        "common_capture_verified": {
+          "const": false
+        },
         "capture_identity_basis": {
           "type": "array",
           "maxItems": 8,
-          "items": {"type": "string", "minLength": 1, "maxLength": 240}
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
         },
         "capture_identities": {
           "type": "array",
           "maxItems": 16,
-          "items": {"type": "string", "minLength": 1, "maxLength": 240}
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        },
+        "diameter_capture_identities": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
         }
       }
     },
@@ -189,38 +306,96 @@
         "evidence_class"
       ],
       "properties": {
-        "transaction_reference": {"$ref": "#/$defs/reference"},
-        "transaction_method": {"const": "REGISTER"},
-        "transaction_state": {"type": "string", "maxLength": 40},
-        "observed_evidence_status": {"type": "string", "maxLength": 40},
-        "matching_status": {"type": "string", "maxLength": 40},
-        "request_event_references": {"$ref": "#/$defs/reference_list"},
-        "provisional_response_event_references": {"$ref": "#/$defs/reference_list"},
-        "final_response_event_references": {"$ref": "#/$defs/reference_list"},
-        "response_event_references": {"$ref": "#/$defs/reference_list"},
+        "transaction_reference": {
+          "$ref": "#/$defs/reference"
+        },
+        "transaction_method": {
+          "const": "REGISTER"
+        },
+        "transaction_state": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "observed_evidence_status": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "matching_status": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "request_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "provisional_response_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "final_response_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "response_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
         "final_response_status_codes": {
           "type": "array",
           "maxItems": 16,
-          "items": {"type": "integer", "minimum": 100, "maximum": 699}
+          "items": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 699
+          }
         },
-        "first_observed_frame": {"type": ["integer", "null"], "minimum": 1},
-        "last_observed_frame": {"type": ["integer", "null"], "minimum": 1},
-        "capture_identity": {"type": "string", "maxLength": 240},
-        "retransmission_event_references": {"$ref": "#/$defs/reference_list"},
-        "omitted_request_event_count": {"type": "integer", "minimum": 0},
-        "omitted_final_response_event_count": {"type": "integer", "minimum": 0},
+        "first_observed_frame": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "last_observed_frame": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "capture_identity": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "retransmission_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "omitted_request_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted_final_response_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
         "missing_evidence": {
           "type": "array",
           "maxItems": 32,
-          "items": {"type": "string", "maxLength": 80}
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          }
         },
         "conflict_findings": {
           "type": "array",
           "maxItems": 32,
-          "items": {"type": "string", "maxLength": 80}
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          }
         },
-        "limitations": {"$ref": "#/$defs/limitations"},
-        "evidence_class": {"const": "DERIVED"}
+        "limitations": {
+          "$ref": "#/$defs/limitations"
+        },
+        "evidence_class": {
+          "const": "DERIVED"
+        }
       }
     },
     "missing_list": {
@@ -257,7 +432,15 @@
           "CSEQ_INCOMPATIBLE",
           "MULTIPLE_RETRY_CANDIDATES",
           "DIAMETER_PROVENANCE_CONFLICT",
-          "UNSUPPORTED_CROSS_PROTOCOL_CLASS"
+          "UNSUPPORTED_CROSS_PROTOCOL_CLASS",
+          "AUTHORIZATION_PRECEDED_CHALLENGE",
+          "WRONG_AUTHORIZATION_TYPE",
+          "INVALID_DEREGISTRATION_REQUEST",
+          "WILDCARD_WITHOUT_EXPIRES",
+          "WILDCARD_WITH_NONZERO_EXPIRES",
+          "WILDCARD_WITH_ADDITIONAL_CONTACT",
+          "EXPIRES_MALFORMED",
+          "CONTACT_EXPIRES_MALFORMED"
         ]
       }
     },
@@ -290,7 +473,12 @@
         "conflict_findings",
         "limitations",
         "not_confirmed",
-        "evidence_class"
+        "evidence_class",
+        "challenge_retry_association",
+        "omitted_challenge_event_count",
+        "omitted_retry_event_count",
+        "omitted_final_response_event_count",
+        "omitted_source_frame_count"
       ],
       "properties": {
         "attempt_reference": {
@@ -298,7 +486,10 @@
           "pattern": "^sip-registration:.+:[0-9]+\\.[0-9]+$",
           "maxLength": 300
         },
-        "capture_identity": {"type": "string", "maxLength": 240},
+        "capture_identity": {
+          "type": "string",
+          "maxLength": 240
+        },
         "registration_type": {
           "type": "string",
           "enum": [
@@ -313,7 +504,10 @@
         "registration_type_evidence": {
           "type": "array",
           "maxItems": 8,
-          "items": {"type": "string", "maxLength": 80}
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          }
         },
         "authentication_evidence_status": {
           "type": "string",
@@ -324,10 +518,13 @@
             "CHALLENGE_RETRY_ASSOCIATED",
             "CHALLENGE_WITHOUT_OBSERVED_RETRY",
             "RETRY_WITHOUT_OBSERVED_CHALLENGE",
-            "AUTHENTICATION_OUTCOME_UNPROVED"
+            "AUTHENTICATION_OUTCOME_UNPROVED",
+            "RETRY_NOT_ESTABLISHED"
           ]
         },
-        "authentication_cryptographically_verified": {"const": false},
+        "authentication_cryptographically_verified": {
+          "const": false
+        },
         "sip_outcome": {
           "type": "string",
           "enum": [
@@ -338,39 +535,122 @@
             "INCOMPLETE_EVIDENCE"
           ]
         },
-        "transaction_references": {"$ref": "#/$defs/reference_list"},
-        "request_event_references": {"$ref": "#/$defs/reference_list"},
-        "response_event_references": {"$ref": "#/$defs/reference_list"},
-        "challenge_event_references": {"$ref": "#/$defs/reference_list"},
-        "retry_event_references": {"$ref": "#/$defs/reference_list"},
-        "final_response_event_references": {"$ref": "#/$defs/reference_list"},
+        "transaction_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "request_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "response_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "challenge_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "retry_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "final_response_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
         "source_frame_references": {
           "type": "array",
           "maxItems": 64,
-          "items": {"type": "string", "maxLength": 300}
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          }
         },
         "deregistration": {
-          "anyOf": [{"$ref": "#/$defs/deregistration"}, {"type": "null"}]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/deregistration"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "min_expires_evidence": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["present", "seconds"],
+          "required": [
+            "present",
+            "seconds"
+          ],
           "properties": {
-            "present": {"type": "boolean"},
-            "seconds": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295}
+            "present": {
+              "type": "boolean"
+            },
+            "seconds": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 4294967295
+            }
           }
         },
-        "multi_hop_candidate": {"type": "boolean"},
-        "cseq_observations": {"$ref": "#/$defs/cseq"},
-        "omitted_transaction_count": {"type": "integer", "minimum": 0},
-        "omitted_request_event_count": {"type": "integer", "minimum": 0},
-        "omitted_response_event_count": {"type": "integer", "minimum": 0},
-        "missing_evidence": {"$ref": "#/$defs/missing_list"},
-        "conflict_findings": {"$ref": "#/$defs/conflict_list"},
-        "limitations": {"$ref": "#/$defs/limitations"},
-        "not_confirmed": {"$ref": "#/$defs/limitations"},
-        "evidence_class": {"const": "DERIVED"}
+        "multi_hop_candidate": {
+          "type": "boolean"
+        },
+        "cseq_observations": {
+          "$ref": "#/$defs/cseq"
+        },
+        "omitted_transaction_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted_request_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted_response_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/missing_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/conflict_list"
+        },
+        "limitations": {
+          "$ref": "#/$defs/limitations"
+        },
+        "not_confirmed": {
+          "$ref": "#/$defs/limitations"
+        },
+        "evidence_class": {
+          "const": "DERIVED"
+        },
+        "challenge_retry_association": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/challenge_retry_association"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "omitted_challenge_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted_retry_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted_final_response_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted_source_frame_count": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "deregistration": {
@@ -383,12 +663,22 @@
         "outcome",
         "expires_seconds",
         "contact_expires_seconds",
-        "contact_wildcard"
+        "contact_wildcard",
+        "scope",
+        "valid_all_bindings_request",
+        "contact_non_wildcard",
+        "invalidity"
       ],
       "properties": {
-        "request_observed": {"type": "boolean"},
-        "response_observed": {"type": "boolean"},
-        "accepted_by_sip": {"type": "boolean"},
+        "request_observed": {
+          "type": "boolean"
+        },
+        "response_observed": {
+          "type": "boolean"
+        },
+        "accepted_by_sip": {
+          "type": "boolean"
+        },
         "outcome": {
           "type": "string",
           "enum": [
@@ -398,20 +688,72 @@
             "DEREGISTRATION_OUTCOME_UNPROVED"
           ]
         },
-        "expires_seconds": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295},
-        "contact_expires_seconds": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295},
-        "contact_wildcard": {"type": "boolean"}
+        "expires_seconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "contact_expires_seconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "contact_wildcard": {
+          "type": "boolean"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "ALL_BINDINGS",
+            "CONTACT_SCOPED",
+            "NONE"
+          ]
+        },
+        "valid_all_bindings_request": {
+          "type": "boolean"
+        },
+        "contact_non_wildcard": {
+          "type": "boolean"
+        },
+        "invalidity": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "enum": [
+              "WILDCARD_WITHOUT_EXPIRES",
+              "WILDCARD_WITH_NONZERO_EXPIRES",
+              "WILDCARD_WITH_ADDITIONAL_CONTACT",
+              "EXPIRES_MALFORMED",
+              "CONTACT_EXPIRES_MALFORMED",
+              "INVALID_DEREGISTRATION_REQUEST"
+            ]
+          }
+        }
       }
     },
     "cseq": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["values", "progression"],
+      "required": [
+        "values",
+        "progression"
+      ],
       "properties": {
         "values": {
           "type": "array",
           "maxItems": 64,
-          "items": {"type": "integer", "minimum": 0, "maximum": 4294967295}
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
         },
         "progression": {
           "type": "string",
@@ -447,25 +789,75 @@
         "capture_identity",
         "limitations",
         "not_confirmed",
-        "evidence_class"
+        "evidence_class",
+        "omitted_source_event_count"
       ],
       "properties": {
-        "diameter_observation_reference": {"type": "string", "minLength": 1, "maxLength": 300},
-        "diameter_transaction_reference": {"type": "string", "minLength": 1, "maxLength": 300},
-        "command_code": {"type": "integer", "enum": [300, 301, 302, 303, 304, 305]},
-        "command_name": {"type": ["string", "null"], "maxLength": 40},
-        "application_id": {"type": ["integer", "null"], "minimum": 0},
-        "procedure_family": {"type": ["string", "null"], "maxLength": 80},
+        "diameter_observation_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "diameter_transaction_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "command_code": {
+          "type": "integer",
+          "enum": [
+            300,
+            301,
+            302,
+            303,
+            304,
+            305
+          ]
+        },
+        "command_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 40
+        },
+        "application_id": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "procedure_family": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80
+        },
         "transaction_status": {
           "type": "string",
-          "enum": ["MATCHED", "OPEN_REQUEST", "RESPONSE_ONLY", "AMBIGUOUS"]
+          "enum": [
+            "MATCHED",
+            "OPEN_REQUEST",
+            "RESPONSE_ONLY",
+            "AMBIGUOUS"
+          ]
         },
         "application_result": {
           "type": "string",
-          "enum": ["SUCCESS_REPORTED", "FAILURE_REPORTED", "UNRESOLVED", "NOT_APPLICABLE"]
+          "enum": [
+            "SUCCESS_REPORTED",
+            "FAILURE_REPORTED",
+            "UNRESOLVED",
+            "NOT_APPLICABLE"
+          ]
         },
         "result_namespace": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "enum": [
             "BASE_RFC6733",
             "3GPP_TS_29_229_EXPERIMENTAL",
@@ -475,16 +867,61 @@
             null
           ]
         },
-        "base_result_code": {"type": ["integer", "null"]},
-        "base_result_code_name": {"type": ["string", "null"], "maxLength": 80},
-        "experimental_result_code": {"type": ["integer", "null"]},
-        "experimental_result_code_name": {"type": ["string", "null"], "maxLength": 80},
-        "experimental_vendor_id": {"type": ["integer", "null"]},
-        "source_event_references": {"$ref": "#/$defs/reference_list"},
-        "capture_identity": {"type": ["string", "null"], "maxLength": 240},
-        "limitations": {"$ref": "#/$defs/limitations"},
-        "not_confirmed": {"$ref": "#/$defs/limitations"},
-        "evidence_class": {"const": "OBSERVED"}
+        "base_result_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "base_result_code_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80
+        },
+        "experimental_result_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "experimental_result_code_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80
+        },
+        "experimental_vendor_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "source_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "capture_identity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 240
+        },
+        "limitations": {
+          "$ref": "#/$defs/limitations"
+        },
+        "not_confirmed": {
+          "$ref": "#/$defs/limitations"
+        },
+        "evidence_class": {
+          "const": "OBSERVED"
+        },
+        "omitted_source_event_count": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "cross_protocol_association": {
@@ -500,31 +937,76 @@
         "limitations"
       ],
       "properties": {
-        "sip_attempt_reference": {"type": "string", "maxLength": 300},
-        "diameter_observation_reference": {"type": "string", "maxLength": 300},
+        "sip_attempt_reference": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "diameter_observation_reference": {
+          "type": "string",
+          "maxLength": 300
+        },
         "association_status": {
           "type": "string",
-          "enum": ["ESTABLISHED", "SUPPORTED", "AMBIGUOUS", "NOT_ESTABLISHED", "INSUFFICIENT_EVIDENCE"]
+          "enum": [
+            "ESTABLISHED",
+            "SUPPORTED",
+            "AMBIGUOUS",
+            "NOT_ESTABLISHED",
+            "INSUFFICIENT_EVIDENCE"
+          ]
         },
         "association_basis": {
           "type": "array",
           "maxItems": 8,
-          "items": {"type": "string", "maxLength": 80}
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          }
         },
-        "missing_evidence": {"$ref": "#/$defs/missing_list"},
-        "conflict_findings": {"$ref": "#/$defs/conflict_list"},
-        "limitations": {"$ref": "#/$defs/limitations"}
+        "missing_evidence": {
+          "$ref": "#/$defs/missing_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/conflict_list"
+        },
+        "limitations": {
+          "$ref": "#/$defs/limitations"
+        }
       }
     },
     "timeline": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["global_order_proven", "ordering_basis", "row_count", "rows_omitted", "rows"],
+      "required": [
+        "global_order_proven",
+        "ordering_basis",
+        "row_count",
+        "rows_omitted",
+        "rows",
+        "ordering_scope",
+        "sip_row_count",
+        "diameter_row_count"
+      ],
       "properties": {
-        "global_order_proven": {"type": "boolean"},
-        "ordering_basis": {"type": "string", "enum": ["SINGLE_CAPTURE_FRAME_ORDER", "SOURCE_LOCAL_ONLY"]},
-        "row_count": {"type": "integer", "minimum": 0},
-        "rows_omitted": {"type": "integer", "minimum": 0},
+        "global_order_proven": {
+          "type": "boolean"
+        },
+        "ordering_basis": {
+          "type": "string",
+          "enum": [
+            "SINGLE_CAPTURE_FRAME_ORDER",
+            "SOURCE_LOCAL_ONLY",
+            "VERIFIED_COMMON_CAPTURE"
+          ]
+        },
+        "row_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rows_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
         "rows": {
           "type": "array",
           "maxItems": 512,
@@ -547,9 +1029,18 @@
                 "pattern": "^ims-timeline:.+:[0-9]+\\.[0-9]+:.+$",
                 "maxLength": 320
               },
-              "capture_identity": {"type": "string", "maxLength": 240},
-              "frame_number": {"type": "integer", "minimum": 1},
-              "source_reference": {"type": "string", "maxLength": 300},
+              "capture_identity": {
+                "type": "string",
+                "maxLength": 240
+              },
+              "frame_number": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "source_reference": {
+                "type": "string",
+                "maxLength": 300
+              },
               "event_kind": {
                 "type": "string",
                 "enum": [
@@ -562,11 +1053,44 @@
                   "UNASSOCIATED_DIAMETER_OBSERVATION"
                 ]
               },
-              "transaction_reference": {"type": ["string", "null"], "maxLength": 300},
-              "attempt_reference": {"type": ["string", "null"], "maxLength": 300},
-              "evidence_class": {"const": "OBSERVED"}
+              "transaction_reference": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 300
+              },
+              "attempt_reference": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 300
+              },
+              "evidence_class": {
+                "const": "OBSERVED"
+              }
             }
           }
+        },
+        "ordering_scope": {
+          "type": "string",
+          "enum": [
+            "SIP_ONLY_SINGLE_CAPTURE",
+            "SIP_ONLY_MULTI_CAPTURE",
+            "DIAMETER_ONLY_SINGLE_CAPTURE",
+            "DIAMETER_ONLY_MULTI_CAPTURE",
+            "CROSS_SOURCE_UNVERIFIED",
+            "VERIFIED_COMMON_CAPTURE"
+          ]
+        },
+        "sip_row_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "diameter_row_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -589,19 +1113,154 @@
         "timeline_rows_omitted"
       ],
       "properties": {
-        "sip_event_count": {"type": "integer", "minimum": 0},
-        "sip_transaction_count": {"type": "integer", "minimum": 0},
-        "register_transaction_count": {"type": "integer", "minimum": 0},
-        "registration_inventory_count": {"type": "integer", "minimum": 0},
-        "registration_inventory_omitted": {"type": "integer", "minimum": 0},
-        "attempt_count": {"type": "integer", "minimum": 0},
-        "attempts_omitted": {"type": "integer", "minimum": 0},
-        "diameter_observation_count": {"type": "integer", "minimum": 0},
-        "diameter_observations_omitted": {"type": "integer", "minimum": 0},
-        "association_count": {"type": "integer", "minimum": 0},
-        "associations_omitted": {"type": "integer", "minimum": 0},
-        "timeline_row_count": {"type": "integer", "minimum": 0},
-        "timeline_rows_omitted": {"type": "integer", "minimum": 0}
+        "sip_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sip_transaction_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "register_transaction_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "registration_inventory_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "registration_inventory_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attempt_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attempts_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "diameter_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "diameter_observations_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "association_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "associations_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timeline_row_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timeline_rows_omitted": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "challenge_retry_association": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "challenge_transaction_reference",
+        "challenge_response_event_reference",
+        "retry_transaction_reference",
+        "retry_request_event_reference",
+        "candidate_transaction_references",
+        "candidate_request_event_references",
+        "basis",
+        "missing_evidence",
+        "conflict_findings"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "ASSOCIATED",
+            "CHALLENGE_WITHOUT_RETRY",
+            "RETRY_WITHOUT_CHALLENGE",
+            "NOT_ASSOCIATED",
+            "AMBIGUOUS"
+          ]
+        },
+        "challenge_transaction_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 300
+        },
+        "challenge_response_event_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 300
+        },
+        "retry_transaction_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 300
+        },
+        "retry_request_event_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 300
+        },
+        "candidate_transaction_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "candidate_request_event_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "basis": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "missing_evidence": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "conflict_findings": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          }
+        }
       }
     }
   }

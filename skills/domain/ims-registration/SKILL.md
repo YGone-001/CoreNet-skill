@@ -16,17 +16,23 @@ session, media, call or root-cause verdicts.
 - Group multiple REGISTER transactions into a registration attempt only when
   capture, Call-ID, Request-URI, From identity and CSeq evidence support it.
 - Preserve 401 and 407 as authentication challenges, not terminal failures.
-- Recognize authorized retries and challenge-retry association.
+- Recognize an authorized retry only when a distinct later REGISTER follows the
+  observed challenge with a compatible CSeq and the appropriate credential header.
 - Distinguish initial-registration candidates, re-registration candidates, refresh
   observations and de-registration requests.
-- Preserve Expires, Contact expires and wildcard Contact evidence.
+- Preserve Expires, Contact expires, wildcard Contact and non-wildcard Contact
+  evidence. RFC 3261 all-bindings removal requires `Contact: *` with `Expires: 0`;
+  wildcard alone, a nonzero Expires, a mixed Contact set or malformed expiration
+  evidence is retained as invalid or incomplete protocol evidence.
 - Classify negative SIP responses and keep missing responses as `OPEN_IN_CAPTURE`.
 - Preserve multi-hop REGISTER observations without claiming proxy roles or
   forwarding relationships.
 - Consume optional Diameter IMS Cx/Dx observations as an independent inventory.
 - Keep SIP-to-Diameter association `NOT_ESTABLISHED` without a privacy-safe
   subscriber identity bridge.
-- Produce a deterministic timeline and a bounded completeness accounting.
+- Produce a deterministic timeline with truthful total/published/omitted accounting.
+  SIP and Diameter rows from unverified sources are source-local only and never claim
+  a global frame order.
 
 ## Non-Goals
 
@@ -134,4 +140,9 @@ python3 scripts/validate-ims-registration.py
 - A first observed REGISTER is not necessarily the subscriber's first registration.
 - Missing messages at the capture boundary are incompleteness, not evidence of a
   timeout or failure.
+- Cross-source SIP/Diameter timeline ordering stays unproved unless common capture
+  provenance is independently verified; matching filenames or frame numbers are not
+  proof.
+- CLI output destinations cannot alias any input artifact or each other, even with
+  `--force`.
 - IMS session, media, SDP, RTP, Rx, Sh and failure-boundary analysis are out of scope.

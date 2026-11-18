@@ -1,5 +1,5 @@
 name: ims-registration
-version: 0.1.0
+version: 0.1.1
 category: domain
 description: >
   Bounded IMS registration Domain evidence over already-extracted SIP and

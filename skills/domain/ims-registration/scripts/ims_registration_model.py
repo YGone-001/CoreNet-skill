@@ -17,7 +17,7 @@ import re
 from typing import Any
 
 ANALYSIS_NAME = "ims-registration"
-ANALYSIS_VERSION = "1.0.0"
+ANALYSIS_VERSION = "1.1.0"
 DOMAIN = "domain"
 CAPABILITY_STATUS = "IMS_REGISTRATION_DOMAIN_IMPLEMENTED"
 
@@ -51,6 +51,7 @@ AUTHENTICATION_STATUSES = (
     "CHALLENGE_WITHOUT_OBSERVED_RETRY",
     "RETRY_WITHOUT_OBSERVED_CHALLENGE",
     "AUTHENTICATION_OUTCOME_UNPROVED",
+    "RETRY_NOT_ESTABLISHED",
 )
 SIP_OUTCOMES = (
     "SUCCESS_RESPONSE_OBSERVED",
@@ -111,6 +112,14 @@ CONFLICT_FINDINGS = (
     "REQUEST_URI_MISMATCH",
     "CSEQ_INCOMPATIBLE",
     "MULTIPLE_RETRY_CANDIDATES",
+    "AUTHORIZATION_PRECEDED_CHALLENGE",
+    "WRONG_AUTHORIZATION_TYPE",
+    "INVALID_DEREGISTRATION_REQUEST",
+    "WILDCARD_WITHOUT_EXPIRES",
+    "WILDCARD_WITH_NONZERO_EXPIRES",
+    "WILDCARD_WITH_ADDITIONAL_CONTACT",
+    "EXPIRES_MALFORMED",
+    "CONTACT_EXPIRES_MALFORMED",
     "DIAMETER_PROVENANCE_CONFLICT",
     "UNSUPPORTED_CROSS_PROTOCOL_CLASS",
 
@@ -423,44 +432,290 @@ def _attempt_outcome(attempt: dict[str, Any]) -> str:
     return "NEGATIVE_RESPONSE_OBSERVED"
 
 
-def _authentication_status(attempt: dict[str, Any], events: dict[str, list[str]]) -> str:
-    challenge = bool(events["challenges"])
-    retry = bool(events["retries"])
-    if challenge and retry:
-        return "CHALLENGE_RETRY_ASSOCIATED"
-    if challenge:
-        return "CHALLENGE_WITHOUT_OBSERVED_RETRY"
-    if retry:
-        return "RETRY_WITHOUT_OBSERVED_CHALLENGE"
-    return "NOT_OBSERVED"
+def _challenge_retry_association(attempt: dict[str, Any], by_reference: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    """Decide whether a later REGISTER is an eligible retry of an observed challenge."""
+    pairs = list(zip(attempt["transactions"], attempt["request_matches"]))
+    challenge_index: int | None = None
+    challenge_status: int | None = None
+    for index, (transaction, _request) in enumerate(pairs):
+        statuses = transaction.get("final_response_status_codes") or []
+        if 401 in statuses:
+            challenge_index, challenge_status = index, 401
+            break
+        if 407 in statuses:
+            challenge_index, challenge_status = index, 407
+            break
 
+    def authenticated(request: dict[str, Any] | None, status: int) -> bool:
+        if not request:
+            return False
+        if status == 401:
+            return int(request.get("authorization_count") or 0) > 0
+        if status == 407:
+            return int(request.get("proxy_authorization_count") or 0) > 0
+        return bool(
+            (request.get("authorization_count") or 0)
+            or (request.get("proxy_authorization_count") or 0)
+        )
 
-def _deregistration(attempt: dict[str, Any], events: dict[str, list[str]]) -> dict[str, Any] | None:
-    requests = attempt["request_matches"]
-    expirations = [request.get("expires_seconds") for request in requests if request]
-    contact_expirations = [request.get("contact_expires_seconds") for request in requests if request]
-    wildcard = any(request.get("contact_wildcard") for request in requests if request)
-    requested = any(
-        (value == 0) for value in expirations
-    ) or any((value == 0) for value in contact_expirations) or wildcard
-    if not requested:
+    if challenge_index is None:
+        for transaction, request in pairs:
+            if authenticated(request, 401) or authenticated(request, 407):
+                return {
+                    "status": "RETRY_WITHOUT_CHALLENGE",
+                    "challenge_transaction_reference": None,
+                    "challenge_response_event_reference": None,
+                    "retry_transaction_reference": transaction["transaction_reference"],
+                    "retry_request_event_reference": (
+                        (transaction.get("request_event_references") or [None])[0]
+                    ),
+                    "basis": ["authorization_present_without_observed_challenge"],
+                    "missing_evidence": ["CHALLENGE_NOT_OBSERVED"],
+                    "conflict_findings": [],
+                }
         return None
-    statuses = [status for transaction in attempt["transactions"] for status in (transaction.get("final_response_status_codes") or [])]
+
+    challenge_transaction, challenge_request = pairs[challenge_index]
+    challenge_response = (challenge_transaction.get("final_response_event_references") or [None])[0]
+    challenge_cseq = challenge_request.get("cseq_number") if challenge_request else None
+    authorization_before = any(
+        authenticated(request, challenge_status)
+        for _transaction, request in pairs[: challenge_index + 1]
+    )
+    candidates: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    wrong_type = False
+    incompatible = False
+    for transaction, request in pairs[challenge_index + 1 :]:
+        if not request:
+            continue
+        statuses = transaction.get("final_response_status_codes") or []
+        next_challenge = 401 in statuses or 407 in statuses
+        other_status = 407 if challenge_status == 401 else 401
+        if authenticated(request, other_status) and not authenticated(request, challenge_status):
+            wrong_type = True
+            if next_challenge:
+                break
+            continue
+        if not authenticated(request, challenge_status):
+            if next_challenge:
+                break
+            continue
+        cseq = request.get("cseq_number")
+        if cseq is None or challenge_cseq is None or cseq <= challenge_cseq:
+            incompatible = True
+            if next_challenge:
+                break
+            continue
+        candidates.append((transaction, request))
+        if next_challenge:
+            break
+
+    base = {
+        "challenge_transaction_reference": challenge_transaction["transaction_reference"],
+        "challenge_response_event_reference": challenge_response,
+        "retry_transaction_reference": None,
+        "retry_request_event_reference": None,
+        "basis": ["challenge_observed"],
+        "missing_evidence": [],
+        "conflict_findings": [],
+    }
+    if len(candidates) == 1:
+        transaction, request = candidates[0]
+        base.update(
+            {
+                "status": "ASSOCIATED",
+                "retry_transaction_reference": transaction["transaction_reference"],
+                "retry_request_event_reference": (
+                    (transaction.get("request_event_references") or [None])[0]
+                ),
+                "basis": [
+                    "challenge_observed",
+                    "later_register_observed",
+                    "cseq_increased",
+                    "authorization_present",
+                ],
+            }
+        )
+        return base
+    if len(candidates) > 1:
+        cseq_values = {
+            request.get("cseq_number") for _transaction, request in candidates
+        }
+        if len(cseq_values) == 1:
+            transaction, request = candidates[0]
+            base.update(
+                {
+                    "status": "ASSOCIATED",
+                    "retry_transaction_reference": transaction["transaction_reference"],
+                    "retry_request_event_reference": (
+                        (transaction.get("request_event_references") or [None])[0]
+                    ),
+                    "candidate_transaction_references": [
+                        item[0]["transaction_reference"] for item in candidates[:MAX_REFERENCES]
+                    ],
+                    "candidate_request_event_references": [
+                        (item[0].get("request_event_references") or [None])[0]
+                        for item in candidates[:MAX_REFERENCES]
+                    ],
+                    "basis": [
+                        "challenge_observed",
+                        "later_register_observed",
+                        "cseq_increased",
+                        "authorization_present",
+                        "multi_hop_copies_of_one_logical_retry",
+                    ],
+                }
+            )
+            return base
+        base.update(
+            {
+                "status": "AMBIGUOUS",
+                "candidate_transaction_references": [
+                    transaction["transaction_reference"] for transaction, _request in candidates[:MAX_REFERENCES]
+                ],
+                "candidate_request_event_references": [
+                    (transaction.get("request_event_references") or [None])[0]
+                    for transaction, _request in candidates[:MAX_REFERENCES]
+                ],
+                "conflict_findings": ["MULTIPLE_RETRY_CANDIDATES"],
+            }
+        )
+        return base
+    if authorization_before:
+        base.update(
+            {
+                "status": "NOT_ASSOCIATED",
+                "conflict_findings": ["AUTHORIZATION_PRECEDED_CHALLENGE"],
+                "basis": ["authorization_preceded_challenge"],
+            }
+        )
+        return base
+    if incompatible:
+        base.update(
+            {
+                "status": "NOT_ASSOCIATED",
+                "conflict_findings": ["CSEQ_INCOMPATIBLE"],
+                "basis": ["later_authorized_register_with_incompatible_cseq"],
+            }
+        )
+        return base
+    if wrong_type:
+        base.update(
+            {
+                "status": "NOT_ASSOCIATED",
+                "conflict_findings": ["WRONG_AUTHORIZATION_TYPE"],
+                "basis": ["later_register_used_the_other_challenge_type"],
+            }
+        )
+        return base
+    base["status"] = "CHALLENGE_WITHOUT_RETRY"
+    base["missing_evidence"] = ["AUTHORIZATION_NOT_OBSERVED"]
+    return base
+
+
+def _authentication_status(association: dict[str, Any] | None) -> str:
+    if association is None:
+        return "NOT_OBSERVED"
+    return {
+        "ASSOCIATED": "CHALLENGE_RETRY_ASSOCIATED",
+        "CHALLENGE_WITHOUT_RETRY": "CHALLENGE_WITHOUT_OBSERVED_RETRY",
+        "RETRY_WITHOUT_CHALLENGE": "RETRY_WITHOUT_OBSERVED_CHALLENGE",
+        "NOT_ASSOCIATED": "RETRY_NOT_ESTABLISHED",
+        "AMBIGUOUS": "RETRY_NOT_ESTABLISHED",
+    }[association["status"]]
+
+
+def _deregistration(
+    attempt: dict[str, Any], events: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Return explicit de-registration evidence, including invalid requests.
+
+    RFC 3261 wildcard removal requires ``Contact: *`` together with ``Expires: 0``.
+    Wildcard presence alone, a nonzero Expires, a mixed Contact set or a malformed
+    expiration value is retained as observed evidence but is never promoted to a
+    valid all-bindings removal request.
+    """
+    requests = [request for request in attempt["request_matches"] if request]
+    if not requests:
+        return None
+    expires_present = any(request.get("expires_present") for request in requests)
+    expires_values = [request.get("expires_seconds") for request in requests]
+    expires_zero = any(value == 0 for value in expires_values)
+    expires_positive = any(value is not None and value > 0 for value in expires_values)
+    expires_malformed = any(
+        request.get("expires_present")
+        and not request.get("expires_valid", True)
+        for request in requests
+    )
+    contact_values = [request.get("contact_expires_seconds") for request in requests]
+    contact_zero = any(value == 0 for value in contact_values)
+    contact_malformed = any(
+        request.get("contact_expires_present")
+        and not request.get("contact_expires_valid", True)
+        for request in requests
+    )
+    wildcard = any(request.get("contact_wildcard") for request in requests)
+    non_wildcard = any(request.get("contact_non_wildcard") for request in requests)
+    if not (
+        wildcard or expires_zero or contact_zero or expires_malformed or contact_malformed
+    ):
+        return None
+
+    invalidity: list[str] = []
+    scope = "NONE"
+    valid_all_bindings = False
+    if wildcard:
+        if non_wildcard:
+            invalidity.append("WILDCARD_WITH_ADDITIONAL_CONTACT")
+        if expires_malformed:
+            invalidity.append("EXPIRES_MALFORMED")
+        elif not expires_present:
+            invalidity.append("WILDCARD_WITHOUT_EXPIRES")
+        elif expires_positive:
+            invalidity.append("WILDCARD_WITH_NONZERO_EXPIRES")
+        elif expires_zero and not non_wildcard:
+            valid_all_bindings = True
+            scope = "ALL_BINDINGS"
+    else:
+        if expires_malformed:
+            invalidity.append("EXPIRES_MALFORMED")
+        if contact_malformed:
+            invalidity.append("CONTACT_EXPIRES_MALFORMED")
+        if contact_zero:
+            scope = "CONTACT_SCOPED"
+        elif expires_zero and not expires_malformed:
+            valid_all_bindings = True
+            scope = "ALL_BINDINGS"
+    if scope == "NONE":
+        invalidity.append("INVALID_DEREGISTRATION_REQUEST")
+
+    statuses = [
+        status
+        for transaction in attempt["transactions"]
+        for status in (transaction.get("final_response_status_codes") or [])
+    ]
     accepted = any(200 <= status < 300 for status in statuses)
+    outcome = (
+        "DEREGISTRATION_ACCEPTED_BY_SIP"
+        if scope != "NONE" and accepted
+        else "DEREGISTRATION_RESPONSE_OBSERVED"
+        if statuses and scope != "NONE"
+        else "DEREGISTRATION_OUTCOME_UNPROVED"
+    )
     return {
         "request_observed": True,
         "response_observed": bool(statuses),
         "accepted_by_sip": accepted,
-        "outcome": (
-            "DEREGISTRATION_ACCEPTED_BY_SIP"
-            if accepted
-            else "DEREGISTRATION_RESPONSE_OBSERVED"
-            if statuses
-            else "DEREGISTRATION_OUTCOME_UNPROVED"
+        "outcome": outcome,
+        "scope": scope,
+        "valid_all_bindings_request": valid_all_bindings,
+        "expires_seconds": next((value for value in expires_values if value is not None), None),
+        "contact_expires_seconds": next(
+            (value for value in contact_values if value is not None), None
         ),
-        "expires_seconds": next((value for value in expirations if value is not None), None),
-        "contact_expires_seconds": next((value for value in contact_expirations if value is not None), None),
         "contact_wildcard": wildcard,
+        "contact_non_wildcard": non_wildcard,
+        "invalidity": sorted(dict.fromkeys(invalidity)),
     }
 
 
@@ -481,26 +736,55 @@ def _registration_type(
     return "INITIAL_REGISTRATION_CANDIDATE"
 
 
+def _public_association(association: dict[str, Any] | None) -> dict[str, Any] | None:
+    if association is None:
+        return None
+    return {
+        "status": association["status"],
+        "challenge_transaction_reference": association.get("challenge_transaction_reference"),
+        "challenge_response_event_reference": association.get("challenge_response_event_reference"),
+        "retry_transaction_reference": association.get("retry_transaction_reference"),
+        "retry_request_event_reference": association.get("retry_request_event_reference"),
+        "candidate_transaction_references": list(
+            association.get("candidate_transaction_references") or []
+        ),
+        "candidate_request_event_references": list(
+            association.get("candidate_request_event_references") or []
+        ),
+        "basis": list(association.get("basis") or []),
+        "missing_evidence": list(association.get("missing_evidence") or []),
+        "conflict_findings": list(association.get("conflict_findings") or []),
+    }
+
+
 def _build_attempt(
     attempt: dict[str, Any],
     previous_success: bool,
     by_reference: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     events = _attempt_events(attempt, by_reference)
+    association = _challenge_retry_association(attempt, by_reference)
     has_request = bool([request for request in attempt["request_matches"] if request])
     outcome = _attempt_outcome(attempt)
     if not has_request:
         outcome = "INCOMPLETE_EVIDENCE"
-    authentication = _authentication_status(attempt, events)
+    authentication = _authentication_status(association)
     deregistration = _deregistration(attempt, events)
     registration_type = (
         "DEREGISTRATION_REQUESTED"
-        if deregistration is not None
+        if deregistration is not None and deregistration["scope"] != "NONE"
         else "UNDETERMINED"
         if attempt["identity"] is None
         else _registration_type(attempt, previous_success, events)
     )
     missing = list(attempt["missing"])
+    conflicts = list(attempt["conflicts"])
+    if association is not None:
+        missing.extend(association.get("missing_evidence") or [])
+        conflicts.extend(association.get("conflict_findings") or [])
+    if deregistration is not None and deregistration["scope"] == "NONE":
+        conflicts.append("INVALID_DEREGISTRATION_REQUEST")
+        conflicts.extend(deregistration["invalidity"])
     if not has_request:
         missing.append("REQUEST_NOT_OBSERVED")
     if outcome == "OPEN_IN_CAPTURE":
@@ -522,9 +806,17 @@ def _build_attempt(
         limitations.append("multi-hop forwarding is unproved; the observations remain one candidate attempt")
     request_refs, request_omitted = _bounded(events["requests"])
     response_refs, response_omitted = _bounded(events["responses"])
-    challenge_refs, _ = _bounded(events["challenges"])
-    retry_refs, _ = _bounded(events["retries"])
-    final_refs, _ = _bounded(events["finals"])
+    challenge_refs, challenge_omitted = _bounded(events["challenges"])
+    retry_refs, retry_omitted = _bounded(events["retries"])
+    final_refs, final_omitted = _bounded(events["finals"])
+    source_frames, source_omitted = _bounded(
+        sorted(
+            {
+                f"{attempt['capture']}:{reference.rpartition(':')[2]}"
+                for reference in events["requests"] + events["responses"]
+            }
+        )
+    )
     transaction_refs, transaction_omitted = _bounded(
         [transaction["transaction_reference"] for transaction in attempt["transactions"]]
     )
@@ -544,6 +836,7 @@ def _build_attempt(
         ),
         "authentication_evidence_status": authentication,
         "authentication_cryptographically_verified": False,
+        "challenge_retry_association": _public_association(association),
         "sip_outcome": outcome,
         "transaction_references": transaction_refs,
         "request_event_references": request_refs,
@@ -551,12 +844,7 @@ def _build_attempt(
         "challenge_event_references": challenge_refs,
         "retry_event_references": retry_refs,
         "final_response_event_references": final_refs,
-        "source_frame_references": sorted(
-            {
-                f"{attempt['capture']}:{reference.rpartition(':')[2]}"
-                for reference in request_refs + response_refs
-            }
-        ),
+        "source_frame_references": source_frames,
         "deregistration": deregistration,
         "min_expires_evidence": {
             "present": events["min_expires_seconds"] is not None,
@@ -567,8 +855,12 @@ def _build_attempt(
         "omitted_transaction_count": transaction_omitted,
         "omitted_request_event_count": request_omitted,
         "omitted_response_event_count": response_omitted,
+        "omitted_challenge_event_count": challenge_omitted,
+        "omitted_retry_event_count": retry_omitted,
+        "omitted_final_response_event_count": final_omitted,
+        "omitted_source_frame_count": source_omitted,
         "missing_evidence": sorted(dict.fromkeys(missing)),
-        "conflict_findings": sorted(dict.fromkeys(attempt["conflicts"])),
+        "conflict_findings": sorted(dict.fromkeys(conflicts)),
         "limitations": _bounded(list(dict.fromkeys(limitations + list(BASE_LIMITATIONS))), MAX_LIMITATIONS)[0],
         "not_confirmed": list(NOT_CONFIRMED),
         "evidence_class": "DERIVED",
@@ -620,9 +912,9 @@ def _load_diameter(
 
 def _diameter_inventory(
     diameter: dict[str, Any] | None, evidence: dict[str, Any] | None
-) -> tuple[list[dict[str, Any]], str]:
+) -> tuple[list[dict[str, Any]], int, int, str]:
     if diameter is None:
-        return [], "NOT_SUPPLIED"
+        return [], 0, 0, "NOT_SUPPLIED"
     capability = diameter.get("capability") or {}
     application_id = capability.get("application_id")
     observations: list[dict[str, Any]] = []
@@ -638,7 +930,7 @@ def _diameter_inventory(
             reference = observation.get(side)
             if isinstance(reference, dict) and reference.get("event_reference"):
                 source_refs.append(reference["event_reference"])
-        sources = sorted(set(source_refs))
+        sources, sources_omitted = _bounded(sorted(set(source_refs)))
         observations.append(
             {
                 "diameter_observation_reference": observation.get("observation_reference"),
@@ -655,7 +947,8 @@ def _diameter_inventory(
                 "experimental_result_code": result.get("experimental_result_code"),
                 "experimental_result_code_name": result.get("experimental_result_code_name"),
                 "experimental_vendor_id": result.get("experimental_vendor_id"),
-                "source_event_references": sources[:MAX_REFERENCES],
+                "source_event_references": sources,
+                "omitted_source_event_count": sources_omitted,
                 "capture_identity": (
                     (diameter.get("input_provenance") or {}).get("capture_files") or [None]
                 )[0],
@@ -666,15 +959,22 @@ def _diameter_inventory(
         )
     observations.sort(key=lambda item: (item["diameter_observation_reference"] or "", item["command_code"]))
     status = "OBSERVED" if observations else "NOT_OBSERVED_IN_SUPPLIED_ARTIFACT"
-    return observations[:MAX_DIAMETER], status
+    total = len(observations)
+    published = observations[:MAX_DIAMETER]
+    return published, total, max(0, total - len(published)), status
 
 
 def _associations(
     attempts: list[dict[str, Any]], diameter: list[dict[str, Any]]
 ) -> tuple[list[dict[str, Any]], int]:
+    total = len(attempts) * len(diameter)
     associations: list[dict[str, Any]] = []
     for attempt in attempts:
+        if len(associations) >= MAX_ASSOCIATIONS:
+            break
         for observation in diameter:
+            if len(associations) >= MAX_ASSOCIATIONS:
+                break
             same_capture = attempt["capture_identity"] == observation["capture_identity"]
             associations.append(
                 {
@@ -697,7 +997,7 @@ def _associations(
                     ],
                 }
             )
-    return associations[:MAX_ASSOCIATIONS], max(0, len(associations) - MAX_ASSOCIATIONS)
+    return associations, total
 
 
 def _timeline(
@@ -755,11 +1055,39 @@ def _timeline(
         key=lambda row: (row["capture_identity"], row["frame_number"], row["row_reference"]),
     )
     omitted = max(0, len(ordered) - MAX_TIMELINE_ROWS)
+    sip_rows = [row for row in ordered if row["event_kind"].startswith("SIP_")]
+    diameter_rows = [row for row in ordered if not row["event_kind"].startswith("SIP_")]
+    sip_captures = sorted({row["capture_identity"] for row in sip_rows})
+    diameter_captures = sorted({row["capture_identity"] for row in diameter_rows})
+    cross_source = bool(sip_rows and diameter_rows)
+    if cross_source:
+        global_order_proven = False
+        ordering_basis = "SOURCE_LOCAL_ONLY"
+        ordering_scope = "CROSS_SOURCE_UNVERIFIED"
+    elif diameter_rows:
+        global_order_proven = len(diameter_captures) <= 1
+        ordering_basis = (
+            "SINGLE_CAPTURE_FRAME_ORDER" if len(diameter_captures) <= 1 else "SOURCE_LOCAL_ONLY"
+        )
+        ordering_scope = (
+            "DIAMETER_ONLY_SINGLE_CAPTURE"
+            if len(diameter_captures) <= 1
+            else "DIAMETER_ONLY_MULTI_CAPTURE"
+        )
+    else:
+        global_order_proven = len(sip_captures) <= 1
+        ordering_basis = (
+            "SINGLE_CAPTURE_FRAME_ORDER" if len(sip_captures) <= 1 else "SOURCE_LOCAL_ONLY"
+        )
+        ordering_scope = (
+            "SIP_ONLY_SINGLE_CAPTURE" if len(sip_captures) <= 1 else "SIP_ONLY_MULTI_CAPTURE"
+        )
     return {
-        "global_order_proven": len(captures) <= 1,
-        "ordering_basis": (
-            "SINGLE_CAPTURE_FRAME_ORDER" if len(captures) <= 1 else "SOURCE_LOCAL_ONLY"
-        ),
+        "global_order_proven": global_order_proven,
+        "ordering_basis": ordering_basis,
+        "ordering_scope": ordering_scope,
+        "sip_row_count": len(sip_rows),
+        "diameter_row_count": len(diameter_rows),
         "row_count": len(ordered),
         "rows_omitted": omitted,
         "rows": ordered[:MAX_TIMELINE_ROWS],
@@ -795,26 +1123,33 @@ def build_analysis(
         if transaction["transaction_method"] == "REGISTER"
     ]
     attempts_raw = _group_attempts(transactions, by_reference)
-    attempts: list[dict[str, Any]] = []
+    attempts_all: list[dict[str, Any]] = []
     seen_identity_success: dict[tuple[str, ...], bool] = {}
     for attempt in attempts_raw:
         identity = attempt["identity"]
         previous_success = seen_identity_success.get(identity, False)
         public = _build_attempt(attempt, previous_success, by_reference)
-        attempts.append(public)
+        attempts_all.append(public)
         if identity and public["sip_outcome"] == "SUCCESS_RESPONSE_OBSERVED":
             seen_identity_success[identity] = True
-    diameter_inventory, diameter_status = _diameter_inventory(diameter_document, diameter_evidence)
-    associations, associations_omitted = _associations(attempts, diameter_inventory)
+    published_attempts = attempts_all[:MAX_ATTEMPTS]
+    diameter_published, diameter_total, diameter_omitted, diameter_status = _diameter_inventory(
+        diameter_document, diameter_evidence
+    )
+    associations, association_total = _associations(published_attempts, diameter_published)
     captures = sorted({_match(message)["capture"] for message in messages})
+    diameter_captures = sorted(
+        (diameter_document or {}).get("input_provenance", {}).get("capture_files", []) or []
+    )
     raw_by_reference = {raw["reference"]: raw for raw in attempts_raw}
     timeline = _timeline(
-        [(raw_by_reference[public["attempt_reference"]], public) for public in attempts],
-        diameter_inventory,
+        [(raw_by_reference[public["attempt_reference"]], public) for public in published_attempts],
+        diameter_published,
         captures,
         by_reference,
     )
-    inventory = [_public_inventory(transaction) for transaction in transactions]
+    inventory_all = [_public_inventory(transaction) for transaction in transactions]
+    inventory_published = inventory_all[:MAX_INVENTORY]
     return {
         "analysis_name": ANALYSIS_NAME,
         "analysis_version": ANALYSIS_VERSION,
@@ -858,24 +1193,25 @@ def build_analysis(
             "common_capture_verified": False,
             "capture_identity_basis": ["SIP source capture name; Diameter artifact captures are compared only for equality"],
             "capture_identities": captures,
+            "diameter_capture_identities": diameter_captures,
         },
-        "sip_registration_inventory": inventory[:MAX_INVENTORY],
-        "registration_attempts": attempts[:MAX_ATTEMPTS],
-        "diameter_ims_inventory": diameter_inventory,
+        "sip_registration_inventory": inventory_published,
+        "registration_attempts": published_attempts,
+        "diameter_ims_inventory": diameter_published,
         "cross_protocol_associations": associations,
         "timeline": timeline,
         "completeness": {
             "sip_event_count": len(messages),
             "sip_transaction_count": len(transaction_document["transactions"]),
             "register_transaction_count": len(transactions),
-            "registration_inventory_count": len(inventory),
-            "registration_inventory_omitted": max(0, len(inventory) - MAX_INVENTORY),
-            "attempt_count": len(attempts),
-            "attempts_omitted": max(0, len(attempts) - MAX_ATTEMPTS),
-            "diameter_observation_count": len(diameter_inventory),
-            "diameter_observations_omitted": max(0, len(diameter_inventory) - MAX_DIAMETER),
-            "association_count": len(associations),
-            "associations_omitted": associations_omitted,
+            "registration_inventory_count": len(inventory_all),
+            "registration_inventory_omitted": len(inventory_all) - len(inventory_published),
+            "attempt_count": len(attempts_all),
+            "attempts_omitted": len(attempts_all) - len(published_attempts),
+            "diameter_observation_count": diameter_total,
+            "diameter_observations_omitted": diameter_omitted,
+            "association_count": association_total,
+            "associations_omitted": association_total - len(associations),
             "timeline_row_count": timeline["row_count"],
             "timeline_rows_omitted": timeline["rows_omitted"],
         },
@@ -950,6 +1286,84 @@ def validate_analysis(document: dict[str, Any], *, sip_event_references: set[str
                     raise InputError("a registration attempt references an absent SIP event")
         if transaction_references is not None and not set(attempt.get("transaction_references") or []).issubset(transaction_references):
             raise InputError("a registration attempt references an absent SIP transaction")
+        association = attempt.get("challenge_retry_association")
+        if association is not None:
+            if association.get("status") not in {
+                "ASSOCIATED",
+                "CHALLENGE_WITHOUT_RETRY",
+                "RETRY_WITHOUT_CHALLENGE",
+                "NOT_ASSOCIATED",
+                "AMBIGUOUS",
+            }:
+                raise InputError("invalid challenge/retry association status")
+            for key in (
+                "challenge_transaction_reference",
+                "retry_transaction_reference",
+            ):
+                value = association.get(key)
+                if value is not None and (
+                    not isinstance(value, str)
+                    or not TRANSACTION_REFERENCE_PATTERN.fullmatch(value)
+                ):
+                    raise InputError("invalid challenge/retry transaction reference")
+            for key in (
+                "challenge_response_event_reference",
+                "retry_request_event_reference",
+            ):
+                value = association.get(key)
+                if value is not None and (
+                    not isinstance(value, str) or not EVENT_REFERENCE_PATTERN.fullmatch(value)
+                ):
+                    raise InputError("invalid challenge/retry event reference")
+            if attempt.get("authentication_evidence_status") == "CHALLENGE_RETRY_ASSOCIATED":
+                if association.get("status") != "ASSOCIATED":
+                    raise InputError(
+                        "CHALLENGE_RETRY_ASSOCIATED requires an accepted association record"
+                    )
+                if not association.get("retry_transaction_reference"):
+                    raise InputError(
+                        "CHALLENGE_RETRY_ASSOCIATED requires an eligible retry transaction"
+                    )
+        for omitted_key in (
+            "omitted_transaction_count",
+            "omitted_request_event_count",
+            "omitted_response_event_count",
+            "omitted_challenge_event_count",
+            "omitted_retry_event_count",
+            "omitted_final_response_event_count",
+            "omitted_source_frame_count",
+        ):
+            value = attempt.get(omitted_key)
+            if not isinstance(value, int) or value < 0:
+                raise InputError(f"invalid omission accounting in {omitted_key}")
+        deregistration = attempt.get("deregistration")
+        if deregistration is not None:
+            if deregistration.get("scope") not in {"ALL_BINDINGS", "CONTACT_SCOPED", "NONE"}:
+                raise InputError("invalid de-registration scope")
+            if deregistration.get("valid_all_bindings_request"):
+                wildcard_valid = (
+                    deregistration.get("contact_wildcard")
+                    and deregistration.get("expires_seconds") == 0
+                    and not deregistration.get("contact_non_wildcard")
+                )
+                explicit_valid = (
+                    not deregistration.get("contact_wildcard")
+                    and deregistration.get("expires_seconds") == 0
+                    and not deregistration.get("contact_non_wildcard")
+                )
+                if not (wildcard_valid or explicit_valid):
+                    raise InputError(
+                        "valid all-bindings removal requires wildcard Contact or explicit Expires: 0"
+                    )
+                if deregistration.get("scope") != "ALL_BINDINGS":
+                    raise InputError("valid all-bindings removal requires ALL_BINDINGS scope")
+            if (
+                deregistration.get("outcome") == "DEREGISTRATION_ACCEPTED_BY_SIP"
+                and deregistration.get("scope") == "NONE"
+            ):
+                raise InputError(
+                    "an invalid de-registration request cannot be accepted as a valid removal"
+                )
     for observation in document["diameter_ims_inventory"]:
         if observation.get("command_code") not in CX_COMMANDS:
             raise InputError("a Diameter observation is not a supported Cx/Dx command")
@@ -963,8 +1377,35 @@ def validate_analysis(document: dict[str, Any], *, sip_event_references: set[str
         if association.get("sip_attempt_reference") not in attempt_references:
             raise InputError("association references an absent registration attempt")
     timeline = document["timeline"]
-    if timeline.get("row_count") != len(timeline.get("rows") or []):
-        raise InputError("timeline row count does not match the published rows")
+    rows = timeline.get("rows") or []
+    rows_omitted = timeline.get("rows_omitted")
+    if not isinstance(rows_omitted, int) or rows_omitted < 0:
+        raise InputError("invalid timeline omission accounting")
+    if timeline.get("row_count") != len(rows) + rows_omitted:
+        raise InputError("timeline row count does not satisfy count conservation")
+    if timeline.get("ordering_scope") not in {
+        "SIP_ONLY_SINGLE_CAPTURE",
+        "SIP_ONLY_MULTI_CAPTURE",
+        "DIAMETER_ONLY_SINGLE_CAPTURE",
+        "DIAMETER_ONLY_MULTI_CAPTURE",
+        "CROSS_SOURCE_UNVERIFIED",
+        "VERIFIED_COMMON_CAPTURE",
+    }:
+        raise InputError("invalid timeline ordering scope")
+    if timeline.get("ordering_basis") not in {
+        "SINGLE_CAPTURE_FRAME_ORDER",
+        "SOURCE_LOCAL_ONLY",
+        "VERIFIED_COMMON_CAPTURE",
+    }:
+        raise InputError("invalid timeline ordering basis")
+    sip_rows = timeline.get("sip_row_count")
+    diameter_rows = timeline.get("diameter_row_count")
+    if not isinstance(sip_rows, int) or not isinstance(diameter_rows, int):
+        raise InputError("invalid timeline source row accounting")
+    if sip_rows + diameter_rows != timeline["row_count"]:
+        raise InputError("timeline source rows do not match the total")
+    if sip_rows and diameter_rows and timeline.get("global_order_proven"):
+        raise InputError("unverified cross-source rows cannot claim global frame order")
     for row in timeline.get("rows") or []:
         if not isinstance(row.get("row_reference"), str) or not TIMELINE_REFERENCE_PATTERN.fullmatch(row["row_reference"]):
             raise InputError("invalid timeline row reference")
@@ -980,8 +1421,38 @@ def validate_analysis(document: dict[str, Any], *, sip_event_references: set[str
             raise InputError("invalid timeline event kind")
         if row.get("attempt_reference") is not None and row["attempt_reference"] not in attempt_references:
             raise InputError("timeline row references an absent attempt")
-    if document["completeness"].get("attempt_count") != len(document["registration_attempts"]):
-        raise InputError("attempt count does not match the published attempts")
+    completeness = document["completeness"]
+    for total_key, published, omitted_key in (
+        (
+            "registration_inventory_count",
+            len(document["sip_registration_inventory"]),
+            "registration_inventory_omitted",
+        ),
+        (
+            "attempt_count",
+            len(document["registration_attempts"]),
+            "attempts_omitted",
+        ),
+        (
+            "diameter_observation_count",
+            len(document["diameter_ims_inventory"]),
+            "diameter_observations_omitted",
+        ),
+        (
+            "association_count",
+            len(document["cross_protocol_associations"]),
+            "associations_omitted",
+        ),
+    ):
+        omitted = completeness.get(omitted_key)
+        if not isinstance(omitted, int) or omitted < 0:
+            raise InputError(f"invalid omission accounting in {omitted_key}")
+        if completeness.get(total_key) != published + omitted:
+            raise InputError(f"{total_key} does not satisfy count conservation")
+    if completeness.get("timeline_row_count") != timeline["row_count"]:
+        raise InputError("timeline row count diverges from completeness accounting")
+    if completeness.get("timeline_rows_omitted") != timeline["rows_omitted"]:
+        raise InputError("timeline omission count diverges from completeness accounting")
 
 
 def sanitize(document: Any) -> Any:

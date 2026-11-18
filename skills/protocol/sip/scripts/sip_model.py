@@ -168,43 +168,89 @@ CONTACT_HEADER_PATTERN = re.compile(
 CONTACT_EXPIRES_PATTERN = re.compile(r";[ \t]*expires[ \t]*=[ \t]*([0-9]+)", re.IGNORECASE)
 
 
-def _header_number(raw_header: str | None, pattern: re.Pattern[str]) -> int | None:
+def _header_expiration(
+    raw_header: str | None, pattern: re.Pattern[str], name: str
+) -> tuple[bool, int | None, bool]:
+    """Return (present, seconds, malformed) for a numeric expiration header."""
     if not raw_header:
-        return None
+        return False, None, False
     match = pattern.search(raw_header)
-    return int(match.group(1)) if match else None
+    if match:
+        return True, int(match.group(1)), False
+    present = (
+        re.search(
+            r"^[ \t]*" + re.escape(name) + r"[ \t]*:",
+            raw_header,
+            re.IGNORECASE | re.MULTILINE,
+        )
+        is not None
+    )
+    return present, None, present
 
 
-def _contact_expiration(raw_header: str | None) -> tuple[int | None, bool]:
+def _contact_expiration(raw_header: str | None) -> tuple[int | None, bool, bool, bool]:
+    """Return (expires, wildcard, non_wildcard, malformed) for Contact values."""
     if not raw_header:
-        return None, False
+        return None, False, False, False
     values = [value.strip() for value in CONTACT_HEADER_PATTERN.findall(raw_header)]
     wildcard = any(value == "*" for value in values)
+    non_wildcard = any(value != "*" for value in values)
     expires = None
+    malformed = False
     for value in values:
-        match = CONTACT_EXPIRES_PATTERN.search(value)
-        if match:
-            expires = int(match.group(1))
-            break
-    return expires, wildcard
+        if re.search(r";[ \t]*expires[ \t]*=", value, re.IGNORECASE):
+            match = CONTACT_EXPIRES_PATTERN.search(value)
+            if match:
+                expires = int(match.group(1))
+            else:
+                malformed = True
+    return expires, wildcard, non_wildcard, malformed
 
 
 def _expiration_metadata(raw_header: str | None, headers: dict[str, Any]) -> dict[str, Any]:
-    expires = _header_number(raw_header, EXPIRES_HEADER_PATTERN)
-    min_expires = _header_number(raw_header, MIN_EXPIRES_HEADER_PATTERN)
-    contact_expires, contact_wildcard = _contact_expiration(raw_header)
-    if expires is None:
+    expires_present, expires, expires_malformed = _header_expiration(
+        raw_header, EXPIRES_HEADER_PATTERN, "Expires"
+    )
+    min_present, min_expires, min_expires_malformed = _header_expiration(
+        raw_header, MIN_EXPIRES_HEADER_PATTERN, "Min-Expires"
+    )
+    contact_expires, contact_wildcard, contact_non_wildcard, contact_malformed = (
+        _contact_expiration(raw_header)
+    )
+    if not expires_present and headers.get("expires_seconds") is not None:
+        expires_present = True
         expires = _int_text(headers.get("expires_seconds"))
-    if min_expires is None:
+        expires_malformed = False
+    if headers.get("expires_present") is not None:
+        expires_present = bool(headers.get("expires_present"))
+    if headers.get("expires_valid") is False:
+        expires_malformed = True
+    min_present = min_present or bool(headers.get("min_expires_present")) or (
+        headers.get("min_expires_seconds") is not None
+    )
+    if not min_present and headers.get("min_expires_seconds") is not None:
+        min_present = True
         min_expires = _int_text(headers.get("min_expires_seconds"))
-    if contact_expires is None:
+    if headers.get("min_expires_valid") is False:
+        min_expires_malformed = True
+    if not contact_expires and headers.get("contact_expires_seconds") is not None:
         contact_expires = _int_text(headers.get("contact_expires_seconds"))
+    if headers.get("contact_expires_valid") is False:
+        contact_malformed = True
     contact_wildcard = contact_wildcard or bool(headers.get("contact_wildcard"))
+    contact_non_wildcard = contact_non_wildcard or bool(headers.get("contact_non_wildcard"))
     return {
+        "expires_present": expires_present,
+        "expires_valid": not expires_malformed,
         "expires_seconds": expires,
+        "min_expires_present": min_present,
+        "min_expires_valid": not min_expires_malformed,
         "min_expires_seconds": min_expires,
+        "contact_expires_present": contact_expires is not None,
+        "contact_expires_valid": not contact_malformed,
         "contact_expires_seconds": contact_expires,
         "contact_wildcard": contact_wildcard,
+        "contact_non_wildcard": contact_non_wildcard,
     }
 
 
@@ -764,16 +810,20 @@ def _build_event(
             "record_route": {"count": int(headers.get("record_route_count") or 0)},
             "contact": {"count": int(headers.get("contact_count") or 0)},
             "contact_expires": {
-                "present": headers.get("contact_expires_seconds") is not None,
+                "present": headers.get("contact_expires_present", headers.get("contact_expires_seconds") is not None),
+                "valid": headers.get("contact_expires_valid", True),
                 "seconds": headers.get("contact_expires_seconds"),
             },
+            "contact_non_wildcard": bool(headers.get("contact_non_wildcard")),
             "contact_wildcard": bool(headers.get("contact_wildcard")),
             "expires": {
-                "present": headers.get("expires_seconds") is not None,
+                "present": headers.get("expires_present", headers.get("expires_seconds") is not None),
+                "valid": headers.get("expires_valid", True),
                 "seconds": headers.get("expires_seconds"),
             },
             "min_expires": {
-                "present": headers.get("min_expires_seconds") is not None,
+                "present": headers.get("min_expires_present", headers.get("min_expires_seconds") is not None),
+                "valid": headers.get("min_expires_valid", True),
                 "seconds": headers.get("min_expires_seconds"),
             },
             "authorization": {"count": int(headers.get("authorization_count") or 0)},
@@ -875,9 +925,16 @@ def _build_message_record(
         "fingerprint_completeness": _fingerprint_completeness(event, headers),
         "observation_role": observation_role,
         "expires_seconds": headers.get("expires_seconds"),
+        "expires_present": headers.get("expires_present", headers.get("expires_seconds") is not None),
+        "expires_valid": headers.get("expires_valid", True),
         "min_expires_seconds": headers.get("min_expires_seconds"),
+        "min_expires_present": headers.get("min_expires_present", headers.get("min_expires_seconds") is not None),
+        "min_expires_valid": headers.get("min_expires_valid", True),
         "contact_expires_seconds": headers.get("contact_expires_seconds"),
+        "contact_expires_present": headers.get("contact_expires_present", headers.get("contact_expires_seconds") is not None),
+        "contact_expires_valid": headers.get("contact_expires_valid", True),
         "contact_wildcard": bool(headers.get("contact_wildcard")),
+        "contact_non_wildcard": bool(headers.get("contact_non_wildcard")),
         "contact_count": int(headers.get("contact_count") or 0),
         "authorization_count": int(headers.get("authorization_count") or 0),
         "proxy_authorization_count": int(headers.get("proxy_authorization_count") or 0),
@@ -1074,9 +1131,16 @@ _HEADER_KEYS = {
     "p_asserted_identity_count",
     "p_preferred_identity_count",
     "expires_seconds",
+    "expires_present",
+    "expires_valid",
     "min_expires_seconds",
+    "min_expires_present",
+    "min_expires_valid",
     "contact_expires_seconds",
+    "contact_expires_present",
+    "contact_expires_valid",
     "contact_wildcard",
+    "contact_non_wildcard",
 }
 _REASSEMBLY_STATUSES = {"NOT_APPLICABLE", "SINGLE_SEGMENT", "REASSEMBLED", "INCOMPLETE", "UNKNOWN"}
 _INTEGRITY_VALUES = set(INTEGRITY_MARKERS.values()) | {
@@ -1204,6 +1268,20 @@ def _jsonl_headers(raw: Any) -> dict[str, Any]:
     if not isinstance(contact_wildcard, bool):
         raise InputError("headers.contact_wildcard must be a boolean")
     expiration_values["contact_wildcard"] = contact_wildcard
+    boolean_defaults = {
+        "expires_present": raw.get("expires_seconds") is not None,
+        "expires_valid": True,
+        "min_expires_present": raw.get("min_expires_seconds") is not None,
+        "min_expires_valid": True,
+        "contact_expires_present": raw.get("contact_expires_seconds") is not None,
+        "contact_expires_valid": True,
+        "contact_non_wildcard": False,
+    }
+    for label, default in boolean_defaults.items():
+        value = raw.get(label, default)
+        if not isinstance(value, bool):
+            raise InputError(f"headers.{label} must be a boolean")
+        expiration_values[label] = value
     return {
         "method": raw.get("method"),
         "status_code": raw.get("status_code"),
