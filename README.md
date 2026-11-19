@@ -93,7 +93,7 @@ NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
 relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
 semantics), remaining
-5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (SDP/RTP, Diameter IMS and charging), IMS Domain procedures,
+5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (SDP/RTP and Diameter IMS Sh/Rx/charging), IMS session modification and media/QoS,
 broader EPC procedures (bearer and session lifecycle, Diameter EPC, cross-interface session association, end-to-end EPC diagnosis),
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper
 diagnosis orchestration.
@@ -120,7 +120,7 @@ CoreNet Skill focuses on network signaling evidence analysis rather than impleme
 
 ## EPC, IMS, 5GC, and Diameter
 
-Future EPC procedures will reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS procedures will reuse the implemented SIP Protocol Skill (including its bounded Dialog evidence), SDP/RTP, the implemented Diameter IMS Cx/Dx Protocol Skill, and Diameter Charging. 5GC procedures will reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
+EPC procedures reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS registration and session evidence reuse the implemented SIP Protocol Skill (including its bounded Dialog evidence), the implemented Diameter IMS Cx/Dx Protocol Skill, the implemented IMS Registration Domain Skill and the implemented IMS Session Domain Skill; SDP/RTP, Diameter Charging, session modification and media/QoS remain future work. 5GC procedures reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
 
 Diameter is explicitly cross-domain—not an IMS-owned protocol. `diameter-core` owns base-protocol behavior; `diameter-epc` owns bounded S6a/S6d AIR/AIA and ULR/ULA application-message evidence; `diameter-ims` owns bounded Cx/Dx UAR/UAA, SAR/SAA, LIR/LIA, MAR/MAA, RTR/RTA and PPR/PPA application-message evidence; and `diameter-charging` will own shared credit-control semantics and remains planned, together with the Diameter IMS Sh and Rx applications. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -131,8 +131,8 @@ All future troubleshooting output must separate observations, deterministic deri
 ## Analyze a capture
 
 `scripts/corenet-analyze.py` is the unified analysis entry point. It executes the
-accepted Protocol, Correlation, Domain and Orchestration Skills for 5GC captures and
-writes `analysis.json` plus `report.txt`.
+accepted Protocol, Correlation, Domain and Orchestration Skills for 5GC, EPC and IMS
+captures and writes `analysis.json` plus `report.txt`.
 
 ```bash
 python3 scripts/corenet-analyze.py \
@@ -142,9 +142,12 @@ python3 scripts/corenet-analyze.py \
   --output-dir /tmp/corenet-output
 ```
 
-`--domains` accepts `auto`, `5gc`, `epc`, `ims`, or a comma-separated list. 5GC and
-EPC execute bounded analysis paths; EPC covers EPS Attach and session-control
-evidence, and when the accepted GTPv2-C transactions contain Create/Update/Delete
+`--domains` accepts `auto`, `5gc`, `epc`, `ims`, or a comma-separated list. 5GC, EPC
+and IMS execute bounded analysis paths. IMS auto-selection runs when plaintext SIP is
+observed while technology attribution remains `SUSPECTED`; an explicit `--domains ims`
+executes the available IMS components even when evidence is incomplete. EPC covers
+EPS Attach and session-control evidence, and when the accepted GTPv2-C transactions
+contain Create/Update/Delete
 Bearer signaling the unified path also runs the dedicated-bearer control-plane
 outcome producer and records its bounded summary in `analysis.json` and `report.txt`.
 A capture without those transactions reports `NOT_OBSERVED_IN_CAPTURE` instead of a
@@ -166,13 +169,15 @@ Upstream source completeness is preserved and mixed-capture inputs are rejected.
 A separate optional attribution artifact exposes receiver-scoped control-to-session
 links, NAS-to-S1AP ownership from an observed embedded NAS-PDU, and endpoint-only
 correspondence with the exact missing identity bridge; endpoint equality is never
-promoted to UE identity. IMS reports
-`UNSUPPORTED` rather than inventing results. Every
+promoted to UE identity. IMS executes accepted SIP extraction, optional Diameter
+Cx/Dx evidence, IMS Registration and IMS Session analysis; a missing component or
+failed extraction is reported explicitly and never converted into an IMS call,
+media or network verdict. Every
 diagnostic subject in a capture is reported with its own boundary status, a failed
 component makes the run `PARTIAL` instead of `COMPLETED`, and the workflow never asserts
 network health.
 See [docs/ANALYSIS-WORKFLOW.md](docs/ANALYSIS-WORKFLOW.md) for prerequisites, exit
-codes, the report contract, privacy rules and the EPC/IMS roadmap.
+codes, the report contract, privacy rules and the EPC/IMS implementation boundary.
 
 ## Review EPC evidence
 
@@ -234,9 +239,10 @@ Keep Scope and Non-Goals explicit, use lowercase kebab-case names, preserve arti
 The repository foundation and six accepted Foundation Skills establish the
 stable investigation-method baseline; GitHub Actions reproduces repository
 validation remotely.
-Future milestones are Packet and Protocol Core (continuing), Diameter, IMS,
-EPC, 5GC Core Procedures, Advanced 5GC Interfaces, and End-to-End Root Cause
-Analysis. Implementation-specific Skills are not planned: external
+Future milestones are Packet and Protocol Core (continuing), remaining Diameter IMS
+Sh/Rx and charging, IMS media/QoS, Advanced 5GC Interfaces, and End-to-End Root Cause
+Analysis; the implemented 5GC, EPC, IMS registration and IMS session paths remain
+bounded evidence capabilities. Implementation-specific Skills are not planned: external
 implementation analysis is performed only when users provide implementation
 evidence. Each milestone's gates and dependencies are frozen in
 [docs/ROADMAP.md](docs/ROADMAP.md).

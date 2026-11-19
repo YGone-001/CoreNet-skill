@@ -313,6 +313,111 @@ def zero_instances(summary: dict) -> dict:
     return summary
 
 
+def ims_payload(
+    execution_status: str = "COMPLETED",
+    *,
+    sip_status: str = "SUCCESS",
+    sip_events: int = 8,
+    sip_transactions: int = 4,
+    sip_dialogs: int = 2,
+    registration_status: str = "COMPLETED",
+    registration_attempts: int = 1,
+    registration_types: list | None = None,
+    session_status: str = "COMPLETED",
+    session_attempts: int = 1,
+    early_dialogs: int = 1,
+    confirmed_dialogs: int = 1,
+    cancel_observations: int = 0,
+    bye_observations: int = 0,
+    diameter_status: str = "NOT_OBSERVED_IN_CAPTURE",
+    diameter_events: int = 0,
+    diameter_transactions: int = 0,
+    cxdx_status: str = "NOT_OBSERVED_IN_CAPTURE",
+    cxdx_observations: int = 0,
+    degradation: list | None = None,
+    limitations: list | None = None,
+) -> dict:
+    """Shaped like the bounded IMS adapter output."""
+    return {
+        "execution_status": execution_status,
+        "protocol_evidence": [
+            {
+                "protocol": "SIP",
+                "extraction_status": sip_status,
+                "event_count": sip_events,
+                "transaction_count": sip_transactions,
+                "dialog_count": sip_dialogs,
+            },
+            {
+                "protocol": "Diameter",
+                "extraction_status": diameter_status,
+                "event_count": diameter_events,
+                "transaction_count": diameter_transactions,
+                "observation_count": cxdx_observations,
+            },
+        ],
+        "procedure_summaries": [
+            {
+                "procedure_domain": "ims-registration",
+                "execution_status": registration_status,
+                "instance_count": registration_attempts,
+            },
+            {
+                "procedure_domain": "ims-session",
+                "execution_status": session_status,
+                "instance_count": session_attempts,
+            },
+        ],
+        "ims_evidence": {
+            "sip_protocol": {
+                "extraction_status": sip_status,
+                "event_count": sip_events,
+                "transaction_count": sip_transactions,
+                "dialog_count": sip_dialogs,
+                "extraction_executions": 1 if sip_status != "NOT_OBSERVED_IN_CAPTURE" else 0,
+            },
+            "diameter_protocol": {
+                "extraction_status": diameter_status,
+                "event_count": diameter_events,
+                "transaction_count": diameter_transactions,
+                "observation_count": cxdx_observations,
+            },
+            "registration": {
+                "analysis_status": registration_status,
+                "attempt_count": registration_attempts,
+                "attempt_references": [
+                    f"sip-registration:fixture.pcap:{index + 1}.1"
+                    for index in range(min(registration_attempts, 10))
+                ],
+                "registration_types": registration_types or ["INITIAL_REGISTRATION_CANDIDATE"],
+                "cross_protocol_association": "NOT_ESTABLISHED",
+            },
+            "session": {
+                "analysis_status": session_status,
+                "attempt_count": session_attempts,
+                "early_dialog_count": early_dialogs,
+                "confirmed_dialog_count": confirmed_dialogs,
+                "cancel_observation_count": cancel_observations,
+                "bye_release_observation_count": bye_observations,
+                "attempt_references": [
+                    f"ims-session:fixture.pcap:{index + 10}.1"
+                    for index in range(min(session_attempts, 10))
+                ],
+                "limitations": [],
+            },
+            "diameter_ims": {
+                "analysis_status": cxdx_status,
+                "observation_count": cxdx_observations,
+            },
+            "cross_protocol_association": "NOT_ESTABLISHED",
+            "analysis_status": execution_status,
+            "limitations": limitations or [],
+        },
+        "evidence_limitations": limitations or [],
+        "degradation": degradation or [],
+    }
+
+
 def epc_payload(instances: int = 1) -> dict:
     """Shaped like the EPC Attach Domain analysis for one rejected attempt."""
     procedure_instances = []
@@ -475,6 +580,7 @@ class WorkflowTestCase(unittest.TestCase):
     summary_factory = staticmethod(summary_selected)
     orchestration_factory = staticmethod(orchestration_selected)
     inventory_factory = staticmethod(inventory_5gc)
+    ims_payload_factory = staticmethod(ims_payload)
 
     def setUp(self) -> None:
         self._temporary = tempfile.TemporaryDirectory()
@@ -485,19 +591,23 @@ class WorkflowTestCase(unittest.TestCase):
         self.output = self.base / "out"
         self.pipeline_calls: list[tuple[str, str]] = []
         self.epc_pipeline_calls: list[tuple[str, str]] = []
+        self.ims_pipeline_calls: list[tuple[str, str]] = []
         self._original_inventory = MODULE.inventory_capture
         self._original_pipeline = MODULE.execute_5gc_pipeline
         self._original_epc_pipeline = MODULE.execute_epc_pipeline
+        self._original_ims_pipeline = MODULE.execute_ims_pipeline
         self._original_revision = MODULE.repository_revision
         MODULE.inventory_capture = self.fake_inventory
         MODULE.execute_5gc_pipeline = self.fake_pipeline
         MODULE.execute_epc_pipeline = self.fake_epc_pipeline
+        MODULE.execute_ims_pipeline = self.fake_ims_pipeline
         MODULE.repository_revision = lambda root=MODULE.ROOT: "0" * 40
 
     def tearDown(self) -> None:
         MODULE.inventory_capture = self._original_inventory
         MODULE.execute_5gc_pipeline = self._original_pipeline
         MODULE.execute_epc_pipeline = self._original_epc_pipeline
+        MODULE.execute_ims_pipeline = self._original_ims_pipeline
         MODULE.repository_revision = self._original_revision
         self._temporary.cleanup()
 
@@ -515,6 +625,12 @@ class WorkflowTestCase(unittest.TestCase):
     def fake_epc_pipeline(self, capture: Path, work_dir: Path, case_id: str) -> dict:
         self.epc_pipeline_calls.append((str(capture), case_id))
         return epc_payload()
+
+    def fake_ims_pipeline(
+        self, capture: Path, work_dir: Path, case_id: str, observed: set[str]
+    ) -> dict:
+        self.ims_pipeline_calls.append((str(capture), case_id))
+        return self.ims_payload_factory()
 
     def run_cli(self, *extra: str, domains: str = "auto") -> int:
         argv = [
@@ -551,16 +667,17 @@ class CapabilityContractTests(unittest.TestCase):
         self.assertEqual(set(MODULE.DOMAIN_CAPABILITIES), {"5gc", "epc", "ims"})
 
     def test_implemented_domains_are_declared(self) -> None:
-        for domain in ("5gc", "epc"):
+        for domain in ("5gc", "epc", "ims"):
             capability = MODULE.DOMAIN_CAPABILITIES[domain]
             self.assertEqual(capability["implementation_status"], "IMPLEMENTED", domain)
             self.assertTrue(capability["entry_point_available"], domain)
             self.assertIsNotNone(capability["entry_point"], domain)
             self.assertTrue(capability["analysis_capabilities"], domain)
         capability = MODULE.DOMAIN_CAPABILITIES["ims"]
-        self.assertEqual(capability["implementation_status"], "UNSUPPORTED")
-        self.assertIsNone(capability["entry_point"])
-        self.assertTrue(capability["unsupported_reason"])
+        self.assertIsNone(capability["unsupported_reason"])
+        self.assertIn("ims-session-establishment-and-release-evidence", capability["analysis_capabilities"])
+        for absent in ("SDP", "RTP", "Diameter Rx", "Diameter Charging"):
+            self.assertIn(absent, capability["planned_protocol_families"])
 
     def test_epc_capability_stays_bounded(self) -> None:
         capability = MODULE.DOMAIN_CAPABILITIES["epc"]
@@ -586,12 +703,14 @@ class CapabilityContractTests(unittest.TestCase):
         self.assertTrue(capability["entry_point_available"])
         self.assertTrue((ROOT / capability["entry_point"]).is_file())
 
-    def test_unsupported_domains_declare_no_executable_module(self) -> None:
-        for domain in ("epc", "ims"):
-            self.assertFalse(
-                (ROOT / "skills" / "protocol" / domain).exists(),
-                f"no {domain} Skill package may exist yet",
-            )
+    def test_ims_protocol_and_domain_packages_exist(self) -> None:
+        for path in (
+            ROOT / "skills" / "protocol" / "sip",
+            ROOT / "skills" / "protocol" / "diameter-ims",
+            ROOT / "skills" / "domain" / "ims-registration",
+            ROOT / "skills" / "domain" / "ims-session",
+        ):
+            self.assertTrue(path.is_dir(), path)
 
     def test_envelope_stays_domain_neutral(self) -> None:
         # No 5gc-specific field may be required at the top level.
@@ -1310,9 +1429,9 @@ class EpcDomainTests(WorkflowTestCase):
         self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "ngap", "nas-5gs", "s1ap"])
         self.assertEqual(self.run_cli(domains="5gc,epc,ims"), 0)
         report = self.read_report()
-        self.assertEqual(report["overall_execution_status"], "PARTIAL")
+        self.assertEqual(report["overall_execution_status"], "COMPLETED")
         statuses = {result["domain"]: result["execution_status"] for result in report["domain_results"]}
-        self.assertEqual(statuses, {"5gc": "COMPLETED", "epc": "COMPLETED", "ims": "UNSUPPORTED"})
+        self.assertEqual(statuses, {"5gc": "COMPLETED", "epc": "COMPLETED", "ims": "COMPLETED"})
 
     def test_epc_execution_is_deterministic(self) -> None:
         first, second = self.base / "epc-a", self.base / "epc-b"
@@ -1339,7 +1458,7 @@ class EpcCapabilityTruthfulnessTests(WorkflowTestCase):
         self.run_cli(domains="epc")
         text = self.read_text()
         self.assertIn("EPC coverage is bounded to EPS Attach procedure evidence", text)
-        self.assertIn("IMS analysis is not implemented", text)
+        self.assertIn("IMS coverage is bounded", text)
 
     def test_failure_report_does_not_confuse_failure_with_missing_epc(self) -> None:
         self.capture.write_bytes(b"not a capture at all")
@@ -1354,10 +1473,10 @@ class EpcCapabilityTruthfulnessTests(WorkflowTestCase):
         self.assertEqual(self.run_cli(domains="5gc,epc,ims"), 0)
         report = self.read_report()
         scope = report["interpretation"]["domain_scope"]
-        for fragment in ("5GC coverage is bounded", "EPC coverage is bounded", "IMS analysis is not implemented"):
+        for fragment in ("5GC coverage is bounded", "EPC coverage is bounded", "IMS coverage is bounded"):
             self.assertIn(fragment, scope)
         statuses = {result["domain"]: result["execution_status"] for result in report["domain_results"]}
-        self.assertEqual(statuses, {"5gc": "COMPLETED", "epc": "COMPLETED", "ims": "UNSUPPORTED"})
+        self.assertEqual(statuses, {"5gc": "COMPLETED", "epc": "COMPLETED", "ims": "COMPLETED"})
 
     def test_interpretation_never_claims_full_epc_support(self) -> None:
         self.run_cli(domains="epc")
@@ -1486,9 +1605,15 @@ class DetectionTests(WorkflowTestCase):
         self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
         self.assertTrue(any("SUSPECTED" in item for item in self.read_report()["limitations"]))
 
-    def test_sip_only_does_not_confirm_ims(self) -> None:
+    def test_sip_only_selects_bounded_ims_but_keeps_attribution_suspected(self) -> None:
         self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "sip"])
-        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
+        self.assertEqual(self.run_cli(domains="auto"), 0)
+        report = self.read_report()
+        self.assertEqual(report["requested_domains"], ["ims"])
+        result = self.domain_result()
+        self.assertEqual(result["detection"]["status"], "SUSPECTED")
+        self.assertNotEqual(result["detection"]["status"], "CONFIRMED")
+        self.assertEqual(len(self.ims_pipeline_calls), 1)
         self.assertEqual(self.pipeline_calls, [])
 
     def test_epc_signaling_selects_the_epc_adapter(self) -> None:
@@ -1509,6 +1634,383 @@ class DetectionTests(WorkflowTestCase):
         self.assertEqual(len(self.epc_pipeline_calls), 1)
 
 
+class ImsAdapterContractTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.base = Path(self._temporary.name)
+        self.capture = self.base / "fixture.pcap"
+        self.capture.write_bytes(b"\xd4\xc3\xb2\xa1" + b"\x00" * 60)
+        self.work = self.base / "work"
+        self.work.mkdir()
+        self._original_stage = MODULE._ims_stage
+
+    def tearDown(self) -> None:
+        MODULE._ims_stage = self._original_stage
+        self._temporary.cleanup()
+
+    def test_sip_no_plaintext_is_insufficient_not_failed(self) -> None:
+        MODULE._ims_stage = lambda command, label: (3, "no plaintext")
+        payload = MODULE.execute_ims_pipeline(
+            self.capture, self.work, "case", {"SIP", "Diameter"}
+        )
+        self.assertEqual(payload["execution_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertEqual(payload["ims_evidence"]["sip_protocol"]["extraction_status"], "NO_PLAINTEXT_EVENTS")
+        self.assertEqual(payload["ims_evidence"]["session"]["analysis_status"], "UNAVAILABLE_SIP")
+
+    def test_diameter_failure_preserves_sip_domain_results(self) -> None:
+        def stage(command, label):
+            if label == "SIP extractor":
+                paths = [command[command.index(flag) + 1] for flag in ("--output", "--transaction-output", "--dialog-output")]
+                Path(paths[0]).write_text('{"source_reference":"sip-event:fixture.pcap:1.1"}\n', encoding="utf-8")
+                Path(paths[1]).write_text('{"transaction_count": 1, "transactions": []}\n', encoding="utf-8")
+                Path(paths[2]).write_text('{"dialog_count": 1, "dialogs": []}\n', encoding="utf-8")
+                return 0, ""
+            if label == "IMS Registration analyzer":
+                path = Path(command[command.index("--output") + 1])
+                path.write_text(
+                    json.dumps({"registration_attempts": [{"attempt_reference": "sip-registration:fixture.pcap:1.1", "registration_type": "INITIAL_REGISTRATION_CANDIDATE"}]}),
+                    encoding="utf-8",
+                )
+                return 0, ""
+            if label == "IMS Session analyzer":
+                path = Path(command[command.index("--output") + 1])
+                path.write_text(
+                    json.dumps({"session_attempts": [{"attempt_reference": "ims-session:fixture.pcap:1.1", "stage_evidence": {}, "branches": [], "cancel_evidence": {"outcome": "NO_CANCEL_OBSERVED"}}]}),
+                    encoding="utf-8",
+                )
+                return 0, ""
+            if label == "Diameter Core extractor":
+                return 4, "decoder failure"
+            return 0, ""
+
+        MODULE._ims_stage = stage
+        payload = MODULE.execute_ims_pipeline(
+            self.capture, self.work, "case", {"SIP", "Diameter"}
+        )
+        self.assertEqual(payload["execution_status"], "PARTIAL")
+        self.assertEqual(payload["ims_evidence"]["registration"]["analysis_status"], "COMPLETED")
+        self.assertEqual(payload["ims_evidence"]["session"]["analysis_status"], "COMPLETED")
+        self.assertEqual(payload["ims_evidence"]["diameter_protocol"]["extraction_status"], "FAILED")
+
+    def test_sip_and_cxdx_success_are_independent_inventories(self) -> None:
+        def stage(command, label):
+            if label == "SIP extractor":
+                paths = [command[command.index(flag) + 1] for flag in ("--output", "--transaction-output", "--dialog-output")]
+                Path(paths[0]).write_text('{"source_reference":"sip-event:fixture.pcap:1.1"}\n', encoding="utf-8")
+                Path(paths[1]).write_text('{"transaction_count": 2, "transactions": []}\n', encoding="utf-8")
+                Path(paths[2]).write_text('{"dialog_count": 1, "dialogs": []}\n', encoding="utf-8")
+                return 0, ""
+            if label == "IMS Registration analyzer":
+                path = Path(command[command.index("--output") + 1])
+                path.write_text(json.dumps({"registration_attempts": []}), encoding="utf-8")
+                return 0, ""
+            if label == "IMS Session analyzer":
+                path = Path(command[command.index("--output") + 1])
+                path.write_text(json.dumps({"session_attempts": []}), encoding="utf-8")
+                return 0, ""
+            if label == "Diameter Core extractor":
+                path = Path(command[command.index("--output") + 1])
+                path.write_text('{"event": 1}\n', encoding="utf-8")
+                return 0, ""
+            if label == "Diameter Core correlator":
+                path = Path(command[command.index("--output") + 1])
+                path.write_text(json.dumps({"transaction_count": 1, "transactions": []}), encoding="utf-8")
+                return 0, ""
+            if label == "Diameter IMS analyzer":
+                path = Path(command[command.index("--output") + 1])
+                path.write_text(json.dumps({"completeness": {"observation_count": 1}, "observations": [{}]}), encoding="utf-8")
+                return 0, ""
+            return 0, ""
+
+        MODULE._ims_stage = stage
+        payload = MODULE.execute_ims_pipeline(
+            self.capture, self.work, "case", {"SIP", "Diameter"}
+        )
+        self.assertEqual(payload["ims_evidence"]["cross_protocol_association"], "NOT_ESTABLISHED")
+        self.assertEqual(payload["ims_evidence"]["registration"]["cross_protocol_association"], "NOT_ESTABLISHED")
+        self.assertEqual(payload["ims_evidence"]["diameter_ims"]["observation_count"], 1)
+
+    def test_session_evidence_counts_fork_and_release(self) -> None:
+        document = {
+            "session_attempts": [
+                {
+                    "attempt_reference": "ims-session:fixture.pcap:1.1",
+                    "stage_evidence": {
+                        "early_dialog_references": ["sip-dialog:fixture.pcap:2.1"],
+                        "confirmed_dialog_references": ["sip-dialog:fixture.pcap:3.1", "sip-dialog:fixture.pcap:4.1"],
+                    },
+                    "cancel_evidence": {"outcome": "CANCEL_INVITE_SEQUENCE_OBSERVED"},
+                    "branches": [
+                        {"release": {"observations": [{"bye_transaction_reference": "sip-transaction:fixture.pcap:request:9.1"}]}}
+                    ],
+                }
+            ]
+        }
+        evidence = MODULE._ims_session_evidence(document)
+        self.assertEqual(evidence["early_dialog_count"], 1)
+        self.assertEqual(evidence["confirmed_dialog_count"], 2)
+        self.assertEqual(evidence["cancel_observation_count"], 1)
+        self.assertEqual(evidence["bye_release_observation_count"], 1)
+
+
+class ImsWorkflowTests(WorkflowTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "sip"])
+
+    def run_ims(self, payload: dict) -> int:
+        self.ims_payload_factory = staticmethod(lambda: payload)
+        return self.run_cli(domains="ims")
+
+    def ims_result(self) -> dict:
+        return self.read_report()["domain_results"][0]
+
+    def test_01_session_100_trying_exposed(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload(session_attempts=1)), 0)
+        self.assertEqual(self.ims_result()["ims_evidence"]["session"]["attempt_count"], 1)
+
+    def test_02_session_180_ringing_exposed(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload(early_dialogs=1)), 0)
+        self.assertEqual(self.ims_result()["ims_evidence"]["session"]["early_dialog_count"], 1)
+
+    def test_03_session_183_progress_exposed(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload(early_dialogs=2)), 0)
+        self.assertEqual(self.ims_result()["ims_evidence"]["session"]["early_dialog_count"], 2)
+
+    def test_04_session_200_and_ack_exposed(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload(confirmed_dialogs=1)), 0)
+        self.assertEqual(self.ims_result()["ims_evidence"]["session"]["confirmed_dialog_count"], 1)
+
+    def test_05_session_200_without_ack_remains_completed(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload(confirmed_dialogs=1, session_attempts=1)), 0)
+        self.assertEqual(self.ims_result()["ims_evidence"]["session"]["analysis_status"], "COMPLETED")
+
+    def test_06_non_2xx_invite_session_status(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload(session_attempts=1, confirmed_dialogs=0)), 0)
+        self.assertEqual(self.ims_result()["ims_evidence"]["session"]["confirmed_dialog_count"], 0)
+
+    def test_07_forked_dialog_count(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload(confirmed_dialogs=2, early_dialogs=1)), 0)
+        evidence = self.ims_result()["ims_evidence"]["session"]
+        self.assertEqual(evidence["confirmed_dialog_count"], 2)
+
+    def test_08_cancel_observation_count(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload(cancel_observations=1)), 0)
+        self.assertEqual(self.ims_result()["ims_evidence"]["session"]["cancel_observation_count"], 1)
+
+    def test_09_bye_release_observation_count(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload(bye_observations=1)), 0)
+        self.assertEqual(self.ims_result()["ims_evidence"]["session"]["bye_release_observation_count"], 1)
+
+    def test_10_bye_missing_response_is_counted(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload(bye_observations=1, session_attempts=1)), 0)
+        self.assertEqual(self.ims_result()["ims_evidence"]["session"]["bye_release_observation_count"], 1)
+
+    def test_11_sip_without_register_or_invite_is_insufficient(self) -> None:
+        self.assertEqual(
+            self.run_ims(ims_payload(
+                execution_status="INSUFFICIENT_EVIDENCE",
+                registration_status="INSUFFICIENT_EVIDENCE",
+                registration_attempts=0,
+                session_status="INSUFFICIENT_EVIDENCE",
+                session_attempts=0,
+                early_dialogs=0,
+                confirmed_dialogs=0,
+            )),
+            MODULE.EXIT_INSUFFICIENT_EVIDENCE,
+        )
+        self.assertEqual(self.read_report()["overall_execution_status"], "INSUFFICIENT_EVIDENCE")
+
+    def test_12_sip_without_plaintext_is_not_a_failure(self) -> None:
+        payload = ims_payload(
+            execution_status="INSUFFICIENT_EVIDENCE",
+            sip_status="NO_PLAINTEXT_EVENTS",
+            sip_events=0,
+            sip_transactions=0,
+            sip_dialogs=0,
+            registration_status="UNAVAILABLE_SIP",
+            registration_attempts=0,
+            session_status="UNAVAILABLE_SIP",
+            session_attempts=0,
+            early_dialogs=0,
+            confirmed_dialogs=0,
+        )
+        self.assertEqual(self.run_ims(payload), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
+        self.assertEqual(self.ims_result()["ims_evidence"]["sip_protocol"]["extraction_status"], "NO_PLAINTEXT_EVENTS")
+
+    def test_13_register_challenge_sequence_exposed(self) -> None:
+        self.assertEqual(
+            self.run_ims(ims_payload(registration_attempts=2, registration_types=["INITIAL_REGISTRATION_CANDIDATE"])),
+            0,
+        )
+        registration = self.ims_result()["ims_evidence"]["registration"]
+        self.assertEqual(registration["attempt_count"], 2)
+        self.assertEqual(registration["analysis_status"], "COMPLETED")
+
+    def test_14_register_without_final_response_is_not_success(self) -> None:
+        self.assertEqual(
+            self.run_ims(ims_payload(registration_status="COMPLETED", registration_attempts=1)),
+            0,
+        )
+        self.assertEqual(self.ims_result()["ims_evidence"]["registration"]["analysis_status"], "COMPLETED")
+        self.assertEqual(self.ims_result()["ims_evidence"]["cross_protocol_association"], "NOT_ESTABLISHED")
+
+    def test_15_cxdx_success_exposed(self) -> None:
+        self.assertEqual(
+            self.run_ims(ims_payload(diameter_status="SUCCESS", diameter_events=4, diameter_transactions=2, cxdx_status="COMPLETED", cxdx_observations=2)),
+            0,
+        )
+        evidence = self.ims_result()["ims_evidence"]
+        self.assertEqual(evidence["diameter_ims"]["observation_count"], 2)
+        self.assertEqual(evidence["diameter_protocol"]["event_count"], 4)
+
+    def test_16_cxdx_failure_is_not_registration_failure(self) -> None:
+        self.assertEqual(
+            self.run_ims(ims_payload(diameter_status="SUCCESS", diameter_events=4, diameter_transactions=2, cxdx_status="FAILED", cxdx_observations=0, execution_status="PARTIAL")),
+            0,
+        )
+        result = self.ims_result()
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertEqual(result["ims_evidence"]["registration"]["analysis_status"], "COMPLETED")
+
+    def test_17_diameter_without_answer_is_independent(self) -> None:
+        self.assertEqual(
+            self.run_ims(ims_payload(diameter_status="SUCCESS", diameter_events=2, diameter_transactions=1, cxdx_status="NO_CXD_OBSERVATIONS", cxdx_observations=0)),
+            0,
+        )
+        self.assertEqual(self.ims_result()["ims_evidence"]["diameter_ims"]["analysis_status"], "NO_CXD_OBSERVATIONS")
+
+    def test_18_diameter_present_without_cxdx(self) -> None:
+        self.assertEqual(
+            self.run_ims(ims_payload(diameter_status="SUCCESS", diameter_events=3, diameter_transactions=1, cxdx_status="NO_CXD_OBSERVATIONS", cxdx_observations=0)),
+            0,
+        )
+        self.assertEqual(self.ims_result()["ims_evidence"]["diameter_protocol"]["extraction_status"], "SUCCESS")
+
+    def test_19_diameter_absent_is_not_failure(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload()), 0)
+        self.assertEqual(self.ims_result()["ims_evidence"]["diameter_protocol"]["extraction_status"], "NOT_OBSERVED_IN_CAPTURE")
+
+    def test_20_sip_and_diameter_independent_inventories(self) -> None:
+        self.assertEqual(
+            self.run_ims(ims_payload(diameter_status="SUCCESS", diameter_events=4, diameter_transactions=2, cxdx_status="COMPLETED", cxdx_observations=1)),
+            0,
+        )
+        evidence = self.ims_result()["ims_evidence"]
+        self.assertEqual(evidence["cross_protocol_association"], "NOT_ESTABLISHED")
+        self.assertEqual(evidence["registration"]["cross_protocol_association"], "NOT_ESTABLISHED")
+
+    def test_21_no_subscriber_association_is_claimed(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload(diameter_status="SUCCESS", diameter_events=4, diameter_transactions=2, cxdx_status="COMPLETED", cxdx_observations=1)), 0)
+        text = (self.output / "analysis.json").read_text(encoding="utf-8") + self.read_text()
+        self.assertNotIn("subscriber_association", text)
+        self.assertIn("NOT_ESTABLISHED", text)
+
+    def test_22_diameter_failure_preserves_sip(self) -> None:
+        self.assertEqual(
+            self.run_ims(ims_payload(diameter_status="FAILED", degradation=["Diameter IMS evidence unavailable"], execution_status="PARTIAL")),
+            0,
+        )
+        result = self.ims_result()
+        self.assertEqual(result["execution_status"], "PARTIAL")
+        self.assertEqual(result["ims_evidence"]["registration"]["analysis_status"], "COMPLETED")
+        self.assertEqual(result["ims_evidence"]["session"]["analysis_status"], "COMPLETED")
+
+    def test_23_explicit_ims_selection_runs_adapter(self) -> None:
+        self.assertEqual(self.run_cli(domains="ims"), 0)
+        self.assertEqual(len(self.ims_pipeline_calls), 1)
+
+    def test_24_auto_selects_ims_when_sip_observed(self) -> None:
+        self.assertEqual(self.run_cli(domains="auto"), 0)
+        self.assertEqual(self.read_report()["requested_domains"], ["ims"])
+
+    def test_25_generic_sip_is_not_confirmed_ims(self) -> None:
+        self.assertEqual(self.run_cli(domains="auto"), 0)
+        self.assertEqual(self.ims_result()["detection"]["status"], "SUSPECTED")
+
+    def test_26_diameter_only_is_not_auto_selected(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "tcp", "diameter"])
+        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
+        self.assertEqual(self.read_report()["requested_domains"], [])
+
+    def test_27_sdp_rtp_only_is_not_auto_selected(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "sdp", "rtp"])
+        self.assertEqual(self.run_cli(domains="auto"), MODULE.EXIT_INSUFFICIENT_EVIDENCE)
+        self.assertEqual(self.read_report()["requested_domains"], [])
+
+    def test_28_mixed_5gc_epc_ims(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "ngap", "nas-5gs", "s1ap", "sip"])
+        self.assertEqual(self.run_cli(domains="auto"), 0)
+        statuses = {item["domain"]: item["execution_status"] for item in self.read_report()["domain_results"]}
+        self.assertEqual(statuses, {"5gc": "COMPLETED", "epc": "COMPLETED", "ims": "COMPLETED"})
+
+    def test_29_ims_failure_does_not_corrupt_existing_domains(self) -> None:
+        self.ims_payload_factory = staticmethod(lambda: ims_payload(execution_status="FAILED", degradation=["IMS component failed"]))
+        self.inventory_factory = lambda: inventory(["eth", "ip", "sctp", "ngap", "nas-5gs", "sip"])
+        self.assertEqual(self.run_cli(domains="5gc,ims"), 0)
+        statuses = {item["domain"]: item["execution_status"] for item in self.read_report()["domain_results"]}
+        self.assertEqual(statuses, {"5gc": "COMPLETED", "ims": "FAILED"})
+
+    def test_30_corrupt_capture_fails(self) -> None:
+        self.capture.write_bytes(b"not a capture")
+        self.assertEqual(self.run_cli(domains="ims"), MODULE.EXIT_FAILED)
+
+    def test_31_missing_tshark_is_reported(self) -> None:
+        self.inventory_factory = lambda: (_ for _ in ()).throw(
+            MODULE.AnalysisError("DECODER_UNAVAILABLE", "packet decoder is unavailable")
+        )
+        self.assertEqual(self.run_cli(domains="ims"), MODULE.EXIT_FAILED)
+        self.assertEqual(self.read_report()["overall_execution_status"], "FAILED")
+
+    def test_32_duplicate_or_stale_artifacts_are_not_reused(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload()), 0)
+        first = (self.output / "analysis.json").read_bytes()
+        self.ims_payload_factory = staticmethod(lambda: ims_payload())
+        self.assertEqual(self.run_cli("--force", domains="ims"), 0)
+        self.assertEqual(first, (self.output / "analysis.json").read_bytes())
+        self.assertEqual(len(self.ims_pipeline_calls), 2)
+
+    def test_33_mismatched_capture_provenance_is_domain_failure(self) -> None:
+        self.ims_payload_factory = staticmethod(lambda: ims_payload(execution_status="FAILED", degradation=["cross-capture artifacts rejected"]))
+        self.assertEqual(self.run_cli(domains="ims"), MODULE.EXIT_FAILED)
+        self.assertEqual(self.ims_result()["execution_status"], "FAILED")
+
+    def test_34_output_path_collision_is_rejected(self) -> None:
+        self.output = self.work
+        self.assertEqual(self.run_cli(domains="ims"), MODULE.EXIT_FAILED)
+
+    def test_35_privacy_is_preserved_in_ims_report(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload(registration_attempts=2, session_attempts=1)), 0)
+        text = (self.output / "analysis.json").read_text(encoding="utf-8") + self.read_text()
+        for token in ("PRIVATE-CALLID", "PRIVATE-FTAG", "sip:alice", "nonce", "response="):
+            self.assertNotIn(token, text)
+
+    def test_36_deterministic_ims_report(self) -> None:
+        first_output = self.output
+        self.assertEqual(self.run_ims(ims_payload()), 0)
+        first = (first_output / "analysis.json").read_bytes(), (first_output / "report.txt").read_bytes()
+        second_output = self.base / "second"
+        self.output = second_output
+        self.assertEqual(self.run_ims(ims_payload()), 0)
+        second = (second_output / "analysis.json").read_bytes(), (second_output / "report.txt").read_bytes()
+        self.assertEqual(first, second)
+
+    def test_37_partial_extraction_accounting(self) -> None:
+        self.assertEqual(
+            self.run_ims(ims_payload(execution_status="PARTIAL", sip_status="SUCCESS", diameter_status="FAILED", degradation=["Diameter extraction failed"])),
+            0,
+        )
+        evidence = self.ims_result()["ims_evidence"]
+        self.assertEqual(evidence["sip_protocol"]["extraction_status"], "SUCCESS")
+        self.assertEqual(evidence["diameter_protocol"]["extraction_status"], "FAILED")
+
+    def test_38_failed_execution_does_not_reuse_old_output(self) -> None:
+        self.assertEqual(self.run_ims(ims_payload()), 0)
+        self.ims_payload_factory = staticmethod(lambda: ims_payload(execution_status="FAILED", degradation=["IMS component failed"]))
+        self.assertEqual(self.run_cli("--force", domains="ims"), MODULE.EXIT_FAILED)
+        self.assertEqual(self.ims_result()["execution_status"], "FAILED")
+
+
 class UnsupportedDomainTests(WorkflowTestCase):
     def test_epc_request_runs_bounded_attach_analysis(self) -> None:
         self.assertEqual(self.run_cli(domains="epc"), 0)
@@ -1521,40 +2023,40 @@ class UnsupportedDomainTests(WorkflowTestCase):
         self.assertEqual(len(self.epc_pipeline_calls), 1)
         self.assertEqual(self.pipeline_calls, [])
 
-    def test_ims_request_is_unsupported(self) -> None:
-        self.assertEqual(self.run_cli(domains="ims"), MODULE.EXIT_UNSUPPORTED)
-        self.assertEqual(self.read_report()["domain_results"][0]["execution_status"], "UNSUPPORTED")
+    def test_ims_request_runs_bounded_analysis(self) -> None:
+        self.inventory_factory = lambda: inventory(["eth", "ip", "udp", "sip"])
+        self.assertEqual(self.run_cli(domains="ims"), 0)
+        result = self.read_report()["domain_results"][0]
+        self.assertEqual(result["domain"], "ims")
+        self.assertEqual(result["execution_status"], "COMPLETED")
+        self.assertEqual(len(self.ims_pipeline_calls), 1)
         self.assertEqual(self.pipeline_calls, [])
 
-    def test_mixed_request_is_partial_and_keeps_each_status(self) -> None:
+    def test_mixed_request_keeps_each_domain_status(self) -> None:
         self.assertEqual(self.run_cli(domains="5gc,ims"), 0)
         report = self.read_report()
-        self.assertEqual(report["overall_execution_status"], "PARTIAL")
+        self.assertEqual(report["overall_execution_status"], "COMPLETED")
         statuses = {result["domain"]: result["execution_status"] for result in report["domain_results"]}
-        self.assertEqual(statuses, {"5gc": "COMPLETED", "ims": "UNSUPPORTED"})
+        self.assertEqual(statuses, {"5gc": "COMPLETED", "ims": "COMPLETED"})
 
-    def test_failed_domain_keeps_unsupported_domain_visible(self) -> None:
+    def test_failed_domain_keeps_independent_ims_result_visible(self) -> None:
         def failing_pipeline(capture, work_dir, case_id):
             raise MODULE.AnalysisError("PIPELINE_FAILED", "adapter exited with 1")
 
         MODULE.execute_5gc_pipeline = failing_pipeline
-        self.assertEqual(self.run_cli(domains="5gc,ims"), MODULE.EXIT_FAILED)
+        self.assertEqual(self.run_cli(domains="5gc,ims"), 0)
         report = self.read_report()
         statuses = {result["domain"]: result["execution_status"] for result in report["domain_results"]}
-        self.assertEqual(statuses, {"5gc": "FAILED", "ims": "UNSUPPORTED"})
-        self.assertEqual(report["overall_execution_status"], "FAILED")
+        self.assertEqual(statuses, {"5gc": "FAILED", "ims": "COMPLETED"})
+        self.assertEqual(report["overall_execution_status"], "PARTIAL")
 
-    def test_domain_without_adapter_fails_visibly(self) -> None:
-        capability = MODULE.DOMAIN_CAPABILITIES["ims"]
-        original = capability["implementation_status"]
-        capability["implementation_status"] = "IMPLEMENTED"
-        try:
-            self.assertEqual(self.run_cli(domains="ims"), MODULE.EXIT_FAILED)
-            result = self.read_report()["domain_results"][0]
-            self.assertEqual(result["execution_status"], "FAILED")
-            self.assertEqual(result["failure_code"], "NO_DOMAIN_ADAPTER")
-        finally:
-            capability["implementation_status"] = original
+    def test_ims_adapter_is_registered(self) -> None:
+        adapters = MODULE.build_domain_adapters(
+            lambda capture, work_dir, case_id: ({}, None, work_dir),
+            lambda capture, work_dir, case_id: {},
+            lambda capture, work_dir, case_id, observed: ims_payload(),
+        )
+        self.assertIn(MODULE.DOMAIN_IMS, adapters)
 
 
 # ---------------------------------------------------------------------------

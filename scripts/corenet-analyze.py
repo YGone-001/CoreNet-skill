@@ -5,8 +5,8 @@ One executable entry point for mobile core-network signaling analysis across
 technology domains. The 5GC path executes the accepted Protocol, Correlation,
 Domain and Orchestration Skills through the accepted capture pipeline. The EPC path
 executes bounded EPS Attach procedure evidence over the accepted S1AP and NAS-EPS
-Protocol Skills. IMS remains a declared capability and is reported as UNSUPPORTED
-until its real Protocol and Domain Skills exist.
+Protocol Skills. IMS executes the accepted SIP, Diameter IMS, IMS Registration and
+IMS Session components through a bounded application-level adapter.
 
 The workflow is an application-level execution entry point. It owns no telecom
 protocol or procedure semantics and never restates a benchmark verdict as a
@@ -46,7 +46,7 @@ from typing import Any, Callable
 
 ANALYZER_NAME = "corenet-analyze"
 ANALYZER_VERSION = "1.1"
-REPORT_SCHEMA_VERSION = "1.1"
+REPORT_SCHEMA_VERSION = "1.2"
 
 ROOT = Path(__file__).resolve().parents[1]
 INVENTORY_SCRIPT = ROOT / "skills" / "protocol" / "core-network-pcap" / "scripts" / "capture-inventory.py"
@@ -71,6 +71,12 @@ EPC_SESSION_IDENTITY_ANALYZE_SCRIPT = (
 DIAMETER_CORE_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "diameter-core" / "scripts" / "extract-diameter-core.py"
 DIAMETER_CORE_CORRELATE_SCRIPT = ROOT / "skills" / "protocol" / "diameter-core" / "scripts" / "correlate-diameter-core.py"
 DIAMETER_EPC_ANALYZE_SCRIPT = ROOT / "skills" / "protocol" / "diameter-epc" / "scripts" / "analyze-diameter-epc.py"
+SIP_EXTRACT_SCRIPT = ROOT / "skills" / "protocol" / "sip" / "scripts" / "extract-sip.py"
+DIAMETER_IMS_ANALYZE_SCRIPT = ROOT / "skills" / "protocol" / "diameter-ims" / "scripts" / "analyze-diameter-ims.py"
+IMS_REGISTRATION_ANALYZE_SCRIPT = ROOT / "skills" / "domain" / "ims-registration" / "scripts" / "analyze-ims-registration.py"
+IMS_SESSION_ANALYZE_SCRIPT = ROOT / "skills" / "domain" / "ims-session" / "scripts" / "analyze-ims-session.py"
+IMS_STAGE_FAILURE_PREFIX = "IMS_"
+MAX_IMS_REFERENCES = 10
 EPC_ATTACH_S6A_ANALYZE_SCRIPT = ROOT / "skills" / "domain" / "epc-procedures" / "scripts" / "analyze_epc_attach_s6a.py"
 DIAMETER_CORE_EXTRACTION_FAILURE = "DIAMETER_CORE_EXTRACTION_FAILED"
 DIAMETER_CORE_CORRELATION_FAILURE = "DIAMETER_CORE_CORRELATION_FAILED"
@@ -261,17 +267,28 @@ DOMAIN_CAPABILITIES: dict[str, dict[str, Any]] = {
     DOMAIN_IMS: {
         "domain": DOMAIN_IMS,
         "display_name": "IP Multimedia Subsystem",
-        "implementation_status": "UNSUPPORTED",
-        "supported_protocol_families": [],
-        "analysis_capabilities": [],
-        "entry_point": None,
-        "entry_point_available": False,
-        "required_dependencies": [],
-        "planned_protocol_families": ["SIP", "SDP", "RTP", "Diameter IMS", "Diameter Charging"],
-        "unsupported_reason": (
-            "No SIP, SDP/RTP or Diameter IMS Protocol Skill and no IMS Domain procedure "
-            "Skill is implemented in this repository."
-        ),
+        "implementation_status": "IMPLEMENTED",
+        "supported_protocol_families": ["SIP", "Diameter", "TCP", "UDP"],
+        "analysis_capabilities": [
+            "protocol-extraction",
+            "ims-registration-procedure-evidence",
+            "ims-session-establishment-and-release-evidence",
+            "diameter-ims-cx-dx-evidence",
+        ],
+        "entry_point": "scripts/corenet-analyze.py",
+        "entry_point_available": True,
+        "required_dependencies": ["python3", "tshark"],
+        "planned_protocol_families": ["SDP", "RTP", "Diameter Rx", "Diameter Charging"],
+        "not_implemented_capabilities": [
+            "SDP offer/answer semantics",
+            "RTP media and QoS evidence",
+            "IMS session modification",
+            "Diameter Rx",
+            "Diameter charging",
+            "subscriber identity bridging",
+            "end-to-end IMS fault isolation",
+        ],
+        "unsupported_reason": None,
     },
 }
 
@@ -515,6 +532,15 @@ def resolve_selection(
             for domain in DOMAIN_ORDER
             if detection[domain]["status"] == DETECTION_CONFIRMED
         ]
+        # SIP observation makes the bounded IMS evidence path eligible without
+        # upgrading IMS technology attribution from SUSPECTED to CONFIRMED.
+        ims_detection = detection.get(DOMAIN_IMS) or {}
+        if (
+            ims_detection.get("status") == DETECTION_SUSPECTED
+            and "SIP" in (ims_detection.get("basis") or [])
+            and DOMAIN_IMS not in selected
+        ):
+            selected.append(DOMAIN_IMS)
         return "auto", selected
     parts = [part.strip().lower() for part in normalized.split(",") if part.strip()]
     if not parts:
@@ -1351,7 +1377,10 @@ def build_report(
                 "bounded to EPS Attach procedure evidence and bounded GTPv2-C session-control "
                 "transaction evidence; EPC bearer lifecycle, complete ESM semantics, "
                 "cross-interface session association and global EPC boundary selection are "
-                "not implemented. IMS analysis is not implemented."
+                "not implemented. IMS coverage is bounded to SIP extraction, Diameter Cx/Dx "
+                "evidence, IMS Registration evidence and IMS Session establishment/release "
+                "evidence; SDP, RTP, Diameter Rx/charging, session modification, subscriber "
+                "identity bridging and end-to-end IMS diagnosis are not implemented."
             ),
         },
     }
@@ -1494,6 +1523,68 @@ def render_text_report(report: dict[str, Any]) -> str:
             )
     if not procedure_any:
         _empty(lines, "no Domain procedure instance was produced")
+
+    ims_blocks = [
+        result for result in results if result.get("domain") == DOMAIN_IMS
+    ]
+    if ims_blocks:
+        _section(lines, "IMS Evidence")
+    for result in ims_blocks:
+        evidence = result.get("ims_evidence") or {}
+        sip = evidence.get("sip_protocol") or {}
+        diameter = evidence.get("diameter_protocol") or {}
+        registration = evidence.get("registration") or {}
+        session = evidence.get("session") or {}
+        cxdx = evidence.get("diameter_ims") or {}
+        lines.append(
+            f"  IMS execution   : {_value(result.get('execution_status'))}; "
+            f"technology attribution {_value((result.get('detection') or {}).get('status'))}"
+        )
+        lines.append(
+            f"  SIP             : {_value(sip.get('extraction_status'))}, "
+            f"{_value(sip.get('event_count'))} event(s), "
+            f"{_value(sip.get('transaction_count'))} transaction(s), "
+            f"{_value(sip.get('dialog_count'))} dialog(s), "
+            f"{_value(sip.get('extraction_executions'))} extraction execution(s)"
+        )
+        lines.append(
+            f"  Diameter        : {_value(diameter.get('extraction_status'))}, "
+            f"{_value(diameter.get('event_count'))} event(s), "
+            f"{_value(diameter.get('transaction_count'))} transaction(s)"
+        )
+        lines.append(
+            f"  Cx/Dx           : {_value(cxdx.get('analysis_status'))}, "
+            f"{_value(cxdx.get('observation_count'))} observation(s)"
+        )
+        lines.append(
+            f"  Registration    : {_value(registration.get('analysis_status'))}, "
+            f"{_value(registration.get('attempt_count'))} attempt(s), "
+            f"registration types {', '.join(registration.get('registration_types') or []) or 'none'}"
+        )
+        if registration.get("attempt_references"):
+            lines.append(
+                "    references   : "
+                + ", ".join(registration.get("attempt_references") or [])
+            )
+        lines.append(
+            f"  Session         : {_value(session.get('analysis_status'))}, "
+            f"{_value(session.get('attempt_count'))} attempt(s), "
+            f"{_value(session.get('early_dialog_count'))} Early Dialog(s), "
+            f"{_value(session.get('confirmed_dialog_count'))} Confirmed Dialog(s)"
+        )
+        lines.append(
+            f"  CANCEL / BYE    : {_value(session.get('cancel_observation_count'))} CANCEL "
+            f"observation(s), {_value(session.get('bye_release_observation_count'))} BYE "
+            "release observation(s)"
+        )
+        lines.append(
+            "  Cross-protocol  : NOT_ESTABLISHED "
+            "(SIP registration, Diameter Cx/Dx and SIP session inventories remain independent)"
+        )
+        for item in (evidence.get("limitations") or [])[:MAX_LIST_ITEMS]:
+            lines.append(f"    limitation   : {scrub_free_text(item)}")
+        for item in result.get("degradation") or []:
+            lines.append(f"    failure      : {scrub_free_text(item)}")
 
     registration_any = False
     for result in results:
@@ -2398,7 +2489,8 @@ def build_failure_report(capture: Path | None, error: AnalysisError) -> dict[str
             ),
             "domain_scope": (
                 "A failed run does not change which domains are implemented; it means this "
-                "invocation produced no result. IMS analysis is not implemented."
+                "invocation produced no result. IMS remains a bounded evidence path even "
+                "when a SIP, Diameter or IMS component fails in this invocation."
             ),
         },
     }
@@ -5586,9 +5678,535 @@ def execute_epc_domain(
     return result
 
 
+
+# ---------------------------------------------------------------------------
+# IMS execution adapter
+# ---------------------------------------------------------------------------
+
+
+def _ims_stage(command: list[str], label: str) -> tuple[int, str]:
+    """Run one accepted IMS component without converting its exit code to a verdict."""
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    except OSError as exc:
+        return EXIT_FAILED, f"{label} could not start: {exc}"
+    detail = (completed.stderr or completed.stdout or "").strip().splitlines()
+    return completed.returncode, scrub_free_text(detail[0] if detail else "")
+
+
+def _ims_status(returncode: int, *, empty_code: int | None = None) -> str:
+    if returncode == 0:
+        return "SUCCESS"
+    if empty_code is not None and returncode == empty_code:
+        return "NOT_OBSERVED_IN_CAPTURE"
+    return "FAILED"
+
+
+def _load_ims_json(path: Path, label: str) -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, f"{label} output is unreadable: {exc}"
+    if not isinstance(payload, dict):
+        return None, f"{label} output is not an object"
+    return payload, None
+
+
+def _ims_registration_evidence(document: dict[str, Any] | None) -> dict[str, Any]:
+    if document is None:
+        return {
+            "analysis_status": "FAILED",
+            "attempt_count": 0,
+            "attempt_references": [],
+            "registration_types": [],
+            "cross_protocol_association": "NOT_ESTABLISHED",
+        }
+    attempts = [item for item in document.get("registration_attempts") or [] if isinstance(item, dict)]
+    return {
+        "analysis_status": "COMPLETED" if attempts else "INSUFFICIENT_EVIDENCE",
+        "attempt_count": len(attempts),
+        "attempt_references": [
+            item["attempt_reference"]
+            for item in attempts[:MAX_IMS_REFERENCES]
+            if isinstance(item.get("attempt_reference"), str)
+        ],
+        "registration_types": sorted(
+            {
+                str(item.get("registration_type"))
+                for item in attempts
+                if item.get("registration_type")
+            }
+        ),
+        "cross_protocol_association": "NOT_ESTABLISHED",
+    }
+
+
+def _ims_session_evidence(document: dict[str, Any] | None) -> dict[str, Any]:
+    if document is None:
+        return {
+            "analysis_status": "FAILED",
+            "attempt_count": 0,
+            "early_dialog_count": 0,
+            "confirmed_dialog_count": 0,
+            "cancel_observation_count": 0,
+            "bye_release_observation_count": 0,
+            "attempt_references": [],
+            "limitations": [],
+        }
+    attempts = [item for item in document.get("session_attempts") or [] if isinstance(item, dict)]
+    early: set[str] = set()
+    confirmed: set[str] = set()
+    cancel_count = 0
+    bye_count = 0
+    for attempt in attempts:
+        stages = attempt.get("stage_evidence") or {}
+        early.update(
+            ref for ref in stages.get("early_dialog_references") or [] if isinstance(ref, str)
+        )
+        confirmed.update(
+            ref for ref in stages.get("confirmed_dialog_references") or [] if isinstance(ref, str)
+        )
+        cancel = attempt.get("cancel_evidence") or {}
+        if cancel.get("outcome") not in (None, "NO_CANCEL_OBSERVED"):
+            cancel_count += 1
+        for branch in attempt.get("branches") or []:
+            for observation in (branch.get("release") or {}).get("observations") or []:
+                if observation.get("bye_transaction_reference"):
+                    bye_count += 1
+    return {
+        "analysis_status": "COMPLETED" if attempts else "INSUFFICIENT_EVIDENCE",
+        "attempt_count": len(attempts),
+        "early_dialog_count": len(early),
+        "confirmed_dialog_count": len(confirmed),
+        "cancel_observation_count": cancel_count,
+        "bye_release_observation_count": bye_count,
+        "attempt_references": [
+            item["attempt_reference"]
+            for item in attempts[:MAX_IMS_REFERENCES]
+            if isinstance(item.get("attempt_reference"), str)
+        ],
+        "limitations": list(document.get("limitations") or []),
+    }
+
+
+def execute_ims_pipeline(
+    capture: Path,
+    work_dir: Path,
+    case_id: str,
+    observed: set[str] | None = None,
+) -> dict[str, Any]:
+    """Execute the accepted SIP, Diameter and IMS Domain components.
+
+    Every stage keeps its own status. A failed Diameter or Domain stage never
+    discards a valid independent SIP or Diameter result.
+    """
+    observed_set = observed or set()
+    run_dir = create_run_directory(work_dir, DOMAIN_IMS)
+    sip_events = run_dir / "sip-events.jsonl"
+    sip_transactions = run_dir / "sip-transactions.json"
+    sip_dialogs = run_dir / "sip-dialogs.json"
+    sip_trace = run_dir / "sip-trace.jsonl"
+    diameter_events = run_dir / "diameter-events.jsonl"
+    diameter_trace = run_dir / "diameter-trace.jsonl"
+    diameter_transactions = run_dir / "diameter-transactions.json"
+    diameter_ims = run_dir / "diameter-ims-analysis.json"
+    diameter_ims_timeline = run_dir / "diameter-ims-timeline.txt"
+    registration = run_dir / "ims-registration-analysis.json"
+    registration_report = run_dir / "ims-registration-report.txt"
+    session = run_dir / "ims-session-analysis.json"
+    session_report = run_dir / "ims-session-report.txt"
+
+    degradation: list[str] = []
+    limitations: list[str] = []
+    sip_status = "NOT_OBSERVED_IN_CAPTURE"
+    sip_error: str | None = None
+    sip_counts = {"event_count": 0, "transaction_count": 0, "dialog_count": 0}
+    sip_executions = 0
+    if "SIP" in observed_set:
+        sip_executions += 1
+        code, detail = _ims_stage(
+            [
+                sys.executable,
+                str(SIP_EXTRACT_SCRIPT),
+                str(capture),
+                "--input-format",
+                "capture",
+                "--output",
+                str(sip_events),
+                "--transaction-output",
+                str(sip_transactions),
+                "--dialog-output",
+                str(sip_dialogs),
+                "--trace-output",
+                str(sip_trace),
+                "--force",
+            ],
+            "SIP extractor",
+        )
+        if code == 0:
+            if not sip_events.is_file() or not sip_transactions.is_file() or not sip_dialogs.is_file():
+                sip_status = "FAILED"
+                sip_error = "SIP extractor reported success but did not publish all expected artifacts"
+            else:
+                transaction_document, error = _load_ims_json(sip_transactions, "SIP transaction")
+                dialog_document, dialog_error = _load_ims_json(sip_dialogs, "SIP dialog")
+                if error or dialog_error:
+                    sip_status = "FAILED"
+                    sip_error = error or dialog_error
+                else:
+                    sip_status = "SUCCESS"
+                    sip_counts = {
+                        "event_count": _count_lines(sip_events),
+                        "transaction_count": int(transaction_document.get("transaction_count") or 0),
+                        "dialog_count": int(dialog_document.get("dialog_count") or 0),
+                    }
+        elif code == 3:
+            sip_status = "NO_PLAINTEXT_EVENTS"
+            sip_error = "SIP was observed in the capture inventory but no plaintext SIP messages were extracted"
+        else:
+            sip_status = "FAILED"
+            sip_error = detail or f"SIP extractor exited with {code}"
+        if sip_status == "FAILED":
+            degradation.append(f"SIP extraction failed: {sip_error}")
+    else:
+        limitations.append("SIP was not observed in the capture inventory; SIP extraction was not run.")
+
+    # IMS Registration performs its own accepted SIP extraction against the original
+    # capture; this second execution is reported explicitly rather than hidden.
+    registration_evidence = {
+        "analysis_status": "NOT_RUN",
+        "attempt_count": 0,
+        "attempt_references": [],
+        "registration_types": [],
+        "cross_protocol_association": "NOT_ESTABLISHED",
+    }
+    registration_error: str | None = None
+    diameter_ims_supplied = False
+    registration_command = [
+        sys.executable,
+        str(IMS_REGISTRATION_ANALYZE_SCRIPT),
+        "--sip-input",
+        str(capture),
+        "--input-format",
+        "capture",
+        "--output",
+        str(registration),
+        "--report",
+        str(registration_report),
+        "--force",
+    ]
+
+    # Diameter extraction and Cx/Dx analysis.
+    diameter_status = "NOT_OBSERVED_IN_CAPTURE"
+    diameter_error: str | None = None
+    diameter_counts = {"event_count": 0, "transaction_count": 0, "observation_count": 0}
+    diameter_ims_evidence: dict[str, Any] = {
+        "analysis_status": "NOT_OBSERVED_IN_CAPTURE",
+        "observation_count": 0,
+    }
+    if "Diameter" in observed_set:
+        code, detail = _ims_stage(
+            [
+                sys.executable,
+                str(DIAMETER_CORE_EXTRACT_SCRIPT),
+                str(capture),
+                "--input-format",
+                "capture",
+                "--output",
+                str(diameter_events),
+                "--trace-output",
+                str(diameter_trace),
+                "--force",
+            ],
+            "Diameter Core extractor",
+        )
+        if code == 0 and diameter_events.is_file():
+            diameter_status = "SUCCESS"
+            diameter_counts["event_count"] = _count_lines(diameter_events)
+            code, detail = _ims_stage(
+                [
+                    sys.executable,
+                    str(DIAMETER_CORE_CORRELATE_SCRIPT),
+                    str(diameter_events),
+                    "--output",
+                    str(diameter_transactions),
+                    "--force",
+                ],
+                "Diameter Core correlator",
+            )
+            if code == 0 and diameter_transactions.is_file():
+                correlation, error = _load_ims_json(diameter_transactions, "Diameter transaction")
+                if error:
+                    diameter_status = "FAILED"
+                    diameter_error = error
+                else:
+                    diameter_status = "SUCCESS"
+                    diameter_counts["transaction_count"] = int(
+                        (correlation or {}).get("transaction_count") or 0
+                    )
+            else:
+                diameter_status = "FAILED"
+                diameter_error = detail or f"Diameter Core correlator exited with {code}"
+        elif code == 3:
+            diameter_status = "NO_PLAINTEXT_EVENTS"
+            diameter_error = "Diameter was observed but no plaintext Diameter messages were extracted"
+        else:
+            diameter_status = "FAILED"
+            diameter_error = detail or f"Diameter Core extractor exited with {code}"
+
+        if diameter_status == "SUCCESS":
+            code, detail = _ims_stage(
+                [
+                    sys.executable,
+                    str(DIAMETER_IMS_ANALYZE_SCRIPT),
+                    "--events",
+                    str(diameter_events),
+                    "--transactions",
+                    str(diameter_transactions),
+                    "--output",
+                    str(diameter_ims),
+                    "--timeline-output",
+                    str(diameter_ims_timeline),
+                    "--force",
+                ],
+                "Diameter IMS analyzer",
+            )
+            if code == 0 and diameter_ims.is_file():
+                document, error = _load_ims_json(diameter_ims, "Diameter IMS analysis")
+                if error:
+                    diameter_ims_evidence = {"analysis_status": "FAILED", "observation_count": 0}
+                    diameter_error = error
+                else:
+                    if document is not None:
+                        completeness = document.get("completeness") or {}
+                        count = int(completeness.get("observation_count") or len(document.get("observations") or []))
+                    else:
+                        count = 0
+                    diameter_counts["observation_count"] = count
+                    diameter_ims_evidence = {
+                        "analysis_status": "COMPLETED" if count else "NO_CXD_OBSERVATIONS",
+                        "observation_count": count,
+                        "analysis_reference": "diameter-ims-analysis.json",
+                    }
+                    if count:
+                        diameter_ims_supplied = True
+            elif code == 3:
+                diameter_ims_evidence = {
+                    "analysis_status": "NO_CXD_OBSERVATIONS",
+                    "observation_count": 0,
+                }
+            else:
+                diameter_ims_evidence = {
+                    "analysis_status": "FAILED",
+                    "observation_count": 0,
+                }
+                diameter_error = detail or f"Diameter IMS analyzer exited with {code}"
+        if diameter_status == "FAILED" or diameter_ims_evidence.get("analysis_status") == "FAILED":
+            degradation.append(f"Diameter IMS evidence unavailable: {diameter_error}")
+    else:
+        limitations.append("Diameter was not observed in the capture inventory; Cx/Dx analysis was not run.")
+
+    if diameter_ims_supplied:
+        registration_command.extend(["--diameter-ims", str(diameter_ims)])
+
+    if sip_status == "SUCCESS":
+        code, detail = _ims_stage(registration_command, "IMS Registration analyzer")
+        if code == 0:
+            document, error = _load_ims_json(registration, "IMS Registration")
+            if error or document is None:
+                registration_evidence["analysis_status"] = "FAILED"
+                registration_error = error or "IMS Registration produced no analysis object"
+            else:
+                registration_evidence = _ims_registration_evidence(document)
+        else:
+            registration_evidence["analysis_status"] = "FAILED"
+            registration_error = detail or f"IMS Registration analyzer exited with {code}"
+        if registration_evidence["analysis_status"] == "FAILED":
+            degradation.append(f"IMS Registration analysis failed: {registration_error}")
+    else:
+        registration_evidence["analysis_status"] = "UNAVAILABLE_SIP"
+        limitations.append("IMS Registration did not run because no accepted SIP evidence was available.")
+
+    session_evidence = {
+        "analysis_status": "NOT_RUN",
+        "attempt_count": 0,
+        "early_dialog_count": 0,
+        "confirmed_dialog_count": 0,
+        "cancel_observation_count": 0,
+        "bye_release_observation_count": 0,
+        "attempt_references": [],
+        "limitations": [],
+    }
+    session_error: str | None = None
+    if sip_status == "SUCCESS":
+        code, detail = _ims_stage(
+            [
+                sys.executable,
+                str(IMS_SESSION_ANALYZE_SCRIPT),
+                "--sip-events",
+                str(sip_events),
+                "--sip-transactions",
+                str(sip_transactions),
+                "--sip-dialogs",
+                str(sip_dialogs),
+                "--output",
+                str(session),
+                "--report",
+                str(session_report),
+                "--force",
+            ],
+            "IMS Session analyzer",
+        )
+        if code == 0:
+            document, error = _load_ims_json(session, "IMS Session")
+            if error or document is None:
+                session_evidence = {**session_evidence, "analysis_status": "FAILED"}
+                session_error = error or "IMS Session produced no analysis object"
+            else:
+                session_evidence = _ims_session_evidence(document)
+        else:
+            session_evidence = {**session_evidence, "analysis_status": "FAILED"}
+            session_error = detail or f"IMS Session analyzer exited with {code}"
+        if session_evidence["analysis_status"] == "FAILED":
+            degradation.append(f"IMS Session analysis failed: {session_error}")
+    else:
+        session_evidence["analysis_status"] = "UNAVAILABLE_SIP"
+        limitations.append("IMS Session did not run because no accepted SIP event artifacts were available.")
+
+    registration_status = registration_evidence["analysis_status"]
+    session_status = session_evidence["analysis_status"]
+    usable_registration = registration_status in ("COMPLETED", "INSUFFICIENT_EVIDENCE")
+    usable_session = session_status in ("COMPLETED", "INSUFFICIENT_EVIDENCE")
+    diameter_usable = diameter_counts["observation_count"] > 0
+    failed_stages = [
+        (label, status)
+        for label, status in (
+            ("SIP extraction", sip_status),
+            ("Diameter extraction", diameter_status),
+            ("Diameter IMS analysis", diameter_ims_evidence.get("analysis_status")),
+            ("IMS Registration", registration_status),
+            ("IMS Session", session_status),
+        )
+        if status == "FAILED"
+    ]
+    if (registration_status == "FAILED" and session_status == "FAILED" and not diameter_usable):
+        execution_status = STATUS_FAILED
+    elif sip_status == "FAILED" and not diameter_usable:
+        execution_status = STATUS_FAILED
+    elif failed_stages:
+        execution_status = STATUS_PARTIAL
+    elif usable_registration or usable_session or diameter_usable:
+        attempts = registration_evidence["attempt_count"] + session_evidence["attempt_count"]
+        execution_status = STATUS_COMPLETED if attempts or diameter_usable else STATUS_INSUFFICIENT_EVIDENCE
+    else:
+        execution_status = STATUS_INSUFFICIENT_EVIDENCE
+
+    protocol_evidence = [
+        {
+            "protocol": "SIP",
+            "extraction_status": sip_status,
+            "event_count": sip_counts["event_count"],
+            "transaction_count": sip_counts["transaction_count"],
+            "dialog_count": sip_counts["dialog_count"],
+        },
+        {
+            "protocol": "Diameter",
+            "extraction_status": diameter_status,
+            "event_count": diameter_counts["event_count"],
+            "transaction_count": diameter_counts["transaction_count"],
+            "observation_count": diameter_counts["observation_count"],
+        },
+    ]
+    procedure_summaries = [
+        {
+            "procedure_domain": "ims-registration",
+            "execution_status": registration_status,
+            "instance_count": registration_evidence["attempt_count"],
+        },
+        {
+            "procedure_domain": "ims-session",
+            "execution_status": session_status,
+            "instance_count": session_evidence["attempt_count"],
+        },
+    ]
+    ims_evidence = {
+        "sip_protocol": {
+            **sip_counts,
+            "extraction_status": sip_status,
+            "extraction_executions": sip_executions,
+            "error": sip_error,
+        },
+        "diameter_protocol": {
+            **diameter_counts,
+            "extraction_status": diameter_status,
+            "error": diameter_error,
+        },
+        "registration": registration_evidence,
+        "session": session_evidence,
+        "diameter_ims": diameter_ims_evidence,
+        "cross_protocol_association": "NOT_ESTABLISHED",
+        "analysis_status": execution_status,
+        "limitations": limitations,
+    }
+    if not failed_stages and execution_status == STATUS_COMPLETED:
+        limitations.append(
+            "Workflow completion means bounded IMS evidence processing completed; it is not an IMS network, call or service success verdict."
+        )
+    return {
+        "execution_status": execution_status,
+        "protocol_evidence": protocol_evidence,
+        "procedure_summaries": procedure_summaries,
+        "ims_evidence": ims_evidence,
+        "evidence_limitations": list(limitations),
+        "degradation": degradation,
+    }
+
+
+def execute_ims_domain(
+    capture: Path,
+    work_dir: Path,
+    case_id: str,
+    detection: dict[str, Any],
+    observed: set[str],
+    pipeline: Callable[[Path, Path, str, set[str]], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Execute IMS and attach its evidence to the domain-neutral envelope."""
+    payload = (pipeline or execute_ims_pipeline)(capture, work_dir, case_id, observed)
+    capability = DOMAIN_CAPABILITIES[DOMAIN_IMS]
+    result = {
+        "domain": DOMAIN_IMS,
+        "display_name": capability["display_name"],
+        "implementation_status": capability["implementation_status"],
+        "execution_status": payload.get("execution_status", STATUS_FAILED),
+        "detection": detection,
+        "unsupported_reason": None,
+        "protocol_evidence": payload.get("protocol_evidence") or [],
+        "procedure_summaries": payload.get("procedure_summaries") or [],
+        "diagnostic_groups": None,
+        "diagnostic_subject_count": 0,
+        "diagnostic_subjects": [],
+        "first_abnormal_boundary": None,
+        "boundary_selection_status": "NOT_EVALUATED",
+        "evidence_limitations": payload.get("evidence_limitations") or [],
+        "additional_evidence_needed": [],
+        "degradation": payload.get("degradation") or [],
+        "ims_evidence": payload.get("ims_evidence") or {},
+    }
+    if result["execution_status"] == STATUS_FAILED:
+        result["additional_evidence_needed"] = [
+            "Resolve the failed IMS component and re-run the capture; independent SIP or Diameter evidence that was already usable is preserved when available."
+        ]
+    elif result["execution_status"] in (STATUS_COMPLETED, STATUS_PARTIAL):
+        result["additional_evidence_needed"] = [
+            "SDP, RTP, Diameter Rx, charging, session modification and end-to-end IMS fault isolation are outside the implemented scope."
+        ]
+    return result
+
+
 def build_domain_adapters(
     pipeline: Callable[[Path, Path, str], tuple[dict[str, Any], Any, Path]],
     epc_pipeline: Callable[[Path, Path, str], dict[str, Any]],
+    ims_pipeline: Callable[[Path, Path, str, set[str]], dict[str, Any]] | None = None,
 ) -> dict[str, DomainAdapter]:
     """Execution adapters, one per implemented domain.
 
@@ -5602,6 +6220,9 @@ def build_domain_adapters(
         DOMAIN_EPC: lambda capture, work_dir, case_id, detection, observed: execute_epc_domain(
             capture, work_dir, case_id, detection, epc_pipeline
         ),
+        DOMAIN_IMS: lambda capture, work_dir, case_id, detection, observed: execute_ims_domain(
+            capture, work_dir, case_id, detection, observed, ims_pipeline
+        ),
     }
 
 
@@ -5614,11 +6235,13 @@ def analyze(
     inventory: Callable[[Path], dict[str, Any]] | None = None,
     pipeline: Callable[[Path, Path, str], tuple[dict[str, Any], Any, Path]] | None = None,
     epc_pipeline: Callable[[Path, Path, str], dict[str, Any]] | None = None,
+    ims_pipeline: Callable[[Path, Path, str, set[str]], dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], int]:
     """Execute the workflow and return the report and the CLI exit code."""
     inventory_fn = inventory or inventory_capture
     pipeline_fn = pipeline or execute_5gc_pipeline
     epc_pipeline_fn = epc_pipeline or execute_epc_pipeline
+    ims_pipeline_fn = ims_pipeline or execute_ims_pipeline
 
     validate_paths(capture, work_dir, output_dir)
     if not capture.is_file():
@@ -5633,7 +6256,7 @@ def analyze(
     detection = detect_domains(observed)
     selection_mode, selected = resolve_selection(domains, detection)
 
-    adapters = build_domain_adapters(pipeline_fn, epc_pipeline_fn)
+    adapters = build_domain_adapters(pipeline_fn, epc_pipeline_fn, ims_pipeline_fn)
     case_id = f"capture-{digest[:12]}"
     observed_set = set(observed["protocols"])
     results: list[dict[str, Any]] = []

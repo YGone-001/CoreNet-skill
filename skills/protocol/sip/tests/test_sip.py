@@ -847,7 +847,7 @@ class SipCliTests(unittest.TestCase):
 
 
 class UnifiedAnalyzerBoundaryTests(unittest.TestCase):
-    """A SIP Protocol Skill must not declare IMS Domain support prematurely."""
+    """SIP evidence stays protocol-local; IMS composition belongs to the workflow."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -857,19 +857,26 @@ class UnifiedAnalyzerBoundaryTests(unittest.TestCase):
         assert spec.loader is not None
         spec.loader.exec_module(cls.module)
 
-    def test_ims_domain_remains_unsupported(self) -> None:
+    def test_ims_domain_is_implemented_and_bounded(self) -> None:
         capability = self.module.DOMAIN_CAPABILITIES["ims"]
-        self.assertEqual(capability["implementation_status"], "UNSUPPORTED")
-        self.assertIsNone(capability["entry_point"])
-        self.assertEqual(capability["analysis_capabilities"], [])
+        self.assertEqual(capability["implementation_status"], "IMPLEMENTED")
+        self.assertIsNotNone(capability["entry_point"])
+        self.assertIn(
+            "ims-session-establishment-and-release-evidence",
+            capability["analysis_capabilities"],
+        )
+        for planned in ("SDP", "RTP"):
+            self.assertIn(planned, capability["planned_protocol_families"])
 
     def test_sip_is_a_protocol_identity_not_a_domain_verdict(self) -> None:
         self.assertEqual(self.module.PROTOCOL_TOKENS["sip"], "SIP")
         self.assertIn("SIP", self.module.IMS_SIGNALING)
 
-    def test_no_ims_domain_adapter_is_registered(self) -> None:
-        adapters = self.module.build_domain_adapters(lambda *args: None, lambda *args: None)
-        self.assertEqual(set(adapters), {"5gc", "epc"})
+    def test_ims_domain_adapter_is_registered(self) -> None:
+        adapters = self.module.build_domain_adapters(
+            lambda *args: None, lambda *args: None, lambda *args: {}
+        )
+        self.assertEqual(set(adapters), {"5gc", "epc", "ims"})
 
 
 if __name__ == "__main__":

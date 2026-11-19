@@ -7,9 +7,11 @@ readable text report.
 
 The workflow is an application-level execution entry point. It is not a Skill layer,
 it owns no telecom protocol or procedure semantics, and it does not score the Golden
-Capture benchmark. It executes real 5GC analysis and bounded EPC EPS Attach
-procedure evidence analysis. IMS is a declared capability that reports `UNSUPPORTED`
-until its Protocol and Domain Skills exist.
+Capture benchmark. It executes real 5GC analysis, bounded EPC EPS Attach procedure
+evidence analysis, and bounded IMS analysis through the accepted SIP, Diameter IMS,
+IMS Registration and IMS Session components. IMS technology attribution remains
+`SUSPECTED` when only SIP is observed; automatic selection executes the bounded IMS
+evidence path without upgrading that attribution.
 
 ## Review replay path isolation
 
@@ -68,12 +70,32 @@ python3 scripts/corenet-analyze.py \
   --output-dir /tmp/corenet-output
 ```
 
+Analyze an IMS capture explicitly:
+
+```bash
+python3 scripts/corenet-analyze.py \
+  --capture /path/to/ims-capture.pcapng \
+  --domains ims \
+  --work-dir /path/to/external-work \
+  --output-dir /path/to/external-output
+```
+
+Let automatic selection execute the bounded IMS path when SIP is observed:
+
+```bash
+python3 scripts/corenet-analyze.py \
+  --capture /path/to/ims-capture.pcapng \
+  --domains auto \
+  --work-dir /path/to/external-work \
+  --output-dir /path/to/external-output
+```
+
 Request several domains at once:
 
 ```bash
 python3 scripts/corenet-analyze.py \
   --capture /data/captures/mixed-core.pcap \
-  --domains 5gc,ims \
+  --domains 5gc,epc,ims \
   --work-dir /tmp/corenet-work \
   --output-dir /tmp/corenet-output
 ```
@@ -112,9 +134,15 @@ Detection rules in force:
 - Mixed traffic is never collapsed into one domain: every domain with confirmed
   evidence is reported separately.
 
-`auto` selects only domains that are both `CONFIRMED` and implemented. If nothing is
-confirmed, nothing is executed and the run reports `INSUFFICIENT_EVIDENCE` with the
-observed ambiguity recorded as a limitation.
+`auto` selects every `CONFIRMED` implemented domain. SIP observation additionally
+makes the bounded IMS evidence path eligible for automatic execution while IMS
+technology attribution remains `SUSPECTED`. SDP/RTP-only evidence and Diameter-only
+evidence do not make IMS eligible for automatic execution. If nothing is selected, the
+run reports `INSUFFICIENT_EVIDENCE` with the observed ambiguity recorded as a
+limitation.
+
+Explicit selection is always honoured as written. `--domains ims` executes every
+available IMS component even when the capture has incomplete or limited evidence.
 
 An explicit request is always honoured as written: `--domains 5gc` runs the 5GC
 analysis even when detection is not confirmed, and the report records the detection
@@ -129,15 +157,18 @@ status alongside the execution result.
 | `analysis.failure.json` | Written only when a run fails while an earlier `analysis.json` already exists. It records the failed attempt so a stale successful report is never mistaken for the current result. |
 
 Intermediate artifacts stay in `--work-dir`. Every 5GC run creates its own scratch
-directory under `<work-dir>/5gc/runs/<run-id>/`, so an interrupted or failed run can
-never be read as fresh evidence from an earlier one, and nothing is deleted to
-achieve that. The work directory is scratch data and may be removed by the operator
+directory under `<work-dir>/5gc/runs/<run-id>/`; EPC and IMS runs use their own
+domain-scoped run directories. The IMS run directory contains the SIP event,
+transaction, dialog and trace artifacts, optional Diameter Core and Cx/Dx artifacts,
+and the IMS Registration and IMS Session analysis and report artifacts. An
+interrupted or failed run can never be read as fresh evidence from an earlier one, and
+nothing is deleted to achieve that. The work directory is scratch data and may be removed by the operator
 between runs.
 
 The JSON envelope contains:
 
 ```text
-report_schema_version
+report_schema_version  1.2; additive IMS fields remain compatible with 1.1 consumers
 capture                 name, sha256, size, frame count, observed time range
 toolchain               analyzer version, repository revision, python and decoder versions,
                         executed protocol extractors, executed Domain analyzers, orchestration status
@@ -153,8 +184,12 @@ interpretation          explicit statements bounding what the report does and do
 Each `domain_results` record carries `domain`, `implementation_status`,
 `execution_status`, `detection`, `protocol_evidence`, `procedure_summaries`,
 `diagnostic_groups`, `diagnostic_subjects`, `first_abnormal_boundary`,
-`evidence_limitations`, `additional_evidence_needed` and `degradation`. A domain that
-could not be analyzed still appears in the list; it is never silently dropped.
+`evidence_limitations`, `additional_evidence_needed` and `degradation`. An IMS result
+additionally publishes `ims_evidence` with the SIP and Diameter extraction statuses,
+SIP Event/Transaction/Dialog counts, Cx/Dx observation count, Registration analysis
+status and attempt count, Session analysis status and attempt count, Early/Confirmed
+Dialog counts, CANCEL and BYE release observation counts. A domain that could not be
+analyzed still appears in the list; it is never silently dropped.
 
 ## 6. Execution statuses and exit codes
 
@@ -478,19 +513,30 @@ Each projected collection publishes an explicit conservation model:
 order of published records, and a truncated subset is never labelled complete. The
 JSON report and the text report use the same counts.
 
-## 11. Roadmap for EPC and IMS
+## 11. EPC and IMS implementation boundary
 
-IMS appears in the capability contract with `implementation_status: UNSUPPORTED`, no
-domain entry point and an explicit reason. The bounded `sip` Protocol Skill now
-extracts plaintext SIP requests and responses and correlates them at the RFC 3261
-transaction layer, but SIP message and transaction evidence does not implement the
-IMS Domain: no registration state machine, SIP dialog correlation, SDP/RTP semantics
-or IMS procedure analysis exists. EPC is implemented
-for the bounded EPS Attach path described in section 10, and its unimplemented scope
-is declared through `not_implemented_capabilities`.
+IMS appears in the capability contract with `implementation_status: IMPLEMENTED` and
+executes the accepted SIP extractor, optional Diameter Core extractor and correlator,
+Diameter IMS Cx/Dx analyzer, IMS Registration analyzer and IMS Session analyzer. The
+unified workflow owns execution, provenance, status and report composition only; it
+does not decode SIP or Diameter, rematch transactions or reconstruct dialogs.
+
+IMS protocol extraction is bounded to plaintext SIP and plaintext Diameter. A capture
+with SIP observed but no plaintext SIP is `NO_PLAINTEXT_EVENTS`, not a fabricated
+failure. Diameter present without reviewed Cx/Dx messages is `NO_CXD_OBSERVATIONS`.
+SIP registration, Diameter Cx/Dx and SIP session inventories remain independent; no
+subscriber identity bridge is introduced and cross-protocol association remains
+`NOT_ESTABLISHED`.
+
+SDP, RTP, Diameter Rx, Diameter charging, IMS session modification and end-to-end IMS
+fault isolation remain planned and are not advertised as implemented. EPC remains the
+bounded path described in section 10.
 
 Adding a domain means adding its real Protocol and Domain Skills, then registering a
 domain adapter that produces the same `domain_results` shape. The report envelope,
 execution statuses, exit codes, privacy rules, subject reporting and output layout
-already support multiple independent domains: EPC was added this way without changing
-the 5GC procedure path, and IMS can follow the same route.
+already support multiple independent domains. EPC and IMS were added this way without
+changing the 5GC procedure path. IMS failure in one component preserves independently
+valid SIP, Diameter or other IMS component results, and the report distinguishes
+`NOT_OBSERVED`, `NOT_SUPPLIED`, `UNSUPPORTED`, `INCOMPLETE`, `AMBIGUOUS`, extraction
+failure and Domain failure instead of collapsing them into one `FAILED` label.
