@@ -11,10 +11,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
+try:
+    import jsonschema
+except ImportError:
+    jsonschema = None
+
 SKILL = Path(__file__).resolve().parents[1]
 DOMAIN = SKILL.parents[1]
 SCRIPTS = SKILL / "scripts"
 SIP_SCRIPTS = SKILL.parents[1] / "protocol" / "sip" / "scripts"
+SIP_SCHEMA = SKILL.parents[1] / "protocol" / "sip" / "schemas" / "sip-events.schema.json"
 SCHEMA = SKILL / "schemas" / "ims-registration-analysis.schema.json"
 DIAMETER_FIXTURE = SKILL / "examples" / "input" / "diameter-ims-cases.json"
 for path in (SCRIPTS, SIP_SCRIPTS):
@@ -22,6 +28,7 @@ for path in (SCRIPTS, SIP_SCRIPTS):
         sys.path.insert(0, str(path))
 
 import ims_registration_model  # noqa: E402
+import sip_model  # noqa: E402
 
 INIT = "sip:alice@example.com"
 REGISTRAR = "sip:registrar.example.com"
@@ -1426,6 +1433,388 @@ class ChallengeTemporalOrdering(unittest.TestCase):
             association["retry_request_event_reference"],
             item["request_event_references"],
         )
+
+
+def _xml_attr(value: str) -> str:
+    return (
+        value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("\n", "&#10;")
+    )
+
+
+def _pdml_request_packet(
+    frame: int,
+    *,
+    contact_lines: list[str],
+    expires_line: str | None,
+    branch: str = "z9hG4bK-A",
+    cseq: int = 1,
+) -> str:
+    lines = [
+        f"Via: SIP/2.0/UDP 192.0.2.10:5060;branch={branch}",
+        "Max-Forwards: 70",
+        "From: <sip:alice@example.com>;tag=FTAG",
+        "To: <sip:registrar.example.com>",
+        "Call-ID: CALL",
+        f"CSeq: {cseq} REGISTER",
+        *contact_lines,
+    ]
+    if expires_line is not None:
+        lines.append(expires_line)
+    lines.append("Content-Length: 0")
+    raw_header = "\n".join(lines) + "\n"
+    contact_fields = "\n".join(
+        f'      <field name="sip.Contact" show="{_xml_attr(line.split(":", 1)[1].strip())}"/>'
+        for line in contact_lines
+    )
+    expires_field = ""
+    if expires_line is not None:
+        expires_field = (
+            f'      <field name="sip.Expires" show="'
+            f'{_xml_attr(expires_line.split(":", 1)[1].strip())}"/>\n'
+        )
+    return f"""<packet>
+  <proto name="frame">
+    <field name="frame.number" show="{frame}"/>
+    <field name="frame.time_epoch" show="1700000300.{frame:09d}"/>
+    <field name="frame.time_relative" show="{frame}.000000000"/>
+    <field name="frame.cap_len" show="512"/>
+    <field name="frame.len" show="512"/>
+  </proto>
+  <proto name="ip">
+    <field name="ip.src" show="192.0.2.10"/>
+    <field name="ip.dst" show="192.0.2.20"/>
+  </proto>
+  <proto name="udp">
+    <field name="udp.srcport" show="5060"/>
+    <field name="udp.dstport" show="5060"/>
+  </proto>
+  <proto name="sip">
+    <field name="sip.Request-Line" show="REGISTER sip:registrar.example.com SIP/2.0">
+      <field name="sip.Method" show="REGISTER"/>
+      <field name="sip.r-uri" show="sip:registrar.example.com"/>
+    </field>
+    <field name="sip.msg_hdr" show="{_xml_attr(raw_header)}"/>
+    <field name="sip.Via" show="SIP/2.0/UDP 192.0.2.10:5060;branch={branch}">
+      <field name="sip.Via.transport" show="UDP"/>
+      <field name="sip.Via.sent-by.address" show="192.0.2.10"/>
+      <field name="sip.Via.sent-by.port" show="5060"/>
+      <field name="sip.Via.branch" show="{branch}"/>
+    </field>
+    <field name="sip.Max-Forwards" show="70"/>
+    <field name="sip.From" show="&lt;sip:alice@example.com&gt;;tag=FTAG">
+      <field name="sip.from.addr" show="sip:alice@example.com"/>
+      <field name="sip.from.tag" show="FTAG"/>
+    </field>
+    <field name="sip.To" show="&lt;sip:registrar.example.com&gt;">
+      <field name="sip.to.addr" show="sip:registrar.example.com"/>
+    </field>
+    <field name="sip.Call-ID" show="CALL"/>
+    <field name="sip.CSeq" show="{cseq} REGISTER">
+      <field name="sip.CSeq.seq" show="{cseq}"/>
+      <field name="sip.CSeq.method" show="REGISTER"/>
+    </field>
+{contact_fields}
+{expires_field}    <field name="sip.Content-Length" show="0"/>
+  </proto>
+</packet>"""
+
+
+def _pdml_response_packet(
+    frame: int, *, branch: str = "z9hG4bK-A", cseq: int = 1
+) -> str:
+    raw_header = "\n".join(
+        [
+            f"Via: SIP/2.0/UDP 192.0.2.10:5060;branch={branch}",
+            "From: <sip:alice@example.com>;tag=FTAG",
+            "To: <sip:registrar.example.com>;tag=T",
+            "Call-ID: CALL",
+            f"CSeq: {cseq} REGISTER",
+            "Content-Length: 0",
+        ]
+    ) + "\n"
+    return f"""<packet>
+  <proto name="frame">
+    <field name="frame.number" show="{frame}"/>
+    <field name="frame.time_epoch" show="1700000300.{frame:09d}"/>
+    <field name="frame.time_relative" show="{frame}.000000000"/>
+    <field name="frame.cap_len" show="512"/>
+    <field name="frame.len" show="512"/>
+  </proto>
+  <proto name="ip">
+    <field name="ip.src" show="192.0.2.20"/>
+    <field name="ip.dst" show="192.0.2.10"/>
+  </proto>
+  <proto name="udp">
+    <field name="udp.srcport" show="5060"/>
+    <field name="udp.dstport" show="5060"/>
+  </proto>
+  <proto name="sip">
+    <field name="sip.Status-Line" show="SIP/2.0 200 OK">
+      <field name="sip.Status-Code" show="200"/>
+    </field>
+    <field name="sip.msg_hdr" show="{_xml_attr(raw_header)}"/>
+    <field name="sip.Via" show="SIP/2.0/UDP 192.0.2.10:5060;branch={branch}">
+      <field name="sip.Via.transport" show="UDP"/>
+      <field name="sip.Via.sent-by.address" show="192.0.2.10"/>
+      <field name="sip.Via.sent-by.port" show="5060"/>
+      <field name="sip.Via.branch" show="{branch}"/>
+    </field>
+    <field name="sip.From" show="&lt;sip:alice@example.com&gt;;tag=FTAG">
+      <field name="sip.from.addr" show="sip:alice@example.com"/>
+      <field name="sip.from.tag" show="FTAG"/>
+    </field>
+    <field name="sip.To" show="&lt;sip:registrar.example.com&gt;;tag=T">
+      <field name="sip.to.addr" show="sip:registrar.example.com"/>
+      <field name="sip.to.tag" show="T"/>
+    </field>
+    <field name="sip.Call-ID" show="CALL"/>
+    <field name="sip.CSeq" show="{cseq} REGISTER">
+      <field name="sip.CSeq.seq" show="{cseq}"/>
+      <field name="sip.CSeq.method" show="REGISTER"/>
+    </field>
+    <field name="sip.Content-Length" show="0"/>
+  </proto>
+</packet>"""
+
+
+def _pdml_document(request: str, response: str) -> str:
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<pdml version="0" capture_file="raw-contact-cases.pcapng">\n'
+        f"{request}\n{response}\n</pdml>\n"
+    )
+
+
+class RawContactWildcardBoundary(unittest.TestCase):
+    CASES = (
+        (
+            "sole-wildcard",
+            ["Contact: *"],
+            "Expires: 0",
+            "ALL_BINDINGS",
+            "SOLE",
+            None,
+            True,
+        ),
+        (
+            "wildcard-mixed-one-line",
+            ["Contact: *, <sip:alice@device.example>"],
+            "Expires: 0",
+            "NONE",
+            "MIXED",
+            "WILDCARD_WITH_ADDITIONAL_CONTACT",
+            False,
+        ),
+        (
+            "wildcard-mixed-separate-fields",
+            ["Contact: *", "Contact: <sip:alice@device.example>"],
+            "Expires: 0",
+            "NONE",
+            "MIXED",
+            "WILDCARD_WITH_ADDITIONAL_CONTACT",
+            False,
+        ),
+        (
+            "duplicate-wildcard-fields",
+            ["Contact: *", "Contact: *"],
+            "Expires: 0",
+            "NONE",
+            "DUPLICATE",
+            "WILDCARD_DUPLICATE_CONTACT",
+            False,
+        ),
+        (
+            "duplicate-wildcard-values",
+            ["Contact: *, *"],
+            "Expires: 0",
+            "NONE",
+            "DUPLICATE",
+            "WILDCARD_DUPLICATE_CONTACT",
+            False,
+        ),
+        (
+            "wildcard-nonzero-expires",
+            ["Contact: *"],
+            "Expires: 3600",
+            "NONE",
+            "SOLE",
+            "WILDCARD_WITH_NONZERO_EXPIRES",
+            False,
+        ),
+        (
+            "wildcard-without-expires",
+            ["Contact: *"],
+            None,
+            "NONE",
+            "SOLE",
+            "WILDCARD_WITHOUT_EXPIRES",
+            False,
+        ),
+        (
+            "wildcard-malformed-expires",
+            ["Contact: *"],
+            "Expires: abc",
+            "NONE",
+            "SOLE",
+            "EXPIRES_MALFORMED",
+            False,
+        ),
+        (
+            "wildcard-malformed-token",
+            ["Contact: *;expires=abc"],
+            "Expires: 0",
+            "NONE",
+            "MALFORMED",
+            "WILDCARD_WITH_MALFORMED_EXPIRES",
+            False,
+        ),
+        (
+            "wildcard-then-ordinary",
+            ["Contact: *", "Contact: <sip:other@device.example>"],
+            "Expires: 0",
+            "NONE",
+            "MIXED",
+            "WILDCARD_WITH_ADDITIONAL_CONTACT",
+            False,
+        ),
+        (
+            "ordinary-single-zero",
+            ["Contact: <sip:alice@device.example>"],
+            "Expires: 0",
+            "CONTACT_SCOPED",
+            "NONE",
+            None,
+            True,
+        ),
+        (
+            "ordinary-multiple-default-zero",
+            ["Contact: <sip:a@device.example>, <sip:b@device.example>"],
+            "Expires: 0",
+            "CONTACT_SCOPED",
+            "NONE",
+            None,
+            True,
+        ),
+        (
+            "ordinary-multiple-mixed",
+            ["Contact: <sip:a@device.example>;expires=0, <sip:b@device.example>;expires=3600"],
+            None,
+            "CONTACT_SCOPED",
+            "NONE",
+            None,
+            True,
+        ),
+        (
+            "bracketed-uri-comma",
+            ["Contact: <sip:alice,smith@device.example>;expires=0"],
+            "Expires: 0",
+            "CONTACT_SCOPED",
+            "NONE",
+            None,
+            True,
+        ),
+        (
+            "unbracketed-uri-comma",
+            ["Contact: sip:alice,smith@device.example;expires=0"],
+            None,
+            "NONE",
+            "UNRESOLVED",
+            "CONTACT_BOUNDARY_UNRESOLVED",
+            False,
+        ),
+        (
+            "repeated-ordinary-fields",
+            [
+                "Contact: <sip:a@device.example>;expires=0",
+                "Contact: <sip:a@device.example>;expires=0",
+            ],
+            None,
+            "CONTACT_SCOPED",
+            "NONE",
+            None,
+            True,
+        ),
+        (
+            "truncated-contact",
+            ["Contact: <sip:alice@device.example;expires=0"],
+            None,
+            "NONE",
+            "UNRESOLVED",
+            "CONTACT_BOUNDARY_UNRESOLVED",
+            False,
+        ),
+    )
+
+    def test_raw_contact_cases_through_producer_and_domain(self) -> None:
+        sip_schema = json.loads(SIP_SCHEMA.read_text(encoding="utf-8"))
+        for name, contacts, expires, scope, wildcard_boundary, invalidity, accepted in self.CASES:
+            with self.subTest(case=name):
+                pdml = _pdml_document(
+                    _pdml_request_packet(1, contact_lines=contacts, expires_line=expires),
+                    _pdml_response_packet(2),
+                )
+                records = sip_model.parse_pdml_messages(pdml)
+                event = records[0]["event"]
+                self.assertEqual(event["frame_number"], 1)
+                entries = event["headers"]["contact_entries"]
+                self.assertEqual(entries["wildcard_boundary"], wildcard_boundary)
+                if wildcard_boundary == "UNRESOLVED":
+                    self.assertEqual(entries["boundary_status"], "UNRESOLVED")
+                if jsonschema is not None:
+                    jsonschema.validate(event, sip_schema)
+
+                directory = Path(tempfile.mkdtemp())
+                source = directory / "raw-case.pdml"
+                source.write_text(pdml, encoding="utf-8")
+                output = directory / "analysis.json"
+                completed = subprocess.run(
+                    [
+                        sys.executable,
+                        str(SCRIPTS / "analyze-ims-registration.py"),
+                        "--sip-input",
+                        str(source),
+                        "--input-format",
+                        "pdml",
+                        "--output",
+                        str(output),
+                        "--force",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+                document = json.loads(output.read_text(encoding="utf-8"))
+                attempt = document["registration_attempts"][0]
+                deregistration = attempt["deregistration"]
+                observations = deregistration["transaction_observations"]
+                self.assertEqual(len(observations), 1)
+                observation = observations[0]
+                self.assertEqual(observation["scope"], scope)
+                self.assertEqual(
+                    observation["valid_all_bindings_request"],
+                    scope == "ALL_BINDINGS",
+                )
+                if invalidity is None:
+                    self.assertEqual(observation["invalidity"], [])
+                else:
+                    self.assertIn(invalidity, observation["invalidity"])
+                if accepted:
+                    self.assertEqual(
+                        observation["outcome"], "DEREGISTRATION_ACCEPTED_BY_SIP"
+                    )
+                    self.assertEqual(
+                        deregistration["outcome"], "DEREGISTRATION_ACCEPTED_BY_SIP"
+                    )
+                else:
+                    self.assertNotEqual(
+                        observation["outcome"], "DEREGISTRATION_ACCEPTED_BY_SIP"
+                    )
+                    self.assertFalse(deregistration["valid_all_bindings_request"])
 
 
 class NegativeOutcomes(unittest.TestCase):

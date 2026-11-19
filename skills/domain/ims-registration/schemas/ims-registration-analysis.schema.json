@@ -439,6 +439,9 @@
           "WILDCARD_WITHOUT_EXPIRES",
           "WILDCARD_WITH_NONZERO_EXPIRES",
           "WILDCARD_WITH_ADDITIONAL_CONTACT",
+          "WILDCARD_DUPLICATE_CONTACT",
+          "WILDCARD_WITH_MALFORMED_EXPIRES",
+          "CONTACT_BOUNDARY_UNRESOLVED",
           "EXPIRES_MALFORMED",
           "CONTACT_EXPIRES_MALFORMED",
           "CONTACT_EXPIRATION_OVERRIDES_EXPIRES",
@@ -779,6 +782,9 @@
               "WILDCARD_WITHOUT_EXPIRES",
               "WILDCARD_WITH_NONZERO_EXPIRES",
               "WILDCARD_WITH_ADDITIONAL_CONTACT",
+              "WILDCARD_DUPLICATE_CONTACT",
+              "WILDCARD_WITH_MALFORMED_EXPIRES",
+              "CONTACT_BOUNDARY_UNRESOLVED",
               "EXPIRES_MALFORMED",
               "CONTACT_EXPIRES_MALFORMED",
               "CONTACT_EXPIRATION_OVERRIDES_EXPIRES",
@@ -869,6 +875,27 @@
           "minimum": 0,
           "maximum": 128
         },
+        "contact_boundary_status": {
+          "type": "string",
+          "enum": [
+            "EXACT_ENTRY_VALUES",
+            "HEADER_OCCURRENCE_ONLY",
+            "NO_CONTACT",
+            "UNRESOLVED",
+            "UNAVAILABLE"
+          ]
+        },
+        "contact_wildcard_boundary": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "SOLE",
+            "MIXED",
+            "DUPLICATE",
+            "MALFORMED",
+            "UNRESOLVED"
+          ]
+        },
         "response_event_reference": {
           "type": [
             "string",
@@ -908,6 +935,9 @@
               "WILDCARD_WITHOUT_EXPIRES",
               "WILDCARD_WITH_NONZERO_EXPIRES",
               "WILDCARD_WITH_ADDITIONAL_CONTACT",
+              "WILDCARD_DUPLICATE_CONTACT",
+              "WILDCARD_WITH_MALFORMED_EXPIRES",
+              "CONTACT_BOUNDARY_UNRESOLVED",
               "EXPIRES_MALFORMED",
               "CONTACT_EXPIRES_MALFORMED",
               "CONTACT_EXPIRATION_OVERRIDES_EXPIRES",

@@ -8,10 +8,11 @@ registration attempts, preserves 401/407 challenges and authorized retries,
 distinguishes initial registration, re-registration, refresh and de-registration
 observations, classifies negative SIP responses, retains independent Cx/Dx
 observations, and fails closed on cross-protocol subscriber identity association.
-All-bindings removal requires the RFC 3261 wildcard `Contact: *` with `Expires: 0`;
-a supplied Contact targeted by `expires=0` remains Contact-scoped, a Contact-specific
-expiration overrides the default `Expires` header, and `Expires: 0` without a Contact
-does not establish de-registration. Each removal observation is bound to its own
+All-bindings removal requires exactly one sole RFC 3261 wildcard `Contact: *` with
+`Expires: 0`; mixed or duplicate wildcard values and unresolved raw Contact boundaries
+fail closed. A supplied Contact targeted by `expires=0` remains Contact-scoped, a
+Contact-specific expiration overrides the default `Expires` header, and `Expires: 0`
+without a Contact does not establish de-registration. Each removal observation is bound to its own
 REGISTER transaction and final response. A Challenge→Retry association requires a
 later authorized REGISTER after the observed challenge response in capture-local
 evidence order. Bounded publications conserve total/published/omitted counts, cross-source

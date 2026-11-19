@@ -118,6 +118,9 @@ CONFLICT_FINDINGS = (
     "WILDCARD_WITHOUT_EXPIRES",
     "WILDCARD_WITH_NONZERO_EXPIRES",
     "WILDCARD_WITH_ADDITIONAL_CONTACT",
+    "WILDCARD_DUPLICATE_CONTACT",
+    "WILDCARD_WITH_MALFORMED_EXPIRES",
+    "CONTACT_BOUNDARY_UNRESOLVED",
     "EXPIRES_MALFORMED",
     "CONTACT_EXPIRES_MALFORMED",
     "CONTACT_EXPIRATION_OVERRIDES_EXPIRES",
@@ -706,6 +709,23 @@ def _contact_evidence(request: dict[str, Any]) -> dict[str, Any]:
         non_wildcard_count = 1
     entry_count = int(request.get("contact_entry_count") or 0)
     entry_count = max(entry_count, wildcard_count + non_wildcard_count)
+    wildcard_boundary = request.get("contact_wildcard_boundary") or "NONE"
+    if wildcard_boundary not in {
+        "NONE",
+        "SOLE",
+        "MIXED",
+        "DUPLICATE",
+        "MALFORMED",
+        "UNRESOLVED",
+    }:
+        wildcard_boundary = "UNRESOLVED"
+    if wildcard_boundary in {"", "NONE"}:
+        if wildcard_count > 1:
+            wildcard_boundary = "DUPLICATE"
+        elif wildcard_count == 1 and non_wildcard_count:
+            wildcard_boundary = "MIXED"
+        elif wildcard_count == 1:
+            wildcard_boundary = "SOLE"
     return {
         "entry_count": entry_count,
         "wildcard_count": wildcard_count,
@@ -717,6 +737,11 @@ def _contact_evidence(request: dict[str, Any]) -> dict[str, Any]:
         "without_explicit_count": int(
             request.get("contact_without_explicit_expires_count") or 0
         ),
+        "malformed_wildcard_count": int(
+            request.get("contact_malformed_wildcard_count") or 0
+        ),
+        "boundary_status": request.get("contact_boundary_status") or "UNAVAILABLE",
+        "wildcard_boundary": wildcard_boundary,
         "complete": bool(request.get("contact_expiration_complete")),
     }
 
@@ -733,6 +758,16 @@ def _removal_observation(
     contact_malformed = contact["malformed_count"] > 0
     wildcard = contact["wildcard_count"] > 0
     non_wildcard = contact["non_wildcard_count"] > 0
+    boundary_unresolved = (
+        contact["boundary_status"] == "UNRESOLVED"
+        or contact["wildcard_boundary"] == "UNRESOLVED"
+    )
+    wildcard_malformed = (
+        contact["malformed_wildcard_count"] > 0
+        or contact["wildcard_boundary"] == "MALFORMED"
+    )
+    wildcard_duplicate = contact["wildcard_boundary"] == "DUPLICATE"
+    wildcard_mixed = contact["wildcard_boundary"] == "MIXED"
     expires_zero = expires_present and expires_valid and expires == 0
     removal_related = (
         wildcard
@@ -740,6 +775,7 @@ def _removal_observation(
         or contact["zero_count"] > 0
         or expires_malformed
         or contact_malformed
+        or boundary_unresolved
     )
     if not removal_related:
         return None
@@ -747,16 +783,29 @@ def _removal_observation(
     invalidity: list[str] = []
     scope = "NONE"
     valid_all_bindings = False
-    if wildcard:
-        if non_wildcard:
+    if boundary_unresolved:
+        invalidity.append("CONTACT_BOUNDARY_UNRESOLVED")
+    elif wildcard:
+        if wildcard_duplicate:
+            invalidity.append("WILDCARD_DUPLICATE_CONTACT")
+        if non_wildcard or wildcard_mixed:
             invalidity.append("WILDCARD_WITH_ADDITIONAL_CONTACT")
+        if wildcard_malformed:
+            invalidity.append("WILDCARD_WITH_MALFORMED_EXPIRES")
         if expires_malformed:
             invalidity.append("EXPIRES_MALFORMED")
         elif not expires_present:
             invalidity.append("WILDCARD_WITHOUT_EXPIRES")
         elif expires != 0:
             invalidity.append("WILDCARD_WITH_NONZERO_EXPIRES")
-        elif not non_wildcard and not contact_malformed:
+        if (
+            contact["wildcard_count"] == 1
+            and not non_wildcard
+            and not wildcard_duplicate
+            and not wildcard_malformed
+            and not contact_malformed
+            and not invalidity
+        ):
             scope = "ALL_BINDINGS"
             valid_all_bindings = True
     elif non_wildcard:
@@ -780,6 +829,8 @@ def _removal_observation(
     request_valid = (
         scope != "NONE"
         and not contact_malformed
+        and not boundary_unresolved
+        and not wildcard_malformed
         and not (wildcard and invalidity)
     )
     statuses = list(transaction.get("final_response_status_codes") or [])
@@ -807,6 +858,8 @@ def _removal_observation(
             contact["zero_count"] > 0 and contact["positive_count"] > 0
         ),
         "contact_expiration_complete": contact["complete"],
+        "contact_boundary_status": contact["boundary_status"],
+        "contact_wildcard_boundary": contact["wildcard_boundary"],
         "contact_entry_count": contact["entry_count"],
         "contact_zero_expires_count": contact["zero_count"],
         "contact_positive_expires_count": contact["positive_count"],
@@ -1573,6 +1626,25 @@ def validate_analysis(document: dict[str, Any], *, sip_event_references: set[str
                         raise InputError("a de-registration transaction observation is not an object")
                     if observation.get("scope") not in {"ALL_BINDINGS", "CONTACT_SCOPED", "NONE"}:
                         raise InputError("invalid per-transaction de-registration scope")
+                    boundary = observation.get("contact_boundary_status")
+                    wildcard_boundary = observation.get("contact_wildcard_boundary")
+                    if boundary == "UNRESOLVED" and observation.get("scope") != "NONE":
+                        raise InputError(
+                            "an unresolved Contact boundary cannot support a removal scope"
+                        )
+                    if wildcard_boundary in {
+                        "MIXED",
+                        "DUPLICATE",
+                        "MALFORMED",
+                        "UNRESOLVED",
+                    } and observation.get("scope") != "NONE":
+                        raise InputError(
+                            "an ambiguous wildcard Contact boundary cannot support a removal scope"
+                        )
+                    if observation.get("scope") == "ALL_BINDINGS" and wildcard_boundary != "SOLE":
+                        raise InputError(
+                            "all-bindings removal requires exactly one sole wildcard boundary"
+                        )
                     if observation.get("outcome") not in DEREGISTRATION_OUTCOMES:
                         raise InputError("invalid per-transaction de-registration outcome")
                     if observation.get("scope") == "NONE" and observation.get(

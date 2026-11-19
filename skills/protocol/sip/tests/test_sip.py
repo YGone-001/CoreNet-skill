@@ -345,6 +345,64 @@ class SipContactExpirationMetadataTests(unittest.TestCase):
         self.assertNotIn("sip:", text)
         self.assertNotIn("contact_uri", text)
 
+    def test_raw_mixed_wildcard_and_contact_is_mixed(self) -> None:
+        summary = model._contact_expiration(
+            "Contact: *, <sip:alice@device.example>\nExpires: 0\n"
+        )
+        self.assertEqual(summary["contact_wildcard_count"], 1)
+        self.assertEqual(summary["contact_non_wildcard_count"], 1)
+        self.assertEqual(summary["contact_wildcard_boundary"], "MIXED")
+
+    def test_raw_duplicate_wildcards_are_duplicate(self) -> None:
+        for raw in (
+            "Contact: *\nContact: *\nExpires: 0\n",
+            "Contact: *, *\nExpires: 0\n",
+        ):
+            with self.subTest(raw=raw):
+                summary = model._contact_expiration(raw)
+                self.assertEqual(summary["contact_wildcard_count"], 2)
+                self.assertEqual(summary["contact_wildcard_boundary"], "DUPLICATE")
+
+    def test_raw_bracketed_uri_comma_is_one_boundary(self) -> None:
+        summary = model._contact_expiration(
+            "Contact: <sip:alice,smith@device.example>;expires=0\n"
+        )
+        self.assertEqual(summary["contact_non_wildcard_count"], 1)
+        self.assertEqual(summary["contact_zero_expires_count"], 1)
+        self.assertEqual(summary["contact_boundary_status"], "HEADER_OCCURRENCE_ONLY")
+        self.assertEqual(summary["contact_wildcard_boundary"], "NONE")
+
+    def test_raw_unbracketed_uri_comma_is_unresolved(self) -> None:
+        summary = model._contact_expiration(
+            "Contact: sip:alice,smith@device.example;expires=0\n"
+        )
+        self.assertEqual(summary["contact_boundary_status"], "UNRESOLVED")
+        self.assertEqual(summary["contact_wildcard_boundary"], "UNRESOLVED")
+
+    def test_raw_truncated_contact_is_unresolved(self) -> None:
+        summary = model._contact_expiration(
+            "Contact: <sip:alice@device.example;expires=0\n"
+        )
+        self.assertEqual(summary["contact_boundary_status"], "UNRESOLVED")
+        self.assertEqual(summary["contact_wildcard_boundary"], "UNRESOLVED")
+
+    def test_raw_malformed_wildcard_is_malformed(self) -> None:
+        summary = model._contact_expiration(
+            "Contact: *;expires=abc\nExpires: 0\n"
+        )
+        self.assertEqual(summary["contact_wildcard_count"], 1)
+        self.assertEqual(summary["contact_malformed_wildcard_count"], 1)
+        self.assertEqual(summary["contact_wildcard_boundary"], "MALFORMED")
+
+    def test_uri_starting_with_star_is_not_a_wildcard(self) -> None:
+        summary = model._contact_expiration(
+            "Contact: *user@device.example;expires=0\n"
+        )
+        self.assertEqual(summary["contact_wildcard_count"], 0)
+        self.assertEqual(summary["contact_non_wildcard_count"], 1)
+        self.assertEqual(summary["contact_zero_expires_count"], 1)
+        self.assertEqual(summary["contact_wildcard_boundary"], "NONE")
+
     @unittest.skipIf(jsonschema is None, "jsonschema is not installed")
     def test_contact_entries_validate_against_event_schema(self) -> None:
         schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
@@ -354,6 +412,20 @@ class SipContactExpirationMetadataTests(unittest.TestCase):
                 "contact_expiration_values": [0, 3600],
             }
         )
+        jsonschema.validate(record["event"], schema)
+
+    @unittest.skipIf(jsonschema is None, "jsonschema is not installed")
+    def test_new_contact_boundary_fields_remain_optional(self) -> None:
+        schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+        record = self._record(
+            {
+                "contact_count": 1,
+                "contact_expiration_values": [0],
+            }
+        )
+        entries = record["event"]["headers"]["contact_entries"]
+        del entries["wildcard_boundary"]
+        del entries["malformed_wildcard"]
         jsonschema.validate(record["event"], schema)
 
 

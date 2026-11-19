@@ -40,6 +40,10 @@
 | Case | Result |
 | --- | --- |
 | `Contact: *` with `Expires: 0` | `DEREGISTRATION_REQUESTED`; scope `ALL_BINDINGS` |
+| Wildcard mixed with an ordinary Contact | Observation retained; scope `NONE`; `WILDCARD_WITH_ADDITIONAL_CONTACT` |
+| Duplicate wildcard values | Observation retained; scope `NONE`; `WILDCARD_DUPLICATE_CONTACT` |
+| Malformed wildcard token | Observation retained; scope `NONE`; `WILDCARD_WITH_MALFORMED_EXPIRES` |
+| Unresolved raw Contact boundary | Observation retained; scope `NONE`; `CONTACT_BOUNDARY_UNRESOLVED` |
 | Contact `expires=0` | `DEREGISTRATION_REQUESTED`; scope `CONTACT_SCOPED` |
 | Default `Expires: 0` with a supplied Contact | `DEREGISTRATION_REQUESTED`; scope `CONTACT_SCOPED` |
 | `Expires: 0` without a Contact | Observation retained; scope `NONE`; `EXPIRES_WITHOUT_CONTACT` |

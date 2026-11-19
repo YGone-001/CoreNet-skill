@@ -35,9 +35,10 @@ Numeric status codes, command codes, result codes, result names, presence counts
 frame numbers, booleans, evidence states and opaque references are publishable.
 Expires, Min-Expires and Contact `expires` values are published only as reviewed
 numeric facts; wildcard, non-wildcard and per-Contact expiration counts are published
-as aggregate numeric or boolean metadata. Individual Contact URIs and raw Contact
-values are never published. Reason phrases are published only through the accepted
-SIP event contract.
+as aggregate numeric or boolean metadata. Contact boundary and wildcard-boundary
+classifications use bounded evidence codes only. Individual Contact URIs and raw
+Contact values are never published. Reason phrases are published only through the
+accepted SIP event contract.
 
 ## Diagnostics
 

@@ -21,14 +21,17 @@ session, media, call or root-cause verdicts.
 - Distinguish initial-registration candidates, re-registration candidates, refresh
   observations and de-registration requests.
 - Preserve Expires, Contact expires, wildcard Contact and non-wildcard Contact
-  evidence. RFC 3261 all-bindings removal requires `Contact: *` with `Expires: 0`;
-  wildcard alone, a nonzero Expires, a mixed Contact set or malformed expiration
-  evidence is retained as invalid or incomplete protocol evidence.
+  evidence. RFC 3261 all-bindings removal requires exactly one sole `Contact: *` with
+  `Expires: 0`; a wildcard alone without Expires, a nonzero Expires, a mixed
+  wildcard/ordinary Contact set, duplicate wildcard values, malformed expiration or
+  an unresolved Contact boundary is retained as invalid or incomplete protocol
+  evidence and never establishes removal.
 - Treat `Expires: 0` without any Contact as an observation that does not establish
   de-registration, and let a Contact-specific `expires` parameter override the
   default `Expires` header for that Contact.
 - Keep privacy-safe per-Contact expiration counts for multiple Contacts, preserving
-  mixed zero/positive evidence without collapsing the request to one value.
+  mixed zero/positive evidence without collapsing the request to one value. Fail
+  closed when raw Contact entry boundaries are unresolved.
 - Bind each removal request to its own REGISTER transaction and final response; an
   unrelated 2xx never establishes removal success.
 - Require the observed challenge response to precede an eligible retry request in

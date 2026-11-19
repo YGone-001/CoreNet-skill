@@ -852,10 +852,12 @@
         "transaction_observations": [
           {
             "accepted_by_sip": true,
+            "contact_boundary_status": "NO_CONTACT",
             "contact_entry_count": 0,
             "contact_expiration_complete": false,
             "contact_malformed_expires_count": 0,
             "contact_positive_expires_count": 0,
+            "contact_wildcard_boundary": "NONE",
             "contact_without_explicit_expires_count": 0,
             "contact_zero_expires_count": 0,
             "invalidity": [
@@ -973,10 +975,12 @@
         "transaction_observations": [
           {
             "accepted_by_sip": true,
+            "contact_boundary_status": "NO_CONTACT",
             "contact_entry_count": 1,
             "contact_expiration_complete": false,
             "contact_malformed_expires_count": 0,
             "contact_positive_expires_count": 0,
+            "contact_wildcard_boundary": "SOLE",
             "contact_without_explicit_expires_count": 0,
             "contact_zero_expires_count": 0,
             "invalidity": [
@@ -1825,10 +1829,12 @@
         "transaction_observations": [
           {
             "accepted_by_sip": true,
+            "contact_boundary_status": "NO_CONTACT",
             "contact_entry_count": 1,
             "contact_expiration_complete": true,
             "contact_malformed_expires_count": 0,
             "contact_positive_expires_count": 0,
+            "contact_wildcard_boundary": "NONE",
             "contact_without_explicit_expires_count": 0,
             "contact_zero_expires_count": 1,
             "invalidity": [],

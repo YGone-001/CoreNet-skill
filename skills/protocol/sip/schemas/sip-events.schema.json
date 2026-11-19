@@ -295,13 +295,30 @@
           "minimum": 0,
           "maximum": 128
         },
+        "malformed_wildcard": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
         "boundary_status": {
           "type": "string",
           "enum": [
             "EXACT_ENTRY_VALUES",
             "HEADER_OCCURRENCE_ONLY",
             "NO_CONTACT",
+            "UNRESOLVED",
             "UNAVAILABLE"
+          ]
+        },
+        "wildcard_boundary": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "SOLE",
+            "MIXED",
+            "DUPLICATE",
+            "MALFORMED",
+            "UNRESOLVED"
           ]
         },
         "expiration_complete": {

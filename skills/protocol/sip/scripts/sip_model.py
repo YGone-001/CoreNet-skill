@@ -192,7 +192,16 @@ CONTACT_BOUNDARY_STATUSES = {
     "EXACT_ENTRY_VALUES",
     "HEADER_OCCURRENCE_ONLY",
     "NO_CONTACT",
+    "UNRESOLVED",
     "UNAVAILABLE",
+}
+CONTACT_WILDCARD_BOUNDARIES = {
+    "NONE",
+    "SOLE",
+    "MIXED",
+    "DUPLICATE",
+    "MALFORMED",
+    "UNRESOLVED",
 }
 
 
@@ -206,9 +215,25 @@ def _empty_contact_summary(boundary: str) -> dict[str, Any]:
         "contact_positive_expires_count": 0,
         "contact_malformed_expires_count": 0,
         "contact_without_explicit_expires_count": 0,
+        "contact_malformed_wildcard_count": 0,
         "contact_boundary_status": boundary,
+        "contact_wildcard_boundary": "UNRESOLVED" if boundary == "UNRESOLVED" else "NONE",
         "contact_expiration_complete": False,
     }
+
+
+def _wildcard_boundary(summary: dict[str, Any]) -> str:
+    if summary["contact_boundary_status"] == "UNRESOLVED":
+        return "UNRESOLVED"
+    if summary["contact_malformed_wildcard_count"]:
+        return "MALFORMED"
+    if summary["contact_wildcard_count"] > 1:
+        return "DUPLICATE"
+    if summary["contact_wildcard_count"] == 1 and summary["contact_non_wildcard_count"]:
+        return "MIXED"
+    if summary["contact_wildcard_count"] == 1:
+        return "SOLE"
+    return "NONE"
 
 
 def _contact_summary_from_values(values: list[int | None]) -> dict[str, Any]:
@@ -225,43 +250,137 @@ def _contact_summary_from_values(values: list[int | None]) -> dict[str, Any]:
         else:
             summary["contact_positive_expires_count"] += 1
     summary["contact_expiration_complete"] = True
+    summary["contact_wildcard_boundary"] = _wildcard_boundary(summary)
     return summary
+
+
+def _is_wildcard_like(token: str) -> bool:
+    return token == "*" or re.match(r"^\*[ \t]*;", token) is not None
+
+
+def _split_contact_header_value(value: str) -> tuple[list[str], bool]:
+    """Split one Contact header value only at provable top-level commas.
+
+    Commas inside a ``<...>`` URI or a quoted display name are not separators.
+    A top-level comma after an unbracketed, non-wildcard token is ambiguous
+    because a SIP URI userinfo may contain a comma; such input is returned as
+    unresolved instead of being split naively.
+    """
+    entries: list[str] = []
+    buffer: list[str] = []
+    angle_depth = 0
+    in_quote = False
+    escaped = False
+    ambiguous = False
+    for char in value:
+        if escaped:
+            buffer.append(char)
+            escaped = False
+            continue
+        if in_quote and char == "\\":
+            buffer.append(char)
+            escaped = True
+            continue
+        if char == '"' and angle_depth == 0:
+            in_quote = not in_quote
+            buffer.append(char)
+            continue
+        if not in_quote:
+            if char == "<":
+                angle_depth += 1
+            elif char == ">":
+                if angle_depth == 0:
+                    ambiguous = True
+                else:
+                    angle_depth -= 1
+            elif char == "," and angle_depth == 0:
+                token = "".join(buffer).strip()
+                if not token:
+                    ambiguous = True
+                elif not (
+                    token.startswith("<")
+                    or token.startswith('"')
+                    or _is_wildcard_like(token)
+                ):
+                    ambiguous = True
+                entries.append(token)
+                buffer = []
+                continue
+        buffer.append(char)
+    if in_quote or angle_depth:
+        ambiguous = True
+    token = "".join(buffer).strip()
+    if token:
+        entries.append(token)
+    elif entries:
+        ambiguous = True
+    return entries, ambiguous
 
 
 def _contact_expiration(raw_header: str | None) -> dict[str, Any]:
     """Return privacy-safe aggregate Contact expiration evidence.
 
-    The number of accepted Contact header occurrences is reliable. Individual
-    Contact values inside one header line are not split because a SIP URI may
-    legally contain commas, so an exact per-binding count is not invented from
-    a raw header. Callers that already hold reviewed per-entry numeric values
-    can supply them through the sanitized record contract instead.
+    Individual Contact values are recognised only when their boundaries are
+    provable. Commas inside a bracketed URI or quoted display name are ignored;
+    a comma after an unbracketed ordinary token is ambiguous and marks the
+    header unresolved. Wildcard tokens are counted even when mixed with other
+    values so that no ambiguous request is promoted to a valid removal.
     """
     if raw_header is None:
         return _empty_contact_summary("UNAVAILABLE")
-    values = [value.strip() for value in CONTACT_HEADER_PATTERN.findall(raw_header)]
-    if not values:
+    header_values = [value.strip() for value in CONTACT_HEADER_PATTERN.findall(raw_header)]
+    if not header_values:
         return _empty_contact_summary("NO_CONTACT")
     summary = _empty_contact_summary("HEADER_OCCURRENCE_ONLY")
-    for value in values:
-        if value == "*":
-            summary["contact_wildcard_count"] += 1
-            continue
-        summary["contact_non_wildcard_count"] += 1
-        if re.search(r";[ \t]*expires[ \t]*=", value, re.IGNORECASE):
-            match = CONTACT_EXPIRES_PATTERN.search(value)
-            if match:
-                number = int(match.group(1))
-                summary["contact_explicit_expires_count"] += 1
-                if number == 0:
-                    summary["contact_zero_expires_count"] += 1
+    ambiguous = False
+    for header_value in header_values:
+        entries, unresolved = _split_contact_header_value(header_value)
+        ambiguous = ambiguous or unresolved
+        for entry in entries:
+            token = entry.strip()
+            if not token:
+                ambiguous = True
+                continue
+            if _is_wildcard_like(token):
+                summary["contact_wildcard_count"] += 1
+                if token != "*":
+                    summary["contact_malformed_wildcard_count"] += 1
+                    summary["contact_malformed_expires_count"] += 1
+                continue
+            summary["contact_non_wildcard_count"] += 1
+            if re.search(r";[ \t]*expires[ \t]*=", token, re.IGNORECASE):
+                match = CONTACT_EXPIRES_PATTERN.search(token)
+                if match:
+                    number = int(match.group(1))
+                    summary["contact_explicit_expires_count"] += 1
+                    if number == 0:
+                        summary["contact_zero_expires_count"] += 1
+                    else:
+                        summary["contact_positive_expires_count"] += 1
                 else:
-                    summary["contact_positive_expires_count"] += 1
+                    summary["contact_malformed_expires_count"] += 1
             else:
-                summary["contact_malformed_expires_count"] += 1
-        else:
-            summary["contact_without_explicit_expires_count"] += 1
-    summary["contact_entry_count"] = len(values)
+                summary["contact_without_explicit_expires_count"] += 1
+    summary["contact_entry_count"] = (
+        summary["contact_wildcard_count"] + summary["contact_non_wildcard_count"]
+    )
+    if ambiguous:
+        summary["contact_non_wildcard_count"] = 0
+        summary["contact_explicit_expires_count"] = 0
+        summary["contact_zero_expires_count"] = 0
+        summary["contact_positive_expires_count"] = 0
+        summary["contact_malformed_expires_count"] = summary[
+            "contact_malformed_wildcard_count"
+        ]
+        summary["contact_without_explicit_expires_count"] = 0
+        summary["contact_entry_count"] = summary["contact_wildcard_count"]
+        summary["contact_boundary_status"] = "UNRESOLVED"
+        summary["contact_expiration_complete"] = False
+    else:
+        summary["contact_expiration_complete"] = (
+            summary["contact_malformed_expires_count"] == 0
+        )
+    summary["contact_wildcard_boundary"] = _wildcard_boundary(summary)
     return summary
 
 
@@ -326,6 +445,7 @@ def _expiration_metadata(raw_header: str | None, headers: dict[str, Any]) -> dic
         contact_summary["contact_wildcard_count"]
         + contact_summary["contact_non_wildcard_count"],
     )
+    contact_summary["contact_wildcard_boundary"] = _wildcard_boundary(contact_summary)
     result = {
         "expires_present": expires_present,
         "expires_valid": not expires_malformed,
@@ -348,7 +468,11 @@ def _expiration_metadata(raw_header: str | None, headers: dict[str, Any]) -> dic
         "contact_without_explicit_expires_count": contact_summary[
             "contact_without_explicit_expires_count"
         ],
+        "contact_malformed_wildcard_count": contact_summary[
+            "contact_malformed_wildcard_count"
+        ],
         "contact_boundary_status": contact_summary["contact_boundary_status"],
+        "contact_wildcard_boundary": contact_summary["contact_wildcard_boundary"],
         "contact_expiration_complete": contact_summary["contact_expiration_complete"],
     }
     return result
@@ -926,8 +1050,14 @@ def _build_event(
                 "without_explicit_expires": int(
                     headers.get("contact_without_explicit_expires_count") or 0
                 ),
+                "malformed_wildcard": int(
+                    headers.get("contact_malformed_wildcard_count") or 0
+                ),
                 "boundary_status": headers.get(
                     "contact_boundary_status", "UNAVAILABLE"
+                ),
+                "wildcard_boundary": headers.get(
+                    "contact_wildcard_boundary", "NONE"
                 ),
                 "expiration_complete": bool(
                     headers.get("contact_expiration_complete")
@@ -1080,9 +1210,13 @@ def _build_message_record(
         "contact_without_explicit_expires_count": int(
             headers.get("contact_without_explicit_expires_count") or 0
         ),
+        "contact_malformed_wildcard_count": int(
+            headers.get("contact_malformed_wildcard_count") or 0
+        ),
         "contact_boundary_status": headers.get(
             "contact_boundary_status", "UNAVAILABLE"
         ),
+        "contact_wildcard_boundary": headers.get("contact_wildcard_boundary", "NONE"),
         "contact_expiration_complete": bool(
             headers.get("contact_expiration_complete")
         ),
@@ -1388,6 +1522,7 @@ def _jsonl_contact_summary(
         summary["contact_wildcard_count"] = 1 if contact_wildcard else 0
         summary["contact_entry_count"] = len(normalized) + summary["contact_wildcard_count"]
         summary["contact_expiration_complete"] = not contact_malformed
+        summary["contact_wildcard_boundary"] = _wildcard_boundary(summary)
         return summary
 
     summary = _empty_contact_summary("NO_CONTACT")
@@ -1401,6 +1536,7 @@ def _jsonl_contact_summary(
         summary["contact_wildcard_count"] + non_wildcard_entries
     )
     if non_wildcard_entries == 0:
+        summary["contact_wildcard_boundary"] = _wildcard_boundary(summary)
         return summary
     if non_wildcard_entries == 1:
         if contact_malformed:
@@ -1415,12 +1551,14 @@ def _jsonl_contact_summary(
             else:
                 summary["contact_positive_expires_count"] = 1
             summary["contact_expiration_complete"] = True
+        summary["contact_wildcard_boundary"] = _wildcard_boundary(summary)
         return summary
     summary["contact_boundary_status"] = "HEADER_OCCURRENCE_ONLY"
     if contact_malformed:
         summary["contact_malformed_expires_count"] = non_wildcard_entries
     else:
         summary["contact_without_explicit_expires_count"] = non_wildcard_entries
+    summary["contact_wildcard_boundary"] = _wildcard_boundary(summary)
     return summary
 
 
@@ -1522,7 +1660,13 @@ def _jsonl_headers(raw: Any) -> dict[str, Any]:
             "contact_without_explicit_expires_count": contact_summary[
                 "contact_without_explicit_expires_count"
             ],
+            "contact_malformed_wildcard_count": contact_summary[
+                "contact_malformed_wildcard_count"
+            ],
             "contact_boundary_status": contact_summary["contact_boundary_status"],
+            "contact_wildcard_boundary": contact_summary[
+                "contact_wildcard_boundary"
+            ],
             "contact_expiration_complete": contact_summary[
                 "contact_expiration_complete"
             ],

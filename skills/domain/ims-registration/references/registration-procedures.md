@@ -90,23 +90,36 @@ Expiration evidence is published only when observed:
 - wildcard Contact presence and whether non-wildcard Contact values coexist;
 - accepted `Min-Expires` numeric value from a 423 response.
 
-The accepted SIP decoder may not reliably separate multiple Contact values inside one
-raw header line because a SIP URI can legally contain commas. In that case the
-protocol event keeps header-occurrence counts and marks the entry boundary as
-`HEADER_OCCURRENCE_ONLY`; no exact per-binding count is invented. Reviewed sanitized
-records may supply reviewed per-entry numeric expiration values and then use
-`EXACT_ENTRY_VALUES`.
+The accepted SIP decoder recognises Contact entries only at provable top-level
+boundaries. A comma inside an angle-bracketed SIP URI or a quoted display name is not
+a boundary. A top-level comma after an unbracketed ordinary token, an unbalanced
+delimiter, a truncated value or any other unprovable boundary is published as
+`UNRESOLVED`; no individual Contact count is fabricated. Reviewed sanitized records
+may supply exact per-entry numeric expiration values and use `EXACT_ENTRY_VALUES`.
+
+Raw wildcard-boundary evidence distinguishes a sole wildcard, a wildcard mixed with an
+ordinary Contact, duplicate wildcard values in one or several header fields, a
+malformed wildcard token and an unresolved boundary. Only exactly one sole wildcard
+with no other Contact value can establish `ALL_BINDINGS`.
 
 RFC 3261 Section 10.2.2 requires `Contact: *` together with `Expires: 0` for an
-all-bindings removal request. The model distinguishes:
+all-bindings removal request, and Section 10.3 requires the wildcard to be the sole
+Contact value. The model distinguishes:
 
-- `ALL_BINDINGS`: valid wildcard removal only. The request scope is established, not
-  persistent registrar-state deletion.
-- `CONTACT_SCOPED`: a supplied Contact is targeted by `expires=0` or by the default
-  `Expires: 0`. Several enumerated Contacts remain Contact-scoped; they are not an
-  all-bindings request.
+- `ALL_BINDINGS`: valid wildcard removal only, with exactly one sole wildcard and no
+  additional Contact value. The request scope is established, not persistent
+  registrar-state deletion.
+- `CONTACT_SCOPED`: a supplied ordinary Contact is targeted by `expires=0` or by the
+  default `Expires: 0`. Several enumerated Contacts remain Contact-scoped; they are
+  not an all-bindings request. A mixed wildcard/ordinary or unresolved request is not
+  Contact-scoped removal evidence.
 - `NONE`: wildcard or expiration evidence was observed but no valid removal scope is
   established.
+
+Duplicate wildcard values, a wildcard mixed with an ordinary Contact, a malformed
+wildcard token and an unresolved raw boundary each publish an explicit invalidity and
+never produce `DEREGISTRATION_ACCEPTED_BY_SIP`, even when a matching 200 OK is
+observed.
 
 Per-Contact precedence applies: a Contact-specific `expires` parameter overrides the
 default `Expires` header for that Contact. A Contact with `expires=3600` is not a

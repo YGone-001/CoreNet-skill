@@ -24,11 +24,14 @@ credentials or message bodies.
   header occurrence counts.
 - Publish privacy-safe Expires, Min-Expires and Contact expiration metadata. Contact
   evidence includes header-occurrence counts plus wildcard, non-wildcard, explicit,
-  zero, positive, malformed and default-expiration entry counts, a boundary status and
-  whether the evidence is complete enough for a removal-scope conclusion. Individual
-  Contact values inside one raw header line are not split when the accepted decoder
-  cannot prove their boundaries; reviewed sanitized records may supply exact numeric
-  entry values. No Contact URI is published.
+  zero, positive, malformed and default-expiration entry counts, a boundary status, a
+  wildcard-boundary classification and whether the evidence is complete enough for a
+  removal-scope conclusion. A wildcard token is recognised only at a provable
+  top-level Contact boundary, including a wildcard mixed with another value or
+  repeated in one header field. Commas inside an angle-bracketed URI or a quoted
+  display name are not boundaries. An unbracketed comma, unbalanced delimiter,
+  truncated value or otherwise unprovable boundary is published as `UNRESOLVED`; no
+  individual Contact count is fabricated. No Contact URI is published.
 - Preserve message completeness, dissector findings, truncation and missing
   mandatory evidence as explicit classifications.
 - Correlate requests and responses using RFC 3261 transaction identity: modern
