@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Provide bounded, deterministic, privacy-safe structural evidence from explicitly
-supplied SDP message bodies, using the reviewed RFC 8866 grammar and a small
-media-attribute vocabulary.
+Provide bounded, deterministic, privacy-safe evidence from explicitly supplied SDP
+message bodies (RFC 8866) and from RTP version 2 / RTCP SR, RR, SDES and BYE packet
+structures (RFC 3550), using reviewed dissector fields or structured offline input.
 
 ## Scope
 
@@ -17,13 +17,21 @@ media-attribute vocabulary.
 - Classify network addresses by family and scope without publishing raw addresses.
 - Fail closed on malformed mandatory structure, invalid ports, invalid payload
   declarations, duplicate/contradictory declarations and truncated or oversized input.
+- Extract RTP version 2 fixed-header fields, CSRCs, padding, extension metadata, marker,
+  payload type, sequence, timestamp, SSRC and packet provenance.
+- Extract bounded RTCP Sender Report, Receiver Report, SDES and BYE components while
+  preserving compound component order and nested report-block binding.
+- Keep remote-reported loss/jitter distinct from locally observed RTP fields; publish
+  no local loss, jitter, MOS or media-quality calculation.
 
 ## Non-Goals
 
-This Skill must not implement RTP extraction, stream reconstruction, RTCP statistics,
-jitter/loss/MOS, media QoS, ICE connectivity verification, SRTP decryption, SDP
-Offer/Answer pairing, SIP-to-SDP dialog association, SDP-to-RTP endpoint correlation,
-IMS media success, Diameter Rx, Diameter charging or unified-workflow integration.
+It must not implement RTP stream reconstruction, local RTCP statistics, jitter or
+packet-loss calculation, MOS, media QoS, ICE connectivity verification, SRTP
+decryption, SDP Offer/Answer pairing, SIP-to-SDP dialog association, SDP-to-RTP
+endpoint correlation, IMS media success, Diameter Rx, Diameter charging or
+unified-workflow integration. It must not claim APP, RTPFB, PSFB, XR or unknown RTCP
+families as supported merely from numeric packet type.
 
 ## Inputs
 
@@ -44,6 +52,15 @@ JSONL, one supplied SDP body per record:
 All records in one input must share one capture identity and SHA-256. Duplicate source
 references, missing provenance, malformed JSON and mixed-capture input are rejected.
 
+RTP/RTCP structured JSONL uses one record per RTP packet or RTCP compound packet with
+`protocol`, `fields`, frame/capture provenance and caller-supplied references. RTCP
+`fields.components` retains component order; each component carries nested
+`report_blocks`, `sdes_chunks` and `bye_sources` rather than flattened arrays.
+
+Authorized PCAP/PCAPNG mode uses an installed TShark dissector with an explicit
+reviewed field allowlist and optional caller-supplied `--decode-as` mappings. It never
+assumes a UDP port, RTP Payload Type or SDP declaration identifies RTP/RTCP.
+
 Limits: 512 messages, 64 KiB per body, 8 KiB per line, 64 media sections, 256
 attributes per scope and 64 formats per media section.
 
@@ -63,24 +80,31 @@ attributes per scope and 64 formats per media section.
 - unknown attributes and malformed/unknown line metadata;
 - bounded completeness counts and explicit limitations.
 
+RTP/RTCP output (`schemas/rtp-rtcp-events.schema.json`) publishes RTP packet fields and
+RTCP component/type/report-block/SDES/BYE evidence with capture-scoped references,
+`OBSERVED`/`INCOMPLETE`/`AMBIGUOUS`/`UNSUPPORTED`/`INVALID` status, bounded counts and
+explicit privacy/quality limitations.
+
 No raw SDP body, address, identity, ICE credential, fingerprint digest or key material
 is published.
 
 ## Dependencies
 
-- Required: Python 3 standard library.
-- Optional: none.
-- Capture extraction, SIP dialog association and RTP are not dependencies because they
-  are not implemented here.
+- Required: Python 3 standard library for structured SDP/RTP/RTCP input.
+- Optional: an installed TShark for authorized capture extraction. TShark is never
+  installed automatically.
+- Capture extraction, SIP dialog association and stream reconstruction are not
+  dependencies of the structured path.
 
 ## Workflow
 
-1. Validate the JSONL provenance contract.
-2. Parse each body line by line with bounded sizes.
-3. Preserve session-level and media-level scopes separately.
-4. Redact sensitive values and network addresses.
-5. Classify unknown attributes and lines as uninterpreted evidence.
-6. Fail closed on malformed, contradictory or incomplete mandatory structures.
+1. Validate the JSONL or capture provenance contract.
+2. Parse SDP bodies line by line and RTP/RTCP structures from reviewed structured fields
+   or an allowlisted TShark JSON tree.
+3. Preserve session/media scopes and RTCP compound/report-block nesting separately.
+4. Redact sensitive values, payloads, addresses and identities.
+5. Classify unsupported protocol families explicitly.
+6. Fail closed on malformed, contradictory or incomplete structures.
 7. Validate and publish deterministic JSON plus an optional text report.
 
 ## Evidence Rules
@@ -92,10 +116,13 @@ is published.
   truncated.
 - `AMBIGUOUS`: contradictory directions, duplicate mappings or unresolved BUNDLE
   references.
-- `UNSUPPORTED`: unknown line types or media types outside the bounded vocabulary.
-- `INVALID`: malformed lines, fields, ports, payload declarations or oversized input.
+- `UNSUPPORTED`: unknown line types/media types, unsupported RTP versions, or RTCP
+  APP/RTPFB/PSFB/XR/unknown families outside the implemented subset.
+- `INVALID`: malformed lines, fields, ports, payload declarations, RTP/RTCP ranges or
+  oversized input.
 
-No Offer/Answer, RTP, media or IMS verdict is produced.
+No Offer/Answer, media-delivery, stream, QoS or IMS verdict is produced. RTCP report
+fields are remote-reported values and are never relabeled as local measurements.
 
 ## Failure Handling
 
@@ -110,13 +137,20 @@ observation under a future authorized capability.
 ```bash
 python3 -m unittest discover -s skills/protocol/sdp-rtp/tests -p 'test_*.py' -v
 python3 scripts/validate-sdp-rtp.py
+python3 scripts/validate-rtp-rtcp.py
 ```
 
-Fixtures cover valid single/multiple media, audio/video, IPv4/IPv6, static/dynamic
+SDP fixtures cover valid single/multiple media, audio/video, IPv4/IPv6, static/dynamic
 payloads, RTP mapping, FMTP, directions, scopes, RTCP, BUNDLE, missing mandatory
 fields, invalid ports/payloads, contradictions, malformed lines, mixed line endings,
 unknown attributes, truncation, oversized input, sensitive redaction, capture
-provenance mismatch, reference integrity and deterministic replay.
+provenance mismatch, reference integrity and deterministic replay. RTP/RTCP fixtures
+cover fixed headers, boundaries, CSRC/extension/padding, marker, invalid/missing/
+truncated records, SR/RR report blocks including negative cumulative loss, SDES/BYE
+redaction, compound ordering, unsupported families, malformed lengths, binding
+failures, capture/reference integrity, TShark unavailability/unsupported fields,
+explicit decode-as, no port inference, privacy, output collision and deterministic
+JSON/report replay.
 
 ## References
 

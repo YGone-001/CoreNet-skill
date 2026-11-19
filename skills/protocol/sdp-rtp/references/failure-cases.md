@@ -30,3 +30,37 @@
 | Deterministic replay | byte-identical JSON and report |
 
 Missing or contradictory evidence is never converted into a media-success verdict.
+
+## RTP/RTCP failure cases
+
+| Case | Result |
+| --- | --- |
+| RTP v2 fixed header | `OBSERVED` |
+| Marker / static or dynamic payload type | Numeric observation only; no codec inference |
+| Sequence/timestamp at boundaries | Exact numeric preservation |
+| Multiple CSRCs | Count and identifiers preserved |
+| Extension/padding | Presence and bounded metadata; extension bytes never published |
+| Missing RTP fields | `INCOMPLETE` |
+| Invalid RTP ranges | `INVALID` |
+| Truncated RTP packet | `INCOMPLETE` |
+| RTP version not 2 | `UNSUPPORTED` |
+| RTP payload field present in input | Ignored; limitation recorded; never output |
+| RTCP Sender Report | Sender fields and report blocks preserved |
+| RTCP Receiver Report | Signed cumulative loss preserved, including negative values |
+| Multiple report blocks | Nested association preserved |
+| Fraction lost / jitter | Receiver-reported values; no local conversion |
+| SDES CNAME/other items | Item type/name, presence and redacted length only |
+| BYE sources/reason | Source identifiers and redacted reason length only |
+| Compound RTCP | Component order preserved when structured input proves it |
+| Multiple components | Independent identities and references |
+| APP / RTPFB / PSFB / XR / unknown | `UNSUPPORTED`; no payload |
+| Malformed RTCP length | `INVALID` |
+| Invalid report-block binding | `AMBIGUOUS`/`INCOMPLETE`; no arbitrary SSRC |
+| Truncated compound component | `INCOMPLETE` |
+| Mixed capture provenance | Input rejected |
+| Duplicate reference | Input rejected |
+| TShark unavailable | Explicit tool-unavailable failure; capture path NOT RUN |
+| Unsupported TShark field | Explicit unsupported-field failure |
+| Explicit decode-as | Passed to TShark; no port inference |
+| Output collision | Rejected |
+| Deterministic replay | Byte-identical JSON and report |

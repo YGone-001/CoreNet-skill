@@ -47,6 +47,8 @@ jobs:
         run: python scripts/validate-sip.py
       - name: Validate sdp-rtp
         run: python scripts/validate-sdp-rtp.py
+      - name: Validate rtp-rtcp
+        run: python scripts/validate-rtp-rtcp.py
       - name: Validate ims-registration
         run: python scripts/validate-ims-registration.py
       - name: Validate ims-session
@@ -101,6 +103,8 @@ jobs:
         run: python -m unittest discover -s skills/protocol/sip/tests -p 'test_*.py' -v
       - name: Run sdp-rtp unit tests
         run: python -m unittest discover -s skills/protocol/sdp-rtp/tests -p 'test_*.py' -v
+      - name: Run rtp-rtcp unit tests
+        run: python -m unittest discover -s skills/protocol/sdp-rtp/tests -p 'test_rtp_rtcp.py' -v
       - name: Run ims-registration unit tests
         run: python -m unittest discover -s skills/domain/ims-registration/tests -p 'test_*.py' -v
       - name: Run ims-session unit tests

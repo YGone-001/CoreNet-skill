@@ -1,7 +1,7 @@
 name: sdp-rtp
-version: 0.1.0
+version: 0.2.0
 category: protocol
-description: Bounded RFC 8866 SDP structural parsing and evidence extraction.
+description: Bounded RFC 8866 SDP structural evidence plus RFC 3550 RTP/RTCP packet evidence extraction.
 scope:
   includes:
     - v/o/s/c/t/m structural parsing
@@ -28,6 +28,8 @@ outputs:
   - optional plain-text report
 protocols:
   - SDP
+  - RTP
+  - RTCP
 interfaces: []
 network_functions: []
 evidence_levels:
@@ -38,10 +40,10 @@ evidence_levels:
   - UNSUPPORTED
   - INVALID
 upstream:
-  repository: https://www.rfc-editor.org/rfc/rfc8866.txt
+  repository: https://www.rfc-editor.org/rfc/rfc8866.txt; https://www.rfc-editor.org/rfc/rfc3550.txt
   path: null
   commit: null
-  license: IETF Trust RFC 8866
+  license: IETF Trust RFC 8866 and RFC 3550
   local_modifications: Original CoreNet implementation; no upstream code imported.
 testing:
   fixtures:

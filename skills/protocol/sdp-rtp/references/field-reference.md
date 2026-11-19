@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | RFC 8866 (January 2021, obsoletes RFC 4566) | Sections 5.1-5.14 and Section 9 (SDP grammar) | Line grammar, required session order, origin/name/connection/timing/media structure, attributes, media descriptions and limits |
 | RFC 8866 | Sections 6.6, 6.7, 6.15 | `rtpmap`, media direction attributes and `fmtp` vocabulary |
+| RFC 3550 | Sections 5.1, 5.2, 5.3, 5.3.1, 6.1, 6.4, 6.5, 6.6, 6.7 | RTP fixed header/extension and RTCP SR/RR/SDES/BYE structure |
 
 The RFC was directly retrieved from the RFC Editor and reviewed for this
 implementation. The parser is bounded and does not claim complete RFC 8866
@@ -70,3 +71,64 @@ partially.
 A structurally valid `m=` line, RTP mapping, direction or BUNDLE group is observation
 of an SDP declaration. It does not prove offer/answer agreement, media negotiation,
 RTP delivery, endpoint reachability, QoS, IMS registration or call success.
+
+## RTP fixed header and extension fields
+
+| Field | Published evidence |
+| --- | --- |
+| `rtp.version` | Version 2 is the supported value; other versions `UNSUPPORTED` |
+| `rtp.padding`, `rtp.padding.count` | Padding presence/count |
+| `rtp.ext`, `rtp.ext.profile`, `rtp.ext.len` | Extension presence, profile and length; extension data never published |
+| `rtp.cc`, `rtp.csrc.item` | CSRC count and safe numeric identifiers; count mismatch is `AMBIGUOUS` |
+| `rtp.marker`, `rtp.p_type` | Marker and numeric payload type |
+| `rtp.seq`, `rtp.timestamp`, `rtp.ssrc` | Sequence, timestamp and SSRC; SSRC reference is capture-scoped |
+| `frame.number`, `frame.time_epoch`, `udp.stream`, `udp.stream.pnum` | Frame/transport provenance only; UDP stream is not an RTP session identity |
+
+A dynamic payload type is numeric evidence only. No codec, media session, subscriber
+identity or delivery verdict is derived from payload type, UDP port or SSRC.
+
+## RTCP subset
+
+| Packet family | Published evidence |
+| --- | --- |
+| SR (200) | Sender SSRC, NTP MSW/LSW and presence, RTP timestamp, sender packet/octet counts, report blocks |
+| RR (201) | Sender SSRC, report count, reported SSRC, fraction lost, signed cumulative packets lost, extended highest sequence, interarrival jitter, LSR, DLSR |
+| SDES (202) | source SSRC, item type/name, presence and redacted length; item text never published |
+| BYE (203) | source identifiers, source count, reason presence/redacted length; reason text never published |
+| APP (204) | `UNSUPPORTED`; application data never published |
+| RTPFB (205), PSFB (206) | `UNSUPPORTED`; feedback data never published |
+| XR (207), AVB (208), RSI (209) | `UNSUPPORTED` |
+| Unknown | `UNSUPPORTED`/`UNKNOWN`; no payload |
+
+Report blocks are nested under their component in structured input. Flat repeated
+arrays are not zipped by position. If component/report-block association is not proven,
+the component is `AMBIGUOUS` or `INCOMPLETE` and no arbitrary SSRC is selected.
+
+`rtcp.ssrc.cum_nr` is a signed 24-bit receiver-reported value; negative values are
+preserved. `rtcp.ssrc.fraction` and `rtcp.ssrc.jitter` are receiver-reported values.
+Jitter remains in RTP timestamp units; no millisecond or MOS conversion is performed.
+
+## Input modes
+
+- Structured JSONL: deterministic offline records with explicit nested RTCP
+  components/report blocks.
+- Authorized capture: installed TShark JSON tree, reviewed allowlist, optional explicit
+  `-d` decode-as mappings. No protocol inference from UDP ports, SDP or payload type.
+  TShark JSON compound RTCP components may be unavailable; the limitation is explicit.
+
+## TShark fields verified locally
+
+The installed TShark exposes `rtp.version`, `rtp.padding`, `rtp.ext`, `rtp.cc`,
+`rtp.marker`, `rtp.p_type`, `rtp.seq`, `rtp.timestamp`, `rtp.ssrc`, `rtcp.version`,
+`rtcp.pt`, `rtcp.length`, `rtcp.senderssrc`, `rtcp.ssrc.*`, `rtcp.sdes.*`,
+`udp.stream` and `udp.stream.pnum`. The extractor probes these fields before capture
+extraction and fails explicitly if any reviewed field is unavailable. Payload fields
+(`rtp.payload`, `udp.payload`, `rtcp.app.data`, SDES text) are never exported.
+
+## Limits
+
+- Structured input: 1,024 records, 16 RTCP components per compound packet, 31 report
+  blocks, 16 SDES chunks/items and 16 BYE sources per component.
+- RTP packet length and all numeric fields are range-validated.
+- Capture extraction is bounded by the same event limits and does not persist raw
+  TShark JSON.

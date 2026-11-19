@@ -36,3 +36,28 @@ addresses, ports, frame proximity, timestamps or filenames alone.
 All SDP bodies are consumed in memory for parsing. They are never written to the output
 JSON or report and are never sent to external services. Fixtures are synthetic and
 contain no real subscriber information.
+
+## RTP/RTCP additions
+
+Never published:
+
+- RTP media payload bytes or decoded media.
+- Raw UDP payload or raw RTP extension data.
+- SRTP encrypted payload, authentication tag or master-key identifier.
+- Raw SDES text for CNAME, NAME, EMAIL, PHONE, LOC, TOOL, NOTE or PRIV.
+- RTCP APP application data or feedback-control payload.
+- Raw endpoint IP addresses or MAC addresses.
+
+Permitted evidence:
+
+- RTP version, padding/extension presence and bounded metadata, CSRC count/numeric
+  identifiers, marker, payload type, sequence, timestamp, SSRC and packet length.
+- Capture-scoped SSRC references; numeric SSRC is not a subscriber identity.
+- SR/RR report values with explicit `RECEIVER_REPORTED`/sender-reported classes.
+- SDES item type/name, presence and redacted length.
+- BYE source identifiers and redacted reason length.
+- Capture/frame provenance and UDP stream metadata as transport conversation context.
+
+SSRC references are capture-scoped. UDP stream indexes are never renamed as RTP
+sessions. RTCP report values are not local measurements. No payload-bearing TShark
+intermediate JSON is persisted, logged or reported.

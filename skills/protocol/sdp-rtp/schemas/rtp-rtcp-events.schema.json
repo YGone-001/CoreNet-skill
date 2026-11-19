@@ -1,0 +1,837 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.local/schemas/rtp-rtcp-events.schema.json",
+  "title": "Bounded RTP and RTCP packet evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_name",
+    "analysis_version",
+    "event_schema_version",
+    "capability",
+    "input_provenance",
+    "event_count",
+    "events",
+    "completeness",
+    "limitations",
+    "not_confirmed"
+  ],
+  "properties": {
+    "analysis_name": {
+      "const": "rtp-rtcp"
+    },
+    "analysis_version": {
+      "const": "0.2.0"
+    },
+    "event_schema_version": {
+      "const": "1.0.0"
+    },
+    "capability": {
+      "const": "bounded RTP and RTCP packet evidence"
+    },
+    "input_provenance": {
+      "$ref": "#/$defs/input_provenance"
+    },
+    "event_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65536
+    },
+    "events": {
+      "type": "array",
+      "maxItems": 65536,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/rtp_event"
+          },
+          {
+            "$ref": "#/$defs/rtcp_event"
+          }
+        ]
+      }
+    },
+    "completeness": {
+      "$ref": "#/$defs/completeness"
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "not_confirmed": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    }
+  },
+  "$defs": {
+    "input_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "input_name",
+        "capture_files",
+        "capture_sha256",
+        "input_message_count",
+        "parser_version",
+        "tool",
+        "decode_as"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "STRUCTURED_JSONL",
+            "PCAP"
+          ]
+        },
+        "input_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "capture_files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "capture_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "input_message_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "parser_version": {
+          "const": "0.2.0"
+        },
+        "tool": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "decode_as": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "optional_fields_unavailable": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        }
+      }
+    },
+    "evidence_status": {
+      "type": "string",
+      "enum": [
+        "OBSERVED",
+        "INCOMPLETE",
+        "AMBIGUOUS",
+        "UNSUPPORTED",
+        "INVALID"
+      ]
+    },
+    "string_list": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 96
+      }
+    },
+    "rtp_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_reference",
+        "capture_file",
+        "capture_sha256",
+        "frame_number",
+        "frame_timestamp",
+        "frame_reference",
+        "message_occurrence",
+        "protocol",
+        "parser_version",
+        "evidence_status",
+        "version",
+        "padding",
+        "padding_count",
+        "extension",
+        "extension_profile",
+        "extension_length",
+        "csrc_count",
+        "csrc",
+        "marker",
+        "payload_type",
+        "sequence_number",
+        "timestamp",
+        "ssrc",
+        "ssrc_reference",
+        "packet_length",
+        "udp_stream",
+        "udp_stream_packet",
+        "invalid_reasons",
+        "limitations",
+        "not_confirmed"
+      ],
+      "properties": {
+        "event_reference": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"
+        },
+        "capture_file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "capture_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "frame_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "frame_timestamp": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "frame_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "message_occurrence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "protocol": {
+          "const": "RTP"
+        },
+        "parser_version": {
+          "const": "0.2.0"
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidence_status"
+        },
+        "version": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "padding": {
+          "type": "boolean"
+        },
+        "padding_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 262144
+        },
+        "extension": {
+          "type": "boolean"
+        },
+        "extension_profile": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "extension_length": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "csrc_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 15
+        },
+        "csrc": {
+          "type": "array",
+          "maxItems": 15,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        },
+        "marker": {
+          "type": "boolean"
+        },
+        "payload_type": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 127
+        },
+        "sequence_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "timestamp": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "ssrc": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "ssrc_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "packet_length": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 12,
+          "maximum": 262144
+        },
+        "udp_stream": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "udp_stream_packet": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "invalid_reasons": {
+          "$ref": "#/$defs/string_list"
+        },
+        "limitations": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        },
+        "not_confirmed": {
+          "$ref": "#/$defs/string_list"
+        }
+      }
+    },
+    "sender_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ntp_msw",
+        "ntp_lsw",
+        "ntp_present",
+        "rtp_timestamp",
+        "packet_count",
+        "octet_count"
+      ],
+      "properties": {
+        "ntp_msw": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "ntp_lsw": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "ntp_present": {
+          "type": "boolean"
+        },
+        "rtp_timestamp": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "packet_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "octet_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      }
+    },
+    "report_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reported_ssrc",
+        "fraction_lost",
+        "cumulative_packets_lost",
+        "extended_highest_sequence",
+        "interarrival_jitter",
+        "last_sr_timestamp",
+        "delay_since_last_sr",
+        "binding_status",
+        "reported_value_class"
+      ],
+      "properties": {
+        "reported_ssrc": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "fraction_lost": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "cumulative_packets_lost": {
+          "type": "integer",
+          "minimum": -8388608,
+          "maximum": 8388607
+        },
+        "extended_highest_sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "interarrival_jitter": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "last_sr_timestamp": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "delay_since_last_sr": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "binding_status": {
+          "const": "OBSERVED"
+        },
+        "reported_value_class": {
+          "const": "RECEIVER_REPORTED"
+        }
+      }
+    },
+    "sdes_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_type",
+        "item_name",
+        "value_present",
+        "value_length",
+        "value_redacted"
+      ],
+      "properties": {
+        "item_type": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "item_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "value_present": {
+          "type": "boolean"
+        },
+        "value_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "value_redacted": {
+          "const": true
+        }
+      }
+    },
+    "sdes_chunk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ssrc",
+        "items",
+        "items_omitted"
+      ],
+      "properties": {
+        "source_ssrc": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/sdes_item"
+          }
+        },
+        "items_omitted": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "rtcp_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_reference",
+        "packet_reference",
+        "capture_file",
+        "capture_sha256",
+        "frame_number",
+        "frame_timestamp",
+        "frame_reference",
+        "message_occurrence",
+        "protocol",
+        "component_index",
+        "packet_type",
+        "packet_type_name",
+        "version",
+        "length",
+        "report_count",
+        "sender_ssrc",
+        "sender_ssrc_reference",
+        "sender_report",
+        "report_blocks",
+        "sdes_chunks",
+        "bye_sources",
+        "bye_source_count",
+        "bye_reason_present",
+        "bye_reason_length",
+        "udp_stream",
+        "udp_stream_packet",
+        "evidence_status",
+        "invalid_reasons",
+        "limitations",
+        "not_confirmed"
+      ],
+      "properties": {
+        "event_reference": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"
+        },
+        "packet_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "capture_file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "capture_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "frame_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "frame_timestamp": {
+          "type": "string",
+          "minLength": 1
+        },
+        "frame_reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message_occurrence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "protocol": {
+          "const": "RTCP"
+        },
+        "component_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "packet_type": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "packet_type_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "version": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "length": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "report_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 31
+        },
+        "sender_ssrc": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "sender_ssrc_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "sender_report": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sender_report"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "report_blocks": {
+          "type": "array",
+          "maxItems": 31,
+          "items": {
+            "$ref": "#/$defs/report_block"
+          }
+        },
+        "sdes_chunks": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/sdes_chunk"
+          }
+        },
+        "bye_sources": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        },
+        "bye_source_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16
+        },
+        "bye_reason_present": {
+          "type": "boolean"
+        },
+        "bye_reason_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "udp_stream": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "udp_stream_packet": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidence_status"
+        },
+        "invalid_reasons": {
+          "$ref": "#/$defs/string_list"
+        },
+        "limitations": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        },
+        "not_confirmed": {
+          "$ref": "#/$defs/string_list"
+        }
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rtp_packet_count",
+        "rtcp_component_count",
+        "sr_component_count",
+        "rr_component_count",
+        "sdes_component_count",
+        "bye_component_count",
+        "unsupported_component_count",
+        "observed_event_count",
+        "incomplete_event_count",
+        "ambiguous_event_count",
+        "unsupported_event_count",
+        "invalid_event_count"
+      ],
+      "properties": {
+        "rtp_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rtcp_component_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sr_component_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rr_component_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sdes_component_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bye_component_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_component_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "incomplete_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguous_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid_event_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

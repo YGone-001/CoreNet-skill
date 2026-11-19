@@ -1,13 +1,16 @@
 # sdp-rtp Protocol Skill
 
-Bounded, privacy-safe structural parsing of explicitly supplied SDP bodies.
+Bounded, privacy-safe SDP structural evidence plus RTP version 2 / RTCP packet
+evidence.
 
-The parser follows the RFC 8866 line grammar and recognised media-attribute vocabulary.
-It publishes session/media structure and evidence classifications only. It does not
-extract RTP, reconstruct streams, compute RTCP statistics, interpret Offer/Answer,
+The package follows the RFC 8866 SDP grammar and a bounded RFC 3550 RTP/RTCP subset. It
+publishes protocol structure and evidence classifications only. It does not reconstruct
+streams, compute local loss/jitter, perform MOS/QoS analysis, interpret Offer/Answer,
 associate SIP dialogs, correlate media endpoints, or produce IMS media/call verdicts.
 
 ## Usage
+
+SDP:
 
 ```bash
 python3 skills/protocol/sdp-rtp/scripts/parse-sdp.py \
@@ -17,30 +20,61 @@ python3 skills/protocol/sdp-rtp/scripts/parse-sdp.py \
   --force
 ```
 
+Structured RTP/RTCP:
+
+```bash
+python3 skills/protocol/sdp-rtp/scripts/extract-rtp-rtcp.py \
+  --input skills/protocol/sdp-rtp/examples/inputs/rtp-rtcp-cases.jsonl \
+  --input-format jsonl \
+  --output /tmp/rtp-rtcp-events.json \
+  --report /tmp/rtp-rtcp-report.txt \
+  --force
+```
+
+Authorized capture input uses an installed TShark and an explicit caller-supplied
+decode mapping when needed:
+
+```bash
+python3 skills/protocol/sdp-rtp/scripts/extract-rtp-rtcp.py \
+  --input /path/to/authorized-capture.pcapng \
+  --input-format capture \
+  --decode-as udp.port==5004,rtp \
+  --output /tmp/rtp-rtcp-events.json \
+  --force
+```
+
+TShark is never installed automatically. A capture without positive RTP/RTCP dissector
+identification produces no fabricated events.
+
 Input is JSONL with `source_reference`, `capture_file`, `capture_sha256`,
 `frame_number`, `frame_reference`, `message_occurrence` and `sdp_body`. All records
 must share one capture identity.
 
 ## Output
 
-`analysis.json` contains per-message evidence status, session structure, independent
-media sections, recognised attributes, unknown attributes, redacted sensitive
-attributes, reference integrity and bounded counts. `report.txt` is a human-readable
-summary.
+SDP output contains per-message evidence status, session structure, independent media
+sections, recognised attributes, unknown attributes, redacted sensitive attributes,
+reference integrity and bounded counts. RTP/RTCP output contains packet/component
+references, RTP fixed-header fields, RTCP SR/RR report blocks, SDES item classifications,
+BYE source/reason metadata, unsupported-family classifications and explicit
+`not_confirmed` boundaries. Both text reports are human-readable summaries.
 
 ## Privacy
 
-Raw SDP bodies, IP addresses, domain names, session names, usernames, session IDs,
-ICE credentials, candidate data, fingerprints, crypto keys and arbitrary attribute
-values are never published. Only bounded classifications, lengths and safe reviewed
-metadata values are exposed.
+Raw SDP bodies, RTP/RTCP payloads, extension data, SDES text, APP data, feedback
+payload, IP addresses, domain names, session names, usernames, session IDs, ICE
+credentials, candidate data, fingerprints, crypto keys and arbitrary attribute values
+are never published. Only bounded classifications, lengths, numeric protocol fields
+and safe reviewed metadata values are exposed. SSRC values are capture-scoped protocol
+observations, never subscriber identities.
 
 ## Limitations
 
-Capture extraction, SIP-to-SDP association, SDP Offer/Answer pairing, RTP/RTCP,
-media QoS, ICE verification and IMS media semantics are outside this Skill. The
-presence of an `m=` line or a `200 OK`-adjacent SDP body does not establish media
-delivery or call success.
+RTP stream reconstruction, RTCP local statistics, local loss/jitter, MOS, media QoS,
+SDP Offer/Answer pairing, SIP-to-SDP association, SDP-to-RTP endpoint correlation, ICE
+verification and IMS media semantics are outside this Skill. RTCP report values are
+remote-reported values. An `m=` line, RTP packet, SR/RR exchange or BYE does not
+establish media delivery, two-way audio or call success.
 
 See `SKILL.md`, `references/field-reference.md`, `references/failure-cases.md` and
 `references/privacy.md`.

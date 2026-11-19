@@ -32,11 +32,21 @@ REQUIRED = (
     "scripts/sdp_model.py",
     "tests/test_sdp.py",
     "tests/sdp_fixture_builder.py",
+    "tests/test_rtp_rtcp.py",
+    "tests/rtp_rtcp_fixture_builder.py",
+    "schemas/rtp-rtcp-events.schema.json",
+    "scripts/rtp_rtcp_model.py",
+    "scripts/extract-rtp-rtcp.py",
     "examples/inputs/sdp-cases.jsonl",
+    "examples/inputs/rtp-rtcp-cases.jsonl",
     "examples/expected/sdp-analysis.json",
     "examples/expected/sdp-report.txt",
+    "examples/expected/rtp-rtcp-analysis.json",
+    "examples/expected/rtp-rtcp-report.txt",
 )
-REQUIRED_TESTS = tuple(f"test_{index:02d}_" for index in range(1, 25))
+REQUIRED_TESTS = tuple(f"test_{index:02d}_" for index in range(1, 25)) + tuple(
+    f"test_{index:02d}_" for index in range(1, 52)
+)
 PRIVATE_TOKENS = (
     "private-user",
     "private-ufrag-value",
@@ -109,7 +119,7 @@ def main() -> int:
     manifest = (SKILL / "manifest.yaml").read_text(encoding="utf-8")
     for token in (
         "name: sdp-rtp",
-        "version: 0.1.0",
+        "version: 0.2.0",
         "category: protocol",
         "RFC 8866",
     ):
