@@ -1,0 +1,63 @@
+name: ims-session
+version: 0.1.0
+category: domain
+description: >
+  Bounded IMS session establishment and release Domain evidence over accepted
+  SIP Event, Transaction and Dialog artifacts: initial INVITE attempts,
+  provisional and final response stages, independent forked dialog branches,
+  2xx and non-2xx ACK evidence, CANCEL-to-INVITE observations, BYE release
+  signaling, incomplete and ambiguous observations. No packet decoding, no
+  transaction or dialog reconstruction, no media or call-success verdict.
+scope:
+  includes:
+    - initial INVITE session-attempt anchoring to accepted transaction references
+    - 100 Trying, tagged 180 Ringing, tagged 183 Session Progress, final response and accepted 2xx evidence
+    - independent Early and Confirmed Dialog branch evidence from accepted SIP Dialog output
+    - 2xx ACK and non-2xx ACK evidence separation
+    - CANCEL request, response, association and INVITE final-response observations
+    - BYE request, final response, transaction association and dialog termination signaling evidence
+    - unbound, incomplete and ambiguous session observations
+    - re-INVITE and UPDATE retained as in-dialog observations without session-modification conclusions
+  excludes:
+    - SIP packet decoding, transaction matching or dialog identity construction
+    - call-success, call-failure, two-way audio, RTP, SDP, media delivery or QoS verdicts
+    - IMS session modification or SDP offer/answer interpretation
+    - cross-protocol subscriber identity association, Diameter Rx, Sh or charging integration
+    - P-CSCF, S-CSCF or application-server role inference
+dependencies:
+  required:
+    - sip >=0.4.0
+  optional: []
+inputs:
+  - SIP Event JSONL from the accepted SIP Protocol Skill
+  - SIP Transaction JSON from the accepted SIP Protocol Skill
+  - SIP Dialog JSON from the accepted SIP Protocol Skill
+outputs:
+  - bounded IMS session evidence analysis JSON (schemas/ims-session-analysis.schema.json)
+  - optional plain-text IMS session evidence report
+protocols:
+  - SIP
+interfaces:
+  - Gm
+  - Mw
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INFERRED
+  - HYPOTHESIS
+  - CONFIRMED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Domain-layer package; no upstream material imported.
+testing:
+  fixtures:
+    - examples/inputs/session-cases-events.jsonl
+    - examples/inputs/session-cases-transactions.json
+    - examples/inputs/session-cases-dialogs.json
+  expected_results:
+    - examples/expected/session-analysis.json
+    - examples/expected/session-report.txt

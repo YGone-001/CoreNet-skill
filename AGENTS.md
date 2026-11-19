@@ -19,7 +19,7 @@ A lower-level instruction must never silently override a higher-level one. Destr
 
 CoreNet Skill is a modular, evidence-first AI Skill repository for mobile core-network signaling analysis, troubleshooting, protocol reasoning, cross-protocol correlation, procedure-level diagnosis, failure-boundary localization, and future end-to-end fault isolation. It focuses on network signaling evidence analysis rather than implementation-specific source ownership.
 
-Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, Foundation Skills, bounded Protocol Skills, the `cross-protocol-evidence` Correlation Skill, Domain and Procedure Skills for the EPC and 5GC procedure families, and boundedly scoped Analysis Orchestration for failure-boundary localization. It does **not** implement implementation-specific source-code mappings or end-to-end fault isolation. Planned functionality must never be presented as implemented functionality.
+Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, Foundation Skills, bounded Protocol Skills, the `cross-protocol-evidence` Correlation Skill, Domain and Procedure Skills for the EPC, 5GC, IMS registration and IMS session-signaling evidence families, and boundedly scoped Analysis Orchestration for failure-boundary localization. It does **not** implement implementation-specific source-code mappings or end-to-end fault isolation. Planned functionality must never be presented as implemented functionality.
 
 ## Authoritative Documentation
 
@@ -66,6 +66,7 @@ Correlation is optional infrastructure: a Domain Skill may consume Correlation o
 Examples of valid dependencies:
 
     ims-registration -> sip -> diameter-ims
+    ims-session -> sip
     epc-procedures -> nas-eps -> s1ap -> gtpv2 -> diameter-epc
     5gc-pdu-session -> nas-5gs -> ngap -> pfcp -> sbi-http2
     cross-protocol-evidence -> ngap -> nas-5gs -> core-network-pcap
@@ -166,6 +167,9 @@ Keep transport, protocol, procedure, and implementation behavior distinct:
 - A REGISTER with `Expires: 0` and no Contact does not change the binding list and must not be published as an established de-registration; a supplied Contact is only Contact-scoped, and a Contact-specific `expires` parameter overrides the default `Expires` header for that Contact.
 - A binding-removal outcome must bind to the removal request's own REGISTER transaction and final response; an unrelated transaction's 2xx must never establish removal success.
 - A SIP authentication Challenge→Retry association requires a later authorized REGISTER after the observed challenge with a compatible CSeq; authorization present before the challenge must not be reported as a retry of it. The observed challenge response must precede the retry request in capture-local evidence order.
+- An IMS session attempt is anchored to one initial INVITE transaction; separate initial INVITE transactions must never merge merely because they share a Call-ID or nearby frames.
+- A 2xx INVITE response and its Confirmed Dialog are signaling evidence only; a missing 2xx ACK must not erase the observed response or dialog, and no result may claim call success, two-way audio or media delivery.
+- Forked Early and Confirmed Dialog branches remain independent; a CANCEL 200 OK, an INVITE 487, and a BYE 2xx are separate transaction/dialog observations and never by themselves prove RFC transaction termination, RTP teardown or end-to-end release.
 - A SIP-to-Diameter procedure association requires a privacy-safe cross-protocol subscriber identity bridge; without one, Domain evidence must remain `NOT_ESTABLISHED` or `INSUFFICIENT_EVIDENCE` and must never be inferred from filenames, timestamps, frame proximity, addresses, counts or matching protocol success.
 
 When packet-analysis functionality is authorized and implemented, prefer reproducible extraction over visual guesswork. Wireshark, tshark, and tcpdump may support workflows, but never state a field was observed unless the capture or extracted output contains it. Prefer stable correlation identifiers—subscriber, session, transaction, tunnel, dialog, or stream IDs—over timestamp-only correlation when stronger identifiers exist.
@@ -275,6 +279,9 @@ Before claiming completion, run repository-level validation appropriate to the c
     python3 -m unittest discover -s tests -p 'test_*.py' -v
     python3 -m compileall scripts
     git diff --check
+
+For IMS Registration changes, also run `python3 scripts/validate-ims-registration.py`.
+For IMS Session changes, also run `python3 scripts/validate-ims-session.py`.
 
 For EPC Evidence Review navigation changes, also run:
 

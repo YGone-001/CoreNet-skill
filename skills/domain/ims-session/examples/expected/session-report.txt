@@ -1,0 +1,39 @@
+IMS session evidence
+analysis_version: 0.1.0
+capture: synthetic-ims-session.pcapng
+sip_events: 34
+sip_transactions: 19
+sip_dialogs: 8
+session_attempts: 11
+branches: 12
+unbound_observations: 0
+in_dialog_observations: 1
+capture_completeness: COMPLETE
+attempt: ims-session:synthetic-ims-session.pcapng:1.1 / NO_RESPONSE_OBSERVED / branches=1 / ack=NOT_APPLICABLE / cancel=NO_CANCEL_OBSERVED / release=NO_BYE_OBSERVED
+attempt: ims-session:synthetic-ims-session.pcapng:2.1 / PROVISIONAL_ONLY / branches=1 / ack=NOT_APPLICABLE / cancel=NO_CANCEL_OBSERVED / release=NO_BYE_OBSERVED
+attempt: ims-session:synthetic-ims-session.pcapng:4.1 / PROVISIONAL_ONLY / branches=1 / ack=NOT_APPLICABLE / cancel=NO_CANCEL_OBSERVED / release=NO_BYE_OBSERVED
+attempt: ims-session:synthetic-ims-session.pcapng:6.1 / PROVISIONAL_ONLY / branches=1 / ack=NOT_APPLICABLE / cancel=NO_CANCEL_OBSERVED / release=NO_BYE_OBSERVED
+attempt: ims-session:synthetic-ims-session.pcapng:8.1 / ACCEPTED_2XX_OBSERVED / branches=1 / ack=MISSING_FOR_ACCEPTED_BRANCH / cancel=NO_CANCEL_OBSERVED / release=NO_BYE_OBSERVED
+attempt: ims-session:synthetic-ims-session.pcapng:10.1 / ACCEPTED_2XX_OBSERVED / branches=1 / ack=OBSERVED_FOR_ALL_ACCEPTED_BRANCHES / cancel=NO_CANCEL_OBSERVED / release=NO_BYE_OBSERVED
+attempt: ims-session:synthetic-ims-session.pcapng:13.1 / NEGATIVE_FINAL_OBSERVED / branches=1 / ack=NOT_APPLICABLE / cancel=NO_CANCEL_OBSERVED / release=NO_BYE_OBSERVED
+attempt: ims-session:synthetic-ims-session.pcapng:16.1 / ACCEPTED_2XX_OBSERVED / branches=2 / ack=OBSERVED_FOR_ALL_ACCEPTED_BRANCHES / cancel=NO_CANCEL_OBSERVED / release=NO_BYE_OBSERVED
+attempt: ims-session:synthetic-ims-session.pcapng:21.1 / NEGATIVE_FINAL_OBSERVED / branches=1 / ack=NOT_APPLICABLE / cancel=CANCEL_INVITE_SEQUENCE_OBSERVED / release=NO_BYE_OBSERVED
+attempt: ims-session:synthetic-ims-session.pcapng:25.1 / ACCEPTED_2XX_OBSERVED / branches=1 / ack=OBSERVED_FOR_ALL_ACCEPTED_BRANCHES / cancel=NO_CANCEL_OBSERVED / release=SIP_TERMINATION_SIGNALING_SUPPORTED
+attempt: ims-session:synthetic-ims-session.pcapng:30.1 / ACCEPTED_2XX_OBSERVED / branches=1 / ack=OBSERVED_FOR_ALL_ACCEPTED_BRANCHES / cancel=NO_CANCEL_OBSERVED / release=NO_BYE_OBSERVED
+not_confirmed:
+- IMS_CALL_SUCCESS
+- IMS_CALL_FAILURE
+- TWO_WAY_AUDIO
+- RTP_DELIVERY
+- EARLY_MEDIA_DELIVERY
+- SESSION_MODIFICATION
+- SUBSCRIBER_REACHABILITY
+- VOLTE_SERVICE_SUCCESS
+- SIP_TIMEOUT
+- REGISTRATION_TO_SESSION_ASSOCIATION
+- CROSS_PROTOCOL_ASSOCIATION
+limitations:
+- SIP transaction and dialog identity are consumed from the accepted SIP Protocol Skills
+- the Domain does not decode packets or reconstruct transaction or dialog identity
+- no IMS media, SDP, RTP, QoS or subscriber-reachability evidence is available
+- 3GPP TS 24.229 session procedures were not directly retrieved in this phase; IMS-specific claims are restricted

@@ -21,6 +21,11 @@ EPC boundary), and `ims-registration` (v0.1.0), performing bounded IMS registrat
 procedure evidence analysis from already-extracted SIP REGISTER transactions and
 optional independent Diameter IMS Cx/Dx observations, with evidence-gated attempt
 grouping, challenge/retry evidence, lifecycle and de-registration observations,
-fail-closed cross-protocol association and a capture-scoped timeline. The concrete
-packages do not own protocol decoding, implementation mapping, subscriber identity
-bridging, or end-to-end root-cause diagnosis.
+fail-closed cross-protocol association and a capture-scoped timeline, and
+`ims-session` (v0.1.0), performing bounded IMS session establishment and release
+signaling evidence analysis from accepted SIP Event, Transaction and Dialog artifacts,
+with initial INVITE attempt anchoring, forked Early/Confirmed Dialog branches,
+separate 2xx/non-2xx ACK evidence, CANCEL and BYE signaling observations, and
+fail-closed incomplete or ambiguous evidence. The concrete packages do not own protocol
+decoding, implementation mapping, subscriber identity bridging, media delivery,
+call-success verdicts, or end-to-end root-cause diagnosis.

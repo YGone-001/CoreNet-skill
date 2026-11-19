@@ -1,0 +1,888 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.local/schemas/ims-session-analysis.schema.json",
+  "title": "IMS session establishment and release evidence analysis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_name",
+    "analysis_version",
+    "domain",
+    "capability",
+    "input_provenance",
+    "session_attempt_count",
+    "session_attempts",
+    "unbound_observation_count",
+    "unbound_observations",
+    "in_dialog_observation_count",
+    "in_dialog_observations",
+    "completeness",
+    "limitations",
+    "not_confirmed"
+  ],
+  "properties": {
+    "analysis_name": {
+      "const": "ims-session"
+    },
+    "analysis_version": {
+      "const": "0.1.0"
+    },
+    "domain": {
+      "const": "ims-session"
+    },
+    "capability": {
+      "const": "IMS session establishment and release signaling evidence"
+    },
+    "input_provenance": {
+      "$ref": "#/$defs/input_provenance"
+    },
+    "session_attempt_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "session_attempts": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/session_attempt"
+      }
+    },
+    "unbound_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unbound_observations": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/unbound_observation"
+      }
+    },
+    "in_dialog_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "in_dialog_observations": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/in_dialog_observation"
+      }
+    },
+    "completeness": {
+      "$ref": "#/$defs/completeness"
+    },
+    "limitations": {
+      "$ref": "#/$defs/limitations"
+    },
+    "not_confirmed": {
+      "$ref": "#/$defs/not_confirmed"
+    }
+  },
+  "$defs": {
+    "reference": {
+      "type": "string",
+      "pattern": "^(?:sip-event|sip-transaction|sip-dialog|sip-fork|sip-observation|ims-session):.+:[0-9]+\\.[0-9]+$"
+    },
+    "event_reference": {
+      "type": "string",
+      "pattern": "^sip-event:.+:[0-9]+\\.[0-9]+$"
+    },
+    "transaction_reference": {
+      "type": "string",
+      "pattern": "^sip-transaction:.+:(?:request|response):[0-9]+\\.[0-9]+$"
+    },
+    "dialog_reference": {
+      "type": "string",
+      "pattern": "^sip-dialog:.+:[0-9]+\\.[0-9]+$"
+    },
+    "nullable_dialog_reference": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sip-dialog:.+:[0-9]+\\.[0-9]+$"
+    },
+    "nullable_transaction_reference": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sip-transaction:.+:(?:request|response):[0-9]+\\.[0-9]+$"
+    },
+    "reference_list": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/reference"
+      }
+    },
+    "event_reference_list": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/event_reference"
+      }
+    },
+    "dialog_reference_list": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/dialog_reference"
+      }
+    },
+    "status_code_list": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "integer",
+        "minimum": 100,
+        "maximum": 699
+      }
+    },
+    "finding_list": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "not_confirmed": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "input_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_files",
+        "event_source_name",
+        "event_sha256",
+        "event_schema_version",
+        "transaction_source_name",
+        "transaction_sha256",
+        "transaction_analysis_version",
+        "dialog_source_name",
+        "dialog_sha256",
+        "dialog_analysis_version",
+        "capture_completeness",
+        "input_status"
+      ],
+      "properties": {
+        "capture_files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "event_source_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "event_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "event_schema_version": {
+          "const": "1.0.0"
+        },
+        "transaction_source_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "transaction_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "transaction_analysis_version": {
+          "const": "1.1.0"
+        },
+        "dialog_source_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "dialog_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "dialog_analysis_version": {
+          "const": "1.1.0"
+        },
+        "capture_completeness": {
+          "type": "string",
+          "enum": [
+            "COMPLETE",
+            "PARTIAL",
+            "UNKNOWN"
+          ]
+        },
+        "input_status": {
+          "const": "ACCEPTED"
+        }
+      }
+    },
+    "stage_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "initial_invite_request_event_reference",
+        "trying_100_event_references",
+        "ringing_180_event_references",
+        "session_progress_183_event_references",
+        "untagged_provisional_event_references",
+        "provisional_response_event_references",
+        "final_response_event_references",
+        "final_response_status_codes",
+        "accepted_2xx_event_references",
+        "negative_final_event_references",
+        "early_dialog_references",
+        "confirmed_dialog_references"
+      ],
+      "properties": {
+        "initial_invite_request_event_reference": {
+          "$ref": "#/$defs/event_reference"
+        },
+        "trying_100_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "ringing_180_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "session_progress_183_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "untagged_provisional_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "provisional_response_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "final_response_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "final_response_status_codes": {
+          "$ref": "#/$defs/status_code_list"
+        },
+        "accepted_2xx_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "negative_final_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "early_dialog_references": {
+          "$ref": "#/$defs/dialog_reference_list"
+        },
+        "confirmed_dialog_references": {
+          "$ref": "#/$defs/dialog_reference_list"
+        }
+      }
+    },
+    "bye_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bye_transaction_reference",
+        "bye_request_event_references",
+        "bye_final_response_event_references",
+        "final_response_status_codes",
+        "outcome",
+        "termination_supported",
+        "missing_evidence"
+      ],
+      "properties": {
+        "bye_transaction_reference": {
+          "$ref": "#/$defs/transaction_reference"
+        },
+        "bye_request_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "bye_final_response_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "final_response_status_codes": {
+          "$ref": "#/$defs/status_code_list"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "BYE_REQUEST_OBSERVED",
+            "BYE_RESPONSE_OBSERVED",
+            "BYE_RESPONSE_NOT_OBSERVED",
+            "BYE_NEGATIVE_RESPONSE_OBSERVED"
+          ]
+        },
+        "termination_supported": {
+          "type": "boolean"
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/finding_list"
+        }
+      }
+    },
+    "branch_release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "bye_transaction_count",
+        "observations",
+        "termination_supported_dialog_references"
+      ],
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "NO_BYE_OBSERVED",
+            "BYE_REQUEST_OBSERVED",
+            "BYE_RESPONSE_OBSERVED",
+            "BYE_RESPONSE_NOT_OBSERVED",
+            "BYE_NEGATIVE_RESPONSE_OBSERVED",
+            "SIP_TERMINATION_SIGNALING_SUPPORTED"
+          ]
+        },
+        "bye_transaction_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "observations": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/bye_observation"
+          }
+        },
+        "termination_supported_dialog_references": {
+          "$ref": "#/$defs/dialog_reference_list"
+        }
+      }
+    },
+    "branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branch_reference",
+        "dialog_reference",
+        "fork_branch_reference",
+        "identity_status",
+        "dialog_state",
+        "observed_lifecycle_status",
+        "response_event_references",
+        "response_status_codes",
+        "outcome",
+        "ack_event_references",
+        "ack_status",
+        "release",
+        "missing_evidence",
+        "conflict_findings"
+      ],
+      "properties": {
+        "branch_reference": {
+          "$ref": "#/$defs/reference"
+        },
+        "dialog_reference": {
+          "$ref": "#/$defs/nullable_dialog_reference"
+        },
+        "fork_branch_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sip-fork:.+:[0-9]+\\.[0-9]+$"
+        },
+        "identity_status": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "ESTABLISHED",
+            "AMBIGUOUS",
+            "INSUFFICIENT_EVIDENCE",
+            "NOT_ESTABLISHED",
+            null
+          ]
+        },
+        "dialog_state": {
+          "type": "string",
+          "enum": [
+            "EARLY",
+            "CONFIRMED",
+            "TERMINATED",
+            "UNKNOWN"
+          ]
+        },
+        "observed_lifecycle_status": {
+          "type": "string",
+          "enum": [
+            "EARLY_OBSERVED",
+            "CONFIRMATION_OBSERVED",
+            "TERMINATION_SIGNALING_OBSERVED",
+            "INCOMPLETE_CAPTURE",
+            "UNRESOLVED"
+          ]
+        },
+        "response_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "response_status_codes": {
+          "$ref": "#/$defs/status_code_list"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "ACCEPTED_2XX",
+            "NEGATIVE_FINAL",
+            "EARLY_ONLY",
+            "PROVISIONAL_ONLY",
+            "NO_FINAL_RESPONSE",
+            "UNRESOLVED"
+          ]
+        },
+        "ack_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "ack_status": {
+          "type": "string",
+          "enum": [
+            "OBSERVED_FOR_ALL_ACCEPTED_BRANCHES",
+            "MISSING_FOR_ACCEPTED_BRANCH",
+            "NOT_APPLICABLE"
+          ]
+        },
+        "release": {
+          "$ref": "#/$defs/branch_release"
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/finding_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/finding_list"
+        }
+      }
+    },
+    "ack_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "twoxx_ack_event_references",
+        "non_twoxx_ack_event_references"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "OBSERVED_FOR_ALL_ACCEPTED_BRANCHES",
+            "MISSING_FOR_ACCEPTED_BRANCH",
+            "NOT_APPLICABLE"
+          ]
+        },
+        "twoxx_ack_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "non_twoxx_ack_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        }
+      }
+    },
+    "cancel_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "cancel_transaction_references",
+        "cancel_request_event_references",
+        "cancel_final_response_event_references",
+        "cancel_final_response_status_codes",
+        "association_status",
+        "response_sequence_observed",
+        "invite_final_response_status",
+        "invite_transaction_termination_established",
+        "missing_evidence",
+        "conflict_findings"
+      ],
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "NO_CANCEL_OBSERVED",
+            "CANCEL_REQUEST_OBSERVED",
+            "CANCEL_RESPONSE_OBSERVED",
+            "CANCEL_INVITE_SEQUENCE_OBSERVED",
+            "CANCEL_ASSOCIATION_NOT_ESTABLISHED",
+            "CANCEL_AFTER_INVITE_FINAL_RESPONSE"
+          ]
+        },
+        "cancel_transaction_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/transaction_reference"
+          }
+        },
+        "cancel_request_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "cancel_final_response_event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "cancel_final_response_status_codes": {
+          "$ref": "#/$defs/status_code_list"
+        },
+        "association_status": {
+          "type": "string",
+          "enum": [
+            "NOT_OBSERVED",
+            "ASSOCIATED",
+            "NOT_ESTABLISHED",
+            "AMBIGUOUS"
+          ]
+        },
+        "response_sequence_observed": {
+          "type": "boolean"
+        },
+        "invite_final_response_status": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 100,
+          "maximum": 699
+        },
+        "invite_transaction_termination_established": {
+          "const": false
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/finding_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/finding_list"
+        }
+      }
+    },
+    "release_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "bye_transaction_references",
+        "termination_supported_dialog_references"
+      ],
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "NO_BYE_OBSERVED",
+            "BYE_REQUEST_OBSERVED",
+            "BYE_RESPONSE_OBSERVED",
+            "BYE_RESPONSE_NOT_OBSERVED",
+            "BYE_NEGATIVE_RESPONSE_OBSERVED",
+            "SIP_TERMINATION_SIGNALING_SUPPORTED"
+          ]
+        },
+        "bye_transaction_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/transaction_reference"
+          }
+        },
+        "termination_supported_dialog_references": {
+          "$ref": "#/$defs/dialog_reference_list"
+        }
+      }
+    },
+    "session_attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_reference",
+        "capture_file",
+        "first_observed_frame",
+        "last_observed_frame",
+        "initial_invite_transaction_reference",
+        "initial_invite_event_reference",
+        "invite_outcome",
+        "stage_evidence",
+        "branch_count",
+        "branches",
+        "branches_omitted",
+        "ack_evidence",
+        "cancel_evidence",
+        "release_evidence",
+        "missing_evidence",
+        "conflict_findings",
+        "not_confirmed",
+        "evidence_class"
+      ],
+      "properties": {
+        "attempt_reference": {
+          "type": "string",
+          "pattern": "^ims-session:.+:[0-9]+\\.[0-9]+$"
+        },
+        "capture_file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "first_observed_frame": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "last_observed_frame": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "initial_invite_transaction_reference": {
+          "$ref": "#/$defs/transaction_reference"
+        },
+        "initial_invite_event_reference": {
+          "$ref": "#/$defs/event_reference"
+        },
+        "invite_outcome": {
+          "type": "string",
+          "enum": [
+            "ACCEPTED_2XX_OBSERVED",
+            "NEGATIVE_FINAL_OBSERVED",
+            "PROVISIONAL_ONLY",
+            "NO_RESPONSE_OBSERVED",
+            "INCOMPLETE_EVIDENCE"
+          ]
+        },
+        "stage_evidence": {
+          "$ref": "#/$defs/stage_evidence"
+        },
+        "branch_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "branches": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/branch"
+          }
+        },
+        "branches_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ack_evidence": {
+          "$ref": "#/$defs/ack_evidence"
+        },
+        "cancel_evidence": {
+          "$ref": "#/$defs/cancel_evidence"
+        },
+        "release_evidence": {
+          "$ref": "#/$defs/release_evidence"
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/finding_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/finding_list"
+        },
+        "not_confirmed": {
+          "$ref": "#/$defs/not_confirmed"
+        },
+        "evidence_class": {
+          "const": "DERIVED"
+        }
+      }
+    },
+    "unbound_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_reference",
+        "kind",
+        "reason",
+        "identity_status",
+        "event_references",
+        "transaction_references",
+        "candidate_dialog_references"
+      ],
+      "properties": {
+        "observation_reference": {
+          "$ref": "#/$defs/reference"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "UNBOUND",
+            "AMBIGUOUS"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "identity_status": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "ESTABLISHED",
+            "AMBIGUOUS",
+            "INSUFFICIENT_EVIDENCE",
+            "NOT_ESTABLISHED",
+            null
+          ]
+        },
+        "event_references": {
+          "$ref": "#/$defs/event_reference_list"
+        },
+        "transaction_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/transaction_reference"
+          }
+        },
+        "candidate_dialog_references": {
+          "$ref": "#/$defs/dialog_reference_list"
+        }
+      }
+    },
+    "in_dialog_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_reference",
+        "dialog_reference",
+        "transaction_reference",
+        "method",
+        "conclusion",
+        "limitations"
+      ],
+      "properties": {
+        "observation_reference": {
+          "$ref": "#/$defs/event_reference"
+        },
+        "dialog_reference": {
+          "$ref": "#/$defs/dialog_reference"
+        },
+        "transaction_reference": {
+          "$ref": "#/$defs/transaction_reference"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "INVITE",
+            "UPDATE"
+          ]
+        },
+        "conclusion": {
+          "const": "NOT_INTERPRETED"
+        },
+        "limitations": {
+          "$ref": "#/$defs/limitations"
+        }
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sip_event_count",
+        "sip_transaction_count",
+        "sip_dialog_count",
+        "initial_invite_transaction_count",
+        "session_attempt_count",
+        "attempts_omitted",
+        "branch_count",
+        "branches_omitted",
+        "unbound_observation_count",
+        "unbound_observations_omitted",
+        "in_dialog_observation_count",
+        "in_dialog_observations_omitted",
+        "capture_completeness"
+      ],
+      "properties": {
+        "sip_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sip_transaction_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sip_dialog_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "initial_invite_transaction_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "session_attempt_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attempts_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "branch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "branches_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unbound_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unbound_observations_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "in_dialog_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "in_dialog_observations_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "capture_completeness": {
+          "type": "string",
+          "enum": [
+            "COMPLETE",
+            "PARTIAL",
+            "UNKNOWN"
+          ]
+        }
+      }
+    }
+  }
+}

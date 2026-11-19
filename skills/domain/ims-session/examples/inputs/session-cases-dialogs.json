@@ -1,0 +1,809 @@
+{
+  "ambiguous_observations": [],
+  "analysis_name": "sip-dialogs",
+  "analysis_version": "1.1.0",
+  "capture_provenance": {
+    "accepted_transaction_count": 19,
+    "capture_completeness": "COMPLETE",
+    "capture_files": [
+      "synthetic-ims-session.pcapng"
+    ],
+    "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "decoder": "synthetic",
+    "input_format": "fields-jsonl",
+    "source_event_count": 34
+  },
+  "dialog_count": 8,
+  "dialog_summary": {
+    "ambiguous_observation_count": 0,
+    "dialog_state_counts": {
+      "CONFIRMED": 5,
+      "EARLY": 2,
+      "TERMINATED": 1
+    },
+    "forked_initiating_transaction_count": 1,
+    "identity_status_counts": {
+      "ESTABLISHED": 8
+    },
+    "observed_lifecycle_status_counts": {
+      "CONFIRMATION_OBSERVED": 5,
+      "EARLY_OBSERVED": 2,
+      "TERMINATION_SIGNALING_OBSERVED": 1
+    },
+    "unbound_observation_count": 0
+  },
+  "dialogs": [
+    {
+      "ack_event_references": [],
+      "associated_message_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:4.1",
+        "sip-event:synthetic-ims-session.pcapng:5.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [],
+        "initiator_direction_omitted_count": 0,
+        "initiator_direction_values": [],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-ims-session.pcapng:5.1",
+      "dialog_state": "EARLY",
+      "direction_observations": [],
+      "early_response_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:5.1"
+      ],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 4,
+      "fork_branch_reference": "sip-fork:synthetic-ims-session.pcapng:5.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [],
+      "initiating_transaction_reference": "sip-transaction:synthetic-ims-session.pcapng:request:4.1",
+      "last_observed_frame": 5,
+      "lifecycle_evidence": [
+        "tagged_provisional_response"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "EARLY_OBSERVED",
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 2,
+          "omitted_count": 0,
+          "published_count": 2
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        }
+      }
+    },
+    {
+      "ack_event_references": [],
+      "associated_message_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:6.1",
+        "sip-event:synthetic-ims-session.pcapng:7.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [],
+        "initiator_direction_omitted_count": 0,
+        "initiator_direction_values": [],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-ims-session.pcapng:7.1",
+      "dialog_state": "EARLY",
+      "direction_observations": [],
+      "early_response_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:7.1"
+      ],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 6,
+      "fork_branch_reference": "sip-fork:synthetic-ims-session.pcapng:7.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [],
+      "initiating_transaction_reference": "sip-transaction:synthetic-ims-session.pcapng:request:6.1",
+      "last_observed_frame": 7,
+      "lifecycle_evidence": [
+        "tagged_provisional_response"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "EARLY_OBSERVED",
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 2,
+          "omitted_count": 0,
+          "published_count": 2
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        }
+      }
+    },
+    {
+      "ack_event_references": [],
+      "associated_message_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:8.1",
+        "sip-event:synthetic-ims-session.pcapng:9.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:9.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [],
+        "initiator_direction_omitted_count": 0,
+        "initiator_direction_values": [],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-ims-session.pcapng:9.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 8,
+      "fork_branch_reference": "sip-fork:synthetic-ims-session.pcapng:9.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [],
+      "initiating_transaction_reference": "sip-transaction:synthetic-ims-session.pcapng:request:8.1",
+      "last_observed_frame": 9,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "confirmation_without_provisional"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 2,
+          "omitted_count": 0,
+          "published_count": 2
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        }
+      }
+    },
+    {
+      "ack_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:12.1"
+      ],
+      "associated_message_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:10.1",
+        "sip-event:synthetic-ims-session.pcapng:11.1",
+        "sip-event:synthetic-ims-session.pcapng:12.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:11.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [],
+        "initiator_direction_omitted_count": 0,
+        "initiator_direction_values": [],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-ims-session.pcapng:11.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 10,
+      "fork_branch_reference": "sip-fork:synthetic-ims-session.pcapng:11.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [],
+      "initiating_transaction_reference": "sip-transaction:synthetic-ims-session.pcapng:request:10.1",
+      "last_observed_frame": 12,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "confirmation_without_provisional",
+        "dialog_scoped_2xx_ack"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 3,
+          "omitted_count": 0,
+          "published_count": 3
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        }
+      }
+    },
+    {
+      "ack_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:19.1"
+      ],
+      "associated_message_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:16.1",
+        "sip-event:synthetic-ims-session.pcapng:17.1",
+        "sip-event:synthetic-ims-session.pcapng:19.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:17.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [],
+        "initiator_direction_omitted_count": 0,
+        "initiator_direction_values": [],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-ims-session.pcapng:17.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 16,
+      "fork_branch_reference": "sip-fork:synthetic-ims-session.pcapng:17.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [],
+      "initiating_transaction_reference": "sip-transaction:synthetic-ims-session.pcapng:request:16.1",
+      "last_observed_frame": 19,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "confirmation_without_provisional",
+        "dialog_scoped_2xx_ack"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 3,
+          "omitted_count": 0,
+          "published_count": 3
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        }
+      }
+    },
+    {
+      "ack_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:20.1"
+      ],
+      "associated_message_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:16.1",
+        "sip-event:synthetic-ims-session.pcapng:18.1",
+        "sip-event:synthetic-ims-session.pcapng:20.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:18.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [],
+        "initiator_direction_omitted_count": 0,
+        "initiator_direction_values": [],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-ims-session.pcapng:18.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 16,
+      "fork_branch_reference": "sip-fork:synthetic-ims-session.pcapng:18.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [],
+      "initiating_transaction_reference": "sip-transaction:synthetic-ims-session.pcapng:request:16.1",
+      "last_observed_frame": 20,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "confirmation_without_provisional",
+        "dialog_scoped_2xx_ack"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 3,
+          "omitted_count": 0,
+          "published_count": 3
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        }
+      }
+    },
+    {
+      "ack_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:27.1"
+      ],
+      "associated_message_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:25.1",
+        "sip-event:synthetic-ims-session.pcapng:26.1",
+        "sip-event:synthetic-ims-session.pcapng:27.1",
+        "sip-event:synthetic-ims-session.pcapng:28.1",
+        "sip-event:synthetic-ims-session.pcapng:29.1"
+      ],
+      "bye_transaction_references": [
+        "sip-transaction:synthetic-ims-session.pcapng:request:28.1"
+      ],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:26.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [
+          2
+        ],
+        "initiator_direction_omitted_count": 0,
+        "initiator_direction_values": [
+          2
+        ],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-ims-session.pcapng:26.1",
+      "dialog_state": "TERMINATED",
+      "direction_observations": [
+        "ORIGINAL"
+      ],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 25,
+      "fork_branch_reference": "sip-fork:synthetic-ims-session.pcapng:26.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [
+        "sip-transaction:synthetic-ims-session.pcapng:request:28.1"
+      ],
+      "initiating_transaction_reference": "sip-transaction:synthetic-ims-session.pcapng:request:25.1",
+      "last_observed_frame": 29,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "bye_2xx_response",
+        "confirmation_without_provisional",
+        "dialog_scoped_2xx_ack",
+        "in_dialog_bye"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "TERMINATION_SIGNALING_OBSERVED",
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 5,
+          "omitted_count": 0,
+          "published_count": 5
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        }
+      }
+    },
+    {
+      "ack_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:32.1"
+      ],
+      "associated_message_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:30.1",
+        "sip-event:synthetic-ims-session.pcapng:31.1",
+        "sip-event:synthetic-ims-session.pcapng:32.1",
+        "sip-event:synthetic-ims-session.pcapng:33.1",
+        "sip-event:synthetic-ims-session.pcapng:34.1"
+      ],
+      "bye_transaction_references": [],
+      "confirming_response_event_references": [
+        "sip-event:synthetic-ims-session.pcapng:31.1"
+      ],
+      "conflict_findings": [],
+      "cseq_observations": {
+        "assessment": "DIRECTION_AWARE_OBSERVATION_ONLY",
+        "initiator_direction_gap_observed": false,
+        "initiator_direction_observed_sequence": [
+          2
+        ],
+        "initiator_direction_omitted_count": 0,
+        "initiator_direction_values": [
+          2
+        ],
+        "responder_direction_gap_observed": false,
+        "responder_direction_observed_sequence": [],
+        "responder_direction_omitted_count": 0,
+        "responder_direction_values": [],
+        "sequence_gap_observed": false
+      },
+      "dialog_reference": "sip-dialog:synthetic-ims-session.pcapng:31.1",
+      "dialog_state": "CONFIRMED",
+      "direction_observations": [
+        "ORIGINAL"
+      ],
+      "early_response_event_references": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 30,
+      "fork_branch_reference": "sip-fork:synthetic-ims-session.pcapng:31.1",
+      "identity_status": "ESTABLISHED",
+      "in_dialog_transaction_references": [
+        "sip-transaction:synthetic-ims-session.pcapng:request:33.1"
+      ],
+      "initiating_transaction_reference": "sip-transaction:synthetic-ims-session.pcapng:request:30.1",
+      "last_observed_frame": 34,
+      "lifecycle_evidence": [
+        "accepting_invite_response",
+        "confirmation_without_provisional",
+        "dialog_scoped_2xx_ack",
+        "in_dialog_invite"
+      ],
+      "limitations": [
+        "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+        "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+        "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+        "one Call-ID may carry multiple forked dialog branches",
+        "the raw dialog identity tuple is never published",
+        "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+        "ready-state and confirmed-state branches are capture-local observations",
+        "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+        "dialog timeout is not inferred from elapsed capture time",
+        "non-INVITE dialog usages such as event subscriptions are not modelled"
+      ],
+      "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+      "omitted_associated_event_count": 0,
+      "reference_accounting": {
+        "ack_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "associated_message_event_references": {
+          "observed_unique_count": 5,
+          "omitted_count": 0,
+          "published_count": 5
+        },
+        "bye_transaction_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "confirming_response_event_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        },
+        "early_response_event_references": {
+          "observed_unique_count": 0,
+          "omitted_count": 0,
+          "published_count": 0
+        },
+        "in_dialog_transaction_references": {
+          "observed_unique_count": 1,
+          "omitted_count": 0,
+          "published_count": 1
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "SIP dialog analysis is protocol-local and does not assign IMS Domain, media, authentication or call verdicts",
+    "passive capture cannot establish which stack side is local, so dialog orientation is derived from the initiating INVITE and observed tags",
+    "missing messages at the capture boundary are incompleteness, not proof of a timeout or failure",
+    "one Call-ID may carry multiple forked dialog branches",
+    "the raw dialog identity tuple is never published",
+    "capture identity is the accepted capture file name; separately acquired captures that share a basename are not independently distinguishable by this contract"
+  ],
+  "not_confirmed": [
+    "a SIP dialog is signaling evidence only; it does not prove RTP media, two-way audio, IMS registration or call completion",
+    "ready-state and confirmed-state branches are capture-local observations",
+    "BYE signaling does not prove that media stopped or that the network delivered an end-to-end release event",
+    "dialog timeout is not inferred from elapsed capture time",
+    "non-INVITE dialog usages such as event subscriptions are not modelled"
+  ],
+  "protocol": "SIP",
+  "unbound_observations": []
+}
