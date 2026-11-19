@@ -39,12 +39,17 @@
 
 | Case | Result |
 | --- | --- |
-| Expires=0 | `DEREGISTRATION_REQUESTED` |
-| Contact expires=0 | `DEREGISTRATION_REQUESTED` |
-| Wildcard Contact | `DEREGISTRATION_REQUESTED` |
+| `Contact: *` with `Expires: 0` | `DEREGISTRATION_REQUESTED`; scope `ALL_BINDINGS` |
+| Contact `expires=0` | `DEREGISTRATION_REQUESTED`; scope `CONTACT_SCOPED` |
+| Default `Expires: 0` with a supplied Contact | `DEREGISTRATION_REQUESTED`; scope `CONTACT_SCOPED` |
+| `Expires: 0` without a Contact | Observation retained; scope `NONE`; `EXPIRES_WITHOUT_CONTACT` |
+| Contact `expires=3600` with default `Expires: 0` | Contact parameter wins; no removal scope |
+| Mixed Contacts (`0` and positive) | `CONTACT_SCOPED`; no all-bindings claim |
 | Missing Expires | `EXPIRATION_NOT_OBSERVED`; not treated as zero |
 | De-registration without response | `DEREGISTRATION_OUTCOME_UNPROVED` |
-| De-registration with 200 | `DEREGISTRATION_ACCEPTED_BY_SIP` |
+| De-registration with its own 200 | `DEREGISTRATION_ACCEPTED_BY_SIP` |
+| Unrelated transaction 200 | Not attributed; removal outcome remains unproved |
+| Challenge response observed after retry | No Challenge→Retry association |
 | 423 with Min-Expires and retry | `min_expires_evidence` plus one supported attempt |
 | No final response | `OPEN_IN_CAPTURE`; no timeout inference |
 

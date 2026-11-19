@@ -49,7 +49,10 @@ not_confirmed
 - `retry_event_references`
 - `final_response_event_references`
 - `source_frame_references`
-- `deregistration`
+- `deregistration`, containing the attempt-level summary plus
+  `transaction_observations`; each observation binds one REGISTER transaction's
+  removal request, scope, request validity, matching final response reference, response
+  code and unproved-or-supported outcome
 - `min_expires_evidence`
 - `multi_hop_candidate`
 - `cseq_observations`

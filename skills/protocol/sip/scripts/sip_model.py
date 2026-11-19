@@ -188,23 +188,92 @@ def _header_expiration(
     return present, None, present
 
 
-def _contact_expiration(raw_header: str | None) -> tuple[int | None, bool, bool, bool]:
-    """Return (expires, wildcard, non_wildcard, malformed) for Contact values."""
-    if not raw_header:
-        return None, False, False, False
-    values = [value.strip() for value in CONTACT_HEADER_PATTERN.findall(raw_header)]
-    wildcard = any(value == "*" for value in values)
-    non_wildcard = any(value != "*" for value in values)
-    expires = None
-    malformed = False
+CONTACT_BOUNDARY_STATUSES = {
+    "EXACT_ENTRY_VALUES",
+    "HEADER_OCCURRENCE_ONLY",
+    "NO_CONTACT",
+    "UNAVAILABLE",
+}
+
+
+def _empty_contact_summary(boundary: str) -> dict[str, Any]:
+    return {
+        "contact_entry_count": 0,
+        "contact_wildcard_count": 0,
+        "contact_non_wildcard_count": 0,
+        "contact_explicit_expires_count": 0,
+        "contact_zero_expires_count": 0,
+        "contact_positive_expires_count": 0,
+        "contact_malformed_expires_count": 0,
+        "contact_without_explicit_expires_count": 0,
+        "contact_boundary_status": boundary,
+        "contact_expiration_complete": False,
+    }
+
+
+def _contact_summary_from_values(values: list[int | None]) -> dict[str, Any]:
+    summary = _empty_contact_summary("EXACT_ENTRY_VALUES")
+    summary["contact_entry_count"] = len(values)
+    summary["contact_non_wildcard_count"] = len(values)
     for value in values:
+        if value is None:
+            summary["contact_without_explicit_expires_count"] += 1
+            continue
+        summary["contact_explicit_expires_count"] += 1
+        if value == 0:
+            summary["contact_zero_expires_count"] += 1
+        else:
+            summary["contact_positive_expires_count"] += 1
+    summary["contact_expiration_complete"] = True
+    return summary
+
+
+def _contact_expiration(raw_header: str | None) -> dict[str, Any]:
+    """Return privacy-safe aggregate Contact expiration evidence.
+
+    The number of accepted Contact header occurrences is reliable. Individual
+    Contact values inside one header line are not split because a SIP URI may
+    legally contain commas, so an exact per-binding count is not invented from
+    a raw header. Callers that already hold reviewed per-entry numeric values
+    can supply them through the sanitized record contract instead.
+    """
+    if raw_header is None:
+        return _empty_contact_summary("UNAVAILABLE")
+    values = [value.strip() for value in CONTACT_HEADER_PATTERN.findall(raw_header)]
+    if not values:
+        return _empty_contact_summary("NO_CONTACT")
+    summary = _empty_contact_summary("HEADER_OCCURRENCE_ONLY")
+    for value in values:
+        if value == "*":
+            summary["contact_wildcard_count"] += 1
+            continue
+        summary["contact_non_wildcard_count"] += 1
         if re.search(r";[ \t]*expires[ \t]*=", value, re.IGNORECASE):
             match = CONTACT_EXPIRES_PATTERN.search(value)
             if match:
-                expires = int(match.group(1))
+                number = int(match.group(1))
+                summary["contact_explicit_expires_count"] += 1
+                if number == 0:
+                    summary["contact_zero_expires_count"] += 1
+                else:
+                    summary["contact_positive_expires_count"] += 1
             else:
-                malformed = True
-    return expires, wildcard, non_wildcard, malformed
+                summary["contact_malformed_expires_count"] += 1
+        else:
+            summary["contact_without_explicit_expires_count"] += 1
+    summary["contact_entry_count"] = len(values)
+    return summary
+
+
+def _legacy_contact_expires(raw_header: str | None) -> int | None:
+    if raw_header is None:
+        return None
+    expires = None
+    for value in (item.strip() for item in CONTACT_HEADER_PATTERN.findall(raw_header)):
+        match = CONTACT_EXPIRES_PATTERN.search(value)
+        if match:
+            expires = int(match.group(1))
+    return expires
 
 
 def _expiration_metadata(raw_header: str | None, headers: dict[str, Any]) -> dict[str, Any]:
@@ -214,9 +283,8 @@ def _expiration_metadata(raw_header: str | None, headers: dict[str, Any]) -> dic
     min_present, min_expires, min_expires_malformed = _header_expiration(
         raw_header, MIN_EXPIRES_HEADER_PATTERN, "Min-Expires"
     )
-    contact_expires, contact_wildcard, contact_non_wildcard, contact_malformed = (
-        _contact_expiration(raw_header)
-    )
+    contact_summary = _contact_expiration(raw_header)
+    contact_expires = _legacy_contact_expires(raw_header)
     if not expires_present and headers.get("expires_seconds") is not None:
         expires_present = True
         expires = _int_text(headers.get("expires_seconds"))
@@ -233,13 +301,32 @@ def _expiration_metadata(raw_header: str | None, headers: dict[str, Any]) -> dic
         min_expires = _int_text(headers.get("min_expires_seconds"))
     if headers.get("min_expires_valid") is False:
         min_expires_malformed = True
-    if not contact_expires and headers.get("contact_expires_seconds") is not None:
+    if contact_expires is None and headers.get("contact_expires_seconds") is not None:
         contact_expires = _int_text(headers.get("contact_expires_seconds"))
     if headers.get("contact_expires_valid") is False:
-        contact_malformed = True
-    contact_wildcard = contact_wildcard or bool(headers.get("contact_wildcard"))
-    contact_non_wildcard = contact_non_wildcard or bool(headers.get("contact_non_wildcard"))
-    return {
+        contact_summary = dict(contact_summary)
+        contact_summary["contact_malformed_expires_count"] = max(
+            1, contact_summary["contact_malformed_expires_count"]
+        )
+        contact_summary["contact_expiration_complete"] = False
+    if headers.get("contact_expiration_values") is not None:
+        contact_summary = _contact_summary_from_values(
+            list(headers["contact_expiration_values"])
+        )
+    contact_summary["contact_wildcard_count"] = max(
+        contact_summary["contact_wildcard_count"],
+        1 if headers.get("contact_wildcard") else 0,
+    )
+    contact_summary["contact_non_wildcard_count"] = max(
+        contact_summary["contact_non_wildcard_count"],
+        1 if headers.get("contact_non_wildcard") else 0,
+    )
+    contact_summary["contact_entry_count"] = max(
+        contact_summary["contact_entry_count"],
+        contact_summary["contact_wildcard_count"]
+        + contact_summary["contact_non_wildcard_count"],
+    )
+    result = {
         "expires_present": expires_present,
         "expires_valid": not expires_malformed,
         "expires_seconds": expires,
@@ -247,11 +334,24 @@ def _expiration_metadata(raw_header: str | None, headers: dict[str, Any]) -> dic
         "min_expires_valid": not min_expires_malformed,
         "min_expires_seconds": min_expires,
         "contact_expires_present": contact_expires is not None,
-        "contact_expires_valid": not contact_malformed,
+        "contact_expires_valid": contact_summary["contact_malformed_expires_count"] == 0,
         "contact_expires_seconds": contact_expires,
-        "contact_wildcard": contact_wildcard,
-        "contact_non_wildcard": contact_non_wildcard,
+        "contact_wildcard": contact_summary["contact_wildcard_count"] > 0,
+        "contact_non_wildcard": contact_summary["contact_non_wildcard_count"] > 0,
+        "contact_entry_count": contact_summary["contact_entry_count"],
+        "contact_wildcard_count": contact_summary["contact_wildcard_count"],
+        "contact_non_wildcard_count": contact_summary["contact_non_wildcard_count"],
+        "contact_explicit_expires_count": contact_summary["contact_explicit_expires_count"],
+        "contact_zero_expires_count": contact_summary["contact_zero_expires_count"],
+        "contact_positive_expires_count": contact_summary["contact_positive_expires_count"],
+        "contact_malformed_expires_count": contact_summary["contact_malformed_expires_count"],
+        "contact_without_explicit_expires_count": contact_summary[
+            "contact_without_explicit_expires_count"
+        ],
+        "contact_boundary_status": contact_summary["contact_boundary_status"],
+        "contact_expiration_complete": contact_summary["contact_expiration_complete"],
     }
+    return result
 
 
 class InputError(Exception):
@@ -809,6 +909,30 @@ def _build_event(
             "route": {"count": int(headers.get("route_count") or 0)},
             "record_route": {"count": int(headers.get("record_route_count") or 0)},
             "contact": {"count": int(headers.get("contact_count") or 0)},
+            "contact_entries": {
+                "total": int(headers.get("contact_entry_count") or 0),
+                "wildcard": int(headers.get("contact_wildcard_count") or 0),
+                "non_wildcard": int(headers.get("contact_non_wildcard_count") or 0),
+                "explicit_expires": int(
+                    headers.get("contact_explicit_expires_count") or 0
+                ),
+                "zero_expires": int(headers.get("contact_zero_expires_count") or 0),
+                "positive_expires": int(
+                    headers.get("contact_positive_expires_count") or 0
+                ),
+                "malformed_expires": int(
+                    headers.get("contact_malformed_expires_count") or 0
+                ),
+                "without_explicit_expires": int(
+                    headers.get("contact_without_explicit_expires_count") or 0
+                ),
+                "boundary_status": headers.get(
+                    "contact_boundary_status", "UNAVAILABLE"
+                ),
+                "expiration_complete": bool(
+                    headers.get("contact_expiration_complete")
+                ),
+            },
             "contact_expires": {
                 "present": headers.get("contact_expires_present", headers.get("contact_expires_seconds") is not None),
                 "valid": headers.get("contact_expires_valid", True),
@@ -936,6 +1060,32 @@ def _build_message_record(
         "contact_wildcard": bool(headers.get("contact_wildcard")),
         "contact_non_wildcard": bool(headers.get("contact_non_wildcard")),
         "contact_count": int(headers.get("contact_count") or 0),
+        "contact_entry_count": int(headers.get("contact_entry_count") or 0),
+        "contact_wildcard_count": int(headers.get("contact_wildcard_count") or 0),
+        "contact_non_wildcard_count": int(
+            headers.get("contact_non_wildcard_count") or 0
+        ),
+        "contact_explicit_expires_count": int(
+            headers.get("contact_explicit_expires_count") or 0
+        ),
+        "contact_zero_expires_count": int(
+            headers.get("contact_zero_expires_count") or 0
+        ),
+        "contact_positive_expires_count": int(
+            headers.get("contact_positive_expires_count") or 0
+        ),
+        "contact_malformed_expires_count": int(
+            headers.get("contact_malformed_expires_count") or 0
+        ),
+        "contact_without_explicit_expires_count": int(
+            headers.get("contact_without_explicit_expires_count") or 0
+        ),
+        "contact_boundary_status": headers.get(
+            "contact_boundary_status", "UNAVAILABLE"
+        ),
+        "contact_expiration_complete": bool(
+            headers.get("contact_expiration_complete")
+        ),
         "authorization_count": int(headers.get("authorization_count") or 0),
         "proxy_authorization_count": int(headers.get("proxy_authorization_count") or 0),
         "www_authenticate_count": int(headers.get("www_authenticate_count") or 0),
@@ -1139,6 +1289,7 @@ _HEADER_KEYS = {
     "contact_expires_seconds",
     "contact_expires_present",
     "contact_expires_valid",
+    "contact_expiration_values",
     "contact_wildcard",
     "contact_non_wildcard",
 }
@@ -1208,6 +1359,69 @@ def _jsonl_transport(raw: Any) -> dict[str, Any]:
         "segment_count": segment_count,
         "encrypted": False,
     }
+
+
+def _jsonl_contact_summary(
+    raw: dict[str, Any],
+    *,
+    contact_count: int,
+    contact_expires: int | None,
+    contact_wildcard: bool,
+    contact_non_wildcard: bool,
+    contact_malformed: bool,
+) -> dict[str, Any]:
+    values = raw.get("contact_expiration_values")
+    if values is not None:
+        if not isinstance(values, list):
+            raise InputError("headers.contact_expiration_values must be an array")
+        normalized: list[int | None] = []
+        for item in values:
+            if item is None:
+                normalized.append(None)
+                continue
+            if isinstance(item, bool) or not isinstance(item, int) or item < 0:
+                raise InputError(
+                    "headers.contact_expiration_values entries must be non-negative integers or null"
+                )
+            normalized.append(item)
+        summary = _contact_summary_from_values(normalized)
+        summary["contact_wildcard_count"] = 1 if contact_wildcard else 0
+        summary["contact_entry_count"] = len(normalized) + summary["contact_wildcard_count"]
+        summary["contact_expiration_complete"] = not contact_malformed
+        return summary
+
+    summary = _empty_contact_summary("NO_CONTACT")
+    summary["contact_wildcard_count"] = 1 if contact_wildcard else 0
+    implied = 1 if (contact_non_wildcard or contact_expires is not None) else 0
+    non_wildcard_entries = max(0, contact_count - summary["contact_wildcard_count"])
+    if non_wildcard_entries == 0:
+        non_wildcard_entries = implied
+    summary["contact_non_wildcard_count"] = non_wildcard_entries
+    summary["contact_entry_count"] = (
+        summary["contact_wildcard_count"] + non_wildcard_entries
+    )
+    if non_wildcard_entries == 0:
+        return summary
+    if non_wildcard_entries == 1:
+        if contact_malformed:
+            summary["contact_malformed_expires_count"] = 1
+        elif contact_expires is None:
+            summary["contact_without_explicit_expires_count"] = 1
+            summary["contact_expiration_complete"] = True
+        else:
+            summary["contact_explicit_expires_count"] = 1
+            if contact_expires == 0:
+                summary["contact_zero_expires_count"] = 1
+            else:
+                summary["contact_positive_expires_count"] = 1
+            summary["contact_expiration_complete"] = True
+        return summary
+    summary["contact_boundary_status"] = "HEADER_OCCURRENCE_ONLY"
+    if contact_malformed:
+        summary["contact_malformed_expires_count"] = non_wildcard_entries
+    else:
+        summary["contact_without_explicit_expires_count"] = non_wildcard_entries
+    return summary
 
 
 def _jsonl_headers(raw: Any) -> dict[str, Any]:
@@ -1282,6 +1496,38 @@ def _jsonl_headers(raw: Any) -> dict[str, Any]:
         if not isinstance(value, bool):
             raise InputError(f"headers.{label} must be a boolean")
         expiration_values[label] = value
+    contact_summary = _jsonl_contact_summary(
+        raw,
+        contact_count=count_values["contact_count"],
+        contact_expires=expiration_values["contact_expires_seconds"],
+        contact_wildcard=expiration_values["contact_wildcard"],
+        contact_non_wildcard=expiration_values["contact_non_wildcard"],
+        contact_malformed=not expiration_values["contact_expires_valid"],
+    )
+    expiration_values.update(
+        {
+            "contact_entry_count": contact_summary["contact_entry_count"],
+            "contact_wildcard_count": contact_summary["contact_wildcard_count"],
+            "contact_non_wildcard_count": contact_summary["contact_non_wildcard_count"],
+            "contact_explicit_expires_count": contact_summary[
+                "contact_explicit_expires_count"
+            ],
+            "contact_zero_expires_count": contact_summary["contact_zero_expires_count"],
+            "contact_positive_expires_count": contact_summary[
+                "contact_positive_expires_count"
+            ],
+            "contact_malformed_expires_count": contact_summary[
+                "contact_malformed_expires_count"
+            ],
+            "contact_without_explicit_expires_count": contact_summary[
+                "contact_without_explicit_expires_count"
+            ],
+            "contact_boundary_status": contact_summary["contact_boundary_status"],
+            "contact_expiration_complete": contact_summary[
+                "contact_expiration_complete"
+            ],
+        }
+    )
     return {
         "method": raw.get("method"),
         "status_code": raw.get("status_code"),

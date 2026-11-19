@@ -48,6 +48,8 @@ def rec(
     proxy_auth_challenge: int = 0,
     expires: int | None = None,
     contact_expires: int | None = None,
+    contact_expiration_values: list[int | None] | None = None,
+    contact_count: int | None = None,
     contact_wildcard: bool = False,
     contact_non_wildcard: bool = False,
     expires_present: bool | None = None,
@@ -77,10 +79,25 @@ def rec(
         "proxy_authorization_count": proxy_auth,
         "www_authenticate_count": www_auth,
         "proxy_authenticate_count": proxy_auth_challenge,
-        "contact_count": 0,
+        "contact_count": contact_count if contact_count is not None else (
+            (1 if contact_wildcard else 0)
+            + (
+                len(contact_expiration_values)
+                if contact_expiration_values is not None
+                else (
+                    1
+                    if contact_non_wildcard
+                    or contact_expires is not None
+                    or contact_expires_present is not None
+                    else 0
+                )
+            )
+        ),
         "contact_wildcard": contact_wildcard,
         "contact_non_wildcard": contact_non_wildcard,
     }
+    if contact_expiration_values is not None:
+        headers["contact_expiration_values"] = list(contact_expiration_values)
     for key, value in (
         ("expires_seconds", expires),
         ("contact_expires_seconds", contact_expires),
@@ -627,7 +644,14 @@ class AuthenticationEdges(unittest.TestCase):
                 {"cseq_number": 3, "authorization_count": 1},
             ],
         }
-        association = ims_registration_model._challenge_retry_association(synthetic, {})
+        association = ims_registration_model._challenge_retry_association(
+            synthetic,
+            {
+                "sip-event:test:2.1": {"status_code": 401},
+                "sip-event:test:4.1": {"status_code": 200},
+                "sip-event:test:6.1": {"status_code": 200},
+            },
+        )
         self.assertEqual(association["status"], "AMBIGUOUS")
         self.assertIn("MULTIPLE_RETRY_CANDIDATES", association["conflict_findings"])
 
@@ -719,12 +743,18 @@ class LifecycleEvidence(unittest.TestCase):
         )
         self.assertIn("positive_expires", attempt(document)["registration_type_evidence"])
 
-    def test_expires_zero_is_deregistration(self) -> None:
+    def test_expires_zero_with_contact_is_contact_scoped_deregistration(self) -> None:
         document, _ = run(
-            [rec(1, method="REGISTER", expires=0), rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False)]
+            [
+                rec(1, method="REGISTER", expires=0, contact_expiration_values=[None]),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
         )
-        self.assertEqual(attempt(document)["registration_type"], "DEREGISTRATION_REQUESTED")
-        self.assertTrue(attempt(document)["deregistration"]["accepted_by_sip"])
+        item = attempt(document)
+        self.assertEqual(item["registration_type"], "DEREGISTRATION_REQUESTED")
+        self.assertTrue(item["deregistration"]["accepted_by_sip"])
+        self.assertEqual(item["deregistration"]["scope"], "CONTACT_SCOPED")
+        self.assertFalse(item["deregistration"]["valid_all_bindings_request"])
 
     def test_contact_specific_expiration(self) -> None:
         document, _ = run(
@@ -780,13 +810,17 @@ class LifecycleEvidence(unittest.TestCase):
         self.assertEqual(deregistration["scope"], "CONTACT_SCOPED")
         self.assertFalse(deregistration["valid_all_bindings_request"])
 
-    def test_explicit_expires_zero_without_wildcard_is_all_bindings(self) -> None:
+    def test_expires_zero_without_contact_is_not_deregistration(self) -> None:
         document, _ = run(
             [rec(1, method="REGISTER", expires=0), rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False)]
         )
         deregistration = attempt(document)["deregistration"]
-        self.assertEqual(deregistration["scope"], "ALL_BINDINGS")
-        self.assertTrue(deregistration["valid_all_bindings_request"])
+        self.assertEqual(deregistration["scope"], "NONE")
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+        self.assertIn("EXPIRES_WITHOUT_CONTACT", deregistration["invalidity"])
+        self.assertNotEqual(
+            attempt(document)["registration_type"], "DEREGISTRATION_REQUESTED"
+        )
 
     def test_absent_expiration_is_not_zero(self) -> None:
         document, _ = run([rec(1, method="REGISTER")])
@@ -824,13 +858,574 @@ class LifecycleEvidence(unittest.TestCase):
 
     def test_deregistration_with_200(self) -> None:
         document, _ = run(
-            [rec(1, method="REGISTER", expires=0), rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False)]
+            [
+                rec(1, method="REGISTER", contact_expiration_values=[0]),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
         )
         self.assertEqual(attempt(document)["deregistration"]["outcome"], "DEREGISTRATION_ACCEPTED_BY_SIP")
 
     def test_deregistration_without_final_response(self) -> None:
-        document, _ = run([rec(1, method="REGISTER", expires=0)])
+        document, _ = run([rec(1, method="REGISTER", contact_expiration_values=[0])])
         self.assertEqual(attempt(document)["deregistration"]["outcome"], "DEREGISTRATION_OUTCOME_UNPROVED")
+
+
+class ContactBindingScope(unittest.TestCase):
+    def test_wildcard_with_expires_zero_is_all_bindings(self) -> None:
+        document, _ = run(
+            [rec(1, method="REGISTER", contact_wildcard=True, expires=0)]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["scope"], "ALL_BINDINGS")
+        self.assertTrue(deregistration["valid_all_bindings_request"])
+        self.assertTrue(deregistration["request_observed"])
+
+    def test_wildcard_without_expires_is_not_all_bindings(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", contact_wildcard=True),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["scope"], "NONE")
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+        self.assertIn("WILDCARD_WITHOUT_EXPIRES", deregistration["invalidity"])
+
+    def test_wildcard_with_nonzero_expires_is_not_all_bindings(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", contact_wildcard=True, expires=3600),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["scope"], "NONE")
+        self.assertIn("WILDCARD_WITH_NONZERO_EXPIRES", deregistration["invalidity"])
+
+    def test_wildcard_with_another_contact_is_not_all_bindings(self) -> None:
+        document, _ = run(
+            [
+                rec(
+                    1,
+                    method="REGISTER",
+                    contact_wildcard=True,
+                    contact_expiration_values=[None],
+                    expires=0,
+                ),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["scope"], "NONE")
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+        self.assertIn("WILDCARD_WITH_ADDITIONAL_CONTACT", deregistration["invalidity"])
+
+    def test_one_contact_with_default_expires_zero_is_contact_scoped(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", expires=0, contact_expiration_values=[None]),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        observation = attempt(document)["deregistration"]["transaction_observations"][0]
+        self.assertEqual(observation["scope"], "CONTACT_SCOPED")
+        self.assertFalse(observation["valid_all_bindings_request"])
+
+    def test_one_contact_with_explicit_expires_zero_is_contact_scoped(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", contact_expiration_values=[0]),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        observation = attempt(document)["deregistration"]["transaction_observations"][0]
+        self.assertEqual(observation["scope"], "CONTACT_SCOPED")
+        self.assertTrue(observation["request_valid"])
+
+    def test_expires_zero_without_contact_is_not_removal(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", expires=0),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["scope"], "NONE")
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+        self.assertIn("EXPIRES_WITHOUT_CONTACT", deregistration["invalidity"])
+        self.assertEqual(deregistration["outcome"], "DEREGISTRATION_OUTCOME_UNPROVED")
+
+    def test_expires_zero_with_one_non_wildcard_contact_is_contact_scoped(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", expires=0, contact_non_wildcard=True),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        observation = attempt(document)["deregistration"]["transaction_observations"][0]
+        self.assertEqual(observation["scope"], "CONTACT_SCOPED")
+        self.assertFalse(observation["valid_all_bindings_request"])
+
+    def test_expires_zero_with_several_contacts_is_contact_scoped(self) -> None:
+        document, _ = run(
+            [
+                rec(
+                    1,
+                    method="REGISTER",
+                    expires=0,
+                    contact_expiration_values=[None, None, None],
+                ),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["scope"], "CONTACT_SCOPED")
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+        self.assertEqual(deregistration["contact_entry_count"], 3)
+
+    def test_positive_contact_expiration_overrides_expires_zero(self) -> None:
+        document, _ = run(
+            [
+                rec(
+                    1,
+                    method="REGISTER",
+                    expires=0,
+                    contact_expiration_values=[3600],
+                ),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["scope"], "NONE")
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+        self.assertIn(
+            "CONTACT_EXPIRATION_OVERRIDES_EXPIRES", deregistration["invalidity"]
+        )
+
+    def test_two_contacts_with_different_expiration(self) -> None:
+        document, _ = run(
+            [
+                rec(
+                    1,
+                    method="REGISTER",
+                    contact_expiration_values=[0, 3600],
+                ),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        observation = deregistration["transaction_observations"][0]
+        self.assertEqual(observation["scope"], "CONTACT_SCOPED")
+        self.assertTrue(observation["mixed_contact_expiration"])
+        self.assertFalse(observation["valid_all_bindings_request"])
+
+    def test_several_contacts_one_zero_others_positive(self) -> None:
+        document, _ = run(
+            [
+                rec(
+                    1,
+                    method="REGISTER",
+                    contact_expiration_values=[0, 1800, 3600],
+                ),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertTrue(deregistration["mixed_contact_expiration"])
+        self.assertEqual(deregistration["contact_zero_expires_count"], 1)
+        self.assertEqual(deregistration["contact_positive_expires_count"], 2)
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+
+    def test_malformed_contact_expires_is_retained_without_bindings_claim(self) -> None:
+        document, _ = run(
+            [
+                rec(
+                    1,
+                    method="REGISTER",
+                    contact_expires_present=True,
+                    contact_expires_valid=False,
+                ),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["scope"], "NONE")
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+        self.assertIn("CONTACT_EXPIRES_MALFORMED", deregistration["invalidity"])
+
+    def test_invalid_expires_header_is_invalid_evidence(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", expires_present=True, expires_valid=False),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["scope"], "NONE")
+        self.assertIn("EXPIRES_MALFORMED", deregistration["invalidity"])
+
+    def test_contact_removal_without_final_response(self) -> None:
+        document, _ = run([rec(1, method="REGISTER", contact_expiration_values=[0])])
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["outcome"], "DEREGISTRATION_OUTCOME_UNPROVED")
+        observation = deregistration["transaction_observations"][0]
+        self.assertFalse(observation["response_observed"])
+        self.assertIn("FINAL_RESPONSE_NOT_OBSERVED", observation["missing_evidence"])
+
+    def test_contact_removal_with_matched_200(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", contact_expiration_values=[0]),
+                rec(2, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        observation = attempt(document)["deregistration"]["transaction_observations"][0]
+        self.assertEqual(observation["outcome"], "DEREGISTRATION_ACCEPTED_BY_SIP")
+        self.assertEqual(observation["response_code"], 200)
+
+    def test_contact_removal_with_matched_negative_response(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", contact_expiration_values=[0]),
+                rec(
+                    2,
+                    status=403,
+                    cseq_method="REGISTER",
+                    to_tag="T",
+                    outbound=False,
+                    reason="Forbidden",
+                ),
+            ]
+        )
+        observation = attempt(document)["deregistration"]["transaction_observations"][0]
+        self.assertEqual(observation["outcome"], "DEREGISTRATION_RESPONSE_OBSERVED")
+        self.assertEqual(observation["response_code"], 403)
+
+    def test_unrelated_200_does_not_establish_removal(self) -> None:
+        document, _ = run(
+            [
+                rec(
+                    1,
+                    method="REGISTER",
+                    branch="z9hG4bK-A",
+                    contact_expiration_values=[0],
+                ),
+                rec(
+                    2,
+                    method="REGISTER",
+                    branch="z9hG4bK-B",
+                    expires=3600,
+                ),
+                rec(
+                    3,
+                    status=200,
+                    branch="z9hG4bK-B",
+                    cseq_method="REGISTER",
+                    to_tag="T",
+                    outbound=False,
+                ),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(deregistration["outcome"], "DEREGISTRATION_OUTCOME_UNPROVED")
+        self.assertFalse(deregistration["accepted_by_sip"])
+        self.assertFalse(deregistration["valid_all_bindings_request"])
+        self.assertEqual(len(deregistration["transaction_observations"]), 1)
+        self.assertIsNone(
+            deregistration["transaction_observations"][0]["response_event_reference"]
+        )
+
+    def test_repeated_retransmissions_do_not_duplicate_removal_claims(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", contact_expiration_values=[0]),
+                rec(2, method="REGISTER", contact_expiration_values=[0]),
+                rec(3, status=200, cseq_method="REGISTER", to_tag="T", outbound=False),
+            ]
+        )
+        deregistration = attempt(document)["deregistration"]
+        self.assertEqual(len(deregistration["transaction_observations"]), 1)
+        self.assertEqual(
+            len(
+                {
+                    item["transaction_reference"]
+                    for item in deregistration["transaction_observations"]
+                }
+            ),
+            1,
+        )
+
+    def test_mid_capture_removal_remains_incomplete(self) -> None:
+        document, _ = run(
+            [rec(1, method="REGISTER", contact_expiration_values=[0], truncated=True)]
+        )
+        item = attempt(document)
+        self.assertEqual(item["sip_outcome"], "OPEN_IN_CAPTURE")
+        self.assertEqual(item["deregistration"]["outcome"], "DEREGISTRATION_OUTCOME_UNPROVED")
+        self.assertIn("FINAL_RESPONSE_NOT_OBSERVED", item["missing_evidence"])
+
+
+class ChallengeTemporalOrdering(unittest.TestCase):
+    def _association(self, challenge_status: int, **overrides) -> dict:
+        synthetic = {
+            "transactions": [
+                {
+                    "transaction_reference": "sip-transaction:test:request:1.1",
+                    "final_response_status_codes": [challenge_status],
+                    "request_event_references": ["sip-event:test:1.1"],
+                    "final_response_event_references": ["sip-event:test:2.1"],
+                },
+                {
+                    "transaction_reference": "sip-transaction:test:request:3.1",
+                    "final_response_status_codes": [200],
+                    "request_event_references": ["sip-event:test:3.1"],
+                    "final_response_event_references": ["sip-event:test:4.1"],
+                },
+            ],
+            "request_matches": [
+                {"cseq_number": 1, "authorization_count": 0, "proxy_authorization_count": 0},
+                {"cseq_number": 2, "authorization_count": 1, "proxy_authorization_count": 1},
+            ],
+        }
+        synthetic.update(overrides)
+        return ims_registration_model._challenge_retry_association(
+            synthetic,
+            {
+                "sip-event:test:1.1": {"status_code": None},
+                "sip-event:test:2.1": {"status_code": challenge_status},
+                "sip-event:test:3.1": {"status_code": None},
+                "sip-event:test:5.1": {"status_code": challenge_status},
+                "sip-event:test:6.1": {"status_code": challenge_status},
+            },
+        )
+
+    def test_register_401_authorized_register(self) -> None:
+        association = self._association(401)
+        self.assertEqual(association["status"], "ASSOCIATED")
+        self.assertIn("challenge_response_precedes_retry", association["basis"])
+
+    def test_register_407_proxy_authorized_register(self) -> None:
+        association = self._association(407)
+        self.assertEqual(association["status"], "ASSOCIATED")
+
+    def test_authorized_retry_before_delayed_challenge_is_not_associated(self) -> None:
+        association = self._association(
+            401,
+            transactions=[
+                {
+                    "transaction_reference": "sip-transaction:test:request:1.1",
+                    "final_response_status_codes": [401],
+                    "request_event_references": ["sip-event:test:1.1"],
+                    "final_response_event_references": ["sip-event:test:5.1"],
+                },
+                {
+                    "transaction_reference": "sip-transaction:test:request:3.1",
+                    "final_response_status_codes": [200],
+                    "request_event_references": ["sip-event:test:3.1"],
+                    "final_response_event_references": ["sip-event:test:4.1"],
+                },
+            ],
+        )
+        self.assertEqual(association["status"], "NOT_ASSOCIATED")
+        self.assertIn(
+            "CHALLENGE_RESPONSE_NOT_BEFORE_RETRY", association["conflict_findings"]
+        )
+
+    def test_out_of_order_packet_records_are_insufficient(self) -> None:
+        association = self._association(
+            401,
+            transactions=[
+                {
+                    "transaction_reference": "sip-transaction:test:request:4.1",
+                    "final_response_status_codes": [401],
+                    "request_event_references": ["sip-event:test:4.1"],
+                    "final_response_event_references": ["sip-event:test:6.1"],
+                },
+                {
+                    "transaction_reference": "sip-transaction:test:request:2.1",
+                    "final_response_status_codes": [200],
+                    "request_event_references": ["sip-event:test:2.1"],
+                    "final_response_event_references": ["sip-event:test:3.1"],
+                },
+            ],
+        )
+        self.assertNotEqual(association["status"], "ASSOCIATED")
+        self.assertIn(
+            "CHALLENGE_RESPONSE_NOT_BEFORE_RETRY", association["conflict_findings"]
+        )
+
+    def test_missing_challenge_response_reference_is_insufficient(self) -> None:
+        association = self._association(
+            401,
+            transactions=[
+                {
+                    "transaction_reference": "sip-transaction:test:request:1.1",
+                    "final_response_status_codes": [401],
+                    "request_event_references": ["sip-event:test:1.1"],
+                    "final_response_event_references": [],
+                },
+                {
+                    "transaction_reference": "sip-transaction:test:request:3.1",
+                    "final_response_status_codes": [200],
+                    "request_event_references": ["sip-event:test:3.1"],
+                    "final_response_event_references": ["sip-event:test:4.1"],
+                },
+            ],
+        )
+        self.assertEqual(association["status"], "CHALLENGE_WITHOUT_RETRY")
+        self.assertIn("FINAL_RESPONSE_NOT_OBSERVED", association["missing_evidence"])
+
+    def test_multiple_messages_in_one_frame_use_occurrence_order(self) -> None:
+        synthetic = {
+            "transactions": [
+                {
+                    "transaction_reference": "sip-transaction:test:request:1.1",
+                    "final_response_status_codes": [401],
+                    "request_event_references": ["sip-event:test:1.1"],
+                    "final_response_event_references": ["sip-event:test:2.1"],
+                },
+                {
+                    "transaction_reference": "sip-transaction:test:request:2.2",
+                    "final_response_status_codes": [200],
+                    "request_event_references": ["sip-event:test:2.2"],
+                    "final_response_event_references": ["sip-event:test:3.1"],
+                },
+            ],
+            "request_matches": [
+                {"cseq_number": 1, "authorization_count": 0},
+                {"cseq_number": 2, "authorization_count": 1},
+            ],
+        }
+        association = ims_registration_model._challenge_retry_association(
+            synthetic,
+            {"sip-event:test:2.1": {"status_code": 401}},
+        )
+        self.assertEqual(association["status"], "ASSOCIATED")
+        self.assertEqual(
+            association["retry_request_event_reference"], "sip-event:test:2.2"
+        )
+
+    def test_repeated_challenge_response_keeps_single_retry(self) -> None:
+        synthetic = {
+            "transactions": [
+                {
+                    "transaction_reference": "sip-transaction:test:request:1.1",
+                    "final_response_status_codes": [401],
+                    "request_event_references": ["sip-event:test:1.1"],
+                    "final_response_event_references": [
+                        "sip-event:test:2.1",
+                        "sip-event:test:2.1",
+                    ],
+                },
+                {
+                    "transaction_reference": "sip-transaction:test:request:3.1",
+                    "final_response_status_codes": [200],
+                    "request_event_references": ["sip-event:test:3.1"],
+                    "final_response_event_references": ["sip-event:test:4.1"],
+                },
+            ],
+            "request_matches": [
+                {"cseq_number": 1, "authorization_count": 0},
+                {"cseq_number": 2, "authorization_count": 1},
+            ],
+        }
+        association = ims_registration_model._challenge_retry_association(
+            synthetic, {"sip-event:test:2.1": {"status_code": 401}}
+        )
+        self.assertEqual(association["status"], "ASSOCIATED")
+        self.assertEqual(
+            association["challenge_response_event_reference"], "sip-event:test:2.1"
+        )
+
+    def test_competing_retries_are_ambiguous(self) -> None:
+        synthetic = {
+            "transactions": [
+                {
+                    "transaction_reference": "sip-transaction:test:request:1.1",
+                    "final_response_status_codes": [401],
+                    "request_event_references": ["sip-event:test:1.1"],
+                    "final_response_event_references": ["sip-event:test:2.1"],
+                },
+                {
+                    "transaction_reference": "sip-transaction:test:request:3.1",
+                    "final_response_status_codes": [200],
+                    "request_event_references": ["sip-event:test:3.1"],
+                    "final_response_event_references": ["sip-event:test:4.1"],
+                },
+                {
+                    "transaction_reference": "sip-transaction:test:request:5.1",
+                    "final_response_status_codes": [200],
+                    "request_event_references": ["sip-event:test:5.1"],
+                    "final_response_event_references": ["sip-event:test:6.1"],
+                },
+            ],
+            "request_matches": [
+                {"cseq_number": 1, "authorization_count": 0},
+                {"cseq_number": 2, "authorization_count": 1},
+                {"cseq_number": 3, "authorization_count": 1},
+            ],
+        }
+        association = ims_registration_model._challenge_retry_association(
+            synthetic, {"sip-event:test:2.1": {"status_code": 401}}
+        )
+        self.assertEqual(association["status"], "AMBIGUOUS")
+        self.assertIn("MULTIPLE_RETRY_CANDIDATES", association["conflict_findings"])
+
+    def test_different_capture_identities_are_not_associated(self) -> None:
+        synthetic = {
+            "transactions": [
+                {
+                    "transaction_reference": "sip-transaction:one:request:1.1",
+                    "final_response_status_codes": [401],
+                    "request_event_references": ["sip-event:one:1.1"],
+                    "final_response_event_references": ["sip-event:one:2.1"],
+                },
+                {
+                    "transaction_reference": "sip-transaction:two:request:3.1",
+                    "final_response_status_codes": [200],
+                    "request_event_references": ["sip-event:two:3.1"],
+                    "final_response_event_references": ["sip-event:two:4.1"],
+                },
+            ],
+            "request_matches": [
+                {"cseq_number": 1, "authorization_count": 0},
+                {"cseq_number": 2, "authorization_count": 1},
+            ],
+        }
+        association = ims_registration_model._challenge_retry_association(
+            synthetic, {"sip-event:one:2.1": {"status_code": 401}}
+        )
+        self.assertNotEqual(association["status"], "ASSOCIATED")
+        self.assertIn("CAPTURE_IDENTITY_MISMATCH", association["conflict_findings"])
+
+    def test_association_source_references_are_observed_events(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", cseq=1),
+                rec(
+                    2,
+                    status=401,
+                    cseq=1,
+                    cseq_method="REGISTER",
+                    to_tag="T1",
+                    outbound=False,
+                    www_auth=1,
+                ),
+                rec(3, method="REGISTER", branch="z9hG4bK-B", cseq=2, auth=1),
+            ]
+        )
+        item = attempt(document)
+        association = item["challenge_retry_association"]
+        self.assertEqual(association["status"], "ASSOCIATED")
+        self.assertIn(
+            association["challenge_response_event_reference"],
+            item["response_event_references"],
+        )
+        self.assertIn(
+            association["retry_request_event_reference"],
+            item["request_event_references"],
+        )
 
 
 class NegativeOutcomes(unittest.TestCase):

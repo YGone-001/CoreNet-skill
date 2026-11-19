@@ -164,6 +164,7 @@
       "challenge_retry_association": {
         "basis": [
           "challenge_observed",
+          "challenge_response_precedes_retry",
           "later_register_observed",
           "cseq_increased",
           "authorization_present"
@@ -264,6 +265,7 @@
       "challenge_retry_association": {
         "basis": [
           "challenge_observed",
+          "challenge_response_precedes_retry",
           "later_register_observed",
           "cseq_increased",
           "authorization_present"
@@ -816,7 +818,10 @@
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
-      "conflict_findings": [],
+      "conflict_findings": [
+        "EXPIRES_WITHOUT_CONTACT",
+        "INVALID_DEREGISTRATION_REQUEST"
+      ],
       "cseq_observations": {
         "progression": "SINGLE_OBSERVATION",
         "values": [
@@ -825,16 +830,52 @@
       },
       "deregistration": {
         "accepted_by_sip": true,
+        "contact_entry_count": 0,
+        "contact_expiration_complete": false,
         "contact_expires_seconds": null,
+        "contact_malformed_expires_count": 0,
         "contact_non_wildcard": false,
+        "contact_positive_expires_count": 0,
         "contact_wildcard": false,
+        "contact_without_explicit_expires_count": 0,
+        "contact_zero_expires_count": 0,
         "expires_seconds": 0,
-        "invalidity": [],
-        "outcome": "DEREGISTRATION_ACCEPTED_BY_SIP",
+        "invalidity": [
+          "EXPIRES_WITHOUT_CONTACT"
+        ],
+        "mixed_contact_expiration": false,
+        "omitted_transaction_observation_count": 0,
+        "outcome": "DEREGISTRATION_OUTCOME_UNPROVED",
         "request_observed": true,
         "response_observed": true,
-        "scope": "ALL_BINDINGS",
-        "valid_all_bindings_request": true
+        "scope": "NONE",
+        "transaction_observations": [
+          {
+            "accepted_by_sip": true,
+            "contact_entry_count": 0,
+            "contact_expiration_complete": false,
+            "contact_malformed_expires_count": 0,
+            "contact_positive_expires_count": 0,
+            "contact_without_explicit_expires_count": 0,
+            "contact_zero_expires_count": 0,
+            "invalidity": [
+              "EXPIRES_WITHOUT_CONTACT"
+            ],
+            "missing_evidence": [],
+            "mixed_contact_expiration": false,
+            "outcome": "DEREGISTRATION_OUTCOME_UNPROVED",
+            "removal_request": false,
+            "request_event_reference": "sip-event:synthetic-ims-registration.pcapng:21.1",
+            "request_valid": false,
+            "response_code": 200,
+            "response_event_reference": "sip-event:synthetic-ims-registration.pcapng:22.1",
+            "response_observed": true,
+            "scope": "NONE",
+            "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:21.1",
+            "valid_all_bindings_request": false
+          }
+        ],
+        "valid_all_bindings_request": false
       },
       "evidence_class": "DERIVED",
       "final_response_event_references": [
@@ -869,7 +910,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
-      "registration_type": "DEREGISTRATION_REQUESTED",
+      "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
         "no_prior_successful_attempt",
@@ -910,18 +951,51 @@
       },
       "deregistration": {
         "accepted_by_sip": true,
+        "contact_entry_count": 1,
+        "contact_expiration_complete": false,
         "contact_expires_seconds": null,
+        "contact_malformed_expires_count": 0,
         "contact_non_wildcard": false,
+        "contact_positive_expires_count": 0,
         "contact_wildcard": true,
+        "contact_without_explicit_expires_count": 0,
+        "contact_zero_expires_count": 0,
         "expires_seconds": null,
         "invalidity": [
-          "INVALID_DEREGISTRATION_REQUEST",
           "WILDCARD_WITHOUT_EXPIRES"
         ],
+        "mixed_contact_expiration": false,
+        "omitted_transaction_observation_count": 0,
         "outcome": "DEREGISTRATION_OUTCOME_UNPROVED",
         "request_observed": true,
         "response_observed": true,
         "scope": "NONE",
+        "transaction_observations": [
+          {
+            "accepted_by_sip": true,
+            "contact_entry_count": 1,
+            "contact_expiration_complete": false,
+            "contact_malformed_expires_count": 0,
+            "contact_positive_expires_count": 0,
+            "contact_without_explicit_expires_count": 0,
+            "contact_zero_expires_count": 0,
+            "invalidity": [
+              "WILDCARD_WITHOUT_EXPIRES"
+            ],
+            "missing_evidence": [],
+            "mixed_contact_expiration": false,
+            "outcome": "DEREGISTRATION_OUTCOME_UNPROVED",
+            "removal_request": false,
+            "request_event_reference": "sip-event:synthetic-ims-registration.pcapng:23.1",
+            "request_valid": false,
+            "response_code": 200,
+            "response_event_reference": "sip-event:synthetic-ims-registration.pcapng:24.1",
+            "response_observed": true,
+            "scope": "NONE",
+            "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:23.1",
+            "valid_all_bindings_request": false
+          }
+        ],
         "valid_all_bindings_request": false
       },
       "evidence_class": "DERIVED",
@@ -1731,15 +1805,47 @@
       },
       "deregistration": {
         "accepted_by_sip": true,
+        "contact_entry_count": 1,
+        "contact_expiration_complete": true,
         "contact_expires_seconds": 0,
+        "contact_malformed_expires_count": 0,
         "contact_non_wildcard": false,
+        "contact_positive_expires_count": 0,
         "contact_wildcard": false,
+        "contact_without_explicit_expires_count": 0,
+        "contact_zero_expires_count": 1,
         "expires_seconds": null,
         "invalidity": [],
+        "mixed_contact_expiration": false,
+        "omitted_transaction_observation_count": 0,
         "outcome": "DEREGISTRATION_ACCEPTED_BY_SIP",
         "request_observed": true,
         "response_observed": true,
         "scope": "CONTACT_SCOPED",
+        "transaction_observations": [
+          {
+            "accepted_by_sip": true,
+            "contact_entry_count": 1,
+            "contact_expiration_complete": true,
+            "contact_malformed_expires_count": 0,
+            "contact_positive_expires_count": 0,
+            "contact_without_explicit_expires_count": 0,
+            "contact_zero_expires_count": 1,
+            "invalidity": [],
+            "missing_evidence": [],
+            "mixed_contact_expiration": false,
+            "outcome": "DEREGISTRATION_ACCEPTED_BY_SIP",
+            "removal_request": true,
+            "request_event_reference": "sip-event:synthetic-ims-registration.pcapng:43.1",
+            "request_valid": true,
+            "response_code": 200,
+            "response_event_reference": "sip-event:synthetic-ims-registration.pcapng:44.1",
+            "response_observed": true,
+            "scope": "CONTACT_SCOPED",
+            "transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:43.1",
+            "valid_all_bindings_request": false
+          }
+        ],
         "valid_all_bindings_request": false
       },
       "evidence_class": "DERIVED",
@@ -2162,6 +2268,7 @@
       "challenge_retry_association": {
         "basis": [
           "challenge_observed",
+          "challenge_response_precedes_retry",
           "later_register_observed",
           "cseq_increased",
           "authorization_present"

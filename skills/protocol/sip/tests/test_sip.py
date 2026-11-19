@@ -266,6 +266,97 @@ class SipMessageParsingTests(unittest.TestCase):
         self.assertNotEqual(rows[0]["source_reference"], rows[1]["source_reference"])
 
 
+class SipContactExpirationMetadataTests(unittest.TestCase):
+    def _record(self, headers: dict) -> dict:
+        base = {
+            "capture_file": "contact.pcapng",
+            "frame_number": 1,
+            "frame_time_epoch": "1700000000.000000001",
+            "frame_time_relative": "1.000000000",
+            "message_occurrence": 1,
+            "transport": {
+                "protocol": "UDP",
+                "source_address": "192.0.2.10",
+                "source_port": 5060,
+                "destination_address": "192.0.2.20",
+                "destination_port": 5060,
+                "stream_id": None,
+            },
+            "headers": {
+                "method": "REGISTER",
+                "cseq_sequence": 1,
+                "cseq_method": "REGISTER",
+                "call_id": "CALL",
+                "via": [
+                    {
+                        "branch": "z9hG4bK-A",
+                        "sent_by": "192.0.2.10:5060",
+                        "transport": "UDP",
+                    }
+                ],
+                "from": {"uri": "sip:alice@example.com", "count": 1, "tag": "FTAG"},
+                "to": {"uri": "sip:registrar.example.com", "count": 1, "tag": None},
+                "request_uri": "sip:registrar.example.com",
+                "contact_count": 0,
+                **headers,
+            },
+        }
+        return model.normalize_record_message(base)
+
+    def test_mixed_contact_expiration_is_aggregate_and_private(self) -> None:
+        record = self._record(
+            {
+                "contact_count": 2,
+                "contact_expiration_values": [0, 3600],
+            }
+        )
+        entries = record["event"]["headers"]["contact_entries"]
+        self.assertEqual(entries["total"], 2)
+        self.assertEqual(entries["non_wildcard"], 2)
+        self.assertEqual(entries["explicit_expires"], 2)
+        self.assertEqual(entries["zero_expires"], 1)
+        self.assertEqual(entries["positive_expires"], 1)
+        self.assertEqual(entries["boundary_status"], "EXACT_ENTRY_VALUES")
+        self.assertTrue(entries["expiration_complete"])
+        self.assertEqual(record["match"]["contact_zero_expires_count"], 1)
+        self.assertEqual(record["match"]["contact_positive_expires_count"], 1)
+
+    def test_multiple_headers_without_entry_values_preserve_boundary_limit(self) -> None:
+        record = self._record(
+            {
+                "contact_count": 3,
+                "contact_non_wildcard": True,
+            }
+        )
+        entries = record["event"]["headers"]["contact_entries"]
+        self.assertEqual(entries["total"], 3)
+        self.assertEqual(entries["without_explicit_expires"], 3)
+        self.assertEqual(entries["boundary_status"], "HEADER_OCCURRENCE_ONLY")
+        self.assertFalse(entries["expiration_complete"])
+
+    def test_contact_uri_is_never_published(self) -> None:
+        record = self._record(
+            {
+                "contact_count": 1,
+                "contact_expiration_values": [0],
+            }
+        )
+        text = json.dumps(record["event"])
+        self.assertNotIn("sip:", text)
+        self.assertNotIn("contact_uri", text)
+
+    @unittest.skipIf(jsonschema is None, "jsonschema is not installed")
+    def test_contact_entries_validate_against_event_schema(self) -> None:
+        schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+        record = self._record(
+            {
+                "contact_count": 2,
+                "contact_expiration_values": [0, 3600],
+            }
+        )
+        jsonschema.validate(record["event"], schema)
+
+
 class SipTransportTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

@@ -239,6 +239,76 @@
         }
       }
     },
+    "contact_entries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "wildcard",
+        "non_wildcard",
+        "explicit_expires",
+        "zero_expires",
+        "positive_expires",
+        "malformed_expires",
+        "without_explicit_expires",
+        "boundary_status",
+        "expiration_complete"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "wildcard": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "non_wildcard": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "explicit_expires": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "zero_expires": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "positive_expires": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "malformed_expires": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "without_explicit_expires": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "boundary_status": {
+          "type": "string",
+          "enum": [
+            "EXACT_ENTRY_VALUES",
+            "HEADER_OCCURRENCE_ONLY",
+            "NO_CONTACT",
+            "UNAVAILABLE"
+          ]
+        },
+        "expiration_complete": {
+          "type": "boolean"
+        }
+      }
+    },
     "expiration": {
       "type": "object",
       "additionalProperties": false,
@@ -459,6 +529,9 @@
         },
         "contact": {
           "$ref": "#/$defs/count_only"
+        },
+        "contact_entries": {
+          "$ref": "#/$defs/contact_entries"
         },
         "contact_expires": {
           "$ref": "#/$defs/expiration"

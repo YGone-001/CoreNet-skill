@@ -4,7 +4,7 @@
 
 | Specification | Relevant clause | Behavior supported | Direct review |
 | --- | --- | --- | --- |
-| RFC 3261 | Section 10 | REGISTER binding creation, refresh and removal; Expires, Contact expires and wildcard Contact | Reviewed through the repository's accepted SIP protocol contract; direct RFC retrieval not executed in this environment |
+| RFC 3261 | Sections 10.2.1.1, 10.2.2, 10.2.3 and 10.3 steps 6-7 | Contact and wildcard expiration, per-Contact precedence, binding removal, no-Contact REGISTER behavior and registrar processing | Directly reviewed from the RFC Editor text |
 | RFC 3261 | Section 17 | REGISTER is a non-INVITE transaction; response matching is owned by the SIP Protocol Skill | Reviewed through the accepted transaction contract |
 | RFC 3261 | Section 22 | 401/407 challenges and Authorization/Proxy-Authorization presence | Reviewed through the accepted SIP event contract |
 | 3GPP TS 24.229 | IMS registration, re-registration and de-registration procedures | Challenge/retry sequence, initial registration, refresh, de-registration | `NOT_EXECUTED` for direct document retrieval; modeled conservatively |
@@ -67,7 +67,7 @@ The attempt reference is derived from the first observed request event:
 | `INITIAL_REGISTRATION_CANDIDATE` | An observed REGISTER for an identity without a prior successful observed attempt |
 | `RE_REGISTRATION_CANDIDATE` | A prior successful observed attempt for the same identity, followed by a challenged or authenticated REGISTER |
 | `REFRESH_OBSERVED` | A prior successful observed attempt, a subsequent REGISTER with positive Expires and no observed challenge |
-| `DEREGISTRATION_REQUESTED` | Explicit all-bindings removal (`Contact: *` with `Expires: 0`, or `Expires: 0` with no wildcard) or a Contact-specific `expires=0` removal |
+| `DEREGISTRATION_REQUESTED` | A valid wildcard all-bindings removal (`Contact: *` with `Expires: 0`) or a Contact-scoped removal (`expires=0` on a supplied Contact, or default `Expires: 0` applied to a supplied Contact without its own expiration) |
 | `UNDETERMINED` | Missing mandatory identity or response-only observation |
 
 `INITIAL_REGISTRATION_SUPPORTED` is reserved for a future rule with independent
@@ -83,28 +83,63 @@ registration. A capture that begins with an authorized REGISTER remains
 Expiration evidence is published only when observed:
 
 - REGISTER `Expires` numeric value;
-- Contact `expires` numeric value;
+- privacy-safe aggregate Contact expiration counts: total Contact entries, wildcard
+  and non-wildcard counts, explicit expiration count, zero count, positive count,
+  malformed count, entries without an explicit parameter, boundary status and whether
+  the evidence is complete enough for a scope conclusion;
 - wildcard Contact presence and whether non-wildcard Contact values coexist;
 - accepted `Min-Expires` numeric value from a 423 response.
 
+The accepted SIP decoder may not reliably separate multiple Contact values inside one
+raw header line because a SIP URI can legally contain commas. In that case the
+protocol event keeps header-occurrence counts and marks the entry boundary as
+`HEADER_OCCURRENCE_ONLY`; no exact per-binding count is invented. Reviewed sanitized
+records may supply reviewed per-entry numeric expiration values and then use
+`EXACT_ENTRY_VALUES`.
+
 RFC 3261 Section 10.2.2 requires `Contact: *` together with `Expires: 0` for an
-all-bindings removal request. Wildcard presence alone is not valid removal evidence;
-a nonzero `Expires`, a wildcard combined with another Contact value, or a malformed
-`Expires` value is retained as observed protocol evidence but never promoted to a
-valid all-bindings request.
+all-bindings removal request. The model distinguishes:
 
-The model distinguishes:
+- `ALL_BINDINGS`: valid wildcard removal only. The request scope is established, not
+  persistent registrar-state deletion.
+- `CONTACT_SCOPED`: a supplied Contact is targeted by `expires=0` or by the default
+  `Expires: 0`. Several enumerated Contacts remain Contact-scoped; they are not an
+  all-bindings request.
+- `NONE`: wildcard or expiration evidence was observed but no valid removal scope is
+  established.
 
-- `ALL_BINDINGS`: valid wildcard removal or explicit `Expires: 0`;
-- `CONTACT_SCOPED`: Contact-specific `expires=0`, which does not necessarily remove
-  every binding;
-- `NONE`: wildcard or expiration evidence was observed but is invalid or incomplete.
+Per-Contact precedence applies: a Contact-specific `expires` parameter overrides the
+default `Expires` header for that Contact. A Contact with `expires=3600` is not a
+zero-expiration removal merely because the request also carries `Expires: 0`.
+
+A REGISTER with `Expires: 0` and no Contact does not request an all-bindings removal
+and does not change the binding list. The observation is retained with
+`scope: NONE` and `EXPIRES_WITHOUT_CONTACT`, but it is not published as an established
+de-registration request.
+
+Each removal observation is bound to its own REGISTER transaction and final response.
+`transaction_observations` records the request event, owning transaction, removal
+scope, request validity, matched final response event and response code. A 200 OK for
+a different transaction is never attributed to a removal request; when the removal
+transaction has no response, its outcome remains
+`DEREGISTRATION_OUTCOME_UNPROVED`.
 
 Invalid requests publish `scope: NONE`, `valid_all_bindings_request: false`, the
 invalidity labels, and `DEREGISTRATION_OUTCOME_UNPROVED` even when a 200 OK was
 observed. Missing Expires is never treated as zero. A 200 OK to a valid de-registration
 REGISTER is `DEREGISTRATION_ACCEPTED_BY_SIP`; it does not prove that every binding was removed or
 that the IMS subscription is permanently disabled.
+
+## Challenge and retry ordering
+
+A Challenge→Retry association requires the challenge response event to precede the
+eligible authorized REGISTER request in the accepted capture-local source order. The
+comparison uses the actual challenge response reference and the actual retry request
+reference, including message occurrence when multiple SIP messages share one frame.
+A response observed after the supposed retry, a missing or unverified response
+reference, a status mismatch, or a different capture identity cannot establish the
+association. Temporal order is necessary but not sufficient: compatible identity,
+credential header type, unique eligible retry and CSeq progression are also required.
 
 ## Negative outcomes
 

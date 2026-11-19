@@ -24,6 +24,15 @@ session, media, call or root-cause verdicts.
   evidence. RFC 3261 all-bindings removal requires `Contact: *` with `Expires: 0`;
   wildcard alone, a nonzero Expires, a mixed Contact set or malformed expiration
   evidence is retained as invalid or incomplete protocol evidence.
+- Treat `Expires: 0` without any Contact as an observation that does not establish
+  de-registration, and let a Contact-specific `expires` parameter override the
+  default `Expires` header for that Contact.
+- Keep privacy-safe per-Contact expiration counts for multiple Contacts, preserving
+  mixed zero/positive evidence without collapsing the request to one value.
+- Bind each removal request to its own REGISTER transaction and final response; an
+  unrelated 2xx never establishes removal success.
+- Require the observed challenge response to precede an eligible retry request in
+  capture-local evidence order before claiming a Challenge→Retry association.
 - Classify negative SIP responses and keep missing responses as `OPEN_IN_CAPTURE`.
 - Preserve multi-hop REGISTER observations without claiming proxy roles or
   forwarding relationships.
@@ -91,7 +100,8 @@ success is an independent application result.
 | cross-protocol association | `ESTABLISHED`, `SUPPORTED`, `AMBIGUOUS`, `NOT_ESTABLISHED`, `INSUFFICIENT_EVIDENCE` |
 
 See `references/registration-procedures.md`, `references/authentication-evidence.md`,
-`references/diameter-context.md` and `references/evidence-model.md`.
+`references/diameter-context.md`, `references/evidence-model.md` and
+`references/real-pcap-acceptance.md`.
 
 ## Privacy
 

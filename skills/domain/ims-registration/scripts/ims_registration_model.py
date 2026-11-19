@@ -120,6 +120,13 @@ CONFLICT_FINDINGS = (
     "WILDCARD_WITH_ADDITIONAL_CONTACT",
     "EXPIRES_MALFORMED",
     "CONTACT_EXPIRES_MALFORMED",
+    "CONTACT_EXPIRATION_OVERRIDES_EXPIRES",
+    "EXPIRES_WITHOUT_CONTACT",
+    "CHALLENGE_RESPONSE_NOT_BEFORE_RETRY",
+    "CHALLENGE_RESPONSE_NOT_AFTER_REQUEST",
+    "CHALLENGE_RESPONSE_REFERENCE_UNVERIFIED",
+    "CHALLENGE_RESPONSE_STATUS_MISMATCH",
+    "CAPTURE_IDENTITY_MISMATCH",
     "DIAMETER_PROVENANCE_CONFLICT",
     "UNSUPPORTED_CROSS_PROTOCOL_CLASS",
 
@@ -478,38 +485,6 @@ def _challenge_retry_association(attempt: dict[str, Any], by_reference: dict[str
     challenge_transaction, challenge_request = pairs[challenge_index]
     challenge_response = (challenge_transaction.get("final_response_event_references") or [None])[0]
     challenge_cseq = challenge_request.get("cseq_number") if challenge_request else None
-    authorization_before = any(
-        authenticated(request, challenge_status)
-        for _transaction, request in pairs[: challenge_index + 1]
-    )
-    candidates: list[tuple[dict[str, Any], dict[str, Any]]] = []
-    wrong_type = False
-    incompatible = False
-    for transaction, request in pairs[challenge_index + 1 :]:
-        if not request:
-            continue
-        statuses = transaction.get("final_response_status_codes") or []
-        next_challenge = 401 in statuses or 407 in statuses
-        other_status = 407 if challenge_status == 401 else 401
-        if authenticated(request, other_status) and not authenticated(request, challenge_status):
-            wrong_type = True
-            if next_challenge:
-                break
-            continue
-        if not authenticated(request, challenge_status):
-            if next_challenge:
-                break
-            continue
-        cseq = request.get("cseq_number")
-        if cseq is None or challenge_cseq is None or cseq <= challenge_cseq:
-            incompatible = True
-            if next_challenge:
-                break
-            continue
-        candidates.append((transaction, request))
-        if next_challenge:
-            break
-
     base = {
         "challenge_transaction_reference": challenge_transaction["transaction_reference"],
         "challenge_response_event_reference": challenge_response,
@@ -519,6 +494,96 @@ def _challenge_retry_association(attempt: dict[str, Any], by_reference: dict[str
         "missing_evidence": [],
         "conflict_findings": [],
     }
+    challenge_event = (
+        by_reference.get(challenge_response) if challenge_response is not None else None
+    )
+    challenge_request_reference = (
+        (challenge_transaction.get("request_event_references") or [None])[0]
+    )
+    challenge_evidence_conflict: str | None = None
+    if challenge_response is None:
+        challenge_evidence_conflict = "FINAL_RESPONSE_NOT_OBSERVED"
+    elif challenge_event is None:
+        challenge_evidence_conflict = "CHALLENGE_RESPONSE_REFERENCE_UNVERIFIED"
+    elif challenge_event.get("status_code") != challenge_status:
+        challenge_evidence_conflict = "CHALLENGE_RESPONSE_STATUS_MISMATCH"
+    elif challenge_request_reference is None or (
+        _reference_order(challenge_response) <= _reference_order(challenge_request_reference)
+    ):
+        challenge_evidence_conflict = "CHALLENGE_RESPONSE_NOT_AFTER_REQUEST"
+    ordering_conflict: str | None = None
+    authorization_before = any(
+        authenticated(request, challenge_status)
+        for _transaction, request in pairs[: challenge_index + 1]
+    )
+    candidates: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    wrong_type = False
+    incompatible = False
+    if challenge_evidence_conflict is None:
+        for transaction, request in pairs[challenge_index + 1 :]:
+            if not request:
+                continue
+            statuses = transaction.get("final_response_status_codes") or []
+            next_challenge = 401 in statuses or 407 in statuses
+            other_status = 407 if challenge_status == 401 else 401
+            if authenticated(request, other_status) and not authenticated(request, challenge_status):
+                wrong_type = True
+                if next_challenge:
+                    break
+                continue
+            if not authenticated(request, challenge_status):
+                if next_challenge:
+                    break
+                continue
+            cseq = request.get("cseq_number")
+            if cseq is None or challenge_cseq is None or cseq <= challenge_cseq:
+                incompatible = True
+                if next_challenge:
+                    break
+                continue
+            retry_reference = (transaction.get("request_event_references") or [None])[0]
+            if retry_reference is None:
+                continue
+            if _capture_of(challenge_response) != _capture_of(retry_reference):
+                ordering_conflict = "CAPTURE_IDENTITY_MISMATCH"
+                if next_challenge:
+                    break
+                continue
+            if _reference_order(retry_reference) <= _reference_order(challenge_response):
+                ordering_conflict = "CHALLENGE_RESPONSE_NOT_BEFORE_RETRY"
+                if next_challenge:
+                    break
+                continue
+            candidates.append((transaction, request))
+            if next_challenge:
+                break
+    if challenge_evidence_conflict is not None:
+        if challenge_evidence_conflict == "FINAL_RESPONSE_NOT_OBSERVED":
+            base.update(
+                {
+                    "status": "CHALLENGE_WITHOUT_RETRY",
+                    "missing_evidence": ["FINAL_RESPONSE_NOT_OBSERVED"],
+                    "basis": ["challenge_response_evidence_missing"],
+                }
+            )
+            return base
+        base.update(
+            {
+                "status": "NOT_ASSOCIATED",
+                "conflict_findings": [challenge_evidence_conflict],
+                "basis": ["challenge_response_evidence_not_usable"],
+            }
+        )
+        return base
+    if len(candidates) == 0 and ordering_conflict is not None:
+        base.update(
+            {
+                "status": "NOT_ASSOCIATED",
+                "conflict_findings": [ordering_conflict],
+                "basis": ["challenge_response_does_not_precede_eligible_retry"],
+            }
+        )
+        return base
     if len(candidates) == 1:
         transaction, request = candidates[0]
         base.update(
@@ -530,6 +595,7 @@ def _challenge_retry_association(attempt: dict[str, Any], by_reference: dict[str
                 ),
                 "basis": [
                     "challenge_observed",
+                    "challenge_response_precedes_retry",
                     "later_register_observed",
                     "cseq_increased",
                     "authorization_present",
@@ -559,6 +625,7 @@ def _challenge_retry_association(attempt: dict[str, Any], by_reference: dict[str
                     ],
                     "basis": [
                         "challenge_observed",
+                        "challenge_response_precedes_retry",
                         "later_register_observed",
                         "cseq_increased",
                         "authorization_present",
@@ -625,40 +692,56 @@ def _authentication_status(association: dict[str, Any] | None) -> str:
     }[association["status"]]
 
 
-def _deregistration(
-    attempt: dict[str, Any], events: dict[str, Any]
-) -> dict[str, Any] | None:
-    """Return explicit de-registration evidence, including invalid requests.
-
-    RFC 3261 wildcard removal requires ``Contact: *`` together with ``Expires: 0``.
-    Wildcard presence alone, a nonzero Expires, a mixed Contact set or a malformed
-    expiration value is retained as observed evidence but is never promoted to a
-    valid all-bindings removal request.
-    """
-    requests = [request for request in attempt["request_matches"] if request]
-    if not requests:
-        return None
-    expires_present = any(request.get("expires_present") for request in requests)
-    expires_values = [request.get("expires_seconds") for request in requests]
-    expires_zero = any(value == 0 for value in expires_values)
-    expires_positive = any(value is not None and value > 0 for value in expires_values)
-    expires_malformed = any(
-        request.get("expires_present")
-        and not request.get("expires_valid", True)
-        for request in requests
-    )
-    contact_values = [request.get("contact_expires_seconds") for request in requests]
-    contact_zero = any(value == 0 for value in contact_values)
-    contact_malformed = any(
-        request.get("contact_expires_present")
-        and not request.get("contact_expires_valid", True)
-        for request in requests
-    )
-    wildcard = any(request.get("contact_wildcard") for request in requests)
-    non_wildcard = any(request.get("contact_non_wildcard") for request in requests)
-    if not (
-        wildcard or expires_zero or contact_zero or expires_malformed or contact_malformed
+def _contact_evidence(request: dict[str, Any]) -> dict[str, Any]:
+    wildcard_count = int(request.get("contact_wildcard_count") or 0)
+    non_wildcard_count = int(request.get("contact_non_wildcard_count") or 0)
+    if request.get("contact_wildcard"):
+        wildcard_count = max(wildcard_count, 1)
+    if request.get("contact_non_wildcard"):
+        non_wildcard_count = max(non_wildcard_count, 1)
+    if not non_wildcard_count and (
+        request.get("contact_expires_seconds") is not None
+        or request.get("contact_expires_present")
     ):
+        non_wildcard_count = 1
+    entry_count = int(request.get("contact_entry_count") or 0)
+    entry_count = max(entry_count, wildcard_count + non_wildcard_count)
+    return {
+        "entry_count": entry_count,
+        "wildcard_count": wildcard_count,
+        "non_wildcard_count": non_wildcard_count,
+        "explicit_count": int(request.get("contact_explicit_expires_count") or 0),
+        "zero_count": int(request.get("contact_zero_expires_count") or 0),
+        "positive_count": int(request.get("contact_positive_expires_count") or 0),
+        "malformed_count": int(request.get("contact_malformed_expires_count") or 0),
+        "without_explicit_count": int(
+            request.get("contact_without_explicit_expires_count") or 0
+        ),
+        "complete": bool(request.get("contact_expiration_complete")),
+    }
+
+
+def _removal_observation(
+    transaction: dict[str, Any], request: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Return one REGISTER request's own binding-removal observation."""
+    contact = _contact_evidence(request)
+    expires_present = bool(request.get("expires_present"))
+    expires_valid = request.get("expires_valid", True) is not False
+    expires = request.get("expires_seconds")
+    expires_malformed = expires_present and not expires_valid
+    contact_malformed = contact["malformed_count"] > 0
+    wildcard = contact["wildcard_count"] > 0
+    non_wildcard = contact["non_wildcard_count"] > 0
+    expires_zero = expires_present and expires_valid and expires == 0
+    removal_related = (
+        wildcard
+        or expires_zero
+        or contact["zero_count"] > 0
+        or expires_malformed
+        or contact_malformed
+    )
+    if not removal_related:
         return None
 
     invalidity: list[str] = []
@@ -671,51 +754,172 @@ def _deregistration(
             invalidity.append("EXPIRES_MALFORMED")
         elif not expires_present:
             invalidity.append("WILDCARD_WITHOUT_EXPIRES")
-        elif expires_positive:
+        elif expires != 0:
             invalidity.append("WILDCARD_WITH_NONZERO_EXPIRES")
-        elif expires_zero and not non_wildcard:
-            valid_all_bindings = True
+        elif not non_wildcard and not contact_malformed:
             scope = "ALL_BINDINGS"
-    else:
+            valid_all_bindings = True
+    elif non_wildcard:
         if expires_malformed:
             invalidity.append("EXPIRES_MALFORMED")
         if contact_malformed:
             invalidity.append("CONTACT_EXPIRES_MALFORMED")
-        if contact_zero:
+        explicit_zero = contact["zero_count"] > 0
+        default_zero_applies = expires_zero and contact["without_explicit_count"] > 0
+        if explicit_zero or default_zero_applies:
             scope = "CONTACT_SCOPED"
-        elif expires_zero and not expires_malformed:
-            valid_all_bindings = True
-            scope = "ALL_BINDINGS"
-    if scope == "NONE":
-        invalidity.append("INVALID_DEREGISTRATION_REQUEST")
+        elif expires_zero and contact["without_explicit_count"] == 0 and (
+            contact["positive_count"] > 0
+        ):
+            invalidity.append("CONTACT_EXPIRATION_OVERRIDES_EXPIRES")
+    elif expires_malformed:
+        invalidity.append("EXPIRES_MALFORMED")
+    elif expires_zero:
+        invalidity.append("EXPIRES_WITHOUT_CONTACT")
 
-    statuses = [
-        status
-        for transaction in attempt["transactions"]
-        for status in (transaction.get("final_response_status_codes") or [])
-    ]
-    accepted = any(200 <= status < 300 for status in statuses)
-    outcome = (
-        "DEREGISTRATION_ACCEPTED_BY_SIP"
-        if scope != "NONE" and accepted
-        else "DEREGISTRATION_RESPONSE_OBSERVED"
-        if statuses and scope != "NONE"
-        else "DEREGISTRATION_OUTCOME_UNPROVED"
+    request_valid = (
+        scope != "NONE"
+        and not contact_malformed
+        and not (wildcard and invalidity)
     )
+    statuses = list(transaction.get("final_response_status_codes") or [])
+    final_references = list(transaction.get("final_response_event_references") or [])
+    response_reference = final_references[0] if final_references else None
+    response_code = statuses[0] if statuses else None
+    accepted = any(200 <= status < 300 for status in statuses)
+    if scope != "NONE" and request_valid and accepted:
+        outcome = "DEREGISTRATION_ACCEPTED_BY_SIP"
+    elif scope != "NONE" and statuses:
+        outcome = "DEREGISTRATION_RESPONSE_OBSERVED"
+    else:
+        outcome = "DEREGISTRATION_OUTCOME_UNPROVED"
+    missing = []
+    if not statuses:
+        missing.append("FINAL_RESPONSE_NOT_OBSERVED")
     return {
-        "request_observed": True,
+        "transaction_reference": transaction.get("transaction_reference"),
+        "request_event_reference": (transaction.get("request_event_references") or [None])[0],
+        "scope": scope,
+        "valid_all_bindings_request": valid_all_bindings,
+        "request_valid": request_valid,
+        "removal_request": scope != "NONE",
+        "mixed_contact_expiration": (
+            contact["zero_count"] > 0 and contact["positive_count"] > 0
+        ),
+        "contact_expiration_complete": contact["complete"],
+        "contact_entry_count": contact["entry_count"],
+        "contact_zero_expires_count": contact["zero_count"],
+        "contact_positive_expires_count": contact["positive_count"],
+        "contact_without_explicit_expires_count": contact["without_explicit_count"],
+        "contact_malformed_expires_count": contact["malformed_count"],
+        "response_event_reference": response_reference,
+        "response_code": response_code,
         "response_observed": bool(statuses),
         "accepted_by_sip": accepted,
         "outcome": outcome,
-        "scope": scope,
-        "valid_all_bindings_request": valid_all_bindings,
-        "expires_seconds": next((value for value in expires_values if value is not None), None),
-        "contact_expires_seconds": next(
-            (value for value in contact_values if value is not None), None
-        ),
-        "contact_wildcard": wildcard,
-        "contact_non_wildcard": non_wildcard,
         "invalidity": sorted(dict.fromkeys(invalidity)),
+        "missing_evidence": missing,
+    }
+
+
+def _deregistration(
+    attempt: dict[str, Any], events: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Return per-transaction binding-removal evidence, including invalid requests.
+
+    RFC 3261 wildcard removal requires ``Contact: *`` together with ``Expires: 0``.
+    A zero default ``Expires`` header without a Contact does not change the
+    binding list, and a Contact-specific expiration parameter overrides the
+    default. Each removal observation is bound to its own REGISTER transaction
+    and final response; a 2xx for an unrelated transaction is never attributed
+    to a removal request.
+    """
+    observations: list[dict[str, Any]] = []
+    for transaction, request in zip(attempt["transactions"], attempt["request_matches"]):
+        if not request:
+            continue
+        observation = _removal_observation(transaction, request)
+        if observation is not None:
+            observations.append(observation)
+    if not observations:
+        return None
+
+    scopes = [observation["scope"] for observation in observations]
+    if "ALL_BINDINGS" in scopes:
+        scope = "ALL_BINDINGS"
+    elif "CONTACT_SCOPED" in scopes:
+        scope = "CONTACT_SCOPED"
+    else:
+        scope = "NONE"
+    accepted = any(observation["accepted_by_sip"] for observation in observations)
+    if any(item["outcome"] == "DEREGISTRATION_ACCEPTED_BY_SIP" for item in observations):
+        outcome = "DEREGISTRATION_ACCEPTED_BY_SIP"
+    elif any(item["outcome"] == "DEREGISTRATION_RESPONSE_OBSERVED" for item in observations):
+        outcome = "DEREGISTRATION_RESPONSE_OBSERVED"
+    else:
+        outcome = "DEREGISTRATION_OUTCOME_UNPROVED"
+    invalidity = sorted(
+        dict.fromkeys(
+            finding
+            for observation in observations
+            for finding in observation["invalidity"]
+        )
+    )
+    return {
+        "request_observed": True,
+        "response_observed": any(item["response_observed"] for item in observations),
+        "accepted_by_sip": accepted,
+        "outcome": outcome,
+        "scope": scope,
+        "valid_all_bindings_request": any(
+            item["valid_all_bindings_request"] for item in observations
+        ),
+        "expires_seconds": next(
+            (request.get("expires_seconds") for request in attempt["request_matches"]
+             if request and request.get("expires_seconds") is not None),
+            None,
+        ),
+        "contact_expires_seconds": next(
+            (request.get("contact_expires_seconds") for request in attempt["request_matches"]
+             if request and request.get("contact_expires_seconds") is not None),
+            None,
+        ),
+        "contact_wildcard": any(
+            request and request.get("contact_wildcard")
+            for request in attempt["request_matches"]
+        ),
+        "contact_non_wildcard": any(
+            request and request.get("contact_non_wildcard")
+            for request in attempt["request_matches"]
+        ),
+        "mixed_contact_expiration": any(
+            observation["mixed_contact_expiration"] for observation in observations
+        ),
+        "contact_expiration_complete": all(
+            observation["contact_expiration_complete"] for observation in observations
+        ),
+        "contact_entry_count": max(
+            (observation["contact_entry_count"] for observation in observations),
+            default=0,
+        ),
+        "contact_zero_expires_count": sum(
+            observation["contact_zero_expires_count"] for observation in observations
+        ),
+        "contact_positive_expires_count": sum(
+            observation["contact_positive_expires_count"] for observation in observations
+        ),
+        "contact_without_explicit_expires_count": sum(
+            observation["contact_without_explicit_expires_count"]
+            for observation in observations
+        ),
+        "contact_malformed_expires_count": sum(
+            observation["contact_malformed_expires_count"] for observation in observations
+        ),
+        "transaction_observations": observations[:MAX_REFERENCES],
+        "omitted_transaction_observation_count": max(
+            0, len(observations) - MAX_REFERENCES
+        ),
+        "invalidity": invalidity,
     }
 
 
@@ -1346,14 +1550,9 @@ def validate_analysis(document: dict[str, Any], *, sip_event_references: set[str
                     and deregistration.get("expires_seconds") == 0
                     and not deregistration.get("contact_non_wildcard")
                 )
-                explicit_valid = (
-                    not deregistration.get("contact_wildcard")
-                    and deregistration.get("expires_seconds") == 0
-                    and not deregistration.get("contact_non_wildcard")
-                )
-                if not (wildcard_valid or explicit_valid):
+                if not wildcard_valid:
                     raise InputError(
-                        "valid all-bindings removal requires wildcard Contact or explicit Expires: 0"
+                        "valid all-bindings removal requires wildcard Contact with Expires: 0"
                     )
                 if deregistration.get("scope") != "ALL_BINDINGS":
                     raise InputError("valid all-bindings removal requires ALL_BINDINGS scope")
@@ -1364,6 +1563,34 @@ def validate_analysis(document: dict[str, Any], *, sip_event_references: set[str
                 raise InputError(
                     "an invalid de-registration request cannot be accepted as a valid removal"
                 )
+            observations = deregistration.get("transaction_observations")
+            if observations is not None:
+                if not isinstance(observations, list):
+                    raise InputError("de-registration transaction observations must be an array")
+                accepted_transaction_outcomes = 0
+                for observation in observations:
+                    if not isinstance(observation, dict):
+                        raise InputError("a de-registration transaction observation is not an object")
+                    if observation.get("scope") not in {"ALL_BINDINGS", "CONTACT_SCOPED", "NONE"}:
+                        raise InputError("invalid per-transaction de-registration scope")
+                    if observation.get("outcome") not in DEREGISTRATION_OUTCOMES:
+                        raise InputError("invalid per-transaction de-registration outcome")
+                    if observation.get("scope") == "NONE" and observation.get(
+                        "outcome"
+                    ) == "DEREGISTRATION_ACCEPTED_BY_SIP":
+                        raise InputError(
+                            "a non-removal transaction cannot establish removal acceptance"
+                        )
+                    if observation.get("outcome") == "DEREGISTRATION_ACCEPTED_BY_SIP":
+                        accepted_transaction_outcomes += 1
+                if accepted_transaction_outcomes > 1:
+                    raise InputError("multiple transactions claim accepted removal")
+                if accepted_transaction_outcomes and deregistration.get("outcome") != (
+                    "DEREGISTRATION_ACCEPTED_BY_SIP"
+                ):
+                    raise InputError(
+                        "an accepted removal transaction is missing from the aggregate outcome"
+                    )
     for observation in document["diameter_ims_inventory"]:
         if observation.get("command_code") not in CX_COMMANDS:
             raise InputError("a Diameter observation is not a supported Cx/Dx command")

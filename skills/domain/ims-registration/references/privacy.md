@@ -34,8 +34,10 @@ identity and is not a hash of a raw identifier.
 Numeric status codes, command codes, result codes, result names, presence counts,
 frame numbers, booleans, evidence states and opaque references are publishable.
 Expires, Min-Expires and Contact `expires` values are published only as reviewed
-numeric facts; wildcard and non-wildcard Contact presence is published as booleans.
-Reason phrases are published only through the accepted SIP event contract.
+numeric facts; wildcard, non-wildcard and per-Contact expiration counts are published
+as aggregate numeric or boolean metadata. Individual Contact URIs and raw Contact
+values are never published. Reason phrases are published only through the accepted
+SIP event contract.
 
 ## Diagnostics
 

@@ -440,7 +440,14 @@
           "WILDCARD_WITH_NONZERO_EXPIRES",
           "WILDCARD_WITH_ADDITIONAL_CONTACT",
           "EXPIRES_MALFORMED",
-          "CONTACT_EXPIRES_MALFORMED"
+          "CONTACT_EXPIRES_MALFORMED",
+          "CONTACT_EXPIRATION_OVERRIDES_EXPIRES",
+          "EXPIRES_WITHOUT_CONTACT",
+          "CHALLENGE_RESPONSE_NOT_BEFORE_RETRY",
+          "CHALLENGE_RESPONSE_NOT_AFTER_REQUEST",
+          "CHALLENGE_RESPONSE_REFERENCE_UNVERIFIED",
+          "CHALLENGE_RESPONSE_STATUS_MISMATCH",
+          "CAPTURE_IDENTITY_MISMATCH"
         ]
       }
     },
@@ -721,6 +728,48 @@
         "contact_non_wildcard": {
           "type": "boolean"
         },
+        "mixed_contact_expiration": {
+          "type": "boolean"
+        },
+        "contact_expiration_complete": {
+          "type": "boolean"
+        },
+        "contact_entry_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "contact_zero_expires_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "contact_positive_expires_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "contact_without_explicit_expires_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "contact_malformed_expires_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "transaction_observations": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/deregistration_transaction_observation"
+          }
+        },
+        "omitted_transaction_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
         "invalidity": {
           "type": "array",
           "maxItems": 8,
@@ -732,9 +781,143 @@
               "WILDCARD_WITH_ADDITIONAL_CONTACT",
               "EXPIRES_MALFORMED",
               "CONTACT_EXPIRES_MALFORMED",
+              "CONTACT_EXPIRATION_OVERRIDES_EXPIRES",
+              "EXPIRES_WITHOUT_CONTACT",
               "INVALID_DEREGISTRATION_REQUEST"
             ]
           }
+        }
+      }
+    },
+    "deregistration_transaction_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transaction_reference",
+        "request_event_reference",
+        "scope",
+        "valid_all_bindings_request",
+        "request_valid",
+        "removal_request",
+        "mixed_contact_expiration",
+        "contact_expiration_complete",
+        "contact_entry_count",
+        "contact_zero_expires_count",
+        "contact_positive_expires_count",
+        "contact_without_explicit_expires_count",
+        "contact_malformed_expires_count",
+        "response_event_reference",
+        "response_code",
+        "response_observed",
+        "accepted_by_sip",
+        "outcome",
+        "invalidity",
+        "missing_evidence"
+      ],
+      "properties": {
+        "transaction_reference": {
+          "$ref": "#/$defs/reference"
+        },
+        "request_event_reference": {
+          "$ref": "#/$defs/reference"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "ALL_BINDINGS",
+            "CONTACT_SCOPED",
+            "NONE"
+          ]
+        },
+        "valid_all_bindings_request": {
+          "type": "boolean"
+        },
+        "request_valid": {
+          "type": "boolean"
+        },
+        "removal_request": {
+          "type": "boolean"
+        },
+        "mixed_contact_expiration": {
+          "type": "boolean"
+        },
+        "contact_expiration_complete": {
+          "type": "boolean"
+        },
+        "contact_entry_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "contact_zero_expires_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "contact_positive_expires_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "contact_without_explicit_expires_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "contact_malformed_expires_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "response_event_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sip-event:.+:[0-9]+\\.[0-9]+$"
+        },
+        "response_code": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 100,
+          "maximum": 699
+        },
+        "response_observed": {
+          "type": "boolean"
+        },
+        "accepted_by_sip": {
+          "type": "boolean"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "DEREGISTRATION_REQUEST_OBSERVED",
+            "DEREGISTRATION_RESPONSE_OBSERVED",
+            "DEREGISTRATION_ACCEPTED_BY_SIP",
+            "DEREGISTRATION_OUTCOME_UNPROVED"
+          ]
+        },
+        "invalidity": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "enum": [
+              "WILDCARD_WITHOUT_EXPIRES",
+              "WILDCARD_WITH_NONZERO_EXPIRES",
+              "WILDCARD_WITH_ADDITIONAL_CONTACT",
+              "EXPIRES_MALFORMED",
+              "CONTACT_EXPIRES_MALFORMED",
+              "CONTACT_EXPIRATION_OVERRIDES_EXPIRES",
+              "EXPIRES_WITHOUT_CONTACT",
+              "INVALID_DEREGISTRATION_REQUEST"
+            ]
+          }
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/missing_list"
         }
       }
     },

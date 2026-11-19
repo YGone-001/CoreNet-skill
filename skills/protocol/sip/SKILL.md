@@ -22,6 +22,13 @@ credentials or message bodies.
   CSeq number and method, Via branch presence/length, From/To tag presence/length,
   Max-Forwards, Content-Type, Content-Length, body presence/length, and bounded
   header occurrence counts.
+- Publish privacy-safe Expires, Min-Expires and Contact expiration metadata. Contact
+  evidence includes header-occurrence counts plus wildcard, non-wildcard, explicit,
+  zero, positive, malformed and default-expiration entry counts, a boundary status and
+  whether the evidence is complete enough for a removal-scope conclusion. Individual
+  Contact values inside one raw header line are not split when the accepted decoder
+  cannot prove their boundaries; reviewed sanitized records may supply exact numeric
+  entry values. No Contact URI is published.
 - Preserve message completeness, dissector findings, truncation and missing
   mandatory evidence as explicit classifications.
 - Correlate requests and responses using RFC 3261 transaction identity: modern
