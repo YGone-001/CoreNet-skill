@@ -1,0 +1,3457 @@
+{
+  "analysis_name": "sdp-rtp",
+  "analysis_version": "0.1.0",
+  "capability": "bounded SDP structural evidence",
+  "completeness": {
+    "ambiguous_message_count": 2,
+    "incomplete_message_count": 2,
+    "invalid_message_count": 4,
+    "messages_omitted": 0,
+    "observed_message_count": 14,
+    "published_message_count": 22,
+    "supplied_message_count": 22,
+    "unsupported_message_count": 0
+  },
+  "event_schema_version": "1.0.0",
+  "input_provenance": {
+    "capture_files": [
+      "synthetic-sdp.pcapng"
+    ],
+    "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "input_name": "sdp-cases.jsonl",
+    "message_count": 22,
+    "parser_version": "0.1.0"
+  },
+  "limitations": [
+    "The parser consumes explicitly supplied SDP bodies and provenance; capture extraction is not implemented here.",
+    "Raw SDP bodies, addresses, identities, ICE credentials, fingerprints and key material are not published.",
+    "No SDP Offer/Answer pairing, SIP dialog association, RTP endpoint correlation, media quality or IMS media verdict is produced."
+  ],
+  "message_count": 22,
+  "messages": [
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 1,
+      "frame_reference": "frame:1",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 6,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 15,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:1.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 2,
+      "frame_reference": "frame:2",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 8,
+      "line_ending_style": "CRLF",
+      "media_section_count": 2,
+      "media_sections": [
+        {
+          "attributes": [],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        },
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtpmap",
+              "value_length": 13,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "DYNAMIC",
+              "format": "96",
+              "payload_type": 96
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 1,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "video",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49172,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [
+            {
+              "channels": null,
+              "clock_rate": 90000,
+              "encoding_name": "H264",
+              "payload_type": 96
+            }
+          ],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 24,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:2.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 3,
+      "frame_reference": "frame:3",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 9,
+      "line_ending_style": "CRLF",
+      "media_section_count": 2,
+      "media_sections": [
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtpmap",
+              "value_length": 15,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            },
+            {
+              "classification": "DYNAMIC",
+              "format": "96",
+              "payload_type": 96
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [
+            {
+              "channels": 2,
+              "clock_rate": 48000,
+              "encoding_name": "opus",
+              "payload_type": 96
+            }
+          ],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        },
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtpmap",
+              "value_length": 12,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "DYNAMIC",
+              "format": "97",
+              "payload_type": 97
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 1,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "video",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49172,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [
+            {
+              "channels": null,
+              "clock_rate": 90000,
+              "encoding_name": "VP8",
+              "payload_type": 97
+            }
+          ],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 21,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:3.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 4,
+      "frame_reference": "frame:4",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 9,
+      "line_ending_style": "CRLF",
+      "media_section_count": 2,
+      "media_sections": [
+        {
+          "attributes": [],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        },
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtpmap",
+              "value_length": 13,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": {
+            "address_class": "PRIVATE",
+            "address_count": null,
+            "address_family": "IPv6",
+            "address_present": true,
+            "address_redacted": true,
+            "address_type": "IP6",
+            "multicast": false,
+            "net_type": "IN",
+            "ttl": null
+          },
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "DYNAMIC",
+              "format": "96",
+              "payload_type": 96
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 1,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "video",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49172,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [
+            {
+              "channels": null,
+              "clock_rate": 90000,
+              "encoding_name": "H264",
+              "payload_type": 96
+            }
+          ],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 20,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:4.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 5,
+      "frame_reference": "frame:5",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 7,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtpmap",
+              "value_length": 15,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            },
+            {
+              "classification": "STATIC",
+              "format": "8",
+              "payload_type": 8
+            },
+            {
+              "classification": "DYNAMIC",
+              "format": "96",
+              "payload_type": 96
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [
+            {
+              "channels": 2,
+              "clock_rate": 48000,
+              "encoding_name": "opus",
+              "payload_type": 96
+            }
+          ],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 18,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:5.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 6,
+      "frame_reference": "frame:6",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 7,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtpmap",
+              "value_length": 15,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "DYNAMIC",
+              "format": "96",
+              "payload_type": 96
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [
+            {
+              "channels": 2,
+              "clock_rate": 48000,
+              "encoding_name": "opus",
+              "payload_type": 96
+            }
+          ],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 17,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:6.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 7,
+      "frame_reference": "frame:7",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 8,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtpmap",
+              "value_length": 15,
+              "value_present": true
+            },
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "fmtp",
+              "value_length": 27,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [
+            {
+              "parameter_count": 2,
+              "parameters": [
+                {
+                  "name": "useinbandfec",
+                  "safe_value": null,
+                  "value_classification": "UNINTERPRETED",
+                  "value_length": 1,
+                  "value_present": true
+                },
+                {
+                  "name": "max-fs",
+                  "safe_value": "10",
+                  "value_classification": "SAFE_METADATA",
+                  "value_length": 2,
+                  "value_present": true
+                }
+              ],
+              "parameters_omitted": 0,
+              "payload_type": 96,
+              "value_redacted": true
+            }
+          ],
+          "formats": [
+            {
+              "classification": "DYNAMIC",
+              "format": "96",
+              "payload_type": 96
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [
+            {
+              "channels": 2,
+              "clock_rate": 48000,
+              "encoding_name": "opus",
+              "payload_type": 96
+            }
+          ],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 14,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:7.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 8,
+      "frame_reference": "frame:8",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 10,
+      "line_ending_style": "CRLF",
+      "media_section_count": 2,
+      "media_sections": [
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "sendonly",
+              "value_length": 0,
+              "value_present": false
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": "sendonly",
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        },
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "recvonly",
+              "value_length": 0,
+              "value_present": false
+            },
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtpmap",
+              "value_length": 13,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": "recvonly",
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "DYNAMIC",
+              "format": "96",
+              "payload_type": 96
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 1,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "video",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49172,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [
+            {
+              "channels": null,
+              "clock_rate": 90000,
+              "encoding_name": "H264",
+              "payload_type": 96
+            }
+          ],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 20,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:8.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 9,
+      "frame_reference": "frame:9",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 10,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "inactive",
+              "value_length": 0,
+              "value_present": false
+            },
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "mid",
+              "value_length": 9,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": "inactive",
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": "media-mid",
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [
+          {
+            "classification": "KNOWN_SAFE",
+            "name": "sendrecv",
+            "value_length": 0,
+            "value_present": false
+          },
+          {
+            "classification": "KNOWN_SAFE",
+            "name": "mid",
+            "value_length": 11,
+            "value_present": true
+          }
+        ],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": "sendrecv",
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": "session-mid",
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 16,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:9.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 10,
+      "frame_reference": "frame:10",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 8,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtcp",
+              "value_length": 21,
+              "value_present": true
+            },
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtcp-mux",
+              "value_length": 0,
+              "value_present": false
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": {
+            "address_class": "PRIVATE",
+            "address_family": "IPv4",
+            "address_redacted": true,
+            "port": 49171
+          },
+          "rtcp_mux": true,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 14,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:10.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 11,
+      "frame_reference": "frame:11",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 11,
+      "line_ending_style": "CRLF",
+      "media_section_count": 2,
+      "media_sections": [
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "mid",
+              "value_length": 1,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": "0",
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        },
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "mid",
+              "value_length": 1,
+              "value_present": true
+            },
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtpmap",
+              "value_length": 13,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "DYNAMIC",
+              "format": "96",
+              "payload_type": 96
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 1,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "video",
+          "media_type_supported": true,
+          "mid": "1",
+          "obsolete_key_present": false,
+          "port": 49172,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [
+            {
+              "channels": null,
+              "clock_rate": 90000,
+              "encoding_name": "H264",
+              "payload_type": 96
+            }
+          ],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [
+          {
+            "classification": "KNOWN_SAFE",
+            "name": "group",
+            "value_length": 10,
+            "value_present": true
+          }
+        ],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [
+          {
+            "mids": [
+              "0",
+              "1"
+            ],
+            "mids_omitted": 0,
+            "reference_status": "RESOLVED",
+            "semantics": "BUNDLE"
+          }
+        ],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 16,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:11.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "INCOMPLETE",
+      "frame_number": 12,
+      "frame_reference": "frame:12",
+      "invalid_reasons": [
+        "MISSING_ORIGIN",
+        "MISSING_SESSION_NAME",
+        "MISSING_TIME_DESCRIPTION"
+      ],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 3,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "INCOMPLETE",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": null,
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": null,
+        "setup": null,
+        "timing": [],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:12.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "INVALID",
+      "frame_number": 13,
+      "frame_reference": "frame:13",
+      "invalid_reasons": [
+        "MEDIA_FIELD_MALFORMED"
+      ],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 6,
+      "line_ending_style": "CRLF",
+      "media_section_count": 0,
+      "media_sections": [],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 22,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:13.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "INVALID",
+      "frame_number": 14,
+      "frame_reference": "frame:14",
+      "invalid_reasons": [
+        "RTP_PAYLOAD_TYPE_INVALID"
+      ],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 6,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "INVALID",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "NOT_RTP",
+              "format": "999",
+              "payload_type": null
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [
+            "RTP_PAYLOAD_TYPE_INVALID"
+          ],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 25,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:14.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "AMBIGUOUS",
+      "frame_number": 15,
+      "frame_reference": "frame:15",
+      "invalid_reasons": [
+        "CONFLICTING_DIRECTION_ATTRIBUTES",
+        "DUPLICATE_RTPMAP"
+      ],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 10,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "sendonly",
+              "value_length": 0,
+              "value_present": false
+            },
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "inactive",
+              "value_length": 0,
+              "value_present": false
+            },
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtpmap",
+              "value_length": 15,
+              "value_present": true
+            },
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "rtpmap",
+              "value_length": 11,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": "AMBIGUOUS",
+          "evidence_status": "AMBIGUOUS",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "DYNAMIC",
+              "format": "96",
+              "payload_type": 96
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [
+            "CONFLICTING_DIRECTION_ATTRIBUTES",
+            "DUPLICATE_RTPMAP"
+          ],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [
+            {
+              "channels": 2,
+              "clock_rate": 48000,
+              "encoding_name": "opus",
+              "payload_type": 96
+            },
+            {
+              "channels": null,
+              "clock_rate": 8000,
+              "encoding_name": "AMR",
+              "payload_type": 96
+            }
+          ],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 18,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:15.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "INVALID",
+      "frame_number": 16,
+      "frame_reference": "frame:16",
+      "invalid_reasons": [
+        "MALFORMED_LINE"
+      ],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 7,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [
+          {
+            "length": 23,
+            "line_number": 6,
+            "reason": "MALFORMED_LINE"
+          }
+        ],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 19,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:16.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 17,
+      "frame_reference": "frame:17",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 6,
+      "line_ending_style": "MIXED",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 23,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:17.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 18,
+      "frame_reference": "frame:18",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 8,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [
+            {
+              "classification": "UNINTERPRETED",
+              "name": "x-media-extension",
+              "value_length": 18,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": [
+            {
+              "classification": "UNINTERPRETED",
+              "name": "x-media-extension",
+              "value_length": 18,
+              "value_present": true
+            }
+          ]
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [
+          {
+            "classification": "UNINTERPRETED",
+            "name": "x-session-extension",
+            "value_length": 13,
+            "value_present": true
+          }
+        ],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 17,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [
+          {
+            "classification": "UNINTERPRETED",
+            "name": "x-session-extension",
+            "value_length": 13,
+            "value_present": true
+          }
+        ],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:18.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "INCOMPLETE",
+      "frame_number": 19,
+      "frame_reference": "frame:19",
+      "invalid_reasons": [
+        "TRUNCATED_INPUT"
+      ],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 6,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 19,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:19.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "INVALID",
+      "frame_number": 20,
+      "frame_reference": "frame:20",
+      "invalid_reasons": [
+        "OVERSIZED_INPUT"
+      ],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 0,
+      "line_ending_style": "CRLF",
+      "media_section_count": 0,
+      "media_sections": [],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": null,
+      "session": {
+        "attributes": [],
+        "bandwidth": [],
+        "connection": null,
+        "direction": null,
+        "evidence_status": "INVALID",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": null,
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": null,
+        "setup": null,
+        "timing": [],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:20.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "OBSERVED",
+      "frame_number": 21,
+      "frame_reference": "frame:21",
+      "invalid_reasons": [],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 12,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": null,
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [
+          {
+            "classification": "SENSITIVE_REDACTED",
+            "name": "ice-ufrag",
+            "value_length": 19,
+            "value_present": true
+          },
+          {
+            "classification": "SENSITIVE_REDACTED",
+            "name": "ice-pwd",
+            "value_length": 22,
+            "value_present": true
+          },
+          {
+            "classification": "SENSITIVE_REDACTED",
+            "name": "candidate",
+            "value_length": 46,
+            "value_present": true
+          },
+          {
+            "classification": "SENSITIVE_REDACTED",
+            "name": "fingerprint",
+            "value_length": 19,
+            "value_present": true
+          },
+          {
+            "classification": "SENSITIVE_REDACTED",
+            "name": "crypto",
+            "value_length": 53,
+            "value_present": true
+          },
+          {
+            "classification": "KNOWN_SAFE",
+            "name": "setup",
+            "value_length": 7,
+            "value_present": true
+          }
+        ],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": false,
+          "username_length": 12,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [
+          {
+            "redacted": true,
+            "sensitive": true,
+            "value_length": 19
+          },
+          {
+            "redacted": true,
+            "sensitive": true,
+            "value_length": 22
+          },
+          {
+            "candidate_count": 1,
+            "redacted": true,
+            "sensitive": true,
+            "value_length": 46
+          },
+          {
+            "digest_length": 11,
+            "hash_function": "sha-256",
+            "redacted": true,
+            "sensitive": true,
+            "value_length": 19
+          },
+          {
+            "crypto_suite": "AES_CM_128_HMAC_SHA1_80",
+            "key_material_present": true,
+            "redacted": true,
+            "sensitive": true,
+            "tag": 1,
+            "value_length": 53
+          }
+        ],
+        "session_name": {
+          "length": 19,
+          "present": true,
+          "redacted": true
+        },
+        "setup": "actpass",
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:21.1"
+    },
+    {
+      "capture_file": "synthetic-sdp.pcapng",
+      "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "evidence_status": "AMBIGUOUS",
+      "frame_number": 22,
+      "frame_reference": "frame:22",
+      "invalid_reasons": [
+        "BUNDLE_REFERENCE_UNRESOLVED"
+      ],
+      "limitations": [
+        "raw SDP body is never published",
+        "network addresses, identities, ICE credentials and key material are redacted",
+        "SDP structural evidence does not establish offer/answer agreement, RTP delivery, media quality or IMS call success"
+      ],
+      "line_count": 8,
+      "line_ending_style": "CRLF",
+      "media_section_count": 1,
+      "media_sections": [
+        {
+          "attributes": [
+            {
+              "classification": "KNOWN_SAFE",
+              "name": "mid",
+              "value_length": 1,
+              "value_present": true
+            }
+          ],
+          "bandwidth": [],
+          "connection": null,
+          "direction": null,
+          "evidence_status": "OBSERVED",
+          "fmtp": [],
+          "formats": [
+            {
+              "classification": "STATIC",
+              "format": "0",
+              "payload_type": 0
+            }
+          ],
+          "formats_omitted": 0,
+          "groups": [],
+          "ice_lite": false,
+          "ice_options": [],
+          "index": 0,
+          "invalid_reasons": [],
+          "maxptime": null,
+          "media_title_length": 0,
+          "media_title_present": false,
+          "media_type": "audio",
+          "media_type_supported": true,
+          "mid": "0",
+          "obsolete_key_present": false,
+          "port": 49170,
+          "port_count": 1,
+          "protocol": "RTP/AVP",
+          "ptime": null,
+          "rtcp": null,
+          "rtcp_mux": false,
+          "rtpmap": [],
+          "secondary_connection_count": 0,
+          "sensitive_attributes": [],
+          "setup": null,
+          "unknown_attributes": []
+        }
+      ],
+      "media_sections_omitted": 0,
+      "message_occurrence": 1,
+      "not_confirmed": [
+        "SDP_OFFER_ANSWER",
+        "RTP_DELIVERY",
+        "IMS_MEDIA_SESSION",
+        "CALL_SUCCESS",
+        "MEDIA_QOS"
+      ],
+      "parser_version": "0.1.0",
+      "sdp_version": 0,
+      "session": {
+        "attributes": [
+          {
+            "classification": "KNOWN_SAFE",
+            "name": "group",
+            "value_length": 10,
+            "value_present": true
+          }
+        ],
+        "bandwidth": [],
+        "connection": {
+          "address_class": "PRIVATE",
+          "address_count": null,
+          "address_family": "IPv4",
+          "address_present": true,
+          "address_redacted": true,
+          "address_type": "IP4",
+          "multicast": false,
+          "net_type": "IN",
+          "ttl": null
+        },
+        "direction": null,
+        "evidence_status": "OBSERVED",
+        "fmtp": [],
+        "groups": [
+          {
+            "mids": [
+              "0",
+              "9"
+            ],
+            "mids_omitted": 0,
+            "reference_status": "UNRESOLVED",
+            "semantics": "BUNDLE"
+          }
+        ],
+        "ice_lite": false,
+        "ice_options": [],
+        "invalid_reasons": [],
+        "malformed_lines": [],
+        "maxptime": null,
+        "mid": null,
+        "obsolete_key_present": false,
+        "origin": {
+          "address_class": "PRIVATE",
+          "address_family": "IPv4",
+          "address_redacted": true,
+          "address_type": "IP4",
+          "net_type": "IN",
+          "session_id_length": 4,
+          "session_id_numeric": true,
+          "session_id_present": true,
+          "session_id_redacted": true,
+          "session_version": 2000,
+          "username_is_dash": true,
+          "username_length": 1,
+          "username_present": true,
+          "username_redacted": true
+        },
+        "ptime": null,
+        "rtcp": null,
+        "rtcp_mux": false,
+        "rtpmap": [],
+        "secondary_connection_count": 0,
+        "sensitive_attributes": [],
+        "session_name": {
+          "length": 23,
+          "present": true,
+          "redacted": true
+        },
+        "setup": null,
+        "timing": [
+          {
+            "start": 0,
+            "stop": 0,
+            "unbounded": true
+          }
+        ],
+        "unknown_attributes": [],
+        "unknown_lines": []
+      },
+      "source_reference": "sip-body:synthetic-sdp.pcapng:22.1"
+    }
+  ],
+  "not_confirmed": [
+    "SDP_OFFER_ANSWER",
+    "SIP_TO_SDP_ASSOCIATION",
+    "SDP_TO_RTP_ENDPOINT_CORRELATION",
+    "RTP_DELIVERY",
+    "MEDIA_QOS",
+    "IMS_MEDIA_SESSION",
+    "CALL_SUCCESS"
+  ]
+}

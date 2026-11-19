@@ -284,6 +284,7 @@ Before claiming completion, run repository-level validation appropriate to the c
 
 For IMS Registration changes, also run `python3 scripts/validate-ims-registration.py`.
 For IMS Session changes, also run `python3 scripts/validate-ims-session.py`.
+For SDP changes, also run `python3 scripts/validate-sdp-rtp.py`.
 
 For EPC Evidence Review navigation changes, also run:
 

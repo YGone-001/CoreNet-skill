@@ -1,0 +1,39 @@
+SDP structural evidence
+analysis_version: 0.1.0
+capture: synthetic-sdp.pcapng
+messages: 22 published
+status: observed=14, incomplete=2, ambiguous=2, unsupported=0, invalid=4
+message: sip-body:synthetic-sdp.pcapng:1.1 / OBSERVED / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:2.1 / OBSERVED / media_sections=2 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:3.1 / OBSERVED / media_sections=2 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:4.1 / OBSERVED / media_sections=2 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:5.1 / OBSERVED / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:6.1 / OBSERVED / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:7.1 / OBSERVED / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:8.1 / OBSERVED / media_sections=2 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:9.1 / OBSERVED / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:10.1 / OBSERVED / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:11.1 / OBSERVED / media_sections=2 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:12.1 / INCOMPLETE / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:13.1 / INVALID / media_sections=0 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:14.1 / INVALID / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:15.1 / AMBIGUOUS / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:16.1 / INVALID / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:17.1 / OBSERVED / media_sections=1 / line_endings=MIXED
+message: sip-body:synthetic-sdp.pcapng:18.1 / OBSERVED / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:19.1 / INCOMPLETE / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:20.1 / INVALID / media_sections=0 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:21.1 / OBSERVED / media_sections=1 / line_endings=CRLF
+message: sip-body:synthetic-sdp.pcapng:22.1 / AMBIGUOUS / media_sections=1 / line_endings=CRLF
+limits:
+- The parser consumes explicitly supplied SDP bodies and provenance; capture extraction is not implemented here.
+- Raw SDP bodies, addresses, identities, ICE credentials, fingerprints and key material are not published.
+- No SDP Offer/Answer pairing, SIP dialog association, RTP endpoint correlation, media quality or IMS media verdict is produced.
+not_confirmed:
+- SDP_OFFER_ANSWER
+- SIP_TO_SDP_ASSOCIATION
+- SDP_TO_RTP_ENDPOINT_CORRELATION
+- RTP_DELIVERY
+- MEDIA_QOS
+- IMS_MEDIA_SESSION
+- CALL_SUCCESS

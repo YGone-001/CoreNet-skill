@@ -70,7 +70,10 @@ extracts Diameter base-protocol header, AVP, base result and vendor
 experimental-result evidence from TCP/SCTP captures, with decoder-proven grouped
 AVP structure, privacy-safe sensitive-AVP redaction and protocol-local
 Request/Answer correlation; it does not implement S6a, Gx, Rx, Cx, IMS or any
-application procedure verdict. The bounded `sip` Protocol Skill extracts SIP
+application procedure verdict. The bounded `sdp-rtp` Protocol Skill parses explicitly
+supplied RFC 8866 SDP bodies into structural session/media evidence with privacy-safe
+address and sensitive-attribute classification; it does not implement RTP/RTCP,
+Offer/Answer, SIP-to-SDP association or IMS media verdicts. The bounded `sip` Protocol Skill extracts SIP
 requests and responses over UDP and TCP, including IPv4/IPv6 and
 decoder-delivered TCP reassembly metadata, correlates requests and responses at the
 RFC 3261 transaction layer, classifies retransmissions and publishes transaction
@@ -93,7 +96,7 @@ NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
 relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
 semantics), remaining
-5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (SDP/RTP and Diameter IMS Sh/Rx/charging), IMS session modification and media/QoS,
+5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol Skills (RTP and Diameter IMS Sh/Rx/charging), IMS session modification and media/QoS,
 broader EPC procedures (bearer and session lifecycle, Diameter EPC, cross-interface session association, end-to-end EPC diagnosis),
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper
 diagnosis orchestration.
@@ -120,7 +123,7 @@ CoreNet Skill focuses on network signaling evidence analysis rather than impleme
 
 ## EPC, IMS, 5GC, and Diameter
 
-EPC procedures reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS registration and session evidence reuse the implemented SIP Protocol Skill (including its bounded Dialog evidence), the implemented Diameter IMS Cx/Dx Protocol Skill, the implemented IMS Registration Domain Skill and the implemented IMS Session Domain Skill; SDP/RTP, Diameter Charging, session modification and media/QoS remain future work. 5GC procedures reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
+EPC procedures reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS registration and session evidence reuse the implemented SIP Protocol Skill (including its bounded Dialog evidence), the implemented Diameter IMS Cx/Dx Protocol Skill, the implemented IMS Registration Domain Skill and the implemented IMS Session Domain Skill; bounded SDP structural evidence exists as a standalone Protocol Skill but is not yet integrated into that path, while RTP, Diameter Charging, session modification and media/QoS remain future work. 5GC procedures reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
 
 Diameter is explicitly cross-domain—not an IMS-owned protocol. `diameter-core` owns base-protocol behavior; `diameter-epc` owns bounded S6a/S6d AIR/AIA and ULR/ULA application-message evidence; `diameter-ims` owns bounded Cx/Dx UAR/UAA, SAR/SAA, LIR/LIA, MAR/MAA, RTR/RTA and PPR/PPA application-message evidence; and `diameter-charging` will own shared credit-control semantics and remains planned, together with the Diameter IMS Sh and Rx applications. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

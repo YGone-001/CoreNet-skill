@@ -1,0 +1,51 @@
+name: sdp-rtp
+version: 0.1.0
+category: protocol
+description: Bounded RFC 8866 SDP structural parsing and evidence extraction.
+scope:
+  includes:
+    - v/o/s/c/t/m structural parsing
+    - session-level and media-level attribute separation
+    - rtpmap, fmtp, direction, mid, rtcp, rtcp-mux, group recognition
+    - ICE, fingerprint and crypto presence classification with redaction
+    - unknown attributes preserved as uninterpreted evidence
+    - privacy-safe address and identity classification
+  excludes:
+    - RTP packet extraction, stream reconstruction and RTCP statistics
+    - jitter, loss, MOS or media QoS diagnosis
+    - ICE connectivity verification and SRTP decryption
+    - SDP Offer/Answer pairing
+    - SIP-to-SDP dialog association
+    - SDP-to-RTP endpoint correlation
+    - IMS media verdicts, Diameter Rx, Diameter charging and unified-workflow integration
+dependencies:
+  required: []
+  optional: []
+inputs:
+  - JSONL records containing explicit SDP bodies and caller-supplied provenance
+outputs:
+  - bounded SDP structural evidence JSON (schemas/sdp-events.schema.json)
+  - optional plain-text report
+protocols:
+  - SDP
+interfaces: []
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INCOMPLETE
+  - AMBIGUOUS
+  - UNSUPPORTED
+  - INVALID
+upstream:
+  repository: https://www.rfc-editor.org/rfc/rfc8866.txt
+  path: null
+  commit: null
+  license: IETF Trust RFC 8866
+  local_modifications: Original CoreNet implementation; no upstream code imported.
+testing:
+  fixtures:
+    - examples/inputs/sdp-cases.jsonl
+  expected_results:
+    - examples/expected/sdp-analysis.json
+    - examples/expected/sdp-report.txt

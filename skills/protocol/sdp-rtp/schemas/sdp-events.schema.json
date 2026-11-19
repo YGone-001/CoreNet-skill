@@ -1,0 +1,1321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.local/schemas/sdp-events.schema.json",
+  "title": "Bounded SDP structural evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_name",
+    "analysis_version",
+    "event_schema_version",
+    "capability",
+    "input_provenance",
+    "message_count",
+    "messages",
+    "completeness",
+    "limitations",
+    "not_confirmed"
+  ],
+  "properties": {
+    "analysis_name": {
+      "const": "sdp-rtp"
+    },
+    "analysis_version": {
+      "const": "0.1.0"
+    },
+    "event_schema_version": {
+      "const": "1.0.0"
+    },
+    "capability": {
+      "const": "bounded SDP structural evidence"
+    },
+    "input_provenance": {
+      "$ref": "#/$defs/input_provenance"
+    },
+    "message_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 512
+    },
+    "messages": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "$ref": "#/$defs/message"
+      }
+    },
+    "completeness": {
+      "$ref": "#/$defs/completeness"
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "not_confirmed": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    }
+  },
+  "$defs": {
+    "input_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_name",
+        "capture_files",
+        "capture_sha256",
+        "message_count",
+        "parser_version"
+      ],
+      "properties": {
+        "input_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "capture_files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "capture_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "message_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "parser_version": {
+          "const": "0.1.0"
+        }
+      }
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_reference",
+        "capture_file",
+        "capture_sha256",
+        "frame_number",
+        "frame_reference",
+        "message_occurrence",
+        "parser_version",
+        "sdp_version",
+        "line_count",
+        "line_ending_style",
+        "session",
+        "media_sections",
+        "media_section_count",
+        "media_sections_omitted",
+        "invalid_reasons",
+        "limitations",
+        "not_confirmed",
+        "evidence_status"
+      ],
+      "properties": {
+        "source_reference": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+$"
+        },
+        "capture_file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "capture_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "frame_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "frame_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "message_occurrence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "parser_version": {
+          "const": "0.1.0"
+        },
+        "sdp_version": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ],
+          "maxLength": 16
+        },
+        "line_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "line_ending_style": {
+          "type": "string",
+          "enum": [
+            "CRLF",
+            "LF",
+            "CR",
+            "MIXED",
+            "NONE"
+          ]
+        },
+        "session": {
+          "$ref": "#/$defs/session"
+        },
+        "media_sections": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/media"
+          }
+        },
+        "media_section_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "media_sections_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid_reasons": {
+          "$ref": "#/$defs/reasons"
+        },
+        "limitations": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        },
+        "not_confirmed": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidence_status"
+        }
+      }
+    },
+    "evidence_status": {
+      "type": "string",
+      "enum": [
+        "OBSERVED",
+        "INCOMPLETE",
+        "AMBIGUOUS",
+        "UNSUPPORTED",
+        "INVALID"
+      ]
+    },
+    "reasons": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "nullable_connection": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "net_type",
+        "address_type",
+        "address_family",
+        "address_class",
+        "multicast",
+        "ttl",
+        "address_count",
+        "address_present",
+        "address_redacted"
+      ],
+      "properties": {
+        "net_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "address_type": {
+          "type": "string",
+          "enum": [
+            "IP4",
+            "IP6",
+            "UNKNOWN"
+          ]
+        },
+        "address_family": {
+          "type": "string",
+          "enum": [
+            "IPv4",
+            "IPv6",
+            "UNKNOWN"
+          ]
+        },
+        "address_class": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "multicast": {
+          "type": "boolean"
+        },
+        "ttl": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "address_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "address_present": {
+          "type": "boolean"
+        },
+        "address_redacted": {
+          "const": true
+        }
+      }
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username_present",
+        "username_length",
+        "username_is_dash",
+        "username_redacted",
+        "session_id_present",
+        "session_id_length",
+        "session_id_numeric",
+        "session_id_redacted",
+        "session_version",
+        "net_type",
+        "address_type",
+        "address_family",
+        "address_class",
+        "address_redacted"
+      ],
+      "properties": {
+        "username_present": {
+          "type": "boolean"
+        },
+        "username_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "username_is_dash": {
+          "type": "boolean"
+        },
+        "username_redacted": {
+          "const": true
+        },
+        "session_id_present": {
+          "type": "boolean"
+        },
+        "session_id_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "session_id_numeric": {
+          "type": "boolean"
+        },
+        "session_id_redacted": {
+          "const": true
+        },
+        "session_version": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "net_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "address_type": {
+          "type": "string",
+          "enum": [
+            "IP4",
+            "IP6",
+            "UNKNOWN"
+          ]
+        },
+        "address_family": {
+          "type": "string",
+          "enum": [
+            "IPv4",
+            "IPv6",
+            "UNKNOWN"
+          ]
+        },
+        "address_class": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "address_redacted": {
+          "const": true
+        }
+      }
+    },
+    "session_name": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "present",
+        "length",
+        "redacted"
+      ],
+      "properties": {
+        "present": {
+          "const": true
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "redacted": {
+          "const": true
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "stop",
+        "unbounded"
+      ],
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stop": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unbounded": {
+          "type": "boolean"
+        }
+      }
+    },
+    "bandwidth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "value"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "attribute_descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value_present",
+        "value_length",
+        "classification"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "value_present": {
+          "type": "boolean"
+        },
+        "value_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "KNOWN_SAFE",
+            "UNINTERPRETED",
+            "SENSITIVE_REDACTED"
+          ]
+        }
+      }
+    },
+    "rtpmap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload_type",
+        "encoding_name",
+        "clock_rate",
+        "channels"
+      ],
+      "properties": {
+        "payload_type": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "encoding_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "clock_rate": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "channels": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    },
+    "fmtp_parameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value_present",
+        "value_length",
+        "value_classification",
+        "safe_value"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "value_present": {
+          "type": "boolean"
+        },
+        "value_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "value_classification": {
+          "type": "string",
+          "enum": [
+            "SAFE_METADATA",
+            "UNINTERPRETED"
+          ]
+        },
+        "safe_value": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        }
+      }
+    },
+    "fmtp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload_type",
+        "parameter_count",
+        "parameters",
+        "parameters_omitted",
+        "value_redacted"
+      ],
+      "properties": {
+        "payload_type": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "parameter_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parameters": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/fmtp_parameter"
+          }
+        },
+        "parameters_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "value_redacted": {
+          "const": true
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "semantics",
+        "mids",
+        "mids_omitted",
+        "reference_status"
+      ],
+      "properties": {
+        "semantics": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "mids": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "mids_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reference_status": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "RESOLVED",
+            "UNRESOLVED"
+          ]
+        }
+      }
+    },
+    "rtcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "port",
+        "address_family",
+        "address_class",
+        "address_redacted"
+      ],
+      "properties": {
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "address_family": {
+          "type": "string",
+          "enum": [
+            "IPv4",
+            "IPv6",
+            "UNKNOWN"
+          ]
+        },
+        "address_class": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "address_redacted": {
+          "const": true
+        }
+      }
+    },
+    "sensitive_attribute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sensitive",
+        "redacted",
+        "value_length"
+      ],
+      "properties": {
+        "sensitive": {
+          "const": true
+        },
+        "redacted": {
+          "const": true
+        },
+        "value_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "hash_function": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "digest_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "tag": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "crypto_suite": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "key_material_present": {
+          "type": "boolean"
+        },
+        "candidate_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1
+        }
+      }
+    },
+    "unknown_line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field_type",
+        "value_length",
+        "line_number"
+      ],
+      "properties": {
+        "field_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1
+        },
+        "value_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "line_number": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "malformed_line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "line_number",
+        "length",
+        "reason"
+      ],
+      "properties": {
+        "line_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin",
+        "session_name",
+        "connection",
+        "secondary_connection_count",
+        "timing",
+        "bandwidth",
+        "attributes",
+        "unknown_attributes",
+        "sensitive_attributes",
+        "rtpmap",
+        "fmtp",
+        "groups",
+        "mid",
+        "rtcp",
+        "rtcp_mux",
+        "ptime",
+        "maxptime",
+        "setup",
+        "ice_options",
+        "ice_lite",
+        "direction",
+        "obsolete_key_present",
+        "unknown_lines",
+        "malformed_lines",
+        "invalid_reasons",
+        "evidence_status"
+      ],
+      "properties": {
+        "origin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/origin"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "session_name": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/session_name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "connection": {
+          "$ref": "#/$defs/nullable_connection"
+        },
+        "secondary_connection_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timing": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/timing"
+          }
+        },
+        "bandwidth": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/bandwidth"
+          }
+        },
+        "attributes": {
+          "$ref": "#/$defs/attribute_list"
+        },
+        "unknown_attributes": {
+          "$ref": "#/$defs/attribute_list"
+        },
+        "sensitive_attributes": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/sensitive_attribute"
+          }
+        },
+        "rtpmap": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/rtpmap"
+          }
+        },
+        "fmtp": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/fmtp"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/group"
+          }
+        },
+        "mid": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "rtcp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/rtcp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rtcp_mux": {
+          "type": "boolean"
+        },
+        "ptime": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "maxptime": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "setup": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "active",
+            "passive",
+            "actpass",
+            "holdconn",
+            null
+          ]
+        },
+        "ice_options": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "ice_lite": {
+          "type": "boolean"
+        },
+        "direction": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "sendrecv",
+            "sendonly",
+            "recvonly",
+            "inactive",
+            "AMBIGUOUS",
+            null
+          ]
+        },
+        "obsolete_key_present": {
+          "type": "boolean"
+        },
+        "unknown_lines": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/unknown_line"
+          }
+        },
+        "malformed_lines": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/malformed_line"
+          }
+        },
+        "invalid_reasons": {
+          "$ref": "#/$defs/reasons"
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidence_status"
+        },
+        "session_information_present": {
+          "type": "boolean"
+        },
+        "session_information_length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "u_present": {
+          "type": "boolean"
+        },
+        "u_length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "e_present": {
+          "type": "boolean"
+        },
+        "e_length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "p_present": {
+          "type": "boolean"
+        },
+        "p_length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repeat_timing_line_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "attribute_list": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/attribute_descriptor"
+      }
+    },
+    "formats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "payload_type",
+        "classification"
+      ],
+      "properties": {
+        "format": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "payload_type": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 127
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "STATIC",
+            "DYNAMIC",
+            "NOT_RTP"
+          ]
+        }
+      }
+    },
+    "media": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "media_type",
+        "media_type_supported",
+        "port",
+        "port_count",
+        "protocol",
+        "formats",
+        "formats_omitted",
+        "connection",
+        "secondary_connection_count",
+        "bandwidth",
+        "attributes",
+        "unknown_attributes",
+        "sensitive_attributes",
+        "rtpmap",
+        "fmtp",
+        "groups",
+        "mid",
+        "rtcp",
+        "rtcp_mux",
+        "ptime",
+        "maxptime",
+        "setup",
+        "ice_options",
+        "ice_lite",
+        "direction",
+        "invalid_reasons",
+        "evidence_status",
+        "media_title_present",
+        "media_title_length",
+        "obsolete_key_present"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 63
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "media_type_supported": {
+          "type": "boolean"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "port_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "protocol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "formats": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/formats"
+          }
+        },
+        "formats_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "connection": {
+          "$ref": "#/$defs/nullable_connection"
+        },
+        "secondary_connection_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bandwidth": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/bandwidth"
+          }
+        },
+        "attributes": {
+          "$ref": "#/$defs/attribute_list"
+        },
+        "unknown_attributes": {
+          "$ref": "#/$defs/attribute_list"
+        },
+        "sensitive_attributes": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/sensitive_attribute"
+          }
+        },
+        "rtpmap": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/rtpmap"
+          }
+        },
+        "fmtp": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/fmtp"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/group"
+          }
+        },
+        "mid": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "rtcp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/rtcp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rtcp_mux": {
+          "type": "boolean"
+        },
+        "ptime": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "maxptime": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "setup": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "active",
+            "passive",
+            "actpass",
+            "holdconn",
+            null
+          ]
+        },
+        "ice_options": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "ice_lite": {
+          "type": "boolean"
+        },
+        "direction": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "sendrecv",
+            "sendonly",
+            "recvonly",
+            "inactive",
+            "AMBIGUOUS",
+            null
+          ]
+        },
+        "invalid_reasons": {
+          "$ref": "#/$defs/reasons"
+        },
+        "evidence_status": {
+          "$ref": "#/$defs/evidence_status"
+        },
+        "media_title_present": {
+          "type": "boolean"
+        },
+        "media_title_length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "obsolete_key_present": {
+          "type": "boolean"
+        }
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supplied_message_count",
+        "published_message_count",
+        "messages_omitted",
+        "observed_message_count",
+        "incomplete_message_count",
+        "ambiguous_message_count",
+        "unsupported_message_count",
+        "invalid_message_count"
+      ],
+      "properties": {
+        "supplied_message_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "published_message_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "messages_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_message_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "incomplete_message_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguous_message_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_message_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid_message_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
