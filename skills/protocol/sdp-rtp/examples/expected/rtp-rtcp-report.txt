@@ -1,5 +1,5 @@
 RTP/RTCP packet evidence
-analysis_version: 0.2.0
+analysis_version: 0.3.0
 mode: STRUCTURED_JSONL
 capture: synthetic-rtp.pcapng
 records: 34

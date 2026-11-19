@@ -76,11 +76,11 @@ RTP delivery, endpoint reachability, QoS, IMS registration or call success.
 
 | Field | Published evidence |
 | --- | --- |
-| `rtp.version` | Version 2 is the supported value; other versions `UNSUPPORTED` |
-| `rtp.padding`, `rtp.padding.count` | Padding presence/count |
-| `rtp.ext`, `rtp.ext.profile`, `rtp.ext.len` | Extension presence, profile and length; extension data never published |
+| `rtp.version` | Two-bit range 0-3; version 2 supported, other representable versions `UNSUPPORTED`, values outside 0-3 `INVALID` |
+| `rtp.padding`, `rtp.padding.count` | Tri-state presence: explicit false/true preserved, missing `INCOMPLETE`, invalid `INVALID`; count required when true |
+| `rtp.ext`, `rtp.ext.profile`, `rtp.ext.len` | Tri-state presence; profile/length required when true; extension data never published |
 | `rtp.cc`, `rtp.csrc.item` | CSRC count and safe numeric identifiers; count mismatch is `AMBIGUOUS` |
-| `rtp.marker`, `rtp.p_type` | Marker and numeric payload type |
+| `rtp.marker`, `rtp.p_type` | Tri-state marker and numeric payload type; missing marker is `INCOMPLETE`, invalid `INVALID` |
 | `rtp.seq`, `rtp.timestamp`, `rtp.ssrc` | Sequence, timestamp and SSRC; SSRC reference is capture-scoped |
 | `frame.number`, `frame.time_epoch`, `udp.stream`, `udp.stream.pnum` | Frame/transport provenance only; UDP stream is not an RTP session identity |
 
@@ -93,8 +93,8 @@ identity or delivery verdict is derived from payload type, UDP port or SSRC.
 | --- | --- |
 | SR (200) | Sender SSRC, NTP MSW/LSW and presence, RTP timestamp, sender packet/octet counts, report blocks |
 | RR (201) | Sender SSRC, report count, reported SSRC, fraction lost, signed cumulative packets lost, extended highest sequence, interarrival jitter, LSR, DLSR |
-| SDES (202) | source SSRC, item type/name, presence and redacted length; item text never published |
-| BYE (203) | source identifiers, source count, reason presence/redacted length; reason text never published |
+| SDES (202) | declared source count, observed chunk count, source SSRC, item type/name, presence and redacted length; item text never published |
+| BYE (203) | declared source count, observed source list/count, source identifiers, reason presence/redacted length; reason text never published |
 | APP (204) | `UNSUPPORTED`; application data never published |
 | RTPFB (205), PSFB (206) | `UNSUPPORTED`; feedback data never published |
 | XR (207), AVB (208), RSI (209) | `UNSUPPORTED` |
@@ -104,6 +104,8 @@ Report blocks are nested under their component in structured input. Flat repeate
 arrays are not zipped by position. If component/report-block association is not proven,
 the component is `AMBIGUOUS` or `INCOMPLETE` and no arbitrary SSRC is selected.
 
+For SDES/BYE the header source-count field is validated against nested chunks/sources:
+missing hierarchy is `INCOMPLETE`; a declared/observed mismatch is `AMBIGUOUS`.
 `rtcp.ssrc.cum_nr` is a signed 24-bit receiver-reported value; negative values are
 preserved. `rtcp.ssrc.fraction` and `rtcp.ssrc.jitter` are receiver-reported values.
 Jitter remains in RTP timestamp units; no millisecond or MOS conversion is performed.
@@ -129,6 +131,7 @@ extraction and fails explicitly if any reviewed field is unavailable. Payload fi
 
 - Structured input: 1,024 records, 16 RTCP components per compound packet, 31 report
   blocks, 16 SDES chunks/items and 16 BYE sources per component.
+- `capture_file` must be a safe basename; absolute paths and path separators are rejected.
 - RTP packet length and all numeric fields are range-validated.
 - Capture extraction is bounded by the same event limits and does not persist raw
   TShark JSON.

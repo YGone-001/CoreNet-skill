@@ -17,9 +17,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 ANALYSIS_NAME = "rtp-rtcp"
-ANALYSIS_VERSION = "0.2.0"
-EVENT_SCHEMA_VERSION = "1.0.0"
-PARSER_VERSION = "0.2.0"
+ANALYSIS_VERSION = "0.3.0"
+EVENT_SCHEMA_VERSION = "1.1.0"
+PARSER_VERSION = "0.3.0"
 CAPABILITY = "bounded RTP and RTCP packet evidence"
 
 MAX_RECORDS = 1024
@@ -32,6 +32,7 @@ MAX_LIST_ITEMS = 64
 MAX_PACKET_LENGTH = 262144
 
 REFERENCE_PATTERN = re.compile(r"^[a-z][a-z0-9-]*:.+:[0-9]+\.[0-9]+(?:\.[0-9]+)?$")
+CAPTURE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ +-]{0,127}$")
 SAFE_TOKEN = re.compile(r"^[A-Za-z0-9._/-]{1,64}$")
 
 RTCP_TYPE_NAMES = {
@@ -120,12 +121,58 @@ def _timestamp(value: Any) -> str | None:
     return None
 
 
+def _validate_capture_name(value: Any, line_number: int | None = None) -> str:
+    if not isinstance(value, str) or not value:
+        raise InputError("capture_file must be a non-empty safe basename")
+    if (
+        not CAPTURE_NAME_PATTERN.fullmatch(value)
+        or value in (".", "..")
+        or "/" in value
+        or "\\" in value
+        or ":" in value
+    ):
+        location = f"input line {line_number} " if line_number is not None else ""
+        raise InputError(f"{location}capture_file must be a privacy-safe basename")
+    return value
+
+
 def _ssrc_reference(capture: str, ssrc: int) -> str:
     return f"rtp-ssrc:{capture}:{ssrc:08x}"
 
 
 def _component_reference(capture: str, frame: int, occurrence: int, index: int) -> str:
     return f"rtcp-component:{capture}:{frame}.{occurrence}.{index}"
+
+
+def _escalate(current: str, candidate: str) -> str:
+    severity = {
+        "OBSERVED": 0,
+        "UNSUPPORTED": 1,
+        "AMBIGUOUS": 2,
+        "INCOMPLETE": 3,
+        "INVALID": 4,
+    }
+    return candidate if severity[candidate] > severity[current] else current
+
+
+def _tri_flag(fields: dict[str, Any], key: str) -> tuple[bool | None, bool, bool]:
+    """Return (value, present, invalid) without defaulting a missing flag to false."""
+    if key not in fields or fields[key] is None:
+        return None, False, False
+    value = fields[key]
+    if isinstance(value, bool):
+        return value, True, False
+    return None, True, True
+
+
+def _version_value(value: Any) -> tuple[int | None, str]:
+    if value is None:
+        return None, "MISSING"
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None, "INVALID"
+    if value < 0 or value > 3:
+        return None, "INVALID"
+    return value, "VALID"
 
 
 def _rtp_event(record: dict[str, Any], fields: dict[str, Any]) -> dict[str, Any]:
@@ -138,35 +185,72 @@ def _rtp_event(record: dict[str, Any], fields: dict[str, Any]) -> dict[str, Any]
         "SSRC is a capture-scoped protocol observation, not a subscriber or session identity",
         "RTP packet observation does not prove media delivery or two-way audio",
     ]
-    version = _int(fields.get("version"), 0, 255)
-    if version is None:
+    status = "OBSERVED"
+    version, version_state = _version_value(fields.get("version"))
+    if version_state == "MISSING":
         reasons.append("RTP_VERSION_MISSING")
-        status = "INCOMPLETE"
+        status = _escalate(status, "INCOMPLETE")
+    elif version_state == "INVALID":
+        reasons.append("RTP_VERSION_INVALID")
+        status = _escalate(status, "INVALID")
     elif version != 2:
         reasons.append("UNSUPPORTED_RTP_VERSION")
-        status = "UNSUPPORTED"
+        status = _escalate(status, "UNSUPPORTED")
+    padding, padding_present, padding_invalid = _tri_flag(fields, "padding")
+    if not padding_present:
+        reasons.append("RTP_PADDING_FLAG_MISSING")
+        status = _escalate(status, "INCOMPLETE")
+    elif padding_invalid:
+        reasons.append("RTP_PADDING_FLAG_INVALID")
+        status = _escalate(status, "INVALID")
+    if padding is True:
+        raw_padding_count = fields.get("padding_count")
+        parsed_padding = _int(raw_padding_count, 1, MAX_PACKET_LENGTH)
+        if raw_padding_count is None:
+            reasons.append("PADDING_COUNT_MISSING")
+            status = _escalate(status, "INCOMPLETE")
+            padding_count = None
+        elif parsed_padding is None:
+            reasons.append("PADDING_COUNT_INVALID")
+            status = _escalate(status, "INVALID")
+            padding_count = None
+        else:
+            padding_count = parsed_padding
     else:
-        status = "OBSERVED"
-    padding = _bool(fields.get("padding"))
-    padding_count = fields.get("padding_count")
-    if padding:
-        parsed_padding = _int(padding_count, 1, MAX_PACKET_LENGTH)
-        if parsed_padding is None:
-            reasons.append("PADDING_COUNT_MISSING_OR_INVALID")
-            status = "INVALID"
-        padding_count = parsed_padding
-    else:
-        padding_count = _int(padding_count, 0, MAX_PACKET_LENGTH) if padding_count is not None else 0
-    extension = _bool(fields.get("extension"))
-    extension_profile = fields.get("extension_profile")
-    extension_length = fields.get("extension_length")
-    if extension:
-        if _int(extension_profile, 0, 65535) is None:
-            reasons.append("EXTENSION_PROFILE_MISSING_OR_INVALID")
-            status = "INVALID" if status == "OBSERVED" else status
-        if _int(extension_length, 0, 65535) is None:
-            reasons.append("EXTENSION_LENGTH_MISSING_OR_INVALID")
-            status = "INVALID" if status == "OBSERVED" else status
+        raw_padding_count = fields.get("padding_count")
+        if raw_padding_count is None:
+            padding_count = 0
+        else:
+            padding_count = _int(raw_padding_count, 0, MAX_PACKET_LENGTH)
+            if padding_count is None:
+                reasons.append("PADDING_COUNT_INVALID")
+                status = _escalate(status, "INVALID")
+    extension, extension_present, extension_invalid = _tri_flag(fields, "extension")
+    if not extension_present:
+        reasons.append("RTP_EXTENSION_FLAG_MISSING")
+        status = _escalate(status, "INCOMPLETE")
+    elif extension_invalid:
+        reasons.append("RTP_EXTENSION_FLAG_INVALID")
+        status = _escalate(status, "INVALID")
+    extension_profile = None
+    extension_length = None
+    if extension is True:
+        if fields.get("extension_profile") is None:
+            reasons.append("EXTENSION_PROFILE_MISSING")
+            status = _escalate(status, "INCOMPLETE")
+        else:
+            extension_profile = _int(fields.get("extension_profile"), 0, 65535)
+            if extension_profile is None:
+                reasons.append("EXTENSION_PROFILE_INVALID")
+                status = _escalate(status, "INVALID")
+        if fields.get("extension_length") is None:
+            reasons.append("EXTENSION_LENGTH_MISSING")
+            status = _escalate(status, "INCOMPLETE")
+        else:
+            extension_length = _int(fields.get("extension_length"), 0, 65535)
+            if extension_length is None:
+                reasons.append("EXTENSION_LENGTH_INVALID")
+                status = _escalate(status, "INVALID")
     csrc_count = _int(fields.get("csrc_count"), 0, 15)
     csrc = fields.get("csrc", [])
     if not isinstance(csrc, list):
@@ -186,7 +270,13 @@ def _rtp_event(record: dict[str, Any], fields: dict[str, Any]) -> dict[str, Any]
     elif csrc_count != len(parsed_csrc):
         reasons.append("CSRC_COUNT_MISMATCH")
         status = "AMBIGUOUS" if status == "OBSERVED" else status
-    marker = _bool(fields.get("marker"))
+    marker, marker_present, marker_invalid = _tri_flag(fields, "marker")
+    if not marker_present:
+        reasons.append("RTP_MARKER_FLAG_MISSING")
+        status = _escalate(status, "INCOMPLETE")
+    elif marker_invalid:
+        reasons.append("RTP_MARKER_FLAG_INVALID")
+        status = _escalate(status, "INVALID")
     payload_type = _int(fields.get("payload_type"), 0, 127)
     sequence = _int(fields.get("sequence_number"), 0, 65535)
     timestamp = _int(fields.get("timestamp"), 0, 0xFFFFFFFF)
@@ -336,7 +426,7 @@ def _rtcp_component(
     reasons: list[str] = []
     packet_type = _int(component.get("packet_type"), 0, 255)
     packet_type_name = RTCP_TYPE_NAMES.get(packet_type, "UNKNOWN") if packet_type is not None else "UNKNOWN"
-    version = _int(component.get("version"), 0, 255)
+    version = None
     length = _int(component.get("length"), 0, 65535)
     status = "OBSERVED"
     limitations = [
@@ -344,16 +434,29 @@ def _rtcp_component(
         "RTCP BYE does not prove media delivery or teardown",
         "RTCP payload, SDES text, APP data and feedback payload are never published",
     ]
-    if packet_type is None or version is None or length is None:
-        reasons.append("RTCP_REQUIRED_FIELD_MISSING")
-        status = "INCOMPLETE"
+    version_state = "VALID"
+    if version is None:
+        raw_version = component.get("version")
+        version, version_state = _version_value(raw_version)
+    if version_state == "MISSING":
+        reasons.append("RTCP_VERSION_MISSING")
+        status = _escalate(status, "INCOMPLETE")
+    elif version_state == "INVALID":
+        reasons.append("RTCP_VERSION_INVALID")
+        status = _escalate(status, "INVALID")
     elif version != 2:
         reasons.append("UNSUPPORTED_RTCP_VERSION")
-        status = "UNSUPPORTED"
+        status = _escalate(status, "UNSUPPORTED")
+    if packet_type is None:
+        reasons.append("RTCP_PACKET_TYPE_MISSING")
+        status = _escalate(status, "INCOMPLETE")
     elif packet_type not in SUPPORTED_RTCP_TYPES:
         reasons.append("UNSUPPORTED_RTCP_PACKET_TYPE")
-        status = "UNSUPPORTED"
+        status = _escalate(status, "UNSUPPORTED")
         limitations.append(f"RTCP packet type {packet_type} is outside the implemented SR/RR/SDES/BYE subset")
+    if length is None:
+        reasons.append("RTCP_LENGTH_MISSING")
+        status = _escalate(status, "INCOMPLETE")
     report_count = _int(component.get("report_count"), 0, 31)
     report_blocks: list[dict[str, Any]] = []
     if packet_type in (200, 201):
@@ -378,19 +481,39 @@ def _rtcp_component(
         if any("REPORT_BLOCK" in reason for reason in reasons) and status == "OBSERVED":
             status = "INCOMPLETE"
     sdes_chunks: list[dict[str, Any]] = []
+    declared_source_count = None
+    observed_source_count = 0
+    source_count_status = "NOT_APPLICABLE"
     if packet_type == 202:
-        chunks = component.get("sdes_chunks", [])
-        if not isinstance(chunks, list):
-            reasons.append("SDES_CHUNKS_NOT_AN_ARRAY")
-            status = "INVALID"
+        declared_source_count = _int(component.get("source_count"), 0, 31)
+        if "sdes_chunks" not in component or component.get("sdes_chunks") is None:
+            reasons.append("SDES_CHUNKS_UNAVAILABLE")
+            status = _escalate(status, "INCOMPLETE")
             chunks = []
+        else:
+            chunks = component.get("sdes_chunks")
+            if not isinstance(chunks, list):
+                reasons.append("SDES_CHUNKS_NOT_AN_ARRAY")
+                status = _escalate(status, "INVALID")
+                chunks = []
         for chunk_index, chunk in enumerate(chunks[:MAX_SDES_CHUNKS]):
             parsed, chunk_reasons = _sdes_chunk(chunk, chunk_index)
             reasons.extend(chunk_reasons)
             if parsed:
                 sdes_chunks.append(parsed)
-        if any("SDES" in reason for reason in reasons) and status == "OBSERVED":
-            status = "INCOMPLETE"
+        observed_source_count = len(sdes_chunks)
+        if declared_source_count is None:
+            reasons.append("SDES_SOURCE_COUNT_MISSING")
+            status = _escalate(status, "INCOMPLETE")
+            source_count_status = "INCOMPLETE"
+        elif declared_source_count != observed_source_count:
+            reasons.append("SDES_SOURCE_COUNT_MISMATCH")
+            status = _escalate(status, "AMBIGUOUS")
+            source_count_status = "AMBIGUOUS"
+        else:
+            source_count_status = "OBSERVED"
+        if any("SDES" in reason and "SOURCE_COUNT" not in reason and "CHUNKS" not in reason for reason in reasons):
+            status = _escalate(status, "INCOMPLETE")
     sender_info = None
     if packet_type == 200:
         source = component.get("sender_report")
@@ -421,11 +544,17 @@ def _rtcp_component(
         limitations.append("The source representation did not prove nested RTCP component/report-block binding")
     bye_sources: list[int] = []
     if packet_type == 203:
-        raw_sources = component.get("bye_sources", [])
-        if not isinstance(raw_sources, list):
-            reasons.append("BYE_SOURCES_NOT_AN_ARRAY")
-            status = "INVALID"
+        declared_source_count = _int(component.get("source_count"), 0, 31)
+        if "bye_sources" not in component or component.get("bye_sources") is None:
+            reasons.append("BYE_SOURCES_UNAVAILABLE")
+            status = _escalate(status, "INCOMPLETE")
             raw_sources = []
+        else:
+            raw_sources = component.get("bye_sources")
+            if not isinstance(raw_sources, list):
+                reasons.append("BYE_SOURCES_NOT_AN_ARRAY")
+                status = _escalate(status, "INVALID")
+                raw_sources = []
         for source in raw_sources[:MAX_SOURCES]:
             parsed = _int(source, 0, 0xFFFFFFFF)
             if parsed is None:
@@ -433,6 +562,20 @@ def _rtcp_component(
                 status = "INVALID"
             else:
                 bye_sources.append(parsed)
+        observed_source_count = len(bye_sources)
+        if declared_source_count is None:
+            reasons.append("BYE_SOURCE_COUNT_MISSING")
+            status = _escalate(status, "INCOMPLETE")
+            source_count_status = "INCOMPLETE"
+        elif declared_source_count != observed_source_count:
+            reasons.append("BYE_SOURCE_COUNT_MISMATCH")
+            status = _escalate(status, "AMBIGUOUS")
+            source_count_status = "AMBIGUOUS"
+        elif declared_source_count == 0:
+            source_count_status = "OBSERVED"
+            limitations.append("A zero-source BYE packet is valid per RFC 3550 but conveys no source identifier; no more is inferred")
+        else:
+            source_count_status = "OBSERVED"
     sender_ssrc = _int(component.get("sender_ssrc"), 0, 0xFFFFFFFF)
     if packet_type in (200, 201, 202, 203) and sender_ssrc is None and packet_type != 203:
         reasons.append("SENDER_SSRC_MISSING")
@@ -459,6 +602,9 @@ def _rtcp_component(
         "version": version,
         "length": length,
         "report_count": report_count,
+        "declared_source_count": declared_source_count,
+        "observed_source_count": observed_source_count,
+        "source_count_status": source_count_status,
         "sender_ssrc": sender_ssrc,
         "sender_ssrc_reference": _ssrc_reference(capture, sender_ssrc) if sender_ssrc is not None else None,
         "sender_report": sender_info,
@@ -520,8 +666,7 @@ def _validate_record(record: Any, line_number: int) -> None:
             raise InputError(f"input line {line_number} is missing {key}")
     if not isinstance(record["source_reference"], str) or not REFERENCE_PATTERN.fullmatch(record["source_reference"]):
         raise InputError(f"input line {line_number} has an invalid source_reference")
-    if not isinstance(record["capture_file"], str) or not record["capture_file"]:
-        raise InputError(f"input line {line_number} has no capture_file")
+    _validate_capture_name(record["capture_file"], line_number)
     if not isinstance(record["capture_sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", record["capture_sha256"]):
         raise InputError(f"input line {line_number} has an invalid capture_sha256")
     if isinstance(record["frame_number"], bool) or not isinstance(record["frame_number"], int) or record["frame_number"] < 1:
@@ -674,14 +819,8 @@ def _capture_records(capture: Path, decode_as: list[str], tshark: str, runner: C
         if rtp:
             fields = {
                 "version": _numeric(_first(rtp.get("rtp.version"))),
-                "padding": bool(_numeric(_first(rtp.get("rtp.padding")))),
-                "padding_count": _numeric(_first(rtp.get("rtp.padding.count"))),
-                "extension": bool(_numeric(_first(rtp.get("rtp.ext")))),
-                "extension_profile": _numeric(_first(rtp.get("rtp.ext.profile"))),
-                "extension_length": _numeric(_first(rtp.get("rtp.ext.len"))),
                 "csrc_count": _numeric(_first(rtp.get("rtp.cc"))),
                 "csrc": [_numeric(v) for v in (rtp.get("rtp.csrc.item") or [])] if isinstance(rtp.get("rtp.csrc.item"), list) else [_numeric(rtp.get("rtp.csrc.item"))] if rtp.get("rtp.csrc.item") is not None else [],
-                "marker": bool(_numeric(_first(rtp.get("rtp.marker")))),
                 "payload_type": _numeric(_first(rtp.get("rtp.p_type"))),
                 "sequence_number": _numeric(_first(rtp.get("rtp.seq"))),
                 "timestamp": _numeric(_first(rtp.get("rtp.timestamp"))),
@@ -690,6 +829,26 @@ def _capture_records(capture: Path, decode_as: list[str], tshark: str, runner: C
                 "udp_stream": udp_stream,
                 "udp_stream_packet": udp_stream_packet,
             }
+            for field_name, tshark_name in (
+                ("padding", "rtp.padding"),
+                ("extension", "rtp.ext"),
+                ("marker", "rtp.marker"),
+            ):
+                raw_flag = _first(rtp.get(tshark_name))
+                if raw_flag is None:
+                    continue
+                parsed_flag = _numeric(raw_flag)
+                fields[field_name] = bool(parsed_flag) if parsed_flag in (0, 1) else "INVALID"
+            for field_name, tshark_name in (
+                ("padding_count", "rtp.padding.count"),
+                ("extension_profile", "rtp.ext.profile"),
+                ("extension_length", "rtp.ext.len"),
+            ):
+                raw_value = _first(rtp.get(tshark_name))
+                if raw_value is None:
+                    continue
+                parsed_value = _numeric(raw_value)
+                fields[field_name] = parsed_value if parsed_value is not None else "INVALID"
             fields["csrc"] = [value for value in fields["csrc"] if value is not None]
             records.append(
                 {
@@ -726,6 +885,7 @@ def _capture_records(capture: Path, decode_as: list[str], tshark: str, runner: C
                 "version": _numeric(_first(rtcp.get("rtcp.version"))),
                 "length": _numeric(_first(rtcp.get("rtcp.length"))),
                 "report_count": _numeric(_first(rtcp.get("rtcp.rc"))),
+                "source_count": _numeric(_first(rtcp.get("rtcp.sc"))) if packet_type in (202, 203) else None,
                 "sender_ssrc": _numeric(_first(rtcp.get("rtcp.senderssrc"))),
                 "sender_report": {
                     "ntp_msw": _numeric(_first(rtcp.get("rtcp.timestamp.ntp.msw"))),
@@ -886,6 +1046,7 @@ def extract_capture(
     prober: Callable | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     decode_as = decode_as or []
+    _validate_capture_name(capture.name)
     optional_unavailable = (prober or probe_tshark)(tshark) or []
     records = _capture_records(capture, decode_as, tshark, runner)
     events: list[dict[str, Any]] = []

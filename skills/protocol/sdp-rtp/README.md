@@ -4,7 +4,10 @@ Bounded, privacy-safe SDP structural evidence plus RTP version 2 / RTCP packet
 evidence.
 
 The package follows the RFC 8866 SDP grammar and a bounded RFC 3550 RTP/RTCP subset. It
-publishes protocol structure and evidence classifications only. It does not reconstruct
+publishes protocol structure and evidence classifications only. Missing mandatory RTP
+flags remain `INCOMPLETE` and are never silently treated as false; RTP/RTCP version
+values outside the two-bit 0-3 range are `INVALID`, and RTCP SR/RR report counts and
+SDES/BYE source counts are validated type-specifically. It does not reconstruct
 streams, compute local loss/jitter, perform MOS/QoS analysis, interpret Offer/Answer,
 associate SIP dialogs, correlate media endpoints, or produce IMS media/call verdicts.
 

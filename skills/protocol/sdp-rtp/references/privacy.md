@@ -58,6 +58,10 @@ Permitted evidence:
 - BYE source identifiers and redacted reason length.
 - Capture/frame provenance and UDP stream metadata as transport conversation context.
 
+Structured `capture_file` values must be safe basenames. Absolute workstation paths,
+path separators and drive-letter path forms are rejected before any output or report is
+written.
+
 SSRC references are capture-scoped. UDP stream indexes are never renamed as RTP
 sessions. RTCP report values are not local measurements. No payload-bearing TShark
 intermediate JSON is persisted, logged or reported.

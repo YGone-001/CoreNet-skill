@@ -46,7 +46,7 @@ REQUIRED = (
 )
 REQUIRED_TESTS = tuple(f"test_{index:02d}_" for index in range(1, 25)) + tuple(
     f"test_{index:02d}_" for index in range(1, 52)
-)
+) + tuple(f"test_{index:02d}_" for index in range(52, 84))
 PRIVATE_TOKENS = (
     "private-user",
     "private-ufrag-value",
@@ -119,12 +119,17 @@ def main() -> int:
     manifest = (SKILL / "manifest.yaml").read_text(encoding="utf-8")
     for token in (
         "name: sdp-rtp",
-        "version: 0.2.0",
+        "version: 0.3.0",
+        "RTP version 2 packet evidence",
+        "RFC 3550",
         "category: protocol",
         "RFC 8866",
     ):
         if token not in manifest:
             errors.append(f"manifest missing {token}")
+
+    if "RTP packet extraction" in manifest:
+        errors.append("manifest contradicts implemented RTP capability by excluding RTP packet extraction")
 
     test_source = "\n".join(
         path.read_text(encoding="utf-8") for path in sorted((SKILL / "tests").glob("test_*.py"))

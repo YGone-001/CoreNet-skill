@@ -18,9 +18,15 @@ structures (RFC 3550), using reviewed dissector fields or structured offline inp
 - Fail closed on malformed mandatory structure, invalid ports, invalid payload
   declarations, duplicate/contradictory declarations and truncated or oversized input.
 - Extract RTP version 2 fixed-header fields, CSRCs, padding, extension metadata, marker,
-  payload type, sequence, timestamp, SSRC and packet provenance.
+  payload type, sequence, timestamp, SSRC and packet provenance. Padding, extension and
+  marker are mandatory one-bit observations: missing evidence never becomes false.
+  Explicit false is preserved; missing is `INCOMPLETE`; invalid type/value is `INVALID`.
 - Extract bounded RTCP Sender Report, Receiver Report, SDES and BYE components while
-  preserving compound component order and nested report-block binding.
+  preserving compound component order and nested report-block binding. Validate the
+  type-specific RTCP count fields: receiver report count for SR/RR, source count for
+  SDES/BYE; a missing count/hierarchy is `INCOMPLETE`, a contradiction is `AMBIGUOUS`.
+- Validate RTP and RTCP version as the two-bit 0-3 field. Version 2 is supported;
+  other representable versions are `UNSUPPORTED`; values outside 0-3 are `INVALID`.
 - Keep remote-reported loss/jitter distinct from locally observed RTP fields; publish
   no local loss, jitter, MOS or media-quality calculation.
 
@@ -51,6 +57,8 @@ JSONL, one supplied SDP body per record:
 
 All records in one input must share one capture identity and SHA-256. Duplicate source
 references, missing provenance, malformed JSON and mixed-capture input are rejected.
+`capture_file` must be a privacy-safe basename; absolute paths, path separators and
+workstation path forms are rejected before output.
 
 RTP/RTCP structured JSONL uses one record per RTP packet or RTCP compound packet with
 `protocol`, `fields`, frame/capture provenance and caller-supplied references. RTCP
@@ -80,10 +88,11 @@ attributes per scope and 64 formats per media section.
 - unknown attributes and malformed/unknown line metadata;
 - bounded completeness counts and explicit limitations.
 
-RTP/RTCP output (`schemas/rtp-rtcp-events.schema.json`) publishes RTP packet fields and
-RTCP component/type/report-block/SDES/BYE evidence with capture-scoped references,
-`OBSERVED`/`INCOMPLETE`/`AMBIGUOUS`/`UNSUPPORTED`/`INVALID` status, bounded counts and
-explicit privacy/quality limitations.
+RTP/RTCP output (`schemas/rtp-rtcp-events.schema.json`, event schema `1.1.0`)
+publishes RTP packet fields and RTCP component/type/report-block/SDES/BYE evidence with
+capture-scoped references, nullable mandatory flags, declared and observed source
+counts, `OBSERVED`/`INCOMPLETE`/`AMBIGUOUS`/`UNSUPPORTED`/`INVALID` status, bounded
+counts and explicit privacy/quality limitations.
 
 No raw SDP body, address, identity, ICE credential, fingerprint digest or key material
 is published.

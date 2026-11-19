@@ -20,6 +20,7 @@ SKILL = Path(__file__).resolve().parents[1]
 SCRIPTS = SKILL / "scripts"
 CLI = SCRIPTS / "extract-rtp-rtcp.py"
 SCHEMA = SKILL / "schemas" / "rtp-rtcp-events.schema.json"
+MANIFEST = SKILL / "manifest.yaml"
 SDP_SCHEMA = SKILL / "schemas" / "sdp-events.schema.json"
 SDP_INPUT = SKILL / "examples" / "inputs" / "sdp-cases.jsonl"
 SDP_EXPECTED = SKILL / "examples" / "expected" / "sdp-analysis.json"
@@ -413,6 +414,310 @@ class RtpRtcpWorkflowTests(unittest.TestCase):
         schema = json.loads(SDP_SCHEMA.read_text(encoding="utf-8"))
         if jsonschema is not None:
             jsonschema.validate(document, schema)
+
+
+class RtpRtcpIntegrityTests(unittest.TestCase):
+    def _rtp_document(self, **overrides) -> dict:
+        return analyze([builder.rtp(1, **overrides)])
+
+    def _rtcp_document(self, component: dict) -> dict:
+        return analyze([builder.rtcp(1, [component])])
+
+    def test_52_explicit_false_padding(self) -> None:
+        event = events(self._rtp_document(padding=False), "RTP")[0]
+        self.assertIs(event["padding"], False)
+        self.assertEqual(event["evidence_status"], "OBSERVED")
+
+    def test_53_missing_padding_flag(self) -> None:
+        record = builder.rtp(1)
+        del record["fields"]["padding"]
+        event = events(analyze([record]), "RTP")[0]
+        self.assertIsNone(event["padding"])
+        self.assertEqual(event["evidence_status"], "INCOMPLETE")
+        self.assertIn("RTP_PADDING_FLAG_MISSING", event["invalid_reasons"])
+
+    def test_54_invalid_padding_flag(self) -> None:
+        event = events(self._rtp_document(padding="yes"), "RTP")[0]
+        self.assertIsNone(event["padding"])
+        self.assertEqual(event["evidence_status"], "INVALID")
+        self.assertIn("RTP_PADDING_FLAG_INVALID", event["invalid_reasons"])
+
+    def test_55_explicit_false_extension(self) -> None:
+        event = events(self._rtp_document(extension=False), "RTP")[0]
+        self.assertIs(event["extension"], False)
+        self.assertEqual(event["evidence_status"], "OBSERVED")
+
+    def test_56_missing_extension_flag(self) -> None:
+        record = builder.rtp(1)
+        del record["fields"]["extension"]
+        event = events(analyze([record]), "RTP")[0]
+        self.assertIsNone(event["extension"])
+        self.assertEqual(event["evidence_status"], "INCOMPLETE")
+        self.assertIn("RTP_EXTENSION_FLAG_MISSING", event["invalid_reasons"])
+
+    def test_57_invalid_extension_flag(self) -> None:
+        event = events(self._rtp_document(extension=2), "RTP")[0]
+        self.assertIsNone(event["extension"])
+        self.assertEqual(event["evidence_status"], "INVALID")
+        self.assertIn("RTP_EXTENSION_FLAG_INVALID", event["invalid_reasons"])
+
+    def test_58_explicit_false_marker(self) -> None:
+        event = events(self._rtp_document(marker=False), "RTP")[0]
+        self.assertIs(event["marker"], False)
+        self.assertEqual(event["evidence_status"], "OBSERVED")
+
+    def test_59_missing_marker(self) -> None:
+        record = builder.rtp(1)
+        del record["fields"]["marker"]
+        event = events(analyze([record]), "RTP")[0]
+        self.assertIsNone(event["marker"])
+        self.assertEqual(event["evidence_status"], "INCOMPLETE")
+        self.assertIn("RTP_MARKER_FLAG_MISSING", event["invalid_reasons"])
+
+    def test_60_invalid_marker(self) -> None:
+        event = events(self._rtp_document(marker="set"), "RTP")[0]
+        self.assertIsNone(event["marker"])
+        self.assertEqual(event["evidence_status"], "INVALID")
+        self.assertIn("RTP_MARKER_FLAG_INVALID", event["invalid_reasons"])
+
+    def test_61_missing_padding_count(self) -> None:
+        record = builder.rtp(1, padding=True, padding_count=None)
+        record["fields"].pop("padding_count")
+        event = events(analyze([record]), "RTP")[0]
+        self.assertEqual(event["evidence_status"], "INCOMPLETE")
+        self.assertIn("PADDING_COUNT_MISSING", event["invalid_reasons"])
+
+    def test_62_missing_extension_profile(self) -> None:
+        record = builder.rtp(1, extension=True, extension_profile=None, extension_length=4)
+        record["fields"].pop("extension_profile")
+        event = events(analyze([record]), "RTP")[0]
+        self.assertEqual(event["evidence_status"], "INCOMPLETE")
+        self.assertIn("EXTENSION_PROFILE_MISSING", event["invalid_reasons"])
+
+    def test_63_missing_extension_length(self) -> None:
+        record = builder.rtp(1, extension=True, extension_profile=0xBEDE, extension_length=None)
+        record["fields"].pop("extension_length")
+        event = events(analyze([record]), "RTP")[0]
+        self.assertEqual(event["evidence_status"], "INCOMPLETE")
+        self.assertIn("EXTENSION_LENGTH_MISSING", event["invalid_reasons"])
+
+    def test_64_rtp_version_boundaries(self) -> None:
+        for version, status in ((0, "UNSUPPORTED"), (1, "UNSUPPORTED"), (2, "OBSERVED"), (3, "UNSUPPORTED"), (4, "INVALID"), (255, "INVALID")):
+            with self.subTest(version=version):
+                event = events(self._rtp_document(version=version), "RTP")[0]
+                self.assertEqual(event["evidence_status"], status)
+                if version in (4, 255):
+                    self.assertIn("RTP_VERSION_INVALID", event["invalid_reasons"])
+                    self.assertIsNone(event["version"])
+                else:
+                    self.assertEqual(event["version"], version)
+
+    def test_65_rtcp_version_boundaries(self) -> None:
+        for version, status in ((0, "UNSUPPORTED"), (1, "UNSUPPORTED"), (2, "OBSERVED"), (3, "UNSUPPORTED"), (4, "INVALID"), (255, "INVALID")):
+            with self.subTest(version=version):
+                component = builder.sender_report()
+                component["version"] = version
+                event = events(self._rtcp_document(component), "RTCP")[0]
+                self.assertEqual(event["evidence_status"], status)
+                if version in (4, 255):
+                    self.assertIn("RTCP_VERSION_INVALID", event["invalid_reasons"])
+                    self.assertIsNone(event["version"])
+                else:
+                    self.assertEqual(event["version"], version)
+
+    def test_66_sdes_declared_count_matches_chunks(self) -> None:
+        event = events(self._rtcp_document(builder.sdes([builder.item(1)])), "RTCP")[0]
+        self.assertEqual(event["evidence_status"], "OBSERVED")
+        self.assertEqual(event["declared_source_count"], 1)
+        self.assertEqual(event["observed_source_count"], 1)
+        self.assertEqual(event["source_count_status"], "OBSERVED")
+
+    def test_67_sdes_missing_chunk_hierarchy(self) -> None:
+        component = builder.sdes([builder.item(1)])
+        component.pop("sdes_chunks")
+        event = events(self._rtcp_document(component), "RTCP")[0]
+        self.assertEqual(event["evidence_status"], "INCOMPLETE")
+        self.assertIn("SDES_CHUNKS_UNAVAILABLE", event["invalid_reasons"])
+
+    def test_68_sdes_count_mismatch(self) -> None:
+        component = builder.sdes([builder.item(1)])
+        component["source_count"] = 2
+        event = events(self._rtcp_document(component), "RTCP")[0]
+        self.assertEqual(event["evidence_status"], "AMBIGUOUS")
+        self.assertIn("SDES_SOURCE_COUNT_MISMATCH", event["invalid_reasons"])
+
+    def test_69_bye_declared_count_matches_sources(self) -> None:
+        event = events(self._rtcp_document(builder.bye([1, 2])), "RTCP")[0]
+        self.assertEqual(event["evidence_status"], "OBSERVED")
+        self.assertEqual(event["declared_source_count"], 2)
+        self.assertEqual(event["observed_source_count"], 2)
+        self.assertEqual(event["source_count_status"], "OBSERVED")
+
+    def test_70_bye_missing_source_hierarchy(self) -> None:
+        component = builder.bye([1, 2])
+        component.pop("bye_sources")
+        event = events(self._rtcp_document(component), "RTCP")[0]
+        self.assertEqual(event["evidence_status"], "INCOMPLETE")
+        self.assertIn("BYE_SOURCES_UNAVAILABLE", event["invalid_reasons"])
+
+    def test_71_bye_count_mismatch(self) -> None:
+        component = builder.bye([1, 2])
+        component["source_count"] = 3
+        event = events(self._rtcp_document(component), "RTCP")[0]
+        self.assertEqual(event["evidence_status"], "AMBIGUOUS")
+        self.assertIn("BYE_SOURCE_COUNT_MISMATCH", event["invalid_reasons"])
+
+    def test_72_invalid_bye_source_identifier(self) -> None:
+        component = builder.bye([-1])
+        event = events(self._rtcp_document(component), "RTCP")[0]
+        self.assertEqual(event["evidence_status"], "INVALID")
+        self.assertIn("BYE_SOURCE_INVALID", event["invalid_reasons"])
+
+    def test_73_zero_source_bye_is_valid_but_useless(self) -> None:
+        event = events(self._rtcp_document(builder.bye([], reason_present=False, reason_length=0)), "RTCP")[0]
+        self.assertEqual(event["evidence_status"], "OBSERVED")
+        self.assertEqual(event["declared_source_count"], 0)
+        self.assertEqual(event["observed_source_count"], 0)
+        self.assertIn("zero-source BYE", " ".join(event["limitations"]))
+
+    def test_74_structured_capture_basename_allowed(self) -> None:
+        record = builder.rtp(1)
+        record["capture_file"] = "capture-01.pcapng"
+        record["source_reference"] = "rtp-packet:capture-01.pcapng:1.1"
+        event = events(analyze([record]), "RTP")[0]
+        self.assertEqual(event["capture_file"], "capture-01.pcapng")
+
+    def test_75_absolute_workstation_path_rejected(self) -> None:
+        record = builder.rtp(1)
+        record["capture_file"] = "/root/private/capture.pcapng"
+        record["source_reference"] = "rtp-packet:/root/private/capture.pcapng:1.1"
+        directory = Path(tempfile.mkdtemp())
+        path = directory / "input.jsonl"
+        path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+        with self.assertRaises(rtp_rtcp_model.InputError) as context:
+            rtp_rtcp_model.extract_structured(path)
+        self.assertNotIn("/root/private", str(context.exception))
+
+    def test_76_no_path_leakage_into_json_or_report(self) -> None:
+        record = builder.rtp(1)
+        record["capture_file"] = "C:\\Users\\private\\capture.pcapng"
+        record["source_reference"] = "rtp-packet:C:\\Users\\private\\capture.pcapng:1.1"
+        directory = Path(tempfile.mkdtemp())
+        input_path = directory / "input.jsonl"
+        input_path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+        output = directory / "output.json"
+        report = directory / "report.txt"
+        completed = run_cli(input_path, output, report)
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertFalse(output.exists())
+        self.assertFalse(report.exists())
+        self.assertNotIn("Users", completed.stderr)
+
+    def test_77_manifest_include_exclude_consistency(self) -> None:
+        manifest = MANIFEST.read_text(encoding="utf-8")
+        self.assertIn("RFC 3550 RTP version 2 packet evidence extraction", manifest)
+        self.assertNotIn("RTP packet extraction", manifest)
+
+    def test_78_manifest_input_output_contract_files_exist(self) -> None:
+        manifest = MANIFEST.read_text(encoding="utf-8")
+        for relative in (
+            "schemas/sdp-events.schema.json",
+            "schemas/rtp-rtcp-events.schema.json",
+            "scripts/parse-sdp.py",
+            "scripts/extract-rtp-rtcp.py",
+        ):
+            self.assertIn(relative, manifest)
+            self.assertTrue((SKILL / relative).is_file())
+
+    def test_79_existing_sdp_output_byte_identity(self) -> None:
+        records = sdp_model.load_messages(SDP_INPUT)
+        document = sdp_model.build_analysis(records, input_name=SDP_INPUT.name)
+        serialized = json.dumps(document, indent=2, sort_keys=True) + "\n"
+        self.assertEqual(serialized.encode("utf-8"), SDP_EXPECTED.read_bytes())
+
+    def test_80_rtp_rtcp_fixture_stability(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        output = directory / "analysis.json"
+        completed = run_cli(INPUTS, output)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(
+            output.read_bytes(),
+            EXPECTED.joinpath("rtp-rtcp-analysis.json").read_bytes(),
+        )
+
+    def test_81_deterministic_replay_after_corrections(self) -> None:
+        first = analyze(builder.build_records())
+        second = analyze(builder.build_records())
+        self.assertEqual(first, second)
+
+
+class RtpRtcpCaptureFlagTests(unittest.TestCase):
+    def _capture(self):
+        directory = Path(tempfile.mkdtemp())
+        capture = directory / "capture.pcap"
+        capture.write_bytes(b"capture")
+        return capture
+
+    def _extract(self, rtp_fields: dict) -> dict:
+        capture = self._capture()
+        def runner(_capture, _decode_as, _tshark):
+            return {
+                "packets": [
+                    {
+                        "_source": {
+                            "layers": {
+                                "frame": {
+                                    "frame.number": "1",
+                                    "frame.time_epoch": "1700000600.000000001",
+                                    "frame.len": "60",
+                                },
+                                "udp": {"udp.stream": "0", "udp.stream.pnum": "1"},
+                                "rtp": rtp_fields,
+                            }
+                        }
+                    }
+                ]
+            }
+        events, provenance = rtp_rtcp_model.extract_capture(
+            capture, [], prober=lambda _tshark: None, runner=runner
+        )
+        return events[0]
+
+    def test_82_tshark_explicit_zero_flags_remain_false(self) -> None:
+        event = self._extract(
+            {
+                "rtp.version": "2",
+                "rtp.padding": "0",
+                "rtp.ext": "0",
+                "rtp.cc": "0",
+                "rtp.marker": "0",
+                "rtp.p_type": "96",
+                "rtp.seq": "1",
+                "rtp.timestamp": "160",
+                "rtp.ssrc": "0x01020304",
+            }
+        )
+        self.assertIs(event["padding"], False)
+        self.assertIs(event["extension"], False)
+        self.assertIs(event["marker"], False)
+        self.assertEqual(event["evidence_status"], "OBSERVED")
+
+    def test_83_tshark_absent_flag_is_incomplete_not_false(self) -> None:
+        event = self._extract(
+            {
+                "rtp.version": "2",
+                "rtp.ext": "0",
+                "rtp.cc": "0",
+                "rtp.marker": "0",
+                "rtp.p_type": "96",
+                "rtp.seq": "1",
+                "rtp.timestamp": "160",
+                "rtp.ssrc": "0x01020304",
+            }
+        )
+        self.assertIsNone(event["padding"])
+        self.assertEqual(event["evidence_status"], "INCOMPLETE")
+        self.assertIn("RTP_PADDING_FLAG_MISSING", event["invalid_reasons"])
 
 
 class RtpRtcpSchemaTests(unittest.TestCase):

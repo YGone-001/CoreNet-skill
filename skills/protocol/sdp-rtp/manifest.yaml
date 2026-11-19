@@ -1,31 +1,44 @@
 name: sdp-rtp
-version: 0.2.0
+version: 0.3.0
 category: protocol
 description: Bounded RFC 8866 SDP structural evidence plus RFC 3550 RTP/RTCP packet evidence extraction.
 scope:
   includes:
-    - v/o/s/c/t/m structural parsing
-    - session-level and media-level attribute separation
-    - rtpmap, fmtp, direction, mid, rtcp, rtcp-mux, group recognition
-    - ICE, fingerprint and crypto presence classification with redaction
-    - unknown attributes preserved as uninterpreted evidence
-    - privacy-safe address and identity classification
+    - RFC 8866 SDP structural parsing of explicitly supplied bodies
+    - RFC 3550 RTP version 2 packet evidence extraction
+    - RTP fixed-header and bounded extension metadata
+    - RTCP SR/RR/SDES/BYE evidence extraction
+    - RTCP compound component ordering where hierarchy is proven
+    - nested Receiver Report block evidence
+    - privacy-safe payload, extension and identity redaction
+    - authorized TShark capture extraction
+    - deterministic structured JSONL input
+    - capture-scoped RTP SSRC and RTCP component references
+    - explicit unsupported packet-family classification
   excludes:
-    - RTP packet extraction, stream reconstruction and RTCP statistics
-    - jitter, loss, MOS or media QoS diagnosis
-    - ICE connectivity verification and SRTP decryption
+    - RTP stream reconstruction
+    - local packet-loss and jitter calculations
+    - MOS and media QoS
     - SDP Offer/Answer pairing
-    - SIP-to-SDP dialog association
+    - SIP-to-SDP association
     - SDP-to-RTP endpoint correlation
-    - IMS media verdicts, Diameter Rx, Diameter charging and unified-workflow integration
+    - ICE connectivity verification
+    - SRTP decryption
+    - IMS media verdicts
+    - Diameter Rx and charging
 dependencies:
   required: []
-  optional: []
+  optional:
+    - TShark installed by the operator for authorized PCAP/PCAPNG extraction
 inputs:
-  - JSONL records containing explicit SDP bodies and caller-supplied provenance
+  - Structured JSONL with capture provenance and nested RTCP component/report-block structures
+  - Authorized PCAP/PCAPNG using an installed TShark dissector and optional explicit decode-as configuration
 outputs:
-  - bounded SDP structural evidence JSON (schemas/sdp-events.schema.json)
-  - optional plain-text report
+  - schemas/sdp-events.schema.json
+  - schemas/rtp-rtcp-events.schema.json
+  - scripts/parse-sdp.py
+  - scripts/extract-rtp-rtcp.py
+  - optional text reports
 protocols:
   - SDP
   - RTP
@@ -48,6 +61,9 @@ upstream:
 testing:
   fixtures:
     - examples/inputs/sdp-cases.jsonl
+    - examples/inputs/rtp-rtcp-cases.jsonl
   expected_results:
     - examples/expected/sdp-analysis.json
     - examples/expected/sdp-report.txt
+    - examples/expected/rtp-rtcp-analysis.json
+    - examples/expected/rtp-rtcp-report.txt

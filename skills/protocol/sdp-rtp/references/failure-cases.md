@@ -43,14 +43,27 @@ Missing or contradictory evidence is never converted into a media-success verdic
 | Missing RTP fields | `INCOMPLETE` |
 | Invalid RTP ranges | `INVALID` |
 | Truncated RTP packet | `INCOMPLETE` |
-| RTP version not 2 | `UNSUPPORTED` |
+| RTP version 0/1/3 | `UNSUPPORTED` |
+| RTP version outside 0-3 or non-integer | `INVALID` |
+| RTP padding/extension/marker missing | `INCOMPLETE`, never false |
+| RTP padding/extension/marker invalid type/value | `INVALID` |
+| RTP padding true without count | `INCOMPLETE` |
+| RTP extension true without profile/length | `INCOMPLETE` |
 | RTP payload field present in input | Ignored; limitation recorded; never output |
 | RTCP Sender Report | Sender fields and report blocks preserved |
 | RTCP Receiver Report | Signed cumulative loss preserved, including negative values |
 | Multiple report blocks | Nested association preserved |
 | Fraction lost / jitter | Receiver-reported values; no local conversion |
 | SDES CNAME/other items | Item type/name, presence and redacted length only |
+| SDES count matches chunks | `OBSERVED` |
+| SDES chunk hierarchy missing | `INCOMPLETE` |
+| SDES declared/observed count mismatch | `AMBIGUOUS` |
 | BYE sources/reason | Source identifiers and redacted reason length only |
+| BYE count matches sources | `OBSERVED` |
+| BYE source hierarchy missing | `INCOMPLETE` |
+| BYE declared/observed count mismatch | `AMBIGUOUS` |
+| BYE invalid source identifier | `INVALID` |
+| Zero-source BYE | `OBSERVED` with a useless-but-valid limitation |
 | Compound RTCP | Component order preserved when structured input proves it |
 | Multiple components | Independent identities and references |
 | APP / RTPFB / PSFB / XR / unknown | `UNSUPPORTED`; no payload |
@@ -58,6 +71,7 @@ Missing or contradictory evidence is never converted into a media-success verdic
 | Invalid report-block binding | `AMBIGUOUS`/`INCOMPLETE`; no arbitrary SSRC |
 | Truncated compound component | `INCOMPLETE` |
 | Mixed capture provenance | Input rejected |
+| Absolute/path-form capture_file | Input rejected without path leakage |
 | Duplicate reference | Input rejected |
 | TShark unavailable | Explicit tool-unavailable failure; capture path NOT RUN |
 | Unsupported TShark field | Explicit unsupported-field failure |

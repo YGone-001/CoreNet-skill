@@ -33,7 +33,9 @@ REQUIRED = (
     "examples/expected/rtp-rtcp-analysis.json",
     "examples/expected/rtp-rtcp-report.txt",
 )
-REQUIRED_TESTS = tuple(f"test_{index:02d}_" for index in range(1, 52))
+REQUIRED_TESTS = tuple(f"test_{index:02d}_" for index in range(1, 52)) + tuple(
+    f"test_{index:02d}_" for index in range(52, 84)
+)
 PRIVATE_TOKENS = (
     "SECRET-PAYLOAD-BYTES",
     "SECRET-EXTENSION-DATA",
@@ -100,14 +102,29 @@ def main() -> int:
             errors.append(f"schema missing required property: {required}")
     if schema["properties"]["analysis_version"].get("const") != rtp_rtcp_model.ANALYSIS_VERSION:
         errors.append("schema analysis_version diverges from the model")
+    if schema["properties"]["event_schema_version"].get("const") != rtp_rtcp_model.EVENT_SCHEMA_VERSION:
+        errors.append("schema event_schema_version diverges from the model")
     for definition in ("input_provenance", "rtp_event", "rtcp_event", "completeness"):
         if schema["$defs"][definition].get("additionalProperties") is not False:
             errors.append(f"schema definition {definition} is not strict")
 
     manifest = (SKILL / "manifest.yaml").read_text(encoding="utf-8")
-    for token in ("name: sdp-rtp", "version: 0.2.0", "category: protocol", "RFC 3550"):
+    for token in (
+        "name: sdp-rtp",
+        "version: 0.3.0",
+        "category: protocol",
+        "RFC 3550",
+        "RTP version 2 packet evidence",
+        "RTCP SR/RR/SDES/BYE",
+        "TShark",
+        "structured JSONL",
+        "schemas/rtp-rtcp-events.schema.json",
+        "scripts/extract-rtp-rtcp.py",
+    ):
         if token not in manifest:
             errors.append(f"manifest missing {token}")
+    if "RTP packet extraction" in manifest:
+        errors.append("manifest contradicts implemented RTP capability by excluding RTP packet extraction")
 
     test_source = "\n".join(
         path.read_text(encoding="utf-8") for path in sorted((SKILL / "tests").glob("test_*.py"))
