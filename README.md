@@ -125,7 +125,7 @@ CoreNet Skill focuses on network signaling evidence analysis rather than impleme
 
 ## EPC, IMS, 5GC, and Diameter
 
-EPC procedures reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS registration and session evidence reuse the implemented SIP Protocol Skill (including its bounded Dialog evidence), the implemented Diameter IMS Cx/Dx Protocol Skill, the implemented IMS Registration Domain Skill and the implemented IMS Session Domain Skill; bounded SDP and RTP/RTCP packet evidence exists as a standalone Protocol Skill but is not yet integrated into that path, while RTP stream reconstruction, media QoS, Diameter Charging, session modification and media-domain analysis remain future work. 5GC procedures reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
+EPC procedures reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS registration and session evidence reuse the implemented SIP Protocol Skill (including its bounded Dialog evidence), the implemented Diameter IMS Cx/Dx Protocol Skill, the implemented IMS Registration Domain Skill and the implemented IMS Session Domain Skill; bounded SDP and RTP/RTCP packet evidence exists as standalone Protocol Skills; the standalone `ims-media-signaling` Domain Skill associates accepted SIP session attempts and independent dialog branches with accepted SDP messages, but it is not yet integrated into that path. RTP stream reconstruction, media QoS, Diameter Charging, session modification and media-domain analysis remain future work. 5GC procedures reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
 
 Diameter is explicitly cross-domain—not an IMS-owned protocol. `diameter-core` owns base-protocol behavior; `diameter-epc` owns bounded S6a/S6d AIR/AIA and ULR/ULA application-message evidence; `diameter-ims` owns bounded Cx/Dx UAR/UAA, SAR/SAA, LIR/LIA, MAR/MAA, RTR/RTA and PPR/PPA application-message evidence; and `diameter-charging` will own shared credit-control semantics and remains planned, together with the Diameter IMS Sh and Rx applications. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -246,8 +246,9 @@ stable investigation-method baseline; GitHub Actions reproduces repository
 validation remotely.
 Future milestones are Packet and Protocol Core (continuing), remaining Diameter IMS
 Sh/Rx and charging, IMS media/QoS, Advanced 5GC Interfaces, and End-to-End Root Cause
-Analysis; the implemented 5GC, EPC, IMS registration and IMS session paths remain
-bounded evidence capabilities. Implementation-specific Skills are not planned: external
+Analysis; the implemented 5GC, EPC, IMS registration, IMS session and standalone
+IMS SDP media-signaling paths remain bounded evidence capabilities. IMS media QoS,
+RTP endpoint correlation and unified media execution remain planned. Implementation-specific Skills are not planned: external
 implementation analysis is performed only when users provide implementation
 evidence. Each milestone's gates and dependencies are frozen in
 [docs/ROADMAP.md](docs/ROADMAP.md).

@@ -19,7 +19,7 @@ A lower-level instruction must never silently override a higher-level one. Destr
 
 CoreNet Skill is a modular, evidence-first AI Skill repository for mobile core-network signaling analysis, troubleshooting, protocol reasoning, cross-protocol correlation, procedure-level diagnosis, failure-boundary localization, and future end-to-end fault isolation. It focuses on network signaling evidence analysis rather than implementation-specific source ownership.
 
-Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, Foundation Skills, bounded Protocol Skills, the `cross-protocol-evidence` Correlation Skill, Domain and Procedure Skills for the EPC, 5GC, IMS registration and IMS session-signaling evidence families, boundedly scoped Analysis Orchestration for failure-boundary localization, and an application-level unified PCAP workflow that integrates the accepted 5GC, EPC and IMS components. It does **not** implement implementation-specific source-code mappings or end-to-end fault isolation. Planned functionality must never be presented as implemented functionality.
+Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, Foundation Skills, bounded Protocol Skills, the `cross-protocol-evidence` Correlation Skill, Domain and Procedure Skills for the EPC, 5GC, IMS registration, IMS session-signaling and IMS SDP media-signaling evidence families, boundedly scoped Analysis Orchestration for failure-boundary localization, and an application-level unified PCAP workflow that integrates the accepted 5GC, EPC and IMS components. The `ims-media-signaling` Domain is a standalone analysis over accepted SIP, IMS Session and SDP artifacts; it is not executed by the unified workflow in this phase. It does **not** implement implementation-specific source-code mappings or end-to-end fault isolation. Planned functionality must never be presented as implemented functionality.
 
 ## Authoritative Documentation
 
@@ -67,6 +67,7 @@ Examples of valid dependencies:
 
     ims-registration -> sip -> diameter-ims
     ims-session -> sip
+    ims-media-signaling -> sip -> sdp-rtp -> ims-session
     epc-procedures -> nas-eps -> s1ap -> gtpv2 -> diameter-epc
     5gc-pdu-session -> nas-5gs -> ngap -> pfcp -> sbi-http2
     cross-protocol-evidence -> ngap -> nas-5gs -> core-network-pcap
@@ -287,6 +288,7 @@ Before claiming completion, run repository-level validation appropriate to the c
 
 For IMS Registration changes, also run `python3 scripts/validate-ims-registration.py`.
 For IMS Session changes, also run `python3 scripts/validate-ims-session.py`.
+For IMS Media Signaling changes, also run `python3 scripts/validate-ims-media-signaling.py`.
 For SDP changes, also run `python3 scripts/validate-sdp-rtp.py`.
 For RTP/RTCP changes, also run `python3 scripts/validate-rtp-rtcp.py`.
 

@@ -1,0 +1,454 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.local/schemas/ims-media-signaling-analysis.schema.json",
+  "title": "Bounded IMS SDP Offer/Answer signaling evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_name",
+    "analysis_version",
+    "domain",
+    "capability",
+    "input_provenance",
+    "exchange_count",
+    "exchanges",
+    "unbound_observation_count",
+    "unbound_observations",
+    "completeness",
+    "limitations",
+    "not_confirmed"
+  ],
+  "properties": {
+    "analysis_name": {
+      "const": "ims-media-signaling"
+    },
+    "analysis_version": {
+      "const": "0.1.0"
+    },
+    "domain": {
+      "const": "ims-media-signaling"
+    },
+    "capability": {
+      "const": "bounded IMS SDP offer/answer signaling evidence"
+    },
+    "input_provenance": {
+      "$ref": "#/$defs/input_provenance"
+    },
+    "exchange_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 64
+    },
+    "exchanges": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/exchange"
+      }
+    },
+    "unbound_observation_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 64
+    },
+    "unbound_observations": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/observation"
+      }
+    },
+    "completeness": {
+      "$ref": "#/$defs/completeness"
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 320
+      }
+    },
+    "not_confirmed": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    }
+  },
+  "$defs": {
+    "input_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_files",
+        "sip_event_source_name",
+        "sip_event_sha256",
+        "sip_event_schema_version",
+        "ims_session_source_name",
+        "ims_session_sha256",
+        "ims_session_analysis_version",
+        "sdp_analysis_source_name",
+        "sdp_analysis_sha256",
+        "sdp_analysis_version",
+        "sdp_event_schema_version",
+        "sdp_capture_sha256",
+        "capture_identity_source",
+        "input_status"
+      ],
+      "properties": {
+        "capture_files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "sip_event_source_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "sip_event_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sip_event_schema_version": {
+          "const": "1.0.0"
+        },
+        "ims_session_source_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "ims_session_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "ims_session_analysis_version": {
+          "const": "0.1.0"
+        },
+        "sdp_analysis_source_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "sdp_analysis_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sdp_analysis_version": {
+          "const": "0.1.0"
+        },
+        "sdp_event_schema_version": {
+          "const": "1.0.0"
+        },
+        "sdp_capture_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "capture_identity_source": {
+          "const": "SIP_EVENT_CAPTURE_FILE"
+        },
+        "input_status": {
+          "const": "ACCEPTED"
+        }
+      }
+    },
+    "evidence_status": {
+      "type": "string",
+      "enum": [
+        "ESTABLISHED",
+        "NOT_ESTABLISHED",
+        "INSUFFICIENT_EVIDENCE",
+        "AMBIGUOUS",
+        "OUT_OF_SCOPE"
+      ]
+    },
+    "finding_list": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "exchange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exchange_reference",
+        "attempt_reference",
+        "initial_invite_transaction_reference",
+        "branch_reference",
+        "dialog_reference",
+        "exchange_type",
+        "association_status",
+        "offer_event_reference",
+        "offer_sdp_reference",
+        "offer_role",
+        "answer_event_reference",
+        "answer_sdp_reference",
+        "answer_role",
+        "negotiation_compatibility",
+        "missing_evidence",
+        "conflict_findings",
+        "evidence_class"
+      ],
+      "properties": {
+        "exchange_reference": {
+          "type": "string",
+          "pattern": "^ims-media-signaling:.+:[0-9]+\\.[0-9]+$"
+        },
+        "attempt_reference": {
+          "type": "string",
+          "pattern": "^ims-session:.+:[0-9]+\\.[0-9]+$"
+        },
+        "initial_invite_transaction_reference": {
+          "type": "string",
+          "pattern": "^sip-transaction:.+:(?:request|response):[0-9]+\\.[0-9]+$"
+        },
+        "branch_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 640
+        },
+        "dialog_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 640
+        },
+        "exchange_type": {
+          "type": "string",
+          "enum": [
+            "INITIAL_INVITE_SDP_OFFER",
+            "INITIAL_INVITE_OFFER_ANSWER",
+            "INITIAL_INVITE_WITHOUT_SDP",
+            "LATE_OFFER_ANSWER"
+          ]
+        },
+        "association_status": {
+          "$ref": "#/$defs/evidence_status"
+        },
+        "offer_event_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sip-event:.+:[0-9]+\\.[0-9]+$"
+        },
+        "offer_sdp_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+$"
+        },
+        "offer_role": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "OFFERER",
+            null
+          ]
+        },
+        "answer_event_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sip-event:.+:[0-9]+\\.[0-9]+$"
+        },
+        "answer_sdp_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+$"
+        },
+        "answer_role": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "ANSWERER",
+            null
+          ]
+        },
+        "negotiation_compatibility": {
+          "const": "NOT_EVALUATED"
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/finding_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/finding_list"
+        },
+        "evidence_class": {
+          "const": "DERIVED"
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_reference",
+        "observation_type",
+        "association_status",
+        "reason_code",
+        "sip_event_reference",
+        "sdp_reference",
+        "attempt_reference",
+        "branch_reference",
+        "dialog_reference",
+        "evidence_class"
+      ],
+      "properties": {
+        "observation_reference": {
+          "type": "string",
+          "pattern": "^ims-media-signaling:.+$",
+          "minLength": 1,
+          "maxLength": 700
+        },
+        "observation_type": {
+          "type": "string",
+          "enum": [
+            "PROVISIONAL_SDP_UNINTERPRETED",
+            "UNSUPPORTED_SDP_OBSERVATION",
+            "UNBOUND_SIP_SDP_EVENT",
+            "UNMATCHED_SDP_MESSAGE"
+          ]
+        },
+        "association_status": {
+          "$ref": "#/$defs/evidence_status"
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "sip_event_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sip-event:.+:[0-9]+\\.[0-9]+$"
+        },
+        "sdp_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+$"
+        },
+        "attempt_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^ims-session:.+:[0-9]+\\.[0-9]+$"
+        },
+        "branch_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 640
+        },
+        "dialog_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 640
+        },
+        "evidence_class": {
+          "const": "DERIVED"
+        }
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supplied_sdp_message_count",
+        "matched_sip_event_count",
+        "unmatched_sdp_message_count",
+        "observed_offer_count",
+        "observed_answer_count",
+        "established_exchange_count",
+        "not_established_exchange_count",
+        "incomplete_exchange_count",
+        "ambiguous_exchange_count",
+        "out_of_scope_observation_count",
+        "omitted_observation_count"
+      ],
+      "properties": {
+        "supplied_sdp_message_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "matched_sip_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmatched_sdp_message_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_offer_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_answer_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "established_exchange_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_established_exchange_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "incomplete_exchange_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguous_exchange_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "out_of_scope_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

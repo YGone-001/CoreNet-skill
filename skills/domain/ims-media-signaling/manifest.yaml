@@ -1,0 +1,73 @@
+name: ims-media-signaling
+version: 0.1.0
+category: domain
+description: >
+  Bounded IMS SDP Offer/Answer signaling evidence over accepted SIP Event,
+  IMS Session Analysis and SDP Analysis artifacts: exact capture-scoped
+  SIP-to-SDP reference association, initial INVITE offer and final 2xx answer
+  evidence, independent forked dialog branches, bounded RFC 3261 late-offer
+  and 2xx ACK answer evidence, provisional SDP preserved without reliable
+  provisional interpretation, and fail-closed unbound, incomplete and
+  ambiguous observations. No SIP or SDP re-parsing, no media delivery, QoS or
+  call-success verdict.
+scope:
+  includes:
+    - exact SIP Event source-reference equality with each SDP message
+    - capture, frame and message-occurrence equality checks
+    - initial INVITE SDP offer evidence anchored to an accepted session attempt
+    - accepted 2xx SDP answer evidence scoped to one independent dialog branch
+    - forked branch isolation without preferred-branch selection
+    - late offer in an accepted 2xx response and 2xx ACK answer evidence
+    - provisional SDP preserved as PROVISIONAL_SDP_UNINTERPRETED
+    - OUT_OF_SCOPE preservation of PRACK, re-INVITE, UPDATE, INFO and other media bodies
+    - bounded unbound observations with deterministic reason codes
+    - conservation-checked completeness counters
+  excludes:
+    - SIP packet decoding, transaction or dialog reconstruction
+    - SDP body parsing or structural re-interpretation
+    - SDP negotiation compatibility or codec agreement verdicts
+    - RTP delivery, two-way audio, early media or media QoS verdicts
+    - reliable provisional Offer/Answer (100rel, RSeq, RAck, PRACK binding)
+    - re-INVITE, UPDATE or PRACK session-modification interpretation
+    - subscriber identity bridging, Diameter Rx, Sh or charging integration
+    - unified workflow execution in scripts/corenet-analyze.py
+dependencies:
+  required:
+    - sip >=0.4.0
+    - sdp-rtp >=0.3.0
+    - ims-session >=0.1.0
+  optional: []
+inputs:
+  - SIP Event JSONL (event schema 1.0.0) from the accepted SIP Protocol Skill
+  - IMS Session Analysis JSON (analysis version 0.1.0) from the accepted IMS Session Domain
+  - SDP Analysis JSON (analysis name sdp-rtp, analysis version 0.1.0, event schema 1.0.0)
+outputs:
+  - bounded IMS SDP offer/answer evidence JSON (schemas/ims-media-signaling-analysis.schema.json)
+  - optional plain-text evidence report
+protocols:
+  - SIP
+  - SDP
+interfaces:
+  - Gm
+  - Mw
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INSUFFICIENT_EVIDENCE
+  - AMBIGUOUS
+  - OUT_OF_SCOPE
+upstream:
+  repository: https://www.rfc-editor.org/rfc/rfc3261.txt; https://www.rfc-editor.org/rfc/rfc3264.txt; https://www.rfc-editor.org/rfc/rfc3262.txt; https://www.rfc-editor.org/rfc/rfc3311.txt; https://www.rfc-editor.org/rfc/rfc8866.txt
+  path: null
+  commit: null
+  license: IETF Trust RFC 3261, RFC 3264, RFC 3262, RFC 3311 and RFC 8866
+  local_modifications: Original CoreNet implementation; no upstream code imported. RFC 3264 text was retrieved for review; other normative texts were not retrieved in this phase and are recorded in references/offer-answer-procedures.md.
+testing:
+  fixtures:
+    - examples/inputs/media-cases-events.jsonl
+    - examples/inputs/media-cases-ims-session.json
+    - examples/inputs/media-cases-sdp-analysis.json
+  expected_results:
+    - examples/expected/media-analysis.json
+    - examples/expected/media-report.txt
