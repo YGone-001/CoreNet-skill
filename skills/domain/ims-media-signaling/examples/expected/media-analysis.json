@@ -1,6 +1,6 @@
 {
   "analysis_name": "ims-media-signaling",
-  "analysis_version": "0.1.0",
+  "analysis_version": "0.2.0",
   "capability": "bounded IMS SDP offer/answer signaling evidence",
   "completeness": {
     "ambiguous_exchange_count": 0,
@@ -24,6 +24,7 @@
       "answer_sdp_reference": "sip-event:synthetic-ims-media.pcapng:4.1",
       "association_status": "ESTABLISHED",
       "attempt_reference": "ims-session:synthetic-ims-media.pcapng:1.1",
+      "branch_identity_status": "ESTABLISHED",
       "branch_reference": "sip-dialog:synthetic-ims-media.pcapng:3.1",
       "conflict_findings": [],
       "dialog_reference": "sip-dialog:synthetic-ims-media.pcapng:3.1",
@@ -31,6 +32,7 @@
       "exchange_reference": "ims-media-signaling:synthetic-ims-media.pcapng:3.1",
       "exchange_type": "INITIAL_INVITE_OFFER_ANSWER",
       "initial_invite_transaction_reference": "sip-transaction:synthetic-ims-media.pcapng:request:1.1",
+      "initial_sdp_state": "OBSERVED_VALID",
       "missing_evidence": [],
       "negotiation_compatibility": "NOT_EVALUATED",
       "offer_event_reference": "sip-event:synthetic-ims-media.pcapng:1.1",
@@ -59,10 +61,13 @@
   "limitations": [
     "Association evidence is limited to exact capture-scoped SIP Event references supplied by the accepted SIP Protocol Skill",
     "SDP structural evidence is consumed from the accepted sdp-rtp analysis contract and is not reparsed here",
+    "An established offer/answer pair requires accepted Dialog and branch identity; missing identity is never promoted",
     "An observed offer/answer pair does not prove SDP negotiation compatibility, media delivery, two-way audio or IMS service success",
     "Reliable provisional response evidence (100rel, RSeq, RAck) is not exposed by the accepted SIP Event contract and is not interpreted",
-    "PRACK, re-INVITE and UPDATE SDP bodies, arbitrary multipart bodies and INFO media control remain outside this phase",
-    "The SIP Event contract does not publish an independent capture SHA-256; no cross-artifact capture hash equality is asserted"
+    "Provisional SDP in the same branch keeps a final-response answer role unresolved instead of assuming a unique final answer",
+    "PRACK, re-INVITE, UPDATE, INFO and arbitrary multipart bodies remain outside the supported initial Offer/Answer scope",
+    "The SIP Event contract does not publish an independent capture SHA-256; the SIP Event file SHA-256 and the capture SHA-256 are distinct identities",
+    "The accepted SDP contract does not define a canonical frame_reference format; only presence and frame-<n> consistency are validated"
   ],
   "not_confirmed": [
     "SDP_NEGOTIATION_COMPATIBILITY",

@@ -23,7 +23,7 @@
       "const": "ims-media-signaling"
     },
     "analysis_version": {
-      "const": "0.1.0"
+      "const": "0.2.0"
     },
     "domain": {
       "const": "ims-media-signaling"
@@ -172,6 +172,30 @@
         "OUT_OF_SCOPE"
       ]
     },
+    "initial_sdp_state": {
+      "type": "string",
+      "enum": [
+        "ABSENT",
+        "OBSERVED_VALID",
+        "OBSERVED_INCOMPLETE",
+        "OBSERVED_INVALID",
+        "UNRESOLVED",
+        "OUT_OF_SCOPE"
+      ]
+    },
+    "branch_identity_status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "ESTABLISHED",
+        "AMBIGUOUS",
+        "INSUFFICIENT_EVIDENCE",
+        "NOT_ESTABLISHED",
+        null
+      ]
+    },
     "finding_list": {
       "type": "array",
       "maxItems": 16,
@@ -190,7 +214,9 @@
         "initial_invite_transaction_reference",
         "branch_reference",
         "dialog_reference",
+        "branch_identity_status",
         "exchange_type",
+        "initial_sdp_state",
         "association_status",
         "offer_event_reference",
         "offer_sdp_reference",
@@ -232,14 +258,21 @@
           "minLength": 1,
           "maxLength": 640
         },
+        "branch_identity_status": {
+          "$ref": "#/$defs/branch_identity_status"
+        },
         "exchange_type": {
           "type": "string",
           "enum": [
             "INITIAL_INVITE_SDP_OFFER",
             "INITIAL_INVITE_OFFER_ANSWER",
             "INITIAL_INVITE_WITHOUT_SDP",
+            "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE",
             "LATE_OFFER_ANSWER"
           ]
+        },
+        "initial_sdp_state": {
+          "$ref": "#/$defs/initial_sdp_state"
         },
         "association_status": {
           "$ref": "#/$defs/evidence_status"
@@ -304,7 +337,186 @@
         "evidence_class": {
           "const": "DERIVED"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "exchange_type": {
+                "const": "INITIAL_INVITE_WITHOUT_SDP"
+              }
+            },
+            "required": [
+              "exchange_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "initial_sdp_state": {
+                "const": "ABSENT"
+              },
+              "association_status": {
+                "const": "NOT_ESTABLISHED"
+              },
+              "answer_event_reference": {
+                "type": "null"
+              },
+              "answer_sdp_reference": {
+                "type": "null"
+              },
+              "answer_role": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "exchange_type": {
+                "const": "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE"
+              }
+            },
+            "required": [
+              "exchange_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "association_status": {
+                "enum": [
+                  "NOT_ESTABLISHED",
+                  "INSUFFICIENT_EVIDENCE",
+                  "AMBIGUOUS",
+                  "OUT_OF_SCOPE"
+                ]
+              },
+              "answer_event_reference": {
+                "type": "null"
+              },
+              "answer_sdp_reference": {
+                "type": "null"
+              },
+              "answer_role": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "association_status": {
+                "const": "ESTABLISHED"
+              },
+              "exchange_type": {
+                "enum": [
+                  "INITIAL_INVITE_OFFER_ANSWER",
+                  "LATE_OFFER_ANSWER"
+                ]
+              }
+            },
+            "required": [
+              "association_status",
+              "exchange_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "branch_reference": {
+                "type": "string",
+                "minLength": 1
+              },
+              "dialog_reference": {
+                "type": "string",
+                "minLength": 1
+              },
+              "branch_identity_status": {
+                "const": "ESTABLISHED"
+              },
+              "offer_sdp_reference": {
+                "type": "string"
+              },
+              "answer_sdp_reference": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "association_status": {
+                "const": "ESTABLISHED"
+              },
+              "exchange_type": {
+                "const": "INITIAL_INVITE_OFFER_ANSWER"
+              }
+            },
+            "required": [
+              "association_status",
+              "exchange_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "initial_sdp_state": {
+                "const": "OBSERVED_VALID"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "association_status": {
+                "const": "ESTABLISHED"
+              },
+              "exchange_type": {
+                "const": "LATE_OFFER_ANSWER"
+              }
+            },
+            "required": [
+              "association_status",
+              "exchange_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "initial_sdp_state": {
+                "const": "ABSENT"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "association_status": {
+                "enum": [
+                  "NOT_ESTABLISHED",
+                  "INSUFFICIENT_EVIDENCE",
+                  "AMBIGUOUS",
+                  "OUT_OF_SCOPE"
+                ]
+              }
+            },
+            "required": [
+              "association_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "offer_role": {
+                "type": "null"
+              },
+              "answer_role": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     },
     "observation": {
       "type": "object",

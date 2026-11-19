@@ -39,7 +39,7 @@ REQUIRED = (
     "examples/expected/media-analysis.json",
     "examples/expected/media-report.txt",
 )
-REQUIRED_TEST_TOKENS = tuple(f"test_{index:02d}_" for index in range(1, 55))
+REQUIRED_TEST_TOKENS = tuple(f"test_{index:02d}_" for index in range(1, 72))
 PRIVATE_TOKENS = (
     "sip:caller@example.com",
     "sip:callee@example.com",
@@ -139,7 +139,7 @@ def main() -> int:
     manifest = (SKILL / "manifest.yaml").read_text(encoding="utf-8")
     for token in (
         "name: ims-media-signaling",
-        "version: 0.1.0",
+        "version: 0.2.0",
         "category: domain",
         "sip >=0.4.0",
         "sdp-rtp >=0.3.0",
@@ -220,9 +220,24 @@ def main() -> int:
                     exchange["association_status"] == "ESTABLISHED"
                     and exchange["exchange_type"]
                     in ("INITIAL_INVITE_OFFER_ANSWER", "LATE_OFFER_ANSWER")
-                    and not exchange["answer_sdp_reference"]
+                    and (
+                        not exchange["answer_sdp_reference"]
+                        or not exchange["branch_reference"]
+                        or not exchange["dialog_reference"]
+                        or exchange["branch_identity_status"] != "ESTABLISHED"
+                    )
                 ):
-                    errors.append("an established offer/answer exchange lacks an answer")
+                    errors.append("an established branch-scoped exchange lacks identity or an answer")
+                if (
+                    exchange["exchange_type"] == "INITIAL_INVITE_WITHOUT_SDP"
+                    and exchange["initial_sdp_state"] != "ABSENT"
+                ):
+                    errors.append("INITIAL_INVITE_WITHOUT_SDP was published without proven absence")
+                if (
+                    exchange["association_status"] != "ESTABLISHED"
+                    and (exchange["offer_role"] or exchange["answer_role"])
+                ):
+                    errors.append("an unestablished exchange claimed an offer or answer role")
             completeness = produced["completeness"]
             if completeness["supplied_sdp_message_count"] != (
                 completeness["matched_sip_event_count"]

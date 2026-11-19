@@ -55,13 +55,32 @@ input artifact.
    schema `1.0.0`).
 
 All three must describe the same capture identity. The IMS Session artifact's
-`event_sha256` must equal the SHA-256 of the supplied SIP Event file.
+`event_sha256` must equal the SHA-256 of the supplied SIP Event file (an input
+file identity, not the capture SHA-256). The SDP Analysis root and every SDP
+message must agree on `capture_file` and `capture_sha256`, and each message's
+source reference, frame number, message occurrence and `frame-<n>` reference
+must be internally consistent.
 
 ## Outputs
 
-The analysis JSON contains bounded `exchanges`, `unbound_observations`,
-conservation-checked `completeness`, `input_provenance`, `limitations` and
-`not_confirmed`. References remain resolvable to the originating artifacts.
+The analysis version is `0.2.0`. The JSON contains bounded `exchanges`,
+`unbound_observations`, conservation-checked `completeness`, `input_provenance`,
+`limitations` and `not_confirmed`. Each exchange publishes `initial_sdp_state`
+and `branch_identity_status`; references remain resolvable to the originating
+artifacts.
+
+## Compatibility impact
+
+Version `0.2.0` tightens the public contract. Consumers must expect:
+
+- an `INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE` exchange type when initial SDP is
+  observed but incomplete, invalid, unresolved or out of scope;
+- `initial_sdp_state` on every exchange;
+- `branch_identity_status` on every exchange;
+- established branch-scoped pairs to require accepted Dialog and branch
+  identity, so some previously permissive results become
+  `INSUFFICIENT_EVIDENCE` or `AMBIGUOUS`;
+- provisional SDP in the same branch to keep the final answer role unresolved.
 
 ## Known limitations
 
@@ -73,9 +92,11 @@ conservation-checked `completeness`, `input_provenance`, `limitations` and
   out-of-scope observations.
 - No RTP stream, endpoint correlation, media QoS, Diameter Rx or charging
   evidence is produced.
+- The accepted SDP contract does not define a canonical `frame_reference`
+  format; only presence and `frame-<n>` consistency are validated.
 - The unified `scripts/corenet-analyze.py` workflow does not execute this Skill
-  in this phase because the accepted SIP Event contract deliberately does not
-  publish message bodies.
+  because the accepted SIP Event contract deliberately does not publish message
+  bodies.
 
 ## Testing
 

@@ -126,6 +126,8 @@ def _report(document: dict) -> str:
             f"{exchange['exchange_reference']} / "
             f"{exchange['exchange_type']} / "
             f"{exchange['association_status']} / "
+            f"initial_sdp={exchange['initial_sdp_state']} / "
+            f"branch_identity={exchange['branch_identity_status'] or '-'} / "
             f"branch={exchange['branch_reference'] or '-'} / "
             f"offer={exchange['offer_sdp_reference'] or '-'} / "
             f"answer={exchange['answer_sdp_reference'] or '-'} / "
@@ -168,15 +170,23 @@ def main(argv: list[str] | None = None) -> int:
             event_references=event_references,
             sdp_references={message["source_reference"] for message in sdp["messages"]},
         )
-    except (InputError, OSError) as exc:
+    except InputError as exc:
         print(f"analyze-ims-media-signaling: {exc}", file=sys.stderr)
+        return EXIT_INPUT
+    except OSError:
+        print("analyze-ims-media-signaling: an input or output path is unavailable", file=sys.stderr)
         return EXIT_INPUT
 
     payload = json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    _write_atomic(args.output, payload)
+    try:
+        _write_atomic(args.output, payload)
+        if args.report is not None:
+            _write_atomic(args.report, _report(document))
+    except OSError:
+        print("analyze-ims-media-signaling: an output artifact could not be written", file=sys.stderr)
+        return EXIT_INPUT
     if args.report is not None:
-        _write_atomic(args.report, _report(document))
-        print(f"wrote report to {args.report}")
+        print(f"wrote report to {args.report.name}")
     print(
         f"analyzed {len(events)} SIP event(s), "
         f"{len(sdp['messages'])} SDP message(s), "

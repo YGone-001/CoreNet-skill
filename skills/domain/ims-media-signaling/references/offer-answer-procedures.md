@@ -66,10 +66,26 @@ exchange.
 ### Provisional responses
 
 The accepted SIP Event contract does not expose `Require: 100rel`, `RSeq`,
-`RAck` or complete PRACK binding. RFC 3262 reliable provisional response
-semantics therefore cannot be proven from the accepted artifacts. SDP in 18x
-responses is preserved as `PROVISIONAL_SDP_UNINTERPRETED` and is never promoted
-to a completed early-media Offer/Answer exchange.
+`RAck` or complete PRACK binding. RFC 3262 and RFC 6337 reliable provisional
+response semantics therefore cannot be proven from the accepted artifacts. SDP
+in 18x responses is preserved as `PROVISIONAL_SDP_UNINTERPRETED` with its exact
+SIP Event reference and is never promoted to a completed early-media
+Offer/Answer exchange.
+
+When provisional SDP and final 2xx SDP are observed in the same accepted branch,
+both observations are retained. The final response is not treated as a
+uniquely established answer: the exchange remains unestablished and carries
+`PROVISIONAL_FINAL_SDP_ROLE_UNRESOLVED`. Provisional SDP in a different branch
+does not affect the branch under evaluation.
+
+### Final response role
+
+A final-answer or late-offer candidate must be a SIP `RESPONSE` with a valid
+2xx `status_code`, `status_code_valid = true`, `headers.cseq.method = INVITE`,
+complete message extraction and ownership by the accepted IMS Session branch.
+A 2xx response with a BYE, REGISTER, UPDATE or other CSeq method is not an
+INVITE answer. The Domain does not rebuild SIP transactions; when the accepted
+branch does not prove ownership, the result fails closed.
 
 ### Session modification
 
@@ -86,6 +102,7 @@ INFO, MESSAGE, REFER and arbitrary multipart bodies are also out of scope.
 | RFC 3261 — SIP | NOT_RETRIEVED_IN_THIS_PHASE (semantics consumed from the accepted `sip` Protocol contract) | INVITE, response, ACK, dialog branch and CSeq behavior were not re-derived from the RFC text in this phase |
 | RFC 3262 — Reliability of Provisional Responses | NOT_RETRIEVED_IN_THIS_PHASE | Reliable provisional semantics are explicitly not implemented |
 | RFC 3311 — SIP UPDATE | NOT_RETRIEVED_IN_THIS_PHASE | UPDATE SDP is explicitly out of scope |
+| RFC 6337 — SIP 100rel and early media | NOT_RETRIEVED_IN_THIS_PHASE | Reliable provisional state and role resolution are explicitly not implemented |
 | RFC 8866 — SDP | NOT_RETRIEVED_IN_THIS_PHASE (structure consumed from the accepted `sdp-rtp` contract) | SDP structure is owned by the Protocol Skill |
 | RFC 3550 — RTP/RTCP | NOT_RETRIEVED_IN_THIS_PHASE (dependency boundary only) | No RTP or RTCP evidence is produced |
 | 3GPP TS 24.229 — IMS session control | NOT_RETRIEVED | No IMS-specific 3GPP conformance is claimed and no clause reference is invented |

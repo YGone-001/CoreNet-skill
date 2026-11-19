@@ -48,21 +48,28 @@ Required, same capture, accepted artifacts:
 3. SDP Analysis JSON (`sdp-rtp` analysis version `0.1.0`, event schema `1.0.0`).
 
 The Domain rejects unsupported versions, duplicate references, cross-capture
-joins, missing source events, IMS Session event SHA-256 mismatch and SDP
-provenance that disagrees with the SIP Event capture identity.
+joins, missing source events, IMS Session event SHA-256 mismatch and any SDP
+provenance disagreement: root capture identity, root capture SHA-256 syntax,
+per-message `capture_file`, per-message `capture_sha256`, frame number, message
+occurrence, source-reference components, frame references of the form
+`frame-<n>`, root/message counts and parser version. Contradictory provenance is
+rejected before any output is written.
 
 The SIP Event contract does not publish an independent capture SHA-256, so this
-Domain never asserts a cross-artifact capture-hash equality. It uses exact SIP
-Event references, frame metadata, message occurrence and capture identity.
+Domain never asserts a cross-artifact capture-hash equality. The SIP Event file
+SHA-256 and the capture SHA-256 are different identities and are never equated.
+It uses exact SIP Event references, frame metadata, message occurrence and
+capture identity.
 
 ## Outputs
 
-`schemas/ims-media-signaling-analysis.schema.json`:
+`schemas/ims-media-signaling-analysis.schema.json` (analysis version `0.2.0`):
 
-- `exchanges`: attempt, transaction and dialog branch references, exchange
-  type, association status, offer/answer event and SDP references, roles,
-  `negotiation_compatibility = NOT_EVALUATED`, missing evidence, conflict
-  findings and `evidence_class = DERIVED`;
+- `exchanges`: attempt, transaction and dialog branch references, branch
+  identity status, exchange type, `initial_sdp_state`, association status,
+  offer/answer event and SDP references, roles, `negotiation_compatibility =
+  NOT_EVALUATED`, missing evidence, conflict findings and `evidence_class =
+  DERIVED`;
 - `unbound_observations`: provisional, out-of-scope, unbound and unmatched
   observations with bounded reason codes;
 - `completeness`: conservation-checked counts;
@@ -81,23 +88,40 @@ address, ICE credential, fingerprint or key material is published.
 ## Workflow
 
 1. Load the three accepted artifacts.
-2. Verify schema versions, capture identity, IMS Session event SHA-256 and full
-   SIP Event reference resolution.
-3. Index SDP messages by their exact source references.
-4. Build initial INVITE offer evidence and branch-scoped answer evidence.
-5. Build late-offer and 2xx ACK answer evidence on accepted branches.
-6. Preserve provisional and out-of-scope SDP observations without promotion.
-7. Validate conservation and privacy, then write deterministic JSON and an
+2. Verify schema versions, capture identity, SDP internal provenance, IMS
+   Session event SHA-256 and full SIP Event reference resolution.
+3. Classify the initial SDP evidence as `ABSENT`, `OBSERVED_VALID`,
+   `OBSERVED_INCOMPLETE`, `OBSERVED_INVALID`, `UNRESOLVED` or `OUT_OF_SCOPE`.
+4. Index SDP messages by their exact source references.
+5. Build initial INVITE offer evidence and branch-scoped answer evidence only
+   through accepted Dialog and branch identity.
+6. Build late-offer and 2xx ACK answer evidence only after proven initial SDP
+   absence.
+7. Preserve provisional and out-of-scope SDP observations without promotion.
+8. Validate conservation and privacy, then write deterministic JSON and an
    optional text report.
 
 ## Evidence Rules
 
 - `OBSERVED`: accepted SIP Event and SDP message evidence owned by lower layers.
 - `DERIVED`: the association itself.
-- An offer/answer pair means the expected signaling positions and exact source
-  references were observed. It never means negotiation compatibility.
-- Provisional SDP is preserved, never promoted to a completed reliable
-  provisional exchange.
+- An established branch-scoped pair requires an accepted attempt, an accepted
+  branch of that attempt, a non-null branch reference, a non-null Confirmed
+  Dialog reference, `identity_status = ESTABLISHED`, branch-owned response
+  evidence, exact SIP-to-SDP reference identity and no competing branch owner.
+- Missing Dialog or branch identity is `INSUFFICIENT_EVIDENCE`; conflicting
+  ownership is `AMBIGUOUS`. Neither is promoted to a confirmed branch.
+- Initial SDP absence is only `ABSENT` when the INVITE has no body, zero content
+  length, complete extraction and no contradictory SDP message.
+- Unusable initial SDP evidence publishes
+  `INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE`; it never becomes
+  `INITIAL_INVITE_WITHOUT_SDP` and never enables a late offer.
+- Provisional SDP in the same branch keeps the final-response answer role
+  unresolved (`PROVISIONAL_FINAL_SDP_ROLE_UNRESOLVED`) and the pair unestablished.
+- A final-answer candidate must be a `RESPONSE` with valid 2xx status,
+  `headers.cseq.method = INVITE`, complete extraction and the accepted branch
+  that owns it.
+- An offer/answer pair never means negotiation compatibility.
 - A missing ACK or missing answer is missing evidence, not a SIP timeout or a
   call failure.
 - Competing candidates are `AMBIGUOUS`; no candidate is selected arbitrarily.
@@ -105,9 +129,9 @@ address, ICE credential, fingerprint or key material is published.
 ## Failure Handling
 
 Missing, malformed, duplicate or contradictory inputs return a non-zero exit
-and never an empty successful analysis. Valid captures with no SDP offer remain
-valid analyses that publish an explicit `INITIAL_INVITE_WITHOUT_SDP` or
-`NOT_ESTABLISHED` exchange.
+and never an empty successful analysis. A valid capture with no SDP offer
+publishes `INITIAL_INVITE_WITHOUT_SDP` only when the absence is proven;
+otherwise it publishes `INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE`.
 
 ## Validation
 
@@ -116,8 +140,10 @@ python3 -m unittest discover -s skills/domain/ims-media-signaling/tests -p 'test
 python3 scripts/validate-ims-media-signaling.py
 ```
 
-The tests cover the required 54-case matrix, privacy, capture provenance,
-bounded output, deterministic replay and committed expected outputs.
+The tests cover the required 70-case matrix, privacy, capture provenance,
+branch identity, initial SDP absence versus unusable evidence, provisional
+role ambiguity, bounded output, deterministic replay and committed expected
+outputs.
 
 ## References
 

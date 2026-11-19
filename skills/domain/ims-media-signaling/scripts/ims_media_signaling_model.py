@@ -4,7 +4,7 @@
 This Domain consumes accepted SIP Event, IMS Session Analysis and SDP Analysis
 artifacts. It does not decode SIP packets, rebuild transactions or dialogs, or
 parse SDP bodies again. Associations are established only through exact,
-capture-scoped SIP Event references.
+capture-scoped SIP Event references and accepted branch identity.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ import sdp_model  # noqa: E402
 import sip_model  # noqa: E402
 
 ANALYSIS_NAME = "ims-media-signaling"
-ANALYSIS_VERSION = "0.1.0"
+ANALYSIS_VERSION = "0.2.0"
 DOMAIN = "ims-media-signaling"
 CAPABILITY = "bounded IMS SDP offer/answer signaling evidence"
 
@@ -38,10 +38,13 @@ SIP_EVENT_SCHEMA_VERSION = sip_model.EVENT_SCHEMA_VERSION
 SDP_ANALYSIS_NAME = sdp_model.ANALYSIS_NAME
 SDP_ANALYSIS_VERSION = sdp_model.ANALYSIS_VERSION
 SDP_EVENT_SCHEMA_VERSION = sdp_model.EVENT_SCHEMA_VERSION
+SDP_PARSER_VERSION = getattr(sdp_model, "PARSER_VERSION", "0.1.0")
 IMS_SESSION_ANALYSIS_VERSION = ims_session_model.ANALYSIS_VERSION
 
 EVENT_REFERENCE_PATTERN = re.compile(r"^sip-event:.+:[0-9]+\.[0-9]+$")
 SDP_REFERENCE_PATTERN = re.compile(r"^[a-z][a-z0-9-]*:.+:[0-9]+\.[0-9]+$")
+FRAME_REFERENCE_PATTERN = re.compile(r"^frame-([0-9]+)$")
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 MAX_EXCHANGES = 64
 MAX_UNBOUND = 64
@@ -53,12 +56,28 @@ ASSOCIATION_STATUSES = (
     "AMBIGUOUS",
     "OUT_OF_SCOPE",
 )
+BRANCH_IDENTITY_STATUSES = (
+    "ESTABLISHED",
+    "AMBIGUOUS",
+    "INSUFFICIENT_EVIDENCE",
+    "NOT_ESTABLISHED",
+)
+INITIAL_SDP_STATES = (
+    "ABSENT",
+    "OBSERVED_VALID",
+    "OBSERVED_INCOMPLETE",
+    "OBSERVED_INVALID",
+    "UNRESOLVED",
+    "OUT_OF_SCOPE",
+)
 EXCHANGE_TYPES = (
     "INITIAL_INVITE_SDP_OFFER",
     "INITIAL_INVITE_OFFER_ANSWER",
     "INITIAL_INVITE_WITHOUT_SDP",
+    "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE",
     "LATE_OFFER_ANSWER",
 )
+BRANCH_SCOPED_EXCHANGE_TYPES = ("INITIAL_INVITE_OFFER_ANSWER", "LATE_OFFER_ANSWER")
 OBSERVATION_TYPES = (
     "PROVISIONAL_SDP_UNINTERPRETED",
     "UNSUPPORTED_SDP_OBSERVATION",
@@ -69,6 +88,13 @@ SDP_EVIDENCE_STATUSES = ("OBSERVED", "INCOMPLETE", "AMBIGUOUS", "UNSUPPORTED", "
 OUT_OF_SCOPE_METHODS = frozenset(
     {"UPDATE", "PRACK", "INFO", "MESSAGE", "REFER", "BYE", "CANCEL", "ACK", "NOTIFY", "SUBSCRIBE"}
 )
+STATUS_PRECEDENCE = {
+    "ESTABLISHED": 0,
+    "INSUFFICIENT_EVIDENCE": 1,
+    "NOT_ESTABLISHED": 2,
+    "AMBIGUOUS": 3,
+    "OUT_OF_SCOPE": 4,
+}
 
 PRIVATE_BODY_MARKERS = (
     "sdp_body",
@@ -85,10 +111,13 @@ PRIVATE_BODY_MARKERS = (
 BASE_LIMITATIONS = (
     "Association evidence is limited to exact capture-scoped SIP Event references supplied by the accepted SIP Protocol Skill",
     "SDP structural evidence is consumed from the accepted sdp-rtp analysis contract and is not reparsed here",
+    "An established offer/answer pair requires accepted Dialog and branch identity; missing identity is never promoted",
     "An observed offer/answer pair does not prove SDP negotiation compatibility, media delivery, two-way audio or IMS service success",
     "Reliable provisional response evidence (100rel, RSeq, RAck) is not exposed by the accepted SIP Event contract and is not interpreted",
-    "PRACK, re-INVITE and UPDATE SDP bodies, arbitrary multipart bodies and INFO media control remain outside this phase",
-    "The SIP Event contract does not publish an independent capture SHA-256; no cross-artifact capture hash equality is asserted",
+    "Provisional SDP in the same branch keeps a final-response answer role unresolved instead of assuming a unique final answer",
+    "PRACK, re-INVITE, UPDATE, INFO and arbitrary multipart bodies remain outside the supported initial Offer/Answer scope",
+    "The SIP Event contract does not publish an independent capture SHA-256; the SIP Event file SHA-256 and the capture SHA-256 are distinct identities",
+    "The accepted SDP contract does not define a canonical frame_reference format; only presence and frame-<n> consistency are validated",
 )
 
 NOT_CONFIRMED = (
@@ -120,10 +149,10 @@ def _sha256(path: Path) -> str:
 def _load_json(path: Path, label: str) -> dict[str, Any]:
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise InputError(f"{label} could not be read: {exc}") from exc
+    except OSError:
+        raise InputError(f"{label} could not be read") from None
     except json.JSONDecodeError as exc:
-        raise InputError(f"{label} is not valid JSON: {exc}") from exc
+        raise InputError(f"{label} is not valid JSON: {exc}") from None
     if not isinstance(document, dict):
         raise InputError(f"{label} must be a JSON object")
     return document
@@ -134,11 +163,14 @@ def _reference_suffix(reference: str) -> str:
     return reference[marker + 1 :]
 
 
-def _ordered(reference: str) -> tuple[str, int, int]:
-    parts = reference.rsplit(":", 1)
-    capture = parts[0]
-    frame, occurrence = parts[1].split(".", 1)
-    return (capture, int(frame), int(occurrence))
+def _parse_reference(reference: str, label: str) -> tuple[str, int, int]:
+    try:
+        _, rest = reference.split(":", 1)
+        capture, frame_occurrence = rest.rsplit(":", 1)
+        frame_text, occurrence_text = frame_occurrence.split(".", 1)
+        return capture, int(frame_text), int(occurrence_text)
+    except (ValueError, AttributeError):
+        raise InputError(f"{label} source reference is malformed") from None
 
 
 def _unique(values: list[str]) -> list[str]:
@@ -151,11 +183,15 @@ def _unique(values: list[str]) -> list[str]:
     return result
 
 
+def _merge_status(left: str, right: str) -> str:
+    return left if STATUS_PRECEDENCE[left] >= STATUS_PRECEDENCE[right] else right
+
+
 def load_events(path: Path) -> list[dict[str, Any]]:
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
-        raise InputError(f"SIP events could not be read: {exc}") from exc
+    except OSError:
+        raise InputError("SIP events could not be read") from None
     events: list[dict[str, Any]] = []
     for line_number, line in enumerate(lines, start=1):
         if not line.strip():
@@ -163,7 +199,7 @@ def load_events(path: Path) -> list[dict[str, Any]]:
         try:
             event = json.loads(line)
         except json.JSONDecodeError as exc:
-            raise InputError(f"SIP event line {line_number} is not valid JSON: {exc}") from exc
+            raise InputError(f"SIP event line {line_number} is not valid JSON: {exc}") from None
         if not isinstance(event, dict):
             raise InputError(f"SIP event line {line_number} is not an object")
         _validate_event(event, line_number)
@@ -189,6 +225,7 @@ def _validate_event(event: dict[str, Any], line_number: int) -> None:
         "message_type",
         "method",
         "status_code",
+        "status_code_valid",
         "headers",
         "body_present",
         "message_completeness",
@@ -206,9 +243,13 @@ def _validate_event(event: dict[str, Any], line_number: int) -> None:
         raise InputError("SIP Event source reference capture identity is inconsistent")
     if not isinstance(event["capture_file"], str) or not event["capture_file"]:
         raise InputError("SIP Event capture_file is invalid")
-    if not isinstance(event["frame_number"], int) or event["frame_number"] < 1:
+    if isinstance(event["frame_number"], bool) or not isinstance(event["frame_number"], int) or event["frame_number"] < 1:
         raise InputError("SIP Event frame_number is invalid")
-    if not isinstance(event["message_occurrence"], int) or event["message_occurrence"] < 1:
+    if (
+        isinstance(event["message_occurrence"], bool)
+        or not isinstance(event["message_occurrence"], int)
+        or event["message_occurrence"] < 1
+    ):
         raise InputError("SIP Event message_occurrence is invalid")
     if event["message_type"] not in {"REQUEST", "RESPONSE", "UNKNOWN"}:
         raise InputError("SIP Event message_type is invalid")
@@ -217,27 +258,64 @@ def _validate_event(event: dict[str, Any], line_number: int) -> None:
         raise InputError("SIP Event headers are invalid")
     if not isinstance(event["body_present"], bool):
         raise InputError("SIP Event body_present is invalid")
+    if not isinstance(event["status_code_valid"], bool):
+        raise InputError("SIP Event status_code_valid is invalid")
     if event["message_completeness"] not in {"COMPLETE", "INCOMPLETE", "MALFORMED", "TRUNCATED", "UNKNOWN"}:
         raise InputError("SIP Event message completeness is invalid")
     if event["extraction_status"] not in {"OBSERVED", "PARTIAL", "MALFORMED", "UNSUPPORTED"}:
         raise InputError("SIP Event extraction status is invalid")
 
 
-def load_session_analysis(
-    path: Path, event_references: set[str]
-) -> dict[str, Any]:
+def load_session_analysis(path: Path, event_references: set[str]) -> dict[str, Any]:
     document = _load_json(path, "IMS Session analysis")
     try:
         ims_session_model.validate_analysis(document, event_references=event_references)
     except ims_session_model.InputError as exc:
-        raise InputError(f"IMS Session analysis is not accepted: {exc}") from exc
+        raise InputError(f"IMS Session analysis is not accepted: {exc}") from None
     if document.get("analysis_version") != IMS_SESSION_ANALYSIS_VERSION:
         raise InputError("IMS Session analysis_version is not accepted")
     return document
 
 
+def _validate_sdp_message_provenance(
+    message: dict[str, Any], root_capture: str, root_sha256: str
+) -> None:
+    reference = message.get("source_reference")
+    if not isinstance(reference, str) or not SDP_REFERENCE_PATTERN.fullmatch(reference):
+        raise InputError("an SDP source reference is invalid")
+    if message.get("capture_file") != root_capture:
+        raise InputError("an SDP message capture_file disagrees with the SDP root capture identity")
+    if message.get("capture_sha256") != root_sha256:
+        raise InputError("an SDP message capture_sha256 disagrees with the SDP root capture SHA-256")
+    frame_number = message.get("frame_number")
+    if isinstance(frame_number, bool) or not isinstance(frame_number, int) or frame_number < 1:
+        raise InputError("an SDP message frame_number is invalid")
+    occurrence = message.get("message_occurrence")
+    if isinstance(occurrence, bool) or not isinstance(occurrence, int) or occurrence < 1:
+        raise InputError("an SDP message message_occurrence is invalid")
+    capture, reference_frame, reference_occurrence = _parse_reference(reference, "SDP message")
+    if capture != message.get("capture_file"):
+        raise InputError("an SDP source reference capture identity disagrees with capture_file")
+    if reference_frame != frame_number:
+        raise InputError("an SDP source reference frame disagrees with frame_number")
+    if reference_occurrence != occurrence:
+        raise InputError("an SDP source reference occurrence disagrees with message_occurrence")
+    frame_reference = message.get("frame_reference")
+    if not isinstance(frame_reference, str) or not frame_reference:
+        raise InputError("an SDP message frame_reference is missing")
+    match = FRAME_REFERENCE_PATTERN.fullmatch(frame_reference)
+    if match is not None and int(match.group(1)) != frame_number:
+        raise InputError("an SDP message frame_reference disagrees with frame_number")
+    if message.get("evidence_status") not in SDP_EVIDENCE_STATUSES:
+        raise InputError("an SDP message has an invalid evidence status")
+
+
 def load_sdp_analysis(path: Path) -> dict[str, Any]:
     document = _load_json(path, "SDP analysis")
+    try:
+        sdp_model.validate_analysis(document)
+    except sdp_model.InputError as exc:
+        raise InputError(f"SDP analysis is not accepted: {exc}") from None
     if document.get("analysis_name") != SDP_ANALYSIS_NAME:
         raise InputError("SDP analysis_name is not accepted")
     if document.get("analysis_version") != SDP_ANALYSIS_VERSION:
@@ -245,35 +323,32 @@ def load_sdp_analysis(path: Path) -> dict[str, Any]:
     if document.get("event_schema_version") != SDP_EVENT_SCHEMA_VERSION:
         raise InputError("SDP event schema version is not accepted")
     messages = document.get("messages")
-    if not isinstance(messages, list):
-        raise InputError("SDP analysis messages must be an array")
+    if not isinstance(messages, list) or not messages:
+        raise InputError("SDP analysis must publish at least one message")
     if document.get("message_count") != len(messages):
         raise InputError("SDP message_count does not match the message array")
+    provenance = document.get("input_provenance")
+    if not isinstance(provenance, dict):
+        raise InputError("SDP analysis input_provenance is missing")
+    captures = provenance.get("capture_files")
+    if not isinstance(captures, list) or len(captures) != 1 or not isinstance(captures[0], str) or not captures[0]:
+        raise InputError("SDP analysis must publish exactly one capture identity")
+    root_capture = captures[0]
+    root_sha256 = provenance.get("capture_sha256")
+    if not isinstance(root_sha256, str) or not SHA256_PATTERN.fullmatch(root_sha256):
+        raise InputError("SDP analysis root capture_sha256 is malformed")
+    if provenance.get("message_count") != len(messages):
+        raise InputError("SDP input_provenance message_count does not match the message array")
     references: list[str] = []
     for message in messages:
         if not isinstance(message, dict):
             raise InputError("an SDP message is not an object")
-        reference = message.get("source_reference")
-        if not isinstance(reference, str) or not SDP_REFERENCE_PATTERN.fullmatch(reference):
-            raise InputError("an SDP source reference is invalid")
-        references.append(reference)
-        if message.get("evidence_status") not in SDP_EVIDENCE_STATUSES:
-            raise InputError("an SDP message has an invalid evidence status")
-        for key in ("capture_file", "capture_sha256", "frame_number", "message_occurrence"):
-            if key not in message:
-                raise InputError(f"an SDP message is missing {key}")
-        if not isinstance(message["capture_sha256"], str) or not re.fullmatch(
-            r"[0-9a-f]{64}", message["capture_sha256"]
-        ):
-            raise InputError("an SDP message has an invalid capture_sha256")
+        if message.get("parser_version") not in (None, SDP_PARSER_VERSION):
+            raise InputError("an SDP message parser_version is not accepted")
+        _validate_sdp_message_provenance(message, root_capture, root_sha256)
+        references.append(message["source_reference"])
     if len(set(references)) != len(references):
         raise InputError("SDP source references are not unique")
-    provenance = document.get("input_provenance") or {}
-    captures = provenance.get("capture_files")
-    if not isinstance(captures, list) or len(captures) != 1:
-        raise InputError("SDP analysis must publish exactly one capture identity")
-    if provenance.get("capture_sha256") is None:
-        raise InputError("SDP analysis must publish its capture SHA-256")
     return document
 
 
@@ -319,11 +394,15 @@ def verify_provenance(
     sdp_captures = sdp_provenance.get("capture_files") or []
     if sdp_captures != [capture]:
         raise InputError("SDP analysis capture identity does not match the SIP Events")
+    root_sha256 = sdp_provenance.get("capture_sha256")
     for message in sdp.get("messages") or []:
         if message.get("capture_file") != capture:
             raise InputError("an SDP message mixes capture identity")
-        if message.get("source_reference", "").split(":", 2)[1] != capture:
+        message_capture = message.get("source_reference", "").split(":", 1)[1].rsplit(":", 1)[0]
+        if message_capture != capture:
             raise InputError("an SDP source reference capture identity is inconsistent")
+        if message.get("capture_sha256") != root_sha256:
+            raise InputError("an SDP message capture SHA-256 is inconsistent with the SDP root")
     return {
         "capture_files": [capture],
         "sip_event_source_name": events_path.name,
@@ -336,7 +415,7 @@ def verify_provenance(
         "sdp_analysis_sha256": _sha256(sdp_path),
         "sdp_analysis_version": sdp.get("analysis_version"),
         "sdp_event_schema_version": sdp.get("event_schema_version"),
-        "sdp_capture_sha256": (sdp.get("input_provenance") or {}).get("capture_sha256"),
+        "sdp_capture_sha256": root_sha256,
         "capture_identity_source": "SIP_EVENT_CAPTURE_FILE",
         "input_status": "ACCEPTED",
     }
@@ -371,6 +450,8 @@ def _sdp_result(
     status = message.get("evidence_status")
     if status == "INCOMPLETE":
         return ("INSUFFICIENT_EVIDENCE", "SDP_MESSAGE_INCOMPLETE", message)
+    if status == "INVALID":
+        return ("INSUFFICIENT_EVIDENCE", "SDP_MESSAGE_INVALID", message)
     if status == "UNSUPPORTED":
         return ("OUT_OF_SCOPE", "SDP_MESSAGE_UNSUPPORTED", message)
     if status != "OBSERVED":
@@ -378,34 +459,142 @@ def _sdp_result(
     return ("ESTABLISHED", None, message)
 
 
+def _classify_initial_sdp(
+    reference: str,
+    events_by_reference: dict[str, dict[str, Any]],
+    sdp_by_reference: dict[str, dict[str, Any]],
+    capture: str,
+) -> tuple[str, str | None, dict[str, Any] | None]:
+    event = events_by_reference.get(reference)
+    if event is None:
+        return ("UNRESOLVED", "SIP_EVENT_NOT_FOUND", None)
+    if event.get("capture_file") != capture:
+        return ("UNRESOLVED", "CAPTURE_IDENTITY_MISMATCH", None)
+    if not _is_invite(event):
+        return ("UNRESOLVED", "INITIAL_INVITE_INVALID", None)
+    message = sdp_by_reference.get(reference)
+    headers = event.get("headers") or {}
+    body_present = bool(event.get("body_present"))
+    content_type = headers.get("content_type")
+    declares_sdp = isinstance(content_type, str) and content_type.strip().lower() == "application/sdp"
+    if not body_present:
+        if message is not None:
+            return ("UNRESOLVED", "SDP_SOURCE_REFERENCE_MISMATCH", message)
+        if event.get("message_completeness") != "COMPLETE" or event.get("extraction_status") != "OBSERVED":
+            return ("UNRESOLVED", "SIP_MESSAGE_INCOMPLETE", None)
+        if headers.get("content_length") != 0:
+            return ("UNRESOLVED", "SIP_BODY_LENGTH_NOT_PROVEN", None)
+        body_length = headers.get("body_length")
+        if body_length is not None and body_length != 0:
+            return ("UNRESOLVED", "SIP_BODY_LENGTH_NOT_PROVEN", None)
+        return ("ABSENT", None, None)
+    if not declares_sdp:
+        return ("OUT_OF_SCOPE", "SIP_CONTENT_TYPE_NOT_SDP", message)
+    if event.get("message_completeness") != "COMPLETE" or event.get("extraction_status") != "OBSERVED":
+        return ("OBSERVED_INCOMPLETE", "SIP_MESSAGE_INCOMPLETE", message)
+    if message is None:
+        return ("UNRESOLVED", "SDP_MESSAGE_NOT_OBSERVED", None)
+    if message.get("frame_number") != event.get("frame_number"):
+        return ("UNRESOLVED", "FRAME_REFERENCE_MISMATCH", message)
+    if message.get("message_occurrence") != event.get("message_occurrence"):
+        return ("UNRESOLVED", "MESSAGE_OCCURRENCE_MISMATCH", message)
+    status = message.get("evidence_status")
+    if status == "OBSERVED":
+        return ("OBSERVED_VALID", None, message)
+    if status == "INCOMPLETE":
+        return ("OBSERVED_INCOMPLETE", "SDP_MESSAGE_INCOMPLETE", message)
+    if status == "INVALID":
+        return ("OBSERVED_INVALID", "SDP_MESSAGE_INVALID", message)
+    if status == "UNSUPPORTED":
+        return ("OUT_OF_SCOPE", "SDP_MESSAGE_UNSUPPORTED", message)
+    return ("UNRESOLVED", "SDP_MESSAGE_NOT_OBSERVED", message)
+
+
+def _response_role_status(event: dict[str, Any] | None) -> tuple[bool, str | None]:
+    if event is None:
+        return (False, "SIP_EVENT_NOT_FOUND")
+    if event.get("message_type") != "RESPONSE":
+        return (False, "RESPONSE_MESSAGE_TYPE_INVALID")
+    if event.get("status_code_valid") is not True:
+        return (False, "RESPONSE_STATUS_INVALID")
+    status = event.get("status_code")
+    if not isinstance(status, int) or isinstance(status, bool) or not 200 <= status < 300:
+        return (False, "RESPONSE_STATUS_INVALID")
+    headers = event.get("headers") or {}
+    if (headers.get("cseq") or {}).get("method") != "INVITE":
+        return (False, "RESPONSE_CSEQ_METHOD_NOT_INVITE")
+    if event.get("message_completeness") != "COMPLETE" or event.get("extraction_status") != "OBSERVED":
+        return (False, "SIP_MESSAGE_INCOMPLETE")
+    return (True, None)
+
+
+def _branch_gate(
+    branch: dict[str, Any],
+    response_reference: str,
+    owners: dict[str, set[int]],
+) -> tuple[str, list[str], list[str]]:
+    missing: list[str] = []
+    conflicts: list[str] = []
+    branch_reference = branch.get("branch_reference")
+    if not isinstance(branch_reference, str) or not branch_reference:
+        missing.append("BRANCH_REFERENCE_MISSING")
+    dialog_reference = branch.get("dialog_reference")
+    dialog_state = branch.get("dialog_state")
+    if not isinstance(dialog_reference, str) or not dialog_reference or dialog_state != "CONFIRMED":
+        missing.append("DIALOG_IDENTITY_NOT_ESTABLISHED")
+    identity_status = branch.get("identity_status")
+    if identity_status == "ESTABLISHED":
+        pass
+    elif identity_status == "AMBIGUOUS":
+        missing.append("BRANCH_IDENTITY_NOT_ESTABLISHED")
+        conflicts.append("COMPETING_BRANCH_OWNERSHIP")
+    else:
+        missing.append("BRANCH_IDENTITY_NOT_ESTABLISHED")
+    if response_reference not in (branch.get("response_event_references") or []):
+        missing.append("BRANCH_RESPONSE_OWNERSHIP_UNPROVEN")
+    if len(owners.get(response_reference) or ()) > 1:
+        conflicts.append("COMPETING_BRANCH_OWNERSHIP")
+    status = "ESTABLISHED"
+    if conflicts:
+        status = "AMBIGUOUS"
+    elif missing:
+        status = "INSUFFICIENT_EVIDENCE"
+    return (status, missing, conflicts)
+
+
 def _exchange(
     reference: str,
     attempt: dict[str, Any],
     exchange_type: str,
     association_status: str,
+    initial_sdp_state: str,
     *,
     branch: dict[str, Any] | None = None,
     offer_event_reference: str | None = None,
     offer_sdp_reference: str | None = None,
     answer_event_reference: str | None = None,
     answer_sdp_reference: str | None = None,
+    branch_identity_status: str | None = None,
     missing: list[str] | None = None,
     conflicts: list[str] | None = None,
 ) -> dict[str, Any]:
+    established = association_status == "ESTABLISHED"
     return {
         "exchange_reference": reference,
         "attempt_reference": attempt["attempt_reference"],
         "initial_invite_transaction_reference": attempt["initial_invite_transaction_reference"],
         "branch_reference": branch.get("branch_reference") if branch else None,
         "dialog_reference": branch.get("dialog_reference") if branch else None,
+        "branch_identity_status": branch_identity_status,
         "exchange_type": exchange_type,
+        "initial_sdp_state": initial_sdp_state,
         "association_status": association_status,
         "offer_event_reference": offer_event_reference,
         "offer_sdp_reference": offer_sdp_reference,
-        "offer_role": "OFFERER" if offer_event_reference else None,
+        "offer_role": "OFFERER" if established and offer_event_reference else None,
         "answer_event_reference": answer_event_reference,
         "answer_sdp_reference": answer_sdp_reference,
-        "answer_role": "ANSWERER" if answer_event_reference else None,
+        "answer_role": "ANSWERER" if established and answer_event_reference else None,
         "negotiation_compatibility": "NOT_EVALUATED",
         "missing_evidence": _unique(missing or [])[:16],
         "conflict_findings": _unique(conflicts or [])[:16],
@@ -466,7 +655,7 @@ def _status(event: dict[str, Any] | None) -> int | None:
     if event is None:
         return None
     value = event.get("status_code")
-    return value if isinstance(value, int) else None
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
 def _to_tagged(event: dict[str, Any] | None) -> bool:
@@ -490,6 +679,17 @@ def _branch_exchange_reference(
     return f"{ANALYSIS_NAME}:{_reference_suffix(attempt['initial_invite_event_reference'])}"
 
 
+def _branch_owners(session: dict[str, Any]) -> dict[str, set[int]]:
+    owners: dict[str, set[int]] = {}
+    for attempt in session.get("session_attempts") or []:
+        for branch in attempt.get("branches") or []:
+            for reference in list(branch.get("response_event_references") or []) + list(
+                branch.get("ack_event_references") or []
+            ):
+                owners.setdefault(reference, set()).add(id(branch))
+    return owners
+
+
 def build_analysis(
     events: list[dict[str, Any]],
     session: dict[str, Any],
@@ -500,6 +700,7 @@ def build_analysis(
     capture = events[0]["capture_file"]
     events_by_reference = {event["source_reference"]: event for event in events}
     sdp_by_reference = {message["source_reference"]: message for message in sdp.get("messages") or []}
+    owners = _branch_owners(session)
     exchanges: list[dict[str, Any]] = []
     observations: list[dict[str, Any]] = []
     consumed: set[str] = set()
@@ -522,55 +723,98 @@ def build_analysis(
         exchange_references.add(reference)
         exchanges.append(exchange)
 
+    def observe_branch_answer(
+        attempt: dict[str, Any],
+        branch: dict[str, Any],
+        reference: str,
+        status: str,
+        reason: str,
+        suffix: str,
+    ) -> None:
+        observations.append(
+            _observation(
+                f"{ANALYSIS_NAME}:{_reference_suffix(reference)}-{suffix}",
+                "UNBOUND_SIP_SDP_EVENT",
+                status if status in ASSOCIATION_STATUSES else "INSUFFICIENT_EVIDENCE",
+                reason,
+                sip_event_reference=reference,
+                sdp_reference=reference,
+                attempt=attempt,
+                branch=branch,
+            )
+        )
+
     for attempt in session.get("session_attempts") or []:
         initial_reference = attempt["initial_invite_event_reference"]
-        initial_event = events_by_reference.get(initial_reference)
-        offer_status, offer_reason, offer_message = _sdp_result(
+        state, initial_reason, initial_message = _classify_initial_sdp(
             initial_reference, events_by_reference, sdp_by_reference, capture
         )
         offer_event_reference: str | None = None
         offer_sdp_reference: str | None = None
-        missing_offer: list[str] = []
-        conflicts_offer: list[str] = []
-        if not _is_invite(initial_event):
-            offer_status = "INSUFFICIENT_EVIDENCE"
-            offer_reason = "INITIAL_INVITE_NOT_FOUND" if initial_event is None else "SIP_MESSAGE_INCOMPLETE"
-            missing_offer.append(offer_reason)
-        elif offer_status == "ESTABLISHED":
-            offer_event_reference = initial_reference
-            offer_sdp_reference = initial_reference
-            consumed.add(initial_reference)
-        elif (
-            offer_status == "NOT_ESTABLISHED"
-            and offer_reason == "SIP_BODY_NOT_PRESENT"
-            and initial_reference not in sdp_by_reference
-        ):
-            offer_reason = None
-        else:
-            consumed.add(initial_reference)
-            missing_offer.append(offer_reason or "SDP_MESSAGE_NOT_OBSERVED")
-            observations.append(
-                _observation(
-                    f"{ANALYSIS_NAME}:{_reference_suffix(initial_reference)}-offer",
-                    "UNSUPPORTED_SDP_OBSERVATION",
-                    offer_status if offer_status in ASSOCIATION_STATUSES else "INSUFFICIENT_EVIDENCE",
-                    offer_reason or "SDP_MESSAGE_NOT_OBSERVED",
-                    sip_event_reference=initial_reference,
-                    sdp_reference=initial_reference if offer_message is not None else None,
-                    attempt=attempt,
-                )
-            )
-
-        if not offer_event_reference:
+        allow_late_offer = False
+        if state == "ABSENT":
             publish(
                 _exchange(
                     f"{ANALYSIS_NAME}:{_reference_suffix(initial_reference)}",
                     attempt,
                     "INITIAL_INVITE_WITHOUT_SDP",
-                    "NOT_ESTABLISHED" if not missing_offer else "INSUFFICIENT_EVIDENCE",
-                    missing=missing_offer,
+                    "NOT_ESTABLISHED",
+                    state,
                 )
             )
+            allow_late_offer = True
+        elif state == "OBSERVED_VALID":
+            offer_event_reference = initial_reference
+            offer_sdp_reference = initial_reference
+            consumed.add(initial_reference)
+        else:
+            status = "OUT_OF_SCOPE" if state == "OUT_OF_SCOPE" else "INSUFFICIENT_EVIDENCE"
+            if initial_message is not None:
+                offer_event_reference = initial_reference
+                offer_sdp_reference = initial_reference
+                consumed.add(initial_reference)
+            publish(
+                _exchange(
+                    f"{ANALYSIS_NAME}:{_reference_suffix(initial_reference)}",
+                    attempt,
+                    "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE",
+                    status,
+                    state,
+                    offer_event_reference=offer_event_reference,
+                    offer_sdp_reference=offer_sdp_reference,
+                    missing=[initial_reason] if initial_reason else [],
+                )
+            )
+            observations.append(
+                _observation(
+                    f"{ANALYSIS_NAME}:{_reference_suffix(initial_reference)}-offer",
+                    "UNSUPPORTED_SDP_OBSERVATION",
+                    status,
+                    initial_reason or "SDP_MESSAGE_NOT_OBSERVED",
+                    sip_event_reference=initial_reference,
+                    sdp_reference=initial_reference if initial_message is not None else None,
+                    attempt=attempt,
+                )
+            )
+
+        if state not in ("ABSENT", "OBSERVED_VALID"):
+            for branch in attempt.get("branches") or []:
+                for reference in branch.get("response_event_references") or []:
+                    branch_status, _reason, _message = _sdp_result(
+                        reference, events_by_reference, sdp_by_reference, capture
+                    )
+                    if branch_status == "ESTABLISHED":
+                        consumed.add(reference)
+                        observe_branch_answer(
+                            attempt,
+                            branch,
+                            reference,
+                            "INSUFFICIENT_EVIDENCE",
+                            "INITIAL_SDP_EVIDENCE_UNUSABLE",
+                            "initial-unusable",
+                        )
+            continue
+
         attempt_exchange_floor = len(exchanges)
 
         for branch in attempt.get("branches") or []:
@@ -619,55 +863,87 @@ def build_analysis(
                     )
                 )
 
-            branch_is_accepted = branch.get("outcome") == "ACCEPTED_2XX"
-            if not branch_is_accepted:
+            if branch.get("outcome") != "ACCEPTED_2XX":
                 continue
             exchange_reference = _branch_exchange_reference(
                 attempt, branch, accepted_candidates + response_references, events_by_reference
             )
-            if offer_event_reference is not None:
+            exchange_type = "INITIAL_INVITE_OFFER_ANSWER" if state == "OBSERVED_VALID" else "LATE_OFFER_ANSWER"
+
+            if state == "OBSERVED_VALID":
+                if not accepted_candidates:
+                    gate_status, gate_missing, gate_conflicts = _branch_gate(
+                        branch, response_references[-1] if response_references else initial_reference, owners
+                    )
+                    publish(
+                        _exchange(
+                            exchange_reference,
+                            attempt,
+                            exchange_type,
+                            "INSUFFICIENT_EVIDENCE",
+                            state,
+                            branch=branch,
+                            offer_event_reference=offer_event_reference,
+                            offer_sdp_reference=offer_sdp_reference,
+                            branch_identity_status=gate_status,
+                            missing=_unique(gate_missing + ["SDP_ANSWER_NOT_OBSERVED"]),
+                            conflicts=gate_conflicts,
+                        )
+                    )
+                    continue
                 if len(accepted_candidates) > 1:
                     publish(
                         _exchange(
                             exchange_reference,
                             attempt,
-                            "INITIAL_INVITE_OFFER_ANSWER",
+                            exchange_type,
                             "AMBIGUOUS",
+                            state,
                             branch=branch,
                             offer_event_reference=offer_event_reference,
                             offer_sdp_reference=offer_sdp_reference,
+                            branch_identity_status="AMBIGUOUS",
+                            missing=["SDP_ANSWER_NOT_UNIQUE"],
                             conflicts=["COMPETING_SDP_CANDIDATES"],
                         )
                     )
                     continue
-                if not accepted_candidates:
-                    publish(
-                        _exchange(
-                            exchange_reference,
-                            attempt,
-                            "INITIAL_INVITE_OFFER_ANSWER",
-                            "INSUFFICIENT_EVIDENCE",
-                            branch=branch,
-                            offer_event_reference=offer_event_reference,
-                            offer_sdp_reference=offer_sdp_reference,
-                            missing=["SDP_ANSWER_NOT_OBSERVED"],
-                        )
-                    )
-                    continue
                 answer_reference = accepted_candidates[0]
+                ok, role_reason = _response_role_status(events_by_reference.get(answer_reference))
+                gate_status, gate_missing, gate_conflicts = _branch_gate(branch, answer_reference, owners)
+                if not ok:
+                    gate_status = _merge_status(gate_status, "INSUFFICIENT_EVIDENCE")
+                    gate_missing = gate_missing + [role_reason or "RESPONSE_STATUS_INVALID"]
+                if provisional_candidates:
+                    gate_status = _merge_status(gate_status, "AMBIGUOUS")
+                    gate_conflicts = gate_conflicts + ["PROVISIONAL_FINAL_SDP_ROLE_UNRESOLVED"]
+                status = "ESTABLISHED" if gate_status == "ESTABLISHED" else gate_status
                 publish(
                     _exchange(
                         exchange_reference,
                         attempt,
-                        "INITIAL_INVITE_OFFER_ANSWER",
-                        "ESTABLISHED",
+                        exchange_type,
+                        status,
+                        state,
                         branch=branch,
                         offer_event_reference=offer_event_reference,
                         offer_sdp_reference=offer_sdp_reference,
-                        answer_event_reference=answer_reference,
-                        answer_sdp_reference=answer_reference,
+                        answer_event_reference=answer_reference if status == "ESTABLISHED" else None,
+                        answer_sdp_reference=answer_reference if status == "ESTABLISHED" else None,
+                        branch_identity_status=gate_status,
+                        missing=gate_missing,
+                        conflicts=gate_conflicts,
                     )
                 )
+                if status != "ESTABLISHED":
+                    observe_branch_answer(
+                        attempt,
+                        branch,
+                        answer_reference,
+                        status,
+                        (gate_missing + gate_conflicts + ["BRANCH_IDENTITY_NOT_ESTABLISHED"])[0],
+                        "branch",
+                    )
                 continue
 
             if not accepted_candidates:
@@ -677,14 +953,20 @@ def build_analysis(
                     _exchange(
                         exchange_reference,
                         attempt,
-                        "LATE_OFFER_ANSWER",
+                        exchange_type,
                         "AMBIGUOUS",
+                        state,
                         branch=branch,
                         conflicts=["COMPETING_SDP_CANDIDATES"],
                     )
                 )
                 continue
             late_offer_reference = accepted_candidates[0]
+            late_ok, late_reason = _response_role_status(events_by_reference.get(late_offer_reference))
+            gate_status, gate_missing, gate_conflicts = _branch_gate(branch, late_offer_reference, owners)
+            if not late_ok:
+                gate_status = _merge_status(gate_status, "INSUFFICIENT_EVIDENCE")
+                gate_missing = gate_missing + [late_reason or "RESPONSE_STATUS_INVALID"]
             ack_candidates: list[str] = []
             for reference in branch.get("ack_event_references") or []:
                 ack_status, _reason, _message = _sdp_result(
@@ -693,56 +975,56 @@ def build_analysis(
                 if ack_status == "ESTABLISHED" and _is_ack(events_by_reference.get(reference)):
                     ack_candidates.append(reference)
             if len(ack_candidates) > 1:
-                publish(
-                    _exchange(
-                        exchange_reference,
-                        attempt,
-                        "LATE_OFFER_ANSWER",
-                        "AMBIGUOUS",
-                        branch=branch,
-                        offer_event_reference=late_offer_reference,
-                        offer_sdp_reference=late_offer_reference,
-                        conflicts=["COMPETING_SDP_CANDIDATES"],
-                    )
-                )
-                continue
+                gate_status = _merge_status(gate_status, "AMBIGUOUS")
+                gate_conflicts = gate_conflicts + ["COMPETING_SDP_CANDIDATES"]
+            if provisional_candidates:
+                gate_status = _merge_status(gate_status, "AMBIGUOUS")
+                gate_conflicts = gate_conflicts + ["PROVISIONAL_FINAL_SDP_ROLE_UNRESOLVED"]
             for reference in ack_candidates:
                 consumed.add(reference)
             if not ack_candidates:
-                publish(
-                    _exchange(
-                        exchange_reference,
-                        attempt,
-                        "LATE_OFFER_ANSWER",
-                        "INSUFFICIENT_EVIDENCE",
-                        branch=branch,
-                        offer_event_reference=late_offer_reference,
-                        offer_sdp_reference=late_offer_reference,
-                        missing=["LATE_OFFER_ACK_NOT_OBSERVED"],
-                    )
-                )
-                continue
+                gate_status = _merge_status(gate_status, "INSUFFICIENT_EVIDENCE")
+                gate_missing = gate_missing + ["LATE_OFFER_ACK_NOT_OBSERVED"]
+            status = "ESTABLISHED" if gate_status == "ESTABLISHED" else gate_status
             publish(
                 _exchange(
                     exchange_reference,
                     attempt,
-                    "LATE_OFFER_ANSWER",
-                    "ESTABLISHED",
+                    exchange_type,
+                    status,
+                    state,
                     branch=branch,
                     offer_event_reference=late_offer_reference,
                     offer_sdp_reference=late_offer_reference,
-                    answer_event_reference=ack_candidates[0],
-                    answer_sdp_reference=ack_candidates[0],
+                    answer_event_reference=ack_candidates[0] if status == "ESTABLISHED" else None,
+                    answer_sdp_reference=ack_candidates[0] if status == "ESTABLISHED" else None,
+                    branch_identity_status=gate_status,
+                    missing=gate_missing,
+                    conflicts=gate_conflicts,
                 )
             )
+            if status != "ESTABLISHED":
+                observe_branch_answer(
+                    attempt,
+                    branch,
+                    late_offer_reference,
+                    status,
+                    (gate_missing + gate_conflicts + ["BRANCH_IDENTITY_NOT_ESTABLISHED"])[0],
+                    "branch",
+                )
 
-        if offer_event_reference is not None and len(exchanges) == attempt_exchange_floor:
+        if (
+            state == "OBSERVED_VALID"
+            and offer_event_reference is not None
+            and len(exchanges) == attempt_exchange_floor
+        ):
             publish(
                 _exchange(
                     f"{ANALYSIS_NAME}:{_reference_suffix(initial_reference)}",
                     attempt,
                     "INITIAL_INVITE_SDP_OFFER",
                     "ESTABLISHED",
+                    state,
                     offer_event_reference=offer_event_reference,
                     offer_sdp_reference=offer_sdp_reference,
                 )
@@ -926,21 +1208,47 @@ def validate_analysis(
         references.add(reference)
         if exchange.get("exchange_type") not in EXCHANGE_TYPES:
             raise InputError("an exchange type is not accepted")
+        if exchange.get("initial_sdp_state") not in INITIAL_SDP_STATES:
+            raise InputError("an initial SDP state is not accepted")
         if exchange.get("association_status") not in ASSOCIATION_STATUSES:
             raise InputError("an exchange association status is not accepted")
+        branch_identity = exchange.get("branch_identity_status")
+        if branch_identity is not None and branch_identity not in BRANCH_IDENTITY_STATUSES:
+            raise InputError("a branch identity status is not accepted")
         if exchange.get("negotiation_compatibility") != "NOT_EVALUATED":
             raise InputError("negotiation compatibility cannot be claimed")
         if exchange.get("evidence_class") != "DERIVED":
             raise InputError("exchange evidence_class must be DERIVED")
         if exchange["association_status"] == "ESTABLISHED":
+            if exchange["exchange_type"] in ("INITIAL_INVITE_WITHOUT_SDP", "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE"):
+                raise InputError("an absent or unusable SDP exchange cannot be established")
             if not exchange.get("offer_sdp_reference"):
                 raise InputError("an established exchange requires an observed offer")
-            if exchange["exchange_type"] in ("INITIAL_INVITE_OFFER_ANSWER", "LATE_OFFER_ANSWER") and not exchange.get(
-                "answer_sdp_reference"
-            ):
-                raise InputError("an established offer/answer exchange requires an observed answer")
-        if exchange["association_status"] == "OUT_OF_SCOPE":
-            raise InputError("an exchange cannot be out of scope")
+            if exchange["exchange_type"] in BRANCH_SCOPED_EXCHANGE_TYPES:
+                if not exchange.get("answer_sdp_reference"):
+                    raise InputError("an established offer/answer exchange requires an observed answer")
+                if not exchange.get("branch_reference"):
+                    raise InputError("an established branch-scoped exchange requires a branch reference")
+                if not exchange.get("dialog_reference"):
+                    raise InputError("an established branch-scoped exchange requires a Dialog reference")
+                if branch_identity != "ESTABLISHED":
+                    raise InputError("an established branch-scoped exchange requires established branch identity")
+            if exchange["exchange_type"] == "INITIAL_INVITE_OFFER_ANSWER" and exchange["initial_sdp_state"] != "OBSERVED_VALID":
+                raise InputError("an established initial pair requires an accepted initial SDP offer")
+            if exchange["exchange_type"] == "LATE_OFFER_ANSWER" and exchange["initial_sdp_state"] != "ABSENT":
+                raise InputError("an established late pair requires proven initial SDP absence")
+        if exchange["association_status"] != "ESTABLISHED":
+            if exchange.get("offer_role") is not None or exchange.get("answer_role") is not None:
+                raise InputError("an unestablished exchange cannot claim an offer or answer role")
+        if exchange["association_status"] == "OUT_OF_SCOPE" and exchange["exchange_type"] != "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE":
+            raise InputError("only an unusable initial SDP exchange can be out of scope")
+        if exchange["exchange_type"] in ("INITIAL_INVITE_WITHOUT_SDP", "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE"):
+            if exchange["association_status"] == "ESTABLISHED":
+                raise InputError("initial SDP absence or unusability cannot be established")
+            if exchange.get("answer_sdp_reference") is not None:
+                raise InputError("an initial-only exchange cannot publish an answer")
+        if exchange["exchange_type"] == "INITIAL_INVITE_WITHOUT_SDP" and exchange["initial_sdp_state"] != "ABSENT":
+            raise InputError("INITIAL_INVITE_WITHOUT_SDP requires proven SDP absence")
         for key in ("attempt_reference", "initial_invite_transaction_reference"):
             if not isinstance(exchange.get(key), str):
                 raise InputError(f"an exchange is missing {key}")

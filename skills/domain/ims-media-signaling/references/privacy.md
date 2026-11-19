@@ -42,6 +42,14 @@ and SDP Protocol Skills. It does not read PCAP files, decode packets or open SDP
 bodies. A caller that supplies unredacted intermediate data outside these
 artifacts is outside the supported contract.
 
+## Error messages
+
+Contract and provenance failures name the violated field or invariant, never a
+raw capture path, subscriber identifier, SIP URI, Call-ID, header value or SDP
+content. File-system failures report an unavailable input or output path
+without echoing the workstation path. The CLI writes nothing to the output
+artifact after a provenance failure.
+
 ## Tests
 
 The test suite asserts that private SIP tokens, addresses, Call-ID and tag

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import subprocess
 import sys
@@ -127,13 +128,8 @@ class ProvenanceTests(unittest.TestCase):
             )
         ]
         code, document, _report, _paths = analyze(records, sdp_records=sdp_records)
-        self.assertEqual(code, 0)
-        self.assertIn(
-            "MESSAGE_OCCURRENCE_MISMATCH",
-            [item["reason_code"] for item in document["unbound_observations"]],
-        )
-        for exchange in document["exchanges"]:
-            self.assertNotEqual(exchange["association_status"], "ESTABLISHED")
+        self.assertEqual(code, 2)
+        self.assertIsNone(document)
 
     def test_03_same_frame_with_different_message_occurrence(self) -> None:
         records = builder.build_records()
@@ -264,7 +260,10 @@ class ProvenanceTests(unittest.TestCase):
         sdp_records = [builder.sdp_record(offer_reference, 1, 1, builder.AUDIO_OFFER)]
         code, document, _report, _paths = analyze(records, sdp_records=sdp_records)
         self.assertEqual(code, 0)
-        self.assertIn("SIP_BODY_NOT_PRESENT", [item["reason_code"] for item in observations(document)])
+        self.assertIn("SDP_SOURCE_REFERENCE_MISMATCH", [item["reason_code"] for item in observations(document)])
+        unusable = exchanges(document, "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE")
+        self.assertEqual(unusable[0]["initial_sdp_state"], "UNRESOLVED")
+        self.assertEqual(unusable[0]["association_status"], "INSUFFICIENT_EVIDENCE")
 
     def test_15_incomplete_sip_message(self) -> None:
         records = [
@@ -412,9 +411,11 @@ class ForkingTests(unittest.TestCase):
         code, document, _report, _paths = analyze(session_mutation=mutate)
         self.assertEqual(code, 0)
         self.assertTrue(all(item["dialog_reference"] is None for item in document["exchanges"]))
-        self.assertEqual(
-            exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]["association_status"], "ESTABLISHED"
-        )
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIn("DIALOG_IDENTITY_NOT_ESTABLISHED", pair["missing_evidence"])
+        self.assertEqual(pair["answer_event_reference"], None)
+        self.assertEqual(pair["answer_role"], None)
 
     def test_29_missing_branch_identity(self) -> None:
         def mutate(document: dict) -> None:
@@ -425,6 +426,9 @@ class ForkingTests(unittest.TestCase):
         code, document, _report, _paths = analyze(session_mutation=mutate)
         self.assertEqual(code, 0)
         self.assertTrue(all(item["branch_reference"] is None for item in document["exchanges"]))
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIn("BRANCH_REFERENCE_MISSING", pair["missing_evidence"])
 
     def test_30_competing_sdp_response_candidates(self) -> None:
         records = [
@@ -564,6 +568,10 @@ class ProvisionalAndOutOfScopeTests(unittest.TestCase):
         provisional = [item for item in document["unbound_observations"] if item["observation_type"] == "PROVISIONAL_SDP_UNINTERPRETED"]
         self.assertTrue(provisional)
         self.assertEqual(provisional[0]["association_status"], "OUT_OF_SCOPE")
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "AMBIGUOUS")
+        self.assertIn("PROVISIONAL_FINAL_SDP_ROLE_UNRESOLVED", pair["conflict_findings"])
+        self.assertFalse(pair["answer_role"] == "ANSWERER")
 
     def test_41_180_with_sdp(self) -> None:
         records = [
@@ -578,6 +586,9 @@ class ProvisionalAndOutOfScopeTests(unittest.TestCase):
             "PROVISIONAL_SDP_RELIABILITY_NOT_PROVEN",
             [item["reason_code"] for item in document["unbound_observations"]],
         )
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIsNone(pair["answer_sdp_reference"])
 
     def test_42_prack_with_sdp(self) -> None:
         records = builder.build_records() + [
@@ -632,7 +643,7 @@ class ProvisionalAndOutOfScopeTests(unittest.TestCase):
             builder.rec(2, status=200, cseq_method="INVITE", to_tag="TT-1", sdp_body=builder.AUDIO_OFFER),
         ]
         paths = builder.write_inputs(Path(tempfile.mkdtemp()), records)
-        stray_reference = "sdp-analysis:" + paths["event_references"][1].split(":", 1)[1]
+        stray_reference = f"sdp-analysis:{builder.CAPTURE}:99.1"
         sdp_records = [
             builder.sdp_record(paths["event_references"][1], 2, 1, builder.AUDIO_OFFER),
             builder.sdp_record(stray_reference, 99, 1, builder.AUDIO_OFFER),
@@ -761,3 +772,267 @@ class OutputIntegrityTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(output.read_bytes(), (expected / "media-analysis.json").read_bytes())
         self.assertEqual(report.read_bytes(), (expected / "media-report.txt").read_bytes())
+
+
+def run_existing(paths: dict) -> tuple[subprocess.CompletedProcess, dict | None]:
+    directory = paths["events"].parent
+    output = directory / "rerun-analysis.json"
+    report = directory / "rerun-report.txt"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(CLI),
+            "--sip-events",
+            str(paths["events"]),
+            "--ims-session",
+            str(paths["session"]),
+            "--sdp-analysis",
+            str(paths["sdp"]),
+            "--output",
+            str(output),
+            "--report",
+            str(report),
+            "--force",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    document = json.loads(output.read_text(encoding="utf-8")) if output.is_file() else None
+    return completed, document
+
+
+def rewrite_events(paths: dict, mutate) -> None:
+    events = [json.loads(line) for line in paths["events"].read_text(encoding="utf-8").splitlines()]
+    mutate(events)
+    text = "\n".join(json.dumps(item, separators=(",", ":"), sort_keys=True) for item in events) + "\n"
+    paths["events"].write_text(text, encoding="utf-8")
+    session = json.loads(paths["session"].read_text(encoding="utf-8"))
+    session["input_provenance"]["event_sha256"] = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    paths["session"].write_text(
+        json.dumps(session, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
+class CorrectedEvidenceIntegrityTests(unittest.TestCase):
+    def test_55_ambiguous_branch_identity(self) -> None:
+        def mutate(document: dict) -> None:
+            for attempt in document["session_attempts"]:
+                for branch in attempt["branches"]:
+                    branch["identity_status"] = "AMBIGUOUS"
+
+        code, document, _report, _paths = analyze(session_mutation=mutate)
+        self.assertEqual(code, 0)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "AMBIGUOUS")
+        self.assertIn("COMPETING_BRANCH_OWNERSHIP", pair["conflict_findings"])
+
+    def test_56_insufficient_branch_identity(self) -> None:
+        def mutate(document: dict) -> None:
+            for attempt in document["session_attempts"]:
+                for branch in attempt["branches"]:
+                    branch["identity_status"] = "INSUFFICIENT_EVIDENCE"
+
+        code, document, _report, _paths = analyze(session_mutation=mutate)
+        self.assertEqual(code, 0)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIn("BRANCH_IDENTITY_NOT_ESTABLISHED", pair["missing_evidence"])
+
+    def test_57_unproven_branch_response_ownership(self) -> None:
+        def mutate(document: dict) -> None:
+            for attempt in document["session_attempts"]:
+                for branch in attempt["branches"]:
+                    branch["response_event_references"] = []
+
+        code, document, _report, _paths = analyze(session_mutation=mutate)
+        self.assertEqual(code, 0)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIn("BRANCH_RESPONSE_OWNERSHIP_UNPROVEN", pair["missing_evidence"])
+
+    def test_58_conflicting_branch_ownership_same_response(self) -> None:
+        def mutate(document: dict) -> None:
+            attempt = document["session_attempts"][0]
+            first, second = attempt["branches"][0], attempt["branches"][1]
+            second["response_event_references"] = list(first["response_event_references"])
+            second["response_status_codes"] = list(first["response_status_codes"])
+
+        code, document, _report, _paths = analyze(builder.fork_records(), session_mutation=mutate)
+        self.assertEqual(code, 0)
+        pairs = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")
+        self.assertTrue(
+            any("COMPETING_BRANCH_OWNERSHIP" in item["conflict_findings"] for item in pairs)
+        )
+        self.assertFalse(any(item["association_status"] == "ESTABLISHED" for item in pairs))
+
+    def test_59_invalid_initial_sdp_never_establishes_late_offer(self) -> None:
+        def mutate(document: dict) -> None:
+            document["messages"][0]["evidence_status"] = "INVALID"
+
+        code, document, _report, _paths = analyze(sdp_mutation=mutate)
+        self.assertEqual(code, 0)
+        unusable = exchanges(document, "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE")
+        self.assertEqual(unusable[0]["initial_sdp_state"], "OBSERVED_INVALID")
+        self.assertFalse(exchanges(document, "LATE_OFFER_ANSWER"))
+        self.assertFalse(any(item["association_status"] == "ESTABLISHED" for item in document["exchanges"]))
+
+    def test_60_truncated_initial_sdp_never_establishes_late_offer(self) -> None:
+        def mutate(document: dict) -> None:
+            document["messages"][0]["evidence_status"] = "INCOMPLETE"
+
+        code, document, _report, _paths = analyze(sdp_mutation=mutate)
+        self.assertEqual(code, 0)
+        unusable = exchanges(document, "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE")
+        self.assertEqual(unusable[0]["initial_sdp_state"], "OBSERVED_INCOMPLETE")
+        self.assertFalse(any(item["association_status"] == "ESTABLISHED" for item in document["exchanges"]))
+
+    def test_61_missing_initial_sdp_message_is_unresolved(self) -> None:
+        records = [
+            builder.rec(1, method="INVITE", sdp_body=builder.AUDIO_OFFER),
+            builder.rec(2, status=200, cseq_method="INVITE", to_tag="TT-1", sdp_body=builder.AUDIO_ANSWER),
+            builder.rec(3, method="ACK", cseq=1, to_tag="TT-1"),
+        ]
+        paths = builder.write_inputs(Path(tempfile.mkdtemp()), records)
+        answer_reference = paths["event_references"][1]
+        sdp_records = [builder.sdp_record(answer_reference, 2, 1, builder.AUDIO_ANSWER)]
+        code, document, _report, _paths = analyze(records, sdp_records=sdp_records)
+        self.assertEqual(code, 0)
+        unusable = exchanges(document, "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE")
+        self.assertEqual(unusable[0]["initial_sdp_state"], "UNRESOLVED")
+        self.assertFalse(exchanges(document, "INITIAL_INVITE_WITHOUT_SDP"))
+
+    def test_62_unsupported_initial_content_type_never_establishes_late_offer(self) -> None:
+        records = [
+            builder.rec(
+                1,
+                method="INVITE",
+                sdp_body=builder.AUDIO_OFFER,
+                content_type="application/3gpp-ims+xml",
+            ),
+            builder.rec(2, status=200, cseq_method="INVITE", to_tag="TT-1", sdp_body=builder.AUDIO_ANSWER),
+            builder.rec(3, method="ACK", cseq=1, to_tag="TT-1"),
+        ]
+        paths = builder.write_inputs(Path(tempfile.mkdtemp()), records)
+        sdp_records = [
+            builder.sdp_record(paths["event_references"][0], 1, 1, builder.AUDIO_OFFER),
+            builder.sdp_record(paths["event_references"][1], 2, 1, builder.AUDIO_ANSWER),
+        ]
+        code, document, _report, _paths = analyze(records, sdp_records=sdp_records)
+        self.assertEqual(code, 0)
+        unusable = exchanges(document, "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE")
+        self.assertEqual(unusable[0]["initial_sdp_state"], "OUT_OF_SCOPE")
+        self.assertEqual(unusable[0]["association_status"], "OUT_OF_SCOPE")
+        self.assertFalse(exchanges(document, "LATE_OFFER_ANSWER"))
+
+    def test_63_sdp_message_capture_sha_mismatch_rejected(self) -> None:
+        def mutate(document: dict) -> None:
+            document["messages"][0]["capture_sha256"] = "0" * 64
+
+        code, document, _report, _paths = analyze(sdp_mutation=mutate)
+        self.assertEqual(code, 2)
+        self.assertIsNone(document)
+
+    def test_64_sdp_source_reference_frame_mismatch_rejected(self) -> None:
+        def mutate(document: dict) -> None:
+            document["messages"][0]["frame_number"] = document["messages"][0]["frame_number"] + 1
+
+        code, document, _report, _paths = analyze(sdp_mutation=mutate)
+        self.assertEqual(code, 2)
+        self.assertIsNone(document)
+
+    def test_65_sdp_frame_reference_inconsistency_rejected(self) -> None:
+        def mutate(document: dict) -> None:
+            frame = document["messages"][0]["frame_number"]
+            document["messages"][0]["frame_reference"] = f"frame-{frame + 50}"
+
+        code, document, _report, _paths = analyze(sdp_mutation=mutate)
+        self.assertEqual(code, 2)
+        self.assertIsNone(document)
+
+    def test_66_response_with_wrong_cseq_method_is_not_an_invite_answer(self) -> None:
+        records = builder.build_records() + [
+            builder.rec(6, status=200, cseq_method="BYE", to_tag="TT-9", sdp_body=builder.AUDIO_ANSWER),
+        ]
+        code, document, _report, _paths = analyze(records)
+        self.assertEqual(code, 0)
+        self.assertFalse(
+            any(
+                item["association_status"] == "ESTABLISHED"
+                and item["exchange_type"] == "INITIAL_INVITE_OFFER_ANSWER"
+                and item["answer_event_reference"]
+                and item["answer_event_reference"].endswith("6.1")
+                for item in document["exchanges"]
+            )
+        )
+
+    def test_67_invalid_response_message_type(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        paths = builder.write_inputs(directory, builder.build_records())
+
+        def mutate(events: list) -> None:
+            response = [item for item in events if item.get("status_code") == 200][0]
+            response["message_type"] = "UNKNOWN"
+
+        rewrite_events(paths, mutate)
+        completed, document = run_existing(paths)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIn("RESPONSE_MESSAGE_TYPE_INVALID", pair["missing_evidence"])
+
+    def test_68_invalid_response_status_validity(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        paths = builder.write_inputs(directory, builder.build_records())
+
+        def mutate(events: list) -> None:
+            response = [item for item in events if item.get("status_code") == 200][0]
+            response["status_code_valid"] = False
+
+        rewrite_events(paths, mutate)
+        completed, document = run_existing(paths)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIn("RESPONSE_STATUS_INVALID", pair["missing_evidence"])
+
+    def test_69_schema_rejects_established_without_branch_identity(self) -> None:
+        if jsonschema is None:
+            self.skipTest("jsonschema is unavailable")
+        _code, document, _report, _paths = analyze()
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        broken = copy.deepcopy(document)
+        for item in broken["exchanges"]:
+            if item["exchange_reference"] == pair["exchange_reference"]:
+                item["dialog_reference"] = None
+        schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(broken, schema)
+
+    def test_70_privacy_of_error_messages(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        paths = builder.write_inputs(directory, builder.build_records())
+        session = json.loads(paths["session"].read_text(encoding="utf-8"))
+        session["input_provenance"]["event_sha256"] = "0" * 64
+        paths["session"].write_text(json.dumps(session, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        completed, document = run_existing(paths)
+        self.assertEqual(completed.returncode, 2)
+        self.assertIsNone(document)
+        self.assertNotIn("sip:", completed.stderr)
+        self.assertNotIn(str(directory), completed.stderr)
+
+    def test_71_provisional_sdp_in_other_branch_does_not_block_answer(self) -> None:
+        records = [
+            builder.rec(1, method="INVITE", sdp_body=builder.AUDIO_OFFER),
+            builder.rec(2, status=183, cseq_method="INVITE", to_tag="TT-1", sdp_body=builder.AUDIO_ANSWER),
+            builder.rec(3, status=200, cseq_method="INVITE", to_tag="TT-1", sdp_body=builder.AUDIO_ANSWER),
+            builder.rec(4, status=200, cseq_method="INVITE", to_tag="TT-2", sdp_body=builder.AUDIO_ANSWER),
+            builder.rec(5, method="ACK", cseq=1, to_tag="TT-1"),
+            builder.rec(6, method="ACK", cseq=1, to_tag="TT-2"),
+        ]
+        code, document, _report, _paths = analyze(records)
+        self.assertEqual(code, 0)
+        pairs = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")
+        statuses = [item["association_status"] for item in pairs]
+        self.assertIn("AMBIGUOUS", statuses)
+        self.assertIn("ESTABLISHED", statuses)
