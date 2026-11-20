@@ -46,6 +46,16 @@ conflict-stream exclusion. The SIP tests cover opt-in private body retention wit
 changing the published event. The IMS Registration tests cover capture-less Diameter
 event references that must inherit the parent observation capture identity.
 
+Per-call IMS diagnostic tests cover exact single-call evidence chains, cross-attempt SDP
+contamination, shared RTP streams across independent calls, branch isolation and shared
+attempt-level evidence, deterministic reordering, duplicate observation classes
+(multi-vantage, duplicate packet, sequence-only, retransmission-not-established,
+unresolved), temporal boundaries before/after 2XX and before/after BYE, RTCP SR/RR
+report-block association statuses and receiver-reported jitter conversion rules,
+per-attempt last-supported-evidence scoping, metamorphic removal of answers/RTCP,
+privacy, and deterministic replay. Compound RTCP tests cover preservation of SR and
+SDES components and report blocks from the decoder hierarchy.
+
 Real-capture operational acceptance is performed locally against a pinned, privately
 stored public IMS/VoLTE corpus. The local acceptance record contains the source
 repository, immutable ref, source path, license, Git blob SHA-1, SHA-256, TShark

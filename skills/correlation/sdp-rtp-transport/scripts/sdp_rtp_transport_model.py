@@ -189,7 +189,13 @@ def load_rtp_analysis(path: Path) -> dict[str, Any]:
     provenance = document.get("input_provenance") or {}
     if provenance.get("parser_version") != RTP_PARSER_VERSION:
         raise InputError("RTP/RTCP parser_version is not accepted")
-    if provenance.get("input_message_count") != document.get("event_count"):
+    message_count = provenance.get("input_message_count")
+    if (
+        isinstance(message_count, bool)
+        or not isinstance(message_count, int)
+        or message_count < 0
+        or message_count > int(document.get("event_count") or 0)
+    ):
         raise InputError("RTP/RTCP input_provenance count disagrees")
     capture, sha = _capture(document, "RTP/RTCP")
     references: set[str] = set()

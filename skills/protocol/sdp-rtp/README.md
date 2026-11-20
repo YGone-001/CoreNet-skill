@@ -49,7 +49,10 @@ python3 skills/protocol/sdp-rtp/scripts/extract-rtp-rtcp.py \
   --endpoint-key-file /secure/path/endpoint.key
 ```
 
-For GTP-encapsulated RTP/RTCP, TShark JSON may expose only the inner IP/UDP pair.
+For capture input, compound RTCP components are read from the local decoder PDML
+hierarchy so SR and SDES components (and their report blocks) are preserved rather
+than collapsed into one JSON component. For GTP-encapsulated RTP/RTCP, TShark JSON may
+expose only the inner IP/UDP pair.
 The extractor uses that pair only when exactly one IP and one UDP candidate exist,
 an RTP/RTCP layer is present, and the pair is not the GTP-U port 2152. Anything else
 remains `AMBIGUOUS`; outer and inner endpoints are never guessed or merged.

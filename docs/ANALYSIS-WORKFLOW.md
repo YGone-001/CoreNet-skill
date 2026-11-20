@@ -182,8 +182,8 @@ transaction, dialog and trace artifacts, optional Diameter Core and Cx/Dx artifa
 and the IMS Registration and IMS Session analysis and report artifacts. With
 `--with-media`, a `media/` subdirectory additionally contains the SDP Analysis,
 IMS Media Signaling, RTP/RTCP Analysis, RTP source-stream Analysis, SDP/RTP
-transport-correlation and IMS media-session artifacts. No raw SIP/SDP body or HMAC
-key is written there. An
+transport-correlation, IMS media-session and per-call diagnostic artifacts. No raw
+SIP/SDP body or HMAC key is written there. An
 interrupted or failed run can never be read as fresh evidence from an earlier one, and
 nothing is deleted to achieve that. The work directory is scratch data and may be removed by the operator
 between runs.
@@ -312,6 +312,68 @@ subset can still establish the stream endpoint pair, and the coverage limitation
 published. Bidirectional RTP is matched as an exact mirror pair of UDP streams; a
 conflicting multi-endpoint stream is not used as a candidate and the ambiguity remains
 visible. RTCP components are counted but never associated with an RTP stream.
+
+### Per-call and per-branch diagnostics
+
+The workflow also writes `<run-dir>/media/ims-call-diagnostics.json` and publishes the
+same bounded evidence in `ims_evidence.media` and `report.txt`. Every accepted IMS
+Session Attempt and Dialog Branch receives its own evidence-coverage status:
+
+- `EVIDENCE_CHAIN_SUPPORTED`
+- `SIGNALING_ONLY`
+- `MEDIA_TRANSPORT_OBSERVED`
+- `PARTIAL_EVIDENCE`
+- `AMBIGUOUS_OWNERSHIP`
+- `INSUFFICIENT_EVIDENCE`
+- `UNSUPPORTED_PROCEDURE`
+
+These statuses describe evidence coverage, not voice delivery. A capture-wide media
+result is never substituted for a call's status. The media summary publishes the
+number of attempts with supported evidence, partial evidence, ambiguous ownership,
+no media evidence and unsupported procedures, and `all_attempts_supported`.
+
+Cross-attempt and cross-branch ownership is rejected unless the exact accepted SDP
+message references, attempts, branches and RTP stream references all agree. A
+correlation that mixes SDP messages from multiple attempts or an unowned SDP message
+is not per-call ownership. A stream referenced by more than one attempt or branch is
+published as shared and remains ambiguous. Time proximity is never used to establish
+ownership. A capture-wide media status of `SUCCESS` may still produce media
+`PARTIAL` when per-call ownership is not uniformly supported.
+
+RTP duplicate observations are classified from exact packet identity and capture-view
+metadata:
+
+- `MULTI_VANTAGE_OBSERVATION_SUPPORTED`: same packet identity across differing
+  interface, encapsulation or transport-path metadata.
+- `DUPLICATE_PACKET_OBSERVATION_SUPPORTED`: same packet identity on the same capture
+  path.
+- `DUPLICATE_SEQUENCE_OBSERVED`: repeated sequence number without exact packet identity.
+- `RETRANSMISSION_NOT_ESTABLISHED`: sequence-only duplicates are not promoted to
+  retransmission.
+- `DUPLICATE_CAUSE_UNRESOLVED`: no sufficient explanation for the sequence-only repeat.
+
+Bounded temporal evidence uses SIP observation boundaries (INVITE, final 2xx, ACK, BYE,
+BYE response). It publishes first/last SIP and RTP frames, ordering, and one of
+`RTP_OBSERVED_BEFORE_INVITE_2XX`, `RTP_OBSERVED_AFTER_INVITE_2XX`,
+`RTP_OBSERVED_BEFORE_BYE`, `RTP_OBSERVED_AFTER_BYE`,
+`RTP_WITHIN_OBSERVED_SIGNALING_INTERVAL`, `TEMPORAL_ASSOCIATION_AMBIGUOUS` or
+`TEMPORAL_ASSOCIATION_INSUFFICIENT_EVIDENCE`. A packet after BYE is not automatically
+an error, and capture boundaries do not prove true RTP start or end.
+
+RTCP compound components are associated to RTP source streams only through exact
+capture-scoped UDP stream and SSRC references. SR sender and RR/SR report-block
+association statuses are published as established, ambiguous, insufficient or
+unsupported. Unbound components remain visible. Receiver-reported fraction lost,
+cumulative packets lost and interarrival jitter are preserved with
+`measurement_origin = RECEIVER_REPORTED`; jitter in RTP timestamp units is preserved,
+and a millisecond conversion is published only with a proven unique RTP clock rate and
+source association. Missing RTCP is never a QoS failure, and receiver-reported loss is
+never local or network-confirmed loss.
+
+The human report provides per-call signaling, SDP, RTP, RTCP and diagnostic sections
+with the last supported evidence reference, first missing or abnormal boundary, reason
+codes, excluded interpretations, additional evidence needed and per-branch ownership
+scope. Detailed source artifacts remain available locally in the run directory.
 
 ## 7. Diagnostic subjects
 

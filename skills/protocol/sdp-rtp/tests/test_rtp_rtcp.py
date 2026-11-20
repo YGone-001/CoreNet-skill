@@ -739,5 +739,46 @@ class RtpRtcpSchemaTests(unittest.TestCase):
         )
 
 
+class CompoundRtcpCaptureTests(unittest.TestCase):
+    def test_pdml_compound_rtcp_components_are_preserved(self) -> None:
+        pdml = """<pdml><packet>
+<proto name="frame"><field name="frame.number" show="859"/><field name="frame.time_epoch" show="1700000000.000000"/></proto>
+<proto name="udp"><field name="udp.stream" show="17"/><field name="udp.stream.pnum" show="5"/></proto>
+<proto name="rtcp">
+<field name="rtcp.version" show="2"/><field name="rtcp.rc" show="1"/><field name="rtcp.pt" show="200"/><field name="rtcp.length" show="12"/><field name="rtcp.senderssrc" show="0x00080588"/>
+<field name="rtcp.timestamp.ntp.msw" show="1"/><field name="rtcp.timestamp.ntp.lsw" show="2"/><field name="rtcp.timestamp.ntp" show="present"/><field name="rtcp.timestamp.rtp" show="3"/><field name="rtcp.sender.packetcount" show="10"/><field name="rtcp.sender.octetcount" show="1000"/>
+<field name="" show="Source 1"><field name="rtcp.ssrc.identifier" show="0xf0ea65d9"/><field name="" show="SSRC contents"><field name="rtcp.ssrc.fraction" show="1"/><field name="rtcp.ssrc.cum_nr" show="2"/></field><field name="rtcp.ssrc.ext_high" show="44"/><field name="rtcp.ssrc.jitter" show="160"/><field name="rtcp.ssrc.lsr" show="0"/><field name="rtcp.ssrc.dlsr" show="0"/></field>
+</proto>
+<proto name="rtcp">
+<field name="rtcp.version" show="2"/><field name="rtcp.sc" show="1"/><field name="rtcp.pt" show="202"/><field name="rtcp.length" show="2"/>
+<field name="" show="Chunk 1"><field name="rtcp.ssrc.identifier" show="0x00080588"/><field name="" show="SDES items"><field name="rtcp.sdes.type" show="1"/><field name="rtcp.sdes.length" show="0"/><field name="rtcp.sdes.type" show="0"/></field></field>
+</proto>
+</packet></pdml>"""
+        with tempfile.TemporaryDirectory() as directory:
+            capture = Path(directory) / "compound.pcapng"
+            capture.write_bytes(b"not-a-real-capture")
+            records = rtp_rtcp_model._capture_records(
+                capture,
+                [],
+                "tshark",
+                runner=lambda *args, **kwargs: {"packets": []},
+                pdml_runner=lambda *args, **kwargs: pdml,
+            )
+            events = []
+            for record in records:
+                events.extend(rtp_rtcp_model._parse_record(record))
+        self.assertEqual([event["packet_type"] for event in events], [200, 202])
+        sr = events[0]
+        self.assertEqual(sr["packet_type_name"], "SR")
+        self.assertEqual(sr["evidence_status"], "OBSERVED")
+        self.assertEqual(len(sr["report_blocks"]), 1)
+        self.assertEqual(sr["report_blocks"][0]["fraction_lost"], 1)
+        self.assertEqual(sr["report_blocks"][0]["interarrival_jitter"], 160)
+        self.assertEqual(sr["udp_stream"], 17)
+        sdes = events[1]
+        self.assertEqual(sdes["declared_source_count"], 1)
+        self.assertEqual(sdes["observed_source_count"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

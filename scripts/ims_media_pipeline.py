@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+import ims_call_diagnostics  # noqa: E402
 SDP_BODY_ADAPTER = ROOT / "scripts" / "extract-sdp-bodies.py"
 IMS_MEDIA_SIGNALING = ROOT / "skills" / "domain" / "ims-media-signaling" / "scripts" / "analyze-ims-media-signaling.py"
 RTP_RTCP_EXTRACT = ROOT / "skills" / "protocol" / "sdp-rtp" / "scripts" / "extract-rtp-rtcp.py"
@@ -34,6 +36,7 @@ MAX_EXCHANGES = 32
 MAX_STREAMS = 16
 MAX_CORRELATIONS = 32
 MAX_OBSERVATIONS = 32
+MAX_CALLS = 64
 MAX_DIAGNOSTIC_ITEMS = 16
 KEY_SIZE = 32
 
@@ -728,6 +731,44 @@ def execute_media_pipeline(
     media_session_document = _load(media_session_path)
     media_session_summary = _media_session_summary(media_session_document)
 
+    diagnostics_path = media_dir / "ims-call-diagnostics.json"
+    call_diagnostics: dict[str, Any] = {}
+    if (
+        sip_events.is_file()
+        and ims_session.is_file()
+        and sdp_path.is_file()
+        and signaling_path.is_file()
+        and correlation_path.is_file()
+        and rtp_path.is_file()
+        and stream_path.is_file()
+    ):
+        try:
+            call_diagnostics = ims_call_diagnostics.build_diagnostics(
+                capture=capture,
+                capture_sha256=capture_sha256,
+                sip_events_path=sip_events,
+                ims_session_path=ims_session,
+                media_signaling_path=signaling_path,
+                sdp_path=sdp_path,
+                correlation_path=correlation_path,
+                rtp_rtcp_path=rtp_path,
+                rtp_stream_path=stream_path,
+            )
+            temporary = diagnostics_path.with_suffix(".json.tmp")
+            temporary.write_text(
+                json.dumps(call_diagnostics, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(temporary, diagnostics_path)
+            os.chmod(diagnostics_path, 0o600)
+            stages["per_call_diagnostics"] = "SUCCESS"
+        except Exception as exc:  # pragma: no cover - defensive orchestration guard
+            errors["per_call_diagnostics"] = _detail(str(exc))
+            stages["per_call_diagnostics"] = "FAILED"
+            call_diagnostics = {}
+    else:
+        stages["per_call_diagnostics"] = "SKIPPED"
+
     # The bounded last-evidence record needs SDP message frames.
     sdp_for_last = {
         "messages": list((sdp_document or {}).get("messages") or [])
@@ -768,6 +809,19 @@ def execute_media_pipeline(
         basis.append("OFFLINE_MODE_NOT_REQUESTED")
     if endpoint_contexts:
         basis.append("SHARED_ENDPOINT_CONTEXT_PRESENT")
+    call_summary = call_diagnostics.get("call_evidence_summary") or {}
+    if call_summary.get("attempt_count"):
+        if not call_summary.get("all_attempts_supported"):
+            if media_status == "SUCCESS":
+                media_status = "PARTIAL"
+            basis.append("PER_CALL_MEDIA_EVIDENCE_NOT_UNIFORMLY_SUPPORTED")
+        if call_summary.get("supported_attempt_count") == 0 and call_summary.get(
+            "ambiguous_attempt_count", 0
+        ):
+            basis.append("PER_CALL_MEDIA_OWNERSHIP_AMBIGUOUS")
+            basis.append(
+                "CAPTURE_WIDE_MEDIA_STATUS_DOES_NOT_IMPLY_PER_CALL_OWNERSHIP"
+            )
 
     observed: list[str] = []
     missing: list[str] = []
@@ -875,6 +929,7 @@ def execute_media_pipeline(
             _artifact(stream_path, "RTP source-stream analysis", rtp_summary.get("sequence", {}).get("source_stream_count")),
             _artifact(correlation_path, "SDP/RTP transport correlation", correlation_summary.get("correlation_count")),
             _artifact(media_session_path, "IMS media session analysis", media_session_summary.get("transport_observation_count")),
+            _artifact(diagnostics_path, "IMS per-call diagnostics", call_summary.get("attempt_count")),
         )
         if item is not None
     ]
@@ -888,6 +943,7 @@ def execute_media_pipeline(
         "Temporal association between RTP packets and the INVITE-to-BYE lifetime is NOT_EVALUATED",
         "IPsec/encrypted media remains inaccessible and is not decrypted",
     ]
+    limitations.extend(call_diagnostics.get("limitations") or [])
     not_confirmed = [
         "IMS_CALL_SUCCESS",
         "RTP_DELIVERY",
@@ -900,6 +956,7 @@ def execute_media_pipeline(
         "IMS_MEDIA_SESSION_IDENTITY",
         "CODEC_NEGOTIATION_COMPATIBILITY",
     ]
+    not_confirmed.extend(call_diagnostics.get("not_confirmed") or [])
     return {
         "requested": True,
         "offline": bool(offline),
@@ -915,6 +972,17 @@ def execute_media_pipeline(
         "rtp_rtcp": rtp_summary,
         "transport_correlation": correlation_summary,
         "ims_media_session": media_session_summary,
+        "call_evidence_summary": call_summary,
+        "call_diagnostics": call_diagnostics,
+        "per_call_attempts": (call_diagnostics.get("attempts") or [])[:MAX_CALLS],
+        "per_call_branches": (call_diagnostics.get("branches") or [])[:MAX_CALLS],
+        "duplicate_observation_investigation": call_diagnostics.get(
+            "duplicate_observation_investigation"
+        ) or {},
+        "temporal_association": call_diagnostics.get("temporal_association") or {},
+        "rtcp_association": call_diagnostics.get("rtcp_association") or {},
+        "ambiguity_inventory": (call_diagnostics.get("ambiguity_inventory") or [])[:MAX_LIST_ITEMS],
+        "missing_evidence_inventory": (call_diagnostics.get("missing_evidence_inventory") or [])[:MAX_LIST_ITEMS],
         "diagnostics": diagnostics,
         "artifacts": artifacts,
         "limitations": limitations,

@@ -183,6 +183,17 @@ evidence, SDP/RTP match status, IMS media associations, diagnostics and the last
 supported evidence point. No call success, RTP delivery, two-way audio, packet-loss,
 QoS or MOS verdict is produced.
 
+The workflow also publishes per-call and per-branch diagnostics. A capture-wide media
+result is never substituted for an individual call's evidence coverage: each attempt
+and branch receives its own `EVIDENCE_CHAIN_SUPPORTED`, `SIGNALING_ONLY`,
+`MEDIA_TRANSPORT_OBSERVED`, `PARTIAL_EVIDENCE`, `AMBIGUOUS_OWNERSHIP`,
+`INSUFFICIENT_EVIDENCE` or `UNSUPPORTED_PROCEDURE` status. The report includes RTP
+duplicate-observation classification (multi-vantage, duplicate packet, sequence-only,
+retransmission-not-established, unresolved), bounded SIP/RTP temporal evidence,
+RTCP-to-RTP association boundaries, and receiver-reported fraction lost, cumulative
+loss and jitter in RTP units. RTCP millisecond jitter is published only when a unique
+RTP clock rate and source association are proven.
+
 The public IMS/VoLTE capture corpus and its pinned provenance are recorded in the
 local acceptance record. Raw captures remain local-only and are never committed or
 uploaded to CI.

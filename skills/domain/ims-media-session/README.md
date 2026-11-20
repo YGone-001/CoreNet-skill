@@ -109,3 +109,7 @@ python3 scripts/validate-ims-media-session.py
 
 Fixtures are synthetic and sanitized. No production capture, subscriber
 identity, raw endpoint tuple or key material is used.
+Temporal association remains `NOT_EVALUATED` in this Domain. Per-call bounded
+temporal evidence is published by the unified application-level call diagnostics over
+the accepted SIP and RTP artifacts; it never upgrades capture-wide transport
+correspondence to call ownership.

@@ -103,6 +103,9 @@ published field meaning.
 - A stream may contain duplicate or encapsulated observations without endpoint
   evidence; a unique unambiguous subset can establish its endpoint pair while the
   incomplete coverage is published.
+- This Skill's endpoint correlation is capture-wide. It does not establish per-call or
+  per-branch ownership; the unified per-call diagnostics treat mixed or shared
+  correlations as ambiguous rather than promoting them to call ownership.
 - RTCP stream correlation, RTP stream reconstruction, sequence analysis, packet
   loss, jitter, MOS and QoS are not implemented.
 - GTP-U inner RTP endpoint association is not claimed; encapsulated or multiple

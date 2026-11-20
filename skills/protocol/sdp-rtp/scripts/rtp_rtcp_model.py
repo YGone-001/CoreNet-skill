@@ -14,6 +14,7 @@ import json
 import re
 import shutil
 import subprocess
+import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 from typing import Any, Callable
 
@@ -991,11 +992,220 @@ def _first(value: Any) -> Any:
     return value[0] if isinstance(value, list) and value else value
 
 
-def _capture_records(capture: Path, decode_as: list[str], tshark: str, runner: Callable | None = None) -> list[dict[str, Any]]:
-    payload = (runner or _tshark_run)(capture, decode_as, tshark)
+def _pdml_run(
+    capture: Path, decode_as: list[str], tshark: str = "tshark"
+) -> str:
+    command = [tshark, "-r", str(capture), "-T", "pdml", "-Y", "rtcp", "-n"]
+    for mapping in decode_as:
+        command.extend(["-d", mapping])
+    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    if completed.returncode != 0:
+        raise ToolError(
+            "TSHARK_RTCP_EXTRACTION_FAILED",
+            "TShark RTCP PDML extraction failed with exit code " + str(completed.returncode),
+        )
+    return completed.stdout
+
+
+def _pdml_show(node: ElementTree.Element, name: str) -> str | None:
+    for field in node.iter("field"):
+        if field.get("name") == name:
+            value = field.get("show")
+            return value if isinstance(value, str) else None
+    return None
+
+
+def _pdml_number(node: ElementTree.Element, name: str) -> int | None:
+    raw = _pdml_show(node, name)
+    if raw is None:
+        return None
+    try:
+        return int(raw, 0)
+    except ValueError:
+        return None
+
+
+def _pdml_direct(node: ElementTree.Element, name: str) -> list[ElementTree.Element]:
+    return [
+        field
+        for field in node.findall("field")
+        if field.get("name") == name
+    ]
+
+
+def _pdml_udp_ancestor(packet: ElementTree.Element) -> dict[str, Any]:
+    # TShark PDML flattens encapsulated protocols into sibling proto elements,
+    # so the usable RTP/RTCP transport is the last UDP proto before RTCP.
+    current: dict[str, Any] = {}
+    for child in packet.findall("proto"):
+        name = child.get("name")
+        if name == "udp":
+            current = {
+                "udp.stream": _pdml_show(child, "udp.stream"),
+                "udp.stream.pnum": _pdml_show(child, "udp.stream.pnum"),
+            }
+        elif name == "rtcp":
+            return dict(current)
+    return {}
+
+
+def _pdml_rtcp_components(proto: ElementTree.Element) -> dict[str, Any]:
+    packet_type = _pdml_number(proto, "rtcp.pt")
+    wrappers = [
+        field
+        for field in proto.iter("field")
+        if field.get("name") == ""
+        and any(
+            child.get("name") == "rtcp.ssrc.identifier"
+            for child in field.findall("field")
+        )
+    ]
+    report_blocks: list[dict[str, Any]] = []
+    if packet_type in (200, 201):
+        for wrapper in wrappers:
+            report_blocks.append(
+                {
+                    "reported_ssrc": _pdml_number(wrapper, "rtcp.ssrc.identifier"),
+                    "fraction_lost": _pdml_number(wrapper, "rtcp.ssrc.fraction"),
+                    "cumulative_packets_lost": _pdml_number(wrapper, "rtcp.ssrc.cum_nr"),
+                    "extended_highest_sequence": _pdml_number(wrapper, "rtcp.ssrc.ext_high"),
+                    "interarrival_jitter": _pdml_number(wrapper, "rtcp.ssrc.jitter"),
+                    "last_sr_timestamp": _pdml_number(wrapper, "rtcp.ssrc.lsr"),
+                    "delay_since_last_sr": _pdml_number(wrapper, "rtcp.ssrc.dlsr"),
+                }
+            )
+    sdes_chunks: list[dict[str, Any]] = []
+    if packet_type == 202:
+        for wrapper in wrappers:
+            items: list[dict[str, Any]] = []
+            pending_type: int | None = None
+            for field in wrapper.iter("field"):
+                name = field.get("name")
+                if name == "rtcp.sdes.type":
+                    parsed = _pdml_number(wrapper, "rtcp.sdes.type") if pending_type is None else None
+                    try:
+                        parsed = int(field.get("show") or "", 0)
+                    except ValueError:
+                        parsed = None
+                    if parsed is None:
+                        continue
+                    if parsed == 0:
+                        break
+                    pending_type = parsed
+                elif name == "rtcp.sdes.length" and pending_type is not None:
+                    try:
+                        length = int(field.get("show") or "", 0)
+                    except ValueError:
+                        length = 0
+                    items.append(
+                        {
+                            "item_type": pending_type,
+                            "value_present": bool(length > 0),
+                            "value_length": length,
+                        }
+                    )
+                    pending_type = None
+            sdes_chunks.append(
+                {
+                    "source_ssrc": _pdml_number(wrapper, "rtcp.ssrc.identifier"),
+                    "items": items,
+                }
+            )
+    bye_sources: list[int] = []
+    if packet_type == 203:
+        for name in ("rtcp.bye.ssrc", "rtcp.ssrc.identifier"):
+            for child in _pdml_direct(proto, name):
+                value = _pdml_number(child, name)
+                if value is not None:
+                    bye_sources.append(value)
+    bye_reason = _pdml_show(proto, "rtcp.bye.reason")
+    return {
+        "packet_type": packet_type,
+        "version": _pdml_number(proto, "rtcp.version"),
+        "length": _pdml_number(proto, "rtcp.length"),
+        "report_count": _pdml_number(proto, "rtcp.rc"),
+        "source_count": _pdml_number(proto, "rtcp.sc")
+        if packet_type in (202, 203)
+        else None,
+        "sender_ssrc": _pdml_number(proto, "rtcp.senderssrc"),
+        "sender_report": {
+            "ntp_msw": _pdml_number(proto, "rtcp.timestamp.ntp.msw"),
+            "ntp_lsw": _pdml_number(proto, "rtcp.timestamp.ntp.lsw"),
+            "ntp_present": _pdml_show(proto, "rtcp.timestamp.ntp") is not None,
+            "rtp_timestamp": _pdml_number(proto, "rtcp.timestamp.rtp"),
+            "packet_count": _pdml_number(proto, "rtcp.sender.packetcount"),
+            "octet_count": _pdml_number(proto, "rtcp.sender.octetcount"),
+        }
+        if packet_type == 200
+        else None,
+        "report_blocks": report_blocks,
+        "sdes_chunks": sdes_chunks,
+        "bye_sources": bye_sources,
+        "bye_reason_present": bye_reason is not None,
+        "bye_reason_length": len(bye_reason.encode("utf-8")) if bye_reason else 0,
+        "hierarchy_unavailable": False,
+    }
+
+
+def _pdml_rtcp_records(capture: Path, text: str) -> list[dict[str, Any]]:
+    if not text.strip():
+        return []
+    try:
+        root = ElementTree.fromstring(text)
+    except ElementTree.ParseError as exc:
+        raise ToolError("TSHARK_OUTPUT_INVALID", "TShark RTCP PDML output is not valid") from exc
     capture_name = capture.name
     capture_sha = _sha256(capture)
     records: list[dict[str, Any]] = []
+    for packet in root.iter("packet"):
+        frame = _pdml_number(packet, "frame.number")
+        if frame is None:
+            continue
+        timestamp = _pdml_show(packet, "frame.time_epoch") or ""
+        udp = _pdml_udp_ancestor(packet)
+        components = [
+            _pdml_rtcp_components(proto)
+            for proto in packet.iter("proto")
+            if proto.get("name") == "rtcp"
+        ]
+        if not components:
+            continue
+        for component in components:
+            component["udp_stream"] = _numeric(udp.get("udp.stream"))
+            component["udp_stream_packet"] = _numeric(udp.get("udp.stream.pnum"))
+        records.append(
+            {
+                "source_reference": f"rtcp-packet:{capture_name}:{frame}.1",
+                "capture_file": capture_name,
+                "capture_sha256": capture_sha,
+                "frame_number": frame,
+                "frame_timestamp": timestamp,
+                "frame_reference": f"frame:{frame}",
+                "message_occurrence": 1,
+                "protocol": "RTCP",
+                "fields": {
+                    "components": components,
+                    "udp_stream": _numeric(udp.get("udp.stream")),
+                    "udp_stream_packet": _numeric(udp.get("udp.stream.pnum")),
+                },
+            }
+        )
+    return records
+
+
+def _capture_records(capture: Path, decode_as: list[str], tshark: str, runner: Callable | None = None, pdml_runner: Callable | None = None) -> list[dict[str, Any]]:
+    payload = (runner or _tshark_run)(capture, decode_as, tshark)
+    capture_name = capture.name
+    capture_sha = _sha256(capture)
+    pdml_text: str | None = None
+    if pdml_runner is not None:
+        pdml_text = pdml_runner(capture, decode_as, tshark)
+    elif runner is None:
+        pdml_text = _pdml_run(capture, decode_as, tshark)
+    pdml_records = _pdml_rtcp_records(capture, pdml_text) if pdml_text else []
+    pdml_by_reference = {record["source_reference"]: record for record in pdml_records}
+    records: list[dict[str, Any]] = []
+    emitted_rtcp: set[str] = set()
     for packet in payload.get("packets", []):
         frame = _layer(packet, "frame")
         if not frame:
@@ -1060,6 +1270,9 @@ def _capture_records(capture: Path, decode_as: list[str], tshark: str, runner: C
             )
         rtcp = _layer(packet, "rtcp")
         if rtcp:
+            json_rtcp_reference = f"rtcp-packet:{capture_name}:{frame_number}.1"
+            if json_rtcp_reference in pdml_by_reference:
+                continue
             packet_type = _numeric(_first(rtcp.get("rtcp.pt")))
             report_blocks = []
             for key, value in rtcp.items():
@@ -1099,6 +1312,7 @@ def _capture_records(capture: Path, decode_as: list[str], tshark: str, runner: C
                 "udp_stream": udp_stream,
                 "udp_stream_packet": udp_stream_packet,
             }
+            emitted_rtcp.add(f"rtcp-packet:{capture_name}:{frame_number}.{occurrence}")
             records.append(
                 {
                     "source_reference": f"rtcp-packet:{capture_name}:{frame_number}.{occurrence}",
@@ -1112,6 +1326,16 @@ def _capture_records(capture: Path, decode_as: list[str], tshark: str, runner: C
                     "fields": {"components": [component]},
                 }
             )
+    for record in pdml_records:
+        if record["source_reference"] in emitted_rtcp:
+            continue
+        record["fields"]["udp_stream"] = _numeric(
+            (record["fields"].get("udp_stream"))
+        )
+        record["fields"]["udp_stream_packet"] = _numeric(
+            (record["fields"].get("udp_stream_packet"))
+        )
+        records.append(record)
     return records
 
 

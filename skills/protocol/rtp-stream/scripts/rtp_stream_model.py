@@ -352,7 +352,7 @@ def load_source_provenance(
     if (
         isinstance(message_count, bool)
         or not isinstance(message_count, int)
-        or message_count < 1
+        or message_count < 0
         or message_count > document.get("event_count")
     ):
         raise InputError("RTP/RTCP input_message_count is inconsistent with its events")

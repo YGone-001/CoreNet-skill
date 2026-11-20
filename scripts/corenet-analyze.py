@@ -1519,6 +1519,85 @@ def _render_ims_media(lines: list[str], media: dict[str, Any]) -> None:
             f"attempt={_value(item.get('attempt_reference'))} "
             f"branch={_value(item.get('dialog_branch_reference'))}"
         )
+    call_summary = media.get("call_evidence_summary") or {}
+    if call_summary.get("attempt_count"):
+        lines.append(
+            f"  Per-call evidence: {_value(call_summary.get('attempt_count'))} attempt(s), "
+            f"supported={_value(call_summary.get('supported_attempt_count'))}, "
+            f"partial={_value(call_summary.get('partial_attempt_count'))}, "
+            f"ambiguous={_value(call_summary.get('ambiguous_attempt_count'))}, "
+            f"signaling_only={_value(call_summary.get('signaling_only_attempt_count'))}, "
+            f"insufficient={_value(call_summary.get('insufficient_attempt_count'))}, "
+            f"unsupported={_value(call_summary.get('unsupported_attempt_count'))}; "
+            f"all_supported={'yes' if call_summary.get('all_attempts_supported') else 'no'}"
+        )
+        for attempt in (media.get("per_call_attempts") or [])[:8]:
+            lines.append(
+                f"    call: {_value(attempt.get('attempt_reference'))} / "
+                f"{_value(attempt.get('evidence_status'))} / "
+                f"ownership={_value((attempt.get('transport') or {}).get('ownership_status'))} / "
+                f"sdp={_value((attempt.get('sdp') or {}).get('offer_answer_status'))} / "
+                f"streams={len((attempt.get('rtp') or {}).get('source_stream_references') or [])}"
+            )
+            temporal = attempt.get("temporal") or {}
+            lines.append(
+                f"      temporal: {_value(temporal.get('temporal_association_status'))}; "
+                f"SIP frames {_value(temporal.get('first_sip_frame'))}..{_value(temporal.get('last_sip_frame'))}; "
+                f"RTP frames {_value(temporal.get('first_rtp_frame'))}..{_value(temporal.get('last_rtp_frame'))}"
+            )
+            last = (attempt.get("diagnostic") or {}).get("last_supported_evidence") or {}
+            if last:
+                lines.append(
+                    f"      last: {_value(last.get('stage'))} {_value(last.get('reference'))} "
+                    f"frame {_value(last.get('frame_number'))}"
+                )
+            if attempt.get("missing_evidence"):
+                lines.append(
+                    "      missing: " + ", ".join(attempt.get("missing_evidence")[:6])
+                )
+        for branch in (media.get("per_call_branches") or [])[:6]:
+            lines.append(
+                f"    branch: {_value(branch.get('branch_reference'))} / "
+                f"{_value(branch.get('evidence_status'))} / scope={_value(branch.get('ownership_scope'))} / "
+                f"temporal={_value((branch.get('temporal') or {}).get('temporal_association_status'))}"
+            )
+    duplicate = media.get("duplicate_observation_investigation") or {}
+    if duplicate:
+        lines.append(
+            f"  RTP duplicates  : raw={_value(duplicate.get('raw_rtp_observation_count'))}, "
+            f"distinct_packet_identities={_value(duplicate.get('distinct_packet_identity_count'))}, "
+            f"multi_vantage={_value(duplicate.get('multi_vantage_event_count'))}, "
+            f"duplicate_packet={_value(duplicate.get('duplicate_packet_event_count'))}, "
+            f"sequence_only={_value(duplicate.get('sequence_only_duplicate_event_count'))}, "
+            f"rtp_stream_reported={_value(duplicate.get('rtp_stream_reported_duplicate_sequence_observation_count'))}"
+        )
+    rtcp = media.get("rtcp_association") or {}
+    if rtcp:
+        lines.append(
+            f"  RTCP association: components={_value(rtcp.get('component_count'))}, "
+            f"associations={_value(rtcp.get('association_count'))}, "
+            f"unbound={_value(rtcp.get('unbound_component_count'))}, "
+            f"status="
+            + ", ".join(
+                f"{key.removeprefix('RTCP_STREAM_ASSOCIATION_').lower()}={value}"
+                for key, value in (rtcp.get("status_counts") or {}).items()
+            )
+        )
+        for report in (rtcp.get("receiver_reported_quality") or [])[:4]:
+            lines.append(
+                f"    receiver report: {_value(report.get('source_event_reference'))} / "
+                f"fraction_lost={_value(report.get('fraction_lost'))} / "
+                f"cumulative_lost={_value(report.get('cumulative_packets_lost'))} / "
+                f"jitter_rtp={_value(report.get('interarrival_jitter_rtp_units'))} / "
+                f"jitter_ms={_value(report.get('jitter_ms'))} / "
+                f"origin={_value(report.get('measurement_origin'))}"
+            )
+    for item in (media.get("ambiguity_inventory") or [])[:5]:
+        lines.append(
+            f"    ambiguity: {_value(item.get('scope'))} {_value(item.get('reference'))} "
+            f"{_value(item.get('reason_code'))}"
+        )
+
     diagnostics = media.get("diagnostics") or {}
     for label, key in (
         ("observed", "observed"),
