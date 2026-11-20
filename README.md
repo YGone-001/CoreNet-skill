@@ -74,7 +74,11 @@ application procedure verdict. The bounded `sdp-rtp` Protocol Skill parses expli
 supplied RFC 8866 SDP bodies into structural session/media evidence with privacy-safe
 address and sensitive-attribute classification, and extracts bounded RFC 3550 RTP
 version 2 and RTCP SR/RR/SDES/BYE packet evidence from structured JSONL or an explicitly
-authorized TShark capture; it does not implement RTP stream reconstruction, local
+authorized TShark capture; a separate bounded `rtp-stream` Protocol Skill reconstructs
+capture-scoped RTP source streams and RFC 3550 Appendix A.1 sequence-integrity evidence
+from that accepted output, reporting probation, wrap, duplicate, reorder, unobserved
+sequence-number slot and restart-pattern evidence without a packet-loss, jitter, MOS,
+QoS or media-delivery verdict; the `sdp-rtp` producer itself does not implement local
 loss/jitter, MOS/QoS, Offer/Answer, SIP-to-SDP association or IMS media verdicts. The bounded `sip` Protocol Skill extracts SIP
 requests and responses over UDP and TCP, including IPv4/IPv6 and
 decoder-delivered TCP reassembly metadata, correlates requests and responses at the
@@ -98,7 +102,7 @@ NGAP mobility-adjacent procedures (RAN Status Transfer and similar), broader
 5GC mobility beyond the bounded handover/path-switch Domain analysis (UPF
 relocation, inter-system and 5GS-EPS mobility, RAN Status Transfer Domain
 semantics), remaining
-5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol work (RTP stream reconstruction/QoS and Diameter IMS Sh/Rx/charging), IMS session modification and media-domain analysis,
+5GC SBI services, GTP-U on N9/S1-U/S5-S8-U, remaining protocol work (RTP media QoS and Diameter IMS Sh/Rx/charging), IMS session modification and media-domain analysis,
 broader EPC procedures (bearer and session lifecycle, Diameter EPC, cross-interface session association, end-to-end EPC diagnosis),
 implementation-specific mappings, or root-cause hypothesis reasoning and deeper
 diagnosis orchestration.
@@ -125,7 +129,7 @@ CoreNet Skill focuses on network signaling evidence analysis rather than impleme
 
 ## EPC, IMS, 5GC, and Diameter
 
-EPC procedures reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS registration and session evidence reuse the implemented SIP Protocol Skill (including its bounded Dialog evidence), the implemented Diameter IMS Cx/Dx Protocol Skill, the implemented IMS Registration Domain Skill and the implemented IMS Session Domain Skill; bounded SDP and RTP/RTCP packet evidence exists as standalone Protocol Skills; the standalone `sdp-rtp-transport` Correlation Skill matches accepted SDP media transport endpoints with observed RTP UDP streams by capture-scoped HMAC endpoint equality, the standalone `ims-media-signaling` Domain Skill associates accepted SIP session attempts and independent dialog branches with accepted SDP messages, and the standalone `ims-media-session` Domain Skill composes IMS Session, IMS Media Signaling, SDP Analysis and transport-correlation evidence into branch-scoped media transport observations without a temporal or media-delivery verdict; these Skills are not yet integrated into that path. RTP stream reconstruction, media QoS, Diameter Charging, session modification and media-domain analysis remain future work. 5GC procedures reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
+EPC procedures reuse NAS-EPS, S1AP, the implemented GTPv2-C session-control Skill, GTP-U, and Diameter EPC. IMS registration and session evidence reuse the implemented SIP Protocol Skill (including its bounded Dialog evidence), the implemented Diameter IMS Cx/Dx Protocol Skill, the implemented IMS Registration Domain Skill and the implemented IMS Session Domain Skill; bounded SDP and RTP/RTCP packet evidence exists as standalone Protocol Skills; the standalone `sdp-rtp-transport` Correlation Skill matches accepted SDP media transport endpoints with observed RTP UDP streams by capture-scoped HMAC endpoint equality, the standalone `ims-media-signaling` Domain Skill associates accepted SIP session attempts and independent dialog branches with accepted SDP messages, and the standalone `ims-media-session` Domain Skill composes IMS Session, IMS Media Signaling, SDP Analysis and transport-correlation evidence into branch-scoped media transport observations without a temporal or media-delivery verdict; these Skills are not yet integrated into that path. RTP stream reconstruction is implemented as the standalone `rtp-stream` Protocol Skill; RTP media QoS, Diameter Charging, session modification and media-domain analysis remain future work. 5GC procedures reuse NAS-5GS, NGAP, PFCP, GTP-U, and SBI/HTTP2.
 
 Diameter is explicitly cross-domain—not an IMS-owned protocol. `diameter-core` owns base-protocol behavior; `diameter-epc` owns bounded S6a/S6d AIR/AIA and ULR/ULA application-message evidence; `diameter-ims` owns bounded Cx/Dx UAR/UAA, SAR/SAA, LIR/LIA, MAR/MAA, RTR/RTA and PPR/PPA application-message evidence; and `diameter-charging` will own shared credit-control semantics and remains planned, together with the Diameter IMS Sh and Rx applications. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -247,8 +251,10 @@ validation remotely.
 Future milestones are Packet and Protocol Core (continuing), remaining Diameter IMS
 Sh/Rx and charging, IMS media/QoS, Advanced 5GC Interfaces, and End-to-End Root Cause
 Analysis; the implemented 5GC, EPC, IMS registration, IMS session and standalone
-IMS SDP media-signaling paths remain bounded evidence capabilities. IMS media QoS,
-RTP endpoint correlation and unified media execution remain planned. Implementation-specific Skills are not planned: external
+IMS SDP media-signaling paths remain bounded evidence capabilities. IMS media QoS, RTP endpoint
+correlation and unified media execution remain planned; RTP source-stream
+reconstruction and sequence-integrity evidence are implemented as a standalone
+Protocol Skill. Implementation-specific Skills are not planned: external
 implementation analysis is performed only when users provide implementation
 evidence. Each milestone's gates and dependencies are frozen in
 [docs/ROADMAP.md](docs/ROADMAP.md).

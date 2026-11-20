@@ -19,7 +19,7 @@ A lower-level instruction must never silently override a higher-level one. Destr
 
 CoreNet Skill is a modular, evidence-first AI Skill repository for mobile core-network signaling analysis, troubleshooting, protocol reasoning, cross-protocol correlation, procedure-level diagnosis, failure-boundary localization, and future end-to-end fault isolation. It focuses on network signaling evidence analysis rather than implementation-specific source ownership.
 
-Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, Foundation Skills, bounded Protocol Skills, the `cross-protocol-evidence` and `sdp-rtp-transport` Correlation Skills, Domain and Procedure Skills for the EPC, 5GC, IMS registration, IMS session-signaling, IMS SDP media-signaling and branch-scoped IMS media-transport evidence families, boundedly scoped Analysis Orchestration for failure-boundary localization, and an application-level unified PCAP workflow that integrates the accepted 5GC, EPC and IMS components. The `ims-media-signaling` Domain is a standalone analysis over accepted SIP, IMS Session and SDP artifacts; it is not executed by the unified workflow in this phase. It does **not** implement implementation-specific source-code mappings or end-to-end fault isolation. Planned functionality must never be presented as implemented functionality.
+Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, Foundation Skills, bounded Protocol Skills including capture-scoped RTP source-stream and sequence-integrity reconstruction, the `cross-protocol-evidence` and `sdp-rtp-transport` Correlation Skills, Domain and Procedure Skills for the EPC, 5GC, IMS registration, IMS session-signaling, IMS SDP media-signaling and branch-scoped IMS media-transport evidence families, boundedly scoped Analysis Orchestration for failure-boundary localization, and an application-level unified PCAP workflow that integrates the accepted 5GC, EPC and IMS components. The `ims-media-signaling` Domain is a standalone analysis over accepted SIP, IMS Session and SDP artifacts; it is not executed by the unified workflow in this phase. It does **not** implement implementation-specific source-code mappings or end-to-end fault isolation. Planned functionality must never be presented as implemented functionality.
 
 ## Authoritative Documentation
 
@@ -72,6 +72,7 @@ Examples of valid dependencies:
     5gc-pdu-session -> nas-5gs -> ngap -> pfcp -> sbi-http2
     cross-protocol-evidence -> ngap -> nas-5gs -> core-network-pcap
     sdp-rtp-transport -> sdp-rtp
+    rtp-stream -> sdp-rtp
     ims-media-session -> ims-session, ims-media-signaling, sdp-rtp, sdp-rtp-transport
     5gc-registration-mobility -> cross-protocol-evidence -> ngap -> nas-5gs (future)
     diameter-ims -> diameter-core (same-layer Protocol composition)
@@ -171,6 +172,7 @@ Keep transport, protocol, procedure, and implementation behavior distinct:
 - A binding-removal outcome must bind to the removal request's own REGISTER transaction and final response; an unrelated transaction's 2xx must never establish removal success.
 - A SIP authentication Challenge→Retry association requires a later authorized REGISTER after the observed challenge with a compatible CSeq; authorization present before the challenge must not be reported as a retry of it. The observed challenge response must precede the retry request in capture-local evidence order.
 - RTP padding, extension and marker are mandatory one-bit observations; a missing RTP flag must be reported as incomplete evidence and must never be silently converted to false. RTP and RTCP versions occupy a two-bit field: other representable versions are unsupported, while values outside 0-3 are invalid.
+- RTP source-stream reconstruction is a Protocol-local capability: grouping uses capture plus UDP stream plus capture-scoped SSRC reference, probation and sequence tracking follow RFC 3550 Appendix A.1, and unobserved sequence numbers never become confirmed packet loss. RTCP components are never associated with an RTP stream, and no jitter, MOS, QoS, media-delivery or call verdict is produced.
 - RTCP report counts and source counts are type-specific: SR/RR use report counts, SDES/BYE use source counts, and missing hierarchy or declared/observed mismatch must fail closed rather than be marked observed. A zero-source BYE is valid per RFC 3550 but conveys no source identifier.
 - Structured capture file provenance must be a privacy-safe basename; absolute workstation paths and path separators are rejected rather than published.
 - An IMS session attempt is anchored to one initial INVITE transaction; separate initial INVITE transactions must never merge merely because they share a Call-ID or nearby frames.
@@ -296,6 +298,7 @@ For IMS Session changes, also run `python3 scripts/validate-ims-session.py`.
 For IMS Media Signaling changes, also run `python3 scripts/validate-ims-media-signaling.py`.
 For SDP changes, also run `python3 scripts/validate-sdp-rtp.py`.
 For RTP/RTCP changes, also run `python3 scripts/validate-rtp-rtcp.py`.
+For RTP source-stream changes, also run `python3 scripts/validate-rtp-stream.py`.
 
 For EPC Evidence Review navigation changes, also run:
 

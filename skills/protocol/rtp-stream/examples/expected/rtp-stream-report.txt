@@ -1,0 +1,93 @@
+RTP source-stream and sequence-integrity reconstruction
+analysis_version: 0.1.0
+source_artifact: rtp-rtcp-analysis.json
+source_sha256: db90dc656e5ca82976cb8d3f1e3920cb4702396a82e1fb1fab564f96b025fc27
+capture: rtp-stream-example.pcapng
+capture_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+endpoint_context: endpoint-context-hmac-sha256:v1:803229997877a403dc8855119d8915ab4abd7d0a96408ddb116f0ea258fc7e37
+sequence_parameters: RTP_SEQ_MOD=65536 MIN_SEQUENTIAL=2 MAX_DROPOUT=3000 MAX_MISORDER=100
+input_rtp_events: 26
+streams: 5 (validated=3, probation=2, ambiguous=0, insufficient=0)
+unassigned_rtp_events: 2 (published=2, omitted=0)
+rtcp_events: 3 (status=NOT_INTERPRETED_FOR_RTP_STREAM_ASSOCIATION)
+duplicate_observations: 1
+out_of_order_observations: 3
+sequence_gaps: 1 (unobserved_slots=0)
+restart_patterns: 1
+omitted_records: 0
+stream: rtp-source-stream:rtp-stream-example.pcapng:10:11112222 / VALIDATED / packets=9 eligible=9 incomplete=0 excluded=0
+  payload_types: 0
+  frames: 1..9
+  endpoints: source=ESTABLISHED(1) destination=ESTABLISHED(1) evidence=ESTABLISHED
+  sequence: epochs=1 wraps=1 duplicates=1 out_of_order=3 gaps=1 unobserved=0 restarts=0
+  epoch: 0 / VALIDATED / first=65534 last=4 extended=65535..65541 unique=7 wraps=1 gaps=1 duplicates=1 out_of_order=3
+  gap: rtp-sequence-gap:rtp-stream-example.pcapng:10:11112222:0 / epoch=0 / 65537..65541 / unobserved=0 / filled=yes
+  missing: CAPTURE_BOUNDARY_COMPLETENESS_UNKNOWN
+  conflict: DUPLICATE_SEQUENCE_NUMBER_OBSERVED
+  conflict: OUT_OF_ORDER_SEQUENCE_OBSERVED
+stream: rtp-source-stream:rtp-stream-example.pcapng:11:33334444 / VALIDATED / packets=6 eligible=6 incomplete=0 excluded=0
+  payload_types: 0
+  frames: 10..15
+  endpoints: source=ESTABLISHED(1) destination=ESTABLISHED(1) evidence=ESTABLISHED
+  sequence: epochs=2 wraps=0 duplicates=0 out_of_order=0 gaps=0 unobserved=0 restarts=1
+  epoch: 0 / VALIDATED / first=100 last=102 extended=101..102 unique=2 wraps=0 gaps=0 duplicates=0 out_of_order=0
+  epoch: 1 / VALIDATED / first=5001 last=5002 extended=5001..5002 unique=2 wraps=0 gaps=0 duplicates=0 out_of_order=0
+  restart: rtp-sequence-restart:rtp-stream-example.pcapng:11:33334444:0 / CONFIRMED / epoch 0 -> 1
+  missing: CAPTURE_BOUNDARY_COMPLETENESS_UNKNOWN
+stream: rtp-source-stream:rtp-stream-example.pcapng:12:55556666 / PROBATION / packets=2 eligible=2 incomplete=0 excluded=0
+  payload_types: 0
+  frames: 20..21
+  endpoints: source=ESTABLISHED(1) destination=ESTABLISHED(1) evidence=ESTABLISHED
+  sequence: epochs=1 wraps=0 duplicates=0 out_of_order=0 gaps=0 unobserved=0 restarts=0
+  epoch: 0 / PROBATION / first=1000 last=1002 extended=1000..1002 unique=2 wraps=0 gaps=0 duplicates=0 out_of_order=0
+  missing: CAPTURE_BOUNDARY_COMPLETENESS_UNKNOWN
+  missing: SEQUENTIAL_VALIDATION_INCOMPLETE
+stream: rtp-source-stream:rtp-stream-example.pcapng:13:77778888 / VALIDATED / packets=5 eligible=4 incomplete=0 excluded=1
+  payload_types: 0, 8
+  frames: 30..34
+  endpoints: source=ESTABLISHED(1) destination=ESTABLISHED(1) evidence=ESTABLISHED
+  sequence: epochs=1 wraps=0 duplicates=0 out_of_order=0 gaps=0 unobserved=0 restarts=0
+  epoch: 0 / VALIDATED / first=10 last=13 extended=11..13 unique=3 wraps=0 gaps=0 duplicates=0 out_of_order=0
+  missing: CAPTURE_BOUNDARY_COMPLETENESS_UNKNOWN
+stream: rtp-source-stream:rtp-stream-example.pcapng:14:9999aaaa / PROBATION / packets=2 eligible=1 incomplete=0 excluded=1
+  payload_types: 0
+  frames: 40..41
+  endpoints: source=ESTABLISHED(1) destination=ESTABLISHED(1) evidence=ESTABLISHED
+  sequence: epochs=1 wraps=0 duplicates=0 out_of_order=0 gaps=0 unobserved=0 restarts=0
+  epoch: 0 / PROBATION / first=20 last=20 extended=20..20 unique=1 wraps=0 gaps=0 duplicates=0 out_of_order=0
+  missing: CAPTURE_BOUNDARY_COMPLETENESS_UNKNOWN
+  missing: SEQUENTIAL_VALIDATION_INCOMPLETE
+unassigned: rtp-packet:rtp-stream-example.pcapng:50.1 / OBSERVED / reasons=UDP_STREAM_UNAVAILABLE
+unassigned: rtp-packet:rtp-stream-example.pcapng:51.1 / INCOMPLETE / reasons=SSRC_REFERENCE_UNAVAILABLE
+limits:
+- Sequence gaps are unobserved sequence-number slots inside the observed validated range and never prove network packet loss
+- RTP stream reconstruction is limited to the observed capture interval; leading and trailing missing packets are never inferred
+- The first and last observed sequence numbers are not stream origin or stream termination evidence
+- Extended sequence numbers are epoch-local deterministic reconstructions from the 16-bit RTP Sequence Number field
+- Duplicate and out-of-order observations are reported without any retransmission, loss or attack interpretation
+- An observed restart pattern is only the RFC 3550 Appendix A.1 bad-sequence resynchronization behaviour and never a physical cause
+- RTCP events are counted but never associated with an RTP source stream, and a BYE never proves RTP teardown
+- HMAC endpoint references are optional; a missing endpoint key does not block sequence reconstruction
+- A unique source endpoint reference is a capture-scoped pseudonym, not a UE, IMS, access-side or caller/recipient identity
+- No RTP payload, SDP body, codec, jitter, MOS, QoS, ICE, STUN, TURN, NAT, DTLS or SRTP content is interpreted
+- No timestamp proximity is used to group packets, order sequence state or associate RTCP with RTP
+not_confirmed:
+- NETWORK_PACKET_LOSS
+- RTP_RECEIVER_PACKET_LOSS
+- PACKET_RETRANSMISSION_CAUSE
+- DUPLICATE_SEQUENCE_CAUSE
+- SEQUENCE_RESTART_CAUSE
+- SSRC_COLLISION
+- RTP_SENDER_REPLACEMENT
+- RTP_DELIVERY
+- TWO_WAY_AUDIO
+- MEDIA_QOS
+- LOCAL_JITTER
+- MOS
+- RTCP_TO_RTP_STREAM_ASSOCIATION
+- RTP_TEARDOWN_FROM_RTCP_BYE
+- IMS_MEDIA_SESSION_IDENTITY
+- SUBSCRIBER_IDENTITY
+- IMS_IDENTITY
+- UE_IDENTITY
+- CALL_SUCCESS

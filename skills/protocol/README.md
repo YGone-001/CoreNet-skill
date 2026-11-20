@@ -184,7 +184,19 @@ codes numeric. It does not prove IMS registration, subscriber authentication, HS
 authorization or S-CSCF assignment, and the Diameter IMS Sh and Rx applications
 remain planned.
 
-Planned: `sdp-rtp`, `diameter-charging`, Diameter IMS Sh/Rx applications, and
+Implemented: `rtp-stream`, the RTP source-stream and sequence-integrity Protocol
+Skill. It consumes accepted `sdp-rtp` RTP/RTCP packet evidence and reconstructs
+capture-scoped source streams by capture identity, UDP stream and SSRC
+reference, applying the bounded RFC 3550 Appendix A.1 sequence validation
+algorithm with `RTP_SEQ_MOD = 65536`, `MIN_SEQUENTIAL = 2`,
+`MAX_DROPOUT = 3000` and `MAX_MISORDER = 100`. It publishes probation,
+validated epochs, wrap, duplicate, out-of-order, unobserved sequence-number slot,
+restart-pattern and unassigned-packet evidence, and counts RTCP components
+without associating them with an RTP stream. It does not decode RTP payloads,
+read captures, measure packet loss, jitter or MOS, or produce QoS, media-delivery
+or call verdicts.
+
+Planned: `diameter-charging`, Diameter IMS Sh/Rx applications, and
 remaining 5GC SBI services.
 
 Implemented: `diameter-epc`, the bounded S6a/S6d application-message Skill. It

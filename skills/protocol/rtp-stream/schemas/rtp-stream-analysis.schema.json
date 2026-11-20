@@ -1,0 +1,1017 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.local/schemas/rtp-stream-analysis.schema.json",
+  "title": "Bounded RTP source-stream and sequence-integrity evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_name",
+    "analysis_version",
+    "event_schema_version",
+    "capability",
+    "input_provenance",
+    "sequence_validation_parameters",
+    "source_stream_count",
+    "source_streams",
+    "source_streams_omitted",
+    "unassigned_packet_count",
+    "unassigned_packets",
+    "unassigned_packets_omitted",
+    "rtcp_event_count",
+    "rtcp_observation_status",
+    "rtcp_component_counts_by_type",
+    "completeness",
+    "limitations",
+    "not_confirmed"
+  ],
+  "properties": {
+    "analysis_name": {
+      "const": "rtp-stream"
+    },
+    "analysis_version": {
+      "const": "0.1.0"
+    },
+    "event_schema_version": {
+      "const": "1.0.0"
+    },
+    "capability": {
+      "const": "bounded RTP source-stream, sequence-integrity and capture-boundary evidence"
+    },
+    "input_provenance": {
+      "$ref": "#/$defs/input_provenance"
+    },
+    "sequence_validation_parameters": {
+      "$ref": "#/$defs/sequence_parameters"
+    },
+    "source_stream_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source_streams": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "$ref": "#/$defs/source_stream"
+      }
+    },
+    "source_streams_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unassigned_packet_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unassigned_packets": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": {
+        "$ref": "#/$defs/unassigned_packet"
+      }
+    },
+    "unassigned_packets_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rtcp_event_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rtcp_observation_status": {
+      "const": "NOT_INTERPRETED_FOR_RTP_STREAM_ASSOCIATION"
+    },
+    "rtcp_component_counts_by_type": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_]{1,32}$"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "completeness": {
+      "$ref": "#/$defs/completeness"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "not_confirmed": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    }
+  },
+  "$defs": {
+    "string_list": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      }
+    },
+    "event_reference": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"
+    },
+    "endpoint_reference": {
+      "type": "string",
+      "pattern": "^endpoint-hmac-sha256:v1:[0-9a-f]{64}$"
+    },
+    "context_reference": {
+      "type": "string",
+      "pattern": "^endpoint-context-hmac-sha256:v1:[0-9a-f]{64}$"
+    },
+    "sequence_parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "RTP_SEQ_MOD",
+        "MIN_SEQUENTIAL",
+        "MAX_DROPOUT",
+        "MAX_MISORDER"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "RFC 3550 Appendix A.1"
+        },
+        "RTP_SEQ_MOD": {
+          "const": 65536
+        },
+        "MIN_SEQUENTIAL": {
+          "const": 2
+        },
+        "MAX_DROPOUT": {
+          "const": 3000
+        },
+        "MAX_MISORDER": {
+          "const": 100
+        }
+      }
+    },
+    "input_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_analysis_name",
+        "source_analysis_version",
+        "source_event_schema_version",
+        "source_parser_version",
+        "source_analysis_source_name",
+        "source_analysis_sha256",
+        "source_analysis_schema_validation",
+        "capture_files",
+        "capture_sha256",
+        "source_input_name",
+        "source_provenance_mode",
+        "input_event_count",
+        "input_rtp_event_count",
+        "input_rtcp_event_count",
+        "endpoint_context_reference",
+        "input_status"
+      ],
+      "properties": {
+        "source_analysis_name": {
+          "const": "rtp-rtcp"
+        },
+        "source_analysis_version": {
+          "const": "0.4.0"
+        },
+        "source_event_schema_version": {
+          "const": "1.2.0"
+        },
+        "source_parser_version": {
+          "const": "0.4.0"
+        },
+        "source_analysis_source_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "source_analysis_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source_analysis_schema_validation": {
+          "type": "string",
+          "enum": [
+            "JSON_SCHEMA",
+            "STRUCTURAL_FALLBACK"
+          ]
+        },
+        "capture_files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "capture_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source_input_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "source_provenance_mode": {
+          "type": "string",
+          "enum": [
+            "STRUCTURED_JSONL",
+            "PCAP"
+          ]
+        },
+        "input_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "input_rtp_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "input_rtcp_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endpoint_context_reference": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/context_reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "input_status": {
+          "const": "VERIFIED"
+        }
+      }
+    },
+    "sequence_epoch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "epoch_index",
+        "sequence_validation_status",
+        "first_observed_sequence_number",
+        "last_observed_sequence_number",
+        "extended_sequence_start",
+        "extended_sequence_end",
+        "unique_sequence_count",
+        "accepted_observation_count",
+        "probation_observation_count",
+        "duplicate_observation_count",
+        "out_of_order_observation_count",
+        "sequence_wrap_count",
+        "observed_gap_count",
+        "unobserved_sequence_number_slot_count",
+        "restart_pattern_evidence_references",
+        "missing_evidence",
+        "conflict_findings",
+        "evidence_class"
+      ],
+      "properties": {
+        "epoch_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sequence_validation_status": {
+          "type": "string",
+          "enum": [
+            "PROBATION",
+            "VALIDATED",
+            "INSUFFICIENT_EVIDENCE",
+            "AMBIGUOUS"
+          ]
+        },
+        "first_observed_sequence_number": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_observed_sequence_number": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "extended_sequence_start": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "extended_sequence_end": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unique_sequence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "accepted_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "probation_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "out_of_order_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sequence_wrap_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_gap_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unobserved_sequence_number_slot_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "restart_pattern_evidence_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "pattern": "^rtp-sequence-restart:[^:]+:[0-9]+:[0-9a-f]{8}:[0-9]+$"
+          }
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/string_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/string_list"
+        },
+        "evidence_class": {
+          "const": "DERIVED"
+        }
+      }
+    },
+    "sequence_gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gap_reference",
+        "epoch_index",
+        "start_event_reference",
+        "start_extended_sequence_position",
+        "end_event_reference",
+        "end_extended_sequence_position",
+        "unobserved_sequence_number_count",
+        "unobserved_sequence_numbers",
+        "unobserved_sequence_numbers_omitted",
+        "filled_by_later_observation",
+        "filled_sequence_number_count",
+        "filled_sequence_numbers",
+        "filled_sequence_numbers_omitted",
+        "missing_evidence",
+        "conflict_findings",
+        "evidence_class"
+      ],
+      "properties": {
+        "gap_reference": {
+          "type": "string",
+          "pattern": "^rtp-sequence-gap:[^:]+:[0-9]+:[0-9a-f]{8}:[0-9]+$"
+        },
+        "epoch_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "start_event_reference": {
+          "$ref": "#/$defs/event_reference"
+        },
+        "start_extended_sequence_position": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_event_reference": {
+          "$ref": "#/$defs/event_reference"
+        },
+        "end_extended_sequence_position": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unobserved_sequence_number_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unobserved_sequence_numbers": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          }
+        },
+        "unobserved_sequence_numbers_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "filled_by_later_observation": {
+          "type": "boolean"
+        },
+        "filled_sequence_number_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "filled_sequence_numbers": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          }
+        },
+        "filled_sequence_numbers_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/string_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/string_list"
+        },
+        "evidence_class": {
+          "const": "DERIVED"
+        }
+      }
+    },
+    "restart_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "restart_reference",
+        "restart_confirmation",
+        "candidate_event_reference",
+        "candidate_frame_number",
+        "candidate_sequence_number",
+        "confirmation_event_reference",
+        "confirmation_frame_number",
+        "confirmation_sequence_number",
+        "previous_epoch_index",
+        "new_epoch_index",
+        "supporting_event_references",
+        "missing_evidence",
+        "conflict_findings",
+        "evidence_class"
+      ],
+      "properties": {
+        "restart_reference": {
+          "type": "string",
+          "pattern": "^rtp-sequence-restart:[^:]+:[0-9]+:[0-9a-f]{8}:[0-9]+$"
+        },
+        "restart_confirmation": {
+          "type": "string",
+          "enum": [
+            "CONFIRMED",
+            "UNCONFIRMED"
+          ]
+        },
+        "candidate_event_reference": {
+          "$ref": "#/$defs/event_reference"
+        },
+        "candidate_frame_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "candidate_sequence_number": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "confirmation_event_reference": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/event_reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confirmation_frame_number": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confirmation_sequence_number": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "previous_epoch_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "new_epoch_index": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "supporting_event_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/event_reference"
+          }
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/string_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/string_list"
+        },
+        "evidence_class": {
+          "const": "DERIVED"
+        }
+      }
+    },
+    "source_stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_stream_reference",
+        "capture_file",
+        "udp_stream",
+        "ssrc_reference",
+        "source_endpoint_references",
+        "destination_endpoint_references",
+        "source_endpoint_identity_status",
+        "destination_endpoint_identity_status",
+        "endpoint_evidence_status",
+        "endpoint_context_reference",
+        "observed_payload_types",
+        "first_frame_number",
+        "last_frame_number",
+        "rtp_packet_count",
+        "sequence_eligible_packet_count",
+        "incomplete_packet_count",
+        "invalid_or_excluded_packet_count",
+        "event_reference_count",
+        "event_references",
+        "event_references_omitted",
+        "sequence_validation_status",
+        "sequence_epoch_count",
+        "sequence_epochs",
+        "sequence_epochs_omitted",
+        "sequence_wrap_count",
+        "duplicate_sequence_observation_count",
+        "out_of_order_packet_count",
+        "observed_sequence_gap_count",
+        "sequence_gaps",
+        "sequence_gaps_omitted",
+        "unobserved_sequence_number_slot_count",
+        "restart_pattern_count",
+        "restart_patterns",
+        "restart_patterns_omitted",
+        "missing_evidence",
+        "conflict_findings",
+        "evidence_class"
+      ],
+      "properties": {
+        "source_stream_reference": {
+          "type": "string",
+          "pattern": "^rtp-source-stream:[^:]+:[0-9]+:[0-9a-f]{8}$"
+        },
+        "capture_file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "udp_stream": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ssrc_reference": {
+          "type": "string",
+          "pattern": "^rtp-ssrc:.+:[0-9a-f]{8}$"
+        },
+        "source_endpoint_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/endpoint_reference"
+          }
+        },
+        "destination_endpoint_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/endpoint_reference"
+          }
+        },
+        "source_endpoint_identity_status": {
+          "type": "string",
+          "enum": [
+            "ESTABLISHED",
+            "AMBIGUOUS",
+            "UNAVAILABLE"
+          ]
+        },
+        "destination_endpoint_identity_status": {
+          "type": "string",
+          "enum": [
+            "ESTABLISHED",
+            "AMBIGUOUS",
+            "UNAVAILABLE"
+          ]
+        },
+        "endpoint_evidence_status": {
+          "type": "string",
+          "enum": [
+            "ESTABLISHED",
+            "INCOMPLETE",
+            "AMBIGUOUS",
+            "UNAVAILABLE"
+          ]
+        },
+        "endpoint_context_reference": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/context_reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observed_payload_types": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          }
+        },
+        "first_frame_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "last_frame_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rtp_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sequence_eligible_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "incomplete_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid_or_excluded_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "event_reference_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "event_references": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/event_reference"
+          }
+        },
+        "event_references_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sequence_validation_status": {
+          "type": "string",
+          "enum": [
+            "PROBATION",
+            "VALIDATED",
+            "INSUFFICIENT_EVIDENCE",
+            "AMBIGUOUS"
+          ]
+        },
+        "sequence_epoch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sequence_epochs": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/sequence_epoch"
+          }
+        },
+        "sequence_epochs_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sequence_wrap_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_sequence_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "out_of_order_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_sequence_gap_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sequence_gaps": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/sequence_gap"
+          }
+        },
+        "sequence_gaps_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unobserved_sequence_number_slot_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "restart_pattern_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "restart_patterns": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/restart_pattern"
+          }
+        },
+        "restart_patterns_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/string_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/string_list"
+        },
+        "evidence_class": {
+          "const": "DERIVED"
+        }
+      }
+    },
+    "unassigned_packet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_reference",
+        "frame_number",
+        "message_occurrence",
+        "original_evidence_status",
+        "reason_codes",
+        "missing_evidence"
+      ],
+      "properties": {
+        "event_reference": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/event_reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frame_number": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message_occurrence": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "original_evidence_status": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "INCOMPLETE",
+            "AMBIGUOUS",
+            "UNSUPPORTED",
+            "INVALID"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/string_list"
+        }
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_input_rtp_packet_count",
+        "sequence_eligible_rtp_packet_count",
+        "excluded_rtp_packet_count",
+        "assigned_rtp_packet_count",
+        "unassigned_rtp_packet_count",
+        "source_stream_count",
+        "sequence_validated_stream_count",
+        "probation_stream_count",
+        "ambiguous_stream_count",
+        "incomplete_stream_count",
+        "duplicate_observation_count",
+        "out_of_order_observation_count",
+        "sequence_gap_count",
+        "restart_pattern_count",
+        "rtcp_event_count",
+        "omitted_record_count",
+        "published_source_stream_count",
+        "published_unassigned_packet_count",
+        "event_references_omitted"
+      ],
+      "properties": {
+        "total_input_rtp_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sequence_eligible_rtp_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_rtp_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "assigned_rtp_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unassigned_rtp_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_stream_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sequence_validated_stream_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "probation_stream_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguous_stream_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "incomplete_stream_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "out_of_order_observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sequence_gap_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "restart_pattern_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rtcp_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted_record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "published_source_stream_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "published_unassigned_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "event_references_omitted": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

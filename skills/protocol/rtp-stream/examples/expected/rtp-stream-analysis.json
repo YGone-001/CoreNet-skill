@@ -1,0 +1,580 @@
+{
+  "analysis_name": "rtp-stream",
+  "analysis_version": "0.1.0",
+  "capability": "bounded RTP source-stream, sequence-integrity and capture-boundary evidence",
+  "completeness": {
+    "ambiguous_stream_count": 0,
+    "assigned_rtp_packet_count": 24,
+    "duplicate_observation_count": 1,
+    "event_references_omitted": 0,
+    "excluded_rtp_packet_count": 4,
+    "incomplete_stream_count": 0,
+    "omitted_record_count": 0,
+    "out_of_order_observation_count": 3,
+    "probation_stream_count": 2,
+    "published_source_stream_count": 5,
+    "published_unassigned_packet_count": 2,
+    "restart_pattern_count": 1,
+    "rtcp_event_count": 3,
+    "sequence_eligible_rtp_packet_count": 22,
+    "sequence_gap_count": 1,
+    "sequence_validated_stream_count": 3,
+    "source_stream_count": 5,
+    "total_input_rtp_packet_count": 26,
+    "unassigned_rtp_packet_count": 2
+  },
+  "event_schema_version": "1.0.0",
+  "input_provenance": {
+    "capture_files": [
+      "rtp-stream-example.pcapng"
+    ],
+    "capture_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "endpoint_context_reference": "endpoint-context-hmac-sha256:v1:803229997877a403dc8855119d8915ab4abd7d0a96408ddb116f0ea258fc7e37",
+    "input_event_count": 29,
+    "input_rtcp_event_count": 3,
+    "input_rtp_event_count": 26,
+    "input_status": "VERIFIED",
+    "source_analysis_name": "rtp-rtcp",
+    "source_analysis_schema_validation": "JSON_SCHEMA",
+    "source_analysis_sha256": "db90dc656e5ca82976cb8d3f1e3920cb4702396a82e1fb1fab564f96b025fc27",
+    "source_analysis_source_name": "rtp-rtcp-analysis.json",
+    "source_analysis_version": "0.4.0",
+    "source_event_schema_version": "1.2.0",
+    "source_input_name": "rtp-stream-example.jsonl",
+    "source_parser_version": "0.4.0",
+    "source_provenance_mode": "STRUCTURED_JSONL"
+  },
+  "limitations": [
+    "Sequence gaps are unobserved sequence-number slots inside the observed validated range and never prove network packet loss",
+    "RTP stream reconstruction is limited to the observed capture interval; leading and trailing missing packets are never inferred",
+    "The first and last observed sequence numbers are not stream origin or stream termination evidence",
+    "Extended sequence numbers are epoch-local deterministic reconstructions from the 16-bit RTP Sequence Number field",
+    "Duplicate and out-of-order observations are reported without any retransmission, loss or attack interpretation",
+    "An observed restart pattern is only the RFC 3550 Appendix A.1 bad-sequence resynchronization behaviour and never a physical cause",
+    "RTCP events are counted but never associated with an RTP source stream, and a BYE never proves RTP teardown",
+    "HMAC endpoint references are optional; a missing endpoint key does not block sequence reconstruction",
+    "A unique source endpoint reference is a capture-scoped pseudonym, not a UE, IMS, access-side or caller/recipient identity",
+    "No RTP payload, SDP body, codec, jitter, MOS, QoS, ICE, STUN, TURN, NAT, DTLS or SRTP content is interpreted",
+    "No timestamp proximity is used to group packets, order sequence state or associate RTCP with RTP"
+  ],
+  "not_confirmed": [
+    "NETWORK_PACKET_LOSS",
+    "RTP_RECEIVER_PACKET_LOSS",
+    "PACKET_RETRANSMISSION_CAUSE",
+    "DUPLICATE_SEQUENCE_CAUSE",
+    "SEQUENCE_RESTART_CAUSE",
+    "SSRC_COLLISION",
+    "RTP_SENDER_REPLACEMENT",
+    "RTP_DELIVERY",
+    "TWO_WAY_AUDIO",
+    "MEDIA_QOS",
+    "LOCAL_JITTER",
+    "MOS",
+    "RTCP_TO_RTP_STREAM_ASSOCIATION",
+    "RTP_TEARDOWN_FROM_RTCP_BYE",
+    "IMS_MEDIA_SESSION_IDENTITY",
+    "SUBSCRIBER_IDENTITY",
+    "IMS_IDENTITY",
+    "UE_IDENTITY",
+    "CALL_SUCCESS"
+  ],
+  "rtcp_component_counts_by_type": {
+    "BYE": 1,
+    "RR": 1,
+    "SR": 1
+  },
+  "rtcp_event_count": 3,
+  "rtcp_observation_status": "NOT_INTERPRETED_FOR_RTP_STREAM_ASSOCIATION",
+  "sequence_validation_parameters": {
+    "MAX_DROPOUT": 3000,
+    "MAX_MISORDER": 100,
+    "MIN_SEQUENTIAL": 2,
+    "RTP_SEQ_MOD": 65536,
+    "algorithm": "RFC 3550 Appendix A.1"
+  },
+  "source_stream_count": 5,
+  "source_streams": [
+    {
+      "capture_file": "rtp-stream-example.pcapng",
+      "conflict_findings": [
+        "DUPLICATE_SEQUENCE_NUMBER_OBSERVED",
+        "OUT_OF_ORDER_SEQUENCE_OBSERVED"
+      ],
+      "destination_endpoint_identity_status": "ESTABLISHED",
+      "destination_endpoint_references": [
+        "endpoint-hmac-sha256:v1:280c22715560ee61334febf5cab93c52583fcf1f151b924bc8e358dd0a1eec19"
+      ],
+      "duplicate_sequence_observation_count": 1,
+      "endpoint_context_reference": "endpoint-context-hmac-sha256:v1:803229997877a403dc8855119d8915ab4abd7d0a96408ddb116f0ea258fc7e37",
+      "endpoint_evidence_status": "ESTABLISHED",
+      "event_reference_count": 9,
+      "event_references": [
+        "rtp-packet:rtp-stream-example.pcapng:1.1",
+        "rtp-packet:rtp-stream-example.pcapng:2.1",
+        "rtp-packet:rtp-stream-example.pcapng:3.1",
+        "rtp-packet:rtp-stream-example.pcapng:4.1",
+        "rtp-packet:rtp-stream-example.pcapng:5.1",
+        "rtp-packet:rtp-stream-example.pcapng:6.1",
+        "rtp-packet:rtp-stream-example.pcapng:7.1",
+        "rtp-packet:rtp-stream-example.pcapng:8.1",
+        "rtp-packet:rtp-stream-example.pcapng:9.1"
+      ],
+      "event_references_omitted": 0,
+      "evidence_class": "DERIVED",
+      "first_frame_number": 1,
+      "incomplete_packet_count": 0,
+      "invalid_or_excluded_packet_count": 0,
+      "last_frame_number": 9,
+      "missing_evidence": [
+        "CAPTURE_BOUNDARY_COMPLETENESS_UNKNOWN"
+      ],
+      "observed_payload_types": [
+        0
+      ],
+      "observed_sequence_gap_count": 1,
+      "out_of_order_packet_count": 3,
+      "restart_pattern_count": 0,
+      "restart_patterns": [],
+      "restart_patterns_omitted": 0,
+      "rtp_packet_count": 9,
+      "sequence_eligible_packet_count": 9,
+      "sequence_epoch_count": 1,
+      "sequence_epochs": [
+        {
+          "accepted_observation_count": 8,
+          "conflict_findings": [
+            "DUPLICATE_SEQUENCE_NUMBER_OBSERVED",
+            "OUT_OF_ORDER_SEQUENCE_OBSERVED"
+          ],
+          "duplicate_observation_count": 1,
+          "epoch_index": 0,
+          "evidence_class": "DERIVED",
+          "extended_sequence_end": 65541,
+          "extended_sequence_start": 65535,
+          "first_observed_sequence_number": 65534,
+          "last_observed_sequence_number": 4,
+          "missing_evidence": [],
+          "observed_gap_count": 1,
+          "out_of_order_observation_count": 3,
+          "probation_observation_count": 1,
+          "restart_pattern_evidence_references": [],
+          "sequence_validation_status": "VALIDATED",
+          "sequence_wrap_count": 1,
+          "unique_sequence_count": 7,
+          "unobserved_sequence_number_slot_count": 0
+        }
+      ],
+      "sequence_epochs_omitted": 0,
+      "sequence_gaps": [
+        {
+          "conflict_findings": [
+            "SEQUENCE_GAP_FILLED_BY_REORDERED_PACKET"
+          ],
+          "end_event_reference": "rtp-packet:rtp-stream-example.pcapng:6.1",
+          "end_extended_sequence_position": 65541,
+          "epoch_index": 0,
+          "evidence_class": "DERIVED",
+          "filled_by_later_observation": true,
+          "filled_sequence_number_count": 3,
+          "filled_sequence_numbers": [
+            2,
+            3,
+            4
+          ],
+          "filled_sequence_numbers_omitted": 0,
+          "gap_reference": "rtp-sequence-gap:rtp-stream-example.pcapng:10:11112222:0",
+          "missing_evidence": [],
+          "start_event_reference": "rtp-packet:rtp-stream-example.pcapng:4.1",
+          "start_extended_sequence_position": 65537,
+          "unobserved_sequence_number_count": 0,
+          "unobserved_sequence_numbers": [],
+          "unobserved_sequence_numbers_omitted": 0
+        }
+      ],
+      "sequence_gaps_omitted": 0,
+      "sequence_validation_status": "VALIDATED",
+      "sequence_wrap_count": 1,
+      "source_endpoint_identity_status": "ESTABLISHED",
+      "source_endpoint_references": [
+        "endpoint-hmac-sha256:v1:5a99b190f458cafbb93e25054f8902009b2d073544c5214ea19f362b7146c7f9"
+      ],
+      "source_stream_reference": "rtp-source-stream:rtp-stream-example.pcapng:10:11112222",
+      "ssrc_reference": "rtp-ssrc:rtp-stream-example.pcapng:11112222",
+      "udp_stream": 10,
+      "unobserved_sequence_number_slot_count": 0
+    },
+    {
+      "capture_file": "rtp-stream-example.pcapng",
+      "conflict_findings": [],
+      "destination_endpoint_identity_status": "ESTABLISHED",
+      "destination_endpoint_references": [
+        "endpoint-hmac-sha256:v1:c3a62afbb53498eae66fce43f2b423d8f1cad8762631abaea6f6547371d6bf34"
+      ],
+      "duplicate_sequence_observation_count": 0,
+      "endpoint_context_reference": "endpoint-context-hmac-sha256:v1:803229997877a403dc8855119d8915ab4abd7d0a96408ddb116f0ea258fc7e37",
+      "endpoint_evidence_status": "ESTABLISHED",
+      "event_reference_count": 6,
+      "event_references": [
+        "rtp-packet:rtp-stream-example.pcapng:10.1",
+        "rtp-packet:rtp-stream-example.pcapng:11.1",
+        "rtp-packet:rtp-stream-example.pcapng:12.1",
+        "rtp-packet:rtp-stream-example.pcapng:13.1",
+        "rtp-packet:rtp-stream-example.pcapng:14.1",
+        "rtp-packet:rtp-stream-example.pcapng:15.1"
+      ],
+      "event_references_omitted": 0,
+      "evidence_class": "DERIVED",
+      "first_frame_number": 10,
+      "incomplete_packet_count": 0,
+      "invalid_or_excluded_packet_count": 0,
+      "last_frame_number": 15,
+      "missing_evidence": [
+        "CAPTURE_BOUNDARY_COMPLETENESS_UNKNOWN"
+      ],
+      "observed_payload_types": [
+        0
+      ],
+      "observed_sequence_gap_count": 0,
+      "out_of_order_packet_count": 0,
+      "restart_pattern_count": 1,
+      "restart_patterns": [
+        {
+          "candidate_event_reference": "rtp-packet:rtp-stream-example.pcapng:13.1",
+          "candidate_frame_number": 13,
+          "candidate_sequence_number": 5000,
+          "confirmation_event_reference": "rtp-packet:rtp-stream-example.pcapng:14.1",
+          "confirmation_frame_number": 14,
+          "confirmation_sequence_number": 5001,
+          "conflict_findings": [],
+          "evidence_class": "DERIVED",
+          "missing_evidence": [
+            "RESTART_CONFIRMATION_NOT_OBSERVED"
+          ],
+          "new_epoch_index": 1,
+          "previous_epoch_index": 0,
+          "restart_confirmation": "CONFIRMED",
+          "restart_reference": "rtp-sequence-restart:rtp-stream-example.pcapng:11:33334444:0",
+          "supporting_event_references": [
+            "rtp-packet:rtp-stream-example.pcapng:13.1",
+            "rtp-packet:rtp-stream-example.pcapng:14.1"
+          ]
+        }
+      ],
+      "restart_patterns_omitted": 0,
+      "rtp_packet_count": 6,
+      "sequence_eligible_packet_count": 6,
+      "sequence_epoch_count": 2,
+      "sequence_epochs": [
+        {
+          "accepted_observation_count": 2,
+          "conflict_findings": [],
+          "duplicate_observation_count": 0,
+          "epoch_index": 0,
+          "evidence_class": "DERIVED",
+          "extended_sequence_end": 102,
+          "extended_sequence_start": 101,
+          "first_observed_sequence_number": 100,
+          "last_observed_sequence_number": 102,
+          "missing_evidence": [],
+          "observed_gap_count": 0,
+          "out_of_order_observation_count": 0,
+          "probation_observation_count": 1,
+          "restart_pattern_evidence_references": [
+            "rtp-sequence-restart:rtp-stream-example.pcapng:11:33334444:0"
+          ],
+          "sequence_validation_status": "VALIDATED",
+          "sequence_wrap_count": 0,
+          "unique_sequence_count": 2,
+          "unobserved_sequence_number_slot_count": 0
+        },
+        {
+          "accepted_observation_count": 2,
+          "conflict_findings": [],
+          "duplicate_observation_count": 0,
+          "epoch_index": 1,
+          "evidence_class": "DERIVED",
+          "extended_sequence_end": 5002,
+          "extended_sequence_start": 5001,
+          "first_observed_sequence_number": 5001,
+          "last_observed_sequence_number": 5002,
+          "missing_evidence": [],
+          "observed_gap_count": 0,
+          "out_of_order_observation_count": 0,
+          "probation_observation_count": 0,
+          "restart_pattern_evidence_references": [
+            "rtp-sequence-restart:rtp-stream-example.pcapng:11:33334444:0"
+          ],
+          "sequence_validation_status": "VALIDATED",
+          "sequence_wrap_count": 0,
+          "unique_sequence_count": 2,
+          "unobserved_sequence_number_slot_count": 0
+        }
+      ],
+      "sequence_epochs_omitted": 0,
+      "sequence_gaps": [],
+      "sequence_gaps_omitted": 0,
+      "sequence_validation_status": "VALIDATED",
+      "sequence_wrap_count": 0,
+      "source_endpoint_identity_status": "ESTABLISHED",
+      "source_endpoint_references": [
+        "endpoint-hmac-sha256:v1:4cbfd7519f0e47292f93b90fa0c4955e562ae24272b225a44a406d52e9347f0d"
+      ],
+      "source_stream_reference": "rtp-source-stream:rtp-stream-example.pcapng:11:33334444",
+      "ssrc_reference": "rtp-ssrc:rtp-stream-example.pcapng:33334444",
+      "udp_stream": 11,
+      "unobserved_sequence_number_slot_count": 0
+    },
+    {
+      "capture_file": "rtp-stream-example.pcapng",
+      "conflict_findings": [],
+      "destination_endpoint_identity_status": "ESTABLISHED",
+      "destination_endpoint_references": [
+        "endpoint-hmac-sha256:v1:f0210b707fba611c8b1e15871af186d54085f4fa5d8e50ec03e7c3bf639cc9ba"
+      ],
+      "duplicate_sequence_observation_count": 0,
+      "endpoint_context_reference": "endpoint-context-hmac-sha256:v1:803229997877a403dc8855119d8915ab4abd7d0a96408ddb116f0ea258fc7e37",
+      "endpoint_evidence_status": "ESTABLISHED",
+      "event_reference_count": 2,
+      "event_references": [
+        "rtp-packet:rtp-stream-example.pcapng:20.1",
+        "rtp-packet:rtp-stream-example.pcapng:21.1"
+      ],
+      "event_references_omitted": 0,
+      "evidence_class": "DERIVED",
+      "first_frame_number": 20,
+      "incomplete_packet_count": 0,
+      "invalid_or_excluded_packet_count": 0,
+      "last_frame_number": 21,
+      "missing_evidence": [
+        "CAPTURE_BOUNDARY_COMPLETENESS_UNKNOWN",
+        "SEQUENTIAL_VALIDATION_INCOMPLETE"
+      ],
+      "observed_payload_types": [
+        0
+      ],
+      "observed_sequence_gap_count": 0,
+      "out_of_order_packet_count": 0,
+      "restart_pattern_count": 0,
+      "restart_patterns": [],
+      "restart_patterns_omitted": 0,
+      "rtp_packet_count": 2,
+      "sequence_eligible_packet_count": 2,
+      "sequence_epoch_count": 1,
+      "sequence_epochs": [
+        {
+          "accepted_observation_count": 0,
+          "conflict_findings": [],
+          "duplicate_observation_count": 0,
+          "epoch_index": 0,
+          "evidence_class": "DERIVED",
+          "extended_sequence_end": 1002,
+          "extended_sequence_start": 1000,
+          "first_observed_sequence_number": 1000,
+          "last_observed_sequence_number": 1002,
+          "missing_evidence": [
+            "SEQUENTIAL_VALIDATION_INCOMPLETE"
+          ],
+          "observed_gap_count": 0,
+          "out_of_order_observation_count": 0,
+          "probation_observation_count": 2,
+          "restart_pattern_evidence_references": [],
+          "sequence_validation_status": "PROBATION",
+          "sequence_wrap_count": 0,
+          "unique_sequence_count": 2,
+          "unobserved_sequence_number_slot_count": 0
+        }
+      ],
+      "sequence_epochs_omitted": 0,
+      "sequence_gaps": [],
+      "sequence_gaps_omitted": 0,
+      "sequence_validation_status": "PROBATION",
+      "sequence_wrap_count": 0,
+      "source_endpoint_identity_status": "ESTABLISHED",
+      "source_endpoint_references": [
+        "endpoint-hmac-sha256:v1:ed47ec7dae53e9da48c4981f4b2b4819b56d1d19e0e7715bb848c2e935061c00"
+      ],
+      "source_stream_reference": "rtp-source-stream:rtp-stream-example.pcapng:12:55556666",
+      "ssrc_reference": "rtp-ssrc:rtp-stream-example.pcapng:55556666",
+      "udp_stream": 12,
+      "unobserved_sequence_number_slot_count": 0
+    },
+    {
+      "capture_file": "rtp-stream-example.pcapng",
+      "conflict_findings": [],
+      "destination_endpoint_identity_status": "ESTABLISHED",
+      "destination_endpoint_references": [
+        "endpoint-hmac-sha256:v1:3dda258daa3d85f838d76888db7891e1abe4b95ae092451ee404bc55fcaddc33"
+      ],
+      "duplicate_sequence_observation_count": 0,
+      "endpoint_context_reference": "endpoint-context-hmac-sha256:v1:803229997877a403dc8855119d8915ab4abd7d0a96408ddb116f0ea258fc7e37",
+      "endpoint_evidence_status": "ESTABLISHED",
+      "event_reference_count": 5,
+      "event_references": [
+        "rtp-packet:rtp-stream-example.pcapng:30.1",
+        "rtp-packet:rtp-stream-example.pcapng:31.1",
+        "rtp-packet:rtp-stream-example.pcapng:32.1",
+        "rtp-packet:rtp-stream-example.pcapng:33.1",
+        "rtp-packet:rtp-stream-example.pcapng:34.1"
+      ],
+      "event_references_omitted": 0,
+      "evidence_class": "DERIVED",
+      "first_frame_number": 30,
+      "incomplete_packet_count": 0,
+      "invalid_or_excluded_packet_count": 1,
+      "last_frame_number": 34,
+      "missing_evidence": [
+        "CAPTURE_BOUNDARY_COMPLETENESS_UNKNOWN"
+      ],
+      "observed_payload_types": [
+        0,
+        8
+      ],
+      "observed_sequence_gap_count": 0,
+      "out_of_order_packet_count": 0,
+      "restart_pattern_count": 0,
+      "restart_patterns": [],
+      "restart_patterns_omitted": 0,
+      "rtp_packet_count": 5,
+      "sequence_eligible_packet_count": 4,
+      "sequence_epoch_count": 1,
+      "sequence_epochs": [
+        {
+          "accepted_observation_count": 3,
+          "conflict_findings": [],
+          "duplicate_observation_count": 0,
+          "epoch_index": 0,
+          "evidence_class": "DERIVED",
+          "extended_sequence_end": 13,
+          "extended_sequence_start": 11,
+          "first_observed_sequence_number": 10,
+          "last_observed_sequence_number": 13,
+          "missing_evidence": [],
+          "observed_gap_count": 0,
+          "out_of_order_observation_count": 0,
+          "probation_observation_count": 1,
+          "restart_pattern_evidence_references": [],
+          "sequence_validation_status": "VALIDATED",
+          "sequence_wrap_count": 0,
+          "unique_sequence_count": 3,
+          "unobserved_sequence_number_slot_count": 0
+        }
+      ],
+      "sequence_epochs_omitted": 0,
+      "sequence_gaps": [],
+      "sequence_gaps_omitted": 0,
+      "sequence_validation_status": "VALIDATED",
+      "sequence_wrap_count": 0,
+      "source_endpoint_identity_status": "ESTABLISHED",
+      "source_endpoint_references": [
+        "endpoint-hmac-sha256:v1:7f025647932b24c812eeeae6350a4db7e6bfe5959b343e85549e32048780c873"
+      ],
+      "source_stream_reference": "rtp-source-stream:rtp-stream-example.pcapng:13:77778888",
+      "ssrc_reference": "rtp-ssrc:rtp-stream-example.pcapng:77778888",
+      "udp_stream": 13,
+      "unobserved_sequence_number_slot_count": 0
+    },
+    {
+      "capture_file": "rtp-stream-example.pcapng",
+      "conflict_findings": [],
+      "destination_endpoint_identity_status": "ESTABLISHED",
+      "destination_endpoint_references": [
+        "endpoint-hmac-sha256:v1:3f2b901df469a3241537c227041f9ddb4b3e390c15a16f8f0ec6d2ed38e9714a"
+      ],
+      "duplicate_sequence_observation_count": 0,
+      "endpoint_context_reference": "endpoint-context-hmac-sha256:v1:803229997877a403dc8855119d8915ab4abd7d0a96408ddb116f0ea258fc7e37",
+      "endpoint_evidence_status": "ESTABLISHED",
+      "event_reference_count": 2,
+      "event_references": [
+        "rtp-packet:rtp-stream-example.pcapng:40.1",
+        "rtp-packet:rtp-stream-example.pcapng:41.1"
+      ],
+      "event_references_omitted": 0,
+      "evidence_class": "DERIVED",
+      "first_frame_number": 40,
+      "incomplete_packet_count": 0,
+      "invalid_or_excluded_packet_count": 1,
+      "last_frame_number": 41,
+      "missing_evidence": [
+        "CAPTURE_BOUNDARY_COMPLETENESS_UNKNOWN",
+        "SEQUENTIAL_VALIDATION_INCOMPLETE"
+      ],
+      "observed_payload_types": [
+        0
+      ],
+      "observed_sequence_gap_count": 0,
+      "out_of_order_packet_count": 0,
+      "restart_pattern_count": 0,
+      "restart_patterns": [],
+      "restart_patterns_omitted": 0,
+      "rtp_packet_count": 2,
+      "sequence_eligible_packet_count": 1,
+      "sequence_epoch_count": 1,
+      "sequence_epochs": [
+        {
+          "accepted_observation_count": 0,
+          "conflict_findings": [],
+          "duplicate_observation_count": 0,
+          "epoch_index": 0,
+          "evidence_class": "DERIVED",
+          "extended_sequence_end": 20,
+          "extended_sequence_start": 20,
+          "first_observed_sequence_number": 20,
+          "last_observed_sequence_number": 20,
+          "missing_evidence": [
+            "SEQUENTIAL_VALIDATION_INCOMPLETE"
+          ],
+          "observed_gap_count": 0,
+          "out_of_order_observation_count": 0,
+          "probation_observation_count": 1,
+          "restart_pattern_evidence_references": [],
+          "sequence_validation_status": "PROBATION",
+          "sequence_wrap_count": 0,
+          "unique_sequence_count": 1,
+          "unobserved_sequence_number_slot_count": 0
+        }
+      ],
+      "sequence_epochs_omitted": 0,
+      "sequence_gaps": [],
+      "sequence_gaps_omitted": 0,
+      "sequence_validation_status": "PROBATION",
+      "sequence_wrap_count": 0,
+      "source_endpoint_identity_status": "ESTABLISHED",
+      "source_endpoint_references": [
+        "endpoint-hmac-sha256:v1:bfce8e989b8c2dd4b3ba9f8221a80db11a5d4c65b798e29bc514924de8f7d594"
+      ],
+      "source_stream_reference": "rtp-source-stream:rtp-stream-example.pcapng:14:9999aaaa",
+      "ssrc_reference": "rtp-ssrc:rtp-stream-example.pcapng:9999aaaa",
+      "udp_stream": 14,
+      "unobserved_sequence_number_slot_count": 0
+    }
+  ],
+  "source_streams_omitted": 0,
+  "unassigned_packet_count": 2,
+  "unassigned_packets": [
+    {
+      "event_reference": "rtp-packet:rtp-stream-example.pcapng:50.1",
+      "frame_number": 50,
+      "message_occurrence": 1,
+      "missing_evidence": [
+        "UDP_STREAM_ID_UNAVAILABLE"
+      ],
+      "original_evidence_status": "OBSERVED",
+      "reason_codes": [
+        "UDP_STREAM_UNAVAILABLE"
+      ]
+    },
+    {
+      "event_reference": "rtp-packet:rtp-stream-example.pcapng:51.1",
+      "frame_number": 51,
+      "message_occurrence": 1,
+      "missing_evidence": [
+        "SSRC_REFERENCE_UNAVAILABLE"
+      ],
+      "original_evidence_status": "INCOMPLETE",
+      "reason_codes": [
+        "SSRC_REFERENCE_UNAVAILABLE"
+      ]
+    }
+  ],
+  "unassigned_packets_omitted": 0
+}
