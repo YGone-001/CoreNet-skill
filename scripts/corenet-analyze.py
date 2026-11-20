@@ -44,6 +44,9 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ims_media_pipeline  # noqa: E402
+
 ANALYZER_NAME = "corenet-analyze"
 ANALYZER_VERSION = "1.1"
 REPORT_SCHEMA_VERSION = "1.2"
@@ -1434,6 +1437,109 @@ def _render_boundary(lines: list[str], boundary: dict[str, Any], indent: str = "
             )
 
 
+def _render_ims_media(lines: list[str], media: dict[str, Any]) -> None:
+    if not isinstance(media, dict) or not media.get("requested"):
+        return
+    sdp = media.get("sdp") or {}
+    signaling = media.get("media_signaling") or {}
+    rtp = media.get("rtp_rtcp") or {}
+    sequence = rtp.get("sequence") or {}
+    correlation = media.get("transport_correlation") or {}
+    session = media.get("ims_media_session") or {}
+    lines.append(
+        f"  Media pipeline  : {_value(media.get('media_status'))}; "
+        f"offline={'yes' if media.get('offline') else 'no'}; "
+        f"network_required={'yes' if media.get('network_required') else 'no'}; "
+        f"endpoint_key={_value(media.get('endpoint_key_status'))}"
+    )
+    lines.append(
+        f"  SDP             : {_value(sdp.get('analysis_status'))}, "
+        f"{_value(sdp.get('message_count'))} message(s), "
+        f"{_value(sdp.get('media_section_count'))} media section(s), "
+        f"types {', '.join(f'{k}={v}' for k, v in (sdp.get('media_type_counts') or {}).items()) or 'none'}, "
+        f"directions {', '.join(f'{k}={v}' for k, v in (sdp.get('direction_counts') or {}).items()) or 'none'}"
+    )
+    lines.append(
+        f"  Media signaling : {_value(signaling.get('analysis_status'))}, "
+        f"offers={_value(signaling.get('observed_offer_count'))}, "
+        f"answers={_value(signaling.get('observed_answer_count'))}, "
+        f"established={_value(signaling.get('established_exchange_count'))}, "
+        f"incomplete={_value(signaling.get('incomplete_exchange_count'))}, "
+        f"ambiguous={_value(signaling.get('ambiguous_exchange_count'))}, "
+        f"out_of_scope={_value(signaling.get('out_of_scope_observation_count'))}"
+    )
+    lines.append(
+        f"  RTP / RTCP      : {_value(rtp.get('analysis_status'))}, "
+        f"{_value(rtp.get('rtp_packet_count'))} RTP packet(s), "
+        f"{_value(rtp.get('rtcp_component_count'))} RTCP component(s), "
+        f"{_value(rtp.get('udp_stream_count'))} UDP stream(s), "
+        f"{_value(rtp.get('ssrc_reference_count'))} SSRC reference(s), "
+        f"frames {_value(rtp.get('first_frame_number'))}..{_value(rtp.get('last_frame_number'))}"
+    )
+    lines.append(
+        f"  RTP sequence    : {_value(sequence.get('source_stream_count'))} source stream(s), "
+        f"validated={_value(sequence.get('validated_stream_count'))}, "
+        f"probation={_value(sequence.get('probation_stream_count'))}, "
+        f"ambiguous={_value(sequence.get('ambiguous_stream_count'))}, "
+        f"wraps={_value(sequence.get('sequence_wrap_count'))}, "
+        f"duplicates={_value(sequence.get('duplicate_observation_count'))}, "
+        f"out_of_order={_value(sequence.get('out_of_order_observation_count'))}, "
+        f"gaps={_value(sequence.get('sequence_gap_count'))}, "
+        f"unobserved_slots={_value(sequence.get('unobserved_sequence_number_slot_count'))}, "
+        f"restarts={_value(sequence.get('restart_pattern_count'))}"
+    )
+    lines.append(
+        f"  SDP/RTP match   : {_value(correlation.get('matched_correlation_count'))}/"
+        f"{_value(correlation.get('correlation_count'))} matched, "
+        f"{_value(correlation.get('ambiguous_correlation_count'))} ambiguous, "
+        f"{_value(correlation.get('unmatched_correlation_count'))} unmatched, "
+        f"{_value(correlation.get('out_of_scope_correlation_count'))} out-of-scope, "
+        f"{_value(correlation.get('unmatched_stream_count'))} unmatched stream(s)"
+    )
+    lines.append(
+        f"  IMS media       : {_value(session.get('attempt_count'))} attempt(s), "
+        f"{_value(session.get('exchange_count'))} exchange(s), "
+        f"established={_value(session.get('established_exchange_count'))}, "
+        f"attempt_bound={_value(session.get('attempt_bound_observation_count'))}, "
+        f"branch_bound={_value(session.get('branch_bound_observation_count'))}, "
+        f"observations={_value(session.get('transport_observation_count'))}, "
+        f"temporal={_value(session.get('temporal_association_status'))}"
+    )
+    for item in (correlation.get("matched_correlations") or [])[:8]:
+        lines.append(
+            f"    matched       : {_value(item.get('correlation_reference'))} "
+            f"[{_value(item.get('association_status'))}] streams "
+            f"{', '.join(item.get('rtp_udp_stream_references') or []) or '-'} directions "
+            f"{', '.join(item.get('match_directions') or []) or '-'}"
+        )
+    for item in (session.get("associated_observations") or [])[:8]:
+        lines.append(
+            f"    media obs     : {_value(item.get('observation_reference'))} "
+            f"{_value(item.get('association_scope'))}/{_value(item.get('association_status'))} "
+            f"attempt={_value(item.get('attempt_reference'))} "
+            f"branch={_value(item.get('dialog_branch_reference'))}"
+        )
+    diagnostics = media.get("diagnostics") or {}
+    for label, key in (
+        ("observed", "observed"),
+        ("missing", "missing"),
+        ("ambiguous", "ambiguous"),
+        ("unsupported", "unsupported"),
+    ):
+        for item in (diagnostics.get(key) or [])[:MAX_LIST_ITEMS]:
+            lines.append(f"    {label:<13} : {scrub_free_text(item)}")
+    last = diagnostics.get("last_supported_evidence") or {}
+    if last:
+        lines.append(
+            f"    last evidence : {_value(last.get('stage'))} "
+            f"{_value(last.get('reference'))} frame {_value(last.get('frame_number'))}"
+        )
+    for stage, error in (media.get("stage_errors") or {}).items():
+        lines.append(f"    media failure : {stage}: {scrub_free_text(error)}")
+    for item in (media.get("limitations") or [])[:MAX_LIST_ITEMS]:
+        lines.append(f"    media limit   : {scrub_free_text(item)}")
+
+
 def render_text_report(report: dict[str, Any]) -> str:
     """Render the human-readable companion report with evidence-safe language."""
     capture = report["capture"]
@@ -1583,6 +1689,7 @@ def render_text_report(report: dict[str, Any]) -> str:
         )
         for item in (evidence.get("limitations") or [])[:MAX_LIST_ITEMS]:
             lines.append(f"    limitation   : {scrub_free_text(item)}")
+        _render_ims_media(lines, evidence.get("media") or {})
         for item in result.get("degradation") or []:
             lines.append(f"    failure      : {scrub_free_text(item)}")
 
@@ -5794,6 +5901,10 @@ def execute_ims_pipeline(
     work_dir: Path,
     case_id: str,
     observed: set[str] | None = None,
+    *,
+    with_media: bool = False,
+    offline: bool = False,
+    endpoint_key_file: Path | None = None,
 ) -> dict[str, Any]:
     """Execute the accepted SIP, Diameter and IMS Domain components.
 
@@ -6073,6 +6184,57 @@ def execute_ims_pipeline(
         session_evidence["analysis_status"] = "UNAVAILABLE_SIP"
         limitations.append("IMS Session did not run because no accepted SIP event artifacts were available.")
 
+    media_evidence: dict[str, Any] = {
+        "requested": bool(with_media),
+        "media_status": "NOT_REQUESTED" if not with_media else "INSUFFICIENT_EVIDENCE",
+        "offline": bool(offline),
+    }
+    media_error: str | None = None
+    if with_media:
+        if not (sip_status == "SUCCESS" and sip_events.is_file()):
+            media_evidence = {
+                "requested": True,
+                "media_status": "UNSUPPORTED",
+                "offline": bool(offline),
+                "reason": "SIP plaintext events are unavailable for SDP extraction",
+            }
+            limitations.append(
+                "IMS media analysis was requested but no accepted plaintext SIP event artifact was available."
+            )
+        elif not session.is_file():
+            media_evidence = {
+                "requested": True,
+                "media_status": "UNSUPPORTED",
+                "offline": bool(offline),
+                "reason": "IMS Session analysis is unavailable for media composition",
+            }
+            limitations.append(
+                "IMS media analysis was requested but the accepted IMS Session artifact was unavailable."
+            )
+        else:
+            try:
+                media_evidence = ims_media_pipeline.execute_media_pipeline(
+                    capture=capture,
+                    run_dir=run_dir,
+                    sip_events=sip_events,
+                    ims_session=session,
+                    capture_sha256=capture_digest(capture),
+                    offline=offline,
+                    endpoint_key_file=endpoint_key_file,
+                )
+            except Exception as exc:  # pragma: no cover - defensive orchestration guard
+                media_error = scrub_free_text(str(exc)) or "media pipeline failed"
+                media_evidence = {
+                    "requested": True,
+                    "media_status": "FAILED",
+                    "offline": bool(offline),
+                    "stage_errors": {"media_pipeline": media_error},
+                }
+                degradation.append(f"IMS media pipeline failed: {media_error}")
+            limitations.extend(media_evidence.get("limitations") or [])
+            for stage, error in (media_evidence.get("stage_errors") or {}).items():
+                degradation.append(f"Media stage {stage} failed: {error}")
+
     registration_status = registration_evidence["analysis_status"]
     session_status = session_evidence["analysis_status"]
     usable_registration = registration_status in ("COMPLETED", "INSUFFICIENT_EVIDENCE")
@@ -6101,6 +6263,16 @@ def execute_ims_pipeline(
     else:
         execution_status = STATUS_INSUFFICIENT_EVIDENCE
 
+    media_status = media_evidence.get("media_status")
+    if with_media:
+        if media_status == "FAILED":
+            if execution_status == STATUS_COMPLETED:
+                execution_status = STATUS_PARTIAL
+        elif media_status != "SUCCESS":
+            if execution_status == STATUS_COMPLETED:
+                execution_status = STATUS_PARTIAL
+            elif execution_status == STATUS_FAILED:
+                execution_status = STATUS_FAILED
     protocol_evidence = [
         {
             "protocol": "SIP",
@@ -6129,6 +6301,43 @@ def execute_ims_pipeline(
             "instance_count": session_evidence["attempt_count"],
         },
     ]
+    if with_media:
+        media_stages = media_evidence.get("stage_statuses") or {}
+        procedure_summaries.extend(
+            [
+                {
+                    "procedure_domain": "ims-media-signaling",
+                    "execution_status": media_stages.get("ims_media_signaling", "SKIPPED"),
+                    "instance_count": (media_evidence.get("media_signaling") or {}).get("exchange_count", 0),
+                },
+                {
+                    "procedure_domain": "ims-media-session",
+                    "execution_status": media_stages.get("ims_media_session", "SKIPPED"),
+                    "instance_count": (media_evidence.get("ims_media_session") or {}).get("transport_observation_count", 0),
+                },
+            ]
+        )
+        protocol_evidence.extend(
+            [
+                {
+                    "protocol": "SDP",
+                    "extraction_status": media_stages.get("sdp_extraction", "SKIPPED"),
+                    "event_count": (media_evidence.get("sdp") or {}).get("message_count", 0),
+                    "media_section_count": (media_evidence.get("sdp") or {}).get("media_section_count", 0),
+                },
+                {
+                    "protocol": "RTP",
+                    "extraction_status": media_stages.get("rtp_extraction", "SKIPPED"),
+                    "event_count": (media_evidence.get("rtp_rtcp") or {}).get("rtp_packet_count", 0),
+                    "source_stream_count": ((media_evidence.get("rtp_rtcp") or {}).get("sequence") or {}).get("source_stream_count", 0),
+                },
+                {
+                    "protocol": "RTCP",
+                    "extraction_status": media_stages.get("rtp_extraction", "SKIPPED"),
+                    "event_count": (media_evidence.get("rtp_rtcp") or {}).get("rtcp_component_count", 0),
+                },
+            ]
+        )
     ims_evidence = {
         "sip_protocol": {
             **sip_counts,
@@ -6144,6 +6353,7 @@ def execute_ims_pipeline(
         "registration": registration_evidence,
         "session": session_evidence,
         "diameter_ims": diameter_ims_evidence,
+        "media": media_evidence,
         "cross_protocol_association": "NOT_ESTABLISHED",
         "analysis_status": execution_status,
         "limitations": limitations,
@@ -6169,9 +6379,26 @@ def execute_ims_domain(
     detection: dict[str, Any],
     observed: set[str],
     pipeline: Callable[[Path, Path, str, set[str]], dict[str, Any]] | None = None,
+    *,
+    with_media: bool = False,
+    offline: bool = False,
+    endpoint_key_file: Path | None = None,
 ) -> dict[str, Any]:
     """Execute IMS and attach its evidence to the domain-neutral envelope."""
-    payload = (pipeline or execute_ims_pipeline)(capture, work_dir, case_id, observed)
+    runner = pipeline or execute_ims_pipeline
+    if with_media:
+        payload = runner(
+            capture,
+            work_dir,
+            case_id,
+            observed,
+            with_media=True,
+            offline=offline,
+            endpoint_key_file=endpoint_key_file,
+        )
+    else:
+        # Preserve the historical four-argument contract for all non-media runs.
+        payload = runner(capture, work_dir, case_id, observed)
     capability = DOMAIN_CAPABILITIES[DOMAIN_IMS]
     result = {
         "domain": DOMAIN_IMS,
@@ -6197,9 +6424,15 @@ def execute_ims_domain(
             "Resolve the failed IMS component and re-run the capture; independent SIP or Diameter evidence that was already usable is preserved when available."
         ]
     elif result["execution_status"] in (STATUS_COMPLETED, STATUS_PARTIAL):
-        result["additional_evidence_needed"] = [
-            "SDP, RTP, Diameter Rx, charging, session modification and end-to-end IMS fault isolation are outside the implemented scope."
-        ]
+        media = (result.get("ims_evidence") or {}).get("media") or {}
+        if media.get("requested") and media.get("media_status") not in ("SUCCESS", None):
+            result["additional_evidence_needed"] = [
+                "Provide a capture that exposes the missing SDP answer, RTP transport or media-association evidence; encrypted/IPsec media remains inaccessible."
+            ]
+        else:
+            result["additional_evidence_needed"] = [
+                "Diameter Rx, charging, session modification, temporal media association and end-to-end IMS fault isolation remain outside the implemented scope."
+            ]
     return result
 
 
@@ -6207,6 +6440,7 @@ def build_domain_adapters(
     pipeline: Callable[[Path, Path, str], tuple[dict[str, Any], Any, Path]],
     epc_pipeline: Callable[[Path, Path, str], dict[str, Any]],
     ims_pipeline: Callable[[Path, Path, str, set[str]], dict[str, Any]] | None = None,
+    ims_media: dict[str, Any] | None = None,
 ) -> dict[str, DomainAdapter]:
     """Execution adapters, one per implemented domain.
 
@@ -6221,7 +6455,15 @@ def build_domain_adapters(
             capture, work_dir, case_id, detection, epc_pipeline
         ),
         DOMAIN_IMS: lambda capture, work_dir, case_id, detection, observed: execute_ims_domain(
-            capture, work_dir, case_id, detection, observed, ims_pipeline
+            capture,
+            work_dir,
+            case_id,
+            detection,
+            observed,
+            ims_pipeline,
+            with_media=bool((ims_media or {}).get("enabled")),
+            offline=bool((ims_media or {}).get("offline")),
+            endpoint_key_file=(ims_media or {}).get("endpoint_key_file"),
         ),
     }
 
@@ -6236,6 +6478,10 @@ def analyze(
     pipeline: Callable[[Path, Path, str], tuple[dict[str, Any], Any, Path]] | None = None,
     epc_pipeline: Callable[[Path, Path, str], dict[str, Any]] | None = None,
     ims_pipeline: Callable[[Path, Path, str, set[str]], dict[str, Any]] | None = None,
+    with_media: bool = False,
+    offline: bool = False,
+    endpoint_key_file: Path | None = None,
+    expected_capture_sha256: str | None = None,
 ) -> tuple[dict[str, Any], int]:
     """Execute the workflow and return the report and the CLI exit code."""
     inventory_fn = inventory or inventory_capture
@@ -6251,12 +6497,31 @@ def analyze(
     validate_capture_container(capture)
 
     digest = capture_digest(capture)
+    if expected_capture_sha256 is not None:
+        if (
+            not isinstance(expected_capture_sha256, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", expected_capture_sha256)
+            or digest != expected_capture_sha256
+        ):
+            raise AnalysisError(
+                "CAPTURE_SHA256_MISMATCH",
+                "the capture SHA-256 does not match the pinned expectation",
+            )
     inventory_record = inventory_fn(capture)
     observed = observed_protocols(inventory_record)
     detection = detect_domains(observed)
     selection_mode, selected = resolve_selection(domains, detection)
 
-    adapters = build_domain_adapters(pipeline_fn, epc_pipeline_fn, ims_pipeline_fn)
+    adapters = build_domain_adapters(
+        pipeline_fn,
+        epc_pipeline_fn,
+        ims_pipeline_fn,
+        {
+            "enabled": bool(with_media),
+            "offline": bool(offline),
+            "endpoint_key_file": endpoint_key_file,
+        },
+    )
     case_id = f"capture-{digest[:12]}"
     observed_set = set(observed["protocols"])
     results: list[dict[str, Any]] = []
@@ -6349,6 +6614,25 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="replace existing analysis.json and report.txt in the output directory",
     )
+    parser.add_argument(
+        "--with-media",
+        action="store_true",
+        help="run the bounded offline SDP/RTP/IMS media pipeline after IMS signaling",
+    )
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="assert that the analysis path requires no external network service",
+    )
+    parser.add_argument(
+        "--endpoint-key-file",
+        type=Path,
+        help="owner-only 32-byte local HMAC endpoint key for capture-scoped media matching",
+    )
+    parser.add_argument(
+        "--expected-capture-sha256",
+        help="optional pinned SHA-256 of the capture; a mismatch fails before analysis",
+    )
     return parser
 
 
@@ -6370,7 +6654,15 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         report, exit_code = analyze(
-            args.capture, args.domains, args.work_dir, args.output_dir, force=args.force
+            args.capture,
+            args.domains,
+            args.work_dir,
+            args.output_dir,
+            force=args.force,
+            with_media=args.with_media,
+            offline=args.offline,
+            endpoint_key_file=args.endpoint_key_file,
+            expected_capture_sha256=args.expected_capture_sha256,
         )
     except AnalysisError as error:
         _write_failure_report(args, error)

@@ -1144,6 +1144,7 @@ def _build_message_record(
     transport: dict[str, Any],
     *,
     observation_role: str = "UNKNOWN",
+    include_body: bool = False,
 ) -> dict[str, Any]:
     raw_via = headers.get("via_raw") or []
     top = raw_via[0] if raw_via else {}
@@ -1225,7 +1226,19 @@ def _build_message_record(
         "www_authenticate_count": int(headers.get("www_authenticate_count") or 0),
         "proxy_authenticate_count": int(headers.get("proxy_authenticate_count") or 0),
     }
-    return {"event": event, "match": match}
+    record: dict[str, Any] = {"event": event, "match": match}
+    if include_body:
+        # Private in-memory retention for the application-level SDP adapter.
+        # These keys are never published by the SIP event/transaction/dialog
+        # artifacts and must not be written to logs or public reports.
+        record["_private_body"] = {
+            "content_type": headers.get("content_type"),
+            "body": headers.get("msg_body_raw"),
+            "declared_length": headers.get("body_length"),
+            "message_completeness": event.get("message_completeness"),
+            "extraction_status": event.get("extraction_status"),
+        }
+    return record
 
 
 def _pdml_headers(proto: ElementTree.Element) -> dict[str, Any]:
@@ -1308,7 +1321,9 @@ def _pdml_integrity(proto: ElementTree.Element) -> list[str]:
     return findings
 
 
-def parse_pdml_messages(text: str, capture_file: str | None = None) -> list[dict[str, Any]]:
+def parse_pdml_messages(
+    text: str, capture_file: str | None = None, *, include_body: bool = False
+) -> list[dict[str, Any]]:
     try:
         root = ElementTree.fromstring(text)
     except ElementTree.ParseError as exc:
@@ -1339,7 +1354,11 @@ def parse_pdml_messages(text: str, capture_file: str | None = None) -> list[dict
                 integrity_findings=_pdml_integrity(proto),
                 capture_truncated=truncated,
             )
-            records.append(_build_message_record(event, headers, transport))
+            records.append(
+                _build_message_record(
+                    event, headers, transport, include_body=include_body
+                )
+            )
     return _ordered_records(records)
 
 
@@ -1834,7 +1853,7 @@ def pdml_for_capture(capture: Path, tshark_bin: str | None = None) -> str:
 
 
 def messages_for_input(
-    path: Path, input_format: str = "auto"
+    path: Path, input_format: str = "auto", *, include_body: bool = False
 ) -> tuple[list[dict[str, Any]], str | None]:
     if not path.is_file():
         raise InputError(f"input does not exist: {path}")
@@ -1853,10 +1872,18 @@ def messages_for_input(
     if fmt == "capture":
         _validate_capture_input(path)
         decoder = tshark_version()
-        records = parse_pdml_messages(pdml_for_capture(path), path.name)
+        records = parse_pdml_messages(
+            pdml_for_capture(path), path.name, include_body=include_body
+        )
     elif fmt == "pdml":
-        records = parse_pdml_messages(path.read_text(encoding="utf-8"), path.name)
+        records = parse_pdml_messages(
+            path.read_text(encoding="utf-8"), path.name, include_body=include_body
+        )
     elif fmt == "fields-jsonl":
+        if include_body:
+            raise InputError(
+                "private SIP body retention is only available from a local decoder input"
+            )
         records = records_from_jsonl_messages(path)
     else:
         raise InputError(f"unsupported input format: {fmt}")

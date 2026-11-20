@@ -337,6 +337,22 @@ class RtpEndpointTests(unittest.TestCase):
             "MULTIPLE_TRANSPORT_CANDIDATES", event["transport_endpoint_reason_codes"]
         )
 
+    def test_17b_tshark_inner_gtp_endpoint_extraction(self) -> None:
+        event = self._capture_event(
+            {
+                "ip": {"ip.src": "192.0.2.10", "ip.dst": "192.0.2.20"},
+                "udp": {
+                    "udp.stream": "9",
+                    "udp.stream.pnum": "1",
+                    "udp.srcport": "50056",
+                    "udp.dstport": "31226",
+                },
+                "gtp": {"gtp.teid": "1"},
+                "rtp": self._rtp_layer(),
+            }
+        )
+        self.assertEqual(event["transport_endpoint_status"], "ESTABLISHED")
+
     def test_18_tshark_multiple_ip_layers_are_ambiguous(self) -> None:
         event = self._capture_event(
             {

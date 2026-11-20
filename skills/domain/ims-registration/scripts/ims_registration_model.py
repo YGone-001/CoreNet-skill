@@ -1292,9 +1292,16 @@ def _timeline(
                 challenge_seen = True
     for observation in diameter:
         for reference in observation["source_event_references"]:
+            recorded_capture = observation.get("capture_identity")
+            capture = _capture_of(reference) or (
+                recorded_capture if isinstance(recorded_capture, str) else ""
+            )
+            tail = reference.rpartition(":")[2]
+            parts = tail.split(".")
+            occurrence = parts[1] if len(parts) >= 2 and parts[1].isdigit() else "1"
             rows.append(
                 {
-                    "row_reference": f"ims-timeline:{_capture_of(reference)}:{_frame_of(reference)}.{reference.rpartition('.')[2]}:DIAMETER",
+                    "row_reference": f"ims-timeline:{capture}:{_frame_of(reference)}.{occurrence}:DIAMETER",
                     "capture_identity": _capture_of(reference),
                     "frame_number": _frame_of(reference),
                     "source_reference": reference,

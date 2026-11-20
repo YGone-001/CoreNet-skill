@@ -923,9 +923,24 @@ def _endpoint_fields(packet: dict[str, Any]) -> dict[str, Any]:
         name == "gtp" or name.startswith("gtp.") or name.startswith("gtpv")
         for name in layer_names
     )
-    if encapsulated or len(ip_layers) > 1 or len(udp_layers) > 1:
+    if encapsulated:
+        # TShark collapses duplicate layer names in JSON. For a GTP-encapsulated
+        # RTP/RTCP packet the accepted single IP/UDP pair is usable only when it
+        # is the inner transport pair: exactly one pair, an RTP/RTCP layer is
+        # present, and the pair is not the GTP-U port 2152. Anything else stays
+        # ambiguous rather than guessing between outer and inner endpoints.
+        if len(ip_layers) != 1 or len(udp_layers) != 1:
+            return {"endpoint_transport_ambiguous": True}
+        udp_layer = udp_layers[0]
+        source_port = _numeric(_first(udp_layer.get("udp.srcport")))
+        destination_port = _numeric(_first(udp_layer.get("udp.dstport")))
+        if 2152 in (source_port, destination_port):
+            return {"endpoint_transport_ambiguous": True}
+        if _layer(packet, "rtp") is None and _layer(packet, "rtcp") is None:
+            return {"endpoint_transport_ambiguous": True}
+    elif len(ip_layers) > 1 or len(udp_layers) > 1:
         return {"endpoint_transport_ambiguous": True}
-    if len(ip_layers) != 1 or len(udp_layers) != 1:
+    elif len(ip_layers) != 1 or len(udp_layers) != 1:
         return {}
     ip_layer = ip_layers[0]
     raw_addresses = [

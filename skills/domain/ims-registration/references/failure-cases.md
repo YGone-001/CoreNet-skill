@@ -62,6 +62,7 @@
 | Case | Result |
 | --- | --- |
 | No Diameter input | `NOT_SUPPLIED`; SIP-only analysis succeeds |
+| Diameter event reference without capture identity | The parent observation capture identity is inherited; the timeline row still requires a valid capture-scoped reference |
 | Invalid supplied artifact | Exit code 2; not treated as absence |
 | Artifact without Cx/Dx commands | `NOT_OBSERVED_IN_SUPPLIED_ARTIFACT` |
 | Open request / response-only / ambiguous | Retained with numeric status |

@@ -203,8 +203,11 @@ def load_rtp_analysis(path: Path) -> dict[str, Any]:
         parts = reference.split(":", 2)
         if len(parts) < 3 or parts[1] != capture:
             raise InputError("an RTP/RTCP source reference disagrees with the capture")
-        if event.get("parser_version") != RTP_PARSER_VERSION:
-            raise InputError("an RTP/RTCP event parser_version is not accepted")
+        if event.get("protocol") == "RTP":
+            if event.get("parser_version") != RTP_PARSER_VERSION:
+                raise InputError("an RTP event parser_version is not accepted")
+        elif event.get("parser_version") not in (None, RTP_PARSER_VERSION):
+            raise InputError("an RTCP event parser_version is not accepted")
         if event.get("protocol") == "RTP":
             for key in (
                 "source_transport_endpoint_reference",
@@ -385,12 +388,20 @@ def _streams(rtp: dict[str, Any], capture: str) -> tuple[list[dict[str, Any]], d
         sources = _unique(raw["source_references"])
         destinations = _unique(raw["destination_references"])
         statuses = raw["endpoint_statuses"]
-        if "AMBIGUOUS" in statuses:
-            status = "AMBIGUOUS"
+        missing: list[str] = []
+        if len(sources) > 1 or len(destinations) > 1:
+            status = "CONFLICT"
         elif "CONFLICT" in statuses:
             status = "CONFLICT"
-        elif len(sources) > 1 or len(destinations) > 1:
-            status = "CONFLICT"
+        elif sources and destinations:
+            # Use the unambiguous endpoint subset. Encapsulated duplicate
+            # observations may lack endpoint evidence without contradicting the
+            # established pair; the coverage limitation is preserved.
+            status = "ESTABLISHED"
+            if any(item != "ESTABLISHED" for item in statuses):
+                missing.append("ENDPOINT_EVIDENCE_INCOMPLETE_FOR_SOME_PACKETS")
+        elif "AMBIGUOUS" in statuses:
+            status = "AMBIGUOUS"
         elif any(item != "ESTABLISHED" for item in statuses):
             status = "INCOMPLETE"
         elif not sources or not destinations:
@@ -413,7 +424,7 @@ def _streams(rtp: dict[str, Any], capture: str) -> tuple[list[dict[str, Any]], d
                 "missing_evidence": (
                     ["RTP_STREAM_ENDPOINT_EVIDENCE_INCOMPLETE"]
                     if status in {"INCOMPLETE", "UNAVAILABLE"}
-                    else []
+                    else missing
                 ),
                 "conflict_findings": (
                     ["UDP_STREAM_ENDPOINT_SET_CONFLICT"]
@@ -447,10 +458,18 @@ def _correlation(
     strength: str,
     missing: list[str],
     conflicts: list[str],
+    streams: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    selected = streams if streams is not None else ([stream] if stream is not None else [])
     directions = (
-        _directions(stream, endpoint_reference)
-        if stream is not None and endpoint_reference
+        _unique(
+            [
+                direction
+                for selected_stream in selected
+                for direction in _directions(selected_stream, endpoint_reference)
+            ]
+        )
+        if endpoint_reference
         else []
     )
     return {
@@ -469,14 +488,16 @@ def _correlation(
         ],
         "bundle_references": [bundle_reference] if bundle_reference else [],
         "endpoint_references": [endpoint_reference] if endpoint_reference else [],
-        "rtp_udp_stream_references": (
-            [stream["reference"]] if stream is not None else []
-        ),
-        "rtp_event_references": (
-            _unique(stream["event_references"])[:MAX_EVENT_REFERENCES]
-            if stream is not None
-            else []
-        ),
+        "rtp_udp_stream_references": [
+            selected_stream["reference"] for selected_stream in selected
+        ],
+        "rtp_event_references": _unique(
+            [
+                event_reference
+                for selected_stream in selected
+                for event_reference in selected_stream["event_references"]
+            ]
+        )[:MAX_EVENT_REFERENCES],
         "match_directions": directions,
         "association_status": status,
         "correlation_strength": strength,
@@ -521,6 +542,21 @@ def _unavailable_correlation(entry: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _mirror_pair(
+    left: dict[str, Any], right: dict[str, Any]
+) -> bool:
+    """Two UDP streams are one bidirectional pair when their endpoint sets mirror."""
+    return (
+        left["reference"] != right["reference"]
+        and len(left["source_references"]) == 1
+        and len(left["destination_references"]) == 1
+        and len(right["source_references"]) == 1
+        and len(right["destination_references"]) == 1
+        and left["source_references"] == right["destination_references"]
+        and left["destination_references"] == right["source_references"]
+    )
+
+
 def _match_unit(
     entries: list[dict[str, Any]],
     endpoint_reference: str,
@@ -537,11 +573,97 @@ def _match_unit(
     )
     if not entries:
         raise InputError("a correlation unit must contain at least one media section")
-    candidates = [
+    matching = [
         stream for stream in streams if endpoint_reference in (
             stream["source_references"] + stream["destination_references"]
         )
     ]
+    candidates = [
+        stream for stream in matching if stream["endpoint_evidence_status"] == "ESTABLISHED"
+    ]
+    non_established = [
+        stream for stream in matching if stream["endpoint_evidence_status"] != "ESTABLISHED"
+    ]
+    if candidates and non_established:
+        candidate_endpoints: set[str] = set()
+        for stream in candidates:
+            candidate_endpoints.update(stream["source_references"])
+            candidate_endpoints.update(stream["destination_references"])
+        unrelated = [
+            stream
+            for stream in non_established
+            if not (
+                set(stream["source_references"])
+                | set(stream["destination_references"])
+            ) <= candidate_endpoints
+        ]
+        if unrelated:
+            for stream in candidates:
+                stream["used"] = True
+            return _correlation(
+                reference,
+                "BUNDLE_MEDIA" if bundle_reference else "SINGLE_MEDIA",
+                entries,
+                endpoint_reference=endpoint_reference,
+                bundle_reference=bundle_reference,
+                stream=None,
+                status="AMBIGUOUS",
+                strength="MEDIUM",
+                missing=["RTP_STREAM_NOT_UNIQUE"],
+                conflicts=["UNRELATED_AMBIGUOUS_RTP_STREAM"],
+            )
+    if len(candidates) == 2 and _mirror_pair(candidates[0], candidates[1]):
+        for stream in candidates:
+            stream["used"] = True
+        return _correlation(
+            reference,
+            "BUNDLE_MEDIA" if bundle_reference else "SINGLE_MEDIA",
+            entries,
+            endpoint_reference=endpoint_reference,
+            bundle_reference=bundle_reference,
+            stream=None,
+            streams=candidates,
+            status="MATCHED_ENDPOINT",
+            strength="STRONG",
+            missing=_unique(
+                [
+                    item
+                    for stream in candidates
+                    for item in stream["missing_evidence"]
+                ]
+            ),
+            conflicts=[
+                "DUPLICATE_RTP_STREAM_GROUPING_IGNORED"
+            ] if non_established else [],
+        )
+    if not candidates and matching:
+        ambiguous_candidate = any(
+            stream["endpoint_evidence_status"] in {"AMBIGUOUS", "CONFLICT"}
+            for stream in matching
+        )
+        conflicts: list[str] = []
+        if any(
+            stream["endpoint_evidence_status"] == "CONFLICT" for stream in matching
+        ):
+            conflicts.append("UDP_STREAM_ENDPOINT_SET_CONFLICT")
+        if len(matching) > 1:
+            conflicts.append("MULTIPLE_RTP_STREAMS")
+        return _correlation(
+            reference,
+            "BUNDLE_MEDIA" if bundle_reference else "SINGLE_MEDIA",
+            entries,
+            endpoint_reference=endpoint_reference,
+            bundle_reference=bundle_reference,
+            stream=None,
+            status="AMBIGUOUS" if ambiguous_candidate else "INSUFFICIENT_EVIDENCE",
+            strength="MEDIUM" if ambiguous_candidate else "WEAK",
+            missing=(
+                ["RTP_STREAM_NOT_UNIQUE"]
+                if ambiguous_candidate
+                else ["RTP_STREAM_ENDPOINT_EVIDENCE_INCOMPLETE"]
+            ),
+            conflicts=conflicts,
+        )
     if not candidates:
         if len(entries) > 1 and bundle_reference is None:
             return _correlation(
@@ -647,7 +769,7 @@ def _match_unit(
         stream=stream,
         status="BUNDLE_TRANSPORT_MATCHED" if bundle_reference else "MATCHED_ENDPOINT",
         strength="STRONG",
-        missing=[],
+        missing=list(stream["missing_evidence"]),
         conflicts=[],
     )
 

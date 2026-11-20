@@ -9,7 +9,9 @@ The workflow is an application-level execution entry point. It is not a Skill la
 it owns no telecom protocol or procedure semantics, and it does not score the Golden
 Capture benchmark. It executes real 5GC analysis, bounded EPC EPS Attach procedure
 evidence analysis, and bounded IMS analysis through the accepted SIP, Diameter IMS,
-IMS Registration and IMS Session components. IMS technology attribution remains
+IMS Registration and IMS Session components. It also provides an opt-in offline IMS
+media mode that composes accepted SDP, RTP/RTCP, RTP source-stream, SDP/RTP
+transport-correlation and IMS media-session Skills. IMS technology attribution remains
 `SUSPECTED` when only SIP is observed; automatic selection executes the bounded IMS
 evidence path without upgrading that attribution.
 
@@ -80,6 +82,19 @@ python3 scripts/corenet-analyze.py \
   --output-dir /path/to/external-output
 ```
 
+Run the complete offline IMS media chain, optionally pinning the capture:
+
+```bash
+python3 scripts/corenet-analyze.py \
+  --capture /private/local/ims/volte.pcapng \
+  --domains ims \
+  --with-media \
+  --offline \
+  --expected-capture-sha256 <64-lowercase-hex> \
+  --work-dir /private/local/ims-work \
+  --output-dir /private/local/ims-results
+```
+
 Let automatic selection execute the bounded IMS path when SIP is observed:
 
 ```bash
@@ -106,6 +121,10 @@ python3 scripts/corenet-analyze.py \
 | `--domains SPEC` | `auto`, `5gc`, `epc`, `ims`, or a comma-separated list. Default `auto`. |
 | `--work-dir PATH` | Scratch directory for intermediate extraction artifacts. Must be outside the repository and must not overlap the output directory. |
 | `--output-dir PATH` | Destination for `analysis.json` and `report.txt`. Must not be inside `benchmarks/golden-captures/` and must not contain, or be contained by, the work directory. |
+| `--with-media` | Run the bounded IMS SDP/RTP/IMS media pipeline after IMS signaling. Requires an executable IMS path. |
+| `--offline` | Assert that the analysis path needs no external network service. Git push and CI are outside this boundary. |
+| `--endpoint-key-file PATH` | Optional owner-only 32-byte HMAC key for capture-scoped SDP/RTP endpoint references. Without it, a capture-scoped key is created under `~/.local/share/corenet-skill/endpoint-keys/`. |
+| `--expected-capture-sha256 HEX` | Optional capture pin. A mismatch fails before analysis and is never silently replaced. |
 | `--force` | Replace an existing `analysis.json` and `report.txt` pair. It never deletes work directories. |
 | `--help` | Full usage text, including exit codes. |
 
@@ -160,7 +179,11 @@ Intermediate artifacts stay in `--work-dir`. Every 5GC run creates its own scrat
 directory under `<work-dir>/5gc/runs/<run-id>/`; EPC and IMS runs use their own
 domain-scoped run directories. The IMS run directory contains the SIP event,
 transaction, dialog and trace artifacts, optional Diameter Core and Cx/Dx artifacts,
-and the IMS Registration and IMS Session analysis and report artifacts. An
+and the IMS Registration and IMS Session analysis and report artifacts. With
+`--with-media`, a `media/` subdirectory additionally contains the SDP Analysis,
+IMS Media Signaling, RTP/RTCP Analysis, RTP source-stream Analysis, SDP/RTP
+transport-correlation and IMS media-session artifacts. No raw SIP/SDP body or HMAC
+key is written there. An
 interrupted or failed run can never be read as fresh evidence from an earlier one, and
 nothing is deleted to achieve that. The work directory is scratch data and may be removed by the operator
 between runs.
@@ -188,7 +211,11 @@ Each `domain_results` record carries `domain`, `implementation_status`,
 additionally publishes `ims_evidence` with the SIP and Diameter extraction statuses,
 SIP Event/Transaction/Dialog counts, Cx/Dx observation count, Registration analysis
 status and attempt count, Session analysis status and attempt count, Early/Confirmed
-Dialog counts, CANCEL and BYE release observation counts. A domain that could not be
+Dialog counts, CANCEL and BYE release observation counts. When media execution is
+requested it also publishes `ims_evidence.media` with the media status, per-stage
+statuses, SDP counts and media types, offer/answer exchange counts, RTP/RTCP counts,
+RTP source-stream sequence evidence, SDP/RTP match counts, IMS media associations,
+diagnostics and artifact SHA-256 values. A domain that could not be
 analyzed still appears in the list; it is never silently dropped.
 
 ## 6. Execution statuses and exit codes
@@ -209,6 +236,19 @@ Execution statuses describe the workflow, not the network:
 | `2` | `UNSUPPORTED`. |
 | `3` | `INSUFFICIENT_EVIDENCE`. |
 | `4` | `FAILED`. |
+Media execution publishes a separate status vocabulary:
+
+| Media status | Meaning |
+| --- | --- |
+| `SUCCESS` | Every requested media stage executed and at least one SDP/RTP association plus established IMS media evidence was observed. |
+| `PARTIAL` | Usable media evidence exists, but a requested stage or expected observation is missing (for example no SDP answer, no matched endpoint, or a failed optional stage). The report names the reason. |
+| `INSUFFICIENT_EVIDENCE` | Media processing ran but the capture exposes no usable SDP/RTP/IMS media association evidence. This is not a media failure verdict. |
+| `UNSUPPORTED` | The requested media path cannot run because the required SIP/IMS Session or decoder evidence is unavailable. |
+| `FAILED` | A required media stage failed without usable independent evidence. |
+
+With `--with-media`, an overall `COMPLETED` is never published when the media result is
+not `SUCCESS`; the run becomes at most `PARTIAL` and names the media limitation. A
+failed RTP stage does not erase valid SIP/SDP evidence.
 
 ### Required versus optional components
 
@@ -229,6 +269,49 @@ and the limitation is stated in the report.
 
 A security-protected payload is not an extractor failure. It bounds interpretation,
 and the report says so.
+
+### IMS media execution mode
+
+`--with-media` executes the accepted Skills in this dependency order:
+
+1. SIP Event extraction (existing IMS path).
+2. SIP Transaction and Dialog analysis.
+3. IMS Session analysis.
+4. Private SIP-to-SDP extraction adapter.
+5. SDP Analysis.
+6. IMS Media Signaling.
+7. RTP/RTCP Analysis.
+8. RTP source-stream reconstruction.
+9. SDP/RTP transport correlation.
+10. IMS media-session composition.
+11. Unified media evidence in `analysis.json` and `report.txt`.
+
+The adapter reuses the accepted SIP decoder and SDP parser. It retains raw bodies only
+in memory, binds each SDP message to the exact SIP Event source reference, capture
+identity, frame number and occurrence, rejects incomplete or ambiguous associations,
+and publishes only SDP Analysis. It creates no plaintext body file and never publishes
+raw SDP.
+
+One capture-scoped, owner-only 32-byte HMAC key is created or reused for the capture
+and supplied to both SDP and RTP processing, so endpoint references are comparable.
+The key is not written to JSON, reports, logs or Git; only an opaque endpoint-context
+reference and key status are published. `--endpoint-key-file` allows controlled reuse
+for a pinned case. If the key cannot be created or validated, media matching is
+reported as unavailable rather than inventing endpoint equality.
+
+The media path uses TShark only as the local dissector. It makes no network request:
+no search engine, remote AI inference, cloud packet analysis, online protocol analyzer,
+remote telemetry or online diagnosis. `--offline` asserts this boundary. When OS-level
+isolation is available, run the same command under `unshare -n` and compare supported
+deterministic outcomes.
+
+GTP-encapsulated RTP is accepted when the decoder exposes exactly one unambiguous
+inner transport pair that is not the GTP-U port. Mixed direct/encapsulated duplicate
+observations may leave some packets without endpoint evidence; a unique unambiguous
+subset can still establish the stream endpoint pair, and the coverage limitation is
+published. Bidirectional RTP is matched as an exact mirror pair of UDP streams; a
+conflicting multi-endpoint stream is not used as a candidate and the ambiguity remains
+visible. RTCP components are counted but never associated with an RTP stream.
 
 ## 7. Diagnostic subjects
 
@@ -320,6 +403,10 @@ Public reports are built from explicit allowlists, not by dumping internal recor
   identifiers.
 - Subscriber identities, authentication material, raw NAS or GTP-U payloads and
   credential values are never published.
+- Raw SIP bodies, raw SDP bodies, extracted plaintext bodies, endpoint keys and RTP
+  payloads are never published or tracked. The media adapter retains bodies only in
+  memory. GTP inner endpoints, when used, are published only as capture-scoped HMAC
+  references.
 - Free-text statements coming from the accepted components are scrubbed of absolute
   paths and long identifier-like digit runs. Structured evidence fields such as frame
   numbers and protocol identities are preserved exactly.

@@ -32,6 +32,30 @@ The `ims-media-session` Domain tests cover strict four-artifact analysis/schema/
 
 The IMS media-signaling Domain tests cover exact capture-scoped SIP-to-SDP reference association, capture/frame/occurrence equality, SDP root and per-message provenance integrity (capture identity, capture SHA-256, source-reference components, `frame-<n>` consistency, counts and duplicate rejection), initial SDP state separation between proven absence, accepted, incomplete, invalid, unresolved and out-of-scope evidence, late-offer eligibility restricted to proven absence, accepted Dialog and branch identity gating with missing, ambiguous, conflicting and unowned branch evidence, independent forked branches without cross-branch answer assignment, provisional-versus-final SDP role ambiguity, SIP response type, status validity and INVITE CSeq validation, ACK request/CSeq and branch ownership, non-2xx and in-dialog SDP scope preservation, schema and semantic rejection of logically impossible established exchanges, bounded count conservation, privacy of JSON, report and error output, deterministic replay and committed expected-output byte comparison. Fixtures are synthetic and sanitized.
 
+The offline IMS media workflow tests cover the application-level media pipeline without
+a network: per-stage exit-code mapping and failure isolation, media-status
+classification for success, missing SDP answer, insufficient evidence and failed
+stages, capture-scoped owner-only key creation/reuse/permission rejection and
+repository-path refusal, in-memory SIP body retention, hexadecimal decoder-body
+decoding with length and non-SDP rejection, the `--with-media`, `--offline`,
+`--expected-capture-sha256` and `--endpoint-key-file` CLI contract, bounded media
+report rendering, and the absence of raw SDP, payload, key material or absolute
+paths in media evidence. The `sdp-rtp-transport` tests additionally cover RTCP events
+without a parser-version field and exact bidirectional mirror-pair matching with
+conflict-stream exclusion. The SIP tests cover opt-in private body retention without
+changing the published event. The IMS Registration tests cover capture-less Diameter
+event references that must inherit the parent observation capture identity.
+
+Real-capture operational acceptance is performed locally against a pinned, privately
+stored public IMS/VoLTE corpus. The local acceptance record contains the source
+repository, immutable ref, source path, license, Git blob SHA-1, SHA-256, TShark
+validation and observed protocol inventory. Raw captures, extracted SIP/SDP bodies,
+subscriber identities and RTP payloads are never committed or uploaded to CI. CI
+continues to use sanitized synthetic fixtures; synthetic CI success is reported
+separately from real-capture acceptance. Offline execution is verified by running the
+same command under an OS network-isolation boundary where available and comparing the
+supported deterministic outcomes.
+
 ## Golden Capture Differential Benchmark
 
 The repository includes an empirical differential validation framework located in `benchmarks/golden-captures/`. This infrastructure exists outside the Skill architecture layers and evaluates automated Skill pipeline outputs against independent, standards-based packet baselines across public 5GC captures.

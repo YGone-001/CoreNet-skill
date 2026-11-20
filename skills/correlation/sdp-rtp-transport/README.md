@@ -72,11 +72,14 @@ The analysis version is `0.1.0`. The JSON contains bounded `correlations`,
 
 Statuses:
 
-- `MATCHED_ENDPOINT`: one SDP media endpoint equals one RTP stream endpoint.
+- `MATCHED_ENDPOINT`: one SDP media endpoint equals one RTP stream endpoint, or an
+  exact bidirectional mirror pair of two UDP streams whose source/destination
+  endpoint sets are reverse-equal. A conflicting multi-endpoint stream is excluded
+  from candidacy and the ambiguity is not hidden.
 - `BUNDLE_TRANSPORT_MATCHED`: one resolved BUNDLE group shares one endpoint and
   one RTP stream.
-- `AMBIGUOUS`: multiple streams, multiple unrelated media owners or conflicting
-  endpoint sets.
+- `AMBIGUOUS`: multiple non-mirror streams, multiple unrelated media owners or
+  conflicting endpoint sets.
 - `INSUFFICIENT_EVIDENCE`: endpoint, stream, ICE or evidence status is missing.
 - `UNMATCHED`: an SDP endpoint has no observed RTP stream.
 - `OUT_OF_SCOPE`: disabled, multicast, unspecified, link-local,
@@ -97,6 +100,9 @@ published field meaning.
   interpreted.
 - RTP header-extension MID demultiplexing is not implemented, so a bundled stream
   is not assigned to a particular bundled media section.
+- A stream may contain duplicate or encapsulated observations without endpoint
+  evidence; a unique unambiguous subset can establish its endpoint pair while the
+  incomplete coverage is published.
 - RTCP stream correlation, RTP stream reconstruction, sequence analysis, packet
   loss, jitter, MOS and QoS are not implemented.
 - GTP-U inner RTP endpoint association is not claimed; encapsulated or multiple

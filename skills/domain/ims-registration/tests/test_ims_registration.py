@@ -2471,5 +2471,27 @@ class BoundedAccountingTests(unittest.TestCase):
         self.assertEqual(first, second)
 
 
+class RegistrationTimelineCaptureFallbackTests(unittest.TestCase):
+    def test_captureless_diameter_event_reference_uses_observation_capture(self) -> None:
+        observation = {
+            "source_event_references": ["diameter-event:183.1"],
+            "capture_identity": "synthetic.pcapng",
+            "diameter_transaction_reference": "diameter-tx:synthetic.pcapng:300:183.1",
+        }
+        timeline = ims_registration_model._timeline(
+            [], [observation], ["synthetic.pcapng"], {}
+        )
+        row = timeline["rows"][0]
+        self.assertEqual(
+            row["row_reference"], "ims-timeline:synthetic.pcapng:183.1:DIAMETER"
+        )
+        self.assertIsNotNone(
+            ims_registration_model.TIMELINE_REFERENCE_PATTERN.fullmatch(
+                row["row_reference"]
+            )
+        )
+        self.assertEqual(row["source_reference"], "diameter-event:183.1")
+
+
 if __name__ == "__main__":
     unittest.main()

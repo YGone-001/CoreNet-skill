@@ -19,7 +19,23 @@ A lower-level instruction must never silently override a higher-level one. Destr
 
 CoreNet Skill is a modular, evidence-first AI Skill repository for mobile core-network signaling analysis, troubleshooting, protocol reasoning, cross-protocol correlation, procedure-level diagnosis, failure-boundary localization, and future end-to-end fault isolation. It focuses on network signaling evidence analysis rather than implementation-specific source ownership.
 
-Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, Foundation Skills, bounded Protocol Skills including capture-scoped RTP source-stream and sequence-integrity reconstruction, the `cross-protocol-evidence` and `sdp-rtp-transport` Correlation Skills, Domain and Procedure Skills for the EPC, 5GC, IMS registration, IMS session-signaling, IMS SDP media-signaling and branch-scoped IMS media-transport evidence families, boundedly scoped Analysis Orchestration for failure-boundary localization, and an application-level unified PCAP workflow that integrates the accepted 5GC, EPC and IMS components. The `ims-media-signaling` Domain is a standalone analysis over accepted SIP, IMS Session and SDP artifacts; it is not executed by the unified workflow in this phase. It does **not** implement implementation-specific source-code mappings or end-to-end fault isolation. Planned functionality must never be presented as implemented functionality.
+Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, Foundation Skills, bounded Protocol Skills including capture-scoped RTP source-stream and sequence-integrity reconstruction, the `cross-protocol-evidence` and `sdp-rtp-transport` Correlation Skills, Domain and Procedure Skills for the EPC, 5GC, IMS registration, IMS session-signaling, IMS SDP media-signaling and branch-scoped IMS media-transport evidence families, boundedly scoped Analysis Orchestration for failure-boundary localization, and an application-level unified PCAP workflow that integrates the accepted 5GC, EPC and IMS components, including an opt-in offline `--with-media` IMS SDP/RTP media composition. The `ims-media-signaling` Domain is a standalone analysis over accepted SIP, IMS Session and SDP artifacts; it is not executed by the unified workflow in this phase. It does **not** implement implementation-specific source-code mappings or end-to-end fault isolation. Planned functionality must never be presented as implemented functionality.
+
+
+## Development Priority and Real-Capture Policy
+
+These rules are permanent and apply to every future task:
+
+1. Functional completeness and real operational usefulness take priority over unnecessary fragmentation. Directly related integration defects are fixed within the same authorized task.
+2. Reuse existing Foundation, Protocol, Correlation and Domain Skills before creating a new Skill. The unified workflow is application-level orchestration; it owns no duplicate protocol or procedure semantics.
+3. Use real, legitimately sourced PCAP captures for functional acceptance whenever available and appropriate. Record source provenance, capture SHA-256, license and visibility limits.
+4. Public capture acquisition is a separate, explicitly authorized one-time operation. Subsequent analysis uses the pinned local copy and never silently re-downloads or replaces it.
+5. PCAP analysis must not depend on internet search, remote AI inference, cloud packet-analysis APIs, online protocol analyzers, remote telemetry or online diagnosis. The `--offline` mode asserts this application boundary.
+6. TShark remains permitted only as the existing local dissector dependency. Packet fields, dissector structures and frame provenance may come from TShark; all interpretation, association, evidence classification and conclusions belong to CoreNet-skill.
+7. Every major capability must demonstrate real input, actual output and reproducible evidence. Synthetic unit tests alone do not establish real-capture operational acceptance.
+8. CI passing on sanitized synthetic fixtures alone does not establish real-capture operational acceptance.
+9. Private capture data, raw public-capture content, extracted SIP/SDP bodies, subscriber identities, RTP payloads, endpoint keys and real-capture working directories remain outside Git.
+10. Never upload raw captures, derived plaintext bodies or endpoint keys to GitHub Actions or to any remote analysis service.
 
 ## Authoritative Documentation
 
@@ -299,6 +315,7 @@ For IMS Media Signaling changes, also run `python3 scripts/validate-ims-media-si
 For SDP changes, also run `python3 scripts/validate-sdp-rtp.py`.
 For RTP/RTCP changes, also run `python3 scripts/validate-rtp-rtcp.py`.
 For RTP source-stream changes, also run `python3 scripts/validate-rtp-stream.py`.
+For offline IMS media workflow changes, also run `python3 -m unittest discover -s tests -p 'test_ims_media_pipeline.py'`.
 
 For EPC Evidence Review navigation changes, also run:
 
@@ -307,6 +324,7 @@ For EPC Evidence Review navigation changes, also run:
     python3 scripts/validate-epc-dedicated-bearer-timeline.py
     python3 scripts/validate-epc-dedicated-bearer-attribution.py
 
+Real-capture acceptance is a local-only operational check: run `scripts/corenet-analyze.py` with `--with-media --offline` against the pinned local public corpus. Raw captures are never committed or uploaded to CI; synthetic CI success is reported separately from real-capture acceptance.
 Also run any Skill-specific tests introduced by the task. Never call a check PASS unless it ran. If a tool or dependency prevents a check, report NOT RUN and the exact reason. Tests for executable or rule-driven Skills should use small deterministic fixtures and cover normal behavior, malformed or missing input, boundary cases, evidence classification, correlation where applicable, and expected failure handling. Avoid large opaque packet captures unless justified.
 
 For non-trivial repository changes, the final report includes the inspected baseline, files changed, behavior added or changed, scope intentionally not implemented, tests and validation results, commit SHA if committed, push status if pushed, and blockers. Report failed validation; do not claim remote success without verification.

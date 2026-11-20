@@ -151,6 +151,42 @@ python3 scripts/corenet-analyze.py \
   --output-dir /tmp/corenet-output
 ```
 
+### Offline IMS media analysis
+
+Add `--with-media --offline` to compose the accepted SIP, SDP, RTP/RTCP, RTP
+source-stream, SDP/RTP transport-correlation and IMS media-session Skills in one
+local run:
+
+```bash
+python3 scripts/corenet-analyze.py \
+  --capture /private/local/ims/volte.pcapng \
+  --domains ims \
+  --with-media \
+  --offline \
+  --expected-capture-sha256 <64-lowercase-hex> \
+  --work-dir /private/local/ims-work \
+  --output-dir /private/local/ims-results
+```
+
+The media run creates a capture-scoped, owner-only 32-byte HMAC key under
+`~/.local/share/corenet-skill/endpoint-keys/` (or uses `--endpoint-key-file`) and
+uses the same key for SDP and RTP so endpoint references are comparable. Raw SIP and
+SDP bodies are retained only in memory by the private adapter and are never written
+to reports or tracked artifacts. `--offline` asserts that the analysis path needs no
+external network service; TShark remains the only local dissector.
+
+Media status is reported separately as `SUCCESS`, `PARTIAL`, `INSUFFICIENT_EVIDENCE`,
+`UNSUPPORTED` or `FAILED`. A missing SDP answer, missing RTP, unmatched endpoint
+correlation or encrypted media downgrades the media result instead of fabricating a
+positive conclusion. `report.txt` includes SIP/SDP/RTP counts, RTP sequence-integrity
+evidence, SDP/RTP match status, IMS media associations, diagnostics and the last
+supported evidence point. No call success, RTP delivery, two-way audio, packet-loss,
+QoS or MOS verdict is produced.
+
+The public IMS/VoLTE capture corpus and its pinned provenance are recorded in the
+local acceptance record. Raw captures remain local-only and are never committed or
+uploaded to CI.
+
 `--domains` accepts `auto`, `5gc`, `epc`, `ims`, or a comma-separated list. 5GC, EPC
 and IMS execute bounded analysis paths. IMS auto-selection runs when plaintext SIP is
 observed while technology attribution remains `SUSPECTED`; an explicit `--domains ims`
@@ -179,9 +215,10 @@ A separate optional attribution artifact exposes receiver-scoped control-to-sess
 links, NAS-to-S1AP ownership from an observed embedded NAS-PDU, and endpoint-only
 correspondence with the exact missing identity bridge; endpoint equality is never
 promoted to UE identity. IMS executes accepted SIP extraction, optional Diameter
-Cx/Dx evidence, IMS Registration and IMS Session analysis; a missing component or
-failed extraction is reported explicitly and never converted into an IMS call,
-media or network verdict. Every
+Cx/Dx evidence, IMS Registration and IMS Session analysis; with `--with-media` it
+also composes the accepted SDP, RTP/RTCP, RTP source-stream, transport-correlation and
+IMS media-session Skills. A missing component or failed extraction is reported
+explicitly and never converted into an IMS call, media or network verdict. Every
 diagnostic subject in a capture is reported with its own boundary status, a failed
 component makes the run `PARTIAL` instead of `COMPLETED`, and the workflow never asserts
 network health.

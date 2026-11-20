@@ -879,5 +879,24 @@ class UnifiedAnalyzerBoundaryTests(unittest.TestCase):
         self.assertEqual(set(adapters), {"5gc", "epc", "ims"})
 
 
+class SipPrivateBodyTests(unittest.TestCase):
+    def test_private_body_retention_is_opt_in(self) -> None:
+        event = json.loads(
+            (EXPECTED / "base-udp-events.jsonl").read_text(encoding="utf-8").splitlines()[0]
+        )
+        headers = {
+            "msg_body_raw": "763d30",
+            "content_type": "application/sdp",
+            "body_length": 3,
+        }
+        private = model._build_message_record(event, headers, {}, include_body=True)
+        public = model._build_message_record(event, headers, {})
+        self.assertEqual(private["event"], public["event"])
+        self.assertEqual(private["_private_body"]["body"], "763d30")
+        self.assertEqual(private["_private_body"]["content_type"], "application/sdp")
+        self.assertNotIn("_private_body", public)
+        self.assertNotIn("763d30", json.dumps(public["event"], sort_keys=True))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -26,6 +26,11 @@ python3 skills/protocol/sip/scripts/extract-sip.py \
   --force
 ```
 
+The SIP model also supports an internal, opt-in in-memory body retention used only by
+the application-level SDP extraction adapter. It is not part of the public SIP
+event, transaction or dialog artifact; raw SIP/SDP bodies are never published and no
+plaintext body file is written.
+
 See `SKILL.md`, `references/field-reference.md`, `references/transactions.md`,
 `references/dialogs.md`, `references/privacy.md` and
 `references/failure-cases.md`.

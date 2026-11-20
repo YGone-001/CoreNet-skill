@@ -234,13 +234,30 @@ class CorrelationMatchTests(unittest.TestCase):
         rtp = rtp_document(
             [
                 stream_packet(1, stream=0, source="192.0.2.10", destination="192.0.2.20", source_port=49170, destination_port=6000),
-                stream_packet(2, stream=1, source="192.0.2.20", destination="192.0.2.10", source_port=6002, destination_port=49170),
+                stream_packet(2, stream=1, source="192.0.2.10", destination="192.0.2.20", source_port=49170, destination_port=6002),
             ]
         )
         correlation = for_media(analyze_pair(sdp, rtp), 0)
         self.assertEqual(correlation["association_status"], "AMBIGUOUS")
         self.assertIn("MULTIPLE_RTP_STREAMS", correlation["conflict_findings"])
         self.assertEqual(correlation["correlation_strength"], "MEDIUM")
+
+    def test_08b_bidirectional_mirror_pair_is_matched(self) -> None:
+        sdp = basic_sdp()
+        rtp = rtp_document(
+            [
+                stream_packet(1, stream=0, source="192.0.2.10", destination="192.0.2.20", source_port=49170, destination_port=6000),
+                stream_packet(2, stream=1, source="192.0.2.20", destination="192.0.2.10", source_port=6000, destination_port=49170),
+            ]
+        )
+        correlation = for_media(analyze_pair(sdp, rtp), 0)
+        self.assertEqual(correlation["association_status"], "MATCHED_ENDPOINT")
+        self.assertEqual(correlation["correlation_strength"], "STRONG")
+        self.assertEqual(len(correlation["rtp_udp_stream_references"]), 2)
+        self.assertEqual(
+            sorted(correlation["match_directions"]),
+            ["RTP_DESTINATION_ENDPOINT_MATCH", "RTP_SOURCE_ENDPOINT_MATCH"],
+        )
 
     def test_09_multiple_unrelated_sdp_sections_is_ambiguous(self) -> None:
         document = analyze_pair(builder.sdp_analysis(), builder.rtp_analysis())
@@ -344,6 +361,52 @@ class CorrelationIntegrityTests(unittest.TestCase):
         sdp["messages"][0]["media_sections"][0]["index"] = -1
         with self.assertRaises(model.InputError):
             analyze_pair(sdp, builder.rtp_analysis())
+
+    def test_21b_rtcp_event_without_parser_version_is_accepted(self) -> None:
+        document = copy.deepcopy(builder.rtp_analysis())
+        record = {
+            "source_reference": f"rtcp-packet:{builder.CAPTURE}:900.1",
+            "capture_file": builder.CAPTURE,
+            "capture_sha256": builder.SHA,
+            "frame_number": 900,
+            "frame_timestamp": "1700000000.000900",
+            "frame_reference": "frame:900",
+            "message_occurrence": 1,
+            "protocol": "RTCP",
+            "fields": {},
+        }
+        component = {
+            "packet_type": 200,
+            "version": 2,
+            "length": 6,
+            "report_count": 0,
+            "sender_ssrc": 0x12345678,
+            "sender_report": {
+                "ntp_msw": 1,
+                "ntp_lsw": 2,
+                "ntp_present": True,
+                "rtp_timestamp": 3,
+                "packet_count": 10,
+                "octet_count": 1000,
+            },
+            "report_blocks": [],
+            "udp_stream": 9,
+        }
+        event = builder.rtp_rtcp_model._rtcp_component(record, component, 0)
+        self.assertNotIn("parser_version", event)
+        document["events"].append(event)
+        document["event_count"] += 1
+        document["input_provenance"]["input_message_count"] += 1
+        completeness = document["completeness"]
+        completeness["rtcp_component_count"] += 1
+        completeness["sr_component_count"] += 1
+        completeness["observed_event_count"] += 1
+        builder.rtp_rtcp_model.validate_analysis(document)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "rtp-rtcp-with-rtcp.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            loaded = model.load_rtp_analysis(path)
+        self.assertEqual(loaded["event_count"], document["event_count"])
 
     def test_22_incomplete_rtp_event_is_filtered(self) -> None:
         document = analyze_pair(builder.sdp_analysis(), builder.rtp_analysis())
