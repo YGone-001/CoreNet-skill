@@ -41,13 +41,13 @@ scope:
 dependencies:
   required:
     - sip >=0.4.0
-    - sdp-rtp >=0.3.0
+    - sdp-rtp >=0.4.0
     - ims-session >=0.1.0
   optional: []
 inputs:
   - SIP Event JSONL (event schema 1.0.0) from the accepted SIP Protocol Skill
   - IMS Session Analysis JSON (analysis version 0.1.0) from the accepted IMS Session Domain
-  - SDP Analysis JSON (analysis name sdp-rtp, analysis version 0.1.0, event schema 1.0.0)
+  - SDP Analysis JSON (analysis name sdp-rtp, analysis version 0.2.0, event schema 1.1.0)
 outputs:
   - bounded IMS SDP offer/answer evidence JSON, analysis version 0.3.0 (schemas/ims-media-signaling-analysis.schema.json)
   - optional plain-text evidence report

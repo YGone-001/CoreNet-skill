@@ -111,7 +111,7 @@ def main() -> int:
     manifest = (SKILL / "manifest.yaml").read_text(encoding="utf-8")
     for token in (
         "name: sdp-rtp",
-        "version: 0.3.0",
+        "version: 0.4.0",
         "category: protocol",
         "RFC 3550",
         "RTP version 2 packet evidence",

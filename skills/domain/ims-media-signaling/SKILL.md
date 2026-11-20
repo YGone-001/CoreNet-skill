@@ -45,7 +45,7 @@ Required, same capture, accepted artifacts:
 
 1. SIP Event JSONL (`sip` event schema version `1.0.0`).
 2. IMS Session Analysis JSON (`ims-session` analysis version `0.1.0`).
-3. SDP Analysis JSON (`sdp-rtp` analysis version `0.1.0`, event schema `1.0.0`).
+3. SDP Analysis JSON (`sdp-rtp` analysis version `0.2.0`, event schema `1.1.0`).
 
 The Domain rejects unsupported versions, duplicate references, cross-capture
 joins, missing source events, IMS Session event SHA-256 mismatch and any SDP
@@ -80,7 +80,7 @@ address, ICE credential, fingerprint or key material is published.
 
 ## Dependencies
 
-- Required: `sip >= 0.4.0`, `sdp-rtp >= 0.3.0`, `ims-session >= 0.1.0`.
+- Required: `sip >= 0.4.0`, `sdp-rtp >= 0.4.0`, `ims-session >= 0.1.0`.
 - Optional: none.
 - The Skill is independently downloadable. It never modifies the accepted SIP,
   SDP, IMS Session or unified workflow contracts.

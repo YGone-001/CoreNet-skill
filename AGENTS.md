@@ -19,7 +19,7 @@ A lower-level instruction must never silently override a higher-level one. Destr
 
 CoreNet Skill is a modular, evidence-first AI Skill repository for mobile core-network signaling analysis, troubleshooting, protocol reasoning, cross-protocol correlation, procedure-level diagnosis, failure-boundary localization, and future end-to-end fault isolation. It focuses on network signaling evidence analysis rather than implementation-specific source ownership.
 
-Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, Foundation Skills, bounded Protocol Skills, the `cross-protocol-evidence` Correlation Skill, Domain and Procedure Skills for the EPC, 5GC, IMS registration, IMS session-signaling and IMS SDP media-signaling evidence families, boundedly scoped Analysis Orchestration for failure-boundary localization, and an application-level unified PCAP workflow that integrates the accepted 5GC, EPC and IMS components. The `ims-media-signaling` Domain is a standalone analysis over accepted SIP, IMS Session and SDP artifacts; it is not executed by the unified workflow in this phase. It does **not** implement implementation-specific source-code mappings or end-to-end fault isolation. Planned functionality must never be presented as implemented functionality.
+Describe repository capabilities only as they are actually implemented. The current repository provides architecture, contracts, schemas, a reusable Skill template, lightweight validation, Foundation Skills, bounded Protocol Skills, the `cross-protocol-evidence` and `sdp-rtp-transport` Correlation Skills, Domain and Procedure Skills for the EPC, 5GC, IMS registration, IMS session-signaling and IMS SDP media-signaling evidence families, boundedly scoped Analysis Orchestration for failure-boundary localization, and an application-level unified PCAP workflow that integrates the accepted 5GC, EPC and IMS components. The `ims-media-signaling` Domain is a standalone analysis over accepted SIP, IMS Session and SDP artifacts; it is not executed by the unified workflow in this phase. It does **not** implement implementation-specific source-code mappings or end-to-end fault isolation. Planned functionality must never be presented as implemented functionality.
 
 ## Authoritative Documentation
 
@@ -71,6 +71,7 @@ Examples of valid dependencies:
     epc-procedures -> nas-eps -> s1ap -> gtpv2 -> diameter-epc
     5gc-pdu-session -> nas-5gs -> ngap -> pfcp -> sbi-http2
     cross-protocol-evidence -> ngap -> nas-5gs -> core-network-pcap
+    sdp-rtp-transport -> sdp-rtp
     5gc-registration-mobility -> cross-protocol-evidence -> ngap -> nas-5gs (future)
     diameter-ims -> diameter-core (same-layer Protocol composition)
 
@@ -174,6 +175,7 @@ Keep transport, protocol, procedure, and implementation behavior distinct:
 - An IMS session attempt is anchored to one initial INVITE transaction; separate initial INVITE transactions must never merge merely because they share a Call-ID or nearby frames.
 - A 2xx INVITE response and its Confirmed Dialog are signaling evidence only; a missing 2xx ACK must not erase the observed response or dialog, and no result may claim call success, two-way audio or media delivery.
 - A later accepted BYE/2xx that moves a Confirmed Dialog to `TERMINATED` must not erase an earlier established SDP Offer/Answer association. Historical confirmation must be proven by the branch-owned accepted 2xx INVITE response and matching branch and attempt termination evidence for that exact Dialog; the `TERMINATED` label alone never proves confirmation.
+- SDP-to-RTP transport correlation uses only capture-scoped keyed HMAC endpoint references; raw IP addresses, raw UDP endpoint tuples and key material are never published, and exact endpoint equality never proves IMS session identity, media delivery, two-way audio or call success.
 - Forked Early and Confirmed Dialog branches remain independent; a CANCEL 200 OK, an INVITE 487, and a BYE 2xx are separate transaction/dialog observations and never by themselves prove RFC transaction termination, RTP teardown or end-to-end release.
 - SIP observation makes bounded IMS analysis eligible for automatic workflow execution but never upgrades IMS technology attribution from `SUSPECTED` to `CONFIRMED`; SDP/RTP-only or Diameter-only evidence does not establish IMS identity.
 - The unified workflow composes accepted IMS components and must preserve independent SIP, Diameter Cx/Dx, Registration and Session inventories; one component failure must not discard another component's valid evidence or be collapsed into a single `FAILED` verdict.

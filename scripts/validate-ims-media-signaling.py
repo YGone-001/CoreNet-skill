@@ -142,7 +142,7 @@ def main() -> int:
         "version: 0.3.0",
         "category: domain",
         "sip >=0.4.0",
-        "sdp-rtp >=0.3.0",
+        "sdp-rtp >=0.4.0",
         "ims-session >=0.1.0",
     ):
         if token not in manifest:

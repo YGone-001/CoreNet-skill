@@ -1,7 +1,7 @@
 name: sdp-rtp
-version: 0.3.0
+version: 0.4.0
 category: protocol
-description: Bounded RFC 8866 SDP structural evidence plus RFC 3550 RTP/RTCP packet evidence extraction.
+description: Bounded RFC 8866 SDP structural evidence plus RFC 3550 RTP/RTCP packet evidence extraction, with optional privacy-safe capture-scoped HMAC endpoint references.
 scope:
   includes:
     - RFC 8866 SDP structural parsing of explicitly supplied bodies
@@ -14,6 +14,8 @@ scope:
     - authorized TShark capture extraction
     - deterministic structured JSONL input
     - capture-scoped RTP SSRC and RTCP component references
+    - optional keyed SDP media and RTP UDP endpoint references scoped to the original capture
+    - owner-only local endpoint key loading and domain-separated correlation context references
     - explicit unsupported packet-family classification
   excludes:
     - RTP stream reconstruction
@@ -21,7 +23,8 @@ scope:
     - MOS and media QoS
     - SDP Offer/Answer pairing
     - SIP-to-SDP association
-    - SDP-to-RTP endpoint correlation
+    - SDP-to-RTP endpoint correlation (owned by the sdp-rtp-transport Correlation Skill)
+    - raw address or port publication
     - ICE connectivity verification
     - SRTP decryption
     - IMS media verdicts
@@ -32,12 +35,14 @@ dependencies:
     - TShark installed by the operator for authorized PCAP/PCAPNG extraction
 inputs:
   - Structured JSONL with capture provenance and nested RTCP component/report-block structures
+  - Optional owner-only 32-byte local endpoint key file for capture-scoped HMAC endpoint references
   - Authorized PCAP/PCAPNG using an installed TShark dissector and optional explicit decode-as configuration
 outputs:
   - schemas/sdp-events.schema.json
   - schemas/rtp-rtcp-events.schema.json
   - scripts/parse-sdp.py
   - scripts/extract-rtp-rtcp.py
+  - scripts/endpoint_reference.py
   - optional text reports
 protocols:
   - SDP

@@ -145,10 +145,10 @@
           "pattern": "^[0-9a-f]{64}$"
         },
         "sdp_analysis_version": {
-          "const": "0.1.0"
+          "const": "0.2.0"
         },
         "sdp_event_schema_version": {
-          "const": "1.0.0"
+          "const": "1.1.0"
         },
         "sdp_capture_sha256": {
           "type": "string",

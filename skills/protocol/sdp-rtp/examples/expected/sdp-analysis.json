@@ -1,7 +1,7 @@
 {
   "analysis_name": "sdp-rtp",
-  "analysis_version": "0.1.0",
-  "capability": "bounded SDP structural evidence",
+  "analysis_version": "0.2.0",
+  "capability": "bounded SDP structural evidence with optional endpoint references",
   "completeness": {
     "ambiguous_message_count": 2,
     "incomplete_message_count": 2,
@@ -12,7 +12,7 @@
     "supplied_message_count": 22,
     "unsupported_message_count": 0
   },
-  "event_schema_version": "1.0.0",
+  "event_schema_version": "1.1.0",
   "input_provenance": {
     "capture_files": [
       "synthetic-sdp.pcapng"
@@ -20,7 +20,7 @@
     "capture_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
     "input_name": "sdp-cases.jsonl",
     "message_count": 22,
-    "parser_version": "0.1.0"
+    "parser_version": "0.2.0"
   },
   "limitations": [
     "The parser consumes explicitly supplied SDP bodies and provenance; capture extraction is not implemented here.",
@@ -94,7 +94,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -279,7 +279,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -483,7 +483,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -678,7 +678,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -834,7 +834,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -980,7 +980,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -1155,7 +1155,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -1353,7 +1353,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -1498,7 +1498,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [
@@ -1661,7 +1661,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -1859,7 +1859,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [
@@ -2012,7 +2012,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -2081,7 +2081,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -2217,7 +2217,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -2393,7 +2393,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -2527,7 +2527,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -2665,7 +2665,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -2811,7 +2811,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [
@@ -2959,7 +2959,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [],
@@ -3053,7 +3053,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": null,
       "session": {
         "attributes": [],
@@ -3150,7 +3150,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [
@@ -3360,7 +3360,7 @@
         "CALL_SUCCESS",
         "MEDIA_QOS"
       ],
-      "parser_version": "0.1.0",
+      "parser_version": "0.2.0",
       "sdp_version": 0,
       "session": {
         "attributes": [

@@ -1,0 +1,375 @@
+{
+  "analysis_name": "sdp-rtp-transport",
+  "analysis_version": "0.1.0",
+  "capability": "bounded SDP-to-RTP UDP transport endpoint correlation",
+  "completeness": {
+    "ambiguous_correlation_count": 1,
+    "bundle_matched_correlation_count": 1,
+    "correlatable_rtp_packet_count": 8,
+    "correlation_count": 9,
+    "correlations_omitted": 0,
+    "insufficient_correlation_count": 1,
+    "matched_correlation_count": 3,
+    "non_observed_rtp_packet_count": 1,
+    "out_of_scope_correlation_count": 2,
+    "rtp_packet_count": 9,
+    "rtp_stream_count": 6,
+    "rtp_stream_with_endpoint_count": 6,
+    "rtp_stream_without_endpoint_count": 0,
+    "sdp_media_correlatable_count": 8,
+    "sdp_media_section_count": 11,
+    "sdp_media_with_endpoint_count": 8,
+    "sdp_media_without_endpoint_count": 3,
+    "sdp_message_count": 6,
+    "ungrouped_rtp_packet_count": 0,
+    "unmatched_correlation_count": 1,
+    "unmatched_stream_count": 1
+  },
+  "correlation_count": 9,
+  "correlations": [
+    {
+      "association_status": "MATCHED_ENDPOINT",
+      "bundle_references": [],
+      "conflict_findings": [],
+      "correlation_reference": "sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:1.1.0",
+      "correlation_strength": "STRONG",
+      "correlation_type": "SINGLE_MEDIA",
+      "endpoint_references": [
+        "endpoint-hmac-sha256:v1:595aab9193dc897328ae7328cbe8a9270a216a289c2ac0982578c0d495f4ae60"
+      ],
+      "evidence_class": "DERIVED",
+      "match_directions": [
+        "RTP_DESTINATION_ENDPOINT_MATCH"
+      ],
+      "missing_evidence": [],
+      "rtp_event_references": [
+        "rtp-packet:synthetic-sdp-rtp-transport.pcapng:1.1",
+        "rtp-packet:synthetic-sdp-rtp-transport.pcapng:2.1"
+      ],
+      "rtp_udp_stream_references": [
+        "rtp-udp-stream:synthetic-sdp-rtp-transport.pcapng:0"
+      ],
+      "sdp_media_sections": [
+        {
+          "media_index": 0,
+          "message_reference": "sip-body:synthetic-sdp-rtp-transport.pcapng:1.1",
+          "mid": null
+        }
+      ],
+      "sdp_message_references": [
+        "sip-body:synthetic-sdp-rtp-transport.pcapng:1.1"
+      ]
+    },
+    {
+      "association_status": "MATCHED_ENDPOINT",
+      "bundle_references": [],
+      "conflict_findings": [],
+      "correlation_reference": "sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:2.1.0",
+      "correlation_strength": "STRONG",
+      "correlation_type": "SINGLE_MEDIA",
+      "endpoint_references": [
+        "endpoint-hmac-sha256:v1:104c6bcd9029b755e749f38a1cbb01f34ed82f2b4c0c70028f246b45ac2b1583"
+      ],
+      "evidence_class": "DERIVED",
+      "match_directions": [
+        "RTP_DESTINATION_ENDPOINT_MATCH"
+      ],
+      "missing_evidence": [],
+      "rtp_event_references": [
+        "rtp-packet:synthetic-sdp-rtp-transport.pcapng:5.1"
+      ],
+      "rtp_udp_stream_references": [
+        "rtp-udp-stream:synthetic-sdp-rtp-transport.pcapng:2"
+      ],
+      "sdp_media_sections": [
+        {
+          "media_index": 0,
+          "message_reference": "sip-body:synthetic-sdp-rtp-transport.pcapng:2.1",
+          "mid": null
+        }
+      ],
+      "sdp_message_references": [
+        "sip-body:synthetic-sdp-rtp-transport.pcapng:2.1"
+      ]
+    },
+    {
+      "association_status": "MATCHED_ENDPOINT",
+      "bundle_references": [],
+      "conflict_findings": [],
+      "correlation_reference": "sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:2.1.1",
+      "correlation_strength": "STRONG",
+      "correlation_type": "SINGLE_MEDIA",
+      "endpoint_references": [
+        "endpoint-hmac-sha256:v1:7c95158ef4a834900a24e0e891b8dc5e7611bac57d28a25e16e32e7fe6d12bc5"
+      ],
+      "evidence_class": "DERIVED",
+      "match_directions": [
+        "RTP_DESTINATION_ENDPOINT_MATCH"
+      ],
+      "missing_evidence": [],
+      "rtp_event_references": [
+        "rtp-packet:synthetic-sdp-rtp-transport.pcapng:6.1"
+      ],
+      "rtp_udp_stream_references": [
+        "rtp-udp-stream:synthetic-sdp-rtp-transport.pcapng:3"
+      ],
+      "sdp_media_sections": [
+        {
+          "media_index": 1,
+          "message_reference": "sip-body:synthetic-sdp-rtp-transport.pcapng:2.1",
+          "mid": null
+        }
+      ],
+      "sdp_message_references": [
+        "sip-body:synthetic-sdp-rtp-transport.pcapng:2.1"
+      ]
+    },
+    {
+      "association_status": "OUT_OF_SCOPE",
+      "bundle_references": [],
+      "conflict_findings": [],
+      "correlation_reference": "sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:3.1.0",
+      "correlation_strength": "WEAK",
+      "correlation_type": "UNAVAILABLE_MEDIA",
+      "endpoint_references": [],
+      "evidence_class": "DERIVED",
+      "match_directions": [],
+      "missing_evidence": [
+        "MEDIA_DISABLED"
+      ],
+      "rtp_event_references": [],
+      "rtp_udp_stream_references": [],
+      "sdp_media_sections": [
+        {
+          "media_index": 0,
+          "message_reference": "sip-body:synthetic-sdp-rtp-transport.pcapng:3.1",
+          "mid": null
+        }
+      ],
+      "sdp_message_references": [
+        "sip-body:synthetic-sdp-rtp-transport.pcapng:3.1"
+      ]
+    },
+    {
+      "association_status": "INSUFFICIENT_EVIDENCE",
+      "bundle_references": [],
+      "conflict_findings": [],
+      "correlation_reference": "sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:3.1.1",
+      "correlation_strength": "WEAK",
+      "correlation_type": "UNAVAILABLE_MEDIA",
+      "endpoint_references": [],
+      "evidence_class": "DERIVED",
+      "match_directions": [],
+      "missing_evidence": [
+        "ICE_SELECTED_TRANSPORT_NOT_ESTABLISHED"
+      ],
+      "rtp_event_references": [],
+      "rtp_udp_stream_references": [],
+      "sdp_media_sections": [
+        {
+          "media_index": 1,
+          "message_reference": "sip-body:synthetic-sdp-rtp-transport.pcapng:3.1",
+          "mid": null
+        }
+      ],
+      "sdp_message_references": [
+        "sip-body:synthetic-sdp-rtp-transport.pcapng:3.1"
+      ]
+    },
+    {
+      "association_status": "OUT_OF_SCOPE",
+      "bundle_references": [],
+      "conflict_findings": [],
+      "correlation_reference": "sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:3.1.2",
+      "correlation_strength": "WEAK",
+      "correlation_type": "UNAVAILABLE_MEDIA",
+      "endpoint_references": [],
+      "evidence_class": "DERIVED",
+      "match_directions": [],
+      "missing_evidence": [
+        "MULTICAST_ADDRESS_UNSUPPORTED"
+      ],
+      "rtp_event_references": [],
+      "rtp_udp_stream_references": [],
+      "sdp_media_sections": [
+        {
+          "media_index": 2,
+          "message_reference": "sip-body:synthetic-sdp-rtp-transport.pcapng:3.1",
+          "mid": null
+        }
+      ],
+      "sdp_message_references": [
+        "sip-body:synthetic-sdp-rtp-transport.pcapng:3.1"
+      ]
+    },
+    {
+      "association_status": "BUNDLE_TRANSPORT_MATCHED",
+      "bundle_references": [
+        "sdp-bundle:sip-body:synthetic-sdp-rtp-transport.pcapng:4.1:0"
+      ],
+      "conflict_findings": [],
+      "correlation_reference": "sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:4.1.0",
+      "correlation_strength": "STRONG",
+      "correlation_type": "BUNDLE_MEDIA",
+      "endpoint_references": [
+        "endpoint-hmac-sha256:v1:ad04d57c3015a087b31addaab8203975fd8f34655e875160b5d8ccb01800b2de"
+      ],
+      "evidence_class": "DERIVED",
+      "match_directions": [
+        "RTP_DESTINATION_ENDPOINT_MATCH"
+      ],
+      "missing_evidence": [],
+      "rtp_event_references": [
+        "rtp-packet:synthetic-sdp-rtp-transport.pcapng:3.1",
+        "rtp-packet:synthetic-sdp-rtp-transport.pcapng:4.1"
+      ],
+      "rtp_udp_stream_references": [
+        "rtp-udp-stream:synthetic-sdp-rtp-transport.pcapng:1"
+      ],
+      "sdp_media_sections": [
+        {
+          "media_index": 0,
+          "message_reference": "sip-body:synthetic-sdp-rtp-transport.pcapng:4.1",
+          "mid": "0"
+        },
+        {
+          "media_index": 1,
+          "message_reference": "sip-body:synthetic-sdp-rtp-transport.pcapng:4.1",
+          "mid": "1"
+        }
+      ],
+      "sdp_message_references": [
+        "sip-body:synthetic-sdp-rtp-transport.pcapng:4.1"
+      ]
+    },
+    {
+      "association_status": "AMBIGUOUS",
+      "bundle_references": [],
+      "conflict_findings": [
+        "UNRELATED_MEDIA_SHARE_ENDPOINT"
+      ],
+      "correlation_reference": "sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:5.1.0",
+      "correlation_strength": "MEDIUM",
+      "correlation_type": "SINGLE_MEDIA",
+      "endpoint_references": [
+        "endpoint-hmac-sha256:v1:74cc19efa18dc9ed3bf9c0f7b4b9ed6ab55e22588df9f3fc671deb0d3383eadd"
+      ],
+      "evidence_class": "DERIVED",
+      "match_directions": [
+        "RTP_DESTINATION_ENDPOINT_MATCH"
+      ],
+      "missing_evidence": [],
+      "rtp_event_references": [
+        "rtp-packet:synthetic-sdp-rtp-transport.pcapng:7.1"
+      ],
+      "rtp_udp_stream_references": [
+        "rtp-udp-stream:synthetic-sdp-rtp-transport.pcapng:4"
+      ],
+      "sdp_media_sections": [
+        {
+          "media_index": 0,
+          "message_reference": "sip-body:synthetic-sdp-rtp-transport.pcapng:5.1",
+          "mid": null
+        },
+        {
+          "media_index": 1,
+          "message_reference": "sip-body:synthetic-sdp-rtp-transport.pcapng:5.1",
+          "mid": null
+        }
+      ],
+      "sdp_message_references": [
+        "sip-body:synthetic-sdp-rtp-transport.pcapng:5.1"
+      ]
+    },
+    {
+      "association_status": "UNMATCHED",
+      "bundle_references": [],
+      "conflict_findings": [],
+      "correlation_reference": "sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:6.1.0",
+      "correlation_strength": "WEAK",
+      "correlation_type": "SINGLE_MEDIA",
+      "endpoint_references": [
+        "endpoint-hmac-sha256:v1:6cceb6d793257d7a7a6dfe535766b1b7c7fa8103e068db27e48a7cf471921cbb"
+      ],
+      "evidence_class": "DERIVED",
+      "match_directions": [],
+      "missing_evidence": [
+        "NO_OBSERVED_RTP_STREAM_FOR_ENDPOINT"
+      ],
+      "rtp_event_references": [],
+      "rtp_udp_stream_references": [],
+      "sdp_media_sections": [
+        {
+          "media_index": 0,
+          "message_reference": "sip-body:synthetic-sdp-rtp-transport.pcapng:6.1",
+          "mid": null
+        }
+      ],
+      "sdp_message_references": [
+        "sip-body:synthetic-sdp-rtp-transport.pcapng:6.1"
+      ]
+    }
+  ],
+  "domain": "sdp-rtp-transport",
+  "input_provenance": {
+    "capture_files": [
+      "synthetic-sdp-rtp-transport.pcapng"
+    ],
+    "capture_sha256": "c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4",
+    "endpoint_context_reference": "endpoint-context-hmac-sha256:v1:1d339bf8a73a5b73eb27276f684a78eae9bd15280f7a64713323514e238d9c54",
+    "input_status": "ACCEPTED",
+    "rtp_rtcp_analysis_sha256": "268522aef9aca628d7122fbbefc95d6976f53ed8738cfe12035d698b3735422f",
+    "rtp_rtcp_analysis_source_name": "transport-rtp-rtcp-analysis.json",
+    "rtp_rtcp_analysis_version": "0.4.0",
+    "rtp_rtcp_event_schema_version": "1.2.0",
+    "sdp_analysis_sha256": "970467cb742875b66e08aa8d2b25d7666e1a8bb5019a9e61f0685a440b96c78c",
+    "sdp_analysis_source_name": "transport-sdp-analysis.json",
+    "sdp_analysis_version": "0.2.0",
+    "sdp_event_schema_version": "1.1.0"
+  },
+  "limitations": [
+    "Correlation is limited to exact capture-scoped HMAC endpoint equality from accepted SDP and RTP/RTCP artifacts",
+    "No SDP body is parsed, no RTP packet is decoded and no PCAP is read here",
+    "An endpoint match is transport correspondence only; it is not an IMS session identity, call identity or media-delivery proof",
+    "BUNDLE shared transport is grouped from resolved SDP BUNDLE groups; RTP header-extension MID demultiplexing is not implemented",
+    "ICE candidate selection, STUN, TURN, NAT rewriting, DTLS and SRTP decryption are not interpreted",
+    "RTP stream reconstruction, sequence analysis, packet loss, jitter, MOS, QoS and RTCP stream correlation are not implemented",
+    "When the advertised SDP endpoint differs from the observed packet endpoint, the result is unmatched or insufficient evidence; no NAT mapping is invented",
+    "No timestamp proximity is used to create or select an association"
+  ],
+  "not_confirmed": [
+    "IMS_SESSION_IDENTITY",
+    "MEDIA_DELIVERY",
+    "TWO_WAY_AUDIO",
+    "MEDIA_QOS",
+    "CALL_SUCCESS",
+    "CODEC_NEGOTIATION",
+    "NAT_MAPPING",
+    "ICE_CONNECTIVITY"
+  ],
+  "unmatched_stream_count": 1,
+  "unmatched_streams": [
+    {
+      "conflict_findings": [],
+      "destination_endpoint_references": [
+        "endpoint-hmac-sha256:v1:d9657d38be51a04946d09a4146a674ad6e696fce88bc54d60f5c45d51915c2db"
+      ],
+      "endpoint_evidence_status": "ESTABLISHED",
+      "evidence_class": "DERIVED",
+      "first_frame_number": 8,
+      "last_frame_number": 8,
+      "missing_evidence": [],
+      "observed_ssrc_references": [
+        "rtp-ssrc:synthetic-sdp-rtp-transport.pcapng:01020304"
+      ],
+      "packet_count": 1,
+      "rtp_event_references": [
+        "rtp-packet:synthetic-sdp-rtp-transport.pcapng:8.1"
+      ],
+      "rtp_udp_stream_reference": "rtp-udp-stream:synthetic-sdp-rtp-transport.pcapng:9",
+      "source_endpoint_references": [
+        "endpoint-hmac-sha256:v1:b4aec0e592d5e1b742c0664201c15086ec00cf27e808673ff4b46b7e9db5981d"
+      ]
+    }
+  ]
+}

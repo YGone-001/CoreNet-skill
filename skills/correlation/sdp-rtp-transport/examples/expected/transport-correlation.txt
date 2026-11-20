@@ -1,0 +1,41 @@
+SDP / RTP UDP transport endpoint correlation
+analysis_version: 0.1.0
+capture: synthetic-sdp-rtp-transport.pcapng
+endpoint_context: endpoint-context-hmac-sha256:v1:1d339bf8a73a5b73eb27276f684a78eae9bd15280f7a64713323514e238d9c54
+correlations: 9
+status: matched=3, bundle=1, ambiguous=1, insufficient=1, unmatched=1, out_of_scope=2
+rtp_streams: 6 (with_endpoint=6)
+unmatched_streams: 1
+correlation: sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:1.1.0 / MATCHED_ENDPOINT / STRONG / media=sip-body:synthetic-sdp-rtp-transport.pcapng:1.1#0 / streams=rtp-udp-stream:synthetic-sdp-rtp-transport.pcapng:0 / directions=RTP_DESTINATION_ENDPOINT_MATCH
+correlation: sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:2.1.0 / MATCHED_ENDPOINT / STRONG / media=sip-body:synthetic-sdp-rtp-transport.pcapng:2.1#0 / streams=rtp-udp-stream:synthetic-sdp-rtp-transport.pcapng:2 / directions=RTP_DESTINATION_ENDPOINT_MATCH
+correlation: sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:2.1.1 / MATCHED_ENDPOINT / STRONG / media=sip-body:synthetic-sdp-rtp-transport.pcapng:2.1#1 / streams=rtp-udp-stream:synthetic-sdp-rtp-transport.pcapng:3 / directions=RTP_DESTINATION_ENDPOINT_MATCH
+correlation: sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:3.1.0 / OUT_OF_SCOPE / WEAK / media=sip-body:synthetic-sdp-rtp-transport.pcapng:3.1#0 / streams=- / directions=-
+  missing: MEDIA_DISABLED
+correlation: sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:3.1.1 / INSUFFICIENT_EVIDENCE / WEAK / media=sip-body:synthetic-sdp-rtp-transport.pcapng:3.1#1 / streams=- / directions=-
+  missing: ICE_SELECTED_TRANSPORT_NOT_ESTABLISHED
+correlation: sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:3.1.2 / OUT_OF_SCOPE / WEAK / media=sip-body:synthetic-sdp-rtp-transport.pcapng:3.1#2 / streams=- / directions=-
+  missing: MULTICAST_ADDRESS_UNSUPPORTED
+correlation: sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:4.1.0 / BUNDLE_TRANSPORT_MATCHED / STRONG / media=sip-body:synthetic-sdp-rtp-transport.pcapng:4.1#0, sip-body:synthetic-sdp-rtp-transport.pcapng:4.1#1 / streams=rtp-udp-stream:synthetic-sdp-rtp-transport.pcapng:1 / directions=RTP_DESTINATION_ENDPOINT_MATCH
+correlation: sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:5.1.0 / AMBIGUOUS / MEDIUM / media=sip-body:synthetic-sdp-rtp-transport.pcapng:5.1#0, sip-body:synthetic-sdp-rtp-transport.pcapng:5.1#1 / streams=rtp-udp-stream:synthetic-sdp-rtp-transport.pcapng:4 / directions=RTP_DESTINATION_ENDPOINT_MATCH
+  conflict: UNRELATED_MEDIA_SHARE_ENDPOINT
+correlation: sdp-rtp-transport:synthetic-sdp-rtp-transport.pcapng:6.1.0 / UNMATCHED / WEAK / media=sip-body:synthetic-sdp-rtp-transport.pcapng:6.1#0 / streams=- / directions=-
+  missing: NO_OBSERVED_RTP_STREAM_FOR_ENDPOINT
+unmatched_stream: rtp-udp-stream:synthetic-sdp-rtp-transport.pcapng:9 / ESTABLISHED / packets=1
+limits:
+- Correlation is limited to exact capture-scoped HMAC endpoint equality from accepted SDP and RTP/RTCP artifacts
+- No SDP body is parsed, no RTP packet is decoded and no PCAP is read here
+- An endpoint match is transport correspondence only; it is not an IMS session identity, call identity or media-delivery proof
+- BUNDLE shared transport is grouped from resolved SDP BUNDLE groups; RTP header-extension MID demultiplexing is not implemented
+- ICE candidate selection, STUN, TURN, NAT rewriting, DTLS and SRTP decryption are not interpreted
+- RTP stream reconstruction, sequence analysis, packet loss, jitter, MOS, QoS and RTCP stream correlation are not implemented
+- When the advertised SDP endpoint differs from the observed packet endpoint, the result is unmatched or insufficient evidence; no NAT mapping is invented
+- No timestamp proximity is used to create or select an association
+not_confirmed:
+- IMS_SESSION_IDENTITY
+- MEDIA_DELIVERY
+- TWO_WAY_AUDIO
+- MEDIA_QOS
+- CALL_SUCCESS
+- CODEC_NEGOTIATION
+- NAT_MAPPING
+- ICE_CONNECTIVITY

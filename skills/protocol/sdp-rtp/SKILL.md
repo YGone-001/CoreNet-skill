@@ -15,6 +15,9 @@ structures (RFC 3550), using reviewed dissector fields or structured offline inp
   publishing their values.
 - Preserve unknown attributes as bounded uninterpreted evidence.
 - Classify network addresses by family and scope without publishing raw addresses.
+- Optionally derive capture-scoped HMAC-SHA-256 references for SDP media transport
+  endpoints and RTP UDP source/destination endpoints when an explicit local endpoint
+  key is supplied. No key means no endpoint field and unchanged prior output.
 - Fail closed on malformed mandatory structure, invalid ports, invalid payload
   declarations, duplicate/contradictory declarations and truncated or oversized input.
 - Extract RTP version 2 fixed-header fields, CSRCs, padding, extension metadata, marker,
@@ -35,7 +38,7 @@ structures (RFC 3550), using reviewed dissector fields or structured offline inp
 It must not implement RTP stream reconstruction, local RTCP statistics, jitter or
 packet-loss calculation, MOS, media QoS, ICE connectivity verification, SRTP
 decryption, SDP Offer/Answer pairing, SIP-to-SDP dialog association, SDP-to-RTP
-endpoint correlation, IMS media success, Diameter Rx, Diameter charging or
+endpoint correlation (owned by `sdp-rtp-transport`), IMS media success, Diameter Rx, Diameter charging or
 unified-workflow integration. It must not claim APP, RTPFB, PSFB, XR or unknown RTCP
 families as supported merely from numeric packet type.
 
@@ -65,7 +68,9 @@ RTP/RTCP structured JSONL uses one record per RTP packet or RTCP compound packet
 `fields.components` retains component order; each component carries nested
 `report_blocks`, `sdes_chunks` and `bye_sources` rather than flattened arrays.
 
-Authorized PCAP/PCAPNG mode uses an installed TShark dissector with an explicit
+An optional `--endpoint-key-file` supplies exactly 32 owner-only random bytes. A
+malformed, unreadable or permission-broad key fails before output. The key is never
+auto-generated or published. Authorized PCAP/PCAPNG mode uses an installed TShark dissector with an explicit
 reviewed field allowlist and optional caller-supplied `--decode-as` mappings. It never
 assumes a UDP port, RTP Payload Type or SDP declaration identifies RTP/RTCP.
 
@@ -74,7 +79,7 @@ attributes per scope and 64 formats per media section.
 
 ## Outputs
 
-`schemas/sdp-events.schema.json` publishes:
+`schemas/sdp-events.schema.json` (analysis `0.2.0`, event schema `1.2.0`) publishes:
 
 - input provenance;
 - per-message evidence status (`OBSERVED`, `INCOMPLETE`, `AMBIGUOUS`, `UNSUPPORTED`,
@@ -88,11 +93,13 @@ attributes per scope and 64 formats per media section.
 - unknown attributes and malformed/unknown line metadata;
 - bounded completeness counts and explicit limitations.
 
-RTP/RTCP output (`schemas/rtp-rtcp-events.schema.json`, event schema `1.1.0`)
+RTP/RTCP output (`schemas/rtp-rtcp-events.schema.json`, event schema `1.2.0`)
 publishes RTP packet fields and RTCP component/type/report-block/SDES/BYE evidence with
 capture-scoped references, nullable mandatory flags, declared and observed source
 counts, `OBSERVED`/`INCOMPLETE`/`AMBIGUOUS`/`UNSUPPORTED`/`INVALID` status, bounded
-counts and explicit privacy/quality limitations.
+counts and explicit privacy/quality limitations. With an endpoint key it additionally
+publishes optional source/destination endpoint references and endpoint evidence status
+for RTP events.
 
 No raw SDP body, address, identity, ICE credential, fingerprint digest or key material
 is published.

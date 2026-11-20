@@ -51,8 +51,8 @@ input artifact.
 
 1. SIP Event JSONL from the accepted SIP Protocol Skill (schema `1.0.0`).
 2. IMS Session Analysis JSON from the accepted IMS Session Domain (`0.1.0`).
-3. SDP Analysis JSON from `parse-sdp.py` (`sdp-rtp` analysis `0.1.0`, SDP event
-   schema `1.0.0`).
+3. SDP Analysis JSON from `parse-sdp.py` (`sdp-rtp` analysis `0.2.0`, SDP event
+   schema `1.1.0`).
 
 All three must describe the same capture identity. The IMS Session artifact's
 `event_sha256` must equal the SHA-256 of the supplied SIP Event file (an input

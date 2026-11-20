@@ -1,5 +1,5 @@
 RTP/RTCP packet evidence
-analysis_version: 0.3.0
+analysis_version: 0.4.0
 mode: STRUCTURED_JSONL
 capture: synthetic-rtp.pcapng
 records: 34
@@ -48,7 +48,7 @@ limits:
 - RTCP sender/receiver report values are remote-reported values, not locally measured loss or jitter
 - No local packet-loss, jitter, MOS, QoS, media-delivery or two-way-audio calculation is performed
 - RTP/RTCP packet presence does not prove successful media delivery
-- SDP-to-RTP endpoint association and stream reconstruction are not implemented
+- SDP-to-RTP endpoint association is owned by the sdp-rtp-transport Correlation Skill and is not performed here; stream reconstruction is not implemented
 not_confirmed:
 - RTP_DELIVERY
 - TWO_WAY_AUDIO

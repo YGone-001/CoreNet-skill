@@ -135,3 +135,38 @@ extraction and fails explicitly if any reviewed field is unavailable. Payload fi
 - RTP packet length and all numeric fields are range-validated.
 - Capture extraction is bounded by the same event limits and does not persist raw
   TShark JSON.
+
+## Optional endpoint references
+
+When `--endpoint-key-file` is supplied, SDP media sections and RTP events gain
+optional endpoint evidence. Without the key, these fields are absent and the
+previous output is unchanged.
+
+SDP media `transport_endpoint`:
+
+| Field | Meaning |
+|---|---|
+| `endpoint_status` | `ESTABLISHED`, `UNAVAILABLE` or `OUT_OF_SCOPE` |
+| `endpoint_reference` | `endpoint-hmac-sha256:v1:<64 hex>` when established, otherwise `null` |
+| `transport` | `UDP` when established, otherwise `null` |
+| `address_family` | `IPv4`/`IPv6` when established, otherwise `null` |
+| `reason_codes` | bounded reason codes for an unavailable or out-of-scope endpoint |
+
+The reference represents the advertised RTP receiving endpoint derived from the
+media `m=` port and the media-level `c=` or inherited session-level `c=`. An
+`a=rtcp` port never replaces it and `a=rtcp-mux` never changes it.
+
+RTP event optional fields:
+
+| Field | Meaning |
+|---|---|
+| `source_transport_endpoint_reference` | opaque source endpoint when established |
+| `destination_transport_endpoint_reference` | opaque destination endpoint when established |
+| `transport_endpoint_status` | `ESTABLISHED`, `INCOMPLETE`, `AMBIGUOUS` or `UNAVAILABLE` |
+| `transport_endpoint_reason_codes` | bounded reason codes |
+
+TShark endpoint fields `ip.src`, `ip.dst`, `ipv6.src`, `ipv6.dst`, `udp.srcport`
+and `udp.dstport` are reviewed optional fields. When unavailable, packet evidence
+is retained and endpoint correlation is marked unavailable. Multiple IP/UDP
+layers, simultaneous IPv4/IPv6 candidates or a GTP layer keep the transport
+identity unresolved; no first candidate is selected.

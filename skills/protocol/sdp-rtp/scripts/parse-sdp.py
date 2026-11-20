@@ -14,6 +14,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+from endpoint_reference import EndpointKeyError, load_endpoint_key  # noqa: E402
 from sdp_model import (  # noqa: E402
     InputError,
     build_analysis,
@@ -36,6 +37,11 @@ def parser() -> argparse.ArgumentParser:
     )
     result.add_argument("--output", type=Path, required=True, help="analysis JSON destination")
     result.add_argument("--report", type=Path, help="optional text report destination")
+    result.add_argument(
+        "--endpoint-key-file",
+        type=Path,
+        help="optional owner-only 32-byte local key for capture-scoped endpoint references",
+    )
     result.add_argument("--force", action="store_true", help="replace existing outputs")
     return result
 
@@ -51,8 +57,11 @@ def _same(left: Path, right: Path) -> bool:
 
 def _preflight(args: argparse.Namespace) -> None:
     outputs = [args.output] + ([args.report] if args.report else [])
+    protected = [args.input]
+    if args.endpoint_key_file is not None:
+        protected.append(args.endpoint_key_file)
     for output in outputs:
-        if _same(output, args.input):
+        if any(_same(output, item) for item in protected):
             raise OSError("output destination collides with the input")
         if output.exists() and not args.force:
             raise OSError("output already exists; use --force to replace it")
@@ -101,6 +110,14 @@ def _report(document: dict) -> str:
             f"media_sections={message['media_section_count']} / "
             f"line_endings={message['line_ending_style']}"
         )
+        for media in message["media_sections"]:
+            endpoint = media.get("transport_endpoint")
+            if endpoint is not None:
+                lines.append(
+                    f"  endpoint: index={media['index']} / "
+                    f"{endpoint['endpoint_status']} / "
+                    f"{endpoint['endpoint_reference'] or '-'}"
+                )
     lines.append("limits:")
     lines.extend(f"- {item}" for item in document["limitations"])
     lines.append("not_confirmed:")
@@ -113,12 +130,19 @@ def main(argv: list[str] | None = None) -> int:
     try:
         _preflight(args)
         records = load_messages(args.input)
-        document = build_analysis(records, input_name=args.input.name)
+        endpoint_key = (
+            load_endpoint_key(args.endpoint_key_file)
+            if args.endpoint_key_file is not None
+            else None
+        )
+        document = build_analysis(
+            records, input_name=args.input.name, endpoint_key=endpoint_key
+        )
         validate_analysis(document)
     except OSError as exc:
         print(f"parse-sdp: {exc}", file=sys.stderr)
         return EXIT_OUTPUT_FAILURE
-    except InputError as exc:
+    except (InputError, EndpointKeyError) as exc:
         message = str(exc)
         print(f"parse-sdp: {message}", file=sys.stderr)
         return EXIT_NO_EVENTS if "contains no SDP messages" in message else EXIT_MALFORMED_INPUT

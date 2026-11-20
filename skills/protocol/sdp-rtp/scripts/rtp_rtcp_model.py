@@ -9,6 +9,7 @@ RTP/RTCP binary parser is implemented here.
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import re
 import shutil
@@ -16,11 +17,20 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
+from endpoint_reference import (
+    EndpointError,
+    EndpointKeyError,
+    endpoint_context_reference,
+    endpoint_reference,
+    is_context_reference,
+    is_endpoint_reference,
+)
+
 ANALYSIS_NAME = "rtp-rtcp"
-ANALYSIS_VERSION = "0.3.0"
-EVENT_SCHEMA_VERSION = "1.1.0"
-PARSER_VERSION = "0.3.0"
-CAPABILITY = "bounded RTP and RTCP packet evidence"
+ANALYSIS_VERSION = "0.4.0"
+EVENT_SCHEMA_VERSION = "1.2.0"
+PARSER_VERSION = "0.4.0"
+CAPABILITY = "bounded RTP and RTCP packet evidence with optional endpoint references"
 
 MAX_RECORDS = 1024
 MAX_COMPONENTS = 16
@@ -74,7 +84,16 @@ REQUIRED_TSHARK_FIELDS = (
     "rtcp.senderssrc",
     "udp.stream",
 )
-OPTIONAL_TSHARK_FIELDS = ("udp.stream.pnum",)
+OPTIONAL_TSHARK_FIELDS = (
+    "udp.stream.pnum",
+    "ip.src",
+    "ip.dst",
+    "ipv6.src",
+    "ipv6.dst",
+    "udp.srcport",
+    "udp.dstport",
+)
+ENDPOINT_FIELDS = ("source_address", "destination_address", "source_port", "destination_port")
 
 
 class InputError(ValueError):
@@ -175,7 +194,74 @@ def _version_value(value: Any) -> tuple[int | None, str]:
     return value, "VALID"
 
 
-def _rtp_event(record: dict[str, Any], fields: dict[str, Any]) -> dict[str, Any]:
+def _rtp_endpoint_evidence(
+    record: dict[str, Any], fields: dict[str, Any], endpoint_key: bytes | None
+) -> dict[str, Any]:
+    if endpoint_key is None:
+        return {}
+    evidence: dict[str, Any] = {
+        "source_transport_endpoint_reference": None,
+        "destination_transport_endpoint_reference": None,
+        "transport_endpoint_status": "UNAVAILABLE",
+        "transport_endpoint_reason_codes": [],
+    }
+    if fields.get("endpoint_transport_ambiguous"):
+        evidence["transport_endpoint_status"] = "AMBIGUOUS"
+        evidence["transport_endpoint_reason_codes"] = [
+            "MULTIPLE_TRANSPORT_CANDIDATES"
+        ]
+        return evidence
+    raw_values = [fields.get(name) for name in ENDPOINT_FIELDS]
+    if any(isinstance(value, list) for value in raw_values):
+        evidence["transport_endpoint_status"] = "AMBIGUOUS"
+        evidence["transport_endpoint_reason_codes"] = [
+            "MULTIPLE_TRANSPORT_CANDIDATES"
+        ]
+        return evidence
+    present = [value is not None for value in raw_values]
+    if not any(present):
+        evidence["transport_endpoint_reason_codes"] = [
+            "UDP_ENDPOINT_FIELDS_UNAVAILABLE"
+        ]
+        return evidence
+    if not all(present):
+        evidence["transport_endpoint_status"] = "INCOMPLETE"
+        evidence["transport_endpoint_reason_codes"] = ["UDP_ENDPOINT_FIELDS_INCOMPLETE"]
+        return evidence
+    source_address, destination_address, source_port, destination_port = raw_values
+    try:
+        source_reference = endpoint_reference(
+            endpoint_key,
+            record["capture_sha256"],
+            source_address,
+            source_port,
+            "UDP",
+        )
+        destination_reference = endpoint_reference(
+            endpoint_key,
+            record["capture_sha256"],
+            destination_address,
+            destination_port,
+            "UDP",
+        )
+    except (EndpointError, EndpointKeyError):
+        evidence["transport_endpoint_reason_codes"] = ["UDP_ENDPOINT_INVALID"]
+        return evidence
+    evidence.update(
+        {
+            "source_transport_endpoint_reference": source_reference,
+            "destination_transport_endpoint_reference": destination_reference,
+            "transport_endpoint_status": "ESTABLISHED",
+        }
+    )
+    return evidence
+
+
+def _rtp_event(
+    record: dict[str, Any],
+    fields: dict[str, Any],
+    endpoint_key: bytes | None = None,
+) -> dict[str, Any]:
     capture = record["capture_file"]
     frame = record["frame_number"]
     occurrence = record["message_occurrence"]
@@ -338,6 +424,7 @@ def _rtp_event(record: dict[str, Any], fields: dict[str, Any]) -> dict[str, Any]
             "CODEC_FROM_DYNAMIC_PAYLOAD_TYPE",
         ],
     }
+    event.update(_rtp_endpoint_evidence(record, fields, endpoint_key))
     return event
 
 
@@ -630,11 +717,13 @@ def _rtcp_component(
     }
 
 
-def _parse_record(record: dict[str, Any]) -> list[dict[str, Any]]:
+def _parse_record(
+    record: dict[str, Any], endpoint_key: bytes | None = None
+) -> list[dict[str, Any]]:
     protocol = record["protocol"]
     fields = record["fields"]
     if protocol == "RTP":
-        return [_rtp_event(record, fields)]
+        return [_rtp_event(record, fields, endpoint_key)]
     if protocol != "RTCP":
         raise InputError("protocol must be RTP or RTCP")
     components = fields.get("components")
@@ -681,6 +770,34 @@ def _validate_record(record: Any, line_number: int) -> None:
         raise InputError(f"input line {line_number} has an unsupported protocol")
     if not isinstance(record["fields"], dict):
         raise InputError(f"input line {line_number} fields must be an object")
+    if record["protocol"] == "RTP":
+        fields = record["fields"]
+        for key in ("source_address", "destination_address"):
+            if key not in fields:
+                continue
+            value = fields[key]
+            if not isinstance(value, str):
+                raise InputError(f"input line {line_number} {key} must be a string")
+            try:
+                ipaddress.ip_address(value)
+            except ValueError:
+                raise InputError(
+                    f"input line {line_number} {key} is not a valid IP address"
+                ) from None
+        for key in ("source_port", "destination_port"):
+            if key not in fields:
+                continue
+            value = fields[key]
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 65535:
+                raise InputError(
+                    f"input line {line_number} {key} is not a valid UDP port"
+                )
+        if "endpoint_transport_ambiguous" in fields and not isinstance(
+            fields["endpoint_transport_ambiguous"], bool
+        ):
+            raise InputError(
+                f"input line {line_number} endpoint_transport_ambiguous must be a boolean"
+            )
 
 
 def load_structured_messages(path: Path) -> list[dict[str, Any]]:
@@ -781,6 +898,67 @@ def _layer(packet: dict[str, Any], name: str) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+def _layer_candidates(packet: dict[str, Any], name: str) -> list[dict[str, Any]]:
+    source = packet.get("_source")
+    if not isinstance(source, dict):
+        return []
+    layers = source.get("layers")
+    if not isinstance(layers, dict):
+        return []
+    value = layers.get(name)
+    if isinstance(value, dict):
+        return [value]
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    return []
+
+
+def _endpoint_fields(packet: dict[str, Any]) -> dict[str, Any]:
+    source = packet.get("_source")
+    layers = source.get("layers") if isinstance(source, dict) else None
+    layer_names = set(layers) if isinstance(layers, dict) else set()
+    ip_layers = _layer_candidates(packet, "ip") + _layer_candidates(packet, "ipv6")
+    udp_layers = _layer_candidates(packet, "udp")
+    encapsulated = any(
+        name == "gtp" or name.startswith("gtp.") or name.startswith("gtpv")
+        for name in layer_names
+    )
+    if encapsulated or len(ip_layers) > 1 or len(udp_layers) > 1:
+        return {"endpoint_transport_ambiguous": True}
+    if len(ip_layers) != 1 or len(udp_layers) != 1:
+        return {}
+    ip_layer = ip_layers[0]
+    raw_addresses = [
+        ip_layer.get("ip.src"),
+        ip_layer.get("ip.dst"),
+        ip_layer.get("ipv6.src"),
+        ip_layer.get("ipv6.dst"),
+    ]
+    if any(isinstance(value, list) for value in raw_addresses):
+        return {"endpoint_transport_ambiguous": True}
+    source_v4 = ip_layer.get("ip.src")
+    source_v6 = ip_layer.get("ipv6.src")
+    destination_v4 = ip_layer.get("ip.dst")
+    destination_v6 = ip_layer.get("ipv6.dst")
+    if (source_v4 and source_v6) or (destination_v4 and destination_v6):
+        return {"endpoint_transport_ambiguous": True}
+    udp_layer = udp_layers[0]
+    fields: dict[str, Any] = {}
+    source_address = source_v4 or source_v6
+    destination_address = destination_v4 or destination_v6
+    source_port = _numeric(_first(udp_layer.get("udp.srcport")))
+    destination_port = _numeric(_first(udp_layer.get("udp.dstport")))
+    if isinstance(source_address, str) and source_address:
+        fields["source_address"] = source_address
+    if isinstance(destination_address, str) and destination_address:
+        fields["destination_address"] = destination_address
+    if source_port is not None:
+        fields["source_port"] = source_port
+    if destination_port is not None:
+        fields["destination_port"] = destination_port
+    return fields
+
+
 def _numeric(value: Any) -> int | None:
     if isinstance(value, bool):
         return None
@@ -815,6 +993,7 @@ def _capture_records(capture: Path, decode_as: list[str], tshark: str, runner: C
         udp = _layer(packet, "udp") or {}
         udp_stream = _numeric(_first(udp.get("udp.stream")))
         udp_stream_packet = _numeric(_first(udp.get("udp.stream.pnum")))
+        endpoint_fields = _endpoint_fields(packet)
         rtp = _layer(packet, "rtp")
         if rtp:
             fields = {
@@ -829,6 +1008,7 @@ def _capture_records(capture: Path, decode_as: list[str], tshark: str, runner: C
                 "udp_stream": udp_stream,
                 "udp_stream_packet": udp_stream_packet,
             }
+            fields.update(endpoint_fields)
             for field_name, tshark_name in (
                 ("padding", "rtp.padding"),
                 ("extension", "rtp.ext"),
@@ -933,7 +1113,7 @@ def build_analysis(events: list[dict[str, Any]], provenance: dict[str, Any]) -> 
         "RTCP sender/receiver report values are remote-reported values, not locally measured loss or jitter",
         "No local packet-loss, jitter, MOS, QoS, media-delivery or two-way-audio calculation is performed",
         "RTP/RTCP packet presence does not prove successful media delivery",
-        "SDP-to-RTP endpoint association and stream reconstruction are not implemented",
+        "SDP-to-RTP endpoint association is owned by the sdp-rtp-transport Correlation Skill and is not performed here; stream reconstruction is not implemented",
     ]
     if provenance.get("optional_fields_unavailable"):
         limitations.insert(
@@ -945,7 +1125,11 @@ def build_analysis(events: list[dict[str, Any]], provenance: dict[str, Any]) -> 
         limitations.append(
             "TShark JSON may expose only one RTCP compound component; compound component binding is not assumed"
         )
-    return {
+    if provenance.get("endpoint_context_reference"):
+        limitations.append(
+            "UDP endpoint references are keyed HMAC-SHA-256 values scoped to the original capture; they do not prove SDP transport correspondence, media delivery or direction of an IMS role"
+        )
+    document = {
         "analysis_name": ANALYSIS_NAME,
         "analysis_version": ANALYSIS_VERSION,
         "event_schema_version": EVENT_SCHEMA_VERSION,
@@ -979,6 +1163,9 @@ def build_analysis(events: list[dict[str, Any]], provenance: dict[str, Any]) -> 
             "IMS_MEDIA_SESSION",
         ],
     }
+    if provenance.get("endpoint_context_reference"):
+        document["endpoint_context_reference"] = provenance["endpoint_context_reference"]
+    return document
 
 
 def validate_analysis(document: dict[str, Any]) -> None:
@@ -1005,6 +1192,30 @@ def validate_analysis(document: dict[str, Any]) -> None:
             raise InputError("an RTP/RTCP event has an invalid evidence status")
         if event.get("protocol") not in {"RTP", "RTCP"}:
             raise InputError("an event has an invalid protocol")
+        for forbidden in ENDPOINT_FIELDS + ("source_transport_endpoint",):
+            if forbidden in event:
+                raise InputError("an RTP/RTCP event published a raw endpoint field")
+        if "transport_endpoint_status" in event:
+            if event.get("protocol") != "RTP":
+                raise InputError("a non-RTP event published an endpoint status")
+            status = event["transport_endpoint_status"]
+            if status not in {"ESTABLISHED", "INCOMPLETE", "AMBIGUOUS", "UNAVAILABLE"}:
+                raise InputError("an RTP event has an invalid endpoint status")
+            source = event.get("source_transport_endpoint_reference")
+            destination = event.get("destination_transport_endpoint_reference")
+            if status == "ESTABLISHED":
+                if not is_endpoint_reference(source) or not is_endpoint_reference(
+                    destination
+                ):
+                    raise InputError("an established RTP endpoint lacks a valid reference")
+            elif source is not None or destination is not None:
+                raise InputError("an unavailable RTP endpoint published a reference")
+    if document.get("endpoint_context_reference") is not None:
+        if not is_context_reference(document["endpoint_context_reference"]):
+            raise InputError("RTP/RTCP endpoint context reference is malformed")
+    has_endpoint = any("transport_endpoint_status" in event for event in events)
+    if has_endpoint and document.get("endpoint_context_reference") is None:
+        raise InputError("RTP/RTCP endpoint evidence lacks a context reference")
     completeness = document.get("completeness") or {}
     if sum(
         completeness.get(key, 0)
@@ -1019,11 +1230,13 @@ def validate_analysis(document: dict[str, Any]) -> None:
         raise InputError("RTP/RTCP status counts do not sum to the published events")
 
 
-def extract_structured(path: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def extract_structured(
+    path: Path, endpoint_key: bytes | None = None
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     records = load_structured_messages(path)
     events: list[dict[str, Any]] = []
     for record in records:
-        events.extend(_parse_record(record))
+        events.extend(_parse_record(record, endpoint_key))
     provenance = {
         "mode": "STRUCTURED_JSONL",
         "input_name": path.name,
@@ -1034,6 +1247,10 @@ def extract_structured(path: Path) -> tuple[list[dict[str, Any]], dict[str, Any]
         "tool": None,
         "decode_as": [],
     }
+    if endpoint_key is not None:
+        provenance["endpoint_context_reference"] = endpoint_context_reference(
+            endpoint_key, records[0]["capture_sha256"]
+        )
     return events, provenance
 
 
@@ -1044,6 +1261,7 @@ def extract_capture(
     *,
     runner: Callable | None = None,
     prober: Callable | None = None,
+    endpoint_key: bytes | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     decode_as = decode_as or []
     _validate_capture_name(capture.name)
@@ -1051,7 +1269,7 @@ def extract_capture(
     records = _capture_records(capture, decode_as, tshark, runner)
     events: list[dict[str, Any]] = []
     for record in records:
-        events.extend(_parse_record(record))
+        events.extend(_parse_record(record, endpoint_key))
     provenance = {
         "mode": "PCAP",
         "input_name": capture.name,
@@ -1063,4 +1281,8 @@ def extract_capture(
         "decode_as": decode_as,
         "optional_fields_unavailable": list(optional_unavailable),
     }
+    if endpoint_key is not None:
+        provenance["endpoint_context_reference"] = endpoint_context_reference(
+            endpoint_key, provenance["capture_sha256"]
+        )
     return events, provenance

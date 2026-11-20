@@ -1,0 +1,590 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.local/schemas/sdp-rtp-transport-correlation.schema.json",
+  "title": "Bounded SDP-to-RTP UDP transport endpoint correlation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_name",
+    "analysis_version",
+    "domain",
+    "capability",
+    "input_provenance",
+    "correlation_count",
+    "correlations",
+    "unmatched_stream_count",
+    "unmatched_streams",
+    "completeness",
+    "limitations",
+    "not_confirmed"
+  ],
+  "properties": {
+    "analysis_name": {
+      "const": "sdp-rtp-transport"
+    },
+    "analysis_version": {
+      "const": "0.1.0"
+    },
+    "domain": {
+      "const": "sdp-rtp-transport"
+    },
+    "capability": {
+      "const": "bounded SDP-to-RTP UDP transport endpoint correlation"
+    },
+    "input_provenance": {
+      "$ref": "#/$defs/input_provenance"
+    },
+    "correlation_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 512
+    },
+    "correlations": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "$ref": "#/$defs/correlation"
+      }
+    },
+    "unmatched_stream_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1024
+    },
+    "unmatched_streams": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": {
+        "$ref": "#/$defs/unmatched_stream"
+      }
+    },
+    "completeness": {
+      "$ref": "#/$defs/completeness"
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 320
+      }
+    },
+    "not_confirmed": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    }
+  },
+  "$defs": {
+    "input_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sdp_analysis_source_name",
+        "sdp_analysis_sha256",
+        "sdp_analysis_version",
+        "sdp_event_schema_version",
+        "rtp_rtcp_analysis_source_name",
+        "rtp_rtcp_analysis_sha256",
+        "rtp_rtcp_analysis_version",
+        "rtp_rtcp_event_schema_version",
+        "capture_files",
+        "capture_sha256",
+        "endpoint_context_reference",
+        "input_status"
+      ],
+      "properties": {
+        "sdp_analysis_source_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "sdp_analysis_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sdp_analysis_version": {
+          "const": "0.2.0"
+        },
+        "sdp_event_schema_version": {
+          "const": "1.1.0"
+        },
+        "rtp_rtcp_analysis_source_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "rtp_rtcp_analysis_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "rtp_rtcp_analysis_version": {
+          "const": "0.4.0"
+        },
+        "rtp_rtcp_event_schema_version": {
+          "const": "1.2.0"
+        },
+        "capture_files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "capture_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "endpoint_context_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^endpoint-context-hmac-sha256:v1:[0-9a-f]{64}$"
+        },
+        "input_status": {
+          "const": "ACCEPTED"
+        }
+      }
+    },
+    "correlation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correlation_reference",
+        "correlation_type",
+        "sdp_message_references",
+        "sdp_media_sections",
+        "bundle_references",
+        "endpoint_references",
+        "rtp_udp_stream_references",
+        "rtp_event_references",
+        "match_directions",
+        "association_status",
+        "correlation_strength",
+        "missing_evidence",
+        "conflict_findings",
+        "evidence_class"
+      ],
+      "properties": {
+        "correlation_reference": {
+          "type": "string",
+          "pattern": "^sdp-rtp-transport:.+:[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "correlation_type": {
+          "type": "string",
+          "enum": [
+            "SINGLE_MEDIA",
+            "BUNDLE_MEDIA",
+            "UNAVAILABLE_MEDIA"
+          ]
+        },
+        "sdp_message_references": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+$"
+          }
+        },
+        "sdp_media_sections": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/media_section"
+          }
+        },
+        "bundle_references": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "pattern": "^sdp-bundle:.+:[0-9]+\\.[0-9]+:[0-9]+$"
+          }
+        },
+        "endpoint_references": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "pattern": "^endpoint-hmac-sha256:v1:[0-9a-f]{64}$"
+          }
+        },
+        "rtp_udp_stream_references": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "pattern": "^rtp-udp-stream:.+:[0-9]+$"
+          }
+        },
+        "rtp_event_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+$"
+          }
+        },
+        "match_directions": {
+          "type": "array",
+          "maxItems": 2,
+          "items": {
+            "type": "string",
+            "enum": [
+              "RTP_SOURCE_ENDPOINT_MATCH",
+              "RTP_DESTINATION_ENDPOINT_MATCH"
+            ]
+          }
+        },
+        "association_status": {
+          "type": "string",
+          "enum": [
+            "MATCHED_ENDPOINT",
+            "BUNDLE_TRANSPORT_MATCHED",
+            "AMBIGUOUS",
+            "INSUFFICIENT_EVIDENCE",
+            "UNMATCHED",
+            "OUT_OF_SCOPE"
+          ]
+        },
+        "correlation_strength": {
+          "type": "string",
+          "enum": [
+            "STRONG",
+            "MEDIUM",
+            "WEAK"
+          ]
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/finding_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/finding_list"
+        },
+        "evidence_class": {
+          "const": "DERIVED"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "association_status": {
+                "const": "MATCHED_ENDPOINT"
+              }
+            },
+            "required": [
+              "association_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "correlation_strength": {
+                "const": "STRONG"
+              },
+              "endpoint_references": {
+                "minItems": 1
+              },
+              "rtp_udp_stream_references": {
+                "minItems": 1
+              },
+              "match_directions": {
+                "minItems": 1,
+                "maxItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "association_status": {
+                "const": "BUNDLE_TRANSPORT_MATCHED"
+              }
+            },
+            "required": [
+              "association_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "correlation_strength": {
+                "const": "STRONG"
+              },
+              "correlation_type": {
+                "const": "BUNDLE_MEDIA"
+              },
+              "bundle_references": {
+                "minItems": 1
+              },
+              "endpoint_references": {
+                "minItems": 1
+              },
+              "rtp_udp_stream_references": {
+                "minItems": 1
+              },
+              "match_directions": {
+                "minItems": 1,
+                "maxItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "media_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_reference",
+        "media_index",
+        "mid"
+      ],
+      "properties": {
+        "message_reference": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+$"
+        },
+        "media_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 63
+        },
+        "mid": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        }
+      }
+    },
+    "unmatched_stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rtp_udp_stream_reference",
+        "rtp_event_references",
+        "packet_count",
+        "first_frame_number",
+        "last_frame_number",
+        "observed_ssrc_references",
+        "source_endpoint_references",
+        "destination_endpoint_references",
+        "endpoint_evidence_status",
+        "missing_evidence",
+        "conflict_findings",
+        "evidence_class"
+      ],
+      "properties": {
+        "rtp_udp_stream_reference": {
+          "type": "string",
+          "pattern": "^rtp-udp-stream:.+:[0-9]+$"
+        },
+        "rtp_event_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+$"
+          }
+        },
+        "packet_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "first_frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "last_frame_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "observed_ssrc_references": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "source_endpoint_references": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "pattern": "^endpoint-hmac-sha256:v1:[0-9a-f]{64}$"
+          }
+        },
+        "destination_endpoint_references": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "pattern": "^endpoint-hmac-sha256:v1:[0-9a-f]{64}$"
+          }
+        },
+        "endpoint_evidence_status": {
+          "type": "string",
+          "enum": [
+            "ESTABLISHED",
+            "INCOMPLETE",
+            "AMBIGUOUS",
+            "CONFLICT",
+            "UNAVAILABLE"
+          ]
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/finding_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/finding_list"
+        },
+        "evidence_class": {
+          "const": "DERIVED"
+        }
+      }
+    },
+    "finding_list": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sdp_message_count",
+        "sdp_media_section_count",
+        "sdp_media_with_endpoint_count",
+        "sdp_media_without_endpoint_count",
+        "sdp_media_correlatable_count",
+        "rtp_packet_count",
+        "correlatable_rtp_packet_count",
+        "non_observed_rtp_packet_count",
+        "ungrouped_rtp_packet_count",
+        "rtp_stream_count",
+        "rtp_stream_with_endpoint_count",
+        "rtp_stream_without_endpoint_count",
+        "correlation_count",
+        "correlations_omitted",
+        "matched_correlation_count",
+        "bundle_matched_correlation_count",
+        "ambiguous_correlation_count",
+        "insufficient_correlation_count",
+        "unmatched_correlation_count",
+        "out_of_scope_correlation_count",
+        "unmatched_stream_count"
+      ],
+      "properties": {
+        "sdp_message_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sdp_media_section_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sdp_media_with_endpoint_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sdp_media_without_endpoint_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sdp_media_correlatable_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rtp_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "correlatable_rtp_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "non_observed_rtp_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ungrouped_rtp_packet_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rtp_stream_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rtp_stream_with_endpoint_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rtp_stream_without_endpoint_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "correlation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "correlations_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "matched_correlation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bundle_matched_correlation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguous_correlation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "insufficient_correlation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmatched_correlation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "out_of_scope_correlation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmatched_stream_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

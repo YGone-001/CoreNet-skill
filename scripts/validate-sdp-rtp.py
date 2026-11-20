@@ -30,13 +30,17 @@ REQUIRED = (
     "schemas/sdp-events.schema.json",
     "scripts/parse-sdp.py",
     "scripts/sdp_model.py",
+    "scripts/endpoint_reference.py",
     "tests/test_sdp.py",
+    "tests/test_sdp_endpoint.py",
+    "tests/test_endpoint_reference.py",
     "tests/sdp_fixture_builder.py",
     "tests/test_rtp_rtcp.py",
     "tests/rtp_rtcp_fixture_builder.py",
     "schemas/rtp-rtcp-events.schema.json",
     "scripts/rtp_rtcp_model.py",
     "scripts/extract-rtp-rtcp.py",
+    "tests/test_rtp_endpoint.py",
     "examples/inputs/sdp-cases.jsonl",
     "examples/inputs/rtp-rtcp-cases.jsonl",
     "examples/expected/sdp-analysis.json",
@@ -112,6 +116,8 @@ def main() -> int:
             errors.append(f"schema is missing required property: {required}")
     if schema["properties"]["analysis_version"].get("const") != sdp_model.ANALYSIS_VERSION:
         errors.append("schema analysis_version diverges from the model")
+    if schema["properties"]["event_schema_version"].get("const") != sdp_model.EVENT_SCHEMA_VERSION:
+        errors.append("schema event_schema_version diverges from the model")
     for definition in ("input_provenance", "message", "session", "media", "completeness"):
         if schema["$defs"][definition].get("additionalProperties") is not False:
             errors.append(f"schema definition {definition} is not strict")
@@ -119,7 +125,7 @@ def main() -> int:
     manifest = (SKILL / "manifest.yaml").read_text(encoding="utf-8")
     for token in (
         "name: sdp-rtp",
-        "version: 0.3.0",
+        "version: 0.4.0",
         "RTP version 2 packet evidence",
         "RFC 3550",
         "category: protocol",

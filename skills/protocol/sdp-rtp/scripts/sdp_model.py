@@ -16,11 +16,20 @@ import re
 from pathlib import Path
 from typing import Any
 
+from endpoint_reference import (
+    EndpointError,
+    EndpointKeyError,
+    endpoint_context_reference,
+    endpoint_reference,
+    is_context_reference,
+    is_endpoint_reference,
+)
+
 ANALYSIS_NAME = "sdp-rtp"
-ANALYSIS_VERSION = "0.1.0"
-CAPABILITY = "bounded SDP structural evidence"
-PARSER_VERSION = "0.1.0"
-EVENT_SCHEMA_VERSION = "1.0.0"
+ANALYSIS_VERSION = "0.2.0"
+CAPABILITY = "bounded SDP structural evidence with optional endpoint references"
+PARSER_VERSION = "0.2.0"
+EVENT_SCHEMA_VERSION = "1.1.0"
 
 MAX_BODY_BYTES = 65536
 MAX_RECORDS = 512
@@ -182,10 +191,10 @@ def _address_info(value: str, address_type: str) -> dict[str, Any]:
         result["address_class"] = "LOOPBACK"
     elif address.is_link_local:
         result["address_class"] = "LINK_LOCAL"
-    elif address.is_private:
-        result["address_class"] = "PRIVATE"
     elif address.is_unspecified:
         result["address_class"] = "UNSPECIFIED"
+    elif address.is_private:
+        result["address_class"] = "PRIVATE"
     else:
         result["address_class"] = "GLOBAL_UNICAST"
     if address_type == "IP4" and address.is_multicast and result["ttl"] is None:
@@ -205,6 +214,7 @@ def _connection(value: str) -> tuple[dict[str, Any] | None, list[str]]:
     if len(parts) < 3:
         return None, ["CONNECTION_FIELD_MALFORMED"]
     net_type, address_type = parts[0], parts[1]
+    base_address = parts[2].split("/", 1)[0]
     address = _address_info(parts[2], address_type)
     reasons: list[str] = []
     if not address["valid"]:
@@ -219,6 +229,7 @@ def _connection(value: str) -> tuple[dict[str, Any] | None, list[str]]:
         "address_count": address["address_count"],
         "address_present": address["address_present"],
         "address_redacted": True,
+        "_raw_address": base_address,
     }, reasons
 
 
@@ -555,6 +566,124 @@ def _finish_mids(target: dict[str, Any]) -> list[str]:
     return mids
 
 
+ICE_ATTRIBUTE_NAMES = frozenset(
+    {
+        "ice-ufrag",
+        "ice-pwd",
+        "candidate",
+        "remote-candidates",
+        "ice-options",
+        "ice-lite",
+        "end-of-candidates",
+    }
+)
+SUPPORTED_RTP_PROTOCOLS = frozenset({"RTP/AVP", "RTP/AVPF"})
+SUPPORTED_ADDRESS_CLASSES = frozenset({"GLOBAL_UNICAST", "PRIVATE", "LOOPBACK"})
+
+
+def _attribute_names(target: dict[str, Any]) -> set[str]:
+    return {
+        item.get("name")
+        for item in target.get("attributes") or []
+        if isinstance(item.get("name"), str)
+    }
+
+
+def _ice_present(session: dict[str, Any], media: dict[str, Any]) -> bool:
+    if session.get("ice_options") or session.get("ice_lite"):
+        return True
+    if media.get("ice_options") or media.get("ice_lite"):
+        return True
+    return bool(
+        (_attribute_names(session) | _attribute_names(media)) & ICE_ATTRIBUTE_NAMES
+    )
+
+
+def _transport_endpoint(
+    media: dict[str, Any],
+    session: dict[str, Any],
+    endpoint_key: bytes,
+    capture_sha256: str,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "endpoint_status": "UNAVAILABLE",
+        "endpoint_reference": None,
+        "transport": None,
+        "address_family": None,
+        "reason_codes": [],
+    }
+
+    def unavailable(status: str, reason: str) -> dict[str, Any]:
+        result["endpoint_status"] = status
+        result["reason_codes"].append(reason)
+        return result
+
+    if media.get("media_type_supported") is False:
+        return unavailable("OUT_OF_SCOPE", "UNSUPPORTED_MEDIA_TYPE")
+    protocol = str(media.get("protocol") or "").upper()
+    if protocol not in SUPPORTED_RTP_PROTOCOLS:
+        return unavailable("OUT_OF_SCOPE", "UNSUPPORTED_TRANSPORT_PROTOCOL")
+    if media.get("port_count") != 1:
+        return unavailable("OUT_OF_SCOPE", "UNSUPPORTED_PORT_COUNT")
+    port = media.get("port")
+    if port == 0:
+        return unavailable("OUT_OF_SCOPE", "MEDIA_DISABLED")
+    if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+        return unavailable("UNAVAILABLE", "RTP_PORT_INVALID")
+    if "bundle-only" in _attribute_names(media):
+        return unavailable("OUT_OF_SCOPE", "BUNDLE_ONLY_ENDPOINT_UNSUPPORTED")
+    if _ice_present(session, media):
+        return unavailable("UNAVAILABLE", "ICE_SELECTED_TRANSPORT_NOT_ESTABLISHED")
+
+    media_connection = media.get("connection")
+    if media_connection is not None:
+        connection = media_connection
+        secondary_count = media.get("secondary_connection_count", 0)
+        invalid_reasons = media.get("invalid_reasons") or []
+    else:
+        connection = session.get("connection")
+        secondary_count = session.get("secondary_connection_count", 0)
+        invalid_reasons = session.get("invalid_reasons") or []
+    if connection is None:
+        return unavailable("UNAVAILABLE", "CONNECTION_NOT_OBSERVED")
+    if secondary_count or "MULTIPLE_CONNECTION_LINES" in invalid_reasons:
+        return unavailable("UNAVAILABLE", "AMBIGUOUS_CONNECTION")
+    if connection.get("net_type") != "IN":
+        return unavailable("OUT_OF_SCOPE", "UNSUPPORTED_NETWORK_TYPE")
+    address_type = connection.get("address_type")
+    if address_type not in {"IP4", "IP6"}:
+        return unavailable("OUT_OF_SCOPE", "UNSUPPORTED_ADDRESS_TYPE")
+    address_class = connection.get("address_class")
+    if address_class == "DOMAIN_NAME":
+        return unavailable("OUT_OF_SCOPE", "DOMAIN_NAME_UNRESOLVED")
+    if address_class == "MULTICAST" or str(address_class).startswith("MULTICAST"):
+        return unavailable("OUT_OF_SCOPE", "MULTICAST_ADDRESS_UNSUPPORTED")
+    if address_class == "UNSPECIFIED":
+        return unavailable("OUT_OF_SCOPE", "UNSPECIFIED_ADDRESS_UNSUPPORTED")
+    if address_class == "LINK_LOCAL":
+        return unavailable("OUT_OF_SCOPE", "LINK_LOCAL_ADDRESS_UNSUPPORTED")
+    if address_class not in SUPPORTED_ADDRESS_CLASSES:
+        return unavailable("UNAVAILABLE", "CONNECTION_ADDRESS_INVALID")
+    raw_address = connection.get("_raw_address")
+    if not isinstance(raw_address, str) or not raw_address:
+        return unavailable("UNAVAILABLE", "CONNECTION_ADDRESS_INVALID")
+    try:
+        reference = endpoint_reference(
+            endpoint_key, capture_sha256, raw_address, port, "UDP"
+        )
+    except (EndpointError, EndpointKeyError):
+        return unavailable("UNAVAILABLE", "CONNECTION_ADDRESS_INVALID")
+    result.update(
+        {
+            "endpoint_status": "ESTABLISHED",
+            "endpoint_reference": reference,
+            "transport": "UDP",
+            "address_family": address_type.replace("IP4", "IPv4").replace("IP6", "IPv6"),
+        }
+    )
+    return result
+
+
 def _media_line(value: str) -> tuple[dict[str, Any] | None, list[str]]:
     parts = value.split()
     if len(parts) < 4:
@@ -654,7 +783,9 @@ def _line_ending_style(body: str) -> str:
     return styles[0] if len(styles) == 1 else "MIXED"
 
 
-def parse_message(record: dict[str, Any]) -> dict[str, Any]:
+def parse_message(
+    record: dict[str, Any], *, endpoint_key: bytes | None = None
+) -> dict[str, Any]:
     body = record["sdp_body"]
     body_bytes = body.encode("utf-8", errors="surrogatepass")
     base = {
@@ -946,6 +1077,16 @@ def parse_message(record: dict[str, Any]) -> dict[str, Any]:
         base["evidence_status"] = "UNSUPPORTED"
     else:
         base["evidence_status"] = "OBSERVED"
+    if endpoint_key is not None:
+        for media in base["media_sections"]:
+            media["transport_endpoint"] = _transport_endpoint(
+                media, session, endpoint_key, base["capture_sha256"]
+            )
+    if isinstance(session.get("connection"), dict):
+        session["connection"].pop("_raw_address", None)
+    for media in base["media_sections"]:
+        if isinstance(media.get("connection"), dict):
+            media["connection"].pop("_raw_address", None)
     base["invalid_reasons"] = sorted(set(total_reasons))
     return base
 
@@ -1007,11 +1148,21 @@ def load_messages(path: Path) -> list[dict[str, Any]]:
     return records
 
 
-def build_analysis(records: list[dict[str, Any]], *, input_name: str = "sdp-input.jsonl") -> dict[str, Any]:
-    messages = [parse_message(record) for record in records]
+def build_analysis(
+    records: list[dict[str, Any]],
+    *,
+    input_name: str = "sdp-input.jsonl",
+    endpoint_key: bytes | None = None,
+) -> dict[str, Any]:
+    messages = [parse_message(record, endpoint_key=endpoint_key) for record in records]
     capture_file = records[0]["capture_file"]
     capture_sha256 = records[0]["capture_sha256"]
-    return {
+    endpoint_context = (
+        endpoint_context_reference(endpoint_key, capture_sha256)
+        if endpoint_key is not None
+        else None
+    )
+    document = {
         "analysis_name": ANALYSIS_NAME,
         "analysis_version": ANALYSIS_VERSION,
         "event_schema_version": EVENT_SCHEMA_VERSION,
@@ -1050,6 +1201,13 @@ def build_analysis(records: list[dict[str, Any]], *, input_name: str = "sdp-inpu
             "CALL_SUCCESS",
         ],
     }
+    if endpoint_context is not None:
+        document["input_provenance"]["endpoint_context_reference"] = endpoint_context
+        document["limitations"] = list(document["limitations"]) + [
+            "Endpoint references are keyed HMAC-SHA-256 values scoped to the original capture and are absent without an endpoint key",
+            "Endpoint references are not emitted for ICE-selected, disabled, multicast, unspecified, link-local, unresolved-name or unsupported-transport media sections",
+        ]
+    return document
 
 
 def validate_analysis(document: dict[str, Any]) -> None:
@@ -1093,6 +1251,43 @@ def validate_analysis(document: dict[str, Any]) -> None:
                 raise InputError("an SDP media section has an invalid evidence status")
             if media.get("media_type_supported") is False and media.get("evidence_status") == "OBSERVED":
                 raise InputError("an unsupported media type cannot be marked observed")
+            if isinstance(media.get("connection"), dict) and "_raw_address" in media["connection"]:
+                raise InputError("an SDP media connection published a raw address")
+            endpoint = media.get("transport_endpoint")
+            if endpoint is not None:
+                if not isinstance(endpoint, dict):
+                    raise InputError("an SDP transport endpoint is not an object")
+                if endpoint.get("endpoint_status") not in {
+                    "ESTABLISHED",
+                    "UNAVAILABLE",
+                    "OUT_OF_SCOPE",
+                }:
+                    raise InputError("an SDP transport endpoint has an invalid status")
+                reference = endpoint.get("endpoint_reference")
+                if endpoint.get("endpoint_status") == "ESTABLISHED":
+                    if not is_endpoint_reference(reference):
+                        raise InputError("an established SDP transport endpoint has no valid reference")
+                    if endpoint.get("transport") != "UDP":
+                        raise InputError("an established SDP transport endpoint is not UDP")
+                    if endpoint.get("address_family") not in {"IPv4", "IPv6"}:
+                        raise InputError("an established SDP transport endpoint has no address family")
+                elif reference is not None:
+                    raise InputError("an unavailable SDP transport endpoint published a reference")
+    provenance = document.get("input_provenance") or {}
+    if isinstance(provenance.get("capture_files"), list) and provenance.get("capture_files"):
+        message_capture = messages[0].get("capture_file") if messages else None
+        if message_capture is not None and provenance["capture_files"][0] != message_capture:
+            raise InputError("SDP input_provenance capture identity disagrees with the messages")
+    context = provenance.get("endpoint_context_reference")
+    has_endpoint = any(
+        "transport_endpoint" in media
+        for message in messages
+        for media in message.get("media_sections") or []
+    )
+    if context is not None and not is_context_reference(context):
+        raise InputError("SDP endpoint context reference is malformed")
+    if has_endpoint and context is None:
+        raise InputError("SDP endpoint evidence lacks a context reference")
     completeness = document.get("completeness") or {}
     if completeness.get("supplied_message_count") != completeness.get("published_message_count", 0) + completeness.get("messages_omitted", 0):
         raise InputError("SDP message count conservation failed")

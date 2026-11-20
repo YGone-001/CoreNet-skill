@@ -1,0 +1,69 @@
+name: sdp-rtp-transport
+version: 0.1.0
+category: correlation
+description: >
+  Privacy-safe Correlation-layer capability matching already-extracted SDP
+  media transport endpoints against observed RTP UDP transport streams by
+  capture-scoped HMAC endpoint equality. It performs no SDP parsing, RTP
+  decoding, capture reading, SIP dialog or IMS session reconstruction and
+  produces no call, media-delivery or QoS verdict.
+scope:
+  includes:
+    - exact capture-scoped HMAC endpoint equality between accepted SDP media sections and RTP UDP streams
+    - RTP source and destination endpoint match direction without IMS sender/receiver role interpretation
+    - capture-local UDP stream grouping by capture identity and udp.stream
+    - resolved SDP BUNDLE shared-transport grouping without RTP MID demultiplexing
+    - ambiguity preservation for multiple media owners, multiple streams and conflicting endpoint sets
+    - explicit missing-evidence and unsupported-observation classification
+    - bounded completeness counters and deterministic report output
+    - local HMAC endpoint key generation helper
+  excludes:
+    - SDP body parsing or structural re-interpretation
+    - RTP packet decoding, stream reconstruction or sequence analysis
+    - PCAP reading, live capture or TShark execution
+    - SIP dialog, transaction or IMS session reconstruction
+    - IMS media session identity, call success or media delivery
+    - NAT traversal, ICE, STUN, TURN, DTLS or SRTP decryption
+    - RTP header-extension MID demultiplexing
+    - RTCP stream correlation, packet loss, jitter, MOS or QoS
+    - unified workflow integration
+dependencies:
+  required:
+    - sdp-rtp >=0.4.0
+  optional: []
+inputs:
+  - SDP Analysis JSON (analysis name sdp-rtp, analysis version 0.2.0, event schema 1.1.0) with optional endpoint references
+  - RTP/RTCP Analysis JSON (analysis name rtp-rtcp, analysis version 0.4.0, event schema 1.2.0) with optional endpoint references
+outputs:
+  - schemas/sdp-rtp-transport-correlation.schema.json
+  - scripts/correlate-sdp-rtp-transport.py
+  - scripts/create-endpoint-key.py
+  - bounded transport-correlation JSON
+  - optional plain-text correlation report
+  - local owner-only endpoint key files created by scripts/create-endpoint-key.py
+protocols:
+  - SDP
+  - RTP
+interfaces:
+  - Gm
+  - Mw
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - INSUFFICIENT_EVIDENCE
+  - AMBIGUOUS
+  - OUT_OF_SCOPE
+upstream:
+  repository: https://www.rfc-editor.org/rfc/rfc8866.txt; https://www.rfc-editor.org/rfc/rfc3550.txt; https://www.rfc-editor.org/rfc/rfc9143.txt; https://www.rfc-editor.org/rfc/rfc5761.txt; https://www.rfc-editor.org/rfc/rfc3264.txt; https://www.rfc-editor.org/rfc/rfc8839.txt
+  path: null
+  commit: null
+  license: IETF Trust RFC 8866, RFC 3550, RFC 9143, RFC 5761, RFC 3264 and RFC 8839
+  local_modifications: Original CoreNet Correlation-layer implementation; no upstream code imported. RFC 9143 BUNDLE grouping is implemented as a bounded resolved-group check only.
+testing:
+  fixtures:
+    - examples/inputs/transport-sdp-analysis.json
+    - examples/inputs/transport-rtp-rtcp-analysis.json
+  expected_results:
+    - examples/expected/transport-correlation.json
+    - examples/expected/transport-correlation.txt

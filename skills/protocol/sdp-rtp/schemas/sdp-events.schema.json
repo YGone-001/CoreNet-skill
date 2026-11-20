@@ -21,13 +21,13 @@
       "const": "sdp-rtp"
     },
     "analysis_version": {
-      "const": "0.1.0"
+      "const": "0.2.0"
     },
     "event_schema_version": {
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "capability": {
-      "const": "bounded SDP structural evidence"
+      "const": "bounded SDP structural evidence with optional endpoint references"
     },
     "input_provenance": {
       "$ref": "#/$defs/input_provenance"
@@ -102,7 +102,11 @@
           "minimum": 1
         },
         "parser_version": {
-          "const": "0.1.0"
+          "const": "0.2.0"
+        },
+        "endpoint_context_reference": {
+          "type": "string",
+          "pattern": "^endpoint-context-hmac-sha256:v1:[0-9a-f]{64}$"
         }
       }
     },
@@ -157,7 +161,7 @@
           "minimum": 1
         },
         "parser_version": {
-          "const": "0.1.0"
+          "const": "0.2.0"
         },
         "sdp_version": {
           "type": [
@@ -1266,6 +1270,9 @@
         },
         "obsolete_key_present": {
           "type": "boolean"
+        },
+        "transport_endpoint": {
+          "$ref": "#/$defs/transport_endpoint"
         }
       }
     },
@@ -1316,6 +1323,116 @@
           "minimum": 0
         }
       }
+    },
+    "transport_endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "endpoint_status",
+        "endpoint_reference",
+        "transport",
+        "address_family",
+        "reason_codes"
+      ],
+      "properties": {
+        "endpoint_status": {
+          "type": "string",
+          "enum": [
+            "ESTABLISHED",
+            "UNAVAILABLE",
+            "OUT_OF_SCOPE"
+          ]
+        },
+        "endpoint_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^endpoint-hmac-sha256:v1:[0-9a-f]{64}$"
+        },
+        "transport": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "UDP",
+            null
+          ]
+        },
+        "address_family": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "IPv4",
+            "IPv6",
+            null
+          ]
+        },
+        "reason_codes": {
+          "$ref": "#/$defs/reasons"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "endpoint_status": {
+                "const": "ESTABLISHED"
+              }
+            },
+            "required": [
+              "endpoint_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "endpoint_reference": {
+                "type": "string"
+              },
+              "transport": {
+                "const": "UDP"
+              },
+              "address_family": {
+                "enum": [
+                  "IPv4",
+                  "IPv6"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "endpoint_status": {
+                "enum": [
+                  "UNAVAILABLE",
+                  "OUT_OF_SCOPE"
+                ]
+              }
+            },
+            "required": [
+              "endpoint_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "endpoint_reference": {
+                "type": "null"
+              },
+              "transport": {
+                "type": "null"
+              },
+              "address_family": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

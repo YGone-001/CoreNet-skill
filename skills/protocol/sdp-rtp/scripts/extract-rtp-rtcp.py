@@ -14,6 +14,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+from endpoint_reference import EndpointKeyError, load_endpoint_key  # noqa: E402
 from rtp_rtcp_model import (  # noqa: E402
     InputError,
     ToolError,
@@ -48,6 +49,11 @@ def parser() -> argparse.ArgumentParser:
         metavar="TSHARK_DECODE_AS",
         help="explicit TShark -d mapping, for example udp.port==5004,rtp",
     )
+    result.add_argument(
+        "--endpoint-key-file",
+        type=Path,
+        help="optional owner-only 32-byte local key for capture-scoped endpoint references",
+    )
     result.add_argument("--force", action="store_true", help="replace existing outputs")
     return result
 
@@ -65,8 +71,11 @@ def _preflight(args: argparse.Namespace) -> None:
     if args.input_format == "jsonl" and args.decode_as:
         raise OSError("--decode-as is only valid for capture input")
     outputs = [args.output] + ([args.report] if args.report else [])
+    protected = [args.input]
+    if args.endpoint_key_file is not None:
+        protected.append(args.endpoint_key_file)
     for output in outputs:
-        if _same(output, args.input):
+        if any(_same(output, item) for item in protected):
             raise OSError("output destination collides with the input")
         if output.exists() and not args.force:
             raise OSError("output already exists; use --force to replace it")
@@ -132,10 +141,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
         _preflight(args)
+        endpoint_key = (
+            load_endpoint_key(args.endpoint_key_file)
+            if args.endpoint_key_file is not None
+            else None
+        )
         if args.input_format == "jsonl":
-            events, provenance = extract_structured(args.input)
+            events, provenance = extract_structured(args.input, endpoint_key)
         else:
-            events, provenance = extract_capture(args.input, args.decode_as)
+            events, provenance = extract_capture(
+                args.input, args.decode_as, endpoint_key=endpoint_key
+            )
         if not events:
             print("extract-rtp-rtcp: input contains no RTP or RTCP events", file=sys.stderr)
             return EXIT_NO_EVENTS
@@ -144,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as exc:
         print(f"extract-rtp-rtcp: {exc}", file=sys.stderr)
         return EXIT_OUTPUT_FAILURE
-    except InputError as exc:
+    except (InputError, EndpointKeyError) as exc:
         print(f"extract-rtp-rtcp: {exc}", file=sys.stderr)
         return EXIT_MALFORMED_INPUT
     except ToolError as exc:

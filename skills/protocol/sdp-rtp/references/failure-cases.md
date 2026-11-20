@@ -78,3 +78,21 @@ Missing or contradictory evidence is never converted into a media-success verdic
 | Explicit decode-as | Passed to TShark; no port inference |
 | Output collision | Rejected |
 | Deterministic replay | Byte-identical JSON and report |
+
+## Optional endpoint failures
+
+| Case | Required behavior |
+|---|---|
+| No endpoint key | No endpoint fields; previous output preserved |
+| Malformed, missing, wrong-size or non-owner-only key | Rejected before output |
+| Invalid endpoint IP or port (including port 0) | Endpoint unavailable; raw value never published |
+| Disabled media, multicast, unspecified, link-local or domain-name connection | `OUT_OF_SCOPE` with the bounded reason code |
+| Multiple connection declarations | Endpoint `UNAVAILABLE`, `AMBIGUOUS_CONNECTION` |
+| Unsupported transport or multiple port count | `OUT_OF_SCOPE` |
+| Explicit RTCP port or `rtcp-mux` | RTP endpoint unchanged |
+| ICE candidate or credential present | `UNAVAILABLE`, selected transport not established |
+| `bundle-only` media | No invented endpoint |
+| Missing RTP source/destination address or UDP port | `INCOMPLETE` |
+| All RTP endpoint fields missing | `UNAVAILABLE` |
+| Multiple transport-layer candidates or GTP encapsulation | `AMBIGUOUS`; no inner RTP claim |
+| RTCP event | Never promoted to an RTP endpoint |
