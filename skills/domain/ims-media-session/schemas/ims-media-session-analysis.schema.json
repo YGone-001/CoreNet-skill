@@ -1,0 +1,585 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corenet-skill.local/schemas/ims-media-session-analysis.schema.json",
+  "title": "Branch-scoped IMS media transport evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_name",
+    "analysis_version",
+    "domain",
+    "capability",
+    "input_provenance",
+    "temporal_association_status",
+    "association_scope",
+    "attempt_count",
+    "attempts",
+    "exchange_count",
+    "exchanges",
+    "transport_observation_count",
+    "transport_observations",
+    "unbound_signaling_observation_count",
+    "unbound_signaling_observations",
+    "unmatched_rtp_stream_count",
+    "unmatched_rtp_streams",
+    "completeness",
+    "limitations",
+    "not_confirmed"
+  ],
+  "properties": {
+    "analysis_name": {"const": "ims-media-session"},
+    "analysis_version": {"const": "0.1.0"},
+    "domain": {"const": "ims-media-session"},
+    "capability": {"const": "branch-scoped IMS media transport evidence composition"},
+    "input_provenance": {"$ref": "#/$defs/input_provenance"},
+    "temporal_association_status": {"const": "NOT_EVALUATED"},
+    "association_scope": {"const": "CAPTURE_WIDE_ENDPOINT_CORRESPONDENCE_ONLY"},
+    "attempt_count": {"type": "integer", "minimum": 0, "maximum": 64},
+    "attempts": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/attempt"}
+    },
+    "exchange_count": {"type": "integer", "minimum": 0, "maximum": 64},
+    "exchanges": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/exchange"}
+    },
+    "transport_observation_count": {"type": "integer", "minimum": 0, "maximum": 512},
+    "transport_observations": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {"$ref": "#/$defs/transport_observation"}
+    },
+    "unbound_signaling_observation_count": {"type": "integer", "minimum": 0, "maximum": 64},
+    "unbound_signaling_observations": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/unbound_signaling_observation"}
+    },
+    "unmatched_rtp_stream_count": {"type": "integer", "minimum": 0, "maximum": 1024},
+    "unmatched_rtp_streams": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": {"$ref": "#/$defs/unmatched_stream"}
+    },
+    "completeness": {"$ref": "#/$defs/completeness"},
+    "limitations": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {"type": "string", "minLength": 1, "maxLength": 400}
+    },
+    "not_confirmed": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {"type": "string", "minLength": 1, "maxLength": 80}
+    }
+  },
+  "$defs": {
+    "input_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_files",
+        "capture_sha256",
+        "ims_session_source_name",
+        "ims_session_sha256",
+        "ims_session_analysis_version",
+        "ims_media_signaling_source_name",
+        "ims_media_signaling_sha256",
+        "ims_media_signaling_analysis_version",
+        "sdp_analysis_source_name",
+        "sdp_analysis_sha256",
+        "sdp_analysis_version",
+        "sdp_event_schema_version",
+        "transport_correlation_source_name",
+        "transport_correlation_sha256",
+        "transport_correlation_analysis_version",
+        "endpoint_context_reference",
+        "input_status"
+      ],
+      "properties": {
+        "capture_files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {"type": "string", "minLength": 1, "maxLength": 128}
+        },
+        "capture_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "ims_session_source_name": {"type": "string", "minLength": 1, "maxLength": 512},
+        "ims_session_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "ims_session_analysis_version": {"const": "0.1.0"},
+        "ims_media_signaling_source_name": {"type": "string", "minLength": 1, "maxLength": 512},
+        "ims_media_signaling_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "ims_media_signaling_analysis_version": {"const": "0.3.0"},
+        "sdp_analysis_source_name": {"type": "string", "minLength": 1, "maxLength": 512},
+        "sdp_analysis_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "sdp_analysis_version": {"const": "0.2.0"},
+        "sdp_event_schema_version": {"const": "1.1.0"},
+        "transport_correlation_source_name": {"type": "string", "minLength": 1, "maxLength": 512},
+        "transport_correlation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "transport_correlation_analysis_version": {"const": "0.1.0"},
+        "endpoint_context_reference": {
+          "type": ["string", "null"],
+          "pattern": "^endpoint-context-hmac-sha256:v1:[0-9a-f]{64}$"
+        },
+        "input_status": {"const": "ACCEPTED"}
+      }
+    },
+    "binding_scope": {
+      "type": "string",
+      "enum": ["ATTEMPT", "BRANCH", "AMBIGUOUS", "UNBOUND"]
+    },
+    "binding_status": {
+      "type": "string",
+      "enum": ["ESTABLISHED", "AMBIGUOUS", "INSUFFICIENT_EVIDENCE", "NOT_ESTABLISHED"]
+    },
+    "finding_list": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {"type": "string", "minLength": 1, "maxLength": 80}
+    },
+    "reference_list": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {"type": "string", "minLength": 1, "maxLength": 700}
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_reference",
+        "initial_invite_transaction_reference",
+        "initial_invite_event_reference",
+        "invite_outcome",
+        "shared_initial_offer_observation_references",
+        "branch_count",
+        "branches",
+        "missing_evidence",
+        "conflict_findings",
+        "evidence_class"
+      ],
+      "properties": {
+        "attempt_reference": {"$ref": "#/$defs/attempt_reference"},
+        "initial_invite_transaction_reference": {"$ref": "#/$defs/transaction_reference"},
+        "initial_invite_event_reference": {"$ref": "#/$defs/event_reference"},
+        "invite_outcome": {
+          "type": "string",
+          "enum": ["ACCEPTED_2XX_OBSERVED", "NEGATIVE_FINAL_OBSERVED", "PROVISIONAL_ONLY", "NO_RESPONSE_OBSERVED", "INCOMPLETE_EVIDENCE"]
+        },
+        "shared_initial_offer_observation_references": {"$ref": "#/$defs/reference_list"},
+        "branch_count": {"type": "integer", "minimum": 0, "maximum": 64},
+        "branches": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {"$ref": "#/$defs/branch"}
+        },
+        "missing_evidence": {"$ref": "#/$defs/finding_list"},
+        "conflict_findings": {"$ref": "#/$defs/finding_list"},
+        "evidence_class": {"const": "DERIVED"}
+      }
+    },
+    "branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branch_reference",
+        "dialog_reference",
+        "fork_reference",
+        "identity_status",
+        "dialog_state",
+        "observed_lifecycle_status",
+        "invite_outcome",
+        "release_outcome",
+        "exchange_references",
+        "branch_transport_observation_references",
+        "shared_initial_offer_observation_references",
+        "missing_evidence",
+        "conflict_findings",
+        "evidence_class"
+      ],
+      "properties": {
+        "branch_reference": {"type": "string", "minLength": 1, "maxLength": 700},
+        "dialog_reference": {
+          "type": ["string", "null"],
+          "pattern": "^sip-dialog:.+:[0-9]+\\.[0-9]+$"
+        },
+        "fork_reference": {
+          "type": ["string", "null"],
+          "pattern": "^sip-fork:.+:[0-9]+\\.[0-9]+$"
+        },
+        "identity_status": {
+          "type": ["string", "null"],
+          "enum": ["ESTABLISHED", "AMBIGUOUS", "INSUFFICIENT_EVIDENCE", "NOT_ESTABLISHED", null]
+        },
+        "dialog_state": {
+          "type": "string",
+          "enum": ["EARLY", "CONFIRMED", "TERMINATED", "UNKNOWN"]
+        },
+        "observed_lifecycle_status": {
+          "type": "string",
+          "enum": ["EARLY_OBSERVED", "CONFIRMATION_OBSERVED", "TERMINATION_SIGNALING_OBSERVED", "INCOMPLETE_CAPTURE", "UNRESOLVED"]
+        },
+        "invite_outcome": {
+          "type": "string",
+          "enum": ["ACCEPTED_2XX", "NEGATIVE_FINAL", "EARLY_ONLY", "PROVISIONAL_ONLY", "NO_FINAL_RESPONSE", "UNRESOLVED"]
+        },
+        "release_outcome": {
+          "type": "string",
+          "enum": ["NO_BYE_OBSERVED", "BYE_REQUEST_OBSERVED", "BYE_RESPONSE_OBSERVED", "BYE_RESPONSE_NOT_OBSERVED", "BYE_NEGATIVE_RESPONSE_OBSERVED", "SIP_TERMINATION_SIGNALING_SUPPORTED"]
+        },
+        "exchange_references": {"$ref": "#/$defs/reference_list"},
+        "branch_transport_observation_references": {"$ref": "#/$defs/reference_list"},
+        "shared_initial_offer_observation_references": {"$ref": "#/$defs/reference_list"},
+        "missing_evidence": {"$ref": "#/$defs/finding_list"},
+        "conflict_findings": {"$ref": "#/$defs/finding_list"},
+        "evidence_class": {"const": "DERIVED"}
+      }
+    },
+    "exchange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exchange_reference",
+        "exchange_type",
+        "association_status",
+        "offer_sdp_reference",
+        "answer_sdp_reference",
+        "offer_role",
+        "answer_role",
+        "transport_observation_references",
+        "missing_evidence",
+        "conflict_findings",
+        "evidence_class"
+      ],
+      "properties": {
+        "exchange_reference": {"$ref": "#/$defs/exchange_reference"},
+        "exchange_type": {
+          "type": "string",
+          "enum": ["INITIAL_INVITE_SDP_OFFER", "INITIAL_INVITE_OFFER_ANSWER", "INITIAL_INVITE_WITHOUT_SDP", "INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE", "LATE_OFFER_ANSWER"]
+        },
+        "association_status": {
+          "type": "string",
+          "enum": ["ESTABLISHED", "NOT_ESTABLISHED", "INSUFFICIENT_EVIDENCE", "AMBIGUOUS", "OUT_OF_SCOPE"]
+        },
+        "offer_sdp_reference": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+$"
+        },
+        "answer_sdp_reference": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+$"
+        },
+        "offer_role": {"type": ["string", "null"], "enum": ["OFFERER", null]},
+        "answer_role": {"type": ["string", "null"], "enum": ["ANSWERER", null]},
+        "transport_observation_references": {"$ref": "#/$defs/reference_list"},
+        "missing_evidence": {"$ref": "#/$defs/finding_list"},
+        "conflict_findings": {"$ref": "#/$defs/finding_list"},
+        "evidence_class": {"const": "DERIVED"}
+      }
+    },
+    "transport_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_reference",
+        "correlation_reference",
+        "binding_scope",
+        "binding_status",
+        "attempt_reference",
+        "branch_reference",
+        "dialog_reference",
+        "candidate_attempt_references",
+        "candidate_branch_references",
+        "exchange_references",
+        "sdp_message_bindings",
+        "correlation_type",
+        "bundle_references",
+        "original_association_status",
+        "original_correlation_strength",
+        "endpoint_references",
+        "rtp_udp_stream_references",
+        "rtp_event_references",
+        "match_directions",
+        "missing_evidence",
+        "conflict_findings",
+        "temporal_association_status",
+        "association_scope",
+        "evidence_class"
+      ],
+      "properties": {
+        "observation_reference": {"$ref": "#/$defs/observation_reference"},
+        "correlation_reference": {"$ref": "#/$defs/correlation_reference"},
+        "binding_scope": {"$ref": "#/$defs/binding_scope"},
+        "binding_status": {"$ref": "#/$defs/binding_status"},
+        "attempt_reference": {
+          "type": ["string", "null"],
+          "pattern": "^ims-session:.+:[0-9]+\\.[0-9]+$"
+        },
+        "branch_reference": {"type": ["string", "null"], "maxLength": 700},
+        "dialog_reference": {
+          "type": ["string", "null"],
+          "pattern": "^sip-dialog:.+:[0-9]+\\.[0-9]+$"
+        },
+        "candidate_attempt_references": {"$ref": "#/$defs/reference_list"},
+        "candidate_branch_references": {"$ref": "#/$defs/reference_list"},
+        "exchange_references": {"$ref": "#/$defs/reference_list"},
+        "sdp_message_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {"$ref": "#/$defs/sdp_binding"}
+        },
+        "correlation_type": {
+          "type": "string",
+          "enum": ["SINGLE_MEDIA", "BUNDLE_MEDIA", "UNAVAILABLE_MEDIA"]
+        },
+        "bundle_references": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"type": "string", "pattern": "^sdp-bundle:.+:[0-9]+\\.[0-9]+:[0-9]+$"}
+        },
+        "original_association_status": {
+          "type": "string",
+          "enum": ["MATCHED_ENDPOINT", "BUNDLE_TRANSPORT_MATCHED", "AMBIGUOUS", "INSUFFICIENT_EVIDENCE", "UNMATCHED", "OUT_OF_SCOPE"]
+        },
+        "original_correlation_strength": {
+          "type": "string",
+          "enum": ["STRONG", "MEDIUM", "WEAK"]
+        },
+        "endpoint_references": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"type": "string", "pattern": "^endpoint-hmac-sha256:v1:[0-9a-f]{64}$"}
+        },
+        "rtp_udp_stream_references": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"type": "string", "pattern": "^rtp-udp-stream:.+:[0-9]+$"}
+        },
+        "rtp_event_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {"type": "string", "minLength": 1, "maxLength": 700}
+        },
+        "match_directions": {
+          "type": "array",
+          "maxItems": 2,
+          "items": {"type": "string", "enum": ["RTP_SOURCE_ENDPOINT_MATCH", "RTP_DESTINATION_ENDPOINT_MATCH"]}
+        },
+        "missing_evidence": {"$ref": "#/$defs/finding_list"},
+        "conflict_findings": {"$ref": "#/$defs/finding_list"},
+        "temporal_association_status": {"const": "NOT_EVALUATED"},
+        "association_scope": {"const": "CAPTURE_WIDE_ENDPOINT_CORRESPONDENCE_ONLY"},
+        "evidence_class": {"const": "DERIVED"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"binding_scope": {"const": "ATTEMPT"}}, "required": ["binding_scope"]},
+          "then": {
+            "properties": {
+              "binding_status": {"const": "ESTABLISHED"},
+              "attempt_reference": {"type": "string"},
+              "branch_reference": {"type": "null"},
+              "dialog_reference": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"binding_scope": {"const": "BRANCH"}}, "required": ["binding_scope"]},
+          "then": {
+            "properties": {
+              "binding_status": {"const": "ESTABLISHED"},
+              "attempt_reference": {"type": "string"},
+              "branch_reference": {"type": "string"},
+              "dialog_reference": {"type": "string"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"binding_scope": {"const": "AMBIGUOUS"}}, "required": ["binding_scope"]},
+          "then": {
+            "properties": {
+              "binding_status": {"const": "AMBIGUOUS"},
+              "branch_reference": {"type": "null"},
+              "dialog_reference": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"binding_scope": {"const": "UNBOUND"}}, "required": ["binding_scope"]},
+          "then": {
+            "properties": {
+              "binding_status": {"enum": ["INSUFFICIENT_EVIDENCE", "NOT_ESTABLISHED"]},
+              "branch_reference": {"type": "null"},
+              "dialog_reference": {"type": "null"}
+            }
+          }
+        }
+      ]
+    },
+    "sdp_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message_reference", "media_index", "mid", "media_type", "protocol", "roles"],
+      "properties": {
+        "message_reference": {"type": "string", "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+$"},
+        "media_index": {"type": "integer", "minimum": 0, "maximum": 63},
+        "mid": {"type": ["string", "null"], "maxLength": 64},
+        "media_type": {"type": "string", "minLength": 1, "maxLength": 64},
+        "protocol": {"type": "string", "minLength": 1, "maxLength": 64},
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": {"type": "string", "enum": ["OFFER", "ANSWER", "UNRESOLVED"]}
+        }
+      }
+    },
+    "unbound_signaling_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_reference",
+        "observation_type",
+        "association_status",
+        "reason_code",
+        "sdp_reference",
+        "attempt_reference",
+        "branch_reference",
+        "dialog_reference",
+        "evidence_class"
+      ],
+      "properties": {
+        "observation_reference": {"type": "string", "minLength": 1, "maxLength": 700},
+        "observation_type": {
+          "type": "string",
+          "enum": ["PROVISIONAL_SDP_UNINTERPRETED", "UNSUPPORTED_SDP_OBSERVATION", "UNBOUND_SIP_SDP_EVENT", "UNMATCHED_SDP_MESSAGE"]
+        },
+        "association_status": {
+          "type": "string",
+          "enum": ["ESTABLISHED", "NOT_ESTABLISHED", "INSUFFICIENT_EVIDENCE", "AMBIGUOUS", "OUT_OF_SCOPE"]
+        },
+        "reason_code": {"type": "string", "minLength": 1, "maxLength": 80},
+        "sdp_reference": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z][a-z0-9-]*:.+:[0-9]+\\.[0-9]+$"
+        },
+        "attempt_reference": {
+          "type": ["string", "null"],
+          "pattern": "^ims-session:.+:[0-9]+\\.[0-9]+$"
+        },
+        "branch_reference": {"type": ["string", "null"], "maxLength": 700},
+        "dialog_reference": {
+          "type": ["string", "null"],
+          "pattern": "^sip-dialog:.+:[0-9]+\\.[0-9]+$"
+        },
+        "evidence_class": {"const": "DERIVED"}
+      }
+    },
+    "unmatched_stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rtp_udp_stream_reference",
+        "rtp_event_references",
+        "packet_count",
+        "first_frame_number",
+        "last_frame_number",
+        "observed_ssrc_references",
+        "source_endpoint_references",
+        "destination_endpoint_references",
+        "endpoint_evidence_status",
+        "missing_evidence",
+        "conflict_findings",
+        "evidence_class"
+      ],
+      "properties": {
+        "rtp_udp_stream_reference": {"type": "string", "pattern": "^rtp-udp-stream:.+:[0-9]+$"},
+        "rtp_event_references": {"$ref": "#/$defs/reference_list"},
+        "packet_count": {"type": "integer", "minimum": 1},
+        "first_frame_number": {"type": ["integer", "null"], "minimum": 1},
+        "last_frame_number": {"type": ["integer", "null"], "minimum": 1},
+        "observed_ssrc_references": {"$ref": "#/$defs/reference_list"},
+        "source_endpoint_references": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"type": "string", "pattern": "^endpoint-hmac-sha256:v1:[0-9a-f]{64}$"}
+        },
+        "destination_endpoint_references": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"type": "string", "pattern": "^endpoint-hmac-sha256:v1:[0-9a-f]{64}$"}
+        },
+        "endpoint_evidence_status": {
+          "type": "string",
+          "enum": ["ESTABLISHED", "INCOMPLETE", "AMBIGUOUS", "CONFLICT", "UNAVAILABLE"]
+        },
+        "missing_evidence": {"$ref": "#/$defs/finding_list"},
+        "conflict_findings": {"$ref": "#/$defs/finding_list"},
+        "evidence_class": {"const": "DERIVED"}
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ims_session_attempt_count",
+        "published_attempt_count",
+        "attempts_omitted",
+        "dialog_branch_count",
+        "published_branch_count",
+        "branches_omitted",
+        "signaling_exchange_count",
+        "published_exchange_count",
+        "established_exchange_count",
+        "non_established_exchange_count",
+        "transport_correlation_count",
+        "transport_observation_count",
+        "transport_correlations_omitted",
+        "attempt_bound_observation_count",
+        "branch_bound_observation_count",
+        "ambiguous_observation_count",
+        "unbound_observation_count",
+        "supplied_unbound_signaling_observation_count",
+        "unbound_signaling_observation_count",
+        "unbound_signaling_observations_omitted",
+        "supplied_unmatched_rtp_stream_count",
+        "unmatched_rtp_stream_count",
+        "unmatched_rtp_streams_omitted"
+      ],
+      "properties": {
+        "ims_session_attempt_count": {"type": "integer", "minimum": 0},
+        "published_attempt_count": {"type": "integer", "minimum": 0},
+        "attempts_omitted": {"type": "integer", "minimum": 0},
+        "dialog_branch_count": {"type": "integer", "minimum": 0},
+        "published_branch_count": {"type": "integer", "minimum": 0},
+        "branches_omitted": {"type": "integer", "minimum": 0},
+        "signaling_exchange_count": {"type": "integer", "minimum": 0},
+        "published_exchange_count": {"type": "integer", "minimum": 0},
+        "established_exchange_count": {"type": "integer", "minimum": 0},
+        "non_established_exchange_count": {"type": "integer", "minimum": 0},
+        "transport_correlation_count": {"type": "integer", "minimum": 0},
+        "transport_observation_count": {"type": "integer", "minimum": 0},
+        "transport_correlations_omitted": {"type": "integer", "minimum": 0},
+        "attempt_bound_observation_count": {"type": "integer", "minimum": 0},
+        "branch_bound_observation_count": {"type": "integer", "minimum": 0},
+        "ambiguous_observation_count": {"type": "integer", "minimum": 0},
+        "unbound_observation_count": {"type": "integer", "minimum": 0},
+        "supplied_unbound_signaling_observation_count": {"type": "integer", "minimum": 0},
+        "unbound_signaling_observation_count": {"type": "integer", "minimum": 0},
+        "unbound_signaling_observations_omitted": {"type": "integer", "minimum": 0},
+        "supplied_unmatched_rtp_stream_count": {"type": "integer", "minimum": 0},
+        "unmatched_rtp_stream_count": {"type": "integer", "minimum": 0},
+        "unmatched_rtp_streams_omitted": {"type": "integer", "minimum": 0}
+      }
+    },
+    "attempt_reference": {"type": "string", "pattern": "^ims-session:.+:[0-9]+\\.[0-9]+$"},
+    "transaction_reference": {"type": "string", "pattern": "^sip-transaction:.+:(?:request|response):[0-9]+\\.[0-9]+$"},
+    "event_reference": {"type": "string", "pattern": "^sip-event:.+:[0-9]+\\.[0-9]+$"},
+    "exchange_reference": {"type": "string", "pattern": "^ims-media-signaling:.+:[0-9]+\\.[0-9]+$"},
+    "correlation_reference": {"type": "string", "pattern": "^sdp-rtp-transport:.+:[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "observation_reference": {"type": "string", "pattern": "^ims-media-session:.+:[0-9]+\\.[0-9]+\\.[0-9]+$"}
+  }
+}

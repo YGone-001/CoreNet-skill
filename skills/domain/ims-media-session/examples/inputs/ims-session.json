@@ -1,0 +1,233 @@
+{
+  "analysis_name": "ims-session",
+  "analysis_version": "0.1.0",
+  "capability": "IMS session establishment and release signaling evidence",
+  "completeness": {
+    "attempts_omitted": 0,
+    "branch_count": 2,
+    "branches_omitted": 0,
+    "capture_completeness": "COMPLETE",
+    "in_dialog_observation_count": 0,
+    "in_dialog_observations_omitted": 0,
+    "initial_invite_transaction_count": 1,
+    "session_attempt_count": 1,
+    "sip_dialog_count": 2,
+    "sip_event_count": 9,
+    "sip_transaction_count": 4,
+    "unbound_observation_count": 0,
+    "unbound_observations_omitted": 0
+  },
+  "domain": "ims-session",
+  "in_dialog_observation_count": 0,
+  "in_dialog_observations": [],
+  "input_provenance": {
+    "capture_completeness": "COMPLETE",
+    "capture_files": [
+      "synthetic-ims-media.pcapng"
+    ],
+    "dialog_analysis_version": "1.1.0",
+    "dialog_sha256": "71d6473e0f44db790209668f317474c9e7f511ae7def2d9fe8026bd9a683799b",
+    "dialog_source_name": "dialogs.json",
+    "event_schema_version": "1.0.0",
+    "event_sha256": "c6af3c0cdc612b87d750635f429b5c82748528fb7268d1e65297585949b5a583",
+    "event_source_name": "events.jsonl",
+    "input_status": "ACCEPTED",
+    "transaction_analysis_version": "1.1.0",
+    "transaction_sha256": "628f96996d356bddb3ec9079b50c1574764858e130363f78389b6b7cc2f9f665",
+    "transaction_source_name": "transactions.json"
+  },
+  "limitations": [
+    "SIP transaction and dialog identity are consumed from the accepted SIP Protocol Skills",
+    "the Domain does not decode packets or reconstruct transaction or dialog identity",
+    "no IMS media, SDP, RTP, QoS or subscriber-reachability evidence is available",
+    "3GPP TS 24.229 session procedures were not directly retrieved in this phase; IMS-specific claims are restricted"
+  ],
+  "not_confirmed": [
+    "IMS_CALL_SUCCESS",
+    "IMS_CALL_FAILURE",
+    "TWO_WAY_AUDIO",
+    "RTP_DELIVERY",
+    "EARLY_MEDIA_DELIVERY",
+    "SESSION_MODIFICATION",
+    "SUBSCRIBER_REACHABILITY",
+    "VOLTE_SERVICE_SUCCESS",
+    "SIP_TIMEOUT",
+    "REGISTRATION_TO_SESSION_ASSOCIATION",
+    "CROSS_PROTOCOL_ASSOCIATION"
+  ],
+  "session_attempt_count": 1,
+  "session_attempts": [
+    {
+      "ack_evidence": {
+        "non_twoxx_ack_event_references": [],
+        "status": "OBSERVED_FOR_ALL_ACCEPTED_BRANCHES",
+        "twoxx_ack_event_references": [
+          "sip-event:synthetic-ims-media.pcapng:6.1",
+          "sip-event:synthetic-ims-media.pcapng:7.1"
+        ]
+      },
+      "attempt_reference": "ims-session:synthetic-ims-media.pcapng:1.1",
+      "branch_count": 2,
+      "branches": [
+        {
+          "ack_event_references": [
+            "sip-event:synthetic-ims-media.pcapng:6.1"
+          ],
+          "ack_status": "OBSERVED_FOR_ALL_ACCEPTED_BRANCHES",
+          "branch_reference": "sip-dialog:synthetic-ims-media.pcapng:2.1",
+          "conflict_findings": [],
+          "dialog_reference": "sip-dialog:synthetic-ims-media.pcapng:2.1",
+          "dialog_state": "TERMINATED",
+          "fork_branch_reference": "sip-fork:synthetic-ims-media.pcapng:2.1",
+          "identity_status": "ESTABLISHED",
+          "missing_evidence": [],
+          "observed_lifecycle_status": "TERMINATION_SIGNALING_OBSERVED",
+          "outcome": "ACCEPTED_2XX",
+          "release": {
+            "bye_transaction_count": 1,
+            "observations": [
+              {
+                "bye_final_response_event_references": [
+                  "sip-event:synthetic-ims-media.pcapng:9.1"
+                ],
+                "bye_request_event_references": [
+                  "sip-event:synthetic-ims-media.pcapng:8.1"
+                ],
+                "bye_transaction_reference": "sip-transaction:synthetic-ims-media.pcapng:request:8.1",
+                "final_response_status_codes": [
+                  200
+                ],
+                "missing_evidence": [],
+                "outcome": "BYE_RESPONSE_OBSERVED",
+                "termination_supported": true
+              }
+            ],
+            "outcome": "SIP_TERMINATION_SIGNALING_SUPPORTED",
+            "termination_supported_dialog_references": [
+              "sip-dialog:synthetic-ims-media.pcapng:2.1"
+            ]
+          },
+          "response_event_references": [
+            "sip-event:synthetic-ims-media.pcapng:2.1",
+            "sip-event:synthetic-ims-media.pcapng:4.1"
+          ],
+          "response_status_codes": [
+            180,
+            200
+          ]
+        },
+        {
+          "ack_event_references": [
+            "sip-event:synthetic-ims-media.pcapng:7.1"
+          ],
+          "ack_status": "OBSERVED_FOR_ALL_ACCEPTED_BRANCHES",
+          "branch_reference": "sip-dialog:synthetic-ims-media.pcapng:3.1",
+          "conflict_findings": [],
+          "dialog_reference": "sip-dialog:synthetic-ims-media.pcapng:3.1",
+          "dialog_state": "CONFIRMED",
+          "fork_branch_reference": "sip-fork:synthetic-ims-media.pcapng:3.1",
+          "identity_status": "ESTABLISHED",
+          "missing_evidence": [],
+          "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+          "outcome": "ACCEPTED_2XX",
+          "release": {
+            "bye_transaction_count": 0,
+            "observations": [],
+            "outcome": "NO_BYE_OBSERVED",
+            "termination_supported_dialog_references": []
+          },
+          "response_event_references": [
+            "sip-event:synthetic-ims-media.pcapng:3.1",
+            "sip-event:synthetic-ims-media.pcapng:5.1"
+          ],
+          "response_status_codes": [
+            180,
+            200
+          ]
+        }
+      ],
+      "branches_omitted": 0,
+      "cancel_evidence": {
+        "association_status": "NOT_OBSERVED",
+        "cancel_final_response_event_references": [],
+        "cancel_final_response_status_codes": [],
+        "cancel_request_event_references": [],
+        "cancel_transaction_references": [],
+        "conflict_findings": [],
+        "invite_final_response_status": null,
+        "invite_transaction_termination_established": false,
+        "missing_evidence": [],
+        "outcome": "NO_CANCEL_OBSERVED",
+        "response_sequence_observed": false
+      },
+      "capture_file": "synthetic-ims-media.pcapng",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "first_observed_frame": 1,
+      "initial_invite_event_reference": "sip-event:synthetic-ims-media.pcapng:1.1",
+      "initial_invite_transaction_reference": "sip-transaction:synthetic-ims-media.pcapng:request:1.1",
+      "invite_outcome": "ACCEPTED_2XX_OBSERVED",
+      "last_observed_frame": 9,
+      "missing_evidence": [],
+      "not_confirmed": [
+        "IMS_CALL_SUCCESS",
+        "IMS_CALL_FAILURE",
+        "TWO_WAY_AUDIO",
+        "RTP_DELIVERY",
+        "EARLY_MEDIA_DELIVERY",
+        "SESSION_MODIFICATION",
+        "SUBSCRIBER_REACHABILITY",
+        "VOLTE_SERVICE_SUCCESS",
+        "SIP_TIMEOUT",
+        "REGISTRATION_TO_SESSION_ASSOCIATION",
+        "CROSS_PROTOCOL_ASSOCIATION"
+      ],
+      "release_evidence": {
+        "bye_transaction_references": [
+          "sip-transaction:synthetic-ims-media.pcapng:request:8.1"
+        ],
+        "outcome": "SIP_TERMINATION_SIGNALING_SUPPORTED",
+        "termination_supported_dialog_references": [
+          "sip-dialog:synthetic-ims-media.pcapng:2.1"
+        ]
+      },
+      "stage_evidence": {
+        "accepted_2xx_event_references": [
+          "sip-event:synthetic-ims-media.pcapng:4.1",
+          "sip-event:synthetic-ims-media.pcapng:5.1"
+        ],
+        "confirmed_dialog_references": [
+          "sip-dialog:synthetic-ims-media.pcapng:2.1",
+          "sip-dialog:synthetic-ims-media.pcapng:3.1"
+        ],
+        "early_dialog_references": [
+          "sip-dialog:synthetic-ims-media.pcapng:2.1",
+          "sip-dialog:synthetic-ims-media.pcapng:3.1"
+        ],
+        "final_response_event_references": [
+          "sip-event:synthetic-ims-media.pcapng:4.1",
+          "sip-event:synthetic-ims-media.pcapng:5.1"
+        ],
+        "final_response_status_codes": [
+          200,
+          200
+        ],
+        "initial_invite_request_event_reference": "sip-event:synthetic-ims-media.pcapng:1.1",
+        "negative_final_event_references": [],
+        "provisional_response_event_references": [
+          "sip-event:synthetic-ims-media.pcapng:2.1",
+          "sip-event:synthetic-ims-media.pcapng:3.1"
+        ],
+        "ringing_180_event_references": [
+          "sip-event:synthetic-ims-media.pcapng:2.1",
+          "sip-event:synthetic-ims-media.pcapng:3.1"
+        ],
+        "session_progress_183_event_references": [],
+        "trying_100_event_references": [],
+        "untagged_provisional_event_references": []
+      }
+    }
+  ],
+  "unbound_observation_count": 0,
+  "unbound_observations": []
+}

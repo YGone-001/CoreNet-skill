@@ -1,0 +1,39 @@
+IMS media transport evidence
+analysis_version: 0.1.0
+capture: synthetic-ims-media.pcapng
+endpoint_context: endpoint-context-hmac-sha256:v1:49b7422962459a1a6682444f4635303e95533e4ca3398f65a17f14d5e8e96505
+attempts: 1
+exchanges: 2 (established=2)
+transport_observations: 3 (attempt=1, branch=2, ambiguous=0, unbound=0)
+unbound_signaling_observations: 0
+unmatched_rtp_streams: 1
+attempt: ims-session:synthetic-ims-media.pcapng:1.1 / ACCEPTED_2XX_OBSERVED / branches=2 / shared_offer_observations=1
+  branch: sip-dialog:synthetic-ims-media.pcapng:2.1 / dialog=sip-dialog:synthetic-ims-media.pcapng:2.1 / identity=ESTABLISHED / state=TERMINATED / release=SIP_TERMINATION_SIGNALING_SUPPORTED / observations=1
+  branch: sip-dialog:synthetic-ims-media.pcapng:3.1 / dialog=sip-dialog:synthetic-ims-media.pcapng:3.1 / identity=ESTABLISHED / state=CONFIRMED / release=NO_BYE_OBSERVED / observations=1
+observation: ims-media-session:synthetic-ims-media.pcapng:1.1.0 / ATTEMPT / ESTABLISHED / correlation=MATCHED_ENDPOINT / temporal=NOT_EVALUATED
+  sdp: sip-event:synthetic-ims-media.pcapng:1.1#0 / mid=- / roles=OFFER
+observation: ims-media-session:synthetic-ims-media.pcapng:4.1.0 / BRANCH / ESTABLISHED / correlation=MATCHED_ENDPOINT / temporal=NOT_EVALUATED
+  sdp: sip-event:synthetic-ims-media.pcapng:4.1#0 / mid=- / roles=ANSWER
+observation: ims-media-session:synthetic-ims-media.pcapng:5.1.0 / BRANCH / ESTABLISHED / correlation=MATCHED_ENDPOINT / temporal=NOT_EVALUATED
+  sdp: sip-event:synthetic-ims-media.pcapng:5.1#0 / mid=- / roles=ANSWER
+unmatched_stream: rtp-udp-stream:synthetic-ims-media.pcapng:9 / ESTABLISHED / packets=1
+limits:
+- The Domain composes accepted IMS Session, IMS Media Signaling, SDP and SDP/RTP transport-correlation artifacts; it decodes no SIP or RTP and parses no SDP
+- Endpoint correspondence is capture-wide; temporal association between RTP packets and the INVITE-to-BYE lifetime is NOT_EVALUATED
+- A transport observation is not an IMS session identity, media-delivery proof, two-way-audio proof, codec-negotiation verdict or QoS measurement
+- BUNDLE transport is preserved as one shared observation; RTP header-extension MID demultiplexing is not implemented
+- ICE, NAT, STUN, TURN, DTLS and SRTP are not interpreted
+- Provisional SDP and PRACK reliable Offer/Answer remain outside this milestone
+- No timestamp proximity is used to create or select an association
+- A later BYE does not prove RTP teardown, resource release or media-session success
+not_confirmed:
+- MEDIA_DELIVERY
+- TWO_WAY_AUDIO
+- IMS_MEDIA_SESSION_SUCCESS
+- TEMPORAL_MEDIA_ASSOCIATION
+- RTP_TEARDOWN_AFTER_BYE
+- CODEC_COMPATIBILITY
+- MEDIA_QOS
+- MOS
+- ICE_CONNECTIVITY
+- NAT_MAPPING

@@ -53,6 +53,8 @@ jobs:
         run: python scripts/validate-ims-registration.py
       - name: Validate ims-session
         run: python scripts/validate-ims-session.py
+      - name: Validate ims-media-session
+        run: python scripts/validate-ims-media-session.py
       - name: Validate epc-procedures
         run: python scripts/validate-epc-procedures.py
       - name: Validate epc-attach-s6a
@@ -113,6 +115,8 @@ jobs:
         run: python -m unittest discover -s skills/domain/ims-session/tests -p 'test_*.py' -v
       - name: Run sdp-rtp-transport unit tests
         run: python -m unittest discover -s skills/correlation/sdp-rtp-transport/tests -p 'test_*.py' -v
+      - name: Run ims-media-session unit tests
+        run: python -m unittest discover -s skills/domain/ims-media-session/tests -p 'test_*.py' -v
       - name: Run gtpu unit tests
         run: python -m unittest discover -s skills/protocol/gtpu/tests -p 'test_*.py' -v
       - name: Run epc-procedures unit tests
@@ -124,6 +128,6 @@ jobs:
       - name: Run unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Compile validation scripts
-        run: python -m compileall scripts benchmarks/golden-captures/scripts skills/protocol/core-network-pcap/scripts skills/protocol/s1ap/scripts skills/protocol/nas-eps/scripts skills/protocol/gtpv2/scripts skills/protocol/diameter-core/scripts skills/protocol/diameter-epc/scripts skills/protocol/diameter-ims/scripts skills/protocol/sip/scripts skills/domain/epc-procedures/scripts skills/protocol/ngap/scripts skills/protocol/nas-5gs/scripts skills/protocol/pfcp/scripts skills/protocol/gtpu/scripts skills/protocol/sbi-http2/scripts skills/correlation/cross-protocol-evidence/scripts skills/correlation/sdp-rtp-transport/scripts skills/domain/procedure-evidence/scripts skills/domain/5gc-registration-mobility/scripts skills/domain/5gc-pdu-session/scripts skills/domain/5gc-handover-mobility/scripts skills/orchestration/5gc-failure-boundary/scripts skills/orchestration/epc-failure-boundary/scripts skills/domain/ims-registration/scripts
+        run: python -m compileall scripts benchmarks/golden-captures/scripts skills/protocol/core-network-pcap/scripts skills/protocol/s1ap/scripts skills/protocol/nas-eps/scripts skills/protocol/gtpv2/scripts skills/protocol/diameter-core/scripts skills/protocol/diameter-epc/scripts skills/protocol/diameter-ims/scripts skills/protocol/sip/scripts skills/domain/epc-procedures/scripts skills/protocol/ngap/scripts skills/protocol/nas-5gs/scripts skills/protocol/pfcp/scripts skills/protocol/gtpu/scripts skills/protocol/sbi-http2/scripts skills/correlation/cross-protocol-evidence/scripts skills/correlation/sdp-rtp-transport/scripts skills/domain/procedure-evidence/scripts skills/domain/5gc-registration-mobility/scripts skills/domain/5gc-pdu-session/scripts skills/domain/5gc-handover-mobility/scripts skills/orchestration/5gc-failure-boundary/scripts skills/orchestration/epc-failure-boundary/scripts skills/domain/ims-registration/scripts skills/domain/ims-media-session/scripts
       - name: Check committed whitespace
         run: git diff --check HEAD^ HEAD

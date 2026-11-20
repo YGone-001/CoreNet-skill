@@ -1,0 +1,83 @@
+name: ims-media-session
+version: 0.1.0
+category: domain
+description: >
+  Bounded branch-scoped IMS media transport evidence over accepted IMS Session,
+  IMS Media Signaling, SDP Analysis and SDP/RTP Transport Correlation artifacts.
+  It preserves attempt and forked Dialog Branch ownership, shared initial-offer
+  evidence, Offer/Answer exchange references, SDP media-section identity,
+  original transport-correlation status and direction, BUNDLE shared transport,
+  ambiguity, missing evidence and historical Dialog termination. It performs no
+  SIP or RTP decoding, SDP parsing, capture reading, temporal association or
+  media-delivery verdict.
+scope:
+  includes:
+    - strict four-artifact analysis, schema, capture and SHA-256 provenance validation
+    - IMS Session attempt and Dialog Branch ownership resolution
+    - shared attempt-level initial-offer transport evidence without branch duplication
+    - branch-scoped Offer/Answer transport observation association
+    - exact SDP message plus media-section binding with MID and media metadata
+    - preservation of original transport-correlation status, strength, type and direction
+    - BUNDLE shared transport preservation without MID demultiplexing
+    - explicit ambiguous, unbound, insufficient and out-of-scope classifications
+    - historical Dialog termination evidence preserved as lifecycle context
+    - bounded unmatched RTP stream and unbound signaling observation inventories
+    - conservation-checked completeness counters and deterministic reporting
+  excludes:
+    - SIP, RTP or RTCP decoding and packet reconstruction
+    - SDP parsing or Offer/Answer negotiation rules
+    - reading PCAP files, HMAC keys or TShark execution
+    - temporal association between RTP packets and a Dialog lifetime
+    - media delivery, two-way audio, RTP teardown or IMS call success
+    - codec compatibility, packet loss, jitter, RTCP quality, MOS or QoS
+    - ICE, STUN, TURN, NAT, DTLS or SRTP
+    - RTP MID header-extension demultiplexing
+    - re-INVITE, UPDATE, PRACK or reliable provisional Offer/Answer
+    - Diameter Rx, Diameter Sh, charging and unified workflow integration
+dependencies:
+  required:
+    - ims-session >=0.1.0
+    - ims-media-signaling >=0.3.0
+    - sdp-rtp >=0.4.0
+    - sdp-rtp-transport >=0.1.0
+  optional: []
+inputs:
+  - IMS Session Analysis JSON (analysis version 0.1.0)
+  - IMS Media Signaling Analysis JSON (analysis version 0.3.0)
+  - SDP Analysis JSON (analysis version 0.2.0, event schema 1.1.0)
+  - SDP/RTP Transport Correlation JSON (analysis version 0.1.0)
+outputs:
+  - schemas/ims-media-session-analysis.schema.json
+  - scripts/ims_media_session_model.py
+  - scripts/analyze-ims-media-session.py
+  - bounded IMS media session evidence JSON (analysis version 0.1.0)
+  - optional plain-text evidence report
+protocols:
+  - SIP
+  - SDP
+  - RTP
+interfaces:
+  - Gm
+  - Mw
+network_functions: []
+evidence_levels:
+  - OBSERVED
+  - DERIVED
+  - AMBIGUOUS
+  - INSUFFICIENT_EVIDENCE
+  - NOT_ESTABLISHED
+upstream:
+  repository: null
+  path: null
+  commit: null
+  license: null
+  local_modifications: Original CoreNet Domain-layer composition; no upstream code imported.
+testing:
+  fixtures:
+    - examples/inputs/ims-session.json
+    - examples/inputs/ims-media-signaling.json
+    - examples/inputs/sdp-analysis.json
+    - examples/inputs/transport-correlation.json
+  expected_results:
+    - examples/expected/ims-media-session-analysis.json
+    - examples/expected/ims-media-session-report.txt

@@ -1,0 +1,359 @@
+{
+  "analysis_name": "ims-media-session",
+  "analysis_version": "0.1.0",
+  "association_scope": "CAPTURE_WIDE_ENDPOINT_CORRESPONDENCE_ONLY",
+  "attempt_count": 1,
+  "attempts": [
+    {
+      "attempt_reference": "ims-session:synthetic-ims-media.pcapng:1.1",
+      "branch_count": 2,
+      "branches": [
+        {
+          "branch_reference": "sip-dialog:synthetic-ims-media.pcapng:2.1",
+          "branch_transport_observation_references": [
+            "ims-media-session:synthetic-ims-media.pcapng:4.1.0"
+          ],
+          "conflict_findings": [],
+          "dialog_reference": "sip-dialog:synthetic-ims-media.pcapng:2.1",
+          "dialog_state": "TERMINATED",
+          "evidence_class": "DERIVED",
+          "exchange_references": [
+            "ims-media-signaling:synthetic-ims-media.pcapng:2.1"
+          ],
+          "fork_reference": "sip-fork:synthetic-ims-media.pcapng:2.1",
+          "identity_status": "ESTABLISHED",
+          "invite_outcome": "ACCEPTED_2XX",
+          "missing_evidence": [],
+          "observed_lifecycle_status": "TERMINATION_SIGNALING_OBSERVED",
+          "release_outcome": "SIP_TERMINATION_SIGNALING_SUPPORTED",
+          "shared_initial_offer_observation_references": [
+            "ims-media-session:synthetic-ims-media.pcapng:1.1.0"
+          ]
+        },
+        {
+          "branch_reference": "sip-dialog:synthetic-ims-media.pcapng:3.1",
+          "branch_transport_observation_references": [
+            "ims-media-session:synthetic-ims-media.pcapng:5.1.0"
+          ],
+          "conflict_findings": [],
+          "dialog_reference": "sip-dialog:synthetic-ims-media.pcapng:3.1",
+          "dialog_state": "CONFIRMED",
+          "evidence_class": "DERIVED",
+          "exchange_references": [
+            "ims-media-signaling:synthetic-ims-media.pcapng:3.1"
+          ],
+          "fork_reference": "sip-fork:synthetic-ims-media.pcapng:3.1",
+          "identity_status": "ESTABLISHED",
+          "invite_outcome": "ACCEPTED_2XX",
+          "missing_evidence": [],
+          "observed_lifecycle_status": "CONFIRMATION_OBSERVED",
+          "release_outcome": "NO_BYE_OBSERVED",
+          "shared_initial_offer_observation_references": [
+            "ims-media-session:synthetic-ims-media.pcapng:1.1.0"
+          ]
+        }
+      ],
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "initial_invite_event_reference": "sip-event:synthetic-ims-media.pcapng:1.1",
+      "initial_invite_transaction_reference": "sip-transaction:synthetic-ims-media.pcapng:request:1.1",
+      "invite_outcome": "ACCEPTED_2XX_OBSERVED",
+      "missing_evidence": [],
+      "shared_initial_offer_observation_references": [
+        "ims-media-session:synthetic-ims-media.pcapng:1.1.0"
+      ]
+    }
+  ],
+  "capability": "branch-scoped IMS media transport evidence composition",
+  "completeness": {
+    "ambiguous_observation_count": 0,
+    "attempt_bound_observation_count": 1,
+    "attempts_omitted": 0,
+    "branch_bound_observation_count": 2,
+    "branches_omitted": 0,
+    "dialog_branch_count": 2,
+    "established_exchange_count": 2,
+    "ims_session_attempt_count": 1,
+    "non_established_exchange_count": 0,
+    "published_attempt_count": 1,
+    "published_branch_count": 2,
+    "published_exchange_count": 2,
+    "signaling_exchange_count": 2,
+    "supplied_unbound_signaling_observation_count": 0,
+    "supplied_unmatched_rtp_stream_count": 1,
+    "transport_correlation_count": 3,
+    "transport_correlations_omitted": 0,
+    "transport_observation_count": 3,
+    "unbound_observation_count": 0,
+    "unbound_signaling_observation_count": 0,
+    "unbound_signaling_observations_omitted": 0,
+    "unmatched_rtp_stream_count": 1,
+    "unmatched_rtp_streams_omitted": 0
+  },
+  "domain": "ims-media-session",
+  "exchange_count": 2,
+  "exchanges": [
+    {
+      "answer_role": "ANSWERER",
+      "answer_sdp_reference": "sip-event:synthetic-ims-media.pcapng:4.1",
+      "association_status": "ESTABLISHED",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "exchange_reference": "ims-media-signaling:synthetic-ims-media.pcapng:2.1",
+      "exchange_type": "INITIAL_INVITE_OFFER_ANSWER",
+      "missing_evidence": [],
+      "offer_role": "OFFERER",
+      "offer_sdp_reference": "sip-event:synthetic-ims-media.pcapng:1.1",
+      "transport_observation_references": [
+        "ims-media-session:synthetic-ims-media.pcapng:1.1.0",
+        "ims-media-session:synthetic-ims-media.pcapng:4.1.0"
+      ]
+    },
+    {
+      "answer_role": "ANSWERER",
+      "answer_sdp_reference": "sip-event:synthetic-ims-media.pcapng:5.1",
+      "association_status": "ESTABLISHED",
+      "conflict_findings": [],
+      "evidence_class": "DERIVED",
+      "exchange_reference": "ims-media-signaling:synthetic-ims-media.pcapng:3.1",
+      "exchange_type": "INITIAL_INVITE_OFFER_ANSWER",
+      "missing_evidence": [],
+      "offer_role": "OFFERER",
+      "offer_sdp_reference": "sip-event:synthetic-ims-media.pcapng:1.1",
+      "transport_observation_references": [
+        "ims-media-session:synthetic-ims-media.pcapng:1.1.0",
+        "ims-media-session:synthetic-ims-media.pcapng:5.1.0"
+      ]
+    }
+  ],
+  "input_provenance": {
+    "capture_files": [
+      "synthetic-ims-media.pcapng"
+    ],
+    "capture_sha256": "b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7",
+    "endpoint_context_reference": "endpoint-context-hmac-sha256:v1:49b7422962459a1a6682444f4635303e95533e4ca3398f65a17f14d5e8e96505",
+    "ims_media_signaling_analysis_version": "0.3.0",
+    "ims_media_signaling_sha256": "e0644f3b20a66f099d0f9bb3010ed87fb90234fc4409e1b223d8ac31c365742f",
+    "ims_media_signaling_source_name": "ims-media-signaling.json",
+    "ims_session_analysis_version": "0.1.0",
+    "ims_session_sha256": "2119af037bc332956c10503a7dc60286559609404489a6fe925c65fa013febc1",
+    "ims_session_source_name": "ims-session.json",
+    "input_status": "ACCEPTED",
+    "sdp_analysis_sha256": "a22d42038d3918c43c5700fe5408952dfbc5e1a2c50d866d0d3879e4391c132f",
+    "sdp_analysis_source_name": "sdp-analysis.json",
+    "sdp_analysis_version": "0.2.0",
+    "sdp_event_schema_version": "1.1.0",
+    "transport_correlation_analysis_version": "0.1.0",
+    "transport_correlation_sha256": "72916342a89d119f24af6f079d8281a8673c805a9334813f23b29fc3e43b1415",
+    "transport_correlation_source_name": "transport-correlation.json"
+  },
+  "limitations": [
+    "The Domain composes accepted IMS Session, IMS Media Signaling, SDP and SDP/RTP transport-correlation artifacts; it decodes no SIP or RTP and parses no SDP",
+    "Endpoint correspondence is capture-wide; temporal association between RTP packets and the INVITE-to-BYE lifetime is NOT_EVALUATED",
+    "A transport observation is not an IMS session identity, media-delivery proof, two-way-audio proof, codec-negotiation verdict or QoS measurement",
+    "BUNDLE transport is preserved as one shared observation; RTP header-extension MID demultiplexing is not implemented",
+    "ICE, NAT, STUN, TURN, DTLS and SRTP are not interpreted",
+    "Provisional SDP and PRACK reliable Offer/Answer remain outside this milestone",
+    "No timestamp proximity is used to create or select an association",
+    "A later BYE does not prove RTP teardown, resource release or media-session success"
+  ],
+  "not_confirmed": [
+    "MEDIA_DELIVERY",
+    "TWO_WAY_AUDIO",
+    "IMS_MEDIA_SESSION_SUCCESS",
+    "TEMPORAL_MEDIA_ASSOCIATION",
+    "RTP_TEARDOWN_AFTER_BYE",
+    "CODEC_COMPATIBILITY",
+    "MEDIA_QOS",
+    "MOS",
+    "ICE_CONNECTIVITY",
+    "NAT_MAPPING"
+  ],
+  "temporal_association_status": "NOT_EVALUATED",
+  "transport_observation_count": 3,
+  "transport_observations": [
+    {
+      "association_scope": "CAPTURE_WIDE_ENDPOINT_CORRESPONDENCE_ONLY",
+      "attempt_reference": "ims-session:synthetic-ims-media.pcapng:1.1",
+      "binding_scope": "ATTEMPT",
+      "binding_status": "ESTABLISHED",
+      "branch_reference": null,
+      "bundle_references": [],
+      "candidate_attempt_references": [
+        "ims-session:synthetic-ims-media.pcapng:1.1"
+      ],
+      "candidate_branch_references": [
+        "sip-dialog:synthetic-ims-media.pcapng:2.1",
+        "sip-dialog:synthetic-ims-media.pcapng:3.1"
+      ],
+      "conflict_findings": [],
+      "correlation_reference": "sdp-rtp-transport:synthetic-ims-media.pcapng:1.1.0",
+      "correlation_type": "SINGLE_MEDIA",
+      "dialog_reference": null,
+      "endpoint_references": [
+        "endpoint-hmac-sha256:v1:c312e16cbfda84c827b3cbdbff3cbc14ea5aa3ac0bab8ff93ea50c91f645ee56"
+      ],
+      "evidence_class": "DERIVED",
+      "exchange_references": [
+        "ims-media-signaling:synthetic-ims-media.pcapng:2.1",
+        "ims-media-signaling:synthetic-ims-media.pcapng:3.1"
+      ],
+      "match_directions": [
+        "RTP_DESTINATION_ENDPOINT_MATCH"
+      ],
+      "missing_evidence": [],
+      "observation_reference": "ims-media-session:synthetic-ims-media.pcapng:1.1.0",
+      "original_association_status": "MATCHED_ENDPOINT",
+      "original_correlation_strength": "STRONG",
+      "rtp_event_references": [
+        "rtp-packet:synthetic-ims-media.pcapng:1.1",
+        "rtp-packet:synthetic-ims-media.pcapng:2.1"
+      ],
+      "rtp_udp_stream_references": [
+        "rtp-udp-stream:synthetic-ims-media.pcapng:0"
+      ],
+      "sdp_message_bindings": [
+        {
+          "media_index": 0,
+          "media_type": "audio",
+          "message_reference": "sip-event:synthetic-ims-media.pcapng:1.1",
+          "mid": null,
+          "protocol": "RTP/AVP",
+          "roles": [
+            "OFFER"
+          ]
+        }
+      ],
+      "temporal_association_status": "NOT_EVALUATED"
+    },
+    {
+      "association_scope": "CAPTURE_WIDE_ENDPOINT_CORRESPONDENCE_ONLY",
+      "attempt_reference": "ims-session:synthetic-ims-media.pcapng:1.1",
+      "binding_scope": "BRANCH",
+      "binding_status": "ESTABLISHED",
+      "branch_reference": "sip-dialog:synthetic-ims-media.pcapng:2.1",
+      "bundle_references": [],
+      "candidate_attempt_references": [
+        "ims-session:synthetic-ims-media.pcapng:1.1"
+      ],
+      "candidate_branch_references": [
+        "sip-dialog:synthetic-ims-media.pcapng:2.1"
+      ],
+      "conflict_findings": [],
+      "correlation_reference": "sdp-rtp-transport:synthetic-ims-media.pcapng:4.1.0",
+      "correlation_type": "SINGLE_MEDIA",
+      "dialog_reference": "sip-dialog:synthetic-ims-media.pcapng:2.1",
+      "endpoint_references": [
+        "endpoint-hmac-sha256:v1:ea6f686393f8d6ae50b686c68988e5fb3cf7889bd4d2a3d2e05efaae11183dd8"
+      ],
+      "evidence_class": "DERIVED",
+      "exchange_references": [
+        "ims-media-signaling:synthetic-ims-media.pcapng:2.1"
+      ],
+      "match_directions": [
+        "RTP_SOURCE_ENDPOINT_MATCH"
+      ],
+      "missing_evidence": [],
+      "observation_reference": "ims-media-session:synthetic-ims-media.pcapng:4.1.0",
+      "original_association_status": "MATCHED_ENDPOINT",
+      "original_correlation_strength": "STRONG",
+      "rtp_event_references": [
+        "rtp-packet:synthetic-ims-media.pcapng:3.1"
+      ],
+      "rtp_udp_stream_references": [
+        "rtp-udp-stream:synthetic-ims-media.pcapng:1"
+      ],
+      "sdp_message_bindings": [
+        {
+          "media_index": 0,
+          "media_type": "audio",
+          "message_reference": "sip-event:synthetic-ims-media.pcapng:4.1",
+          "mid": null,
+          "protocol": "RTP/AVP",
+          "roles": [
+            "ANSWER"
+          ]
+        }
+      ],
+      "temporal_association_status": "NOT_EVALUATED"
+    },
+    {
+      "association_scope": "CAPTURE_WIDE_ENDPOINT_CORRESPONDENCE_ONLY",
+      "attempt_reference": "ims-session:synthetic-ims-media.pcapng:1.1",
+      "binding_scope": "BRANCH",
+      "binding_status": "ESTABLISHED",
+      "branch_reference": "sip-dialog:synthetic-ims-media.pcapng:3.1",
+      "bundle_references": [],
+      "candidate_attempt_references": [
+        "ims-session:synthetic-ims-media.pcapng:1.1"
+      ],
+      "candidate_branch_references": [
+        "sip-dialog:synthetic-ims-media.pcapng:3.1"
+      ],
+      "conflict_findings": [],
+      "correlation_reference": "sdp-rtp-transport:synthetic-ims-media.pcapng:5.1.0",
+      "correlation_type": "SINGLE_MEDIA",
+      "dialog_reference": "sip-dialog:synthetic-ims-media.pcapng:3.1",
+      "endpoint_references": [
+        "endpoint-hmac-sha256:v1:0c9798325ee51e17000eb08ad3820d14918913a0209053983b532b15ef96b03b"
+      ],
+      "evidence_class": "DERIVED",
+      "exchange_references": [
+        "ims-media-signaling:synthetic-ims-media.pcapng:3.1"
+      ],
+      "match_directions": [
+        "RTP_SOURCE_ENDPOINT_MATCH"
+      ],
+      "missing_evidence": [],
+      "observation_reference": "ims-media-session:synthetic-ims-media.pcapng:5.1.0",
+      "original_association_status": "MATCHED_ENDPOINT",
+      "original_correlation_strength": "STRONG",
+      "rtp_event_references": [
+        "rtp-packet:synthetic-ims-media.pcapng:4.1"
+      ],
+      "rtp_udp_stream_references": [
+        "rtp-udp-stream:synthetic-ims-media.pcapng:2"
+      ],
+      "sdp_message_bindings": [
+        {
+          "media_index": 0,
+          "media_type": "audio",
+          "message_reference": "sip-event:synthetic-ims-media.pcapng:5.1",
+          "mid": null,
+          "protocol": "RTP/AVP",
+          "roles": [
+            "ANSWER"
+          ]
+        }
+      ],
+      "temporal_association_status": "NOT_EVALUATED"
+    }
+  ],
+  "unbound_signaling_observation_count": 0,
+  "unbound_signaling_observations": [],
+  "unmatched_rtp_stream_count": 1,
+  "unmatched_rtp_streams": [
+    {
+      "conflict_findings": [],
+      "destination_endpoint_references": [
+        "endpoint-hmac-sha256:v1:6a9b7ce627636d0fd811701413791d11ef5ac0ddbe4cabfeb2f14e945640e733"
+      ],
+      "endpoint_evidence_status": "ESTABLISHED",
+      "evidence_class": "DERIVED",
+      "first_frame_number": 5,
+      "last_frame_number": 5,
+      "missing_evidence": [],
+      "observed_ssrc_references": [
+        "rtp-ssrc:synthetic-ims-media.pcapng:99999999"
+      ],
+      "packet_count": 1,
+      "rtp_event_references": [
+        "rtp-packet:synthetic-ims-media.pcapng:5.1"
+      ],
+      "rtp_udp_stream_reference": "rtp-udp-stream:synthetic-ims-media.pcapng:9",
+      "source_endpoint_references": [
+        "endpoint-hmac-sha256:v1:05556cf5baae255f7ebc61144f1e39c75713773abec762972707c39b52bb762d"
+      ]
+    }
+  ]
+}
