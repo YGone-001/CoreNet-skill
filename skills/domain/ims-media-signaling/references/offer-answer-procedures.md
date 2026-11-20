@@ -63,6 +63,20 @@ is processed separately. The Domain never picks the first branch, never moves an
 answer across branches and never merges two accepted 2xx branches into one
 exchange.
 
+### Dialog termination
+
+An accepted BYE transaction with an accepted 2xx response can move a Dialog from
+`CONFIRMED` to `TERMINATED`. The later release does not erase the earlier
+INVITE 2xx response, the confirmed Dialog identity or the SDP Offer/Answer
+association derived from them. The Domain preserves that historical association
+only when the branch still owns the accepted 2xx INVITE response, the response
+role and CSeq checks pass, the SDP provenance is intact, and both the branch
+release record and the attempt `release_evidence` identify this exact Dialog as
+termination-supported. The `TERMINATED` label alone is never evidence of earlier
+confirmation; `EARLY` and `UNKNOWN` Dialogs remain ineligible. This historical
+association is signaling evidence only and never proves media delivery, RTP
+teardown or call success.
+
 ### Provisional responses
 
 The accepted SIP Event contract does not expose `Require: 100rel`, `RSeq`,

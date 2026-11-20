@@ -63,7 +63,7 @@ must be internally consistent.
 
 ## Outputs
 
-The analysis version is `0.2.0`. The JSON contains bounded `exchanges`,
+The analysis version is `0.3.0`. The JSON contains bounded `exchanges`,
 `unbound_observations`, conservation-checked `completeness`, `input_provenance`,
 `limitations` and `not_confirmed`. Each exchange publishes `initial_sdp_state`
 and `branch_identity_status`; references remain resolvable to the originating
@@ -71,7 +71,20 @@ artifacts.
 
 ## Compatibility impact
 
-Version `0.2.0` tightens the public contract. Consumers must expect:
+Version `0.3.0` preserves the `0.2.0` public structure and corrects the Dialog
+lifecycle gate. Consumers must expect:
+
+- an Offer/Answer association established before an accepted BYE/2xx terminated
+  the Dialog to remain `ESTABLISHED`;
+- a `TERMINATED` Dialog to establish the association only when the branch owns
+  the accepted confirming 2xx INVITE response and both branch and attempt release
+  evidence name the same Dialog;
+- `HISTORICAL_DIALOG_CONFIRMATION_UNPROVEN` and
+  `SIP_TERMINATION_EVIDENCE_NOT_PROVEN` as new fail-closed missing-evidence
+  codes, and `TERMINATION_EVIDENCE_DIALOG_MISMATCH` as a new ambiguity finding;
+- no change to branch identity, fork isolation, SDP provenance or privacy rules.
+
+Version `0.2.0` tightened the public contract. Consumers must expect:
 
 - an `INITIAL_INVITE_SDP_EVIDENCE_UNUSABLE` exchange type when initial SDP is
   observed but incomplete, invalid, unresolved or out of scope;

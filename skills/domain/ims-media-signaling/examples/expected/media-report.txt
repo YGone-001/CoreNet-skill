@@ -1,5 +1,5 @@
 IMS SDP offer/answer signaling evidence
-analysis_version: 0.2.0
+analysis_version: 0.3.0
 capture: synthetic-ims-media.pcapng
 sdp_capture_sha256: b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7
 supplied_sdp_messages: 2
@@ -33,4 +33,5 @@ limitations:
 - Provisional SDP in the same branch keeps a final-response answer role unresolved instead of assuming a unique final answer
 - PRACK, re-INVITE, UPDATE, INFO and arbitrary multipart bodies remain outside the supported initial Offer/Answer scope
 - The SIP Event contract does not publish an independent capture SHA-256; the SIP Event file SHA-256 and the capture SHA-256 are distinct identities
+- An offer/answer association established before a Dialog terminates remains historical signaling evidence; the later SIP release does not prove media delivery, RTP teardown or call success
 - The accepted SDP contract does not define a canonical frame_reference format; only presence and frame-<n> consistency are validated

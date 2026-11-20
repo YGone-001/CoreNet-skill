@@ -1036,3 +1036,339 @@ class CorrectedEvidenceIntegrityTests(unittest.TestCase):
         statuses = [item["association_status"] for item in pairs]
         self.assertIn("AMBIGUOUS", statuses)
         self.assertIn("ESTABLISHED", statuses)
+
+def built_artifacts(records: list) -> tuple[dict, dict, dict]:
+    paths = builder.write_inputs(Path(tempfile.mkdtemp()), records)
+    dialogs = json.loads(paths["dialogs"].read_text(encoding="utf-8"))
+    return paths, dialogs, paths["session_document"]
+
+
+class HistoricalDialogConfirmationTests(unittest.TestCase):
+    def test_72_terminated_builder_chain_is_genuinely_terminated(self) -> None:
+        _paths, dialogs, session = built_artifacts(builder.terminated_records())
+        self.assertEqual([item["dialog_state"] for item in dialogs["dialogs"]], ["TERMINATED"])
+        attempt = session["session_attempts"][0]
+        self.assertEqual(attempt["invite_outcome"], "ACCEPTED_2XX_OBSERVED")
+        self.assertEqual(attempt["release_evidence"]["outcome"], "SIP_TERMINATION_SIGNALING_SUPPORTED")
+        branch = attempt["branches"][0]
+        self.assertEqual(branch["dialog_state"], "TERMINATED")
+        self.assertEqual(branch["outcome"], "ACCEPTED_2XX")
+        self.assertEqual(branch["release"]["outcome"], "SIP_TERMINATION_SIGNALING_SUPPORTED")
+        self.assertIn(
+            branch["dialog_reference"],
+            branch["release"]["termination_supported_dialog_references"],
+        )
+
+    def test_73_confirmed_dialog_without_bye_keeps_association(self) -> None:
+        _paths, dialogs, session = built_artifacts(builder.build_records())
+        self.assertEqual(dialogs["dialogs"][0]["dialog_state"], "CONFIRMED")
+        self.assertEqual(session["session_attempts"][0]["branches"][0]["dialog_state"], "CONFIRMED")
+        code, document, _report, _paths = analyze(builder.build_records())
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]["association_status"],
+            "ESTABLISHED",
+        )
+
+    def test_74_historical_initial_association_survives_bye(self) -> None:
+        code, document, _report, _paths = analyze(builder.terminated_records())
+        self.assertEqual(code, 0)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "ESTABLISHED")
+        self.assertEqual(pair["answer_event_reference"], "sip-event:synthetic-ims-media.pcapng:4.1")
+        self.assertEqual(pair["answer_role"], "ANSWERER")
+        self.assertEqual(pair["negotiation_compatibility"], "NOT_EVALUATED")
+        for token in ("MEDIA_DELIVERY", "IMS_CALL_SUCCESS", "RTP_DELIVERY", "TWO_WAY_AUDIO"):
+            self.assertIn(token, document["not_confirmed"])
+
+    def test_75_historical_late_offer_association_survives_bye(self) -> None:
+        _paths, dialogs, session = built_artifacts(builder.terminated_late_offer_records())
+        self.assertEqual(dialogs["dialogs"][0]["dialog_state"], "TERMINATED")
+        self.assertEqual(session["session_attempts"][0]["branches"][0]["dialog_state"], "TERMINATED")
+        code, document, _report, _paths = analyze(builder.terminated_late_offer_records())
+        self.assertEqual(code, 0)
+        late = exchanges(document, "LATE_OFFER_ANSWER")[0]
+        self.assertEqual(late["association_status"], "ESTABLISHED")
+        self.assertEqual(late["answer_event_reference"], "sip-event:synthetic-ims-media.pcapng:4.1")
+
+    def test_76_confirmed_dialog_with_bye_without_response_stays_confirmed(self) -> None:
+        _paths, dialogs, session = built_artifacts(builder.unacknowledged_bye_records())
+        self.assertEqual(dialogs["dialogs"][0]["dialog_state"], "CONFIRMED")
+        self.assertIn("BYE_RESPONSE_NOT_OBSERVED", dialogs["dialogs"][0]["missing_evidence"])
+        code, document, _report, _paths = analyze(builder.unacknowledged_bye_records())
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]["association_status"],
+            "ESTABLISHED",
+        )
+
+    def test_77_negative_bye_does_not_terminate_the_dialog(self) -> None:
+        _paths, dialogs, session = built_artifacts(builder.negative_bye_records())
+        self.assertEqual(dialogs["dialogs"][0]["dialog_state"], "CONFIRMED")
+        branch = session["session_attempts"][0]["branches"][0]
+        self.assertEqual(branch["release"]["outcome"], "BYE_NEGATIVE_RESPONSE_OBSERVED")
+        self.assertEqual(branch["release"]["termination_supported_dialog_references"], [])
+        code, document, _report, _paths = analyze(builder.negative_bye_records())
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]["association_status"],
+            "ESTABLISHED",
+        )
+
+    def test_78_terminated_without_confirming_2xx_is_insufficient(self) -> None:
+        def mutate(document: dict) -> None:
+            attempt = document["session_attempts"][0]
+            branch = attempt["branches"][0]
+            branch["dialog_state"] = "TERMINATED"
+            branch["release"]["outcome"] = "SIP_TERMINATION_SIGNALING_SUPPORTED"
+            branch["release"]["termination_supported_dialog_references"] = [branch["dialog_reference"]]
+            attempt["release_evidence"]["outcome"] = "SIP_TERMINATION_SIGNALING_SUPPORTED"
+            attempt["release_evidence"]["termination_supported_dialog_references"] = [
+                branch["dialog_reference"]
+            ]
+            branch["response_event_references"] = [
+                reference
+                for reference in branch["response_event_references"]
+                if reference.endswith(":3.1")
+            ]
+            branch["response_status_codes"] = [180]
+
+        code, document, _report, _paths = analyze(
+            builder.terminated_records(), session_mutation=mutate
+        )
+        self.assertEqual(code, 0)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIn("HISTORICAL_DIALOG_CONFIRMATION_UNPROVEN", pair["missing_evidence"])
+        self.assertIsNone(pair["answer_event_reference"])
+
+    def test_79_terminated_without_release_evidence_fails_closed(self) -> None:
+        def mutate(document: dict) -> None:
+            document["session_attempts"][0]["branches"][0]["dialog_state"] = "TERMINATED"
+
+        code, document, _report, _paths = analyze(
+            builder.build_records(), session_mutation=mutate
+        )
+        self.assertEqual(code, 0)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIn("SIP_TERMINATION_EVIDENCE_NOT_PROVEN", pair["missing_evidence"])
+        self.assertIsNone(pair["answer_event_reference"])
+
+    def test_80_foreign_dialog_termination_evidence_is_ambiguous(self) -> None:
+        foreign = f"sip-dialog:{builder.CAPTURE}:1.1"
+
+        def mutate(document: dict) -> None:
+            attempt = document["session_attempts"][0]
+            branch = attempt["branches"][0]
+            branch["dialog_state"] = "TERMINATED"
+            branch["release"]["outcome"] = "SIP_TERMINATION_SIGNALING_SUPPORTED"
+            branch["release"]["termination_supported_dialog_references"] = [foreign]
+            attempt["release_evidence"]["outcome"] = "SIP_TERMINATION_SIGNALING_SUPPORTED"
+            attempt["release_evidence"]["termination_supported_dialog_references"] = [foreign]
+
+        code, document, _report, _paths = analyze(
+            builder.terminated_records(), session_mutation=mutate
+        )
+        self.assertEqual(code, 0)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "AMBIGUOUS")
+        self.assertIn("TERMINATION_EVIDENCE_DIALOG_MISMATCH", pair["conflict_findings"])
+        self.assertIsNone(pair["answer_event_reference"])
+
+    def test_81_forked_terminated_and_confirmed_branches_stay_independent(self) -> None:
+        _paths, dialogs, session = built_artifacts(builder.forked_terminated_records())
+        states = {item["dialog_reference"]: item["dialog_state"] for item in dialogs["dialogs"]}
+        self.assertEqual(sorted(states.values()), ["CONFIRMED", "TERMINATED"])
+        code, document, _report, _paths = analyze(builder.forked_terminated_records())
+        self.assertEqual(code, 0)
+        pairs = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")
+        self.assertEqual(len(pairs), 2)
+        self.assertTrue(all(item["association_status"] == "ESTABLISHED" for item in pairs))
+        self.assertEqual(len({item["dialog_reference"] for item in pairs}), 2)
+        self.assertEqual(len({item["answer_event_reference"] for item in pairs}), 2)
+
+    def test_82_forked_accepted_and_negative_never_cross_assign_answers(self) -> None:
+        records = [
+            builder.rec(1, method="INVITE", sdp_body=builder.AUDIO_OFFER),
+            builder.rec(2, status=200, cseq_method="INVITE", to_tag="TT-1", sdp_body=builder.AUDIO_ANSWER),
+            builder.rec(3, status=486, cseq_method="INVITE", to_tag="TT-2", sdp_body=builder.AUDIO_ANSWER),
+            builder.rec(4, method="ACK", cseq=1, to_tag="TT-1"),
+            builder.rec(5, method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1"),
+            builder.rec(6, status=200, cseq_method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1"),
+        ]
+        paths, _dialogs, session = built_artifacts(records)
+        branch_responses = {
+            branch["branch_reference"]: set(branch.get("response_event_references") or [])
+            for attempt in session["session_attempts"]
+            for branch in attempt["branches"]
+        }
+        code, document, _report, _paths = analyze(records)
+        self.assertEqual(code, 0)
+        pairs = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")
+        self.assertEqual(len(pairs), 1)
+        self.assertEqual(pairs[0]["association_status"], "ESTABLISHED")
+        self.assertIn(pairs[0]["answer_event_reference"], branch_responses[pairs[0]["branch_reference"]])
+        self.assertIn(
+            "NON_2XX_FINAL_SDP_OUT_OF_SCOPE",
+            [item["reason_code"] for item in observations(document)],
+        )
+
+    def test_83_missing_dialog_reference_terminated_is_insufficient(self) -> None:
+        def mutate(document: dict) -> None:
+            branch = document["session_attempts"][0]["branches"][0]
+            branch["dialog_reference"] = None
+            branch["dialog_state"] = "TERMINATED"
+
+        code, document, _report, _paths = analyze(
+            builder.terminated_records(), session_mutation=mutate
+        )
+        self.assertEqual(code, 0)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIn("DIALOG_IDENTITY_NOT_ESTABLISHED", pair["missing_evidence"])
+        self.assertIsNone(pair["dialog_reference"])
+
+    def test_84_missing_branch_reference_terminated_is_insufficient(self) -> None:
+        def mutate(document: dict) -> None:
+            document["session_attempts"][0]["branches"][0].pop("branch_reference", None)
+
+        code, document, _report, _paths = analyze(
+            builder.terminated_records(), session_mutation=mutate
+        )
+        self.assertEqual(code, 0)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIn("BRANCH_REFERENCE_MISSING", pair["missing_evidence"])
+        self.assertIsNone(pair["branch_reference"])
+
+    def test_85_ambiguous_branch_ownership_terminated_stays_ambiguous(self) -> None:
+        def mutate(document: dict) -> None:
+            document["session_attempts"][0]["branches"][0]["identity_status"] = "AMBIGUOUS"
+
+        code, document, _report, _paths = analyze(
+            builder.terminated_records(), session_mutation=mutate
+        )
+        self.assertEqual(code, 0)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "AMBIGUOUS")
+        self.assertIn("COMPETING_BRANCH_OWNERSHIP", pair["conflict_findings"])
+
+    def test_86_competing_2xx_sdp_answers_terminated_stays_ambiguous(self) -> None:
+        records = [
+            builder.rec(1, method="INVITE", sdp_body=builder.AUDIO_OFFER),
+            builder.rec(2, status=180, cseq_method="INVITE", to_tag="TT-1"),
+            builder.rec(3, status=200, cseq_method="INVITE", to_tag="TT-1", sdp_body=builder.AUDIO_ANSWER),
+            builder.rec(4, status=200, cseq_method="INVITE", to_tag="TT-1", sdp_body=builder.AUDIO_ANSWER),
+            builder.rec(5, method="ACK", cseq=1, to_tag="TT-1"),
+            builder.rec(6, method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1"),
+            builder.rec(7, status=200, cseq_method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1"),
+        ]
+        paths, dialogs, _session = built_artifacts(records)
+        self.assertEqual(dialogs["dialogs"][0]["dialog_state"], "TERMINATED")
+        code, document, _report, _paths = analyze(records)
+        self.assertEqual(code, 0)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "AMBIGUOUS")
+        self.assertIn("COMPETING_SDP_CANDIDATES", pair["conflict_findings"])
+        self.assertIsNone(pair["answer_event_reference"])
+
+    def test_87_invalid_response_role_terminated_never_establishes(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        paths = builder.write_inputs(directory, builder.terminated_records())
+
+        def mutate(events: list) -> None:
+            response = [item for item in events if item.get("status_code") == 200 and item.get("message_type") == "RESPONSE"][0]
+            response["message_type"] = "UNKNOWN"
+
+        rewrite_events(paths, mutate)
+        completed, document = run_existing(paths)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        pair = exchanges(document, "INITIAL_INVITE_OFFER_ANSWER")[0]
+        self.assertEqual(pair["association_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIn("RESPONSE_MESSAGE_TYPE_INVALID", pair["missing_evidence"])
+        self.assertIsNone(pair["answer_event_reference"])
+
+    def test_88_invalid_initial_sdp_terminated_never_establishes_late_offer(self) -> None:
+        def mutate(document: dict) -> None:
+            document["messages"][0]["evidence_status"] = "INVALID"
+
+        code, document, _report, _paths = analyze(
+            builder.terminated_records(), sdp_mutation=mutate
+        )
+        self.assertEqual(code, 0)
+        self.assertFalse(exchanges(document, "LATE_OFFER_ANSWER"))
+        self.assertFalse(any(item["association_status"] == "ESTABLISHED" for item in document["exchanges"]))
+
+    def test_89_terminated_cross_capture_reference_is_rejected(self) -> None:
+        records = builder.terminated_records()
+        paths = builder.write_inputs(Path(tempfile.mkdtemp()), records)
+        offer_reference = paths["event_references"][0]
+        sdp_records = [
+            builder.sdp_record(
+                offer_reference, 1, 1, builder.AUDIO_OFFER, capture="other-capture.pcapng"
+            )
+        ]
+        code, document, _report, _paths = analyze(records, sdp_records=sdp_records)
+        self.assertEqual(code, 2)
+        self.assertIsNone(document)
+
+    def test_90_terminated_duplicate_references_are_rejected(self) -> None:
+        records = builder.terminated_records()
+        directory = Path(tempfile.mkdtemp())
+        paths = builder.write_inputs(directory, records)
+        events = [json.loads(line) for line in paths["events"].read_text(encoding="utf-8").splitlines()]
+        raw = "\n".join(
+            json.dumps(item, separators=(",", ":"), sort_keys=True) for item in events + [events[0]]
+        ) + "\n"
+        code, document, _report, _paths = analyze(records, raw_events=raw)
+        self.assertEqual(code, 2)
+        self.assertIsNone(document)
+
+    def test_91_terminated_privacy_and_deterministic_replay(self) -> None:
+        directory = Path(tempfile.mkdtemp())
+        paths = builder.write_inputs(directory, builder.terminated_records())
+        outputs = []
+        for name in ("terminated-first.json", "terminated-second.json"):
+            output = directory / name
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "--sip-events",
+                    str(paths["events"]),
+                    "--ims-session",
+                    str(paths["session"]),
+                    "--sdp-analysis",
+                    str(paths["sdp"]),
+                    "--output",
+                    str(output),
+                    "--force",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0)
+            outputs.append(output.read_bytes())
+        self.assertEqual(outputs[0], outputs[1])
+        text = outputs[0].decode("utf-8")
+        for token in PRIVATE_TOKENS:
+            self.assertNotIn(token, text)
+        for token in ("v=0", "m=audio", "a=rtpmap", "sdp_body", '"call_id"', '"to_tag"'):
+            self.assertNotIn(token, text)
+
+    def test_92_terminated_schema_and_completeness(self) -> None:
+        if jsonschema is None:
+            self.skipTest("jsonschema is unavailable")
+        code, document, _report, _paths = analyze(builder.terminated_records())
+        self.assertEqual(code, 0)
+        jsonschema.validate(document, json.loads(SCHEMA.read_text(encoding="utf-8")))
+        completeness = document["completeness"]
+        self.assertEqual(
+            completeness["established_exchange_count"]
+            + completeness["incomplete_exchange_count"]
+            + completeness["ambiguous_exchange_count"]
+            + completeness["not_established_exchange_count"],
+            len(document["exchanges"]),
+        )

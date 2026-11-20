@@ -63,6 +63,12 @@ status and reason code.
 |---|---|
 | Missing Confirmed Dialog reference | `INSUFFICIENT_EVIDENCE`, `DIALOG_IDENTITY_NOT_ESTABLISHED` |
 | Missing branch reference | `INSUFFICIENT_EVIDENCE`, `BRANCH_REFERENCE_MISSING` |
+| Dialog terminated after an accepted BYE/2xx with a branch-owned confirming 2xx | Historical Offer/Answer association remains `ESTABLISHED` |
+| Dialog marked terminated without a branch-owned confirming 2xx | `INSUFFICIENT_EVIDENCE`, `HISTORICAL_DIALOG_CONFIRMATION_UNPROVEN` |
+| Dialog marked terminated without matching branch and attempt release evidence | `INSUFFICIENT_EVIDENCE`, `SIP_TERMINATION_EVIDENCE_NOT_PROVEN` |
+| Terminal release evidence names another Dialog or disagrees between branch and attempt | `AMBIGUOUS`, `TERMINATION_EVIDENCE_DIALOG_MISMATCH` |
+| BYE request without a final response | Dialog stays `CONFIRMED`; the association is unchanged |
+| BYE with a negative final response | Dialog termination is not established; the association is unchanged |
 | Identity marked insufficient or not established | `INSUFFICIENT_EVIDENCE`, `BRANCH_IDENTITY_NOT_ESTABLISHED` |
 | Identity marked ambiguous | `AMBIGUOUS`, `COMPETING_BRANCH_OWNERSHIP` |
 | Response not owned by the accepted branch | `INSUFFICIENT_EVIDENCE`, `BRANCH_RESPONSE_OWNERSHIP_UNPROVEN` |

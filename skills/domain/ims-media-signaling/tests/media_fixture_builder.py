@@ -169,6 +169,40 @@ def fork_records() -> list[dict[str, Any]]:
     ]
 
 
+def terminated_records() -> list[dict[str, Any]]:
+    return build_records() + [
+        rec(6, method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1"),
+        rec(7, status=200, cseq_method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1"),
+    ]
+
+
+def terminated_late_offer_records() -> list[dict[str, Any]]:
+    return late_offer_records() + [
+        rec(5, method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1"),
+        rec(6, status=200, cseq_method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1"),
+    ]
+
+
+def forked_terminated_records() -> list[dict[str, Any]]:
+    return fork_records() + [
+        rec(8, method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1"),
+        rec(9, status=200, cseq_method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1"),
+    ]
+
+
+def unacknowledged_bye_records() -> list[dict[str, Any]]:
+    return build_records() + [
+        rec(6, method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1")
+    ]
+
+
+def negative_bye_records() -> list[dict[str, Any]]:
+    return build_records() + [
+        rec(6, method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1"),
+        rec(7, status=481, cseq_method="BYE", branch="z9hG4bK-BYE", cseq=2, to_tag="TT-1"),
+    ]
+
+
 def build_artifacts(records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
     messages = [
         sip_model.normalize_record_message(

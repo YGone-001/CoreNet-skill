@@ -1,5 +1,5 @@
 name: ims-media-signaling
-version: 0.2.0
+version: 0.3.0
 category: domain
 description: >
   Bounded IMS SDP Offer/Answer signaling evidence over accepted SIP Event,
@@ -7,8 +7,9 @@ description: >
   SIP-to-SDP reference association, initial SDP absence versus incomplete or
   invalid evidence, accepted Dialog and branch identity gating, initial INVITE
   offer and final 2xx answer evidence, independent forked dialog branches,
-  bounded RFC 3261 late-offer and 2xx ACK answer evidence, provisional SDP
-  preserved without reliable provisional interpretation, and fail-closed
+  bounded RFC 3261 late-offer and 2xx ACK answer evidence, historical
+  offer/answer evidence preserved after accepted Dialog termination, provisional
+  SDP preserved without reliable provisional interpretation, and fail-closed
   unbound, incomplete and ambiguous observations. No SIP or SDP re-parsing, no
   media delivery, QoS or call-success verdict.
 scope:
@@ -18,6 +19,7 @@ scope:
     - initial INVITE SDP offer evidence anchored to an accepted session attempt
     - initial SDP state separation: ABSENT, OBSERVED_VALID, OBSERVED_INCOMPLETE, OBSERVED_INVALID, UNRESOLVED, OUT_OF_SCOPE
     - accepted Dialog and branch identity gating for established branch-scoped pairs
+    - historical confirmation evidence preserved when an accepted BYE/2xx terminates the Dialog
     - accepted 2xx SDP answer evidence scoped to one independent dialog branch
     - forked branch isolation without preferred-branch selection
     - late offer entered only after proven initial SDP absence
@@ -47,7 +49,7 @@ inputs:
   - IMS Session Analysis JSON (analysis version 0.1.0) from the accepted IMS Session Domain
   - SDP Analysis JSON (analysis name sdp-rtp, analysis version 0.1.0, event schema 1.0.0)
 outputs:
-  - bounded IMS SDP offer/answer evidence JSON, analysis version 0.2.0 (schemas/ims-media-signaling-analysis.schema.json)
+  - bounded IMS SDP offer/answer evidence JSON, analysis version 0.3.0 (schemas/ims-media-signaling-analysis.schema.json)
   - optional plain-text evidence report
 protocols:
   - SIP

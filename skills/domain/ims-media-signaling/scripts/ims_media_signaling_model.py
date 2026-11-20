@@ -30,7 +30,7 @@ import sdp_model  # noqa: E402
 import sip_model  # noqa: E402
 
 ANALYSIS_NAME = "ims-media-signaling"
-ANALYSIS_VERSION = "0.2.0"
+ANALYSIS_VERSION = "0.3.0"
 DOMAIN = "ims-media-signaling"
 CAPABILITY = "bounded IMS SDP offer/answer signaling evidence"
 
@@ -117,6 +117,7 @@ BASE_LIMITATIONS = (
     "Provisional SDP in the same branch keeps a final-response answer role unresolved instead of assuming a unique final answer",
     "PRACK, re-INVITE, UPDATE, INFO and arbitrary multipart bodies remain outside the supported initial Offer/Answer scope",
     "The SIP Event contract does not publish an independent capture SHA-256; the SIP Event file SHA-256 and the capture SHA-256 are distinct identities",
+    "An offer/answer association established before a Dialog terminates remains historical signaling evidence; the later SIP release does not prove media delivery, RTP teardown or call success",
     "The accepted SDP contract does not define a canonical frame_reference format; only presence and frame-<n> consistency are validated",
 )
 
@@ -528,10 +529,50 @@ def _response_role_status(event: dict[str, Any] | None) -> tuple[bool, str | Non
     return (True, None)
 
 
+def _termination_history_gate(
+    branch: dict[str, Any],
+    response_reference: str,
+    attempt: dict[str, Any],
+    events_by_reference: dict[str, dict[str, Any]],
+    dialog_reference: str,
+) -> tuple[list[str], list[str]]:
+    missing: list[str] = []
+    conflicts: list[str] = []
+    response_ok, _reason = _response_role_status(events_by_reference.get(response_reference))
+    if not response_ok:
+        missing.append("HISTORICAL_DIALOG_CONFIRMATION_UNPROVEN")
+    release = branch.get("release") or {}
+    attempt_release = attempt.get("release_evidence") or {}
+    branch_supported = set(release.get("termination_supported_dialog_references") or [])
+    attempt_supported = set(
+        attempt_release.get("termination_supported_dialog_references") or []
+    )
+    supported = (
+        release.get("outcome") == "SIP_TERMINATION_SIGNALING_SUPPORTED"
+        and attempt_release.get("outcome") == "SIP_TERMINATION_SIGNALING_SUPPORTED"
+        and dialog_reference in branch_supported
+        and dialog_reference in attempt_supported
+    )
+    if supported:
+        return (missing, conflicts)
+    if (
+        branch_supported
+        or attempt_supported
+        or release.get("outcome") == "SIP_TERMINATION_SIGNALING_SUPPORTED"
+        or attempt_release.get("outcome") == "SIP_TERMINATION_SIGNALING_SUPPORTED"
+    ):
+        conflicts.append("TERMINATION_EVIDENCE_DIALOG_MISMATCH")
+    else:
+        missing.append("SIP_TERMINATION_EVIDENCE_NOT_PROVEN")
+    return (missing, conflicts)
+
+
 def _branch_gate(
     branch: dict[str, Any],
     response_reference: str,
     owners: dict[str, set[int]],
+    events_by_reference: dict[str, dict[str, Any]],
+    attempt: dict[str, Any],
 ) -> tuple[str, list[str], list[str]]:
     missing: list[str] = []
     conflicts: list[str] = []
@@ -540,7 +581,21 @@ def _branch_gate(
         missing.append("BRANCH_REFERENCE_MISSING")
     dialog_reference = branch.get("dialog_reference")
     dialog_state = branch.get("dialog_state")
-    if not isinstance(dialog_reference, str) or not dialog_reference or dialog_state != "CONFIRMED":
+    if not isinstance(dialog_reference, str) or not dialog_reference:
+        missing.append("DIALOG_IDENTITY_NOT_ESTABLISHED")
+    elif dialog_state == "CONFIRMED":
+        pass
+    elif dialog_state == "TERMINATED":
+        history_missing, history_conflicts = _termination_history_gate(
+            branch,
+            response_reference,
+            attempt,
+            events_by_reference,
+            dialog_reference,
+        )
+        missing.extend(history_missing)
+        conflicts.extend(history_conflicts)
+    else:
         missing.append("DIALOG_IDENTITY_NOT_ESTABLISHED")
     identity_status = branch.get("identity_status")
     if identity_status == "ESTABLISHED":
@@ -873,7 +928,11 @@ def build_analysis(
             if state == "OBSERVED_VALID":
                 if not accepted_candidates:
                     gate_status, gate_missing, gate_conflicts = _branch_gate(
-                        branch, response_references[-1] if response_references else initial_reference, owners
+                        branch,
+                        response_references[-1] if response_references else initial_reference,
+                        owners,
+                        events_by_reference,
+                        attempt,
                     )
                     publish(
                         _exchange(
@@ -910,7 +969,9 @@ def build_analysis(
                     continue
                 answer_reference = accepted_candidates[0]
                 ok, role_reason = _response_role_status(events_by_reference.get(answer_reference))
-                gate_status, gate_missing, gate_conflicts = _branch_gate(branch, answer_reference, owners)
+                gate_status, gate_missing, gate_conflicts = _branch_gate(
+                    branch, answer_reference, owners, events_by_reference, attempt
+                )
                 if not ok:
                     gate_status = _merge_status(gate_status, "INSUFFICIENT_EVIDENCE")
                     gate_missing = gate_missing + [role_reason or "RESPONSE_STATUS_INVALID"]
@@ -963,7 +1024,9 @@ def build_analysis(
                 continue
             late_offer_reference = accepted_candidates[0]
             late_ok, late_reason = _response_role_status(events_by_reference.get(late_offer_reference))
-            gate_status, gate_missing, gate_conflicts = _branch_gate(branch, late_offer_reference, owners)
+            gate_status, gate_missing, gate_conflicts = _branch_gate(
+                branch, late_offer_reference, owners, events_by_reference, attempt
+            )
             if not late_ok:
                 gate_status = _merge_status(gate_status, "INSUFFICIENT_EVIDENCE")
                 gate_missing = gate_missing + [late_reason or "RESPONSE_STATUS_INVALID"]

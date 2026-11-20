@@ -39,7 +39,7 @@ REQUIRED = (
     "examples/expected/media-analysis.json",
     "examples/expected/media-report.txt",
 )
-REQUIRED_TEST_TOKENS = tuple(f"test_{index:02d}_" for index in range(1, 72))
+REQUIRED_TEST_TOKENS = tuple(f"test_{index:02d}_" for index in range(1, 93))
 PRIVATE_TOKENS = (
     "sip:caller@example.com",
     "sip:callee@example.com",
@@ -139,7 +139,7 @@ def main() -> int:
     manifest = (SKILL / "manifest.yaml").read_text(encoding="utf-8")
     for token in (
         "name: ims-media-signaling",
-        "version: 0.2.0",
+        "version: 0.3.0",
         "category: domain",
         "sip >=0.4.0",
         "sdp-rtp >=0.3.0",

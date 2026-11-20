@@ -63,7 +63,7 @@ capture identity.
 
 ## Outputs
 
-`schemas/ims-media-signaling-analysis.schema.json` (analysis version `0.2.0`):
+`schemas/ims-media-signaling-analysis.schema.json` (analysis version `0.3.0`):
 
 - `exchanges`: attempt, transaction and dialog branch references, branch
   identity status, exchange type, `initial_sdp_state`, association status,
@@ -109,6 +109,18 @@ address, ICE credential, fingerprint or key material is published.
   branch of that attempt, a non-null branch reference, a non-null Confirmed
   Dialog reference, `identity_status = ESTABLISHED`, branch-owned response
   evidence, exact SIP-to-SDP reference identity and no competing branch owner.
+- A Dialog already confirmed before an accepted BYE/2xx terminated it keeps its
+  established association. The gate additionally requires the branch-owned
+  accepted 2xx INVITE response, matching branch and attempt
+  `SIP_TERMINATION_SIGNALING_SUPPORTED` release evidence, and that both
+  `termination_supported_dialog_references` name this exact Dialog. A missing
+  confirming response is `HISTORICAL_DIALOG_CONFIRMATION_UNPROVEN`; missing
+  release evidence is `SIP_TERMINATION_EVIDENCE_NOT_PROVEN`; foreign or
+  inconsistent release evidence is `TERMINATION_EVIDENCE_DIALOG_MISMATCH` and
+  `AMBIGUOUS`. `TERMINATED` alone never establishes confirmation, and `EARLY`
+  or `UNKNOWN` remains ineligible.
+- A historical association is signaling evidence only; it never proves media
+  delivery, RTP teardown, QoS or call success.
 - Missing Dialog or branch identity is `INSUFFICIENT_EVIDENCE`; conflicting
   ownership is `AMBIGUOUS`. Neither is promoted to a confirmed branch.
 - Initial SDP absence is only `ABSENT` when the INVITE has no body, zero content

@@ -102,6 +102,9 @@ Deterministic, machine-readable reason codes include:
 - `BRANCH_IDENTITY_NOT_ESTABLISHED`
 - `BRANCH_RESPONSE_OWNERSHIP_UNPROVEN`
 - `COMPETING_BRANCH_OWNERSHIP`
+- `HISTORICAL_DIALOG_CONFIRMATION_UNPROVEN`
+- `SIP_TERMINATION_EVIDENCE_NOT_PROVEN`
+- `TERMINATION_EVIDENCE_DIALOG_MISMATCH`
 - `PROVISIONAL_FINAL_SDP_ROLE_UNRESOLVED`
 - `RESPONSE_MESSAGE_TYPE_INVALID`
 - `RESPONSE_STATUS_INVALID`
@@ -137,7 +140,8 @@ An exchange is `ESTABLISHED` only when all of the following hold:
 - an accepted branch of that attempt owns the response;
 - `branch_reference` is a non-null string;
 - `dialog_reference` is a non-null string and the branch Dialog state is
-  `CONFIRMED`;
+  `CONFIRMED`, or is `TERMINATED` with the historical confirmation evidence
+  described below;
 - the accepted branch `identity_status` is `ESTABLISHED`;
 - the response event reference belongs to that branch's accepted responses;
 - no other accepted branch owns the same response reference.
@@ -146,6 +150,46 @@ Missing or insufficient identity is `INSUFFICIENT_EVIDENCE`. Conflicting
 identity or competing ownership is `AMBIGUOUS`. No Dialog reference is created
 or inferred from frame proximity, timestamps, ports, transport streams, SDP
 identity or a matching status code.
+
+## Historical confirmation after termination
+
+A Dialog may transition `CONFIRMED -> TERMINATED` after an accepted BYE
+transaction and its accepted 2xx response. That later release does not invalidate
+an Offer/Answer association that was already established. The Domain therefore
+accepts a `TERMINATED` Dialog only when all of the following independent
+conditions are proven by accepted source artifacts:
+
+- the IMS Session attempt is accepted and owns the branch;
+- `branch_reference` and `dialog_reference` are non-null and the branch
+  `identity_status` is `ESTABLISHED`;
+- the branch owns an accepted 2xx INVITE response at the evaluated reference,
+  and that response satisfies the accepted SIP response-role and INVITE CSeq
+  checks;
+- the exact response event has a single accepted owner;
+- the accepted SDP source-reference and provenance checks pass;
+- the branch release record and the attempt `release_evidence` both report
+  `SIP_TERMINATION_SIGNALING_SUPPORTED`, and both
+  `termination_supported_dialog_references` contain this exact Dialog.
+
+The word `TERMINATED` alone never proves historical confirmation. A missing
+confirming 2xx response is `HISTORICAL_DIALOG_CONFIRMATION_UNPROVEN`; missing
+release evidence is `SIP_TERMINATION_EVIDENCE_NOT_PROVEN`; termination evidence
+bound to another Dialog or inconsistent between branch and attempt is
+`TERMINATION_EVIDENCE_DIALOG_MISMATCH` and `AMBIGUOUS`. `EARLY` and `UNKNOWN`
+Dialogs remain ineligible for a final 2xx branch association.
+
+The distinct observations remain separate:
+
+- `INVITE_2XX_OBSERVED`: the branch-owned accepted 2xx response;
+- `HISTORICAL_DIALOG_CONFIRMATION_SUPPORTED`: that response and the release
+  record prove the Dialog was confirmed before termination;
+- `SIP_TERMINATION_SIGNALING_SUPPORTED`: accepted BYE/2xx evidence;
+- `SDP_OFFER_ANSWER_PAIR_OBSERVED`: the exact SIP-to-SDP reference pair;
+- `MEDIA_DELIVERY_NOT_CONFIRMED`: no media, RTP, QoS or call-success conclusion.
+
+A terminated association remains historical signaling evidence. It never proves
+media delivery, two-way audio, RTP transmission or teardown, QoS, call success or
+resource release beyond the accepted SIP signaling.
 
 ## Provisional SDP role
 
