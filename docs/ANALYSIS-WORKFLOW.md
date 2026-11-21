@@ -344,32 +344,49 @@ ownership. A capture-wide media status of `SUCCESS` may still produce media
 
 The diagnostics artifact also publishes `logical_calls`. SIP event identity is
 compared only through capture-scoped keyed HMAC references for Call-ID, From-tag,
-To-tag, CSeq and each Via branch. Initial INVITE attempts are grouped when the
-references agree and the Via-hop stacks are nested; identical Via stacks remain a
-repeated observation, a differing To-tag keeps Dialog or fork branches separate, and
-a Call-ID change without an independent bridge remains `UNRESOLVED_IDENTITY`.
+To-tag, CSeq and each Via branch, scoped by the capture SHA-256 when it is available.
+Initial INVITE attempts are grouped only when the identity references agree, the
+request method and CSeq method are confirmed, and a single coherent Via-hop stack is
+nested. Identical Via stacks remain `REPEATED_OBSERVATION_ONLY`; a differing To-tag
+keeps Dialog or fork branches separate; a Call-ID change without an independent bridge
+remains `UNRESOLVED_IDENTITY`; two competing Via chains remain `AMBIGUOUS_MULTI_HOP`;
+and differing CSeq initial INVITEs are preserved as distinct attempts unless an
+accepted Dialog bridge proves the in-dialog relationship. Every published accepted
+event must be reachable from an accepted transaction or Dialog context; same-family
+events that are not reachable stay visible as unbound evidence.
 
 Each logical call publishes its member attempts, SIP transactions, Dialog branches,
-SDP exchanges, candidate RTP transports, source streams, temporal constraint,
-RTCP evidence and ownership status. `LOGICAL_CALL_MEDIA_OWNED` requires exact
-correlation references that exclude every competing logical call, an observed SDP
-offer and answer, and a resolved source stream. Attempt and branch statuses remain
-independent; logical ownership is never copied down into an ambiguous attempt or
-branch. RTP duplicate identity uses complete RTP packet bytes through a
-capture-scoped keyed HMAC; the former header tuple is published only as a
-header-signature observation.
+accepted SDP exchanges, repeated same-dialog SDP observations, candidate RTP
+transports, source streams, temporal constraint, RTCP evidence and ownership status.
+`LOGICAL_CALL_MEDIA_OWNED` requires an accepted grouping, an accepted Dialog branch
+where branch ownership is claimed, an accepted IMS Media Signaling Exchange in
+`ESTABLISHED` state, offer/answer references inside the accepted logical-call context,
+media sections that resolve to that Exchange, a matched SDP/RTP transport correlation,
+uniquely owned RTP source streams, no competing logical-call owner and no unbound SDP
+observation. A missing established Exchange yields `INSUFFICIENT_EVIDENCE`; competing
+owners yield `AMBIGUOUS_OWNERSHIP`; an unsupported procedure yields
+`UNSUPPORTED_PROCEDURE`. An observed Offer and a separately observed Answer are never
+sufficient. Attempt and branch statuses remain independent; logical ownership is never
+copied down into an ambiguous attempt or branch.
 
-RTP duplicate observations are classified from exact packet identity and capture-view
+RTP duplicate identity uses complete RTP packet bytes through a capture-scoped keyed
+HMAC. Observations are classified from exact packet identity and capture-view
 metadata:
 
-- `MULTI_VANTAGE_OBSERVATION_SUPPORTED`: same packet identity across differing
-  interface, encapsulation or transport-path metadata.
-- `DUPLICATE_PACKET_OBSERVATION_SUPPORTED`: same packet identity on the same capture
-  path.
+- `MULTI_VANTAGE_SUPPORTED`: byte-identical packets in the same source stream with a
+  compatible inner transport path and differing capture-view metadata.
+- `MULTI_VANTAGE_CONSISTENT`: differing capture-view metadata without a proven inner
+  transport relationship, or capture-view consistency where byte identity is
+  unavailable.
+- `RTP_PACKET_BYTES_IDENTICAL`: byte-identical observations in the same capture view,
+  or byte identity whose multi-vantage explanation is unconfirmed. Byte-identical
+  packets in independent streams are counted as a cross-stream collision and are never
+  collapsed into one physical observation.
+- `RTP_HEADER_SIGNATURE_MATCH`: same header tuple with different packet bytes.
 - `DUPLICATE_SEQUENCE_OBSERVED`: repeated sequence number without exact packet identity.
-- `RETRANSMISSION_NOT_ESTABLISHED`: sequence-only duplicates are not promoted to
-  retransmission.
-- `DUPLICATE_CAUSE_UNRESOLVED`: no sufficient explanation for the sequence-only repeat.
+- `PACKET_IDENTITY_UNRESOLVED`: byte identity or transport path could not be established.
+
+No classification establishes retransmission, network packet loss or capture topology.
 
 Bounded temporal evidence uses SIP observation boundaries (INVITE, final 2xx, ACK, BYE,
 BYE response). It publishes first/last SIP and RTP frames, ordering, and one of
@@ -387,12 +404,44 @@ cumulative packets lost and interarrival jitter are preserved with
 `measurement_origin = RECEIVER_REPORTED`; jitter in RTP timestamp units is preserved,
 and a millisecond conversion is published only with a proven unique RTP clock rate and
 source association. Missing RTCP is never a QoS failure, and receiver-reported loss is
-never local or network-confirmed loss.
+never local or network-confirmed loss. RTCP-to-call ownership is a separate gate: a
+positive `LOGICAL_CALL_RTCP_ASSOCIATED` requires an accepted sender or reportee source
+relationship, the uniquely owned logical-call transport, and no competing owner. When
+every source association is ambiguous, the call-level RTCP status also stays ambiguous;
+a nonempty association list is never sufficient.
 
 The human report provides per-call signaling, SDP, RTP, RTCP and diagnostic sections
 with the last supported evidence reference, first missing or abnormal boundary, reason
 codes, excluded interpretations, additional evidence needed and per-branch ownership
 scope. Detailed source artifacts remain available locally in the run directory.
+
+### Per-call failure-boundary review
+
+Each logical call publishes an ordered `diagnostic_review` covering SIP signaling
+(initial INVITE, accepted provisional responses, final response, ACK, CANCEL, BYE and
+release response, branch and fork identity), SDP signaling (accepted Offer/Answer,
+repeated same-dialog observations, media sections and unbound observations), RTP
+evidence (owned streams, sequence validation, wrap, reorder, duplicate and unobserved
+slots, exact frames) and RTCP evidence (sender and reportee association, unbound
+components, receiver-reported measurements).
+
+The `diagnostic_result` keeps the boundary classes distinct:
+
+- `OBSERVED_PROTOCOL_DEVIATION`: a supported deviation such as a non-2xx final SIP
+  response, with its exact event and frame reference. A SIP outcome never by itself
+  establishes a network-function root cause.
+- `MISSING_OBSERVATION`: an expected observation is absent from the capture.
+- `CAPTURE_VISIBILITY_LIMITATION`: evidence is present but cannot be extracted from the
+  available capture view, such as encrypted or inaccessible signaling.
+- `UNSUPPORTED_PROCEDURE`: the observed procedure is outside the accepted scope.
+- `EXTRACTION_FAILURE`: an SDP body is present but its parsed observation is unavailable.
+- `IDENTITY_AMBIGUITY`: logical-call identity is not independently accepted.
+- `NO_ABNORMAL_EVIDENCE_OBSERVED`: the observed chain is complete within capture scope.
+
+The last supported observation is always scoped to the logical call and its owned
+evidence, never the capture's final frame. An RTP sequence gap is not network packet
+loss, an RTCP receiver report is not a local measurement, and a missing SDP Answer in
+a partially encrypted capture is not automatically an IMS network failure.
 
 ## 7. Diagnostic subjects
 
@@ -696,8 +745,10 @@ SIP registration, Diameter Cx/Dx and SIP session inventories remain independent;
 subscriber identity bridge is introduced and cross-protocol association remains
 `NOT_ESTABLISHED`.
 
-SDP, RTP, Diameter Rx, Diameter charging, IMS session modification and end-to-end IMS
-fault isolation remain planned and are not advertised as implemented. EPC remains the
+Diameter Rx, Diameter charging, IMS session modification, IMS subscriber-identity
+bridging and end-to-end IMS root-cause fault isolation remain planned and are not
+advertised as implemented. SDP/RTP media composition and per-call logical diagnostics
+are implemented only in the offline `--with-media` path. EPC remains the
 bounded path described in section 10.
 
 Adding a domain means adding its real Protocol and Domain Skills, then registering a

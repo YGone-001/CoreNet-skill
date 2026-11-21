@@ -33,8 +33,14 @@ plaintext body file is written.
 
 With an owner-only capture-scoped identity key, the event artifact also publishes
 Call-ID, From-tag, To-tag and Via-branch references as domain-separated keyed
-HMAC-SHA-256 values. Raw identifiers are never published; without the key the
-identity status is `UNAVAILABLE_NO_KEY`.
+HMAC-SHA-256 values. When a capture input is used, the reference scope includes the
+capture SHA-256 (`CAPTURE_SHA256_SCOPED_HMAC_SHA256`), so two captures with the same
+filename but different content never share identity even if the same key is reused.
+A non-capture input falls back to the capture basename
+(`CAPTURE_BASENAME_SCOPED_HMAC_SHA256`); older artifacts may still carry the legacy
+`CAPTURE_SCOPED_HMAC_SHA256` value, which is accepted for backward compatibility and
+is not emitted by this version. Raw identifiers are never published; without
+the key the identity status is `UNAVAILABLE_NO_KEY`.
 
 See `SKILL.md`, `references/field-reference.md`, `references/transactions.md`,
 `references/dialogs.md`, `references/privacy.md` and

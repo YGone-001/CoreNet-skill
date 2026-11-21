@@ -204,8 +204,14 @@ def main(argv: list[str] | None = None) -> int:
             if args.identity_key_file is not None
             else None
         )
+        capture_scope = (
+            next(iter(capture_digest.values())) if capture_digest else None
+        )
         messages, decoder = messages_for_input(
-            args.input, args.input_format, identity_key=identity_key
+            args.input,
+            args.input_format,
+            identity_key=identity_key,
+            capture_scope=capture_scope,
         )
         events = [message["event"] for message in messages]
         if not events:

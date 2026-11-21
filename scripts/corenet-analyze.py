@@ -1403,9 +1403,10 @@ def build_report(
                 "transaction evidence; EPC bearer lifecycle, complete ESM semantics, "
                 "cross-interface session association and global EPC boundary selection are "
                 "not implemented. IMS coverage is bounded to SIP extraction, Diameter Cx/Dx "
-                "evidence, IMS Registration evidence and IMS Session establishment/release "
-                "evidence; SDP, RTP, Diameter Rx/charging, session modification, subscriber "
-                "identity bridging and end-to-end IMS diagnosis are not implemented."
+                "evidence, IMS Registration and Session evidence, and optional offline SDP/RTP "
+                "media composition with logical-call diagnostics; SIP-to-Diameter subscriber "
+                "identity bridging, Diameter Rx/charging, IMS session modification and "
+                "end-to-end IMS root-cause diagnosis are not implemented."
             ),
         },
     }
@@ -1583,16 +1584,63 @@ def _render_ims_media(lines: list[str], media: dict[str, Any]) -> None:
                 f"{_value(branch.get('evidence_status'))} / scope={_value(branch.get('ownership_scope'))} / "
                 f"temporal={_value((branch.get('temporal') or {}).get('temporal_association_status'))}"
             )
+    grouping = media.get("logical_call_grouping") or {}
+    if grouping:
+        lines.append(
+            f"  Logical calls   : {_value(grouping.get('logical_call_count'))} group(s), "
+            f"accepted={_value(grouping.get('accepted_logical_call_count'))}, "
+            f"multi_hop={_value(grouping.get('multi_hop_group_count'))}, "
+            f"ambiguous={_value(grouping.get('ambiguous_group_count'))}; "
+            f"statuses="
+            + ", ".join(
+                f"{key.lower()}={value}"
+                for key, value in (grouping.get("grouping_status_counts") or {}).items()
+            )
+        )
     for logical in (media.get("logical_calls") or [])[:6]:
+        review = logical.get("diagnostic_review") or {}
+        result = review.get("diagnostic_result") or {}
         lines.append(
             f"  logical call    : {_value(logical.get('logical_call_reference'))} / "
             f"group={_value(logical.get('grouping_status'))} / "
+            f"accepted={'yes' if logical.get('grouping_accepted') else 'no'} / "
             f"ownership={_value(logical.get('ownership_status'))} / "
             f"attempts={len(logical.get('member_ims_attempt_references') or [])} / "
             f"streams={len(logical.get('source_stream_references') or [])} / "
             f"temporal={_value((logical.get('temporal_constraints') or {}).get('status'))} / "
-            f"rtcp={_value((logical.get('rtcp_evidence') or {}).get('association_count'))}"
+            f"rtcp={_value((logical.get('rtcp_evidence') or {}).get('ownership_status'))}"
         )
+        lines.append(
+            f"    diagnosis     : signaling={_value(result.get('signaling_outcome'))} / "
+            f"sdp={_value(result.get('sdp_association_outcome'))} / "
+            f"rtp={_value(result.get('rtp_evidence_outcome'))} / "
+            f"rtcp={_value(result.get('rtcp_evidence_outcome'))} / "
+            f"boundary={_value(result.get('boundary_classification'))} / "
+            f"completeness={_value(result.get('diagnostic_completeness_status'))}"
+        )
+        deviation = result.get("first_supported_protocol_deviation") or {}
+        if deviation:
+            lines.append(
+                f"    deviation     : {_value(deviation.get('reason_code'))} "
+                f"status={_value(deviation.get('status_code'))} "
+                f"event={_value(deviation.get('event_reference'))} "
+                f"frame={_value(deviation.get('frame_number'))} "
+                f"scope={_value(deviation.get('scope'))}"
+            )
+        missing_boundary = result.get("first_missing_evidence_boundary") or {}
+        if missing_boundary:
+            lines.append(
+                f"    missing edge  : {_value(missing_boundary.get('reason_code'))} "
+                f"[{_value(missing_boundary.get('evidence_status'))}]"
+            )
+        last = result.get("last_supported_observation") or {}
+        if last:
+            lines.append(
+                f"    last observed : {_value(last.get('stage'))} "
+                f"{_value(last.get('reference'))} frame {_value(last.get('frame_number'))}"
+            )
+        for item in (result.get("candidate_explanations") or [])[:2]:
+            lines.append(f"    candidate     : {scrub_free_text(item)}")
     duplicate = media.get("duplicate_observation_investigation") or {}
     if duplicate:
         lines.append(
@@ -1602,6 +1650,8 @@ def _render_ims_media(lines: list[str], media: dict[str, Any]) -> None:
             f"byte_identical={_value(duplicate.get('byte_identical_duplicate_event_count'))}, "
             f"multi_vantage_supported={_value(duplicate.get('multi_vantage_supported_event_count'))}, "
             f"multi_vantage_consistent={_value(duplicate.get('multi_vantage_consistent_event_count'))}, "
+            f"cross_stream_collisions={_value(duplicate.get('cross_stream_byte_identity_collision_count'))}, "
+            f"physical_grouped={_value(duplicate.get('physical_observation_grouped_count'))}, "
             f"sequence_only={_value(duplicate.get('duplicate_sequence_event_count'))}, "
             f"unresolved={_value(duplicate.get('packet_identity_unresolved_event_count'))}, "
             f"coverage={_value(duplicate.get('rtp_packet_identity_coverage'))}, "

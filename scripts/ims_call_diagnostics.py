@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 ANALYSIS_NAME = "ims-call-diagnostics"
-ANALYSIS_VERSION = "0.2.0"
+ANALYSIS_VERSION = "0.3.0"
 CAPABILITY = "bounded per-call and per-branch IMS media evidence consolidation"
 
 MAX_LIST_ITEMS = 32
@@ -190,6 +190,32 @@ def _view_signature(view: dict[str, Any] | None) -> tuple[Any, ...]:
     )
 
 
+def _vantage_transport(view: dict[str, Any] | None) -> Any:
+    if view is None:
+        return None
+    inner = view.get("inner_udp_stream")
+    if inner is None:
+        inner = view.get("outer_udp_stream")
+    return inner
+
+
+def _vantage_compatible(
+    left: dict[str, Any] | None, right: dict[str, Any] | None
+) -> bool:
+    """Require a compatible inner transport path before claiming one packet."""
+    left_transport = _vantage_transport(left)
+    right_transport = _vantage_transport(right)
+    if left_transport is None or right_transport is None:
+        return False
+    if left_transport != right_transport:
+        return False
+    for view in (left, right):
+        protocols = (view or {}).get("protocols") or ""
+        if "rtp" not in protocols.split(":"):
+            return False
+    return True
+
+
 def duplicate_investigation(
     capture_file: str,
     rtp_events: list[dict[str, Any]],
@@ -197,7 +223,8 @@ def duplicate_investigation(
     views: dict[int, dict[str, Any]],
 ) -> dict[str, Any]:
     header_groups: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
-    byte_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    fingerprint_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    stream_byte_groups: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
     sequence_groups: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
     for event in rtp_events:
         base = (
@@ -214,18 +241,25 @@ def duplicate_investigation(
         if event.get("rtp_packet_fingerprint_status") == "ESTABLISHED":
             fingerprint = event.get("rtp_packet_fingerprint")
             if isinstance(fingerprint, str):
-                byte_groups[fingerprint].append(event)
+                fingerprint_groups[fingerprint].append(event)
+                stream_byte_groups[
+                    (event.get("udp_stream"), event.get("ssrc_reference"), fingerprint)
+                ].append(event)
         sequence_groups[base].append(event)
 
     class_counts = {name: 0 for name in DUPLICATE_CLASSES}
     groups: list[dict[str, Any]] = []
     byte_identical_events = 0
+    cross_stream_events = 0
     multi_vantage_supported = 0
     multi_vantage_consistent = 0
+    multi_vantage_consistent_byte_events = 0
     header_signature_events = 0
     sequence_only_events = 0
     unresolved_events = 0
     classified_events: set[str] = set()
+    byte_accounted_events: set[str] = set()
+    vantage_counts: dict[str, int] = defaultdict(int)
     per_stream: dict[tuple[Any, Any], dict[str, int]] = defaultdict(
         lambda: {
             "raw": 0,
@@ -235,26 +269,103 @@ def duplicate_investigation(
             "header_signature": 0,
             "sequence_only": 0,
             "unresolved": 0,
+            "cross_stream_collision": 0,
         }
     )
     for event in rtp_events:
         per_stream[(event.get("udp_stream"), event.get("ssrc_reference"))]["raw"] += 1
 
-    for fingerprint, events in byte_groups.items():
-        stream_key = (events[0].get("udp_stream"), events[0].get("ssrc_reference"))
+    # Independent streams may legitimately carry byte-identical packets. Keep
+    # that byte identity visible without collapsing them into one observation.
+    for fingerprint, events in fingerprint_groups.items():
+        stream_keys = {
+            (event.get("udp_stream"), event.get("ssrc_reference")) for event in events
+        }
+        if len(stream_keys) > 1:
+            # The same bytes appear in independent streams. Record the
+            # relationship; never merge the streams into one observation.
+            cross_stream_events += len(stream_keys) - 1
+            representatives = [
+                min(
+                    [
+                        event
+                        for event in events
+                        if (event.get("udp_stream"), event.get("ssrc_reference"))
+                        == stream_key
+                    ],
+                    key=lambda event: event.get("frame_number") or 0,
+                )
+                for stream_key in sorted(stream_keys, key=str)
+            ]
+            if len(groups) < MAX_GROUPS:
+                groups.append(
+                    {
+                        "classification": "RTP_PACKET_BYTES_IDENTICAL",
+                        "packet_identity_basis": "BYTE_IDENTICAL",
+                        "physical_observation_grouped": False,
+                        "cross_stream_collision": True,
+                        "byte_identity_retained_without_physical_merge": True,
+                        "reason_code": "INDEPENDENT_STREAM_BYTE_COLLISION",
+                        "rtp_packet_fingerprint": fingerprint,
+                        "stream_keys": [
+                            {
+                                "udp_stream": stream_key[0],
+                                "ssrc_reference": stream_key[1],
+                            }
+                            for stream_key in sorted(stream_keys, key=str)
+                        ][:MAX_LIST_ITEMS],
+                        "event_references": [
+                            event.get("event_reference")
+                            for event in representatives
+                        ][:MAX_LIST_ITEMS],
+                        "frame_numbers": [
+                            event.get("frame_number") for event in representatives
+                        ][:MAX_LIST_ITEMS],
+                        "retransmission_established": False,
+                        "evidence_class": "DERIVED",
+                    }
+                )
+
+    for (udp_stream, ssrc_reference, fingerprint), events in stream_byte_groups.items():
         if len(events) <= 1:
             continue
-        base_view = _view_signature(views.get(events[0].get("frame_number")))
+        stream_key = (udp_stream, ssrc_reference)
+        for event in events:
+            reference = event.get("event_reference")
+            if isinstance(reference, str):
+                byte_accounted_events.add(reference)
+        base = events[0]
+        base_view = views.get(base.get("frame_number"))
         for event in events[1:]:
-            event_view = _view_signature(views.get(event.get("frame_number")))
-            if event_view != base_view:
-                classification = "MULTI_VANTAGE_SUPPORTED"
-                multi_vantage_supported += 1
-                per_stream[stream_key]["multi_vantage_supported"] += 1
-            else:
+            event_view = views.get(event.get("frame_number"))
+            if base_view is None or event_view is None:
                 classification = "RTP_PACKET_BYTES_IDENTICAL"
+                vantage_status = "UNAVAILABLE"
+                basis = "BYTE_IDENTICAL"
                 byte_identical_events += 1
                 per_stream[stream_key]["byte_identical"] += 1
+            elif _view_signature(base_view) != _view_signature(event_view) and _vantage_compatible(
+                base_view, event_view
+            ):
+                classification = "MULTI_VANTAGE_SUPPORTED"
+                vantage_status = "COMPATIBLE_INNER_TRANSPORT"
+                basis = "BYTE_IDENTICAL_AND_VIEW_COMPATIBLE"
+                multi_vantage_supported += 1
+                per_stream[stream_key]["multi_vantage_supported"] += 1
+            elif _view_signature(base_view) != _view_signature(event_view):
+                classification = "MULTI_VANTAGE_CONSISTENT"
+                vantage_status = "VIEW_DIFFERS_TRANSPORT_UNPROVEN"
+                basis = "BYTE_IDENTICAL_AND_VIEW_DIFFERS_ONLY"
+                multi_vantage_consistent += 1
+                multi_vantage_consistent_byte_events += 1
+                per_stream[stream_key]["multi_vantage_consistent"] += 1
+            else:
+                classification = "RTP_PACKET_BYTES_IDENTICAL"
+                vantage_status = "SAME_CAPTURE_VIEW"
+                basis = "BYTE_IDENTICAL"
+                byte_identical_events += 1
+                per_stream[stream_key]["byte_identical"] += 1
+            vantage_counts[vantage_status] += 1
             class_counts[classification] += 1
             reference = event.get("event_reference")
             if isinstance(reference, str):
@@ -263,11 +374,14 @@ def duplicate_investigation(
                 groups.append(
                     {
                         "classification": classification,
-                        "packet_identity_basis": "BYTE_IDENTICAL",
+                        "packet_identity_basis": basis,
+                        "physical_observation_grouped": classification
+                        == "MULTI_VANTAGE_SUPPORTED",
+                        "vantage_evidence_status": vantage_status,
                         "rtp_packet_fingerprint": fingerprint,
                         "stream_key": {
-                            "udp_stream": event.get("udp_stream"),
-                            "ssrc_reference": event.get("ssrc_reference"),
+                            "udp_stream": udp_stream,
+                            "ssrc_reference": ssrc_reference,
                         },
                         "sequence_number": event.get("sequence_number"),
                         "rtp_timestamp": event.get("timestamp"),
@@ -275,17 +389,18 @@ def duplicate_investigation(
                         "packet_length": event.get("packet_length"),
                         "rtp_packet_byte_count": event.get("rtp_packet_byte_count"),
                         "event_references": [
-                            events[0].get("event_reference"),
+                            base.get("event_reference"),
                             event.get("event_reference"),
                         ][:MAX_LIST_ITEMS],
                         "frame_numbers": [
-                            events[0].get("frame_number"),
+                            base.get("frame_number"),
                             event.get("frame_number"),
                         ][:MAX_LIST_ITEMS],
                         "capture_views": [
-                            views.get(events[0].get("frame_number")) or {},
-                            event_view and (views.get(event.get("frame_number")) or {}),
+                            base_view or {},
+                            event_view or {},
                         ][:MAX_LIST_ITEMS],
+                        "retransmission_established": False,
                         "evidence_class": "DERIVED",
                     }
                 )
@@ -300,7 +415,10 @@ def duplicate_investigation(
             for event in events
             if not (
                 isinstance(event.get("event_reference"), str)
-                and event.get("event_reference") in classified_events
+                and (
+                    event.get("event_reference") in classified_events
+                    or event.get("event_reference") in byte_accounted_events
+                )
             )
         ]
         if len(remaining) <= 1:
@@ -346,6 +464,7 @@ def duplicate_investigation(
                     {
                         "classification": classification,
                         "packet_identity_basis": basis,
+                        "physical_observation_grouped": False,
                         "stream_key": {
                             "udp_stream": key[0],
                             "ssrc_reference": key[1],
@@ -366,6 +485,7 @@ def duplicate_investigation(
                             views.get(base.get("frame_number")) or {},
                             views.get(event.get("frame_number")) or {},
                         ][:MAX_LIST_ITEMS],
+                        "retransmission_established": False,
                         "evidence_class": "DERIVED",
                     }
                 )
@@ -405,6 +525,7 @@ def duplicate_investigation(
                     {
                         "classification": "DUPLICATE_SEQUENCE_OBSERVED",
                         "packet_identity_basis": "UNRESOLVED",
+                        "physical_observation_grouped": False,
                         "stream_key": {
                             "udp_stream": key[0],
                             "ssrc_reference": key[1],
@@ -454,7 +575,8 @@ def duplicate_investigation(
         "fingerprint_unavailable_observation_count": len(rtp_events) - fingerprint_capable,
         "rtp_packet_identity_coverage": identity_coverage,
         "distinct_header_signature_count": header_signature_group_count,
-        "distinct_byte_identity_count": len(byte_groups),
+        "distinct_byte_identity_count": len(stream_byte_groups),
+        "distinct_fingerprint_value_count": len(fingerprint_groups),
         "header_signature_repeated_event_count": header_signature_repeated_event_count,
         "header_signature_match_event_count": (
             header_signature_events + multi_vantage_consistent + unresolved_events
@@ -462,12 +584,16 @@ def duplicate_investigation(
         "byte_identical_duplicate_event_count": byte_identical_events,
         "multi_vantage_supported_event_count": multi_vantage_supported,
         "multi_vantage_consistent_event_count": multi_vantage_consistent,
+        "multi_vantage_consistent_byte_event_count": multi_vantage_consistent_byte_events,
+        "multi_vantage_event_count": multi_vantage_supported,
+        "physical_observation_grouped_count": multi_vantage_supported,
+        "cross_stream_byte_identity_collision_count": cross_stream_events,
+        "vantage_evidence_status_counts": dict(sorted(vantage_counts.items())),
         "packet_identity_unresolved_event_count": unresolved_events,
         "duplicate_sequence_event_count": sequence_only_events,
         "potential_retransmission_event_count": 0,
         "exact_duplicate_event_count": byte_identical_events + multi_vantage_supported,
         "exact_duplicate_event_count_basis": "RTP_PACKET_BYTES_IDENTICAL",
-        "multi_vantage_event_count": multi_vantage_supported,
         "sequence_only_duplicate_event_count": sequence_only_events,
         "duplicate_cause_unresolved_event_count": unresolved_events + sequence_only_events,
         "retransmission_not_established_count": 0,
@@ -486,7 +612,8 @@ def duplicate_investigation(
         ],
         "capture_view_limitations": [
             "Frame interface, encapsulation and protocol path are local decoder metadata, not network topology",
-            "A multi-vantage classification requires matching complete RTP packet bytes and differing capture-view metadata",
+            "MULTI_VANTAGE_SUPPORTED requires matching complete RTP packet bytes and a compatible inner transport path",
+            "Byte-identical packets in different streams are never collapsed into one physical observation",
             "Different frame views combined with the same header tuple are only header-signature coincidence",
             "Sequence-number equality alone is never promoted to a same-packet or retransmission classification",
         ],
@@ -494,26 +621,96 @@ def duplicate_investigation(
             "NETWORK_RETRANSMISSION",
             "NETWORK_PACKET_LOSS",
             "CAPTURE_POINT_TOPOLOGY",
+            "SINGLE_PHYSICAL_PACKET_OBSERVED_TWICE",
         ],
     }
 
 
-def _via_sequences_nested(sequences: list[list[str]]) -> bool:
-    unique = [sequence for sequence in sequences if sequence]
+def _via_chain_analysis(sequences: list[list[str]]) -> dict[str, Any]:
+    """Classify Via-stack nesting into zero, one or several forwarding chains.
+
+    A coherent forwarding chain has exactly one maximal (outermost) stack and
+    every shorter stack is its ordered suffix. Two different maximal stacks are
+    competing chains, even when they share a common trunk.
+    """
+    unique: list[list[str]] = []
+    for sequence in sequences:
+        if not sequence:
+            continue
+        if sequence not in unique:
+            unique.append(sequence)
+    result: dict[str, Any] = {
+        "unique_stack_count": len(unique),
+        "chain_count": len(unique),
+        "coherent": False,
+        "incompatible": False,
+        "maximal_stack_count": 0,
+    }
     if len(unique) < 2:
-        return False
-    ordered = sorted(unique, key=len)
-    longest_length = len(ordered[-1])
-    if all(len(sequence) == longest_length for sequence in ordered):
-        return False
-    return all(
-        any(
-            len(longer) > len(shorter) and longer[-len(shorter):] == shorter
-            for longer in ordered
+        return result
+    maximal = [
+        candidate
+        for candidate in unique
+        if not any(
+            len(other) > len(candidate) and other[-len(candidate):] == candidate
+            for other in unique
         )
-        for shorter in ordered
-        if len(shorter) < longest_length
-    )
+    ]
+    result["maximal_stack_count"] = len(maximal)
+    orphans = [
+        candidate
+        for candidate in unique
+        if candidate not in maximal
+        and not any(
+            len(stack) > len(candidate) and stack[-len(candidate):] == candidate
+            for stack in maximal
+        )
+    ]
+    if len(maximal) == 1 and not orphans:
+        result["coherent"] = True
+        result["chain_count"] = 1
+        return result
+    result["incompatible"] = True
+    result["chain_count"] = len(maximal) + len(orphans)
+    return result
+
+
+def _collect_sip_references(value: Any) -> set[str]:
+    """Collect every capture-scoped SIP event reference inside an accepted record."""
+    found: set[str] = set()
+
+    def walk(item: Any) -> None:
+        if isinstance(item, str):
+            if item.startswith("sip-event:"):
+                found.add(item)
+        elif isinstance(item, dict):
+            for nested in item.values():
+                walk(nested)
+        elif isinstance(item, list):
+            for nested in item:
+                walk(nested)
+
+    walk(value)
+    return found
+
+
+def _cseq_method(event: dict[str, Any]) -> str | None:
+    headers = event.get("headers") or {}
+    cseq = headers.get("cseq") if isinstance(headers, dict) else None
+    if not isinstance(cseq, dict):
+        return None
+    method = cseq.get("method")
+    return method if isinstance(method, str) else None
+
+
+def _dialog_remote_tag(
+    branch: dict[str, Any], sip_by_ref: dict[str, dict[str, Any]]
+) -> str | None:
+    for reference in branch.get("response_event_references") or []:
+        event = sip_by_ref.get(reference)
+        if isinstance(event, dict) and isinstance(event.get("to_tag_reference"), str):
+            return event["to_tag_reference"]
+    return None
 
 
 def logical_call_grouping(
@@ -522,10 +719,16 @@ def logical_call_grouping(
     attempts: list[dict[str, Any]],
     branches_by_attempt: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
-    """Group initial INVITE attempts by proven capture-scoped SIP identity."""
+    """Group initial INVITE attempts by proven capture-scoped SIP identity.
+
+    Grouping requires an established identity reference, a confirmed INVITE
+    method and CSeq, and for a multi-hop chain an ordered nested Via stack with
+    a single coherent forwarding relationship. Differing CSeq values never merge
+    without an accepted Dialog bridge.
+    """
     branches_by_attempt = branches_by_attempt or {}
     unresolved: list[dict[str, Any]] = []
-    candidates: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
+    families: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for attempt in attempts:
         attempt_reference = attempt.get("attempt_reference")
         if not isinstance(attempt_reference, str):
@@ -544,6 +747,7 @@ def logical_call_grouping(
         from_tag_reference = event.get("from_tag_reference")
         to_tag_reference = event.get("to_tag_reference")
         cseq = (event.get("headers") or {}).get("cseq", {}).get("sequence")
+        cseq_method = _cseq_method(event)
         if (
             event.get("identity_reference_status") != "ESTABLISHED"
             or not isinstance(call_id_reference, str)
@@ -556,137 +760,337 @@ def logical_call_grouping(
                 }
             )
             continue
-        key = (call_id_reference, from_tag_reference, to_tag_reference)
-        candidates[key].append(
+        if event.get("method") != "INVITE" or event.get("message_type") != "REQUEST":
+            unresolved.append(
+                {
+                    "attempt_reference": attempt_reference,
+                    "reason_code": "INITIAL_INVITE_METHOD_NOT_CONFIRMED",
+                }
+            )
+            continue
+        if isinstance(cseq, bool) or not isinstance(cseq, int) or cseq < 0:
+            unresolved.append(
+                {
+                    "attempt_reference": attempt_reference,
+                    "reason_code": "CSEQ_NOT_ESTABLISHED",
+                }
+            )
+            continue
+        if cseq_method != "INVITE":
+            unresolved.append(
+                {
+                    "attempt_reference": attempt_reference,
+                    "reason_code": "CSEQ_METHOD_MISMATCH",
+                }
+            )
+            continue
+        via_meta = (event.get("headers") or {}).get("via") or {}
+        declared_via_count = via_meta.get("count")
+        if (
+            isinstance(declared_via_count, int)
+            and declared_via_count > len(event.get("via_branch_references") or [])
+        ):
+            unresolved.append(
+                {
+                    "attempt_reference": attempt_reference,
+                    "reason_code": "VIA_HOP_IDENTITY_INCOMPLETE",
+                }
+            )
+            continue
+        transaction_reference = attempt.get("initial_invite_transaction_reference")
+        branches = branches_by_attempt.get(attempt_reference, [])
+        dialogs = [
+            {
+                "dialog_reference": branch.get("dialog_reference"),
+                "remote_tag": _dialog_remote_tag(branch, sip_by_ref),
+            }
+            for branch in branches
+            if isinstance(branch, dict)
+            and branch.get("identity_status") == "ESTABLISHED"
+            and isinstance(branch.get("dialog_reference"), str)
+        ]
+        families[(call_id_reference, from_tag_reference)].append(
             {
                 "attempt_reference": attempt_reference,
+                "attempt_object": attempt,
                 "event_reference": invite_reference,
                 "frame_number": event.get("frame_number"),
                 "cseq": cseq,
+                "to_tag": to_tag_reference if isinstance(to_tag_reference, str) else None,
                 "via_branches": list(event.get("via_branch_references") or []),
-                "transaction_reference": attempt.get(
-                    "initial_invite_transaction_reference"
-                ),
-                "dialog_references": [
-                    branch.get("dialog_reference")
-                    for branch in branches_by_attempt.get(attempt_reference, [])
-                    if isinstance(branch.get("dialog_reference"), str)
-                ],
+                "transaction_reference": transaction_reference,
+                "dialogs": dialogs,
+                "identity_scope": event.get("identity_reference_scope"),
             }
         )
+
+    group_specs: list[dict[str, Any]] = []
+
+    def add_group(members: list[dict[str, Any]], status: str, reasons: list[str]) -> None:
+        group_specs.append(
+            {
+                "members": members,
+                "status": status,
+                "reasons": reasons,
+                "call_id_reference": family_key[0],
+                "from_tag_reference": family_key[1],
+            }
+        )
+
+    for family_key, family in families.items():
+        initial = [member for member in family if member["to_tag"] is None]
+        in_dialog = [member for member in family if member["to_tag"] is not None]
+
+        initial_units: list[dict[str, Any]] = []
+        by_cseq: dict[int, list[dict[str, Any]]] = defaultdict(list)
+        for member in initial:
+            by_cseq[member["cseq"]].append(member)
+        for cseq_value in sorted(by_cseq):
+            members = sorted(by_cseq[cseq_value], key=lambda item: item["frame_number"] or 0)
+            if len(members) == 1:
+                unit = {
+                    "members": members,
+                    "status": "SINGLE_ATTEMPT",
+                    "reasons": ["EXACTLY_ONE_INITIAL_INVITE_ATTEMPT"],
+                    "cseq": cseq_value,
+                }
+                initial_units.append(unit)
+                continue
+            if any(not member["via_branches"] for member in members):
+                unit = {
+                    "members": members,
+                    "status": "AMBIGUOUS_MULTI_HOP",
+                    "reasons": [
+                        "SAME_CALL_ID_REFERENCE",
+                        "SAME_FROM_TAG_REFERENCE",
+                        "SAME_CSEQ_SEQUENCE",
+                        "VIA_HOP_IDENTITY_MISSING",
+                    ],
+                    "cseq": cseq_value,
+                }
+                initial_units.append(unit)
+                continue
+            chains = _via_chain_analysis([member["via_branches"] for member in members])
+            transactions = [member["transaction_reference"] for member in members]
+            independent_transactions = all(
+                isinstance(value, str) for value in transactions
+            ) and len(set(transactions)) == len(transactions)
+            if not independent_transactions:
+                unit = {
+                    "members": members,
+                    "status": "AMBIGUOUS_MULTI_HOP",
+                    "reasons": [
+                        "SAME_CALL_ID_REFERENCE",
+                        "SAME_FROM_TAG_REFERENCE",
+                        "SAME_CSEQ_SEQUENCE",
+                        "TRANSACTION_OWNERSHIP_NOT_INDEPENDENT",
+                    ],
+                    "cseq": cseq_value,
+                }
+            elif chains["coherent"]:
+                unit = {
+                    "members": members,
+                    "status": "MULTI_HOP_PROVEN",
+                    "reasons": [
+                        "SAME_CALL_ID_REFERENCE",
+                        "SAME_FROM_TAG_REFERENCE",
+                        "SAME_TO_TAG_STATE",
+                        "SAME_CSEQ_SEQUENCE",
+                        "VIA_HOP_STACK_NESTED",
+                        "SINGLE_FORWARDING_CHAIN",
+                        "DISTINCT_SOURCE_FRAMES",
+                    ],
+                    "cseq": cseq_value,
+                    "via_chain": chains,
+                }
+            elif chains["unique_stack_count"] == 1:
+                unit = {
+                    "members": members,
+                    "status": "REPEATED_OBSERVATION_ONLY",
+                    "reasons": [
+                        "SAME_CALL_ID_REFERENCE",
+                        "SAME_FROM_TAG_REFERENCE",
+                        "SAME_CSEQ_SEQUENCE",
+                        "IDENTICAL_VIA_HOP_STACK",
+                        "DISTINCT_SOURCE_FRAMES",
+                    ],
+                    "cseq": cseq_value,
+                }
+            elif chains["maximal_stack_count"] > 1:
+                unit = {
+                    "members": members,
+                    "status": "AMBIGUOUS_MULTI_HOP",
+                    "reasons": [
+                        "SAME_CALL_ID_REFERENCE",
+                        "SAME_FROM_TAG_REFERENCE",
+                        "SAME_CSEQ_SEQUENCE",
+                        "COMPETING_VIA_FORWARDING_CHAINS",
+                    ],
+                    "cseq": cseq_value,
+                    "via_chain": chains,
+                }
+            else:
+                unit = {
+                    "members": members,
+                    "status": "AMBIGUOUS_MULTI_HOP",
+                    "reasons": [
+                        "SAME_CALL_ID_REFERENCE",
+                        "SAME_FROM_TAG_REFERENCE",
+                        "SAME_CSEQ_SEQUENCE",
+                        "VIA_HOP_RELATION_UNPROVEN",
+                    ],
+                    "cseq": cseq_value,
+                }
+            initial_units.append(unit)
+
+        # Proven in-dialog re-INVITEs join an initial unit only through an
+        # accepted Dialog bridge whose remote tag matches the request's To-tag.
+        for member in in_dialog:
+            owners = [
+                unit
+                for unit in initial_units
+                if any(
+                    dialog.get("remote_tag") == member["to_tag"]
+                    for attempt_member in unit["members"]
+                    for dialog in attempt_member["dialogs"]
+                )
+            ]
+            if len(owners) == 1 and member["cseq"] not in {
+                attempt_member["cseq"] for attempt_member in owners[0]["members"]
+            }:
+                owner = owners[0]
+                owner["members"].append(member)
+                owner["status"] = "IN_DIALOG_SEQUENCE"
+                owner["reasons"] = [
+                    "SAME_CALL_ID_REFERENCE",
+                    "SAME_FROM_TAG_REFERENCE",
+                    "ACCEPTED_DIALOG_BRIDGE",
+                    "DISTINCT_CSEQ_SEQUENCES",
+                ]
+            elif len(owners) > 1:
+                unresolved.append(
+                    {
+                        "attempt_reference": member["attempt_reference"],
+                        "reason_code": "AMBIGUOUS_DIALOG_BRIDGE",
+                    }
+                )
+            else:
+                add_group(
+                    [member],
+                    "SINGLE_ATTEMPT",
+                    [
+                        "DISTINCT_DIALOG_IDENTITY",
+                        "NO_ACCEPTED_DIALOG_BRIDGE",
+                    ],
+                )
+
+        for unit in initial_units:
+            add_group(unit["members"], unit["status"], unit["reasons"])
 
     groups: list[dict[str, Any]] = []
     attempt_to_logical: dict[str, str] = {}
     event_references_by_logical: dict[str, list[str]] = {}
-    for index, (key, members) in enumerate(
-        sorted(candidates.items(), key=lambda item: min(
-            (member.get("frame_number") or 0) for member in item[1]
-        )),
-        start=1,
-    ):
-        frames = sorted(
-            member.get("frame_number") or 0 for member in members
-        )
+    unbound_event_references: dict[str, list[str]] = {}
+    excluded_identity_events: dict[str, list[str]] = {}
+    accepted_groups: dict[str, bool] = {}
+    ordered_specs = sorted(
+        group_specs,
+        key=lambda spec: (
+            min((member["frame_number"] or 0) for member in spec["members"]),
+            min(member["attempt_reference"] for member in spec["members"]),
+        ),
+    )
+    for index, spec in enumerate(ordered_specs, start=1):
+        members = sorted(spec["members"], key=lambda item: item["attempt_reference"])
+        frames = sorted({member["frame_number"] or 0 for member in members})
         first_frame = frames[0] if frames else 0
         reference = f"ims-logical-call:{capture_file}:{first_frame}.{index}"
-        cseq_values = sorted(
-            {member.get("cseq") for member in members if isinstance(member.get("cseq"), int)}
-        )
-        via_sequences = [member["via_branches"] for member in members if member["via_branches"]]
-        if len(members) == 1:
-            status = "SINGLE_ATTEMPT"
-            reasons = ["EXACTLY_ONE_INITIAL_INVITE_ATTEMPT"]
-        elif len(set(cseq_values)) <= 1 and _via_sequences_nested(via_sequences):
-            status = "MULTI_HOP_PROVEN"
-            reasons = [
-                "SAME_CALL_ID_REFERENCE",
-                "SAME_FROM_TAG_REFERENCE",
-                "SAME_TO_TAG_STATE",
-                "SAME_CSEQ_SEQUENCE",
-                "VIA_HOP_STACK_NESTED",
-                "DISTINCT_SOURCE_FRAMES",
-            ]
-        elif len(set(cseq_values)) <= 1 and via_sequences and all(
-            sequence == via_sequences[0] for sequence in via_sequences
-        ):
-            status = "REPEATED_OBSERVATION_ONLY"
-            reasons = [
-                "SAME_CALL_ID_REFERENCE",
-                "SAME_FROM_TAG_REFERENCE",
-                "SAME_CSEQ_SEQUENCE",
-                "IDENTICAL_VIA_HOP_STACK",
-                "DISTINCT_SOURCE_FRAMES",
-            ]
-        elif len(set(cseq_values)) > 1:
-            status = "IN_DIALOG_SEQUENCE"
-            reasons = [
-                "SAME_CALL_ID_REFERENCE",
-                "SAME_FROM_TAG_REFERENCE",
-                "SAME_TO_TAG_STATE",
-                "DISTINCT_CSEQ_SEQUENCES",
-            ]
-        else:
-            status = "AMBIGUOUS_MULTI_HOP"
-            reasons = [
-                "SAME_CALL_ID_REFERENCE",
-                "SAME_FROM_TAG_REFERENCE",
-                "SAME_CSEQ_SEQUENCE",
-                "VIA_HOP_RELATION_UNPROVEN",
-            ]
-        member_attempts = sorted(member["attempt_reference"] for member in members)
+        call_id_reference = spec["call_id_reference"]
+        from_tag_reference = spec["from_tag_reference"]
+        accepted_references: set[str] = set()
+        for member in members:
+            accepted_references.update(_collect_sip_references(member["attempt_object"]))
+            accepted_references.add(member["event_reference"])
+        member_event_references: set[str] = set()
+        mismatched: set[str] = set()
+        for event_reference in accepted_references:
+            event = sip_by_ref.get(event_reference)
+            if not isinstance(event, dict):
+                mismatched.add(event_reference)
+                continue
+            if event.get("call_id_reference") != call_id_reference:
+                mismatched.add(event_reference)
+                continue
+            event_from = event.get("from_tag_reference")
+            if isinstance(event_from, str) and event_from != from_tag_reference:
+                mismatched.add(event_reference)
+                continue
+            member_event_references.add(event_reference)
+        family_events = {
+            event_reference
+            for event_reference, event in sip_by_ref.items()
+            if event.get("call_id_reference") == call_id_reference
+            and event.get("from_tag_reference") == from_tag_reference
+        }
+        event_references_by_logical[reference] = sorted(member_event_references)
+        unbound_event_references[reference] = sorted(family_events - member_event_references)
+        excluded_identity_events[reference] = sorted(mismatched)
+        status = spec["status"]
+        accepted = status in (
+            "SINGLE_ATTEMPT",
+            "MULTI_HOP_PROVEN",
+            "REPEATED_OBSERVATION_ONLY",
+        ) or (status == "IN_DIALOG_SEQUENCE" and "ACCEPTED_DIALOG_BRIDGE" in spec["reasons"])
+        accepted_groups[reference] = accepted
         for member in members:
             attempt_to_logical[member["attempt_reference"]] = reference
-        call_id_reference, from_tag_reference, to_tag_reference = key
-        dialog_tags: set[str] = set()
-        if isinstance(to_tag_reference, str):
-            dialog_tags.add(to_tag_reference)
-        else:
-            for event in sip_by_ref.values():
-                if (
-                    event.get("call_id_reference") == call_id_reference
-                    and event.get("from_tag_reference") == from_tag_reference
-                    and isinstance(event.get("to_tag_reference"), str)
-                ):
-                    dialog_tags.add(event["to_tag_reference"])
-        member_event_references: set[str] = {
-            member["event_reference"] for member in members
-        }
-        for event_reference, event in sip_by_ref.items():
-            if event.get("call_id_reference") != call_id_reference:
-                continue
-            if event.get("from_tag_reference") != from_tag_reference:
-                continue
-            event_to = event.get("to_tag_reference")
-            if event_to is None or event_to in dialog_tags:
-                member_event_references.add(event_reference)
-        event_references_by_logical[reference] = sorted(member_event_references)
         groups.append(
             {
                 "logical_call_reference": reference,
                 "grouping_status": status,
-                "grouping_reason_codes": reasons,
-                "member_attempt_references": member_attempts[:MAX_LIST_ITEMS],
-                "member_sip_event_references": sorted(
-                    member_event_references
-                )[:MAX_LIST_ITEMS],
+                "grouping_accepted": accepted,
+                "grouping_reason_codes": spec["reasons"],
+                "member_attempt_references": [
+                    member["attempt_reference"] for member in members
+                ][:MAX_LIST_ITEMS],
+                "member_sip_event_references": sorted(member_event_references)[:MAX_LIST_ITEMS],
                 "member_transaction_references": sorted(
-                    member["transaction_reference"]
-                    for member in members
-                    if isinstance(member["transaction_reference"], str)
+                    {
+                        member["transaction_reference"]
+                        for member in members
+                        if isinstance(member["transaction_reference"], str)
+                    }
                 )[:MAX_LIST_ITEMS],
                 "member_dialog_references": sorted(
                     {
-                        dialog
+                        dialog["dialog_reference"]
                         for member in members
-                        for dialog in member["dialog_references"]
+                        for dialog in member["dialogs"]
                     }
                 )[:MAX_LIST_ITEMS],
                 "source_frames": frames[:MAX_LIST_ITEMS],
-                "cseq_values": cseq_values,
+                "cseq_values": sorted({member["cseq"] for member in members}),
                 "via_hop_counts": sorted(
                     {len(member["via_branches"]) for member in members}
                 ),
-                "identity_scope": "CAPTURE_SCOPED_HMAC_SHA256",
+                "via_forwarding_chain_count": (
+                    spec.get("via_chain", {}).get("chain_count")
+                    if isinstance(spec.get("via_chain"), dict)
+                    else 1
+                    if len(members) == 1
+                    else None
+                ),
+                "identity_scope": next(
+                    (
+                        member["identity_scope"]
+                        for member in members
+                        if isinstance(member["identity_scope"], str)
+                    ),
+                    None,
+                ),
+                "unbound_sip_event_reference_count": len(
+                    family_events - member_event_references
+                ),
                 "evidence_class": "DERIVED",
             }
         )
@@ -697,10 +1101,12 @@ def logical_call_grouping(
             f"{len(groups) + 1}"
         )
         attempt_to_logical[item["attempt_reference"]] = reference
+        accepted_groups[reference] = False
         groups.append(
             {
                 "logical_call_reference": reference,
                 "grouping_status": "UNRESOLVED_IDENTITY",
+                "grouping_accepted": False,
                 "grouping_reason_codes": [item["reason_code"]],
                 "member_attempt_references": [item["attempt_reference"]],
                 "member_sip_event_references": [],
@@ -709,7 +1115,9 @@ def logical_call_grouping(
                 "source_frames": [],
                 "cseq_values": [],
                 "via_hop_counts": [],
+                "via_forwarding_chain_count": None,
                 "identity_scope": None,
+                "unbound_sip_event_reference_count": None,
                 "evidence_class": "DERIVED",
             }
         )
@@ -720,6 +1128,7 @@ def logical_call_grouping(
     return {
         "logical_call_count": len(groups),
         "attempt_count": len(attempt_to_logical),
+        "accepted_logical_call_count": sum(1 for value in accepted_groups.values() if value),
         "grouping_status_counts": dict(status_counts),
         "multi_hop_group_count": sum(
             1 for group in groups if group["grouping_status"] == "MULTI_HOP_PROVEN"
@@ -728,14 +1137,21 @@ def logical_call_grouping(
         + status_counts["UNRESOLVED_IDENTITY"],
         "unassigned_attempt_count": status_counts["UNRESOLVED_IDENTITY"],
         "attempt_to_logical_call": dict(sorted(attempt_to_logical.items())),
+        "accepted_logical_call": dict(sorted(accepted_groups.items())),
         "event_references_by_logical_call": {
-            key: value
-            for key, value in sorted(event_references_by_logical.items())
+            key: value for key, value in sorted(event_references_by_logical.items())
+        },
+        "unbound_event_references_by_logical_call": {
+            key: value for key, value in sorted(unbound_event_references.items())
+        },
+        "excluded_identity_event_references_by_logical_call": {
+            key: value for key, value in sorted(excluded_identity_events.items())
         },
         "logical_calls": groups,
         "limitations": [
-            "Call-ID, From-tag and To-tag values are compared only as capture-scoped keyed HMAC references",
-            "A shared Call-ID alone never groups attempts; CSeq, tag and Via-hop evidence must agree",
+            "Call-ID, From-tag and To-tag values are compared only as capture-scoped keyed references",
+            "A shared Call-ID alone never groups attempts; CSeq, tag, Via-hop and transaction evidence must agree",
+            "Differing CSeq values merge only through an accepted Dialog bridge",
             "A B2BUA Call-ID change without an independent bridge remains unresolved and is never merged by time or endpoint equality",
         ],
         "not_confirmed": [
@@ -1186,31 +1602,125 @@ def build_diagnostics(
     logical_members: dict[str, list[str]] = defaultdict(list)
     for attempt_reference, logical_reference in attempt_to_logical.items():
         logical_members[logical_reference].append(attempt_reference)
-    all_exchange_refs_by_attempt: dict[str, set[str]] = {}
-    for attempt_reference, attempt_exchanges in exchanges_by_attempt.items():
-        refs: set[str] = set()
-        for exchange in attempt_exchanges:
-            for key in ("offer_sdp_reference", "answer_sdp_reference"):
-                if isinstance(exchange.get(key), str):
-                    refs.add(exchange[key])
-        all_exchange_refs_by_attempt[attempt_reference] = refs
+    branch_by_reference: dict[str, dict[str, Any]] = {}
+    attempt_by_reference: dict[str, dict[str, Any]] = {}
+    for attempt in attempts_source:
+        reference = attempt.get("attempt_reference")
+        if isinstance(reference, str):
+            attempt_by_reference[reference] = attempt
+        for branch in attempt.get("branches") or []:
+            if isinstance(branch, dict) and isinstance(branch.get("branch_reference"), str):
+                branch_by_reference[branch["branch_reference"]] = branch
 
-    all_exchange_refs_by_logical: dict[str, set[str]] = {}
+    def _sdp_shape(message: dict[str, Any]) -> tuple[Any, ...]:
+        shape: list[tuple[Any, ...]] = []
+        for media in message.get("media_sections") or []:
+            if not isinstance(media, dict):
+                continue
+            payload_types = tuple(
+                sorted(
+                    mapping.get("payload_type")
+                    for mapping in media.get("rtpmap") or []
+                    if isinstance(mapping, dict)
+                    and isinstance(mapping.get("payload_type"), int)
+                )
+            )
+            shape.append(
+                (
+                    media.get("media_type"),
+                    media.get("direction"),
+                    payload_types,
+                )
+            )
+        return tuple(shape)
+
+    sdp_shape_by_ref = {
+        reference: _sdp_shape(message) for reference, message in sdp_by_ref.items()
+    }
+    logical_sdp_context: dict[str, set[str]] = {}
+    repeated_sdp_by_logical: dict[str, list[str]] = {}
+    unbound_sdp_by_logical: dict[str, list[str]] = {}
     for logical_reference, members in logical_members.items():
-        refs: set[str] = set()
-        for attempt_reference in members:
-            refs.update(all_exchange_refs_by_attempt.get(attempt_reference, set()))
-        all_exchange_refs_by_logical[logical_reference] = refs
-    for logical_reference, event_references in (
-        logical_grouping.get("event_references_by_logical_call") or {}
-    ).items():
-        event_reference_set = set(event_references)
-        sdp_references = {
-            reference for reference in sdp_by_ref if reference in event_reference_set
-        }
-        all_exchange_refs_by_logical.setdefault(logical_reference, set()).update(
-            sdp_references
+        accepted = set(
+            (logical_grouping.get("event_references_by_logical_call") or {}).get(
+                logical_reference, []
+            )
         )
+        dialog_tags = {
+            event.get("to_tag_reference")
+            for reference in accepted
+            for event in (sip_by_ref.get(reference),)
+            if isinstance(event, dict) and isinstance(event.get("to_tag_reference"), str)
+        }
+        from_tag = None
+        call_id = None
+        for attempt_reference in members:
+            attempt_object = attempt_by_reference.get(attempt_reference) or {}
+            invite = sip_by_ref.get(attempt_object.get("initial_invite_event_reference"))
+            if isinstance(invite, dict):
+                call_id = invite.get("call_id_reference")
+                from_tag = invite.get("from_tag_reference")
+                break
+        family = {
+            reference
+            for reference in sdp_by_ref
+            for event in (sip_by_ref.get(reference),)
+            if isinstance(event, dict)
+            and event.get("call_id_reference") == call_id
+            and event.get("from_tag_reference") == from_tag
+            and (
+                event.get("to_tag_reference") is None
+                or event.get("to_tag_reference") in dialog_tags
+            )
+        }
+        established_exchange_refs = {
+            exchange.get(key)
+            for attempt_reference in members
+            for exchange in exchanges_by_attempt.get(attempt_reference, [])
+            if exchange.get("association_status") == "ESTABLISHED"
+            for key in ("offer_sdp_reference", "answer_sdp_reference")
+            if isinstance(exchange.get(key), str)
+        }
+        shapes = {
+            sdp_shape_by_ref[reference]
+            for reference in established_exchange_refs
+            if reference in sdp_shape_by_ref
+        }
+        repeats: set[str] = set()
+        unbound: set[str] = set()
+        for reference in family - accepted:
+            if reference in established_exchange_refs:
+                continue
+            if shapes and sdp_shape_by_ref.get(reference) in shapes:
+                repeats.add(reference)
+            else:
+                unbound.add(reference)
+        logical_sdp_context[logical_reference] = set(accepted & set(sdp_by_ref)) | repeats
+        repeated_sdp_by_logical[logical_reference] = sorted(repeats)
+        unbound_sdp_by_logical[logical_reference] = sorted(unbound)
+
+    all_exchange_refs_by_logical: dict[str, set[str]] = {
+        reference: set(context)
+        for reference, context in logical_sdp_context.items()
+    }
+    unbound_exchange_refs_by_logical: dict[str, list[str]] = {}
+    for logical_reference, members in logical_members.items():
+        accepted = set(
+            (logical_grouping.get("event_references_by_logical_call") or {}).get(
+                logical_reference, []
+            )
+        )
+        unbound: set[str] = set()
+        for attempt_reference in members:
+            for exchange in exchanges_by_attempt.get(attempt_reference, []):
+                exchange_refs = {
+                    exchange.get(key)
+                    for key in ("offer_sdp_reference", "answer_sdp_reference")
+                    if isinstance(exchange.get(key), str)
+                }
+                if exchange_refs and not exchange_refs <= accepted:
+                    unbound.update(exchange_refs)
+        unbound_exchange_refs_by_logical[logical_reference] = sorted(unbound)
 
     def correlation_attempt_details(
         corr: dict[str, Any],
@@ -1818,6 +2328,139 @@ def build_diagnostics(
         capture_file, rtp_events, rtp_stream, frame_views
     )
 
+    sdp_body_observed = any(
+        event.get("body_present")
+        and (((event.get("headers") or {}).get("content_type") or "") == "application/sdp")
+        for event in sip_by_ref.values()
+    )
+    capture_visibility_limited = sdp_body_observed and not sdp_by_ref
+
+    def _first_non_2xx(
+        final_references: list[str],
+    ) -> dict[str, Any] | None:
+        candidates: list[tuple[int, int, str]] = []
+        for reference in final_references:
+            event = sip_by_ref.get(reference)
+            if not isinstance(event, dict):
+                continue
+            status = event.get("status_code")
+            if isinstance(status, int) and 400 <= status <= 699:
+                frame = event.get("frame_number")
+                if isinstance(frame, int):
+                    candidates.append((frame, status, reference))
+        if not candidates:
+            return None
+        frame, status, reference = min(candidates)
+        return {
+            "reason_code": "SIP_FINAL_RESPONSE_NON_2XX",
+            "status_code": status,
+            "event_reference": reference,
+            "frame_number": frame,
+            "scope": "SIP_OUTCOME_ONLY",
+            "network_root_cause_established": False,
+            "evidence_class": "OBSERVED",
+        }
+
+    def _logical_rtcp_ownership(
+        member_records: list[dict[str, Any]],
+        source_streams: list[str],
+        media_ownership: str,
+    ) -> dict[str, Any]:
+        associations = list(
+            {
+                (
+                    association.get("rtcp_event_reference"),
+                    association.get("association_kind"),
+                    association.get("reportee_ssrc_reference"),
+                ): association
+                for record in member_records
+                for association in (record.get("rtcp") or {}).get("associations") or []
+            }.values()
+        )
+        reports = list(
+            {
+                (
+                    report.get("source_event_reference"),
+                    report.get("component_index"),
+                    report.get("report_block_index"),
+                ): report
+                for record in member_records
+                for report in (record.get("rtcp") or {}).get("receiver_reported_quality") or []
+            }.values()
+        )
+        stream_set = set(source_streams)
+        relevant = [
+            association
+            for association in associations
+            if set(association.get("source_stream_references") or []) & stream_set
+        ]
+        competing = [
+            association
+            for association in relevant
+            if any(
+                len(stream_owner_by_source.get(stream_reference, [])) > 1
+                for stream_reference in association.get("source_stream_references") or []
+            )
+        ]
+        accepted = [
+            association
+            for association in relevant
+            if association.get("association_status")
+            == "RTCP_STREAM_ASSOCIATION_ESTABLISHED"
+            and set(association.get("source_stream_references") or []) <= stream_set
+        ]
+        sender_counts: dict[str, int] = defaultdict(int)
+        reportee_counts: dict[str, int] = defaultdict(int)
+        for association in relevant:
+            bucket = (
+                sender_counts
+                if association.get("association_kind") == "SR_SENDER_SSRC"
+                else reportee_counts
+            )
+            bucket[str(association.get("association_status"))] += 1
+        if not rtcp_events:
+            status = "RTCP_NOT_OBSERVED"
+            reason = "RTCP_COMPONENT_NOT_OBSERVED"
+        elif competing:
+            status = "AMBIGUOUS_OWNERSHIP"
+            reason = "COMPETING_RTCP_STREAM_OWNERSHIP"
+        elif accepted and media_ownership == "LOGICAL_CALL_MEDIA_OWNED":
+            status = "LOGICAL_CALL_RTCP_ASSOCIATED"
+            reason = "ACCEPTED_RTCP_SOURCE_AND_CALL_OWNERSHIP"
+        elif any(
+            association.get("association_status")
+            == "RTCP_STREAM_ASSOCIATION_AMBIGUOUS"
+            for association in relevant
+        ) or not relevant:
+            status = "RTCP_CALL_ASSOCIATION_AMBIGUOUS"
+            reason = (
+                "ALL_RTCP_STREAM_ASSOCIATIONS_AMBIGUOUS"
+                if relevant
+                else "RTCP_COMPONENT_NOT_OWNED_BY_LOGICAL_CALL"
+            )
+        else:
+            status = "RTCP_CALL_ASSOCIATION_INSUFFICIENT"
+            reason = "RTCP_SOURCE_RELATIONSHIP_NOT_ESTABLISHED"
+        return {
+            "association_count": len(relevant),
+            "receiver_report_count": len(reports),
+            "established_source_association_count": len(accepted),
+            "ambiguous_association_count": sum(
+                1
+                for association in relevant
+                if association.get("association_status")
+                != "RTCP_STREAM_ASSOCIATION_ESTABLISHED"
+            ),
+            "sender_association_status_counts": dict(sorted(sender_counts.items())),
+            "reportee_association_status_counts": dict(sorted(reportee_counts.items())),
+            "ownership_status": status,
+            "ownership_basis": [reason],
+            "competing_owner_association_count": len(competing),
+            "measurement_origin": "RECEIVER_REPORTED" if reports else None,
+            "associations": relevant[:MAX_LIST_ITEMS],
+            "receiver_reported_quality": reports[:MAX_REPORTS],
+        }
+
     logical_records: list[dict[str, Any]] = []
     for group in logical_grouping["logical_calls"]:
         logical_reference = group["logical_call_reference"]
@@ -1826,6 +2469,19 @@ def build_diagnostics(
             record for record in attempt_records
             if record.get("attempt_reference") in members
         ]
+        accepted_refs = set(
+            (logical_grouping.get("event_references_by_logical_call") or {}).get(
+                logical_reference, []
+            )
+        )
+        unbound_sip_refs = list(
+            (logical_grouping.get("unbound_event_references_by_logical_call") or {}).get(
+                logical_reference, []
+            )
+        )
+        unbound_exchange_refs = list(
+            unbound_exchange_refs_by_logical.get(logical_reference, [])
+        )
         relevant: list[dict[str, Any]] = []
         exact: list[dict[str, Any]] = []
         competing: list[dict[str, Any]] = []
@@ -1838,16 +2494,109 @@ def build_diagnostics(
                 exact.append(corr)
             if len(owners) > 1 or unowned:
                 competing.append(corr)
-        matched = [
-            corr
-            for corr in exact
-            if corr.get("association_status")
-            in ("MATCHED_ENDPOINT", "BUNDLE_TRANSPORT_MATCHED")
+
+        member_exchanges: list[dict[str, Any]] = []
+        for attempt_reference in members:
+            member_exchanges.extend(exchanges_by_attempt.get(attempt_reference, []))
+
+        established = [
+            exchange
+            for exchange in member_exchanges
+            if exchange.get("association_status") == "ESTABLISHED"
+            and isinstance(exchange.get("offer_sdp_reference"), str)
+            and isinstance(exchange.get("answer_sdp_reference"), str)
         ]
+        branch_gate_failures = [
+            exchange.get("branch_reference")
+            for exchange in established
+            if isinstance(exchange.get("branch_reference"), str)
+            and (
+                exchange.get("branch_reference") not in branch_by_reference
+                or branch_by_reference[exchange["branch_reference"]].get("identity_status")
+                != "ESTABLISHED"
+            )
+        ]
+        owned_exchanges = [
+            exchange
+            for exchange in established
+            if {
+                exchange.get("offer_sdp_reference"),
+                exchange.get("answer_sdp_reference"),
+            }
+            <= accepted_refs
+        ]
+        answer_branch_owner: dict[str, str] = {}
+        contaminated_answers: set[str] = set()
+        for exchange in owned_exchanges:
+            answer_reference = exchange.get("answer_sdp_reference")
+            branch_reference = exchange.get("branch_reference")
+            if not isinstance(answer_reference, str) or not isinstance(
+                branch_reference, str
+            ):
+                continue
+            previous = answer_branch_owner.get(answer_reference)
+            if previous is not None and previous != branch_reference:
+                contaminated_answers.add(answer_reference)
+            answer_branch_owner[answer_reference] = branch_reference
+        contradicted_exchanges = [
+            exchange for exchange in established if exchange not in owned_exchanges
+        ]
+        owned_exchange_refs: set[str] = set()
+        accepted_sections: list[dict[str, Any]] = []
+        unsupported_section_count = 0
+        for exchange in owned_exchanges:
+            for key in ("offer_sdp_reference", "answer_sdp_reference"):
+                reference = exchange.get(key)
+                if not isinstance(reference, str):
+                    continue
+                owned_exchange_refs.add(reference)
+                message = sdp_by_ref.get(reference)
+                if not isinstance(message, dict):
+                    continue
+                for section in message.get("media_sections") or []:
+                    if not isinstance(section, dict):
+                        continue
+                    if section.get("media_type_supported") is False:
+                        unsupported_section_count += 1
+                        continue
+                    accepted_sections.append(
+                        {
+                            "message_reference": reference,
+                            "media_index": section.get("index"),
+                            "media_type": section.get("media_type"),
+                            "direction": section.get("direction"),
+                            "mid": section.get("mid"),
+                        }
+                    )
+
+        correlation_context_refs = set(
+            logical_sdp_context.get(logical_reference, set())
+        )
+        repeated_sdp_refs = list(
+            repeated_sdp_by_logical.get(logical_reference, [])
+        )
+        unbound_sdp_refs = list(unbound_sdp_by_logical.get(logical_reference, []))
+
+        matched_owned: list[dict[str, Any]] = []
+        for corr in exact:
+            if corr.get("association_status") not in (
+                "MATCHED_ENDPOINT",
+                "BUNDLE_TRANSPORT_MATCHED",
+            ):
+                continue
+            if corr.get("missing_evidence") or corr.get("conflict_findings"):
+                continue
+            section_refs = {
+                section.get("message_reference")
+                for section in corr.get("sdp_media_sections") or []
+                if isinstance(section, dict)
+            }
+            if section_refs and section_refs <= correlation_context_refs:
+                matched_owned.append(corr)
         candidate_transports = _unique(
             [
                 udp
-                for corr in matched
+                for corr in matched_owned
                 for udp in corr.get("rtp_udp_stream_references") or []
             ]
         )
@@ -1858,15 +2607,55 @@ def build_diagnostics(
                 for stream in streams_by_udp.get(_udp_stream(udp) or -1, [])
             ]
         )
-        has_offer = any(
-            (record.get("sdp") or {}).get("offer_answer_status")
-            in ("OBSERVED", "INCOMPLETE")
-            for record in member_records
-        )
-        has_answer = any(
-            (record.get("sdp") or {}).get("offer_answer_status") == "OBSERVED"
-            for record in member_records
-        )
+        shared_streams = [
+            stream_reference
+            for stream_reference in source_streams
+            if len(stream_owner_by_source.get(stream_reference, [])) > 1
+        ]
+
+        ownership_reasons: list[str] = []
+        if not group.get("grouping_accepted"):
+            ownership_status = "INSUFFICIENT_EVIDENCE"
+            ownership_reasons.append("LOGICAL_CALL_GROUPING_NOT_ACCEPTED")
+        elif competing:
+            ownership_status = "AMBIGUOUS_OWNERSHIP"
+            ownership_reasons.append("COMPETING_LOGICAL_CALL_OWNERSHIP")
+        elif branch_gate_failures:
+            ownership_status = "INSUFFICIENT_EVIDENCE"
+            ownership_reasons.append("DIALOG_BRANCH_IDENTITY_NOT_ACCEPTED")
+        elif contaminated_answers:
+            ownership_status = "INSUFFICIENT_EVIDENCE"
+            ownership_reasons.append("COMPETING_BRANCH_ANSWER_CONTAMINATION")
+        elif contradicted_exchanges:
+            ownership_status = "INSUFFICIENT_EVIDENCE"
+            ownership_reasons.append("EXCHANGE_REFERENCE_NOT_OWNED")
+        elif not owned_exchanges:
+            ownership_status = "INSUFFICIENT_EVIDENCE"
+            ownership_reasons.append(
+                "ESTABLISHED_OFFER_ANSWER_EXCHANGE_NOT_OBSERVED"
+            )
+        elif unsupported_section_count and not accepted_sections:
+            ownership_status = "UNSUPPORTED_PROCEDURE"
+            ownership_reasons.append("SDP_MEDIA_SECTIONS_UNSUPPORTED")
+        elif not accepted_sections:
+            ownership_status = "INSUFFICIENT_EVIDENCE"
+            ownership_reasons.append("SDP_MEDIA_SECTIONS_NOT_RESOLVED")
+        elif not matched_owned:
+            ownership_status = "INSUFFICIENT_EVIDENCE"
+            ownership_reasons.append("TRANSPORT_CORRELATION_NOT_OWNED")
+        elif not source_streams:
+            ownership_status = "INSUFFICIENT_EVIDENCE"
+            ownership_reasons.append("RTP_SOURCE_STREAM_NOT_OBSERVED")
+        elif unbound_sdp_refs:
+            ownership_status = "INSUFFICIENT_EVIDENCE"
+            ownership_reasons.append("UNBOUND_SDP_OBSERVATION")
+        elif shared_streams:
+            ownership_status = "AMBIGUOUS_OWNERSHIP"
+            ownership_reasons.append("SHARED_RTP_STREAM_OWNERSHIP")
+        else:
+            ownership_status = "LOGICAL_CALL_MEDIA_OWNED"
+            ownership_reasons.append("ESTABLISHED_EXCHANGE_AND_UNIQUE_TRANSPORT_OWNED")
+
         temporal_statuses = [
             (record.get("temporal") or {}).get("temporal_association_status")
             for record in member_records
@@ -1881,57 +2670,420 @@ def build_diagnostics(
             temporal_status = "LOGICAL_CALL_TEMPORAL_CONSTRAINT_AMBIGUOUS"
         else:
             temporal_status = "LOGICAL_CALL_TEMPORAL_CONSTRAINT_INSUFFICIENT"
-        rtcp_associations = list(
-            {
-                (
-                    association.get("rtcp_event_reference"),
-                    association.get("association_kind"),
-                    association.get("reportee_ssrc_reference"),
-                ): association
-                for record in member_records
-                for association in (record.get("rtcp") or {}).get("associations") or []
-            }.values()
+
+        rtcp_evidence = _logical_rtcp_ownership(
+            member_records, source_streams, ownership_status
         )
-        receiver_reports = list(
+
+        # Ordered per-call evidence review.
+        provisional_refs: list[str] = []
+        final_refs: list[str] = []
+        ack_refs: list[str] = []
+        cancel_refs: set[str] = set()
+        release_refs: set[str] = set()
+        bye_request_refs: set[str] = set()
+        bye_response_refs: set[str] = set()
+        initial_invite_refs: list[str] = []
+        for attempt_reference in members:
+            attempt_object = attempt_by_reference.get(attempt_reference) or {}
+            stages = attempt_object.get("stage_evidence") or {}
+            provisional_refs.extend(
+                stages.get("provisional_response_event_references") or []
+            )
+            final_refs.extend(stages.get("final_response_event_references") or [])
+            ack_refs.extend(
+                (attempt_object.get("ack_evidence") or {}).get(
+                    "twoxx_ack_event_references"
+                )
+                or []
+            )
+            if isinstance(attempt_object.get("initial_invite_event_reference"), str):
+                initial_invite_refs.append(
+                    attempt_object["initial_invite_event_reference"]
+                )
+            cancel_refs.update(
+                _collect_sip_references(attempt_object.get("cancel_evidence") or {})
+            )
+            release_refs.update(
+                _collect_sip_references(attempt_object.get("release_evidence") or {})
+            )
+            for branch in attempt_object.get("branches") or []:
+                if not isinstance(branch, dict):
+                    continue
+                final_refs.extend(branch.get("response_event_references") or [])
+                ack_refs.extend(branch.get("ack_event_references") or [])
+                for observation in (branch.get("release") or {}).get("observations") or []:
+                    if not isinstance(observation, dict):
+                        continue
+                    bye_request_refs.update(
+                        observation.get("bye_request_event_references") or []
+                    )
+                    bye_response_refs.update(
+                        observation.get("bye_final_response_event_references") or []
+                    )
+        provisional_refs = sorted(set(provisional_refs))
+        final_refs = sorted(set(final_refs))
+        ack_refs = sorted(set(ack_refs))
+        observed_provisional_statuses = sorted(
             {
-                (
-                    report.get("source_event_reference"),
-                    report.get("component_index"),
-                    report.get("report_block_index"),
-                ): report
-                for record in member_records
-                for report in (record.get("rtcp") or {}).get("receiver_reported_quality") or []
-            }.values()
+                event.get("status_code")
+                for reference in provisional_refs
+                for event in (sip_by_ref.get(reference),)
+                if isinstance(event, dict)
+                and isinstance(event.get("status_code"), int)
+                and 100 <= event["status_code"] < 200
+            }
+            | {
+                event.get("status_code")
+                for reference in final_refs
+                for event in (sip_by_ref.get(reference),)
+                if isinstance(event, dict)
+                and isinstance(event.get("status_code"), int)
+                and 100 <= event["status_code"] < 200
+            }
         )
-        grouping_status = group.get("grouping_status")
-        if competing:
-            ownership_status = "AMBIGUOUS_OWNERSHIP"
-        elif grouping_status in ("AMBIGUOUS_MULTI_HOP", "UNRESOLVED_IDENTITY"):
-            ownership_status = "INSUFFICIENT_EVIDENCE"
-        elif not matched or not has_offer or not has_answer or not source_streams:
-            ownership_status = "INSUFFICIENT_EVIDENCE"
+        provisional_statuses = observed_provisional_statuses
+        final_statuses = sorted(
+            {
+                event.get("status_code")
+                for reference in final_refs
+                for event in (sip_by_ref.get(reference),)
+                if isinstance(event, dict)
+                and isinstance(event.get("status_code"), int)
+                and event["status_code"] >= 200
+            }
+        )
+        deviation = _first_non_2xx(final_refs)
+        if deviation is not None:
+            signaling_outcome = "NON_2XX_FINAL_RESPONSE_OBSERVED"
+        elif any(200 <= status < 300 for status in final_statuses):
+            signaling_outcome = "ACCEPTED_2XX_OBSERVED"
+        elif final_statuses:
+            signaling_outcome = "NON_2XX_FINAL_RESPONSE_OBSERVED"
+        elif provisional_statuses:
+            signaling_outcome = "PROVISIONAL_ONLY"
         else:
-            ownership_status = "LOGICAL_CALL_MEDIA_OWNED"
-        last_evidence = None
-        for record in member_records:
-            candidate = (record.get("diagnostic") or {}).get("last_supported_evidence")
-            if isinstance(candidate, dict) and (
-                last_evidence is None
-                or (candidate.get("frame_number") or 0)
-                > (last_evidence.get("frame_number") or 0)
-            ):
-                last_evidence = candidate
-        missing = _unique(
-            [
-                item
-                for record in member_records
-                for item in record.get("missing_evidence") or []
-            ]
+            signaling_outcome = "FINAL_RESPONSE_NOT_OBSERVED"
+
+        owned_streams = [
+            stream
+            for stream in streams
+            if stream.get("source_stream_reference") in source_streams
+        ]
+        owned_rtp_events = [
+            event
+            for stream in owned_streams
+            for event in rtp_by_key.get(
+                (stream.get("udp_stream"), stream.get("ssrc_reference")), []
+            )
+        ]
+        owned_rtp_frames = sorted(
+            {
+                event.get("frame_number")
+                for event in owned_rtp_events
+                if isinstance(event.get("frame_number"), int)
+            }
         )
+        rtp_evidence_outcome = (
+            "RTP_STREAMS_OWNED"
+            if owned_streams and ownership_status == "LOGICAL_CALL_MEDIA_OWNED"
+            else "RTP_OBSERVED_NOT_OWNED"
+            if candidate_transports or relevant
+            else "RTP_NOT_OBSERVED"
+        )
+        sdp_association_outcome = (
+            "ESTABLISHED_OFFER_ANSWER_OWNED"
+            if owned_exchanges
+            else "OFFER_ANSWER_NOT_ESTABLISHED"
+            if not established
+            else "EXCHANGE_REFERENCE_NOT_OWNED"
+        )
+
+        last_candidates: list[tuple[int, str, str]] = []
+        for reference in accepted_refs:
+            frame = _frame_of(reference)
+            if frame is not None:
+                last_candidates.append((frame, "SIP", reference))
+        for reference in owned_exchange_refs:
+            frame = _frame_of(reference)
+            if frame is not None:
+                last_candidates.append((frame, "SDP", reference))
+        if ownership_status == "LOGICAL_CALL_MEDIA_OWNED":
+            for frame in owned_rtp_frames:
+                last_candidates.append((frame, "RTP", f"frame:{frame}"))
+            for association in rtcp_evidence["associations"]:
+                if (
+                    association.get("association_status")
+                    != "RTCP_STREAM_ASSOCIATION_ESTABLISHED"
+                ):
+                    continue
+                frame = _frame_of(association.get("rtcp_event_reference"))
+                if frame is not None:
+                    last_candidates.append(
+                        (frame, "RTCP", association.get("rtcp_event_reference"))
+                    )
+        last_supported_observation = (
+            {
+                "stage": max(last_candidates, key=lambda item: (item[0], item[2]))[1],
+                "reference": max(last_candidates, key=lambda item: (item[0], item[2]))[2],
+                "frame_number": max(last_candidates, key=lambda item: (item[0], item[2]))[0],
+            }
+            if last_candidates
+            else None
+        )
+
+        if deviation is not None:
+            boundary_classification = "OBSERVED_PROTOCOL_DEVIATION"
+        elif not group.get("grouping_accepted"):
+            boundary_classification = "IDENTITY_AMBIGUITY"
+        elif signaling_outcome == "FINAL_RESPONSE_NOT_OBSERVED":
+            boundary_classification = (
+                "CAPTURE_VISIBILITY_LIMITATION"
+                if capture_visibility_limited
+                else "MISSING_OBSERVATION"
+            )
+        elif ownership_status == "UNSUPPORTED_PROCEDURE":
+            boundary_classification = "UNSUPPORTED_PROCEDURE"
+        elif capture_visibility_limited and not sdp_by_ref:
+            boundary_classification = "CAPTURE_VISIBILITY_LIMITATION"
+        elif sdp_body_observed and unbound_sdp_refs:
+            boundary_classification = "EXTRACTION_FAILURE"
+        elif ownership_status == "AMBIGUOUS_OWNERSHIP":
+            boundary_classification = "IDENTITY_AMBIGUITY"
+        elif ownership_status != "LOGICAL_CALL_MEDIA_OWNED":
+            boundary_classification = "MISSING_OBSERVATION"
+        else:
+            boundary_classification = "NO_ABNORMAL_EVIDENCE_OBSERVED"
+
+        first_missing_boundary = None
+        if boundary_classification != "NO_ABNORMAL_EVIDENCE_OBSERVED" and deviation is None:
+            first_missing_boundary = {
+                "reason_code": (
+                    ownership_reasons[0]
+                    if ownership_reasons
+                    and ownership_status != "LOGICAL_CALL_MEDIA_OWNED"
+                    else "SIP_FINAL_RESPONSE_NOT_OBSERVED"
+                    if signaling_outcome == "FINAL_RESPONSE_NOT_OBSERVED"
+                    else "LOGICAL_CALL_MEDIA_CHAIN_INCOMPLETE"
+                ),
+                "evidence_status": boundary_classification,
+                "last_supported_observation": last_supported_observation,
+            }
+
+        missing: list[str] = []
+        if ownership_status != "LOGICAL_CALL_MEDIA_OWNED":
+            missing.extend(ownership_reasons)
+        if not owned_exchanges:
+            offer_without_answer = any(
+                isinstance(exchange.get("offer_sdp_reference"), str)
+                and not isinstance(exchange.get("answer_sdp_reference"), str)
+                for exchange in member_exchanges
+            )
+            missing.append(
+                "SDP_ANSWER_NOT_OBSERVED"
+                if offer_without_answer or established
+                else "ESTABLISHED_OFFER_ANSWER_EXCHANGE_NOT_OBSERVED"
+            )
+        if unbound_sdp_refs:
+            missing.append("UNBOUND_SDP_OBSERVATION")
+        if ownership_status != "LOGICAL_CALL_MEDIA_OWNED" and unbound_sip_refs:
+            missing.append("UNBOUND_SIP_OBSERVATION")
+        if rtcp_evidence["ownership_status"] not in (
+            "LOGICAL_CALL_RTCP_ASSOCIATED",
+            "RTCP_NOT_OBSERVED",
+        ):
+            missing.append("RTCP_CALL_ASSOCIATION_NOT_ESTABLISHED")
+        missing = _unique(missing)
+        if (
+            group.get("grouping_accepted")
+            and owned_exchanges
+            and matched_owned
+            and source_streams
+            and not competing
+            and not unbound_sdp_refs
+        ):
+            diagnostic_completeness = "COMPLETE"
+        elif group.get("grouping_accepted") and (owned_exchanges or source_streams):
+            diagnostic_completeness = "PARTIAL"
+        else:
+            diagnostic_completeness = "INSUFFICIENT"
+
+        candidate_explanations: list[str] = []
+        if deviation is not None:
+            candidate_explanations.append(
+                "The captured IMS call received an explicit non-2xx SIP final response."
+            )
+        if capture_visibility_limited:
+            candidate_explanations.append(
+                "SDP bodies are present but not extractable from the available capture view."
+            )
+        if (unbound_sdp_refs or unbound_sip_refs) and (
+            ownership_status != "LOGICAL_CALL_MEDIA_OWNED"
+            or diagnostic_completeness != "COMPLETE"
+        ):
+            candidate_explanations.append(
+                "Some SDP or SIP observations remain outside the accepted transaction context."
+            )
+        if not candidate_explanations:
+            candidate_explanations.append(
+                "No evidence-supported abnormality is present within the observed capture scope."
+            )
+
+        supporting_refs = _unique(
+            [
+                *sorted(initial_invite_refs)[:4],
+                *final_refs[:4],
+                *sorted(owned_exchange_refs)[:4],
+                *(
+                    [f"frame:{frame}" for frame in owned_rtp_frames[:4]]
+                    if ownership_status == "LOGICAL_CALL_MEDIA_OWNED"
+                    else []
+                ),
+            ]
+        )[:MAX_LIST_ITEMS]
+
+        diagnostic_review = {
+            "logical_call_reference": logical_reference,
+            "member_attempt_references": members[:MAX_LIST_ITEMS],
+            "dialog_branch_references": group.get("member_dialog_references"),
+            "sip_signaling": {
+                "initial_invite_event_references": sorted(initial_invite_refs)[:MAX_LIST_ITEMS],
+                "provisional_response_event_references": provisional_refs[:MAX_LIST_ITEMS],
+                "provisional_status_codes": provisional_statuses,
+                "final_response_event_references": final_refs[:MAX_LIST_ITEMS],
+                "final_response_status_codes": final_statuses,
+                "ack_event_references": ack_refs[:MAX_LIST_ITEMS],
+                "cancel_event_references": sorted(cancel_refs)[:MAX_LIST_ITEMS],
+                "bye_request_event_references": sorted(bye_request_refs)[:MAX_LIST_ITEMS],
+                "bye_final_response_event_references": sorted(bye_response_refs)[:MAX_LIST_ITEMS],
+                "release_event_references": sorted(release_refs)[:MAX_LIST_ITEMS],
+                "outcome": signaling_outcome,
+                "fork_branch_references": group.get("member_dialog_references"),
+            },
+            "sdp_signaling": {
+                "offer_references": sorted(
+                    {
+                        exchange.get("offer_sdp_reference")
+                        for exchange in owned_exchanges
+                        if isinstance(exchange.get("offer_sdp_reference"), str)
+                    }
+                )[:MAX_LIST_ITEMS],
+                "answer_references": sorted(
+                    {
+                        exchange.get("answer_sdp_reference")
+                        for exchange in owned_exchanges
+                        if isinstance(exchange.get("answer_sdp_reference"), str)
+                    }
+                )[:MAX_LIST_ITEMS],
+                "accepted_media_sections": accepted_sections[:MAX_LIST_ITEMS],
+                "unsupported_media_section_count": unsupported_section_count,
+                "repeated_sdp_observation_references": repeated_sdp_refs[:MAX_LIST_ITEMS],
+                "unbound_sdp_message_references": unbound_sdp_refs[:MAX_LIST_ITEMS],
+                "unbound_exchange_references": unbound_exchange_refs[:MAX_LIST_ITEMS],
+                "association_outcome": sdp_association_outcome,
+            },
+            "rtp_evidence": {
+                "candidate_transport_references": candidate_transports[:MAX_LIST_ITEMS],
+                "source_stream_references": source_streams[:MAX_LIST_ITEMS],
+                "rtp_packet_count": len(owned_rtp_frames),
+                "first_observed_frame": min(owned_rtp_frames) if owned_rtp_frames else None,
+                "last_observed_frame": max(owned_rtp_frames) if owned_rtp_frames else None,
+                "sequence_validation_statuses": sorted(
+                    {
+                        stream.get("sequence_validation_status")
+                        for stream in owned_streams
+                        if stream.get("sequence_validation_status")
+                    }
+                ),
+                "sequence_wrap_count": sum(
+                    int(stream.get("sequence_wrap_count") or 0)
+                    for stream in owned_streams
+                ),
+                "duplicate_sequence_observation_count": sum(
+                    int(stream.get("duplicate_sequence_observation_count") or 0)
+                    for stream in owned_streams
+                ),
+                "out_of_order_packet_count": sum(
+                    int(stream.get("out_of_order_packet_count") or 0)
+                    for stream in owned_streams
+                ),
+                "unobserved_sequence_number_slot_count": sum(
+                    int(stream.get("unobserved_sequence_number_slot_count") or 0)
+                    for stream in owned_streams
+                ),
+                "temporal_association_status": temporal_status,
+                "outcome": rtp_evidence_outcome,
+                "limitations": [
+                    "Unobserved RTP sequence slots are not confirmed network packet loss",
+                    "RTP observation boundaries are capture boundaries, not true media start or end",
+                ],
+            },
+            "rtcp_evidence": {
+                "ownership_status": rtcp_evidence["ownership_status"],
+                "ownership_basis": rtcp_evidence["ownership_basis"],
+                "sender_association_status_counts": rtcp_evidence[
+                    "sender_association_status_counts"
+                ],
+                "reportee_association_status_counts": rtcp_evidence[
+                    "reportee_association_status_counts"
+                ],
+                "established_source_association_count": rtcp_evidence[
+                    "established_source_association_count"
+                ],
+                "measurement_origin": rtcp_evidence["measurement_origin"],
+                "receiver_report_count": rtcp_evidence["receiver_report_count"],
+            },
+            "diagnostic_result": {
+                "signaling_outcome": signaling_outcome,
+                "sdp_association_outcome": sdp_association_outcome,
+                "media_transport_ownership_outcome": ownership_status,
+                "rtp_evidence_outcome": rtp_evidence_outcome,
+                "rtcp_evidence_outcome": rtcp_evidence["ownership_status"],
+                "first_supported_protocol_deviation": deviation,
+                "first_missing_evidence_boundary": first_missing_boundary,
+                "boundary_classification": boundary_classification,
+                "identity_ambiguity_present": not bool(group.get("grouping_accepted")),
+                "first_identity_boundary": (
+                    {
+                        "reason_code": (group.get("grouping_reason_codes") or [
+                            "LOGICAL_CALL_GROUPING_NOT_ACCEPTED"
+                        ])[0],
+                        "evidence_status": "IDENTITY_AMBIGUITY",
+                    }
+                    if not group.get("grouping_accepted")
+                    else None
+                ),
+                "last_supported_observation": last_supported_observation,
+                "supporting_source_references": supporting_refs,
+                "candidate_explanations": candidate_explanations[:MAX_DIAGNOSTIC_ITEMS],
+                "excluded_interpretations": [
+                    "A missing observation is not automatically a network failure",
+                    "A SIP non-2xx response does not by itself establish a network-function root cause",
+                    "An RTP sequence gap is not automatically network packet loss",
+                    "An RTCP receiver report is not a locally measured packet-loss result",
+                    "Capture-wide evidence never upgrades an unproven logical call",
+                    "Encrypted or IPsec traffic is never decrypted or assumed absent",
+                ][:MAX_DIAGNOSTIC_ITEMS],
+                "additional_evidence_required": (
+                    [
+                        "Provide SDP/RTP correspondence that excludes every competing logical call and branch",
+                        "Provide the missing SDP answer or RTP source-stream evidence for this logical call",
+                        "Provide a capture view that exposes the encrypted or unobserved signaling leg",
+                    ]
+                    if diagnostic_completeness != "COMPLETE"
+                    else []
+                )[:MAX_DIAGNOSTIC_ITEMS],
+                "diagnostic_completeness_status": diagnostic_completeness,
+                "evidence_class": "DERIVED",
+            },
+            "evidence_class": "DERIVED",
+        }
+
         logical_records.append(
             {
                 "logical_call_reference": logical_reference,
-                "grouping_status": grouping_status,
+                "grouping_status": group.get("grouping_status"),
+                "grouping_accepted": bool(group.get("grouping_accepted")),
                 "grouping_reason_codes": group.get("grouping_reason_codes"),
                 "member_ims_attempt_references": members[:MAX_LIST_ITEMS],
                 "member_sip_transaction_references": group.get(
@@ -1943,29 +3095,19 @@ def build_diagnostics(
                 "dialog_branch_references": group.get("member_dialog_references"),
                 "offer_answer_exchange_references": _unique(
                     [
-                        ref
-                        for record in member_records
-                        for ref in (record.get("sdp") or {}).get(
-                            "exchange_references"
-                        )
-                        or []
+                        exchange.get("exchange_reference")
+                        for exchange in owned_exchanges
+                        if isinstance(exchange.get("exchange_reference"), str)
                     ]
                 )[:MAX_LIST_ITEMS],
                 "accepted_media_sections": _unique(
-                    [
-                        section.get("message_reference")
-                        for record in member_records
-                        for section in (record.get("sdp") or {}).get(
-                            "media_sections"
-                        )
-                        or []
-                        if isinstance(section, dict)
-                    ]
+                    [section.get("message_reference") for section in accepted_sections]
                 )[:MAX_LIST_ITEMS],
                 "candidate_rtp_transport_references": candidate_transports[
                     :MAX_LIST_ITEMS
                 ],
                 "source_stream_references": source_streams[:MAX_LIST_ITEMS],
+                "shared_source_stream_references": shared_streams[:MAX_LIST_ITEMS],
                 "temporal_constraints": {
                     "status": temporal_status,
                     "member_attempt_statuses": sorted(set(temporal_statuses)),
@@ -1974,49 +3116,53 @@ def build_diagnostics(
                         "Temporal evidence narrows an already-supported identity candidate and never replaces identity",
                     ],
                 },
-                "rtcp_evidence": {
-                    "association_count": len(rtcp_associations),
-                    "receiver_report_count": len(receiver_reports),
-                    "ownership_status": (
-                        "AMBIGUOUS_OWNERSHIP"
-                        if ownership_status != "LOGICAL_CALL_MEDIA_OWNED"
-                        else "LOGICAL_CALL_RTCP_ASSOCIATED"
-                        if rtcp_associations
-                        else "INSUFFICIENT_EVIDENCE"
-                    ),
-                    "measurement_origin": (
-                        "RECEIVER_REPORTED" if receiver_reports else None
-                    ),
-                },
+                "rtcp_evidence": rtcp_evidence,
                 "ownership_status": ownership_status,
+                "ownership_basis": ownership_reasons,
+                "unbound_sip_event_references": unbound_sip_refs[:MAX_LIST_ITEMS],
+                "repeated_sdp_observation_references": repeated_sdp_refs[:MAX_LIST_ITEMS],
+                "unbound_sdp_message_references": unbound_sdp_refs[:MAX_LIST_ITEMS],
                 "missing_and_ambiguous_evidence": missing[:MAX_DIAGNOSTIC_ITEMS],
-                "last_supported_observation": last_evidence,
+                "last_supported_observation": last_supported_observation,
                 "first_supported_diagnostic_boundary": (
                     None
-                    if ownership_status == "LOGICAL_CALL_MEDIA_OWNED"
+                    if boundary_classification == "NO_ABNORMAL_EVIDENCE_OBSERVED"
                     else {
                         "reason_code": (
-                            "COMPETING_LOGICAL_CALL_MEDIA_OWNERSHIP"
-                            if competing
+                            deviation.get("reason_code")
+                            if deviation is not None
+                            else first_missing_boundary.get("reason_code")
+                            if first_missing_boundary is not None
                             else "LOGICAL_CALL_MEDIA_CHAIN_INCOMPLETE"
                         ),
-                        "evidence_status": "MISSING_OR_AMBIGUOUS_EVIDENCE",
+                        "evidence_status": boundary_classification,
                     }
                 ),
                 "required_additional_evidence": (
                     []
-                    if ownership_status == "LOGICAL_CALL_MEDIA_OWNED"
+                    if diagnostic_completeness == "COMPLETE"
                     else [
                         "Provide SDP/RTP correspondence that excludes every competing logical call",
                         "Provide the missing SDP answer or source-stream evidence for this logical call",
                     ]
                 ),
+                "diagnostic_review": diagnostic_review,
                 "evidence_class": "DERIVED",
             }
         )
     logical_ownership_counts: dict[str, int] = defaultdict(int)
+    boundary_classification_counts: dict[str, int] = defaultdict(int)
+    diagnostic_completeness_counts: dict[str, int] = defaultdict(int)
     for record in logical_records:
         logical_ownership_counts[record["ownership_status"]] += 1
+        review = record.get("diagnostic_review") or {}
+        result = review.get("diagnostic_result") or {}
+        boundary_classification_counts[
+            str(result.get("boundary_classification"))
+        ] += 1
+        diagnostic_completeness_counts[
+            str(result.get("diagnostic_completeness_status"))
+        ] += 1
 
     return {
         "analysis_name": ANALYSIS_NAME,
@@ -2037,8 +3183,18 @@ def build_diagnostics(
         "attempts": attempt_records,
         "branches": branch_records,
         "logical_call_count": len(logical_records),
+        "accepted_logical_call_count": sum(
+            1 for record in logical_records if record["grouping_accepted"]
+        ),
         "logical_calls": logical_records,
         "logical_call_ownership_counts": dict(logical_ownership_counts),
+        "logical_call_boundary_classification_counts": dict(
+            sorted(boundary_classification_counts.items())
+        ),
+        "logical_call_diagnostic_completeness_counts": dict(
+            sorted(diagnostic_completeness_counts.items())
+        ),
+        "capture_visibility_limited": capture_visibility_limited,
         "logical_call_grouping": {
             key: value
             for key, value in logical_grouping.items()
@@ -2133,6 +3289,7 @@ def build_diagnostics(
             "Per-call diagnostics consume accepted SIP, IMS Session, SDP, RTP/RTCP, RTP source-stream and SDP/RTP correlation artifacts; they decode and parse no protocol",
             "A capture-wide correlation is not per-call ownership; shared streams remain ambiguous",
             "A missing observation is not automatically an abnormal protocol boundary",
+            "A SIP non-2xx response is a SIP outcome, not a proven network-function root cause",
             "RTCP receiver-reported values are not local measurements",
             "No call success, RTP delivery, two-way audio, packet-loss, QoS or MOS verdict is produced",
         ],
@@ -2143,8 +3300,7 @@ def build_diagnostics(
             "CONFIRMED_NETWORK_PACKET_LOSS",
             "MEDIA_QOS",
             "MOS",
-            "CALL_OWNED_RTP_STREAM",
-            "RTCP_TO_CALL_OWNERSHIP",
+            "MEDIA_DELIVERY",
             "TEMPORAL_RTP_OWNERSHIP",
         ],
         "evidence_class": "DERIVED",

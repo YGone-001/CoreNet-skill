@@ -30,6 +30,8 @@ def sip_event(
     to_tag: str | None = None,
     cseq: int = 1,
     vias: list[str] | None = None,
+    body_present: bool = False,
+    content_type: str | None = None,
 ) -> dict:
     return {
         "source_reference": f"sip-event:{CAP}:{frame}.1",
@@ -40,12 +42,22 @@ def sip_event(
         "method": method,
         "status_code": status,
         "frame_time_epoch": f"17000000{frame:02d}.000000",
-        "headers": {"cseq": {"sequence": cseq}},
+        "headers": {
+            "cseq": {
+                "present": True,
+                "sequence": cseq,
+                "method": "INVITE",
+                "count": 1,
+            },
+            "content_type": content_type,
+        },
         "call_id_reference": call_id,
         "from_tag_reference": from_tag,
         "to_tag_reference": to_tag,
         "via_branch_references": vias or [],
         "identity_reference_status": "ESTABLISHED",
+        "identity_reference_scope": "CAPTURE_SHA256_SCOPED_HMAC_SHA256",
+        "body_present": body_present,
     }
 
 
@@ -235,6 +247,7 @@ def exchange(
     branch_reference: str | None,
     offer_frame: int,
     answer_frame: int | None,
+    association_status: str | None = None,
 ) -> dict:
     return {
         "exchange_reference": f"ims-media-signaling:{CAP}:{answer_frame or offer_frame}.1",
@@ -250,7 +263,13 @@ def exchange(
         "answer_event_reference": (
             f"sip-event:{CAP}:{answer_frame}.1" if answer_frame is not None else None
         ),
-        "association_status": "ESTABLISHED" if answer_frame is not None else "INSUFFICIENT_EVIDENCE",
+        "association_status": (
+            association_status
+            if association_status is not None
+            else "ESTABLISHED"
+            if answer_frame is not None
+            else "INSUFFICIENT_EVIDENCE"
+        ),
         "exchange_type": "INITIAL_INVITE_OFFER_ANSWER",
         "initial_invite_transaction_reference": f"sip-transaction:{CAP}:request:{attempt_frame}.1",
         "initial_sdp_state": "OBSERVED_VALID",
@@ -334,17 +353,95 @@ def run(
     rtcp_events: list[dict] | None = None,
     streams: list[dict] | None = None,
     views: dict[int, dict] | None = None,
+    response_status_by_frame: dict[int, int] | None = None,
+    sip_overrides: dict[int, dict] | None = None,
 ) -> dict:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
+        events: dict[int, dict] = {
+            1: sip_event(1, method="INVITE", call_id="call-1", from_tag="from-1"),
+            2: sip_event(2, status=200, call_id="call-1", from_tag="from-1", to_tag="to-1"),
+            3: sip_event(3, method="ACK", call_id="call-1", from_tag="from-1", to_tag="to-1"),
+        }
+        attempt_frames: dict[str, int] = {}
+        for item in attempts:
+            reference = item.get("attempt_reference") or ""
+            parts = reference.rsplit(":", 1)[-1].split(".")
+            try:
+                attempt_frame = int(parts[0])
+            except (IndexError, ValueError):
+                continue
+            attempt_frames[reference] = attempt_frame
+            identity = {
+                "call_id": f"call-{attempt_frame}",
+                "from_tag": f"from-{attempt_frame}",
+                "to_tag": f"to-{attempt_frame}",
+            }
+            events.setdefault(
+                attempt_frame,
+                sip_event(attempt_frame, method="INVITE", **identity),
+            )
+            for frame in (item.get("stage_evidence") or {}).get(
+                "final_response_event_references"
+            ) or []:
+                match = frame.rsplit(":", 1)[-1].split(".")
+                events.setdefault(
+                    int(match[0]),
+                    sip_event(
+                        int(match[0]),
+                        status=(response_status_by_frame or {}).get(
+                            int(match[0]), 200
+                        ),
+                        **identity,
+                    ),
+                )
+            for frame in (item.get("ack_evidence") or {}).get(
+                "twoxx_ack_event_references"
+            ) or []:
+                match = frame.rsplit(":", 1)[-1].split(".")
+                events.setdefault(
+                    int(match[0]),
+                    sip_event(int(match[0]), method="ACK", **identity),
+                )
+        for item in exchanges:
+            attempt_frame = attempt_frames.get(item.get("attempt_reference") or "")
+            if attempt_frame is None:
+                continue
+            identity = {
+                "call_id": f"call-{attempt_frame}",
+                "from_tag": f"from-{attempt_frame}",
+                "to_tag": f"to-{attempt_frame}",
+            }
+            for key, method, status in (
+                ("offer_sdp_reference", "INVITE", None),
+                ("answer_sdp_reference", None, 200),
+            ):
+                reference = item.get(key)
+                if not isinstance(reference, str):
+                    continue
+                frame = int(reference.rsplit(":", 1)[-1].split(".")[0])
+                events.setdefault(
+                    frame,
+                    sip_event(
+                        frame,
+                        method=method,
+                        status=(response_status_by_frame or {}).get(frame, status),
+                        **identity,
+                    ),
+                )
+        for item in sdp_messages:
+            frame = item.get("frame_number")
+            if isinstance(frame, int):
+                events.setdefault(
+                    frame,
+                    sip_event(frame, method="INVITE", call_id=f"call-{frame}", from_tag=f"from-{frame}"),
+                )
+        for frame, override in (sip_overrides or {}).items():
+            events[frame] = override
         (root / "sip-events.jsonl").write_text(
             "\n".join(
                 json.dumps(item, sort_keys=True)
-                for item in [
-                    sip_event(1, method="INVITE"),
-                    sip_event(2, status=200),
-                    sip_event(3, method="ACK"),
-                ]
+                for _, item in sorted(events.items())
             )
             + "\n",
             encoding="utf-8",
@@ -690,8 +787,8 @@ class DuplicateObservationTests(unittest.TestCase):
 
     def test_multi_vantage_duplicate_packet_and_sequence_only_classes(self) -> None:
         views = {
-            1: {"interface_id": "0", "encap_type": "25", "protocols": "sll:ip:udp:gtp:ip:udp:rtp", "outer_udp_stream": "1", "gtp_present": True},
-            2: {"interface_id": "1", "encap_type": "25", "protocols": "sll:ip:udp:gtp:ip:udp:rtp", "outer_udp_stream": "0", "gtp_present": True},
+            1: {"interface_id": "0", "encap_type": "25", "protocols": "sll:ip:udp:gtp:ip:udp:rtp", "outer_udp_stream": "1", "inner_udp_stream": "0", "gtp_present": True},
+            2: {"interface_id": "1", "encap_type": "25", "protocols": "sll:ip:udp:gtp:ip:udp:rtp", "outer_udp_stream": "0", "inner_udp_stream": "0", "gtp_present": True},
             3: {"interface_id": "0", "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": "2", "gtp_present": False},
             4: {"interface_id": "0", "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": "2", "gtp_present": False},
             5: {"interface_id": "0", "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": "2", "gtp_present": False},
@@ -775,13 +872,14 @@ class DuplicateObservationTests(unittest.TestCase):
 
     def test_observation_count_conservation(self) -> None:
         views = {
-            frame: {"interface_id": str(frame % 2), "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": str(frame % 2), "gtp_present": False}
+            frame: {"interface_id": str(frame % 2), "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": str(frame % 2), "inner_udp_stream": "0", "gtp_present": False}
             for frame in range(1, 7)
         }
         document = self._document(views)
         classified = (
             document["distinct_byte_identity_count"]
             + document["multi_vantage_supported_event_count"]
+            + document["multi_vantage_consistent_byte_event_count"]
             + document["byte_identical_duplicate_event_count"]
             + document["fingerprint_unavailable_observation_count"]
         )
@@ -983,8 +1081,8 @@ class DiagnosticIntegrityTests(unittest.TestCase):
             ],
             streams=[stream()],
             views={
-                4: {"interface_id": "0", "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": "2", "gtp_present": False},
-                5: {"interface_id": "1", "encap_type": "25", "protocols": "sll:ip:udp:gtp:ip:udp:rtp", "outer_udp_stream": "1", "gtp_present": True},
+                4: {"interface_id": "0", "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": "2", "inner_udp_stream": "2", "gtp_present": False},
+                5: {"interface_id": "1", "encap_type": "25", "protocols": "sll:ip:udp:gtp:ip:udp:rtp", "outer_udp_stream": "1", "inner_udp_stream": "2", "gtp_present": True},
             },
         )
         self.assertEqual(document["attempt_count"], 1)
@@ -1029,6 +1127,583 @@ class DiagnosticIntegrityTests(unittest.TestCase):
         first = simple_chain()
         second = simple_chain()
         self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
+
+
+class LogicalCallIdentityIntegrityTests(unittest.TestCase):
+    def _group(
+        self,
+        events: list[dict],
+        attempts: list[dict],
+        branches: dict[str, list[dict]] | None = None,
+    ) -> dict:
+        return diagnostics.logical_call_grouping(
+            CAP,
+            {event["source_reference"]: event for event in events},
+            attempts,
+            branches,
+        )
+
+    def test_distinct_from_tags_are_not_merged(self) -> None:
+        document = self._group(
+            [
+                sip_event(1, "INVITE", from_tag="from-a", vias=["a"]),
+                sip_event(2, "INVITE", from_tag="from-b", vias=["b"]),
+            ],
+            [attempt(1), attempt(2)],
+        )
+        self.assertEqual(document["logical_call_count"], 2)
+
+    def test_differing_cseq_without_dialog_bridge_stays_distinct(self) -> None:
+        document = self._group(
+            [
+                sip_event(1, "INVITE", cseq=1, vias=["a"]),
+                sip_event(2, "INVITE", cseq=2, vias=["b"]),
+            ],
+            [attempt(1), attempt(2)],
+        )
+        self.assertEqual(document["logical_call_count"], 2)
+        self.assertEqual(
+            [group["grouping_status"] for group in document["logical_calls"]],
+            ["SINGLE_ATTEMPT", "SINGLE_ATTEMPT"],
+        )
+
+    def test_proven_in_dialog_reinvite_joins_through_accepted_dialog(self) -> None:
+        initial = attempt(
+            1,
+            answer_frames=[2],
+            branches=[branch(f"sip-dialog:{CAP}:2.1", answer_frames=[2])],
+        )
+        document = self._group(
+            [
+                sip_event(1, "INVITE", cseq=1, vias=["a"]),
+                sip_event(2, status=200, to_tag="to-a", cseq=1, vias=["a"]),
+                sip_event(10, "INVITE", to_tag="to-a", cseq=2, vias=["b", "a"]),
+            ],
+            [initial, attempt(10)],
+            {"ims-session:%s:1.1" % CAP: initial["branches"]},
+        )
+        self.assertEqual(document["logical_call_count"], 1)
+        group = document["logical_calls"][0]
+        self.assertEqual(group["grouping_status"], "IN_DIALOG_SEQUENCE")
+        self.assertIn("ACCEPTED_DIALOG_BRIDGE", group["grouping_reason_codes"])
+        self.assertTrue(group["grouping_accepted"])
+
+    def test_two_competing_via_chains_sharing_call_id_are_ambiguous(self) -> None:
+        document = self._group(
+            [
+                sip_event(1, "INVITE", vias=["a"]),
+                sip_event(2, "INVITE", vias=["b"]),
+                sip_event(3, "INVITE", vias=["x", "a"]),
+                sip_event(4, "INVITE", vias=["y", "b"]),
+            ],
+            [attempt(1), attempt(2), attempt(3), attempt(4)],
+        )
+        self.assertEqual(document["logical_call_count"], 1)
+        group = document["logical_calls"][0]
+        self.assertEqual(group["grouping_status"], "AMBIGUOUS_MULTI_HOP")
+        self.assertIn("COMPETING_VIA_FORWARDING_CHAINS", group["grouping_reason_codes"])
+        self.assertFalse(group["grouping_accepted"])
+
+    def test_missing_cseq_is_never_multi_hop_proven(self) -> None:
+        event = sip_event(1, "INVITE", vias=["a"])
+        event["headers"]["cseq"]["sequence"] = None
+        document = self._group([event, sip_event(2, "INVITE", vias=["b", "a"])], [attempt(1), attempt(2)])
+        unresolved = [
+            group
+            for group in document["logical_calls"]
+            if group["grouping_status"] == "UNRESOLVED_IDENTITY"
+        ]
+        self.assertEqual(len(unresolved), 1)
+        self.assertIn("CSEQ_NOT_ESTABLISHED", unresolved[0]["grouping_reason_codes"])
+
+    def test_missing_via_branch_identity_is_ambiguous(self) -> None:
+        document = self._group(
+            [sip_event(1, "INVITE", vias=["a"]), sip_event(2, "INVITE", vias=["b"])],
+            [attempt(1), attempt(2)],
+        )
+        self.assertEqual(
+            document["logical_calls"][0]["grouping_status"], "AMBIGUOUS_MULTI_HOP"
+        )
+
+    def test_missing_identity_key_is_unresolved(self) -> None:
+        event = sip_event(1, "INVITE")
+        event["identity_reference_status"] = "UNAVAILABLE_NO_KEY"
+        event["call_id_reference"] = None
+        document = self._group([event], [attempt(1)])
+        self.assertEqual(
+            document["logical_calls"][0]["grouping_status"], "UNRESOLVED_IDENTITY"
+        )
+        self.assertIn(
+            "SIP_IDENTITY_REFERENCE_UNAVAILABLE",
+            document["logical_calls"][0]["grouping_reason_codes"],
+        )
+        self.assertFalse(document["accepted_logical_call"][
+            document["logical_calls"][0]["logical_call_reference"]
+        ])
+
+    def test_identical_via_stack_is_repeated_observation(self) -> None:
+        document = self._group(
+            [sip_event(1, "INVITE", vias=["a", "b"]), sip_event(2, "INVITE", vias=["a", "b"])],
+            [attempt(1), attempt(2)],
+        )
+        self.assertEqual(
+            document["logical_calls"][0]["grouping_status"],
+            "REPEATED_OBSERVATION_ONLY",
+        )
+        self.assertTrue(document["logical_calls"][0]["grouping_accepted"])
+
+    def test_b2bua_call_id_change_is_not_merged(self) -> None:
+        document = self._group(
+            [
+                sip_event(1, "INVITE", call_id="leg-a", vias=["a"]),
+                sip_event(2, "INVITE", call_id="leg-b", vias=["b", "a"]),
+            ],
+            [attempt(1), attempt(2)],
+        )
+        self.assertEqual(document["logical_call_count"], 2)
+
+    def test_shared_transaction_reference_is_ambiguous(self) -> None:
+        first = attempt(1)
+        second = attempt(2)
+        second["initial_invite_transaction_reference"] = first[
+            "initial_invite_transaction_reference"
+        ]
+        document = self._group(
+            [sip_event(1, "INVITE", vias=["a"]), sip_event(2, "INVITE", vias=["b", "a"])],
+            [first, second],
+        )
+        self.assertEqual(
+            document["logical_calls"][0]["grouping_status"], "AMBIGUOUS_MULTI_HOP"
+        )
+        self.assertIn(
+            "TRANSACTION_OWNERSHIP_NOT_INDEPENDENT",
+            document["logical_calls"][0]["grouping_reason_codes"],
+        )
+
+
+class MediaOwnershipGateTests(unittest.TestCase):
+    def test_offer_and_answer_without_established_exchange_is_insufficient(self) -> None:
+        document = run(
+            attempts=[attempt(1, answer_frames=[2], branches=[branch(f"sip-dialog:{CAP}:2.1", answer_frames=[2])])],
+            exchanges=[
+                exchange(
+                    1,
+                    branch_reference=f"sip-dialog:{CAP}:2.1",
+                    offer_frame=1,
+                    answer_frame=2,
+                    association_status="INSUFFICIENT_EVIDENCE",
+                )
+            ],
+            sdp_messages=[sdp_message(1), sdp_message(2)],
+            correlations=[correlation("sdp-rtp-transport:synthetic-call.pcapng:1.1.0", offer_frames=[1], answer_frames=[2])],
+            rtp_events=[rtp_event(f"rtp-packet:{CAP}:4.1", 4, sequence=1)],
+            streams=[stream()],
+        )
+        logical = document["logical_calls"][0]
+        self.assertEqual(logical["ownership_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertIn(
+            "ESTABLISHED_OFFER_ANSWER_EXCHANGE_NOT_OBSERVED", logical["ownership_basis"]
+        )
+
+    def test_offer_and_answer_from_different_calls_is_not_owned(self) -> None:
+        document = run(
+            attempts=[
+                attempt(1, answer_frames=[2], branches=[branch(f"sip-dialog:{CAP}:2.1", answer_frames=[2])]),
+                attempt(20, answer_frames=[21], branches=[branch(f"sip-dialog:{CAP}:21.1", answer_frames=[21])]),
+            ],
+            exchanges=[
+                exchange(1, branch_reference=None, offer_frame=20, answer_frame=21),
+                exchange(20, branch_reference=None, offer_frame=20, answer_frame=21),
+            ],
+            sdp_messages=[sdp_message(1), sdp_message(2), sdp_message(20), sdp_message(21)],
+            correlations=[correlation("sdp-rtp-transport:synthetic-call.pcapng:20.1.0", offer_frames=[20], answer_frames=[21])],
+            rtp_events=[rtp_event(f"rtp-packet:{CAP}:24.1", 24, sequence=1)],
+            streams=[stream()],
+        )
+        statuses = {
+            item["attempt_reference"]: item["evidence_status"]
+            for item in document["attempts"]
+        }
+        self.assertNotEqual(statuses[f"ims-session:{CAP}:1.1"], "EVIDENCE_CHAIN_SUPPORTED")
+
+    def test_answer_shared_across_distinct_branches_is_rejected(self) -> None:
+        document = run(
+            attempts=[
+                attempt(
+                    1,
+                    answer_frames=[2],
+                    branches=[
+                        branch(f"sip-dialog:{CAP}:2.1", answer_frames=[2]),
+                        branch(f"sip-dialog:{CAP}:2.2", answer_frames=[2]),
+                    ],
+                )
+            ],
+            exchanges=[
+                exchange(1, branch_reference=f"sip-dialog:{CAP}:2.1", offer_frame=1, answer_frame=2),
+                exchange(1, branch_reference=f"sip-dialog:{CAP}:2.2", offer_frame=1, answer_frame=2),
+            ],
+            sdp_messages=[sdp_message(1), sdp_message(2)],
+            correlations=[correlation("sdp-rtp-transport:synthetic-call.pcapng:1.1.0", offer_frames=[1], answer_frames=[2])],
+            rtp_events=[rtp_event(f"rtp-packet:{CAP}:4.1", 4, sequence=1)],
+            streams=[stream()],
+        )
+        logical = document["logical_calls"][0]
+        self.assertIn(
+            "COMPETING_BRANCH_ANSWER_CONTAMINATION", logical["ownership_basis"]
+        )
+        self.assertEqual(logical["ownership_status"], "INSUFFICIENT_EVIDENCE")
+
+    def test_matched_endpoint_without_exchange_is_not_owned(self) -> None:
+        document = run(
+            attempts=[attempt(1, branches=[branch(f"sip-event:{CAP}:1.1")])],
+            exchanges=[],
+            sdp_messages=[sdp_message(1)],
+            correlations=[correlation("sdp-rtp-transport:synthetic-call.pcapng:1.1.0", offer_frames=[1])],
+            rtp_events=[rtp_event(f"rtp-packet:{CAP}:4.1", 4, sequence=1)],
+            streams=[stream()],
+        )
+        logical = document["logical_calls"][0]
+        self.assertEqual(logical["ownership_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertEqual(
+            logical["diagnostic_review"]["diagnostic_result"]["sdp_association_outcome"],
+            "OFFER_ANSWER_NOT_ESTABLISHED",
+        )
+
+    def test_rtp_without_sdp_is_not_owned(self) -> None:
+        document = run(
+            attempts=[attempt(1)],
+            exchanges=[],
+            sdp_messages=[],
+            correlations=[],
+            rtp_events=[rtp_event(f"rtp-packet:{CAP}:4.1", 4, sequence=1)],
+            streams=[stream()],
+        )
+        logical = document["logical_calls"][0]
+        self.assertEqual(logical["ownership_status"], "INSUFFICIENT_EVIDENCE")
+        self.assertEqual(
+            logical["diagnostic_review"]["diagnostic_result"]["rtp_evidence_outcome"],
+            "RTP_NOT_OBSERVED",
+        )
+
+    def test_multiple_streams_with_competing_ownership_are_ambiguous(self) -> None:
+        document = run(
+            attempts=[
+                attempt(1, answer_frames=[2], branches=[branch(f"sip-dialog:{CAP}:2.1", answer_frames=[2])]),
+                attempt(20, answer_frames=[21], branches=[branch(f"sip-dialog:{CAP}:21.1", answer_frames=[21])]),
+            ],
+            exchanges=[
+                exchange(1, branch_reference=f"sip-dialog:{CAP}:2.1", offer_frame=1, answer_frame=2),
+                exchange(20, branch_reference=f"sip-dialog:{CAP}:21.1", offer_frame=20, answer_frame=21),
+            ],
+            sdp_messages=[sdp_message(1), sdp_message(2), sdp_message(20), sdp_message(21)],
+            correlations=[
+                correlation("sdp-rtp-transport:synthetic-call.pcapng:1.1.0", offer_frames=[1], answer_frames=[2]),
+                correlation("sdp-rtp-transport:synthetic-call.pcapng:20.1.0", offer_frames=[20], answer_frames=[21]),
+            ],
+            rtp_events=[
+                rtp_event(f"rtp-packet:{CAP}:4.1", 4, sequence=1, udp=10),
+                rtp_event(f"rtp-packet:{CAP}:5.1", 5, sequence=2, udp=11),
+            ],
+            streams=[stream(udp=10), stream(udp=11)],
+        )
+        statuses = {item["ownership_status"] for item in document["logical_calls"]}
+        self.assertIn("AMBIGUOUS_OWNERSHIP", statuses)
+
+    def test_deleting_one_correlation_downgrades_only_that_call(self) -> None:
+        document = run(
+            attempts=[
+                attempt(1, answer_frames=[2], branches=[branch(f"sip-dialog:{CAP}:2.1", answer_frames=[2])]),
+                attempt(20, answer_frames=[21], branches=[branch(f"sip-dialog:{CAP}:21.1", answer_frames=[21])]),
+            ],
+            exchanges=[
+                exchange(1, branch_reference=f"sip-dialog:{CAP}:2.1", offer_frame=1, answer_frame=2),
+                exchange(20, branch_reference=f"sip-dialog:{CAP}:21.1", offer_frame=20, answer_frame=21),
+            ],
+            sdp_messages=[sdp_message(1), sdp_message(2), sdp_message(20), sdp_message(21)],
+            correlations=[
+                correlation("sdp-rtp-transport:synthetic-call.pcapng:1.1.0", offer_frames=[1], answer_frames=[2], udp_streams=[10]),
+            ],
+            rtp_events=[
+                rtp_event(f"rtp-packet:{CAP}:4.1", 4, sequence=1, udp=10),
+                rtp_event(f"rtp-packet:{CAP}:24.1", 24, sequence=1, udp=20),
+            ],
+            streams=[stream(udp=10), stream(udp=20)],
+        )
+        by_member = {
+            logical["member_ims_attempt_references"][0]: logical["ownership_status"]
+            for logical in document["logical_calls"]
+        }
+        self.assertEqual(by_member[f"ims-session:{CAP}:1.1"], "LOGICAL_CALL_MEDIA_OWNED")
+        self.assertEqual(by_member[f"ims-session:{CAP}:20.1"], "INSUFFICIENT_EVIDENCE")
+
+
+class LogicalRtcpOwnershipTests(unittest.TestCase):
+    def _owned_call(self, rtcp_events: list[dict], streams: list[dict] | None = None) -> dict:
+        return run(
+            attempts=[
+                attempt(1, answer_frames=[2], branches=[branch(f"sip-dialog:{CAP}:2.1", answer_frames=[2])])
+            ],
+            exchanges=[exchange(1, branch_reference=f"sip-dialog:{CAP}:2.1", offer_frame=1, answer_frame=2)],
+            sdp_messages=[sdp_message(1), sdp_message(2)],
+            correlations=[correlation("sdp-rtp-transport:synthetic-call.pcapng:1.1.0", offer_frames=[1], answer_frames=[2], udp_streams=[10])],
+            rtp_events=[rtp_event(f"rtp-packet:{CAP}:4.1", 4, sequence=1, udp=10)],
+            rtcp_events=rtcp_events,
+            streams=streams or [stream(udp=10)],
+        )
+
+    def test_unique_sender_and_reportee_association_is_call_owned(self) -> None:
+        event = rtcp_event(
+            9,
+            packet_type=200,
+            sender_ssrc=SSRC_A,
+            report_blocks=[
+                {
+                    "reported_ssrc": 0x11111111,
+                    "fraction_lost": 0,
+                    "cumulative_packets_lost": 0,
+                    "extended_highest_sequence": 20,
+                    "interarrival_jitter": 160,
+                    "last_sr_timestamp": 0,
+                    "delay_since_last_sr": 0,
+                }
+            ],
+        )
+        document = self._owned_call([event])
+        rtcp = document["logical_calls"][0]["rtcp_evidence"]
+        self.assertEqual(rtcp["ownership_status"], "LOGICAL_CALL_RTCP_ASSOCIATED")
+        self.assertEqual(rtcp["established_source_association_count"], 2)
+
+    def test_nonempty_ambiguous_association_never_becomes_call_owned(self) -> None:
+        event = rtcp_event(9, packet_type=200, sender_ssrc=SSRC_A, udp=99)
+        document = self._owned_call(
+            [event], streams=[stream(udp=10), stream(udp=11)]
+        )
+        rtcp = document["logical_calls"][0]["rtcp_evidence"]
+        self.assertEqual(rtcp["ownership_status"], "RTCP_CALL_ASSOCIATION_AMBIGUOUS")
+        self.assertGreaterEqual(rtcp["association_count"], 1)
+        self.assertEqual(rtcp["established_source_association_count"], 0)
+        self.assertNotEqual(rtcp["ownership_status"], "LOGICAL_CALL_RTCP_ASSOCIATED")
+
+    def test_unknown_clock_rate_keeps_jitter_ms_null(self) -> None:
+        event = rtcp_event(
+            9,
+            packet_type=200,
+            sender_ssrc=SSRC_A,
+            report_blocks=[
+                {
+                    "reported_ssrc": 0x11111111,
+                    "fraction_lost": 50,
+                    "cumulative_packets_lost": 5,
+                    "extended_highest_sequence": 20,
+                    "interarrival_jitter": 160,
+                    "last_sr_timestamp": 0,
+                    "delay_since_last_sr": 0,
+                }
+            ],
+        )
+        document = self._owned_call(
+            [event], streams=[stream(udp=10, payload_types=[105])]
+        )
+        reports = document["logical_calls"][0]["rtcp_evidence"]["receiver_reported_quality"]
+        self.assertTrue(reports)
+        self.assertIsNone(reports[0]["jitter_ms"])
+        self.assertEqual(
+            reports[0]["jitter_ms_status"], "RTP_CLOCK_RATE_NOT_PROVEN_FOR_ASSOCIATION"
+        )
+        self.assertEqual(reports[0]["measurement_origin"], "RECEIVER_REPORTED")
+        self.assertEqual(reports[0]["fraction_lost"], 50)
+        self.assertEqual(reports[0]["cumulative_packets_lost"], 5)
+        self.assertIn("CONFIRMED_NETWORK_PACKET_LOSS", document["not_confirmed"])
+
+
+class NegativeDiagnosticTests(unittest.TestCase):
+    def _negative(self, status: int) -> dict:
+        return run(
+            attempts=[attempt(1, answer_frames=[2])],
+            exchanges=[exchange(1, branch_reference=None, offer_frame=1, answer_frame=None)],
+            sdp_messages=[sdp_message(1)],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            response_status_by_frame={2: status},
+            sip_overrides={
+                2: sip_event(
+                    2,
+                    status=status,
+                    call_id="call-1",
+                    from_tag="from-1",
+                    to_tag="to-1",
+                )
+            },
+        )
+
+    def test_sip_4xx_outcome_has_exact_response_reference(self) -> None:
+        result = self._negative(486)["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        deviation = result["first_supported_protocol_deviation"]
+        self.assertEqual(deviation["reason_code"], "SIP_FINAL_RESPONSE_NON_2XX")
+        self.assertEqual(deviation["status_code"], 486)
+        self.assertEqual(deviation["event_reference"], f"sip-event:{CAP}:2.1")
+        self.assertEqual(deviation["frame_number"], 2)
+        self.assertEqual(result["boundary_classification"], "OBSERVED_PROTOCOL_DEVIATION")
+        self.assertFalse(deviation["network_root_cause_established"])
+
+    def test_sip_5xx_outcome_has_exact_response_reference(self) -> None:
+        result = self._negative(503)["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertEqual(
+            result["first_supported_protocol_deviation"]["status_code"], 503
+        )
+
+    def test_missing_sdp_answer_is_not_network_failure(self) -> None:
+        document = run(
+            attempts=[attempt(1)],
+            exchanges=[exchange(1, branch_reference=None, offer_frame=1, answer_frame=None)],
+            sdp_messages=[sdp_message(1)],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+        )
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertIsNone(result["first_supported_protocol_deviation"])
+        self.assertEqual(result["boundary_classification"], "MISSING_OBSERVATION")
+        self.assertIn("SDP_ANSWER_NOT_OBSERVED", document["logical_calls"][0]["missing_and_ambiguous_evidence"])
+
+    def test_missing_rtp_is_not_media_failure(self) -> None:
+        document = run(
+            attempts=[attempt(1, answer_frames=[2], branches=[branch(f"sip-dialog:{CAP}:2.1", answer_frames=[2])])],
+            exchanges=[exchange(1, branch_reference=f"sip-dialog:{CAP}:2.1", offer_frame=1, answer_frame=2)],
+            sdp_messages=[sdp_message(1), sdp_message(2)],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+        )
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertEqual(result["rtp_evidence_outcome"], "RTP_NOT_OBSERVED")
+        self.assertNotEqual(result["boundary_classification"], "OBSERVED_PROTOCOL_DEVIATION")
+
+    def test_encrypted_or_unavailable_sdp_is_a_visibility_limitation(self) -> None:
+        event = sip_event(
+            1,
+            "INVITE",
+            call_id=f"call-1",
+            from_tag=f"from-1",
+            body_present=True,
+            content_type="application/sdp",
+        )
+        document = run(
+            attempts=[attempt(1)],
+            exchanges=[],
+            sdp_messages=[],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            sip_overrides={1: event},
+        )
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertTrue(document["capture_visibility_limited"])
+        self.assertEqual(
+            result["boundary_classification"], "CAPTURE_VISIBILITY_LIMITATION"
+        )
+
+    def test_valid_call_has_no_abnormal_boundary(self) -> None:
+        document = simple_chain()
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertEqual(result["boundary_classification"], "NO_ABNORMAL_EVIDENCE_OBSERVED")
+        self.assertIsNone(result["first_supported_protocol_deviation"])
+        self.assertIsNone(result["first_missing_evidence_boundary"])
+        self.assertEqual(result["diagnostic_completeness_status"], "COMPLETE")
+
+    def test_two_independent_calls_are_both_owned(self) -> None:
+        document = run(
+            attempts=[
+                attempt(1, answer_frames=[2], branches=[branch(f"sip-dialog:{CAP}:2.1", answer_frames=[2])]),
+                attempt(20, answer_frames=[21], branches=[branch(f"sip-dialog:{CAP}:21.1", answer_frames=[21])]),
+            ],
+            exchanges=[
+                exchange(1, branch_reference=f"sip-dialog:{CAP}:2.1", offer_frame=1, answer_frame=2),
+                exchange(20, branch_reference=f"sip-dialog:{CAP}:21.1", offer_frame=20, answer_frame=21),
+            ],
+            sdp_messages=[sdp_message(1), sdp_message(2), sdp_message(20), sdp_message(21)],
+            correlations=[
+                correlation("sdp-rtp-transport:synthetic-call.pcapng:1.1.0", offer_frames=[1], answer_frames=[2], udp_streams=[10]),
+                correlation("sdp-rtp-transport:synthetic-call.pcapng:20.1.0", offer_frames=[20], answer_frames=[21], udp_streams=[20]),
+            ],
+            rtp_events=[
+                rtp_event(f"rtp-packet:{CAP}:4.1", 4, sequence=1, udp=10),
+                rtp_event(f"rtp-packet:{CAP}:24.1", 24, sequence=1, udp=20),
+            ],
+            streams=[stream(udp=10), stream(udp=20)],
+        )
+        self.assertEqual(document["logical_call_count"], 2)
+        self.assertEqual(
+            document["logical_call_ownership_counts"].get("LOGICAL_CALL_MEDIA_OWNED"), 2
+        )
+
+
+class RtpPacketIdentityBoundaryTests(unittest.TestCase):
+    HEADER = {
+        "interface_id": "0",
+        "encap_type": "25",
+        "protocols": "sll:ip:udp:rtp",
+        "outer_udp_stream": "2",
+        "inner_udp_stream": "2",
+        "gtp_present": False,
+    }
+
+    def test_byte_identical_packets_in_independent_streams_are_not_grouped(self) -> None:
+        fingerprint = "rtp-packet-fingerprint-v1:" + "c" * 64
+        document = diagnostics.duplicate_investigation(
+            CAP,
+            [
+                rtp_event(f"rtp-packet:{CAP}:1.1", 1, sequence=1, udp=10, fingerprint=fingerprint),
+                rtp_event(f"rtp-packet:{CAP}:2.1", 2, sequence=1, udp=11, fingerprint=fingerprint),
+            ],
+            None,
+            {1: self.HEADER, 2: dict(self.HEADER, outer_udp_stream="3", inner_udp_stream="3")},
+        )
+        self.assertEqual(document["multi_vantage_supported_event_count"], 0)
+        self.assertEqual(document["cross_stream_byte_identity_collision_count"], 1)
+        self.assertEqual(document["distinct_byte_identity_count"], 2)
+
+    def test_ambiguous_encapsulated_transport_is_unresolved(self) -> None:
+        document = diagnostics.duplicate_investigation(
+            CAP,
+            [
+                rtp_event(f"rtp-packet:{CAP}:1.1", 1, sequence=1, fingerprint=None, fingerprint_status="UNAVAILABLE_TRANSPORT_AMBIGUOUS"),
+                rtp_event(f"rtp-packet:{CAP}:2.1", 2, sequence=1, fingerprint=None, fingerprint_status="UNAVAILABLE_TRANSPORT_AMBIGUOUS"),
+            ],
+            None,
+            {1: self.HEADER, 2: self.HEADER},
+        )
+        self.assertEqual(document["rtp_packet_identity_coverage"], "UNAVAILABLE")
+        self.assertEqual(
+            document["classification_counts"]["PACKET_IDENTITY_UNRESOLVED"], 1
+        )
+
+    def test_truncated_rtp_packet_is_incomplete_evidence(self) -> None:
+        document = diagnostics.duplicate_investigation(
+            CAP,
+            [rtp_event(f"rtp-packet:{CAP}:1.1", 1, sequence=1, fingerprint=None, fingerprint_status="UNAVAILABLE_INCOMPLETE_PACKET")],
+            None,
+            {1: self.HEADER},
+        )
+        self.assertEqual(document["fingerprint_unavailable_observation_count"], 1)
+        self.assertEqual(document["packet_identity_unresolved_event_count"], 0)
+
+    def test_no_retransmission_is_fabricated(self) -> None:
+        views = {frame: self.HEADER for frame in (1, 2)}
+        document = diagnostics.duplicate_investigation(
+            CAP,
+            [
+                rtp_event(f"rtp-packet:{CAP}:1.1", 1, sequence=1),
+                rtp_event(f"rtp-packet:{CAP}:2.1", 2, sequence=1),
+            ],
+            None,
+            views,
+        )
+        self.assertEqual(document["potential_retransmission_event_count"], 0)
+        self.assertTrue(
+            all(group.get("retransmission_established") is False for group in document["groups"])
+        )
 
 
 if __name__ == "__main__":

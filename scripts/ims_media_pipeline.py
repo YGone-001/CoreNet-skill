@@ -991,6 +991,23 @@ def execute_media_pipeline(
         "call_diagnostics": call_diagnostics,
         "per_call_attempts": (call_diagnostics.get("attempts") or [])[:MAX_CALLS],
         "per_call_branches": (call_diagnostics.get("branches") or [])[:MAX_CALLS],
+        "logical_calls": (call_diagnostics.get("logical_calls") or [])[:MAX_CALLS],
+        "logical_call_grouping": call_diagnostics.get("logical_call_grouping") or {},
+        "logical_call_ownership_counts": call_diagnostics.get(
+            "logical_call_ownership_counts"
+        ) or {},
+        "logical_call_boundary_classification_counts": call_diagnostics.get(
+            "logical_call_boundary_classification_counts"
+        ) or {},
+        "logical_call_diagnostic_completeness_counts": call_diagnostics.get(
+            "logical_call_diagnostic_completeness_counts"
+        ) or {},
+        "accepted_logical_call_count": call_diagnostics.get(
+            "accepted_logical_call_count", 0
+        ),
+        "capture_visibility_limited": call_diagnostics.get(
+            "capture_visibility_limited", False
+        ),
         "duplicate_observation_investigation": call_diagnostics.get(
             "duplicate_observation_investigation"
         ) or {},

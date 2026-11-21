@@ -201,6 +201,8 @@
         "null"
       ],
       "enum": [
+        "CAPTURE_SHA256_SCOPED_HMAC_SHA256",
+        "CAPTURE_BASENAME_SCOPED_HMAC_SHA256",
         "CAPTURE_SCOPED_HMAC_SHA256",
         null
       ]

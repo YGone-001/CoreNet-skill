@@ -28,6 +28,7 @@ PROTOCOL = "SIP"
 EVENT_SCHEMA_VERSION = "1.1.0"
 IDENTITY_REFERENCE_PREFIX = "sip-identity-hmac-sha256:v1:"
 IDENTITY_DOMAIN = b"corenet-sip-identity-v1\x00"
+CAPTURE_SHA_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 EXIT_MALFORMED_INPUT = 2
 EXIT_NO_EVENTS = 3
@@ -836,6 +837,7 @@ def _build_event(
     integrity_findings: list[str],
     capture_truncated: bool,
     identity_key: bytes | None = None,
+    capture_scope: str | None = None,
 ) -> dict[str, Any]:
     raw_method = _text(headers.get("method"))
     method_valid = bool(raw_method and METHOD_PATTERN.fullmatch(raw_method))
@@ -999,12 +1001,19 @@ def _build_event(
 
     if not isinstance(identity_key, bytes) or len(identity_key) != 32:
         identity_key = None
+    if not isinstance(capture_scope, str) or not CAPTURE_SHA_PATTERN.fullmatch(
+        capture_scope
+    ):
+        capture_scope = None
 
     def _identity_reference(domain: bytes, value: str | None) -> str | None:
         if identity_key is None or not value:
             return None
+        scope = capture_scope or ""
         payload = (
             IDENTITY_DOMAIN
+            + scope.encode("ascii")
+            + b"\x00"
             + capture.encode("utf-8")
             + b"\x00"
             + domain
@@ -1065,7 +1074,11 @@ def _build_event(
         "via_branch_references": via_branch_references,
         "identity_reference_status": identity_reference_status,
         "identity_reference_scope": (
-            "CAPTURE_SCOPED_HMAC_SHA256" if identity_key is not None else None
+            "CAPTURE_SHA256_SCOPED_HMAC_SHA256"
+            if identity_key is not None and capture_scope is not None
+            else "CAPTURE_BASENAME_SCOPED_HMAC_SHA256"
+            if identity_key is not None
+            else None
         ),
         "headers": {
             "call_id": {
@@ -1378,7 +1391,7 @@ def _pdml_integrity(proto: ElementTree.Element) -> list[str]:
 
 def parse_pdml_messages(
     text: str, capture_file: str | None = None, *, include_body: bool = False,
-    identity_key: bytes | None = None,
+    identity_key: bytes | None = None, capture_scope: str | None = None,
 ) -> list[dict[str, Any]]:
     try:
         root = ElementTree.fromstring(text)
@@ -1410,6 +1423,7 @@ def parse_pdml_messages(
                 integrity_findings=_pdml_integrity(proto),
                 capture_truncated=truncated,
                 identity_key=identity_key,
+                capture_scope=capture_scope,
             )
             records.append(
                 _build_message_record(
@@ -1779,7 +1793,10 @@ def _jsonl_headers(raw: Any) -> dict[str, Any]:
 
 
 def normalize_record_message(
-    record: dict[str, Any], *, identity_key: bytes | None = None
+    record: dict[str, Any],
+    *,
+    identity_key: bytes | None = None,
+    capture_scope: str | None = None,
 ) -> dict[str, Any]:
     if not isinstance(record, dict):
         raise InputError("each JSONL record must be an object")
@@ -1822,6 +1839,7 @@ def normalize_record_message(
         integrity_findings=findings,
         capture_truncated=truncated,
         identity_key=identity_key,
+        capture_scope=capture_scope,
     )
     return _build_message_record(
         event, headers, transport, observation_role=observation_role
@@ -1833,7 +1851,10 @@ def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def records_from_jsonl_messages(
-    path: Path, *, identity_key: bytes | None = None
+    path: Path,
+    *,
+    identity_key: bytes | None = None,
+    capture_scope: str | None = None,
 ) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as handle:
@@ -1847,7 +1868,11 @@ def records_from_jsonl_messages(
             if not isinstance(record, dict):
                 raise InputError(f"line {line_number} is not a JSON object")
             records.append(
-                normalize_record_message(record, identity_key=identity_key)
+                normalize_record_message(
+                    record,
+                    identity_key=identity_key,
+                    capture_scope=capture_scope,
+                )
             )
     return _ordered_records(records)
 
@@ -1922,6 +1947,7 @@ def messages_for_input(
     *,
     include_body: bool = False,
     identity_key: bytes | None = None,
+    capture_scope: str | None = None,
 ) -> tuple[list[dict[str, Any]], str | None]:
     if not path.is_file():
         raise InputError(f"input does not exist: {path}")
@@ -1942,19 +1968,21 @@ def messages_for_input(
         decoder = tshark_version()
         records = parse_pdml_messages(
             pdml_for_capture(path), path.name, include_body=include_body,
-            identity_key=identity_key,
+            identity_key=identity_key, capture_scope=capture_scope,
         )
     elif fmt == "pdml":
         records = parse_pdml_messages(
             path.read_text(encoding="utf-8"), path.name, include_body=include_body,
-            identity_key=identity_key,
+            identity_key=identity_key, capture_scope=capture_scope,
         )
     elif fmt == "fields-jsonl":
         if include_body:
             raise InputError(
                 "private SIP body retention is only available from a local decoder input"
             )
-        records = records_from_jsonl_messages(path, identity_key=identity_key)
+        records = records_from_jsonl_messages(
+            path, identity_key=identity_key, capture_scope=capture_scope
+        )
     else:
         raise InputError(f"unsupported input format: {fmt}")
     seen: set[str] = set()
@@ -1967,10 +1995,14 @@ def messages_for_input(
 
 
 def events_for_input(
-    path: Path, input_format: str = "auto", *, identity_key: bytes | None = None
+    path: Path,
+    input_format: str = "auto",
+    *,
+    identity_key: bytes | None = None,
+    capture_scope: str | None = None,
 ) -> tuple[list[dict[str, Any]], str | None]:
     records, decoder = messages_for_input(
-        path, input_format, identity_key=identity_key
+        path, input_format, identity_key=identity_key, capture_scope=capture_scope
     )
     return [record["event"] for record in records], decoder
 

@@ -196,13 +196,27 @@ RTP clock rate and source association are proven.
 
 The workflow also publishes logical IMS call groups. Multi-hop INVITE transactions
 are grouped only when capture-scoped HMAC Call-ID, From-tag, To-tag and CSeq identity
-agree and the Via-hop stack is nested; a Call-ID match alone never merges attempts.
-Each logical call lists its member attempts, transactions, Dialog branches, SDP
-exchanges, candidate transports, source streams, temporal constraint, RTCP evidence
-and an explicit `LOGICAL_CALL_MEDIA_OWNED`, `AMBIGUOUS_OWNERSHIP` or
-`INSUFFICIENT_EVIDENCE` status. RTP duplicate identity is derived from complete RTP
-packet bytes through a capture-scoped keyed HMAC; a header-tuple match is published
-only as a header-signature observation.
+agree, the CSeq method is confirmed, and a single coherent Via-hop stack is nested; a
+Call-ID match alone never merges attempts, and differing CSeq initial INVITEs merge
+only through an accepted Dialog bridge. Each logical call lists its member attempts,
+transactions, Dialog branches, accepted SDP exchanges, candidate transports, source
+streams, temporal constraint, RTCP evidence and an explicit
+`LOGICAL_CALL_MEDIA_OWNED`, `AMBIGUOUS_OWNERSHIP`, `INSUFFICIENT_EVIDENCE` or
+`UNSUPPORTED_PROCEDURE` status. Ownership requires an accepted ESTABLISHED Offer/Answer
+Exchange, references inside the accepted logical-call context, a matched transport
+correlation and uniquely owned source streams. Every logical call also receives an
+ordered evidence review with `signaling_outcome`, `sdp_association_outcome`,
+`media_transport_ownership_outcome`, `rtp_evidence_outcome`, `rtcp_evidence_outcome`,
+`boundary_classification`, a first supported protocol deviation, a first missing-evidence
+boundary, the last supported observation and traceable source references.
+
+RTP duplicate identity is derived from complete RTP packet bytes through a
+capture-scoped keyed HMAC. `MULTI_VANTAGE_SUPPORTED` additionally requires a compatible
+inner transport path and differing capture-view evidence; byte-identical packets in
+independent streams are retained as byte identity but never collapsed into one
+physical observation. A header-tuple match is published only as a header-signature
+observation. RTCP-to-call ownership stays fail-closed when every source association is
+ambiguous.
 
 The public IMS/VoLTE capture corpus and its pinned provenance are recorded in the
 local acceptance record. Raw captures remain local-only and are never committed or
