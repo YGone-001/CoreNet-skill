@@ -810,7 +810,22 @@ def execute_media_pipeline(
     if endpoint_contexts:
         basis.append("SHARED_ENDPOINT_CONTEXT_PRESENT")
     call_summary = call_diagnostics.get("call_evidence_summary") or {}
-    if call_summary.get("attempt_count"):
+    logical_ownership = call_diagnostics.get("logical_call_ownership_counts") or {}
+    logical_total = sum(logical_ownership.values())
+    logical_owned = logical_ownership.get("LOGICAL_CALL_MEDIA_OWNED", 0)
+    if logical_total:
+        if logical_owned == logical_total:
+            basis.append("LOGICAL_CALL_MEDIA_OWNERSHIP_UNIFORM")
+        else:
+            if media_status == "SUCCESS":
+                media_status = "PARTIAL"
+            basis.append("PER_CALL_MEDIA_EVIDENCE_NOT_UNIFORMLY_SUPPORTED")
+        if logical_owned == 0:
+            basis.append("PER_CALL_MEDIA_OWNERSHIP_AMBIGUOUS")
+            basis.append(
+                "CAPTURE_WIDE_MEDIA_STATUS_DOES_NOT_IMPLY_PER_CALL_OWNERSHIP"
+            )
+    elif call_summary.get("attempt_count"):
         if not call_summary.get("all_attempts_supported"):
             if media_status == "SUCCESS":
                 media_status = "PARTIAL"

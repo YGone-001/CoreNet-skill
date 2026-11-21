@@ -194,6 +194,16 @@ RTCP-to-RTP association boundaries, and receiver-reported fraction lost, cumulat
 loss and jitter in RTP units. RTCP millisecond jitter is published only when a unique
 RTP clock rate and source association are proven.
 
+The workflow also publishes logical IMS call groups. Multi-hop INVITE transactions
+are grouped only when capture-scoped HMAC Call-ID, From-tag, To-tag and CSeq identity
+agree and the Via-hop stack is nested; a Call-ID match alone never merges attempts.
+Each logical call lists its member attempts, transactions, Dialog branches, SDP
+exchanges, candidate transports, source streams, temporal constraint, RTCP evidence
+and an explicit `LOGICAL_CALL_MEDIA_OWNED`, `AMBIGUOUS_OWNERSHIP` or
+`INSUFFICIENT_EVIDENCE` status. RTP duplicate identity is derived from complete RTP
+packet bytes through a capture-scoped keyed HMAC; a header-tuple match is published
+only as a header-signature observation.
+
 The public IMS/VoLTE capture corpus and its pinned provenance are recorded in the
 local acceptance record. Raw captures remain local-only and are never committed or
 uploaded to CI.

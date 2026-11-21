@@ -31,6 +31,11 @@ the application-level SDP extraction adapter. It is not part of the public SIP
 event, transaction or dialog artifact; raw SIP/SDP bodies are never published and no
 plaintext body file is written.
 
+With an owner-only capture-scoped identity key, the event artifact also publishes
+Call-ID, From-tag, To-tag and Via-branch references as domain-separated keyed
+HMAC-SHA-256 values. Raw identifiers are never published; without the key the
+identity status is `UNAVAILABLE_NO_KEY`.
+
 See `SKILL.md`, `references/field-reference.md`, `references/transactions.md`,
 `references/dialogs.md`, `references/privacy.md` and
 `references/failure-cases.md`.

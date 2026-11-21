@@ -234,7 +234,7 @@ def _validate_event(event: dict[str, Any], line_number: int) -> None:
     ):
         if key not in event:
             raise InputError(f"SIP event line {line_number} is missing {key}")
-    if event["event_schema_version"] != SIP_EVENT_SCHEMA_VERSION:
+    if event["event_schema_version"] not in {"1.0.0", SIP_EVENT_SCHEMA_VERSION}:
         raise InputError("SIP Event schema version is not accepted")
     if not isinstance(event["source_reference"], str) or not EVENT_REFERENCE_PATTERN.fullmatch(
         event["source_reference"]
@@ -389,7 +389,10 @@ def verify_provenance(
         raise InputError("IMS Session event source name does not match the supplied SIP Events")
     if session_provenance.get("event_sha256") != event_sha256:
         raise InputError("IMS Session event SHA-256 does not match the supplied SIP Events")
-    if session_provenance.get("event_schema_version") != SIP_EVENT_SCHEMA_VERSION:
+    if session_provenance.get("event_schema_version") not in {
+        "1.0.0",
+        SIP_EVENT_SCHEMA_VERSION,
+    }:
         raise InputError("IMS Session event schema version is not accepted")
     sdp_provenance = sdp.get("input_provenance") or {}
     sdp_captures = sdp_provenance.get("capture_files") or []

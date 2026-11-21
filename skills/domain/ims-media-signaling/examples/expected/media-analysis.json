@@ -46,7 +46,7 @@
     ],
     "capture_identity_source": "SIP_EVENT_CAPTURE_FILE",
     "ims_session_analysis_version": "0.1.0",
-    "ims_session_sha256": "c12f61b04687fd2d10231bfbb41dcd4b2f92128e1023a11d1e351e34a5353896",
+    "ims_session_sha256": "5be346c94a3d310755898430eebac4bb2c163e149204fa6684aa8ebeb2539aa7",
     "ims_session_source_name": "media-cases-ims-session.json",
     "input_status": "ACCEPTED",
     "sdp_analysis_sha256": "2520a9436a0e76321f81875ec5289fbe0d8053adbdc8e0ebbbe6900a753c551a",
@@ -54,8 +54,8 @@
     "sdp_analysis_version": "0.2.0",
     "sdp_capture_sha256": "b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7",
     "sdp_event_schema_version": "1.1.0",
-    "sip_event_schema_version": "1.0.0",
-    "sip_event_sha256": "4913e1e56a691348a9787f662f206a971c2e00b8ed681afa19a00ec5984c7ceb",
+    "sip_event_schema_version": "1.1.0",
+    "sip_event_sha256": "909d559fd2d42af902dc0ad6d0716f4fb22fb03062365e449a13bfc802907d46",
     "sip_event_source_name": "media-cases-events.jsonl"
   },
   "limitations": [

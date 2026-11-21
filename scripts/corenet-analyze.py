@@ -37,6 +37,8 @@ import importlib.util
 import json
 import os
 import re
+import secrets
+import stat
 import subprocess
 import sys
 import traceback
@@ -362,6 +364,26 @@ def capture_digest(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _ims_identity_key_file(work_dir: Path, capture: Path) -> Path:
+    """Create or reuse a capture-scoped owner-only key outside the repository."""
+    keys_dir = work_dir / "keys"
+    keys_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    path = keys_dir / f"{capture_digest(capture)}.key"
+    if path.exists():
+        file_stat = path.stat()
+        if (
+            not stat.S_ISREG(file_stat.st_mode)
+            or file_stat.st_size != 32
+            or (os.name == "posix" and stat.S_IMODE(file_stat.st_mode) & 0o077)
+        ):
+            raise OSError("IMS identity key file is invalid")
+        return path
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "wb") as handle:
+        handle.write(secrets.token_bytes(32))
+    return path
 
 
 def repository_revision(root: Path = ROOT) -> str | None:
@@ -1561,14 +1583,28 @@ def _render_ims_media(lines: list[str], media: dict[str, Any]) -> None:
                 f"{_value(branch.get('evidence_status'))} / scope={_value(branch.get('ownership_scope'))} / "
                 f"temporal={_value((branch.get('temporal') or {}).get('temporal_association_status'))}"
             )
+    for logical in (media.get("logical_calls") or [])[:6]:
+        lines.append(
+            f"  logical call    : {_value(logical.get('logical_call_reference'))} / "
+            f"group={_value(logical.get('grouping_status'))} / "
+            f"ownership={_value(logical.get('ownership_status'))} / "
+            f"attempts={len(logical.get('member_ims_attempt_references') or [])} / "
+            f"streams={len(logical.get('source_stream_references') or [])} / "
+            f"temporal={_value((logical.get('temporal_constraints') or {}).get('status'))} / "
+            f"rtcp={_value((logical.get('rtcp_evidence') or {}).get('association_count'))}"
+        )
     duplicate = media.get("duplicate_observation_investigation") or {}
     if duplicate:
         lines.append(
             f"  RTP duplicates  : raw={_value(duplicate.get('raw_rtp_observation_count'))}, "
-            f"distinct_packet_identities={_value(duplicate.get('distinct_packet_identity_count'))}, "
-            f"multi_vantage={_value(duplicate.get('multi_vantage_event_count'))}, "
-            f"duplicate_packet={_value(duplicate.get('duplicate_packet_event_count'))}, "
-            f"sequence_only={_value(duplicate.get('sequence_only_duplicate_event_count'))}, "
+            f"byte_identity={_value(duplicate.get('distinct_byte_identity_count'))}, "
+            f"header_signature={_value(duplicate.get('distinct_header_signature_count'))}, "
+            f"byte_identical={_value(duplicate.get('byte_identical_duplicate_event_count'))}, "
+            f"multi_vantage_supported={_value(duplicate.get('multi_vantage_supported_event_count'))}, "
+            f"multi_vantage_consistent={_value(duplicate.get('multi_vantage_consistent_event_count'))}, "
+            f"sequence_only={_value(duplicate.get('duplicate_sequence_event_count'))}, "
+            f"unresolved={_value(duplicate.get('packet_identity_unresolved_event_count'))}, "
+            f"coverage={_value(duplicate.get('rtp_packet_identity_coverage'))}, "
             f"rtp_stream_reported={_value(duplicate.get('rtp_stream_reported_duplicate_sequence_observation_count'))}"
         )
     rtcp = media.get("rtcp_association") or {}
@@ -5991,6 +6027,13 @@ def execute_ims_pipeline(
     discards a valid independent SIP or Diameter result.
     """
     observed_set = observed or set()
+    identity_key_file = endpoint_key_file
+    identity_key_error: str | None = None
+    if identity_key_file is None:
+        try:
+            identity_key_file = _ims_identity_key_file(work_dir, capture)
+        except OSError as exc:
+            identity_key_error = scrub_free_text(str(exc)) or "identity key unavailable"
     run_dir = create_run_directory(work_dir, DOMAIN_IMS)
     sip_events = run_dir / "sip-events.jsonl"
     sip_transactions = run_dir / "sip-transactions.json"
@@ -6014,23 +6057,26 @@ def execute_ims_pipeline(
     sip_executions = 0
     if "SIP" in observed_set:
         sip_executions += 1
+        sip_command = [
+            sys.executable,
+            str(SIP_EXTRACT_SCRIPT),
+            str(capture),
+            "--input-format",
+            "capture",
+            "--output",
+            str(sip_events),
+            "--transaction-output",
+            str(sip_transactions),
+            "--dialog-output",
+            str(sip_dialogs),
+            "--trace-output",
+            str(sip_trace),
+            "--force",
+        ]
+        if identity_key_file is not None:
+            sip_command.extend(["--identity-key-file", str(identity_key_file)])
         code, detail = _ims_stage(
-            [
-                sys.executable,
-                str(SIP_EXTRACT_SCRIPT),
-                str(capture),
-                "--input-format",
-                "capture",
-                "--output",
-                str(sip_events),
-                "--transaction-output",
-                str(sip_transactions),
-                "--dialog-output",
-                str(sip_dialogs),
-                "--trace-output",
-                str(sip_trace),
-                "--force",
-            ],
+            sip_command,
             "SIP extractor",
         )
         if code == 0:
@@ -6299,7 +6345,7 @@ def execute_ims_pipeline(
                     ims_session=session,
                     capture_sha256=capture_digest(capture),
                     offline=offline,
-                    endpoint_key_file=endpoint_key_file,
+endpoint_key_file=identity_key_file,
                 )
             except Exception as exc:  # pragma: no cover - defensive orchestration guard
                 media_error = scrub_free_text(str(exc)) or "media pipeline failed"

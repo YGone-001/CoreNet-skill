@@ -230,11 +230,11 @@ def load_correlation(path: Path) -> dict[str, Any]:
         raise InputError("transport correlation SDP analysis version is not accepted")
     if provenance.get("sdp_event_schema_version") != SDP_EVENT_SCHEMA_VERSION:
         raise InputError("transport correlation SDP schema version is not accepted")
-    if provenance.get("rtp_rtcp_analysis_version") != RTP_ANALYSIS_VERSION:
+    if provenance.get("rtp_rtcp_analysis_version") not in {"0.4.0", RTP_ANALYSIS_VERSION}:
         raise InputError("transport correlation RTP analysis version is not accepted")
     if (
         provenance.get("rtp_rtcp_event_schema_version")
-        != RTP_EVENT_SCHEMA_VERSION
+        not in {"1.2.0", RTP_EVENT_SCHEMA_VERSION}
     ):
         raise InputError("transport correlation RTP schema version is not accepted")
     rtp_sha = provenance.get("rtp_rtcp_analysis_sha256")

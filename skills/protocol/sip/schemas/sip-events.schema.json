@@ -25,6 +25,12 @@
     "reason_phrase_length",
     "request_uri_present",
     "request_uri_length",
+    "call_id_reference",
+    "from_tag_reference",
+    "to_tag_reference",
+    "via_branch_references",
+    "identity_reference_status",
+    "identity_reference_scope",
     "headers",
     "transport",
     "body_present",
@@ -37,7 +43,7 @@
   ],
   "properties": {
     "event_schema_version": {
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "protocol": {
       "const": "SIP"
@@ -151,6 +157,53 @@
         "null"
       ],
       "minimum": 0
+    },
+    "call_id_reference": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sip-identity-hmac-sha256:v1:[0-9a-f]{64}$"
+    },
+    "from_tag_reference": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sip-identity-hmac-sha256:v1:[0-9a-f]{64}$"
+    },
+    "to_tag_reference": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sip-identity-hmac-sha256:v1:[0-9a-f]{64}$"
+    },
+    "via_branch_references": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "pattern": "^sip-identity-hmac-sha256:v1:[0-9a-f]{64}$"
+      }
+    },
+    "identity_reference_status": {
+      "type": "string",
+      "enum": [
+        "ESTABLISHED",
+        "UNAVAILABLE_NO_KEY",
+        "INCOMPLETE_IDENTITY"
+      ]
+    },
+    "identity_reference_scope": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "CAPTURE_SCOPED_HMAC_SHA256",
+        null
+      ]
     },
     "headers": {
       "$ref": "#/$defs/headers"

@@ -311,7 +311,7 @@ observations may leave some packets without endpoint evidence; a unique unambigu
 subset can still establish the stream endpoint pair, and the coverage limitation is
 published. Bidirectional RTP is matched as an exact mirror pair of UDP streams; a
 conflicting multi-endpoint stream is not used as a candidate and the ambiguity remains
-visible. RTCP components are counted but never associated with an RTP stream.
+visible. RTCP components are associated only by exact capture-scoped UDP stream and SSRC reference; ambiguous or unbound components remain explicit.
 
 ### Per-call and per-branch diagnostics
 
@@ -339,6 +339,25 @@ is not per-call ownership. A stream referenced by more than one attempt or branc
 published as shared and remains ambiguous. Time proximity is never used to establish
 ownership. A capture-wide media status of `SUCCESS` may still produce media
 `PARTIAL` when per-call ownership is not uniformly supported.
+
+### Logical IMS call groups
+
+The diagnostics artifact also publishes `logical_calls`. SIP event identity is
+compared only through capture-scoped keyed HMAC references for Call-ID, From-tag,
+To-tag, CSeq and each Via branch. Initial INVITE attempts are grouped when the
+references agree and the Via-hop stacks are nested; identical Via stacks remain a
+repeated observation, a differing To-tag keeps Dialog or fork branches separate, and
+a Call-ID change without an independent bridge remains `UNRESOLVED_IDENTITY`.
+
+Each logical call publishes its member attempts, SIP transactions, Dialog branches,
+SDP exchanges, candidate RTP transports, source streams, temporal constraint,
+RTCP evidence and ownership status. `LOGICAL_CALL_MEDIA_OWNED` requires exact
+correlation references that exclude every competing logical call, an observed SDP
+offer and answer, and a resolved source stream. Attempt and branch statuses remain
+independent; logical ownership is never copied down into an ambiguous attempt or
+branch. RTP duplicate identity uses complete RTP packet bytes through a
+capture-scoped keyed HMAC; the former header tuple is published only as a
+header-signature observation.
 
 RTP duplicate observations are classified from exact packet identity and capture-view
 metadata:

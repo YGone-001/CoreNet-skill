@@ -98,6 +98,12 @@ observations, never subscriber identities. Optional endpoint references are keye
 HMAC-SHA-256 values that include the capture SHA-256; the key file is never published,
 logged or committed, and raw endpoint tuples are never copied into output.
 
+RTP packet identity may also be published as a capture-scoped, domain-separated
+keyed HMAC over the complete decoded RTP packet bytes. Raw bytes and the key are
+never published. An RTP header-tuple match alone is a header-signature observation,
+not proof of byte identity, and byte identity never proves the physical cause of a
+duplicate or retransmission.
+
 ## Limitations
 
 RTP stream reconstruction, RTCP local statistics, local loss/jitter, MOS, media QoS,

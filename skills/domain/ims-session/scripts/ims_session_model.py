@@ -230,7 +230,7 @@ def _validate_event(event: dict[str, Any], line_number: int) -> None:
     reference = event["source_reference"]
     if not isinstance(reference, str) or not EVENT_REFERENCE_PATTERN.fullmatch(reference):
         raise InputError(f"SIP event line {line_number} has an invalid source reference")
-    if event["event_schema_version"] != sip_model.EVENT_SCHEMA_VERSION:
+    if event["event_schema_version"] not in {"1.0.0", sip_model.EVENT_SCHEMA_VERSION}:
         raise InputError(
             f"SIP event line {line_number} has an unsupported schema version "
             f"{event['event_schema_version']}"

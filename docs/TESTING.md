@@ -32,6 +32,12 @@ The `ims-media-session` Domain tests cover strict four-artifact analysis/schema/
 
 The IMS media-signaling Domain tests cover exact capture-scoped SIP-to-SDP reference association, capture/frame/occurrence equality, SDP root and per-message provenance integrity (capture identity, capture SHA-256, source-reference components, `frame-<n>` consistency, counts and duplicate rejection), initial SDP state separation between proven absence, accepted, incomplete, invalid, unresolved and out-of-scope evidence, late-offer eligibility restricted to proven absence, accepted Dialog and branch identity gating with missing, ambiguous, conflicting and unowned branch evidence, independent forked branches without cross-branch answer assignment, provisional-versus-final SDP role ambiguity, SIP response type, status validity and INVITE CSeq validation, ACK request/CSeq and branch ownership, non-2xx and in-dialog SDP scope preservation, schema and semantic rejection of logically impossible established exchanges, bounded count conservation, privacy of JSON, report and error output, deterministic replay and committed expected-output byte comparison. Fixtures are synthetic and sanitized.
 
+Logical-call grouping and RTP packet-identity tests cover nested versus unproven
+Via-hop stacks, differing Call-ID and To-tag separation, byte-identical versus
+header-signature duplicate classification, unavailable fingerprints, and
+observation-count conservation. The capture path also verifies that a compound RTCP
+packet preserves every decoder-visible component.
+
 The offline IMS media workflow tests cover the application-level media pipeline without
 a network: per-stage exit-code mapping and failure isolation, media-status
 classification for success, missing SDP answer, insufficient evidence and failed

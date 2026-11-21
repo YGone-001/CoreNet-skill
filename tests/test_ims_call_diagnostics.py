@@ -20,7 +20,17 @@ SSRC_A = f"rtp-ssrc:{CAP}:11111111"
 SSRC_B = f"rtp-ssrc:{CAP}:22222222"
 
 
-def sip_event(frame: int, method: str | None = None, status: int | None = None) -> dict:
+def sip_event(
+    frame: int,
+    method: str | None = None,
+    status: int | None = None,
+    *,
+    call_id: str = "call-a",
+    from_tag: str = "from-a",
+    to_tag: str | None = None,
+    cseq: int = 1,
+    vias: list[str] | None = None,
+) -> dict:
     return {
         "source_reference": f"sip-event:{CAP}:{frame}.1",
         "capture_file": CAP,
@@ -30,6 +40,12 @@ def sip_event(frame: int, method: str | None = None, status: int | None = None) 
         "method": method,
         "status_code": status,
         "frame_time_epoch": f"17000000{frame:02d}.000000",
+        "headers": {"cseq": {"sequence": cseq}},
+        "call_id_reference": call_id,
+        "from_tag_reference": from_tag,
+        "to_tag_reference": to_tag,
+        "via_branch_references": vias or [],
+        "identity_reference_status": "ESTABLISHED",
     }
 
 
@@ -43,7 +59,13 @@ def rtp_event(
     timestamp: int = 1000,
     payload_type: int = 104,
     length: int = 100,
+    fingerprint: str | None = None,
+    fingerprint_status: str = "ESTABLISHED",
 ) -> dict:
+    if fingerprint is None:
+        fingerprint = (
+            f"rtp-packet-fingerprint-v1:{sequence * 1_000_003 + timestamp:064x}"
+        )
     return {
         "event_reference": ref,
         "capture_file": CAP,
@@ -56,6 +78,9 @@ def rtp_event(
         "timestamp": timestamp,
         "payload_type": payload_type,
         "packet_length": length,
+        "rtp_packet_byte_count": length - 8,
+        "rtp_packet_fingerprint": fingerprint,
+        "rtp_packet_fingerprint_status": fingerprint_status,
         "frame_timestamp": f"17000000{frame:02d}.000000",
         "evidence_status": "OBSERVED",
     }
@@ -408,6 +433,62 @@ def simple_chain(
     )
 
 
+class LogicalCallGroupingTests(unittest.TestCase):
+    def _group(self, events: list[dict], attempts: list[dict]) -> dict:
+        return diagnostics.logical_call_grouping(
+            CAP, {event["source_reference"]: event for event in events}, attempts
+        )
+
+    def test_nested_via_stack_groups_multi_hop_attempts(self) -> None:
+        document = self._group(
+            [
+                sip_event(1, "INVITE", vias=["b1"]),
+                sip_event(2, "INVITE", vias=["b2", "b1"]),
+            ],
+            [attempt(1), attempt(2)],
+        )
+        self.assertEqual(document["logical_call_count"], 1)
+        self.assertEqual(
+            document["logical_calls"][0]["grouping_status"], "MULTI_HOP_PROVEN"
+        )
+        self.assertEqual(
+            len(document["logical_calls"][0]["member_attempt_references"]), 2
+        )
+
+    def test_independent_call_id_is_not_merged(self) -> None:
+        document = self._group(
+            [
+                sip_event(1, "INVITE", call_id="call-a", vias=["b1"]),
+                sip_event(2, "INVITE", call_id="call-b", vias=["b2"]),
+            ],
+            [attempt(1), attempt(2)],
+        )
+        self.assertEqual(document["logical_call_count"], 2)
+
+    def test_different_to_tag_keeps_dialogs_separate(self) -> None:
+        document = self._group(
+            [
+                sip_event(1, "INVITE", to_tag="to-a", vias=["b1"]),
+                sip_event(2, "INVITE", to_tag="to-b", vias=["b2"]),
+            ],
+            [attempt(1), attempt(2)],
+        )
+        self.assertEqual(document["logical_call_count"], 2)
+
+    def test_unproven_via_relation_is_ambiguous(self) -> None:
+        document = self._group(
+            [
+                sip_event(1, "INVITE", vias=["b1"]),
+                sip_event(2, "INVITE", vias=["b2"]),
+            ],
+            [attempt(1), attempt(2)],
+        )
+        self.assertEqual(document["logical_call_count"], 1)
+        self.assertEqual(
+            document["logical_calls"][0]["grouping_status"], "AMBIGUOUS_MULTI_HOP"
+        )
+
+
 class PerCallIsolationTests(unittest.TestCase):
     def test_exact_single_call_chain_is_supported(self) -> None:
         document = simple_chain()
@@ -617,10 +698,10 @@ class DuplicateObservationTests(unittest.TestCase):
             6: {"interface_id": "0", "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": "2", "gtp_present": False},
         }
         document = self._document(views)
-        self.assertEqual(document["multi_vantage_event_count"], 1)
-        self.assertEqual(document["duplicate_packet_event_count"], 1)
-        self.assertEqual(document["sequence_only_duplicate_event_count"], 1)
-        self.assertEqual(document["retransmission_not_established_count"], 1)
+        self.assertEqual(document["multi_vantage_supported_event_count"], 1)
+        self.assertEqual(document["byte_identical_duplicate_event_count"], 1)
+        self.assertEqual(document["duplicate_sequence_event_count"], 1)
+        self.assertEqual(document["potential_retransmission_event_count"], 0)
         self.assertEqual(document["rtp_stream_reported_duplicate_sequence_observation_count"], 3)
 
     def test_sequence_equality_alone_is_unresolved(self) -> None:
@@ -637,8 +718,75 @@ class DuplicateObservationTests(unittest.TestCase):
             None,
             views,
         )
-        self.assertEqual(document["classification_counts"]["DUPLICATE_CAUSE_UNRESOLVED"], 1)
-        self.assertEqual(document["classification_counts"]["MULTI_VANTAGE_OBSERVATION_SUPPORTED"], 0)
+        self.assertEqual(document["classification_counts"]["DUPLICATE_SEQUENCE_OBSERVED"], 1)
+        self.assertEqual(document["classification_counts"]["MULTI_VANTAGE_SUPPORTED"], 0)
+        self.assertEqual(document["packet_identity_unresolved_event_count"], 0)
+        self.assertEqual(document["duplicate_cause_unresolved_event_count"], 1)
+
+    def test_same_header_with_different_bytes_is_only_header_signature(self) -> None:
+        views = {
+            1: {"interface_id": "0", "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": "2", "gtp_present": False},
+            2: {"interface_id": "0", "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": "2", "gtp_present": False},
+        }
+        document = diagnostics.duplicate_investigation(
+            CAP,
+            [
+                rtp_event(
+                    f"rtp-packet:{CAP}:1.1", 1, sequence=1,
+                    fingerprint="rtp-packet-fingerprint-v1:" + "a" * 64,
+                ),
+                rtp_event(
+                    f"rtp-packet:{CAP}:2.1", 2, sequence=1,
+                    fingerprint="rtp-packet-fingerprint-v1:" + "b" * 64,
+                ),
+            ],
+            None,
+            views,
+        )
+        self.assertEqual(
+            document["classification_counts"]["RTP_HEADER_SIGNATURE_MATCH"], 1
+        )
+        self.assertEqual(document["byte_identical_duplicate_event_count"], 0)
+
+    def test_unavailable_fingerprint_is_unresolved(self) -> None:
+        views = {
+            1: {"interface_id": "0", "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": "2", "gtp_present": False},
+            2: {"interface_id": "0", "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": "2", "gtp_present": False},
+        }
+        document = diagnostics.duplicate_investigation(
+            CAP,
+            [
+                rtp_event(
+                    f"rtp-packet:{CAP}:1.1", 1, sequence=1,
+                    fingerprint=None, fingerprint_status="UNAVAILABLE_NO_KEY",
+                ),
+                rtp_event(
+                    f"rtp-packet:{CAP}:2.1", 2, sequence=1,
+                    fingerprint=None, fingerprint_status="UNAVAILABLE_NO_KEY",
+                ),
+            ],
+            None,
+            views,
+        )
+        self.assertEqual(
+            document["classification_counts"]["PACKET_IDENTITY_UNRESOLVED"], 1
+        )
+        self.assertEqual(document["byte_identical_duplicate_event_count"], 0)
+
+    def test_observation_count_conservation(self) -> None:
+        views = {
+            frame: {"interface_id": str(frame % 2), "encap_type": "25", "protocols": "sll:ip:udp:rtp", "outer_udp_stream": str(frame % 2), "gtp_present": False}
+            for frame in range(1, 7)
+        }
+        document = self._document(views)
+        classified = (
+            document["distinct_byte_identity_count"]
+            + document["multi_vantage_supported_event_count"]
+            + document["byte_identical_duplicate_event_count"]
+            + document["fingerprint_unavailable_observation_count"]
+        )
+        self.assertEqual(classified, document["raw_rtp_observation_count"])
+        self.assertEqual(document["duplicate_sequence_event_count"], 1)
 
 
 class RtcpAssociationTests(unittest.TestCase):
@@ -841,7 +989,7 @@ class DiagnosticIntegrityTests(unittest.TestCase):
         )
         self.assertEqual(document["attempt_count"], 1)
         self.assertEqual(
-            document["duplicate_observation_investigation"]["multi_vantage_event_count"], 1
+            document["duplicate_observation_investigation"]["multi_vantage_supported_event_count"], 1
         )
 
     def test_ambiguous_attempt_last_evidence_is_not_candidate_rtp(self) -> None:

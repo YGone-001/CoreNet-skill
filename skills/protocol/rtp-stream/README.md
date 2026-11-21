@@ -34,9 +34,9 @@ out of scope.
 
 ## Dependencies
 
-Required: the `sdp-rtp` Protocol Skill (version `0.4.0` or later) providing:
+Required: the `sdp-rtp` Protocol Skill (version `0.5.0` or later) providing:
 
-- `schemas/rtp-rtcp-events.schema.json` (event schema `1.2.0`);
+- `schemas/rtp-rtcp-events.schema.json` (event schema `1.3.0`);
 - `scripts/rtp_rtcp_model.py` and its endpoint reference helper.
 
 The Skill is standalone apart from that accepted Protocol dependency. If the
@@ -56,9 +56,9 @@ is unavailable.
 One RTP/RTCP Analysis JSON:
 
 - analysis name `rtp-rtcp`;
-- analysis version `0.4.0`;
-- event schema version `1.2.0`;
-- parser version `0.4.0`.
+- analysis version `0.5.0`;
+- event schema version `1.3.0`;
+- parser version `0.5.0`.
 
 Endpoint references are optional. A missing HMAC endpoint key does not block
 sequence reconstruction. Raw IP addresses, raw UDP ports, payload bytes and key

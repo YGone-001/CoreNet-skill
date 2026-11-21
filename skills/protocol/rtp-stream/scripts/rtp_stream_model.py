@@ -3,7 +3,7 @@
 
 This Protocol-layer model consumes an already-accepted RTP/RTCP Analysis
 artifact produced by the ``sdp-rtp`` Protocol Skill (analysis ``rtp-rtcp``
-version ``0.4.0``, event schema ``1.2.0``). It never decodes an RTP packet,
+version ``0.5.0``, event schema ``1.3.0``). It never decodes an RTP packet,
 reads a capture, executes TShark, parses SDP, associates an RTCP component
 with an RTP stream, or produces a media, QoS, packet-loss or call verdict.
 
@@ -31,9 +31,9 @@ EVENT_SCHEMA_VERSION = "1.0.0"
 CAPABILITY = "bounded RTP source-stream, sequence-integrity and capture-boundary evidence"
 
 SOURCE_ANALYSIS_NAME = "rtp-rtcp"
-SOURCE_ANALYSIS_VERSION = "0.4.0"
-SOURCE_EVENT_SCHEMA_VERSION = "1.2.0"
-SOURCE_PARSER_VERSION = "0.4.0"
+SOURCE_ANALYSIS_VERSION = "0.5.0"
+SOURCE_EVENT_SCHEMA_VERSION = "1.3.0"
+SOURCE_PARSER_VERSION = "0.5.0"
 
 RTCP_OBSERVATION_STATUS = "NOT_INTERPRETED_FOR_RTP_STREAM_ASSOCIATION"
 

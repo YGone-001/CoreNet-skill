@@ -15,6 +15,7 @@ import argparse
 import hashlib
 import json
 import os
+import stat
 import sys
 import tempfile
 from pathlib import Path
@@ -59,6 +60,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="input interpretation; auto uses the file extension",
     )
     parser.add_argument("--output", type=Path, help="SIP event JSONL destination")
+    parser.add_argument(
+        "--identity-key-file",
+        type=Path,
+        help="owner-only 32-byte key for capture-scoped SIP identity references",
+    )
     parser.add_argument(
         "--transaction-output", type=Path, help="SIP transaction JSON destination"
     )
@@ -164,6 +170,18 @@ def _capture_completeness(messages: list[dict]) -> str:
     return "COMPLETE"
 
 
+def _load_identity_key(path: Path) -> bytes:
+    file_stat = path.stat()
+    if not stat.S_ISREG(file_stat.st_mode):
+        raise OSError("SIP identity key path is not a regular file")
+    if os.name == "posix" and stat.S_IMODE(file_stat.st_mode) & 0o077:
+        raise OSError("SIP identity key file must be owner-only (0600)")
+    material = path.read_bytes()
+    if len(material) != 32:
+        raise OSError("SIP identity key file must contain exactly 32 bytes")
+    return material
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if (
@@ -181,7 +199,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         input_format = _resolved_input_format(args.input, args.input_format)
         capture_digest = _capture_digest(args.input, input_format)
-        messages, decoder = messages_for_input(args.input, args.input_format)
+        identity_key = (
+            _load_identity_key(args.identity_key_file)
+            if args.identity_key_file is not None
+            else None
+        )
+        messages, decoder = messages_for_input(
+            args.input, args.input_format, identity_key=identity_key
+        )
         events = [message["event"] for message in messages]
         if not events:
             print("input contains no SIP messages", file=sys.stderr)

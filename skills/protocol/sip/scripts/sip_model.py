@@ -13,6 +13,8 @@ standard reason phrase and a safe media type may be published verbatim.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import re
 import shutil
@@ -23,7 +25,9 @@ from typing import Any
 from xml.etree import ElementTree
 
 PROTOCOL = "SIP"
-EVENT_SCHEMA_VERSION = "1.0.0"
+EVENT_SCHEMA_VERSION = "1.1.0"
+IDENTITY_REFERENCE_PREFIX = "sip-identity-hmac-sha256:v1:"
+IDENTITY_DOMAIN = b"corenet-sip-identity-v1\x00"
 
 EXIT_MALFORMED_INPUT = 2
 EXIT_NO_EVENTS = 3
@@ -831,6 +835,7 @@ def _build_event(
     headers: dict[str, Any],
     integrity_findings: list[str],
     capture_truncated: bool,
+    identity_key: bytes | None = None,
 ) -> dict[str, Any]:
     raw_method = _text(headers.get("method"))
     method_valid = bool(raw_method and METHOD_PATTERN.fullmatch(raw_method))
@@ -992,6 +997,48 @@ def _build_event(
         )
     limitations = list(dict.fromkeys(limitations))[:MAX_LIMITATIONS]
 
+    if not isinstance(identity_key, bytes) or len(identity_key) != 32:
+        identity_key = None
+
+    def _identity_reference(domain: bytes, value: str | None) -> str | None:
+        if identity_key is None or not value:
+            return None
+        payload = (
+            IDENTITY_DOMAIN
+            + capture.encode("utf-8")
+            + b"\x00"
+            + domain
+            + b"\x00"
+            + value.encode("utf-8")
+        )
+        return IDENTITY_REFERENCE_PREFIX + hmac.new(
+            identity_key, payload, hashlib.sha256
+        ).hexdigest()
+
+    call_id_reference = _identity_reference(b"call-id", _text(headers.get("call_id")))
+    from_tag_reference = _identity_reference(
+        b"from-tag", _text(headers.get("from_tag_raw"))
+    )
+    to_tag_reference = _identity_reference(
+        b"to-tag", _text(headers.get("to_tag_raw"))
+    )
+    via_branch_references = [
+        reference
+        for reference in (
+            _identity_reference(b"via-branch", _text(entry.get("branch")))
+            for entry in (headers.get("via_raw") or [])
+            if isinstance(entry, dict)
+        )
+        if reference
+    ]
+    identity_reference_status = (
+        "UNAVAILABLE_NO_KEY"
+        if identity_key is None
+        else "ESTABLISHED"
+        if call_id_reference
+        else "INCOMPLETE_IDENTITY"
+    )
+
     return {
         "event_schema_version": EVENT_SCHEMA_VERSION,
         "protocol": PROTOCOL,
@@ -1012,6 +1059,14 @@ def _build_event(
         "reason_phrase_length": len(reason_raw) if reason_raw else None,
         "request_uri_present": bool(request_uri),
         "request_uri_length": len(request_uri) if request_uri else None,
+        "call_id_reference": call_id_reference,
+        "from_tag_reference": from_tag_reference,
+        "to_tag_reference": to_tag_reference,
+        "via_branch_references": via_branch_references,
+        "identity_reference_status": identity_reference_status,
+        "identity_reference_scope": (
+            "CAPTURE_SCOPED_HMAC_SHA256" if identity_key is not None else None
+        ),
         "headers": {
             "call_id": {
                 "present": bool(call_id),
@@ -1322,7 +1377,8 @@ def _pdml_integrity(proto: ElementTree.Element) -> list[str]:
 
 
 def parse_pdml_messages(
-    text: str, capture_file: str | None = None, *, include_body: bool = False
+    text: str, capture_file: str | None = None, *, include_body: bool = False,
+    identity_key: bytes | None = None,
 ) -> list[dict[str, Any]]:
     try:
         root = ElementTree.fromstring(text)
@@ -1353,6 +1409,7 @@ def parse_pdml_messages(
                 headers=headers,
                 integrity_findings=_pdml_integrity(proto),
                 capture_truncated=truncated,
+                identity_key=identity_key,
             )
             records.append(
                 _build_message_record(
@@ -1721,7 +1778,9 @@ def _jsonl_headers(raw: Any) -> dict[str, Any]:
     }
 
 
-def normalize_record_message(record: dict[str, Any]) -> dict[str, Any]:
+def normalize_record_message(
+    record: dict[str, Any], *, identity_key: bytes | None = None
+) -> dict[str, Any]:
     if not isinstance(record, dict):
         raise InputError("each JSONL record must be an object")
     _reject_unknown(record, _RECORD_KEYS, "record")
@@ -1762,6 +1821,7 @@ def normalize_record_message(record: dict[str, Any]) -> dict[str, Any]:
         headers=headers,
         integrity_findings=findings,
         capture_truncated=truncated,
+        identity_key=identity_key,
     )
     return _build_message_record(
         event, headers, transport, observation_role=observation_role
@@ -1772,7 +1832,9 @@ def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
     return normalize_record_message(record)["event"]
 
 
-def records_from_jsonl_messages(path: Path) -> list[dict[str, Any]]:
+def records_from_jsonl_messages(
+    path: Path, *, identity_key: bytes | None = None
+) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
@@ -1784,7 +1846,9 @@ def records_from_jsonl_messages(path: Path) -> list[dict[str, Any]]:
                 raise InputError(f"invalid JSON on line {line_number}: {exc}") from exc
             if not isinstance(record, dict):
                 raise InputError(f"line {line_number} is not a JSON object")
-            records.append(normalize_record_message(record))
+            records.append(
+                normalize_record_message(record, identity_key=identity_key)
+            )
     return _ordered_records(records)
 
 
@@ -1853,7 +1917,11 @@ def pdml_for_capture(capture: Path, tshark_bin: str | None = None) -> str:
 
 
 def messages_for_input(
-    path: Path, input_format: str = "auto", *, include_body: bool = False
+    path: Path,
+    input_format: str = "auto",
+    *,
+    include_body: bool = False,
+    identity_key: bytes | None = None,
 ) -> tuple[list[dict[str, Any]], str | None]:
     if not path.is_file():
         raise InputError(f"input does not exist: {path}")
@@ -1873,18 +1941,20 @@ def messages_for_input(
         _validate_capture_input(path)
         decoder = tshark_version()
         records = parse_pdml_messages(
-            pdml_for_capture(path), path.name, include_body=include_body
+            pdml_for_capture(path), path.name, include_body=include_body,
+            identity_key=identity_key,
         )
     elif fmt == "pdml":
         records = parse_pdml_messages(
-            path.read_text(encoding="utf-8"), path.name, include_body=include_body
+            path.read_text(encoding="utf-8"), path.name, include_body=include_body,
+            identity_key=identity_key,
         )
     elif fmt == "fields-jsonl":
         if include_body:
             raise InputError(
                 "private SIP body retention is only available from a local decoder input"
             )
-        records = records_from_jsonl_messages(path)
+        records = records_from_jsonl_messages(path, identity_key=identity_key)
     else:
         raise InputError(f"unsupported input format: {fmt}")
     seen: set[str] = set()
@@ -1896,8 +1966,12 @@ def messages_for_input(
     return records, decoder
 
 
-def events_for_input(path: Path, input_format: str = "auto") -> tuple[list[dict[str, Any]], str | None]:
-    records, decoder = messages_for_input(path, input_format)
+def events_for_input(
+    path: Path, input_format: str = "auto", *, identity_key: bytes | None = None
+) -> tuple[list[dict[str, Any]], str | None]:
+    records, decoder = messages_for_input(
+        path, input_format, identity_key=identity_key
+    )
     return [record["event"] for record in records], decoder
 
 

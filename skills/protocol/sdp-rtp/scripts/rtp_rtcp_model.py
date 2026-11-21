@@ -9,6 +9,7 @@ RTP/RTCP binary parser is implemented here.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import ipaddress
 import json
 import re
@@ -28,9 +29,9 @@ from endpoint_reference import (
 )
 
 ANALYSIS_NAME = "rtp-rtcp"
-ANALYSIS_VERSION = "0.4.0"
-EVENT_SCHEMA_VERSION = "1.2.0"
-PARSER_VERSION = "0.4.0"
+ANALYSIS_VERSION = "0.5.0"
+EVENT_SCHEMA_VERSION = "1.3.0"
+PARSER_VERSION = "0.5.0"
 CAPABILITY = "bounded RTP and RTCP packet evidence with optional endpoint references"
 
 MAX_RECORDS = 1024
@@ -95,6 +96,8 @@ OPTIONAL_TSHARK_FIELDS = (
     "udp.dstport",
 )
 ENDPOINT_FIELDS = ("source_address", "destination_address", "source_port", "destination_port")
+PACKET_FINGERPRINT_PREFIX = "rtp-packet-fingerprint-v1:"
+PACKET_FINGERPRINT_DOMAIN = b"corenet-rtp-packet-v1\x00"
 
 
 class InputError(ValueError):
@@ -388,6 +391,27 @@ def _rtp_event(
     if fields.get("truncated"):
         reasons.append("TRUNCATED_RTP_PACKET")
         status = "INCOMPLETE" if status in ("OBSERVED", "UNSUPPORTED") else status
+    packet_bytes = fields.get("packet_bytes")
+    packet_payload_error = fields.get("packet_payload_error")
+    packet_byte_count = len(packet_bytes) if isinstance(packet_bytes, (bytes, bytearray)) else None
+    packet_fingerprint = None
+    if endpoint_key is None:
+        fingerprint_status = "UNAVAILABLE_NO_KEY"
+    elif not isinstance(packet_bytes, (bytes, bytearray)) or not packet_bytes:
+        fingerprint_status = packet_payload_error or "PACKET_PAYLOAD_UNAVAILABLE"
+    elif fields.get("truncated"):
+        fingerprint_status = "TRUNCATED_RTP_PACKET"
+    elif status == "INVALID":
+        fingerprint_status = "RTP_HEADER_EVIDENCE_INVALID"
+    else:
+        packet_fingerprint = _rtp_packet_fingerprint(
+            endpoint_key, record["capture_sha256"], bytes(packet_bytes)
+        )
+        fingerprint_status = "ESTABLISHED"
+    if packet_fingerprint is not None:
+        limitations.append(
+            "RTP packet identity is a capture-scoped keyed HMAC over complete RTP packet bytes; raw bytes are never published"
+        )
     event = {
         "event_reference": record["source_reference"],
         "capture_file": capture,
@@ -414,6 +438,12 @@ def _rtp_event(
         "ssrc": ssrc,
         "ssrc_reference": _ssrc_reference(capture, ssrc) if ssrc is not None else None,
         "packet_length": packet_length,
+        "rtp_packet_byte_count": packet_byte_count,
+        "rtp_packet_fingerprint": packet_fingerprint,
+        "rtp_packet_fingerprint_status": fingerprint_status,
+        "rtp_packet_identity_scope": (
+            "CAPTURE_SCOPED_HMAC_SHA256" if packet_fingerprint is not None else None
+        ),
         "udp_stream": _int(fields.get("udp_stream"), 0, 0xFFFFFFFF),
         "udp_stream_packet": _int(fields.get("udp_stream_packet"), 0, 0xFFFFFFFF),
         "invalid_reasons": sorted(set(reasons)),
@@ -992,6 +1022,62 @@ def _first(value: Any) -> Any:
     return value[0] if isinstance(value, list) and value else value
 
 
+def _rtp_payload_bytes(packet: dict[str, Any]) -> tuple[bytes | None, str | None]:
+    """Return the complete inner RTP packet bytes, never the enclosing headers."""
+    source = packet.get("_source")
+    layers = source.get("layers") if isinstance(source, dict) else None
+    layer_names = set(layers) if isinstance(layers, dict) else set()
+    udp_layers = _layer_candidates(packet, "udp")
+    encapsulated = any(
+        name == "gtp" or name.startswith("gtp.") or name.startswith("gtpv")
+        for name in layer_names
+    )
+    if encapsulated:
+        if len(udp_layers) != 1:
+            return None, "PACKET_TRANSPORT_AMBIGUOUS"
+        udp_layer = udp_layers[0]
+        ports = {
+            _numeric(_first(udp_layer.get("udp.srcport"))),
+            _numeric(_first(udp_layer.get("udp.dstport"))),
+        }
+        if 2152 in ports:
+            return None, "PACKET_TRANSPORT_AMBIGUOUS"
+        if _layer(packet, "rtp") is None and _layer(packet, "rtcp") is None:
+            return None, "PACKET_TRANSPORT_AMBIGUOUS"
+    elif len(udp_layers) != 1:
+        return None, "PACKET_TRANSPORT_AMBIGUOUS"
+    else:
+        udp_layer = udp_layers[0]
+    raw = _first(udp_layer.get("udp.payload"))
+    if not isinstance(raw, str) or not raw:
+        return None, "PACKET_PAYLOAD_UNAVAILABLE"
+    try:
+        data = bytes.fromhex(raw.replace(":", ""))
+    except ValueError:
+        return None, "PACKET_PAYLOAD_ENCODING_INVALID"
+    if not data:
+        return None, "PACKET_PAYLOAD_UNAVAILABLE"
+    declared = _numeric(_first(udp_layer.get("udp.length")))
+    if declared is not None and declared >= 8 and len(data) != declared - 8:
+        return None, "PACKET_BOUNDARY_INCONSISTENT"
+    return data, None
+
+
+def _rtp_packet_fingerprint(
+    key: bytes | None, capture_sha256: str, data: bytes
+) -> str | None:
+    if key is None:
+        return None
+    payload = (
+        PACKET_FINGERPRINT_DOMAIN
+        + capture_sha256.encode("ascii", "strict")
+        + b"\x00"
+        + data
+    )
+    digest = hmac.new(key, payload, hashlib.sha256).hexdigest()
+    return PACKET_FINGERPRINT_PREFIX + digest
+
+
 def _pdml_run(
     capture: Path, decode_as: list[str], tshark: str = "tshark"
 ) -> str:
@@ -1220,6 +1306,10 @@ def _capture_records(capture: Path, decode_as: list[str], tshark: str, runner: C
         udp_stream_packet = _numeric(_first(udp.get("udp.stream.pnum")))
         endpoint_fields = _endpoint_fields(packet)
         rtp = _layer(packet, "rtp")
+        payload_bytes: bytes | None = None
+        payload_error: str | None = None
+        if rtp:
+            payload_bytes, payload_error = _rtp_payload_bytes(packet)
         if rtp:
             fields = {
                 "version": _numeric(_first(rtp.get("rtp.version"))),
@@ -1234,6 +1324,8 @@ def _capture_records(capture: Path, decode_as: list[str], tshark: str, runner: C
                 "udp_stream_packet": udp_stream_packet,
             }
             fields.update(endpoint_fields)
+            fields["packet_bytes"] = payload_bytes
+            fields["packet_payload_error"] = payload_error
             for field_name, tshark_name in (
                 ("padding", "rtp.padding"),
                 ("extension", "rtp.ext"),

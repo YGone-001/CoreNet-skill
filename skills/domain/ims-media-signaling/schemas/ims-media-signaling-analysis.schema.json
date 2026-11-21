@@ -121,7 +121,7 @@
           "pattern": "^[0-9a-f]{64}$"
         },
         "sip_event_schema_version": {
-          "const": "1.0.0"
+          "const": "1.1.0"
         },
         "ims_session_source_name": {
           "type": "string",
