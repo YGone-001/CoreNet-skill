@@ -329,6 +329,9 @@ class MatchingIntegrityTests(TransactionTestBase):
             ]
         )
         self.assertEqual(document["transaction_count"], 2)
+        response_tx = tx_of_type(document, "RESPONSE_ONLY")
+        self.assertEqual(response_tx["matching_status"], "RESPONSE_ONLY")
+        self.assertIn("REQUEST_NOT_OBSERVED", response_tx["missing_evidence"])
 
     def test_same_branch_and_sent_by_incompatible_cseq(self) -> None:
         document, _, _ = self.correlate(

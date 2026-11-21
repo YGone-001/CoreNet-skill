@@ -210,6 +210,21 @@ ordered evidence review with `signaling_outcome`, `sdp_association_outcome`,
 `boundary_classification`, a first supported protocol deviation, a first missing-evidence
 boundary, the last supported observation and traceable source references.
 
+SIP transaction ownership is kept separate from SIP message observation. A response is
+bound to a request only through accepted transaction identity (modern RFC 3261 branch
+and sent-by matching, or the supported legacy key). A response whose top Via belongs to
+a rewritten proxy hop remains an unbound observed response with its status, frame,
+candidate-request count and match reason; it never becomes branch ownership, a
+contradiction, or a call verdict merely because Call-ID and CSeq are compatible. When
+several requests are compatible, the response stays ambiguous.
+
+IMS Registration publishes both the attempt inventory and a registration-procedure
+inventory. Multiple attempts can be hop or repeated views of one procedure. Authorized
+requests observed before a challenge are retained as authorization evidence, not as
+retries; a challenge-to-retry association requires a later authorized request with
+compatible identity and ordered CSeq. A 2xx is an observed SIP registration response,
+not proof of persistent subscriber registration state.
+
 SIP final responses are classified before any diagnostic boundary. A 4xx, 5xx or
 6xx response is an observed negative SIP outcome, not a protocol violation; a matching
 CANCEL transaction with its own 200 response and an INVITE 487 are normal termination

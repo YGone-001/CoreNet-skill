@@ -126,10 +126,21 @@ def _report(document: dict) -> str:
         f"sip_transactions: {completeness['sip_transaction_count']}",
         f"register_transactions: {completeness['register_transaction_count']}",
         f"registration_attempts: {completeness['attempt_count']}",
+        f"registration_procedures: {completeness['procedure_count']}",
         f"diameter_observations: {completeness['diameter_observation_count']}",
         f"cross_protocol_associations: {completeness['association_count']}",
         f"timeline_rows: {completeness['timeline_row_count']}",
     ]
+    for procedure in document.get("registration_procedures") or []:
+        lines.append(
+            "procedure: "
+            f"{procedure['procedure_status']} / "
+            f"{procedure['authentication_evidence_status']} / "
+            f"{procedure['sip_outcome']} / "
+            f"attempts={len(procedure['member_attempt_references'])} / "
+            f"authorization-before-challenge="
+            f"{procedure['authorization_present_before_challenge']}"
+        )
     for attempt in attempts:
         lines.append(
             "attempt: "

@@ -1,12 +1,41 @@
 IMS registration evidence
-analysis_version: 1.1.0
+analysis_version: 1.2.0
 sip_events: 57
 sip_transactions: 33
 register_transactions: 33
 registration_attempts: 28
+registration_procedures: 28
 diameter_observations: 11
 cross_protocol_associations: 308
 timeline_rows: 76
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / CHALLENGE_WITHOUT_OBSERVED_RETRY / AUTHENTICATION_CHALLENGE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / RETRY_WITHOUT_OBSERVED_CHALLENGE / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / INCOMPLETE_EVIDENCE / attempts=1 / authorization-before-challenge=False
+procedure: UNDETERMINED_IDENTITY / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / NEGATIVE_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / CHALLENGE_RETRY_ASSOCIATED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / NEGATIVE_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / INCOMPLETE_EVIDENCE / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / INCOMPLETE_EVIDENCE / attempts=1 / authorization-before-challenge=False
+procedure: UNDETERMINED_IDENTITY / NOT_OBSERVED / INCOMPLETE_EVIDENCE / attempts=1 / authorization-before-challenge=False
+procedure: UNDETERMINED_IDENTITY / NOT_OBSERVED / INCOMPLETE_EVIDENCE / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / INCOMPLETE_EVIDENCE / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / RETRY_WITHOUT_OBSERVED_CHALLENGE / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / NEGATIVE_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / INCOMPLETE_EVIDENCE / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / CHALLENGE_RETRY_ASSOCIATED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
+procedure: SINGLE_ATTEMPT / CHALLENGE_RETRY_ASSOCIATED / SUCCESS_RESPONSE_OBSERVED / attempts=1 / authorization-before-challenge=False
 attempt: INITIAL_REGISTRATION_CANDIDATE / NOT_OBSERVED / SUCCESS_RESPONSE_OBSERVED
 attempt: INITIAL_REGISTRATION_CANDIDATE / CHALLENGE_RETRY_ASSOCIATED / SUCCESS_RESPONSE_OBSERVED
 attempt: INITIAL_REGISTRATION_CANDIDATE / CHALLENGE_RETRY_ASSOCIATED / SUCCESS_RESPONSE_OBSERVED

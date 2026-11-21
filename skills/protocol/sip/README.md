@@ -6,7 +6,9 @@ stored PDML dissections or sanitized dissector records.
 The extractor publishes SIP requests and responses with source-frame provenance,
 transport metadata, reviewed header facts and explicit completeness
 classifications. It correlates requests and responses at the RFC 3261 transaction
-layer, distinguishes magic-cookie and legacy Via matching, validates CANCEL and ACK
+layer, distinguishes magic-cookie and legacy Via matching, and keeps a response
+`RESPONSE_ONLY` when the accepted modern key (top Via branch plus sent-by) does not
+match the request, even if Call-ID and CSeq are compatible. It validates CANCEL and ACK
 header consistency with fail-closed required-field eligibility, separates observed
 evidence status from RFC 3261/RFC 6026 state, and reports retransmission confidence.
 It also derives bounded, privacy-safe INVITE dialog evidence: capture-scoped Early

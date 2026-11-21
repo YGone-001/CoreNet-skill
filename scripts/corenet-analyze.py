@@ -1621,8 +1621,19 @@ def _render_ims_media(lines: list[str], media: dict[str, Any]) -> None:
         lines.append(
             f"    sip outcome   : {_value(result.get('observed_sip_outcome'))} / "
             f"logical_call={_value(result.get('logical_call_outcome'))} / "
-            f"auth={_value((result.get('invite_authentication_review') or {}).get('association_status'))}"
+            f"auth={_value((result.get('invite_authentication_review') or {}).get('association_status'))} / "
+            f"unbound={_value((result.get('sip_response_ownership') or {}).get('unbound_final_response_count'))}"
         )
+        ownership_boundary = result.get("first_response_ownership_boundary") or {}
+        if ownership_boundary:
+            lines.append(
+                f"    unbound resp  : {_value(ownership_boundary.get('response_event_reference'))} "
+                f"status={_value(ownership_boundary.get('status_code'))} "
+                f"frame={_value(ownership_boundary.get('frame_number'))} "
+                f"candidates={_value(ownership_boundary.get('candidate_request_count'))} "
+                f"reason={_value(ownership_boundary.get('response_match_reason'))} "
+                f"transaction_owner={_value(ownership_boundary.get('transaction_ownership_established'))}"
+            )
         for branch_outcome in (result.get("branch_outcomes") or [])[:6]:
             lines.append(
                 f"      branch outcome: {_value(branch_outcome.get('branch_reference'))} "
@@ -1855,6 +1866,24 @@ def render_text_report(report: dict[str, Any]) -> str:
             f"terminal-rejections={_value(registration.get('terminal_rejection_count'))}, "
             f"success-responses={_value(registration.get('success_response_count'))}"
         )
+        lines.append(
+            f"  Registration proc: procedures={_value(registration.get('procedure_count'))}, "
+            f"multi-hop={_value(registration.get('multi_hop_procedure_count'))}, "
+            f"challenge-procedures={_value(registration.get('challenge_procedure_count'))}, "
+            f"success-procedures={_value(registration.get('success_procedure_count'))}, "
+            f"associated-retry-procedures={_value(registration.get('challenge_retry_associated_procedure_count'))}, "
+            f"authorization-before-challenge={_value(registration.get('authorization_before_challenge_procedure_count'))}"
+        )
+        for procedure in (registration.get("registration_procedure_outcomes") or [])[:6]:
+            lines.append(
+                f"    procedure    : {_value(procedure.get('procedure_reference'))} / "
+                f"{_value(procedure.get('procedure_status'))} / "
+                f"{_value(procedure.get('authentication_evidence_status'))} / "
+                f"{_value(procedure.get('sip_outcome'))} / "
+                f"attempts={len(procedure.get('member_attempt_references') or [])} / "
+                f"authorization-before-challenge="
+                f"{_value(procedure.get('authorization_present_before_challenge'))}"
+            )
         if registration.get("attempt_references"):
             lines.append(
                 "    references   : "
@@ -6030,6 +6059,11 @@ def _ims_registration_evidence(document: dict[str, Any] | None) -> dict[str, Any
             "cross_protocol_association": "NOT_ESTABLISHED",
         }
     attempts = [item for item in document.get("registration_attempts") or [] if isinstance(item, dict)]
+    procedures = [
+        item
+        for item in document.get("registration_procedures") or []
+        if isinstance(item, dict)
+    ]
     authentication_statuses: dict[str, int] = {}
     sip_outcomes: dict[str, int] = {}
     for item in attempts:
@@ -6042,9 +6076,21 @@ def _ims_registration_evidence(document: dict[str, Any] | None) -> dict[str, Any
     challenge_event_count = sum(
         len(item.get("challenge_event_references") or []) for item in attempts
     )
+    authorized_request_event_count = sum(
+        len(item.get("authorized_request_event_references") or []) for item in attempts
+    )
     retry_event_count = sum(
         len(item.get("retry_event_references") or []) for item in attempts
     )
+    procedure_statuses: dict[str, int] = {}
+    procedure_outcomes: dict[str, int] = {}
+    for item in procedures:
+        status = item.get("procedure_status")
+        if isinstance(status, str):
+            procedure_statuses[status] = procedure_statuses.get(status, 0) + 1
+        outcome = item.get("sip_outcome")
+        if isinstance(outcome, str):
+            procedure_outcomes[outcome] = procedure_outcomes.get(outcome, 0) + 1
     terminal_rejections = [
         item
         for item in attempts
@@ -6063,8 +6109,12 @@ def _ims_registration_evidence(document: dict[str, Any] | None) -> dict[str, Any
             "challenge_retry_status": (
                 item.get("challenge_retry_association") or {}
             ).get("status"),
+            "procedure_reference": item.get("procedure_reference"),
             "challenge_event_references": list(
                 item.get("challenge_event_references") or []
+            )[:MAX_IMS_REFERENCES],
+            "authorized_request_event_references": list(
+                item.get("authorized_request_event_references") or []
             )[:MAX_IMS_REFERENCES],
             "retry_event_references": list(
                 item.get("retry_event_references") or []
@@ -6103,7 +6153,64 @@ def _ims_registration_evidence(document: dict[str, Any] | None) -> dict[str, Any
         "ambiguous_outcome_count": sip_outcomes.get("AMBIGUOUS", 0),
         "incomplete_evidence_count": sip_outcomes.get("INCOMPLETE_EVIDENCE", 0),
         "challenge_event_count": challenge_event_count,
+        "authorized_request_event_count": authorized_request_event_count,
         "retry_event_count": retry_event_count,
+        "procedure_count": len(procedures),
+        "procedure_status_counts": dict(sorted(procedure_statuses.items())),
+        "procedure_outcome_counts": dict(sorted(procedure_outcomes.items())),
+        "multi_hop_procedure_count": procedure_statuses.get(
+            "MULTI_HOP_OBSERVATION", 0
+        ),
+        "challenge_procedure_count": sum(
+            1
+            for item in procedures
+            if item.get("sip_outcome") == "AUTHENTICATION_CHALLENGE_OBSERVED"
+        ),
+        "success_procedure_count": sum(
+            1
+            for item in procedures
+            if item.get("sip_outcome") == "SUCCESS_RESPONSE_OBSERVED"
+        ),
+        "challenge_retry_associated_procedure_count": sum(
+            1
+            for item in procedures
+            if item.get("authentication_evidence_status")
+            == "CHALLENGE_RETRY_ASSOCIATED"
+        ),
+        "authorization_before_challenge_procedure_count": sum(
+            1
+            for item in procedures
+            if item.get("authorization_present_before_challenge")
+        ),
+        "registration_procedure_outcomes": [
+            {
+                "procedure_reference": item.get("procedure_reference"),
+                "procedure_status": item.get("procedure_status"),
+                "member_attempt_references": list(
+                    item.get("member_attempt_references") or []
+                )[:MAX_IMS_REFERENCES],
+                "sip_outcome": item.get("sip_outcome"),
+                "authentication_evidence_status": item.get(
+                    "authentication_evidence_status"
+                ),
+                "authorization_present_before_challenge": item.get(
+                    "authorization_present_before_challenge"
+                ),
+                "challenge_event_references": list(
+                    item.get("challenge_event_references") or []
+                )[:MAX_IMS_REFERENCES],
+                "authorized_request_event_references": list(
+                    item.get("authorized_request_event_references") or []
+                )[:MAX_IMS_REFERENCES],
+                "retry_transaction_reference": (
+                    item.get("challenge_retry_association") or {}
+                ).get("retry_transaction_reference"),
+                "conflict_findings": list(item.get("conflict_findings") or [])[
+                    :MAX_IMS_REFERENCES
+                ],
+            }
+            for item in procedures[:MAX_IMS_REFERENCES]
+        ],
         "challenge_retry_associated_count": authentication_statuses.get(
             "CHALLENGE_RETRY_ASSOCIATED", 0
         ),

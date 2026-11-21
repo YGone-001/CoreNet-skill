@@ -2493,5 +2493,134 @@ class RegistrationTimelineCaptureFallbackTests(unittest.TestCase):
         self.assertEqual(row["source_reference"], "diameter-event:183.1")
 
 
+class RegistrationProcedureGroupingTests(unittest.TestCase):
+    def test_multi_hop_views_form_one_procedure_without_dropping_attempts(self) -> None:
+        document, _ = run(
+            [
+                rec(
+                    1,
+                    method="REGISTER",
+                    branch="z9hG4bK-A",
+                    from_uri="sip:user@192.0.2.10",
+                    cseq=1,
+                ),
+                rec(
+                    2,
+                    status=401,
+                    branch="z9hG4bK-A",
+                    from_uri="sip:user@192.0.2.10",
+                    cseq=1,
+                    to_tag="T",
+                    outbound=False,
+                    www_auth=1,
+                ),
+                rec(
+                    3,
+                    method="REGISTER",
+                    branch="z9hG4bK-B",
+                    from_uri="sip:user@10.0.0.1",
+                    cseq=1,
+                ),
+                rec(
+                    4,
+                    status=401,
+                    branch="z9hG4bK-B",
+                    from_uri="sip:user@10.0.0.1",
+                    cseq=1,
+                    to_tag="T",
+                    outbound=False,
+                    www_auth=1,
+                ),
+            ]
+        )
+        self.assertEqual(len(document["registration_attempts"]), 2)
+        self.assertEqual(len(document["registration_procedures"]), 1)
+        procedure = document["registration_procedures"][0]
+        self.assertEqual(procedure["procedure_status"], "MULTI_HOP_OBSERVATION")
+        self.assertEqual(len(procedure["member_attempt_references"]), 2)
+        self.assertEqual(procedure["via_branch_count"], 2)
+
+    def test_higher_cseq_without_challenge_is_a_separate_procedure(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", cseq=1),
+                rec(2, status=200, cseq=1, to_tag="T", outbound=False),
+                rec(3, method="REGISTER", branch="z9hG4bK-B", cseq=2, auth=1),
+                rec(
+                    4,
+                    status=200,
+                    branch="z9hG4bK-B",
+                    cseq=2,
+                    to_tag="T",
+                    outbound=False,
+                ),
+            ]
+        )
+        self.assertEqual(len(document["registration_attempts"]), 2)
+        self.assertEqual(len(document["registration_procedures"]), 2)
+
+    def test_pre_challenge_authorized_request_is_not_a_retry(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", cseq=1, auth=1),
+                rec(
+                    2,
+                    status=401,
+                    cseq=1,
+                    to_tag="T",
+                    outbound=False,
+                    www_auth=1,
+                ),
+            ]
+        )
+        item = attempt(document)
+        self.assertEqual(
+            item["authorized_request_event_references"],
+            ["sip-event:sip-ims.pcapng:1.1"],
+        )
+        self.assertEqual(item["retry_event_references"], [])
+        self.assertNotEqual(
+            item["authentication_evidence_status"], "CHALLENGE_RETRY_ASSOCIATED"
+        )
+        procedure = document["registration_procedures"][0]
+        self.assertTrue(procedure["authorization_present_before_challenge"])
+        self.assertIn(
+            "AUTHORIZATION_PRECEDED_CHALLENGE", procedure["conflict_findings"]
+        )
+
+    def test_challenge_retry_attempt_is_one_procedure(self) -> None:
+        document, _ = run(
+            [
+                rec(1, method="REGISTER", cseq=1),
+                rec(
+                    2,
+                    status=401,
+                    cseq=1,
+                    to_tag="T",
+                    outbound=False,
+                    www_auth=1,
+                ),
+                rec(3, method="REGISTER", branch="z9hG4bK-B", cseq=2, auth=1),
+                rec(
+                    4,
+                    status=200,
+                    branch="z9hG4bK-B",
+                    cseq=2,
+                    to_tag="T",
+                    outbound=False,
+                ),
+            ]
+        )
+        self.assertEqual(len(document["registration_procedures"]), 1)
+        procedure = document["registration_procedures"][0]
+        self.assertEqual(
+            procedure["authentication_evidence_status"],
+            "CHALLENGE_RETRY_ASSOCIATED",
+        )
+        self.assertEqual(
+            procedure["challenge_retry_association"]["status"], "ASSOCIATED"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

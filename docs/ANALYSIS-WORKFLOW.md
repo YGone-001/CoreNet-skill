@@ -435,6 +435,26 @@ boundary is selected:
 - `SIP_FINAL_OUTCOME_NOT_OBSERVED`: no final response is present in the capture.
 - `SIP_OUTCOME_IDENTITY_AMBIGUOUS`: final responses exist but identity is not accepted.
 
+Response ownership is independent of the observed status code. For modern transactions
+the top Via branch and sent-by must both match the request; a response whose top Via
+sent-by was rewritten by an intermediate proxy remains `RESPONSE_ONLY`. The diagnostic
+keeps that response visible with its event, frame, status, compatible-request count and
+match reason (`VIA_SENT_BY_OR_TRANSPORT_MISMATCH`, `VIA_BRANCH_MISMATCH`,
+`VIA_IDENTITY_MISSING`, `NO_COMPATIBLE_REQUEST` or `MULTIPLE_COMPATIBLE_REQUESTS`). It
+does not promote the response to branch ownership, a protocol contradiction, or a call
+verdict. A unique compatible request yields `SIP_UNBOUND_FINAL_RESPONSE_OBSERVED`;
+multiple compatible requests yield `SIP_OUTCOME_IDENTITY_AMBIGUOUS`.
+
+IMS Registration publishes both `registration_attempts` and
+`registration_procedures`. An attempt is a transaction/hop evidence unit; a procedure
+groups attempts that share capture-scoped Call-ID and From-tag evidence and a
+compatible CSeq relationship. Multiple hop views do not become multiple independent
+registrations. Authorized requests observed before a challenge are published as
+authorization evidence, not retries. A challenge-to-retry association requires a later
+authorized REGISTER with compatible identity and ordered CSeq after the challenge
+response, and competing retries remain ambiguous. A registration 2xx is an observed SIP
+response, not proof of persistent registration state.
+
 A negative response is not a protocol violation. A matching CANCEL and 487 is normal
 INVITE termination processing. A 401 or 407 is an authentication challenge, not an
 authentication failure. Fork branches keep independent positive, negative and

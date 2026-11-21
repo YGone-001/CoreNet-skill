@@ -17,7 +17,7 @@ import re
 from typing import Any
 
 ANALYSIS_NAME = "ims-registration"
-ANALYSIS_VERSION = "1.1.0"
+ANALYSIS_VERSION = "1.2.0"
 DOMAIN = "domain"
 CAPABILITY_STATUS = "IMS_REGISTRATION_DOMAIN_IMPLEMENTED"
 
@@ -374,6 +374,131 @@ def _group_attempts(
     return sorted(standalone + attempts, key=lambda item: (item["first_frame"], item["reference"]))
 
 
+def _procedure_identity(attempt: dict[str, Any]) -> tuple[str, ...] | None:
+    request = next((item for item in attempt["request_matches"] if item), None)
+    if request is None:
+        return None
+    if not (_present(request.get("call_id")) and _present(request.get("from_tag"))):
+        return None
+    return (
+        request.get("capture", ""),
+        request["call_id"],
+        request["from_tag"],
+    )
+
+
+def _attempt_first_cseq(attempt: dict[str, Any]) -> int | None:
+    for request in attempt["request_matches"]:
+        if request and isinstance(request.get("cseq_number"), int):
+            return request["cseq_number"]
+    return None
+
+
+def _attempt_has_challenge(attempt: dict[str, Any]) -> bool:
+    return any(
+        401 in (transaction.get("final_response_status_codes") or [])
+        or 407 in (transaction.get("final_response_status_codes") or [])
+        for transaction in attempt["transactions"]
+    )
+
+
+def _attempt_has_authorization(attempt: dict[str, Any]) -> bool:
+    return any(
+        request
+        and (
+            request.get("authorization_count")
+            or request.get("proxy_authorization_count")
+        )
+        for request in attempt["request_matches"]
+    )
+
+
+def _group_registration_procedures(
+    attempts: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Group attempt views into procedures without deleting attempt inventory."""
+    families: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+    standalone: list[dict[str, Any]] = []
+    for attempt in attempts:
+        key = _procedure_identity(attempt)
+        if key is None:
+            standalone.append(
+                {
+                    "reference": f"ims-registration-procedure:{attempt['capture']}:"
+                    f"{attempt['first_frame']}.{len(standalone) + 1}",
+                    "capture": attempt["capture"],
+                    "identity": None,
+                    "attempts": [attempt],
+                    "status": "UNDETERMINED_IDENTITY",
+                }
+            )
+            continue
+        families.setdefault(key, []).append(attempt)
+    procedures: list[dict[str, Any]] = []
+    for key, members in families.items():
+        ordered = sorted(members, key=lambda item: item["first_frame"])
+        current: list[dict[str, Any]] = []
+        current_cseq: int | None = None
+        challenge_in_current = False
+        for attempt in ordered:
+            cseq = _attempt_first_cseq(attempt)
+            same_cseq = (
+                current_cseq is not None and cseq is not None and cseq == current_cseq
+            )
+            retry_chain = (
+                current_cseq is not None
+                and cseq is not None
+                and cseq > current_cseq
+                and challenge_in_current
+                and _attempt_has_authorization(attempt)
+            )
+            if current and not (same_cseq or retry_chain):
+                procedures.append(
+                    {
+                        "reference": f"ims-registration-procedure:{attam['capture'] if False else current[0]['capture']}:"
+                        f"{current[0]['first_frame']}.{len(procedures) + 1}",
+                        "capture": current[0]["capture"],
+                        "identity": key,
+                        "attempts": list(current),
+                        "status": (
+                            "CHALLENGE_RETRY_CHAIN"
+                            if len({_attempt_first_cseq(item) for item in current}) > 1
+                            else "MULTI_HOP_OBSERVATION"
+                            if len(current) > 1
+                            else "SINGLE_ATTEMPT"
+                        ),
+                    }
+                )
+                current = []
+                current_cseq = None
+                challenge_in_current = False
+            if not current:
+                current_cseq = cseq
+            current.append(attempt)
+            current_cseq = cseq
+            challenge_in_current = challenge_in_current or _attempt_has_challenge(
+                attempt
+            )
+        if current:
+            procedures.append(
+                {
+                    "reference": f"ims-registration-procedure:{current[0]['capture']}:"
+                    f"{current[0]['first_frame']}.{len(procedures) + 1}",
+                    "capture": current[0]["capture"],
+                    "identity": key,
+                    "attempts": list(current),
+                    "status": (
+                        "CHALLENGE_RETRY_CHAIN"
+                        if len({_attempt_first_cseq(item) for item in current}) > 1
+                        else "MULTI_HOP_OBSERVATION"
+                        if len(current) > 1
+                        else "SINGLE_ATTEMPT"
+                    ),
+                }
+            )
+    return sorted(procedures + standalone, key=lambda item: item["reference"])
+
+
 def _match_frame(transaction: dict[str, Any]) -> int:
     frame = transaction.get("first_observed_frame")
     return frame if isinstance(frame, int) else 0
@@ -404,7 +529,7 @@ def _attempt_events(
     requests: list[str] = []
     responses: list[str] = []
     challenges: list[str] = []
-    retries: list[str] = []
+    authorized_requests: list[str] = []
     finals: list[str] = []
     min_expires: int | None = None
     for transaction, request in zip(attempt["transactions"], attempt["request_matches"]):
@@ -419,12 +544,12 @@ def _attempt_events(
             if min_expires is None and match.get("min_expires_seconds") is not None:
                 min_expires = match["min_expires_seconds"]
         if request and (request.get("authorization_count") or request.get("proxy_authorization_count")):
-            retries.extend(transaction.get("request_event_references") or [])
+            authorized_requests.extend(transaction.get("request_event_references") or [])
     return {
         "requests": requests,
         "responses": responses,
         "challenges": challenges,
-        "retries": retries,
+        "authorized_requests": authorized_requests,
         "finals": finals,
         "min_expires_seconds": min_expires,
     }
@@ -1000,8 +1125,16 @@ def _public_association(association: dict[str, Any] | None) -> dict[str, Any] | 
         "status": association["status"],
         "challenge_transaction_reference": association.get("challenge_transaction_reference"),
         "challenge_response_event_reference": association.get("challenge_response_event_reference"),
-        "retry_transaction_reference": association.get("retry_transaction_reference"),
-        "retry_request_event_reference": association.get("retry_request_event_reference"),
+        "retry_transaction_reference": (
+            association.get("retry_transaction_reference")
+            if association.get("status") in ("ASSOCIATED", "CHALLENGE_RETRY_ASSOCIATED")
+            else None
+        ),
+        "retry_request_event_reference": (
+            association.get("retry_request_event_reference")
+            if association.get("status") in ("ASSOCIATED", "CHALLENGE_RETRY_ASSOCIATED")
+            else None
+        ),
         "candidate_transaction_references": list(
             association.get("candidate_transaction_references") or []
         ),
@@ -1055,7 +1188,7 @@ def _build_attempt(
         limitations.append(
             "a REGISTER response without an observed request is retained as an independent response observation, not a successful registration attempt"
         )
-    if events["retries"]:
+    if events["authorized_requests"]:
         limitations.append(
             "Authorization presence and a 2xx response do not prove cryptographic authentication or persistent registration"
         )
@@ -1064,7 +1197,16 @@ def _build_attempt(
     request_refs, request_omitted = _bounded(events["requests"])
     response_refs, response_omitted = _bounded(events["responses"])
     challenge_refs, challenge_omitted = _bounded(events["challenges"])
-    retry_refs, retry_omitted = _bounded(events["retries"])
+    authorized_refs, authorized_omitted = _bounded(events["authorized_requests"])
+    association_retry = (
+        association.get("retry_request_event_reference")
+        if association is not None
+        and association.get("status") in ("ASSOCIATED", "CHALLENGE_RETRY_ASSOCIATED")
+        else None
+    )
+    retry_refs, retry_omitted = _bounded(
+        [association_retry] if association_retry else []
+    )
     final_refs, final_omitted = _bounded(events["finals"])
     source_frames, source_omitted = _bounded(
         sorted(
@@ -1099,6 +1241,7 @@ def _build_attempt(
         "request_event_references": request_refs,
         "response_event_references": response_refs,
         "challenge_event_references": challenge_refs,
+        "authorized_request_event_references": authorized_refs,
         "retry_event_references": retry_refs,
         "final_response_event_references": final_refs,
         "source_frame_references": source_frames,
@@ -1113,6 +1256,7 @@ def _build_attempt(
         "omitted_request_event_count": request_omitted,
         "omitted_response_event_count": response_omitted,
         "omitted_challenge_event_count": challenge_omitted,
+        "omitted_authorized_request_event_count": authorized_omitted,
         "omitted_retry_event_count": retry_omitted,
         "omitted_final_response_event_count": final_omitted,
         "omitted_source_frame_count": source_omitted,
@@ -1372,6 +1516,129 @@ def _row(reference: str, kind: str, transaction_reference: str, attempt_referenc
     }
 
 
+def _public_procedure(
+    procedure: dict[str, Any],
+    by_reference: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    requests: list[str] = []
+    responses: list[str] = []
+    challenges: list[str] = []
+    authorized_requests: list[str] = []
+    finals: list[str] = []
+    transactions: list[dict[str, Any]] = []
+    cseq_values: set[int] = set()
+    branches: set[str] = set()
+    for attempt in procedure["attempts"]:
+        events = _attempt_events(attempt, by_reference)
+        requests.extend(events["requests"])
+        responses.extend(events["responses"])
+        challenges.extend(events["challenges"])
+        authorized_requests.extend(events["authorized_requests"])
+        finals.extend(events["finals"])
+        transactions.extend(attempt["transactions"])
+        for request in attempt["request_matches"]:
+            if request and isinstance(request.get("cseq_number"), int):
+                cseq_values.add(request["cseq_number"])
+            if request and isinstance(request.get("via_branch"), str):
+                branches.add(request["via_branch"])
+    ordered_transactions = sorted(transactions, key=_match_frame)
+    ordered_requests: list[dict[str, Any] | None] = []
+    for attempt in procedure["attempts"]:
+        ordered_requests.extend(attempt["request_matches"])
+    ordered_requests.sort(
+        key=lambda item: item.get("frame") if isinstance(item, dict) else 0
+    )
+    pseudo_attempt = {
+        "transactions": ordered_transactions,
+        "request_matches": ordered_requests,
+    }
+    association = _challenge_retry_association(pseudo_attempt, by_reference)
+    final_statuses = sorted(
+        {
+            int(status)
+            for transaction in ordered_transactions
+            for status in transaction.get("final_response_status_codes") or []
+            if isinstance(status, int)
+        }
+    )
+    challenge_refs = sorted(set(challenges))
+    challenge_frames = [
+        _frame_of(reference) for reference in challenge_refs if _frame_of(reference) is not None
+    ]
+    first_challenge_frame = min(challenge_frames) if challenge_frames else None
+    authorization_before_challenge = bool(
+        first_challenge_frame is not None
+        and any(
+            isinstance(request, dict)
+            and isinstance(request.get("frame"), int)
+            and request["frame"] < first_challenge_frame
+            and (
+                request.get("authorization_count")
+                or request.get("proxy_authorization_count")
+            )
+            for request in ordered_requests
+        )
+    )
+    if any(200 <= status < 300 for status in final_statuses):
+        outcome = "SUCCESS_RESPONSE_OBSERVED"
+    elif any(status in (401, 407) for status in final_statuses):
+        outcome = "AUTHENTICATION_CHALLENGE_OBSERVED"
+    elif final_statuses:
+        outcome = "NEGATIVE_RESPONSE_OBSERVED"
+    else:
+        outcome = "INCOMPLETE_EVIDENCE"
+    missing: list[str] = []
+    conflicts: list[str] = []
+    if association is not None:
+        missing.extend(association.get("missing_evidence") or [])
+        conflicts.extend(association.get("conflict_findings") or [])
+    if authorization_before_challenge:
+        conflicts.append("AUTHORIZATION_PRECEDED_CHALLENGE")
+    limitations = [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state",
+    ]
+    if len(procedure["attempts"]) > 1:
+        limitations.append(
+            "multiple attempt views share this procedure; Via rewriting may separate them without proving a forwarding relationship"
+        )
+    if challenge_refs:
+        limitations.append(
+            "an authentication challenge is not an authentication failure; authorization presence does not prove cryptographic success"
+        )
+    return {
+        "procedure_reference": procedure["reference"],
+        "capture_identity": procedure["capture"],
+        "procedure_status": procedure["status"],
+        "member_attempt_references": [
+            attempt["reference"] for attempt in procedure["attempts"]
+        ][:MAX_ATTEMPTS],
+        "member_transaction_references": _unique(
+            [transaction["transaction_reference"] for transaction in ordered_transactions]
+        )[:MAX_REFERENCES],
+        "request_event_references": _unique(requests)[:MAX_REFERENCES],
+        "response_event_references": _unique(responses)[:MAX_REFERENCES],
+        "challenge_event_references": challenge_refs[:MAX_REFERENCES],
+        "authorized_request_event_references": _unique(authorized_requests)[
+            :MAX_REFERENCES
+        ],
+        "final_response_event_references": _unique(finals)[:MAX_REFERENCES],
+        "final_response_status_codes": final_statuses,
+        "cseq_values": sorted(cseq_values),
+        "via_branch_count": len(branches),
+        "observation_count": len(ordered_transactions),
+        "sip_outcome": outcome,
+        "authentication_evidence_status": _authentication_status(association),
+        "challenge_retry_association": _public_association(association),
+        "authorization_present_before_challenge": authorization_before_challenge,
+        "missing_evidence": sorted(dict.fromkeys(missing)),
+        "conflict_findings": sorted(dict.fromkeys(conflicts)),
+        "limitations": limitations,
+        "not_confirmed": list(NOT_CONFIRMED),
+        "evidence_class": "DERIVED",
+    }
+
+
 def build_analysis(
     messages: list[dict[str, Any]],
     transaction_document: dict[str, Any],
@@ -1387,16 +1654,27 @@ def build_analysis(
         if transaction["transaction_method"] == "REGISTER"
     ]
     attempts_raw = _group_attempts(transactions, by_reference)
+    procedures_raw = _group_registration_procedures(attempts_raw)
+    attempt_procedure = {
+        attempt["reference"]: procedure["reference"]
+        for procedure in procedures_raw
+        for attempt in procedure["attempts"]
+    }
     attempts_all: list[dict[str, Any]] = []
     seen_identity_success: dict[tuple[str, ...], bool] = {}
     for attempt in attempts_raw:
         identity = attempt["identity"]
         previous_success = seen_identity_success.get(identity, False)
         public = _build_attempt(attempt, previous_success, by_reference)
+        public["procedure_reference"] = attempt_procedure.get(public["attempt_reference"])
         attempts_all.append(public)
         if identity and public["sip_outcome"] == "SUCCESS_RESPONSE_OBSERVED":
             seen_identity_success[identity] = True
     published_attempts = attempts_all[:MAX_ATTEMPTS]
+    procedures_all = [
+        _public_procedure(procedure, by_reference) for procedure in procedures_raw
+    ]
+    published_procedures = procedures_all[:MAX_ATTEMPTS]
     diameter_published, diameter_total, diameter_omitted, diameter_status = _diameter_inventory(
         diameter_document, diameter_evidence
     )
@@ -1461,6 +1739,7 @@ def build_analysis(
         },
         "sip_registration_inventory": inventory_published,
         "registration_attempts": published_attempts,
+        "registration_procedures": published_procedures,
         "diameter_ims_inventory": diameter_published,
         "cross_protocol_associations": associations,
         "timeline": timeline,
@@ -1472,6 +1751,8 @@ def build_analysis(
             "registration_inventory_omitted": len(inventory_all) - len(inventory_published),
             "attempt_count": len(attempts_all),
             "attempts_omitted": len(attempts_all) - len(published_attempts),
+            "procedure_count": len(procedures_all),
+            "procedures_omitted": len(procedures_all) - len(published_procedures),
             "diameter_observation_count": diameter_total,
             "diameter_observations_omitted": diameter_omitted,
             "association_count": association_total,

@@ -1,6 +1,6 @@
 {
   "analysis_name": "ims-registration",
-  "analysis_version": "1.1.0",
+  "analysis_version": "1.2.0",
   "capability": {
     "capability_status": "IMS_REGISTRATION_DOMAIN_IMPLEMENTED",
     "cross_protocol_association_policy": "FAIL_CLOSED_WITHOUT_IDENTITY_BRIDGE",
@@ -31,6 +31,8 @@
     "attempts_omitted": 0,
     "diameter_observation_count": 11,
     "diameter_observations_omitted": 0,
+    "procedure_count": 28,
+    "procedures_omitted": 0,
     "register_transaction_count": 33,
     "registration_inventory_count": 33,
     "registration_inventory_omitted": 0,
@@ -4996,6 +4998,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:1.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -5035,6 +5038,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -5042,6 +5046,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:1.1",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -5068,6 +5073,9 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:3.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "CHALLENGE_RETRY_ASSOCIATED",
+      "authorized_request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:5.1"
+      ],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [
         "sip-event:synthetic-ims-registration.pcapng:4.1"
@@ -5129,6 +5137,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -5136,6 +5145,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:3.2",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -5169,6 +5179,9 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:7.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "CHALLENGE_RETRY_ASSOCIATED",
+      "authorized_request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:9.1"
+      ],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [
         "sip-event:synthetic-ims-registration.pcapng:8.1"
@@ -5230,6 +5243,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -5237,6 +5251,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:7.3",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -5270,6 +5285,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:11.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "CHALLENGE_WITHOUT_OBSERVED_RETRY",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [
         "sip-event:synthetic-ims-registration.pcapng:12.1"
@@ -5327,6 +5343,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -5334,6 +5351,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:11.4",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -5360,6 +5378,9 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:13.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "RETRY_WITHOUT_OBSERVED_CHALLENGE",
+      "authorized_request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:13.1"
+      ],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": {
@@ -5374,8 +5395,8 @@
         "missing_evidence": [
           "CHALLENGE_NOT_OBSERVED"
         ],
-        "retry_request_event_reference": "sip-event:synthetic-ims-registration.pcapng:13.1",
-        "retry_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:13.1",
+        "retry_request_event_reference": null,
+        "retry_transaction_reference": null,
         "status": "RETRY_WITHOUT_CHALLENGE"
       },
       "conflict_findings": [],
@@ -5416,6 +5437,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -5423,6 +5445,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:13.5",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -5435,9 +5458,7 @@
       "response_event_references": [
         "sip-event:synthetic-ims-registration.pcapng:14.1"
       ],
-      "retry_event_references": [
-        "sip-event:synthetic-ims-registration.pcapng:13.1"
-      ],
+      "retry_event_references": [],
       "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
       "source_frame_references": [
         "synthetic-ims-registration.pcapng:13.1",
@@ -5451,6 +5472,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:15.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -5489,6 +5511,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -5496,6 +5519,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:15.6",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -5519,6 +5543,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:16.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -5557,6 +5582,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -5564,6 +5590,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:16.1",
       "registration_type": "UNDETERMINED",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -5582,6 +5609,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:17.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -5621,6 +5649,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -5628,6 +5657,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:17.7",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -5654,6 +5684,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:19.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -5693,6 +5724,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -5700,6 +5732,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:19.8",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -5726,6 +5759,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:21.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -5816,6 +5850,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -5823,6 +5858,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:21.9",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -5849,6 +5885,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:23.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -5941,6 +5978,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -5948,6 +5986,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:23.10",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -5974,6 +6013,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:25.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -6013,6 +6053,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6020,6 +6061,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:25.11",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -6046,6 +6088,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:27.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -6085,6 +6128,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6092,6 +6136,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:27.12",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_prior_successful_attempt",
@@ -6123,6 +6168,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:31.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -6162,6 +6208,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6169,6 +6216,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:31.13",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -6195,6 +6243,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:33.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -6237,6 +6286,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6244,6 +6294,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:33.14",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -6273,6 +6324,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:36.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -6311,6 +6363,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6318,6 +6371,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:36.15",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -6341,6 +6395,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:37.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -6382,6 +6437,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6389,6 +6445,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:37.16",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -6412,6 +6469,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:38.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -6452,6 +6510,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6459,6 +6518,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:38.2",
       "registration_type": "UNDETERMINED",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -6482,6 +6542,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:39.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -6522,6 +6583,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6529,6 +6591,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:39.3",
       "registration_type": "UNDETERMINED",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -6552,6 +6615,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:40.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -6588,6 +6652,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6595,6 +6660,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:40.17",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -6618,6 +6684,9 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:41.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "RETRY_WITHOUT_OBSERVED_CHALLENGE",
+      "authorized_request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:41.1"
+      ],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": {
@@ -6632,8 +6701,8 @@
         "missing_evidence": [
           "CHALLENGE_NOT_OBSERVED"
         ],
-        "retry_request_event_reference": "sip-event:synthetic-ims-registration.pcapng:41.1",
-        "retry_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:41.1",
+        "retry_request_event_reference": null,
+        "retry_transaction_reference": null,
         "status": "RETRY_WITHOUT_CHALLENGE"
       },
       "conflict_findings": [],
@@ -6673,6 +6742,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6680,6 +6750,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:41.18",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_prior_successful_attempt",
@@ -6692,9 +6763,7 @@
       "response_event_references": [
         "sip-event:synthetic-ims-registration.pcapng:42.1"
       ],
-      "retry_event_references": [
-        "sip-event:synthetic-ims-registration.pcapng:41.1"
-      ],
+      "retry_event_references": [],
       "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
       "source_frame_references": [
         "synthetic-ims-registration.pcapng:41.1",
@@ -6708,6 +6777,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:43.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -6791,6 +6861,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6798,6 +6869,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:43.19",
       "registration_type": "DEREGISTRATION_REQUESTED",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -6824,6 +6896,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:45.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -6863,6 +6936,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6870,6 +6944,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:45.20",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -6896,6 +6971,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:47.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -6934,6 +7010,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -6941,6 +7018,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:47.21",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -6964,6 +7042,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:48.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -7003,6 +7082,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -7010,6 +7090,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:48.22",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -7036,6 +7117,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:50.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -7073,6 +7155,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -7080,6 +7163,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:50.23",
       "registration_type": "REFRESH_OBSERVED",
       "registration_type_evidence": [
         "observed_register_request",
@@ -7106,6 +7190,7 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:52.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "NOT_OBSERVED",
+      "authorized_request_event_references": [],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [],
       "challenge_retry_association": null,
@@ -7145,6 +7230,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -7152,6 +7238,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:52.24",
       "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -7178,6 +7265,9 @@
       "attempt_reference": "sip-registration:synthetic-ims-registration.pcapng:54.1",
       "authentication_cryptographically_verified": false,
       "authentication_evidence_status": "CHALLENGE_RETRY_ASSOCIATED",
+      "authorized_request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:56.1"
+      ],
       "capture_identity": "synthetic-ims-registration.pcapng",
       "challenge_event_references": [
         "sip-event:synthetic-ims-registration.pcapng:55.1"
@@ -7239,6 +7329,7 @@
         "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
         "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
       ],
+      "omitted_authorized_request_event_count": 0,
       "omitted_challenge_event_count": 0,
       "omitted_final_response_event_count": 0,
       "omitted_request_event_count": 0,
@@ -7246,6 +7337,7 @@
       "omitted_retry_event_count": 0,
       "omitted_source_frame_count": 0,
       "omitted_transaction_count": 0,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:54.25",
       "registration_type": "RE_REGISTRATION_CANDIDATE",
       "registration_type_evidence": [
         "no_positive_expires",
@@ -7274,6 +7366,1478 @@
         "sip-transaction:synthetic-ims-registration.pcapng:request:54.1",
         "sip-transaction:synthetic-ims-registration.pcapng:request:56.1"
       ]
+    }
+  ],
+  "registration_procedures": [
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:2.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:1.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:1.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:1.1",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:1.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:2.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "CHALLENGE_WITHOUT_OBSERVED_RETRY",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:12.1"
+      ],
+      "challenge_retry_association": {
+        "basis": [
+          "challenge_observed"
+        ],
+        "candidate_request_event_references": [],
+        "candidate_transaction_references": [],
+        "challenge_response_event_reference": "sip-event:synthetic-ims-registration.pcapng:12.1",
+        "challenge_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:11.1",
+        "conflict_findings": [],
+        "missing_evidence": [
+          "AUTHORIZATION_NOT_OBSERVED"
+        ],
+        "retry_request_event_reference": null,
+        "retry_transaction_reference": null,
+        "status": "CHALLENGE_WITHOUT_RETRY"
+      },
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:12.1"
+      ],
+      "final_response_status_codes": [
+        401
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state",
+        "an authentication challenge is not an authentication failure; authorization presence does not prove cryptographic success"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:11.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:11.1"
+      ],
+      "missing_evidence": [
+        "AUTHORIZATION_NOT_OBSERVED"
+      ],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:11.4",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:11.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:12.1"
+      ],
+      "sip_outcome": "AUTHENTICATION_CHALLENGE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "RETRY_WITHOUT_OBSERVED_CHALLENGE",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:13.1"
+      ],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": {
+        "basis": [
+          "authorization_present_without_observed_challenge"
+        ],
+        "candidate_request_event_references": [],
+        "candidate_transaction_references": [],
+        "challenge_response_event_reference": null,
+        "challenge_transaction_reference": null,
+        "conflict_findings": [],
+        "missing_evidence": [
+          "CHALLENGE_NOT_OBSERVED"
+        ],
+        "retry_request_event_reference": null,
+        "retry_transaction_reference": null,
+        "status": "RETRY_WITHOUT_CHALLENGE"
+      },
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:14.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:13.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:13.1"
+      ],
+      "missing_evidence": [
+        "CHALLENGE_NOT_OBSERVED"
+      ],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:13.5",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:13.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:14.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:15.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:15.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:15.6",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:15.1"
+      ],
+      "response_event_references": [],
+      "sip_outcome": "INCOMPLETE_EVIDENCE",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:16.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:response:16.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:16.1",
+      "procedure_status": "UNDETERMINED_IDENTITY",
+      "request_event_references": [],
+      "response_event_references": [],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 0
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:18.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:17.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:17.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:17.7",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:17.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:18.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:20.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:19.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:19.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:19.8",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:19.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:20.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:22.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:21.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:21.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:21.9",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:21.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:22.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:24.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:23.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:23.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:23.10",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:23.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:24.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:26.1"
+      ],
+      "final_response_status_codes": [
+        403
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:25.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:25.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:25.11",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:25.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:26.1"
+      ],
+      "sip_outcome": "NEGATIVE_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1,
+        2
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:28.1",
+        "sip-event:synthetic-ims-registration.pcapng:30.1"
+      ],
+      "final_response_status_codes": [
+        200,
+        423
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:27.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:27.1",
+        "sip-transaction:synthetic-ims-registration.pcapng:request:29.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 2,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:27.12",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:27.1",
+        "sip-event:synthetic-ims-registration.pcapng:29.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:28.1",
+        "sip-event:synthetic-ims-registration.pcapng:30.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 2
+    },
+    {
+      "authentication_evidence_status": "CHALLENGE_RETRY_ASSOCIATED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:5.1"
+      ],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:4.1"
+      ],
+      "challenge_retry_association": {
+        "basis": [
+          "challenge_observed",
+          "challenge_response_precedes_retry",
+          "later_register_observed",
+          "cseq_increased",
+          "authorization_present"
+        ],
+        "candidate_request_event_references": [],
+        "candidate_transaction_references": [],
+        "challenge_response_event_reference": "sip-event:synthetic-ims-registration.pcapng:4.1",
+        "challenge_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:3.1",
+        "conflict_findings": [],
+        "missing_evidence": [],
+        "retry_request_event_reference": "sip-event:synthetic-ims-registration.pcapng:5.1",
+        "retry_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:5.1",
+        "status": "ASSOCIATED"
+      },
+      "conflict_findings": [],
+      "cseq_values": [
+        1,
+        2
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:4.1",
+        "sip-event:synthetic-ims-registration.pcapng:6.1"
+      ],
+      "final_response_status_codes": [
+        200,
+        401
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state",
+        "an authentication challenge is not an authentication failure; authorization presence does not prove cryptographic success"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:3.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:3.1",
+        "sip-transaction:synthetic-ims-registration.pcapng:request:5.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 2,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:3.2",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:3.1",
+        "sip-event:synthetic-ims-registration.pcapng:5.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:4.1",
+        "sip-event:synthetic-ims-registration.pcapng:6.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 2
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:32.1"
+      ],
+      "final_response_status_codes": [
+        503
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:31.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:31.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:31.13",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:31.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:32.1"
+      ],
+      "sip_outcome": "NEGATIVE_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:35.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:33.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:33.1",
+        "sip-transaction:synthetic-ims-registration.pcapng:request:34.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 2,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:33.14",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:33.1",
+        "sip-event:synthetic-ims-registration.pcapng:34.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:35.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 2
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        2
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:36.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:36.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:36.15",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:36.1"
+      ],
+      "response_event_references": [],
+      "sip_outcome": "INCOMPLETE_EVIDENCE",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:37.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:37.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:37.16",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:37.1"
+      ],
+      "response_event_references": [],
+      "sip_outcome": "INCOMPLETE_EVIDENCE",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:38.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:38.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:38.2",
+      "procedure_status": "UNDETERMINED_IDENTITY",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:38.1"
+      ],
+      "response_event_references": [],
+      "sip_outcome": "INCOMPLETE_EVIDENCE",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:39.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:39.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:39.3",
+      "procedure_status": "UNDETERMINED_IDENTITY",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:39.1"
+      ],
+      "response_event_references": [],
+      "sip_outcome": "INCOMPLETE_EVIDENCE",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:40.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:40.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:40.17",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:40.1"
+      ],
+      "response_event_references": [],
+      "sip_outcome": "INCOMPLETE_EVIDENCE",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "RETRY_WITHOUT_OBSERVED_CHALLENGE",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:41.1"
+      ],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": {
+        "basis": [
+          "authorization_present_without_observed_challenge"
+        ],
+        "candidate_request_event_references": [],
+        "candidate_transaction_references": [],
+        "challenge_response_event_reference": null,
+        "challenge_transaction_reference": null,
+        "conflict_findings": [],
+        "missing_evidence": [
+          "CHALLENGE_NOT_OBSERVED"
+        ],
+        "retry_request_event_reference": null,
+        "retry_transaction_reference": null,
+        "status": "RETRY_WITHOUT_CHALLENGE"
+      },
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:42.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:41.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:41.1"
+      ],
+      "missing_evidence": [
+        "CHALLENGE_NOT_OBSERVED"
+      ],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:41.18",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:41.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:42.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:44.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:43.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:43.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:43.19",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:43.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:44.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:46.1"
+      ],
+      "final_response_status_codes": [
+        408
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:45.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:45.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:45.20",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:45.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:46.1"
+      ],
+      "sip_outcome": "NEGATIVE_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [],
+      "final_response_status_codes": [],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:47.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:47.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:47.21",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:47.1"
+      ],
+      "response_event_references": [],
+      "sip_outcome": "INCOMPLETE_EVIDENCE",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:49.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:48.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:48.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:48.22",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:48.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:49.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        2
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:51.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:50.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:50.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:50.23",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:50.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:51.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "NOT_OBSERVED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [],
+      "challenge_retry_association": null,
+      "conflict_findings": [],
+      "cseq_values": [
+        1
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:53.1"
+      ],
+      "final_response_status_codes": [
+        200
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:52.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:52.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 1,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:52.24",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:52.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:53.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 1
+    },
+    {
+      "authentication_evidence_status": "CHALLENGE_RETRY_ASSOCIATED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:56.1"
+      ],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:55.1"
+      ],
+      "challenge_retry_association": {
+        "basis": [
+          "challenge_observed",
+          "challenge_response_precedes_retry",
+          "later_register_observed",
+          "cseq_increased",
+          "authorization_present"
+        ],
+        "candidate_request_event_references": [],
+        "candidate_transaction_references": [],
+        "challenge_response_event_reference": "sip-event:synthetic-ims-registration.pcapng:55.1",
+        "challenge_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:54.1",
+        "conflict_findings": [],
+        "missing_evidence": [],
+        "retry_request_event_reference": "sip-event:synthetic-ims-registration.pcapng:56.1",
+        "retry_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:56.1",
+        "status": "ASSOCIATED"
+      },
+      "conflict_findings": [],
+      "cseq_values": [
+        2,
+        3
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:55.1",
+        "sip-event:synthetic-ims-registration.pcapng:57.1"
+      ],
+      "final_response_status_codes": [
+        200,
+        401
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state",
+        "an authentication challenge is not an authentication failure; authorization presence does not prove cryptographic success"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:54.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:54.1",
+        "sip-transaction:synthetic-ims-registration.pcapng:request:56.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 2,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:54.25",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:54.1",
+        "sip-event:synthetic-ims-registration.pcapng:56.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:55.1",
+        "sip-event:synthetic-ims-registration.pcapng:57.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 2
+    },
+    {
+      "authentication_evidence_status": "CHALLENGE_RETRY_ASSOCIATED",
+      "authorization_present_before_challenge": false,
+      "authorized_request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:9.1"
+      ],
+      "capture_identity": "synthetic-ims-registration.pcapng",
+      "challenge_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:8.1"
+      ],
+      "challenge_retry_association": {
+        "basis": [
+          "challenge_observed",
+          "challenge_response_precedes_retry",
+          "later_register_observed",
+          "cseq_increased",
+          "authorization_present"
+        ],
+        "candidate_request_event_references": [],
+        "candidate_transaction_references": [],
+        "challenge_response_event_reference": "sip-event:synthetic-ims-registration.pcapng:8.1",
+        "challenge_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:7.1",
+        "conflict_findings": [],
+        "missing_evidence": [],
+        "retry_request_event_reference": "sip-event:synthetic-ims-registration.pcapng:9.1",
+        "retry_transaction_reference": "sip-transaction:synthetic-ims-registration.pcapng:request:9.1",
+        "status": "ASSOCIATED"
+      },
+      "conflict_findings": [],
+      "cseq_values": [
+        1,
+        2
+      ],
+      "evidence_class": "DERIVED",
+      "final_response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:8.1",
+        "sip-event:synthetic-ims-registration.pcapng:10.1"
+      ],
+      "final_response_status_codes": [
+        200,
+        407
+      ],
+      "limitations": [
+        "a registration procedure groups independent attempt and hop observations; it does not prove one end-to-end forwarding path",
+        "a SIP 2xx response is an observed registration response, not proof of persistent IMS registration or subscriber state",
+        "an authentication challenge is not an authentication failure; authorization presence does not prove cryptographic success"
+      ],
+      "member_attempt_references": [
+        "sip-registration:synthetic-ims-registration.pcapng:7.1"
+      ],
+      "member_transaction_references": [
+        "sip-transaction:synthetic-ims-registration.pcapng:request:7.1",
+        "sip-transaction:synthetic-ims-registration.pcapng:request:9.1"
+      ],
+      "missing_evidence": [],
+      "not_confirmed": [
+        "a SIP 200 OK to REGISTER is an observed registration response, not proof of persistent IMS registration, HSS assignment or call reachability",
+        "401 and 407 are authentication challenges, not terminal registration failures",
+        "Authorization header presence does not prove cryptographic authentication",
+        "a Diameter Cx/Dx success is an independent application result, not proof of the SIP registration outcome",
+        "no privacy-safe cross-protocol subscriber identity bridge exists, so SIP and Diameter evidence remain independent",
+        "the first observed REGISTER in a capture is not necessarily the subscriber's first registration"
+      ],
+      "observation_count": 2,
+      "procedure_reference": "ims-registration-procedure:synthetic-ims-registration.pcapng:7.3",
+      "procedure_status": "SINGLE_ATTEMPT",
+      "request_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:7.1",
+        "sip-event:synthetic-ims-registration.pcapng:9.1"
+      ],
+      "response_event_references": [
+        "sip-event:synthetic-ims-registration.pcapng:8.1",
+        "sip-event:synthetic-ims-registration.pcapng:10.1"
+      ],
+      "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+      "via_branch_count": 2
     }
   ],
   "sip_registration_inventory": [

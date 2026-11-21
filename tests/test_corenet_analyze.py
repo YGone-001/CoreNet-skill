@@ -5235,10 +5235,37 @@ class ImsRegistrationOutcomeSummaryTests(unittest.TestCase):
                     "missing_evidence": [],
                     "conflict_findings": [],
                 }
-            ]
+            ],
+            "registration_procedures": [
+                {
+                    "procedure_reference": "ims-registration-procedure:cap.pcapng:1.1",
+                    "procedure_status": "MULTI_HOP_OBSERVATION",
+                    "member_attempt_references": [
+                        "sip-registration:cap.pcapng:1.1"
+                    ],
+                    "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+                    "authentication_evidence_status": "CHALLENGE_RETRY_ASSOCIATED",
+                    "authorization_present_before_challenge": False,
+                    "challenge_event_references": ["sip-event:cap.pcapng:2.1"],
+                    "authorized_request_event_references": [
+                        "sip-event:cap.pcapng:4.1"
+                    ],
+                    "challenge_retry_association": {
+                        "retry_transaction_reference": (
+                            "sip-transaction:cap.pcapng:request:4.1"
+                        )
+                    },
+                    "conflict_findings": [],
+                }
+            ],
         }
         summary = MODULE._ims_registration_evidence(document)
         self.assertEqual(summary["attempt_count"], 1)
+        self.assertEqual(summary["procedure_count"], 1)
+        self.assertEqual(summary["success_procedure_count"], 1)
+        self.assertEqual(
+            summary["challenge_retry_associated_procedure_count"], 1
+        )
         self.assertEqual(summary["challenge_event_count"], 1)
         self.assertEqual(summary["retry_event_count"], 1)
         self.assertEqual(summary["challenge_retry_associated_count"], 1)

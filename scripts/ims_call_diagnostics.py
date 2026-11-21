@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 ANALYSIS_NAME = "ims-call-diagnostics"
-ANALYSIS_VERSION = "0.4.0"
+ANALYSIS_VERSION = "0.5.0"
 CAPABILITY = "bounded per-call and per-branch IMS media evidence consolidation"
 
 MAX_LIST_ITEMS = 32
@@ -1708,6 +1708,61 @@ def build_diagnostics(
             "evidence_class": "DERIVED",
         }
 
+    def _unbound_outcome_record(
+        observations: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        statuses = sorted(
+            {
+                int(observation["status_code"])
+                for observation in observations
+                if isinstance(observation.get("status_code"), int)
+            }
+        )
+        unique_candidate = bool(observations) and all(
+            observation.get("candidate_request_count") == 1
+            for observation in observations
+        )
+        classification = (
+            "SIP_UNBOUND_FINAL_RESPONSE_OBSERVED"
+            if unique_candidate
+            else "SIP_OUTCOME_IDENTITY_AMBIGUOUS"
+        )
+        return {
+            "classification": classification,
+            "final_status_codes": [],
+            "final_response_references": [],
+            "unbound_final_status_codes": statuses,
+            "unbound_final_response_observations": observations[:MAX_LIST_ITEMS],
+            "unbound_final_response_count": len(observations),
+            "provisional_status_codes": [],
+            "positive_final_response_observed": False,
+            "negative_final_response_observed": False,
+            "authentication_challenge_observed": False,
+            "authentication_challenge_status_codes": [],
+            "cancel_relationship_established": False,
+            "cancel_transaction_references": [],
+            "cancel_request_event_references": [],
+            "cancel_response_event_references": [],
+            "cancel_response_status_codes": [],
+            "procedure_contradictions": [],
+            "protocol_violation_findings": [],
+            "response_association_basis": "IDENTITY_AND_CSEQ_ONLY",
+            "transaction_ownership_established": False,
+            "reason_established": False,
+            "timeout_inferred": False,
+            "scope": "SIP_RESPONSE_OBSERVATION_ONLY",
+            "next_checks": [
+                "Provide the peer-facing request frame with a matching Via sent-by and transport, or a capture point before the proxy rewrite.",
+                "Do not treat the observed response as an INVITE transaction result until transaction identity is established.",
+            ],
+            "excluded_interpretations": [
+                "An observed SIP response does not establish transaction ownership",
+                "A broad Call-ID and CSeq match does not establish a transaction relationship",
+                "An unbound response does not establish branch ownership or a call verdict",
+            ],
+            "evidence_class": "OBSERVED",
+        }
+
     def _logical_call_outcome(
         attempt_outcomes: list[dict[str, Any]],
         branch_outcomes: list[dict[str, Any]],
@@ -1715,9 +1770,15 @@ def build_diagnostics(
         grouping_accepted: bool,
         provisional_observed: bool,
     ) -> dict[str, Any]:
+        def _has_outcome_evidence(outcome: dict[str, Any]) -> bool:
+            return bool(
+                outcome.get("final_status_codes")
+                or outcome.get("unbound_final_response_observations")
+            )
+
         outcomes = (
-            [outcome for outcome in branch_outcomes if outcome.get("final_status_codes")]
-            or [outcome for outcome in attempt_outcomes if outcome.get("final_status_codes")]
+            [outcome for outcome in branch_outcomes if _has_outcome_evidence(outcome)]
+            or [outcome for outcome in attempt_outcomes if _has_outcome_evidence(outcome)]
             or attempt_outcomes
         )
         classifications = [
@@ -1745,6 +1806,10 @@ def build_diagnostics(
             classification == "SIP_PROCEDURE_CONTRADICTION_OBSERVED"
             for classification in classifications
         )
+        unbound = any(
+            outcome.get("unbound_final_response_observations")
+            for outcome in outcomes
+        )
         if violation:
             logical_outcome = "UNRESOLVED_LOGICAL_CALL_OUTCOME"
             observed = "SIP_PROTOCOL_VIOLATION_EVIDENCE"
@@ -1754,6 +1819,9 @@ def build_diagnostics(
         elif not grouping_accepted:
             logical_outcome = "UNRESOLVED_LOGICAL_CALL_OUTCOME"
             observed = "SIP_OUTCOME_IDENTITY_AMBIGUOUS"
+        elif unbound and not (positive or negative or cancelled):
+            logical_outcome = "UNRESOLVED_LOGICAL_CALL_OUTCOME"
+            observed = "SIP_UNBOUND_FINAL_RESPONSE_OBSERVED"
         elif positive and (negative or cancelled):
             logical_outcome = "MIXED_FORK_OUTCOMES_OBSERVED"
             observed = "SIP_FORK_BRANCH_NEGATIVE_OUTCOME_OBSERVED"
@@ -1785,6 +1853,7 @@ def build_diagnostics(
             "positive_branch_observed": positive,
             "negative_branch_observed": negative,
             "cancelled_branch_observed": cancelled,
+            "unbound_response_observed": unbound,
             "authentication_challenge_observed": authenticated,
             "protocol_violation_observed": violation,
             "procedure_contradiction_observed": contradiction,
@@ -2024,47 +2093,111 @@ def build_diagnostics(
             return event["status_code"]
         return None
 
-    def _identity_family_final_references(invite_reference: Any) -> list[str]:
-        """Bounded fallback for a response the transaction layer could not bind."""
-        invite = sip_by_ref.get(invite_reference) if isinstance(invite_reference, str) else None
-        if not isinstance(invite, dict):
-            return []
-        call_id = invite.get("call_id_reference")
-        from_tag = invite.get("from_tag_reference")
-        headers = invite.get("headers") or {}
+    def _response_match_reason(
+        request: dict[str, Any], response: dict[str, Any]
+    ) -> str:
+        request_vias = list(request.get("via_branch_references") or [])
+        response_vias = list(response.get("via_branch_references") or [])
+        if not request_vias or not response_vias:
+            return "VIA_IDENTITY_MISSING"
+        if request_vias[0] != response_vias[0]:
+            return "VIA_BRANCH_MISMATCH"
+        return "VIA_SENT_BY_OR_TRANSPORT_MISMATCH"
+
+    bound_response_references: set[str] = set()
+    for attempt_source in attempts_source:
+        stage = attempt_source.get("stage_evidence") or {}
+        bound_response_references.update(
+            stage.get("final_response_event_references") or []
+        )
+        bound_response_references.update(
+            stage.get("provisional_response_event_references") or []
+        )
+        for source_branch in attempt_source.get("branches") or []:
+            if isinstance(source_branch, dict):
+                bound_response_references.update(
+                    source_branch.get("response_event_references") or []
+                )
+
+    unbound_response_inventory: list[dict[str, Any]] = []
+    for response_reference, response_event in sip_by_ref.items():
+        if not isinstance(response_event, dict):
+            continue
+        if response_event.get("message_type") != "RESPONSE":
+            continue
+        status = response_event.get("status_code")
+        if not isinstance(status, int) or status < 200:
+            continue
+        if response_reference in bound_response_references:
+            continue
+        call_id = response_event.get("call_id_reference")
+        from_tag = response_event.get("from_tag_reference")
+        headers = response_event.get("headers") or {}
         cseq = (headers.get("cseq") or {}).get("sequence")
-        invite_frame = invite.get("frame_number")
-        if not isinstance(call_id, str) or not isinstance(from_tag, str):
-            return []
-        candidates: list[tuple[int, str]] = []
-        for reference, event in sip_by_ref.items():
-            if reference == invite_reference or not isinstance(event, dict):
+        if (headers.get("cseq") or {}).get("method") != "INVITE":
+            continue
+        response_frame = response_event.get("frame_number")
+        compatible_requests: list[dict[str, Any]] = []
+        for request_reference, request_event in sip_by_ref.items():
+            if not isinstance(request_event, dict):
                 continue
-            if event.get("message_type") != "RESPONSE":
+            if request_event.get("method") != "INVITE":
                 continue
-            status = event.get("status_code")
-            if not isinstance(status, int) or status < 200:
+            if request_event.get("call_id_reference") != call_id:
                 continue
-            if event.get("call_id_reference") != call_id:
+            if request_event.get("from_tag_reference") != from_tag:
                 continue
-            if event.get("from_tag_reference") != from_tag:
+            request_headers = request_event.get("headers") or {}
+            request_cseq = (request_headers.get("cseq") or {}).get("sequence")
+            if isinstance(cseq, int) and request_cseq != cseq:
                 continue
-            event_headers = event.get("headers") or {}
-            event_cseq = (event_headers.get("cseq") or {}).get("sequence")
-            if isinstance(cseq, int) and event_cseq != cseq:
+            if (request_headers.get("cseq") or {}).get("method") != "INVITE":
                 continue
-            if event_headers.get("cseq", {}).get("method") != "INVITE":
-                continue
-            frame = event.get("frame_number")
+            request_frame = request_event.get("frame_number")
             if (
-                isinstance(invite_frame, int)
-                and isinstance(frame, int)
-                and frame <= invite_frame
+                isinstance(response_frame, int)
+                and isinstance(request_frame, int)
+                and request_frame >= response_frame
             ):
                 continue
-            if isinstance(frame, int):
-                candidates.append((frame, reference))
-        return [reference for _frame, reference in sorted(candidates)]
+            compatible_requests.append(
+                {
+                    "request_reference": request_reference,
+                    "request_event": request_event,
+                    "request_frame": request_frame,
+                }
+            )
+        candidate_count = len(compatible_requests)
+        if candidate_count == 0:
+            ambiguity = "NO_COMPATIBLE_REQUEST"
+            reason = "NO_COMPATIBLE_REQUEST"
+        elif candidate_count > 1:
+            ambiguity = "MULTIPLE_CANDIDATES"
+            reason = "MULTIPLE_COMPATIBLE_REQUESTS"
+        else:
+            ambiguity = "UNIQUE_CANDIDATE"
+            reason = _response_match_reason(
+                compatible_requests[0]["request_event"], response_event
+            )
+        unbound_response_inventory.append(
+            {
+                "response_reference": response_reference,
+                "frame_number": response_frame,
+                "status_code": status,
+                "candidate_request_references": [
+                    item["request_reference"] for item in compatible_requests
+                ][:MAX_LIST_ITEMS],
+                "candidate_request_count": candidate_count,
+                "ambiguity_status": ambiguity,
+                "response_match_reason": reason,
+                "transaction_ownership_established": False,
+                "evidence_class": "OBSERVED",
+            }
+        )
+    unbound_response_inventory = sorted(
+        unbound_response_inventory,
+        key=lambda item: (item.get("frame_number") or 0, item["response_reference"]),
+    )
 
     logical_has_positive: dict[str, bool] = {}
     for group in logical_grouping["logical_calls"]:
@@ -2140,16 +2273,6 @@ def build_diagnostics(
         attempt_final_refs = list(
             attempt_stage.get("final_response_event_references") or []
         )
-        response_association_basis = "TRANSACTION_OR_BRANCH_CONTEXT"
-        transaction_ownership_established = True
-        if not attempt_final_refs:
-            fallback_references = _identity_family_final_references(
-                attempt.get("initial_invite_event_reference")
-            )
-            if fallback_references:
-                attempt_final_refs = fallback_references
-                response_association_basis = "IDENTITY_AND_CSEQ_ONLY"
-                transaction_ownership_established = False
         attempt_final_statuses = [
             status
             for status in (_final_status(item) for item in attempt_final_refs)
@@ -2167,20 +2290,44 @@ def build_diagnostics(
         attempt_has_positive = any(
             200 <= status < 300 for status in attempt_final_statuses
         )
-        attempt_sip_outcome = _sip_outcome_record(
-            attempt_final_statuses,
-            attempt_final_refs,
-            cancel_evidence=attempt.get("cancel_evidence") or {},
-            identity_ambiguous=not bool(attempt_group.get("grouping_accepted")),
-            other_branch_accepted=(
-                logical_has_positive.get(attempt_logical, False)
-                and not attempt_has_positive
-            ),
-            allow_contradiction=int(attempt.get("branch_count") or 0) <= 1,
-            provisional_status_codes=attempt_provisional_statuses,
-            association_basis=response_association_basis,
-            transaction_ownership_established=transaction_ownership_established,
-        )
+        related_unbound = [
+            observation
+            for observation in unbound_response_inventory
+            if attempt.get("initial_invite_event_reference")
+            in (observation.get("candidate_request_references") or [])
+        ]
+        if related_unbound and not attempt_final_refs:
+            attempt_sip_outcome = _unbound_outcome_record(related_unbound)
+        else:
+            attempt_sip_outcome = _sip_outcome_record(
+                attempt_final_statuses,
+                attempt_final_refs,
+                cancel_evidence=attempt.get("cancel_evidence") or {},
+                identity_ambiguous=not bool(attempt_group.get("grouping_accepted")),
+                other_branch_accepted=(
+                    logical_has_positive.get(attempt_logical, False)
+                    and not attempt_has_positive
+                ),
+                allow_contradiction=int(attempt.get("branch_count") or 0) <= 1,
+                provisional_status_codes=attempt_provisional_statuses,
+                association_basis="TRANSACTION_OR_BRANCH_CONTEXT",
+                transaction_ownership_established=True,
+            )
+            if related_unbound:
+                attempt_sip_outcome = {
+                    **attempt_sip_outcome,
+                    "unbound_final_status_codes": sorted(
+                        {
+                            int(observation["status_code"])
+                            for observation in related_unbound
+                            if isinstance(observation.get("status_code"), int)
+                        }
+                    ),
+                    "unbound_final_response_observations": related_unbound[
+                        :MAX_LIST_ITEMS
+                    ],
+                    "unbound_final_response_count": len(related_unbound),
+                }
         for corr in correlations:
             owners, exact_owners, unowned = correlation_attempt_details(corr)
             if attempt_logical not in owners:
@@ -2906,8 +3053,18 @@ def build_diagnostics(
             if isinstance(record.get("sip_final_outcome"), dict)
         ]
         outcome_records = (
-            [outcome for outcome in branch_outcomes if outcome.get("final_status_codes")]
-            or [outcome for outcome in attempt_outcomes if outcome.get("final_status_codes")]
+            [
+                outcome
+                for outcome in branch_outcomes
+                if outcome.get("final_status_codes")
+                or outcome.get("unbound_final_response_observations")
+            ]
+            or [
+                outcome
+                for outcome in attempt_outcomes
+                if outcome.get("final_status_codes")
+                or outcome.get("unbound_final_response_observations")
+            ]
             or attempt_outcomes
         )
         relevant: list[dict[str, Any]] = []
@@ -3158,6 +3315,31 @@ def build_diagnostics(
                 for reference in outcome.get("final_response_references") or []
             }
         )
+        unbound_response_observations = [
+            observation
+            for outcome in [*outcome_records, *attempt_outcomes]
+            for observation in outcome.get("unbound_final_response_observations") or []
+        ]
+        unbound_response_observations = sorted(
+            {
+                observation.get("response_reference"): observation
+                for observation in unbound_response_observations
+                if isinstance(observation, dict)
+                and isinstance(observation.get("response_reference"), str)
+            }.values(),
+            key=lambda item: (item.get("frame_number") or 0, item["response_reference"]),
+        )
+        unbound_response_refs = [
+            observation["response_reference"]
+            for observation in unbound_response_observations
+        ]
+        unbound_response_statuses = sorted(
+            {
+                int(observation["status_code"])
+                for observation in unbound_response_observations
+                if isinstance(observation.get("status_code"), int)
+            }
+        )
         ack_refs = sorted(set(ack_refs))
         observed_provisional_statuses = sorted(
             {
@@ -3226,7 +3408,9 @@ def build_diagnostics(
             "SIP_PROCEDURE_CONTRADICTION_OBSERVED",
         )
         deviation = violation
-        if any(200 <= status < 300 for status in final_statuses) and any(
+        if unbound_response_refs and not final_statuses:
+            signaling_outcome = "UNBOUND_FINAL_RESPONSE_OBSERVED"
+        elif any(200 <= status < 300 for status in final_statuses) and any(
             status >= 300 for status in final_statuses
         ):
             signaling_outcome = "MIXED_FINAL_RESPONSES_OBSERVED"
@@ -3477,6 +3661,8 @@ def build_diagnostics(
             boundary_classification = "OBSERVED_CANCELLED_SIP_OUTCOME"
         elif logical_outcome_classification == "MIXED_FORK_OUTCOMES_OBSERVED":
             boundary_classification = "OBSERVED_MIXED_SIP_OUTCOMES"
+        elif unbound_response_refs and not final_statuses:
+            boundary_classification = "UNBOUND_SIP_RESPONSE_OBSERVED"
         elif signaling_outcome in (
             "FINAL_RESPONSE_NOT_OBSERVED",
             "PROVISIONAL_ONLY",
@@ -3498,6 +3684,30 @@ def build_diagnostics(
             boundary_classification = "MISSING_OBSERVATION"
         else:
             boundary_classification = "NO_ABNORMAL_EVIDENCE_OBSERVED"
+
+        first_response_ownership_boundary = None
+        if unbound_response_observations:
+            primary_observation = unbound_response_observations[0]
+            first_response_ownership_boundary = {
+                "reason_code": "SIP_RESPONSE_TRANSACTION_OWNERSHIP_NOT_ESTABLISHED",
+                "response_event_reference": primary_observation.get(
+                    "response_reference"
+                ),
+                "frame_number": primary_observation.get("frame_number"),
+                "status_code": primary_observation.get("status_code"),
+                "candidate_request_count": primary_observation.get(
+                    "candidate_request_count"
+                ),
+                "candidate_request_references": primary_observation.get(
+                    "candidate_request_references"
+                ),
+                "response_match_reason": primary_observation.get(
+                    "response_match_reason"
+                ),
+                "ambiguity_status": primary_observation.get("ambiguity_status"),
+                "transaction_ownership_established": False,
+                "evidence_status": "UNBOUND_SIP_RESPONSE_OBSERVED",
+            }
 
         missing_boundary_classes = {
             "MISSING_OBSERVATION",
@@ -3549,6 +3759,8 @@ def build_diagnostics(
             "RTCP_NOT_OBSERVED",
         ):
             missing.append("RTCP_CALL_ASSOCIATION_NOT_ESTABLISHED")
+        if unbound_response_refs:
+            missing.append("RESPONSE_TRANSACTION_OWNERSHIP_NOT_ESTABLISHED")
         missing = _unique(missing)
         if (
             group.get("grouping_accepted")
@@ -3588,6 +3800,10 @@ def build_diagnostics(
         if contradiction is not None:
             candidate_explanations.append(
                 "Conflicting final responses were observed for one proven transaction or branch."
+            )
+        if unbound_response_refs and not final_statuses:
+            candidate_explanations.append(
+                "A SIP final response was observed but its transaction identity does not match the observed request; it is retained as an unbound response and is not promoted to a branch outcome."
             )
         if capture_visibility_limited:
             candidate_explanations.append(
@@ -3635,6 +3851,7 @@ def build_diagnostics(
                 *sorted(initial_invite_refs)[:4],
                 *final_refs[:4],
                 *sorted(owned_exchange_refs)[:4],
+                *unbound_response_refs[:4],
                 *(
                     [f"frame:{frame}" for frame in owned_rtp_frames[:4]]
                     if ownership_status == "LOGICAL_CALL_MEDIA_OWNED"
@@ -3653,6 +3870,13 @@ def build_diagnostics(
                 "provisional_status_codes": provisional_statuses,
                 "final_response_event_references": final_refs[:MAX_LIST_ITEMS],
                 "final_response_status_codes": final_statuses,
+                "unbound_response_event_references": unbound_response_refs[
+                    :MAX_LIST_ITEMS
+                ],
+                "unbound_response_status_codes": unbound_response_statuses,
+                "unbound_response_observations": unbound_response_observations[
+                    :MAX_LIST_ITEMS
+                ],
                 "ack_event_references": ack_refs[:MAX_LIST_ITEMS],
                 "cancel_event_references": sorted(cancel_refs)[:MAX_LIST_ITEMS],
                 "bye_request_event_references": sorted(bye_request_refs)[:MAX_LIST_ITEMS],
@@ -3751,6 +3975,7 @@ def build_diagnostics(
                 "rtcp_evidence_outcome": rtcp_evidence["ownership_status"],
                 "first_supported_protocol_deviation": violation,
                 "first_observed_procedure_contradiction": contradiction,
+                "first_response_ownership_boundary": first_response_ownership_boundary,
                 "first_missing_evidence_boundary": first_missing_boundary,
                 "boundary_classification": boundary_classification,
                 "identity_ambiguity_present": not bool(group.get("grouping_accepted")),
@@ -3766,6 +3991,24 @@ def build_diagnostics(
                 ),
                 "last_supported_observation": last_supported_observation,
                 "supporting_source_references": supporting_refs,
+                "sip_response_ownership": {
+                    "bound_final_response_count": len(final_refs),
+                    "unbound_final_response_count": len(unbound_response_refs),
+                    "unbound_response_event_references": unbound_response_refs[
+                        :MAX_LIST_ITEMS
+                    ],
+                    "unbound_response_status_codes": unbound_response_statuses,
+                    "ambiguous_unbound_response_count": sum(
+                        1
+                        for observation in unbound_response_observations
+                        if observation.get("ambiguity_status")
+                        == "MULTIPLE_CANDIDATES"
+                    ),
+                    "transaction_ownership_established": bool(
+                        final_refs and not unbound_response_refs
+                    ),
+                    "evidence_class": "DERIVED",
+                },
                 "invite_authentication_review": invite_authentication_review,
                 "branch_outcomes": branch_outcome_records[:MAX_LIST_ITEMS],
                 "hypotheses": hypotheses[:MAX_DIAGNOSTIC_ITEMS],
@@ -3774,6 +4017,7 @@ def build_diagnostics(
                 "excluded_interpretations": [
                     "A missing observation is not automatically a network failure",
                     "A SIP non-2xx response does not by itself establish a network-function root cause",
+                    "An observed SIP response does not establish transaction ownership",
                     "An RTP sequence gap is not automatically network packet loss",
                     "An RTCP receiver report is not a locally measured packet-loss result",
                     "Capture-wide evidence never upgrades an unproven logical call",
@@ -3857,6 +4101,8 @@ def build_diagnostics(
                             else "SIP_FORK_BRANCH_NEGATIVE_OUTCOME_OBSERVED"
                             if logical_outcome_classification
                             == "MIXED_FORK_OUTCOMES_OBSERVED"
+                            else "SIP_RESPONSE_TRANSACTION_OWNERSHIP_NOT_ESTABLISHED"
+                            if unbound_response_refs and not final_statuses
                             else first_missing_boundary.get("reason_code")
                             if first_missing_boundary is not None
                             else "LOGICAL_CALL_MEDIA_CHAIN_INCOMPLETE"

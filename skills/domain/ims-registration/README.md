@@ -4,7 +4,9 @@ Bounded, privacy-safe evidence analysis of IMS registration signaling from
 already-extracted SIP and optional Diameter IMS Cx/Dx protocol evidence.
 
 The analyzer inventories SIP REGISTER transactions, groups evidence-supported
-registration attempts, preserves 401/407 challenges and authorized retries,
+registration attempts, additionally groups attempts into hop/procedure views when
+Call-ID, From-tag and compatible CSeq evidence permit it, preserves 401/407 challenges,
+and separates authorized-request evidence from an actual retry association,
 distinguishes initial registration, re-registration, refresh and de-registration
 observations, classifies negative SIP responses, retains independent Cx/Dx
 observations, and fails closed on cross-protocol subscriber identity association.
@@ -16,7 +18,11 @@ without a Contact does not establish de-registration. Each removal observation i
 REGISTER transaction and final response. A 401 or 407 is an authentication challenge,
 not a terminal registration failure; it becomes a challenge→retry association only when
 a later authorized REGISTER follows the observed challenge response in capture-local
-evidence order. A challenge without an observed retry remains a bounded negative or
+evidence order with compatible identity and ordered CSeq. An authorized request that
+precedes the challenge is not a retry, and a higher-CSeq procedure that already carried
+authorization without an observed challenge is a separate observation, not a proven
+retry. Multiple hop views of one REGISTER remain attempts and may share one procedure;
+they are never promoted into independent authentication failures. A challenge without an observed retry remains a bounded negative or
 incomplete observation, never an inferred credential failure. Bounded publications conserve total/published/omitted counts, cross-source
 SIP/Diameter rows remain source-local unless common capture provenance is verified,
 and CLI output destinations cannot alias inputs or each other. The Skill does not

@@ -35,6 +35,7 @@ def sip_event(
     authorization_count: int = 0,
     proxy_authorization_count: int = 0,
     integrity_findings: list[str] | None = None,
+    cseq_method: str = "INVITE",
 ) -> dict:
     return {
         "source_reference": f"sip-event:{CAP}:{frame}.1",
@@ -49,7 +50,7 @@ def sip_event(
             "cseq": {
                 "present": True,
                 "sequence": cseq,
-                "method": "INVITE",
+                "method": cseq_method,
                 "count": 1,
             },
             "content_type": content_type,
@@ -1611,6 +1612,9 @@ class NegativeDiagnosticTests(unittest.TestCase):
             correlations=[],
             rtp_events=[],
             streams=[],
+            sip_overrides={
+                2: sip_event(2, status=100, call_id="call-1", from_tag="from-1")
+            },
         )
         result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
         self.assertIsNone(result["first_supported_protocol_deviation"])
@@ -1646,7 +1650,10 @@ class NegativeDiagnosticTests(unittest.TestCase):
             correlations=[],
             rtp_events=[],
             streams=[],
-            sip_overrides={1: event},
+            sip_overrides={
+                1: event,
+                2: sip_event(2, status=100, call_id="call-1", from_tag="from-1"),
+            },
         )
         result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
         self.assertTrue(document["capture_visibility_limited"])
@@ -1787,8 +1794,20 @@ class SipOutcomeSemanticsTests(unittest.TestCase):
             sip_overrides={
                 1: sip_event(1, "INVITE", call_id="call-1", from_tag="from-1"),
                 2: sip_event(2, status=100, call_id="call-1", from_tag="from-1"),
-                3: sip_event(3, "CANCEL", call_id="call-1", from_tag="from-1"),
-                4: sip_event(4, status=200, call_id="call-1", from_tag="from-1"),
+                3: sip_event(
+                    3,
+                    "CANCEL",
+                    call_id="call-1",
+                    from_tag="from-1",
+                    cseq_method="CANCEL",
+                ),
+                4: sip_event(
+                    4,
+                    status=200,
+                    call_id="call-1",
+                    from_tag="from-1",
+                    cseq_method="CANCEL",
+                ),
                 5: sip_event(5, status=487, call_id="call-1", from_tag="from-1"),
             },
         )
@@ -2146,6 +2165,198 @@ class SipOutcomeSemanticsTests(unittest.TestCase):
         )
         self.assertEqual(
             by_member[f"ims-session:{CAP}:20.1"], "NEGATIVE_FINAL_BRANCH_OBSERVED"
+        )
+
+
+class UnboundSipResponseIntegrityTests(unittest.TestCase):
+    def test_unbound_403_is_observed_without_transaction_ownership(self) -> None:
+        document = run(
+            attempts=[attempt(1)],
+            exchanges=[],
+            sdp_messages=[],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            sip_overrides={
+                1: sip_event(
+                    1,
+                    "INVITE",
+                    call_id="call-a",
+                    from_tag="from-a",
+                    cseq=1,
+                    vias=["branch-a"],
+                ),
+                2: sip_event(
+                    2,
+                    status=403,
+                    call_id="call-a",
+                    from_tag="from-a",
+                    cseq=1,
+                    vias=["branch-a"],
+                ),
+            },
+        )
+        outcome = document["attempts"][0]["sip_final_outcome"]
+        self.assertEqual(
+            outcome["classification"], "SIP_UNBOUND_FINAL_RESPONSE_OBSERVED"
+        )
+        self.assertFalse(outcome["transaction_ownership_established"])
+        self.assertEqual(outcome["unbound_final_status_codes"], [403])
+        self.assertEqual(outcome["final_status_codes"], [])
+        self.assertFalse(outcome["negative_final_response_observed"])
+        observation = outcome["unbound_final_response_observations"][0]
+        self.assertEqual(observation["candidate_request_count"], 1)
+        self.assertEqual(
+            observation["response_match_reason"],
+            "VIA_SENT_BY_OR_TRANSPORT_MISMATCH",
+        )
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertIsNone(result["first_supported_protocol_deviation"])
+        self.assertEqual(
+            result["observed_sip_outcome"], "SIP_UNBOUND_FINAL_RESPONSE_OBSERVED"
+        )
+        self.assertEqual(
+            result["logical_call_outcome"], "UNRESOLVED_LOGICAL_CALL_OUTCOME"
+        )
+        self.assertEqual(
+            result["boundary_classification"], "UNBOUND_SIP_RESPONSE_OBSERVED"
+        )
+        ownership = result["first_response_ownership_boundary"]
+        self.assertEqual(
+            ownership["reason_code"],
+            "SIP_RESPONSE_TRANSACTION_OWNERSHIP_NOT_ESTABLISHED",
+        )
+        self.assertEqual(ownership["candidate_request_count"], 1)
+        self.assertFalse(ownership["transaction_ownership_established"])
+
+    def test_unbound_response_with_multiple_candidates_stays_ambiguous(self) -> None:
+        document = run(
+            attempts=[attempt(1), attempt(10)],
+            exchanges=[],
+            sdp_messages=[],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            sip_overrides={
+                1: sip_event(
+                    1,
+                    "INVITE",
+                    call_id="call-a",
+                    from_tag="from-a",
+                    cseq=1,
+                    vias=["branch-a"],
+                ),
+                10: sip_event(
+                    10,
+                    "INVITE",
+                    call_id="call-a",
+                    from_tag="from-a",
+                    cseq=1,
+                    vias=["branch-b"],
+                ),
+                20: sip_event(
+                    20,
+                    status=403,
+                    call_id="call-a",
+                    from_tag="from-a",
+                    cseq=1,
+                    vias=["branch-a"],
+                ),
+            },
+        )
+        for attempt_record in document["attempts"]:
+            self.assertEqual(
+                attempt_record["sip_final_outcome"]["classification"],
+                "SIP_OUTCOME_IDENTITY_AMBIGUOUS",
+            )
+            self.assertEqual(
+                attempt_record["sip_final_outcome"]["final_status_codes"], []
+            )
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertEqual(
+            result["boundary_classification"], "IDENTITY_AMBIGUITY"
+        )
+        self.assertEqual(
+            result["first_response_ownership_boundary"]["candidate_request_count"], 2
+        )
+        self.assertEqual(
+            result["sip_response_ownership"]["ambiguous_unbound_response_count"], 1
+        )
+
+    def test_unbound_response_never_creates_a_contradiction(self) -> None:
+        document = run(
+            attempts=[
+                attempt(
+                    1,
+                    answer_frames=[2],
+                    branches=[branch(f"sip-dialog:{CAP}:2.1", answer_frames=[2])],
+                )
+            ],
+            exchanges=[
+                exchange(
+                    1,
+                    branch_reference=f"sip-dialog:{CAP}:2.1",
+                    offer_frame=1,
+                    answer_frame=2,
+                )
+            ],
+            sdp_messages=[sdp_message(1), sdp_message(2)],
+            correlations=[
+                correlation(
+                    "sdp-rtp-transport:synthetic-call.pcapng:1.1.0",
+                    offer_frames=[1],
+                    answer_frames=[2],
+                )
+            ],
+            rtp_events=[rtp_event(f"rtp-packet:{CAP}:4.1", 4, sequence=1)],
+            streams=[stream()],
+            sip_overrides={
+                1: sip_event(
+                    1,
+                    "INVITE",
+                    call_id="call-a",
+                    from_tag="from-a",
+                    cseq=1,
+                    vias=["branch-a"],
+                ),
+                2: sip_event(
+                    2,
+                    status=200,
+                    call_id="call-a",
+                    from_tag="from-a",
+                    cseq=1,
+                    vias=["branch-a"],
+                ),
+                6: sip_event(
+                    6,
+                    status=487,
+                    call_id="call-a",
+                    from_tag="from-a",
+                    cseq=1,
+                    vias=["branch-a"],
+                ),
+            },
+        )
+        outcome = document["attempts"][0]["sip_final_outcome"]
+        self.assertEqual(
+            outcome["classification"], "SIP_POSITIVE_FINAL_OUTCOME_OBSERVED"
+        )
+        self.assertTrue(outcome["positive_final_response_observed"])
+        self.assertFalse(outcome["negative_final_response_observed"])
+        self.assertEqual(outcome["procedure_contradictions"], [])
+        self.assertEqual(outcome["unbound_final_status_codes"], [487])
+        result = document["logical_calls"][0]["diagnostic_review"][
+            "diagnostic_result"
+        ]
+        self.assertIsNone(result["first_supported_protocol_deviation"])
+        self.assertIsNone(result["first_observed_procedure_contradiction"])
+        self.assertNotEqual(
+            result["boundary_classification"],
+            "OBSERVED_SIP_PROCEDURE_CONTRADICTION",
+        )
+        self.assertIsNotNone(result["first_response_ownership_boundary"])
+        self.assertEqual(
+            result["sip_response_ownership"]["unbound_final_response_count"], 1
         )
 
 

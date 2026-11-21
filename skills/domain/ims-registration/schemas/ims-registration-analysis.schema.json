@@ -12,6 +12,7 @@
     "input_provenance",
     "sip_registration_inventory",
     "registration_attempts",
+    "registration_procedures",
     "diameter_ims_inventory",
     "cross_protocol_associations",
     "timeline",
@@ -24,7 +25,7 @@
       "const": "ims-registration"
     },
     "analysis_version": {
-      "const": "1.1.0"
+      "const": "1.2.0"
     },
     "domain": {
       "const": "domain"
@@ -47,6 +48,13 @@
       "maxItems": 256,
       "items": {
         "$ref": "#/$defs/registration_attempt"
+      }
+    },
+    "registration_procedures": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/registration_procedure"
       }
     },
     "diameter_ims_inventory": {
@@ -454,12 +462,156 @@
         ]
       }
     },
+    "registration_procedure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "procedure_reference",
+        "capture_identity",
+        "procedure_status",
+        "member_attempt_references",
+        "member_transaction_references",
+        "request_event_references",
+        "response_event_references",
+        "challenge_event_references",
+        "authorized_request_event_references",
+        "final_response_event_references",
+        "final_response_status_codes",
+        "cseq_values",
+        "via_branch_count",
+        "observation_count",
+        "sip_outcome",
+        "authentication_evidence_status",
+        "challenge_retry_association",
+        "authorization_present_before_challenge",
+        "missing_evidence",
+        "conflict_findings",
+        "limitations",
+        "not_confirmed",
+        "evidence_class"
+      ],
+      "properties": {
+        "procedure_reference": {
+          "type": "string",
+          "pattern": "^ims-registration-procedure:.+:[0-9]+\\.[0-9]+$",
+          "maxLength": 320
+        },
+        "capture_identity": {
+          "type": "string"
+        },
+        "procedure_status": {
+          "enum": [
+            "SINGLE_ATTEMPT",
+            "MULTI_HOP_OBSERVATION",
+            "CHALLENGE_RETRY_CHAIN",
+            "UNDETERMINED_IDENTITY"
+          ]
+        },
+        "member_attempt_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "member_transaction_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "request_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "response_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "challenge_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "authorized_request_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "final_response_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "final_response_status_codes": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 699
+          }
+        },
+        "cseq_values": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        },
+        "via_branch_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sip_outcome": {
+          "enum": [
+            "SUCCESS_RESPONSE_OBSERVED",
+            "AUTHENTICATION_CHALLENGE_OBSERVED",
+            "NEGATIVE_RESPONSE_OBSERVED",
+            "INCOMPLETE_EVIDENCE"
+          ]
+        },
+        "authentication_evidence_status": {
+          "type": "string",
+          "enum": [
+            "NOT_OBSERVED",
+            "CHALLENGE_OBSERVED",
+            "RETRY_OBSERVED",
+            "CHALLENGE_RETRY_ASSOCIATED",
+            "CHALLENGE_WITHOUT_OBSERVED_RETRY",
+            "RETRY_WITHOUT_OBSERVED_CHALLENGE",
+            "AUTHENTICATION_OUTCOME_UNPROVED",
+            "RETRY_NOT_ESTABLISHED"
+          ]
+        },
+        "challenge_retry_association": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/challenge_retry_association"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authorization_present_before_challenge": {
+          "type": "boolean"
+        },
+        "missing_evidence": {
+          "$ref": "#/$defs/missing_list"
+        },
+        "conflict_findings": {
+          "$ref": "#/$defs/conflict_list"
+        },
+        "limitations": {
+          "$ref": "#/$defs/limitations"
+        },
+        "not_confirmed": {
+          "$ref": "#/$defs/limitations"
+        },
+        "evidence_class": {
+          "const": "DERIVED"
+        }
+      }
+    },
     "registration_attempt": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "attempt_reference",
         "capture_identity",
+        "procedure_reference",
         "registration_type",
         "registration_type_evidence",
         "authentication_evidence_status",
@@ -469,6 +621,7 @@
         "request_event_references",
         "response_event_references",
         "challenge_event_references",
+        "authorized_request_event_references",
         "retry_event_references",
         "final_response_event_references",
         "source_frame_references",
@@ -486,6 +639,7 @@
         "evidence_class",
         "challenge_retry_association",
         "omitted_challenge_event_count",
+        "omitted_authorized_request_event_count",
         "omitted_retry_event_count",
         "omitted_final_response_event_count",
         "omitted_source_frame_count"
@@ -554,7 +708,15 @@
         "response_event_references": {
           "$ref": "#/$defs/reference_list"
         },
+        "procedure_reference": {
+          "type": "string",
+          "pattern": "^ims-registration-procedure:.+:[0-9]+\\.[0-9]+$",
+          "maxLength": 320
+        },
         "challenge_event_references": {
+          "$ref": "#/$defs/reference_list"
+        },
+        "authorized_request_event_references": {
           "$ref": "#/$defs/reference_list"
         },
         "retry_event_references": {
@@ -646,6 +808,10 @@
           ]
         },
         "omitted_challenge_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted_authorized_request_event_count": {
           "type": "integer",
           "minimum": 0
         },
@@ -1318,6 +1484,8 @@
         "registration_inventory_omitted",
         "attempt_count",
         "attempts_omitted",
+        "procedure_count",
+        "procedures_omitted",
         "diameter_observation_count",
         "diameter_observations_omitted",
         "association_count",
@@ -1351,6 +1519,14 @@
           "minimum": 0
         },
         "attempts_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "procedure_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "procedures_omitted": {
           "type": "integer",
           "minimum": 0
         },
