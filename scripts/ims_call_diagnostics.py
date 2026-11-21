@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 ANALYSIS_NAME = "ims-call-diagnostics"
-ANALYSIS_VERSION = "0.3.0"
+ANALYSIS_VERSION = "0.4.0"
 CAPABILITY = "bounded per-call and per-branch IMS media evidence consolidation"
 
 MAX_LIST_ITEMS = 32
@@ -1544,6 +1544,254 @@ def build_diagnostics(
         for event in sip_events
         if isinstance(event.get("source_reference"), str)
     }
+    PROTOCOL_VIOLATION_FINDINGS = {
+        "MISSING_START_LINE",
+        "MISSING_STATUS_CODE",
+        "INVALID_STATUS_CODE",
+        "HEADER_NOT_TERMINATED",
+        "HEADER_NO_COLON",
+    }
+
+    def _status_of(reference: Any) -> int | None:
+        event = sip_by_ref.get(reference) if isinstance(reference, str) else None
+        if not isinstance(event, dict):
+            return None
+        status = event.get("status_code")
+        return status if isinstance(status, int) else None
+
+    def _sip_outcome_record(
+        status_codes: list[int],
+        response_references: list[str],
+        *,
+        cancel_evidence: dict[str, Any] | None = None,
+        identity_ambiguous: bool = False,
+        other_branch_accepted: bool = False,
+        allow_contradiction: bool = True,
+        provisional_status_codes: list[int] | None = None,
+        association_basis: str = "TRANSACTION_OR_BRANCH_CONTEXT",
+        transaction_ownership_established: bool = True,
+    ) -> dict[str, Any]:
+        statuses = sorted(
+            {
+                status
+                for status in status_codes
+                if isinstance(status, int) and status >= 200
+            }
+        )
+        positive = any(200 <= status < 300 for status in statuses)
+        negative = any(status >= 300 for status in statuses)
+        challenge_statuses = sorted(
+            status for status in statuses if status in (401, 407)
+        )
+        authentication_challenge = bool(statuses) and all(
+            status in (401, 407) for status in statuses
+        )
+        violation_findings = sorted(
+            {
+                finding
+                for reference in response_references
+                for event in (sip_by_ref.get(reference),)
+                if isinstance(event, dict)
+                for finding in event.get("integrity_findings") or []
+                if finding in PROTOCOL_VIOLATION_FINDINGS
+            }
+        )
+        contradictions: list[str] = []
+        if allow_contradiction and positive and negative:
+            contradictions.append("CONFLICTING_FINAL_RESPONSES_FOR_ONE_TRANSACTION")
+        cancel = cancel_evidence if isinstance(cancel_evidence, dict) else {}
+        cancel_conflicts = list(cancel.get("conflict_findings") or [])
+        if "CANCEL_AFTER_INVITE_FINAL_RESPONSE" in cancel_conflicts:
+            contradictions.append("CANCEL_AFTER_INVITE_FINAL_RESPONSE")
+        cancel_statuses = list(cancel.get("cancel_final_response_status_codes") or [])
+        cancel_established = bool(
+            cancel.get("association_status") == "ASSOCIATED"
+            and cancel.get("invite_final_response_status") == 487
+            and 487 in statuses
+            and cancel.get("cancel_request_event_references")
+            and cancel.get("cancel_final_response_event_references")
+            and 200 in cancel_statuses
+            and cancel.get("outcome")
+            in ("CANCEL_INVITE_SEQUENCE_OBSERVED", "CANCEL_RESPONSE_OBSERVED")
+        )
+        fork_negative = bool(
+            other_branch_accepted and negative and not positive
+        )
+        if violation_findings:
+            classification = "SIP_PROTOCOL_VIOLATION_EVIDENCE"
+        elif contradictions:
+            classification = "SIP_PROCEDURE_CONTRADICTION_OBSERVED"
+        elif cancel_established:
+            classification = "SIP_CANCELLED_INVITE_OUTCOME_OBSERVED"
+        elif positive:
+            classification = "SIP_POSITIVE_FINAL_OUTCOME_OBSERVED"
+        elif authentication_challenge:
+            classification = "SIP_AUTHENTICATION_CHALLENGE_OBSERVED"
+        elif fork_negative:
+            classification = "SIP_FORK_BRANCH_NEGATIVE_OUTCOME_OBSERVED"
+        elif negative:
+            classification = "SIP_NEGATIVE_FINAL_OUTCOME_OBSERVED"
+        elif identity_ambiguous:
+            classification = "SIP_OUTCOME_IDENTITY_AMBIGUOUS"
+        else:
+            classification = "SIP_FINAL_OUTCOME_NOT_OBSERVED"
+
+        next_checks: list[str] = []
+        if classification == "SIP_CANCELLED_INVITE_OUTCOME_OBSERVED":
+            next_checks.append(
+                "Provide the endpoint or policy event that triggered the CANCEL; this capture does not establish why cancellation occurred."
+            )
+        elif classification == "SIP_AUTHENTICATION_CHALLENGE_OBSERVED":
+            next_checks.append(
+                "Provide the authorized retry and its final response; an authentication challenge does not prove an authentication failure."
+            )
+        elif classification in (
+            "SIP_NEGATIVE_FINAL_OUTCOME_OBSERVED",
+            "SIP_FORK_BRANCH_NEGATIVE_OUTCOME_OBSERVED",
+        ):
+            next_checks.append(
+                "Provide endpoint or service logs covering the rejected branch and any Reason header context."
+            )
+        elif classification == "SIP_PROTOCOL_VIOLATION_EVIDENCE":
+            next_checks.append(
+                "Validate the malformed response against RFC 3261 message syntax with a reviewed decoder trace."
+            )
+        elif classification == "SIP_PROCEDURE_CONTRADICTION_OBSERVED":
+            next_checks.append(
+                "Provide every final response observed for this transaction with its branch identity."
+            )
+        elif classification == "SIP_FINAL_OUTCOME_NOT_OBSERVED":
+            next_checks.append(
+                "Provide a capture view covering the response direction; absence is not evidence of a timeout."
+            )
+
+        return {
+            "classification": classification,
+            "final_status_codes": statuses,
+            "final_response_references": sorted(set(response_references))[:MAX_LIST_ITEMS],
+            "provisional_status_codes": sorted(
+                {
+                    status
+                    for status in (provisional_status_codes or [])
+                    if isinstance(status, int) and 100 <= status < 200
+                }
+            ),
+            "positive_final_response_observed": positive,
+            "negative_final_response_observed": negative,
+            "authentication_challenge_observed": authentication_challenge,
+            "authentication_challenge_status_codes": challenge_statuses,
+            "cancel_relationship_established": cancel_established,
+            "cancel_transaction_references": list(
+                cancel.get("cancel_transaction_references") or []
+            )[:MAX_LIST_ITEMS],
+            "cancel_request_event_references": list(
+                cancel.get("cancel_request_event_references") or []
+            )[:MAX_LIST_ITEMS],
+            "cancel_response_event_references": list(
+                cancel.get("cancel_final_response_event_references") or []
+            )[:MAX_LIST_ITEMS],
+            "cancel_response_status_codes": cancel_statuses,
+            "procedure_contradictions": contradictions,
+            "protocol_violation_findings": violation_findings,
+            "response_association_basis": association_basis,
+            "transaction_ownership_established": transaction_ownership_established,
+            "reason_established": False,
+            "timeout_inferred": False,
+            "scope": "SIP_OUTCOME_ONLY",
+            "next_checks": next_checks[:MAX_DIAGNOSTIC_ITEMS],
+            "excluded_interpretations": [
+                "A SIP negative response is not a network-function root cause",
+                "A matching CANCEL and 487 is normal INVITE termination processing",
+                "An authentication challenge is not an authentication failure",
+                "An absent response is not a locally inferred timeout",
+            ],
+            "evidence_class": "DERIVED",
+        }
+
+    def _logical_call_outcome(
+        attempt_outcomes: list[dict[str, Any]],
+        branch_outcomes: list[dict[str, Any]],
+        *,
+        grouping_accepted: bool,
+        provisional_observed: bool,
+    ) -> dict[str, Any]:
+        outcomes = (
+            [outcome for outcome in branch_outcomes if outcome.get("final_status_codes")]
+            or [outcome for outcome in attempt_outcomes if outcome.get("final_status_codes")]
+            or attempt_outcomes
+        )
+        classifications = [
+            str(outcome.get("classification")) for outcome in outcomes
+        ]
+        positive = any(
+            outcome.get("positive_final_response_observed") for outcome in outcomes
+        )
+        negative = any(
+            outcome.get("negative_final_response_observed") for outcome in outcomes
+        )
+        cancelled = any(
+            classification == "SIP_CANCELLED_INVITE_OUTCOME_OBSERVED"
+            for classification in classifications
+        )
+        authenticated = any(
+            classification == "SIP_AUTHENTICATION_CHALLENGE_OBSERVED"
+            for classification in classifications
+        )
+        violation = any(
+            classification == "SIP_PROTOCOL_VIOLATION_EVIDENCE"
+            for classification in classifications
+        )
+        contradiction = any(
+            classification == "SIP_PROCEDURE_CONTRADICTION_OBSERVED"
+            for classification in classifications
+        )
+        if violation:
+            logical_outcome = "UNRESOLVED_LOGICAL_CALL_OUTCOME"
+            observed = "SIP_PROTOCOL_VIOLATION_EVIDENCE"
+        elif contradiction:
+            logical_outcome = "UNRESOLVED_LOGICAL_CALL_OUTCOME"
+            observed = "SIP_PROCEDURE_CONTRADICTION_OBSERVED"
+        elif not grouping_accepted:
+            logical_outcome = "UNRESOLVED_LOGICAL_CALL_OUTCOME"
+            observed = "SIP_OUTCOME_IDENTITY_AMBIGUOUS"
+        elif positive and (negative or cancelled):
+            logical_outcome = "MIXED_FORK_OUTCOMES_OBSERVED"
+            observed = "SIP_FORK_BRANCH_NEGATIVE_OUTCOME_OBSERVED"
+        elif positive:
+            logical_outcome = "ACCEPTED_INVITE_BRANCH_OBSERVED"
+            observed = "SIP_POSITIVE_FINAL_OUTCOME_OBSERVED"
+        elif cancelled:
+            logical_outcome = "CANCELLATION_OUTCOME_OBSERVED"
+            observed = "SIP_CANCELLED_INVITE_OUTCOME_OBSERVED"
+        elif authenticated:
+            logical_outcome = "NEGATIVE_FINAL_BRANCH_OBSERVED"
+            observed = "SIP_AUTHENTICATION_CHALLENGE_OBSERVED"
+        elif negative:
+            logical_outcome = "NEGATIVE_FINAL_BRANCH_OBSERVED"
+            observed = "SIP_NEGATIVE_FINAL_OUTCOME_OBSERVED"
+        elif provisional_observed:
+            logical_outcome = "PROVISIONAL_ONLY"
+            observed = "SIP_FINAL_OUTCOME_NOT_OBSERVED"
+        else:
+            logical_outcome = "FINAL_RESPONSE_NOT_OBSERVED"
+            observed = "SIP_FINAL_OUTCOME_NOT_OBSERVED"
+        counts: dict[str, int] = defaultdict(int)
+        for classification in classifications:
+            counts[classification] += 1
+        return {
+            "logical_call_outcome": logical_outcome,
+            "observed_sip_outcome": observed,
+            "component_outcome_counts": dict(sorted(counts.items())),
+            "positive_branch_observed": positive,
+            "negative_branch_observed": negative,
+            "cancelled_branch_observed": cancelled,
+            "authentication_challenge_observed": authenticated,
+            "protocol_violation_observed": violation,
+            "procedure_contradiction_observed": contradiction,
+            "scope": "SIP_OUTCOME_ONLY",
+            "evidence_class": "DERIVED",
+        }
+
     sdp_by_ref = {
         message["source_reference"]: message
         for message in sdp.get("messages") or []
@@ -1640,6 +1888,7 @@ def build_diagnostics(
     logical_sdp_context: dict[str, set[str]] = {}
     repeated_sdp_by_logical: dict[str, list[str]] = {}
     unbound_sdp_by_logical: dict[str, list[str]] = {}
+    attempt_identity_family: dict[str, tuple[Any, Any]] = {}
     for logical_reference, members in logical_members.items():
         accepted = set(
             (logical_grouping.get("event_references_by_logical_call") or {}).get(
@@ -1673,6 +1922,8 @@ def build_diagnostics(
                 or event.get("to_tag_reference") in dialog_tags
             )
         }
+        for attempt_reference in members:
+            attempt_identity_family[attempt_reference] = (call_id, from_tag)
         established_exchange_refs = {
             exchange.get(key)
             for attempt_reference in members
@@ -1762,6 +2013,95 @@ def build_diagnostics(
                 f"rtp-udp-stream:{capture_file}:{udp}", []
             )
 
+    group_by_reference = {
+        group["logical_call_reference"]: group
+        for group in logical_grouping["logical_calls"]
+    }
+
+    def _final_status(reference: Any) -> int | None:
+        event = sip_by_ref.get(reference) if isinstance(reference, str) else None
+        if isinstance(event, dict) and isinstance(event.get("status_code"), int):
+            return event["status_code"]
+        return None
+
+    def _identity_family_final_references(invite_reference: Any) -> list[str]:
+        """Bounded fallback for a response the transaction layer could not bind."""
+        invite = sip_by_ref.get(invite_reference) if isinstance(invite_reference, str) else None
+        if not isinstance(invite, dict):
+            return []
+        call_id = invite.get("call_id_reference")
+        from_tag = invite.get("from_tag_reference")
+        headers = invite.get("headers") or {}
+        cseq = (headers.get("cseq") or {}).get("sequence")
+        invite_frame = invite.get("frame_number")
+        if not isinstance(call_id, str) or not isinstance(from_tag, str):
+            return []
+        candidates: list[tuple[int, str]] = []
+        for reference, event in sip_by_ref.items():
+            if reference == invite_reference or not isinstance(event, dict):
+                continue
+            if event.get("message_type") != "RESPONSE":
+                continue
+            status = event.get("status_code")
+            if not isinstance(status, int) or status < 200:
+                continue
+            if event.get("call_id_reference") != call_id:
+                continue
+            if event.get("from_tag_reference") != from_tag:
+                continue
+            event_headers = event.get("headers") or {}
+            event_cseq = (event_headers.get("cseq") or {}).get("sequence")
+            if isinstance(cseq, int) and event_cseq != cseq:
+                continue
+            if event_headers.get("cseq", {}).get("method") != "INVITE":
+                continue
+            frame = event.get("frame_number")
+            if (
+                isinstance(invite_frame, int)
+                and isinstance(frame, int)
+                and frame <= invite_frame
+            ):
+                continue
+            if isinstance(frame, int):
+                candidates.append((frame, reference))
+        return [reference for _frame, reference in sorted(candidates)]
+
+    logical_has_positive: dict[str, bool] = {}
+    for group in logical_grouping["logical_calls"]:
+        reference = group["logical_call_reference"]
+        statuses: list[int] = []
+        for member_reference in group["member_attempt_references"]:
+            member_object = attempt_by_reference.get(member_reference) or {}
+            statuses.extend(
+                status
+                for status in (
+                    _final_status(item)
+                    for item in (member_object.get("stage_evidence") or {}).get(
+                        "final_response_event_references"
+                    )
+                    or []
+                )
+                if status is not None
+            )
+            for member_branch in member_object.get("branches") or []:
+                statuses.extend(
+                    status
+                    for status in (
+                        _final_status(item)
+                        for item in member_branch.get("response_event_references")
+                        or []
+                    )
+                    if status is not None
+                )
+                statuses.extend(
+                    status
+                    for status in member_branch.get("response_status_codes") or []
+                    if isinstance(status, int)
+                )
+        logical_has_positive[reference] = any(
+            200 <= status < 300 for status in statuses
+        )
+
     attempt_records: list[dict[str, Any]] = []
     branch_records: list[dict[str, Any]] = []
     for attempt in sorted(
@@ -1795,6 +2135,52 @@ def build_diagnostics(
         exact_correlations: list[dict[str, Any]] = []
         cross_correlations: list[dict[str, Any]] = []
         attempt_logical = attempt_to_logical.get(attempt_reference)
+        attempt_group = group_by_reference.get(attempt_logical) or {}
+        attempt_stage = attempt.get("stage_evidence") or {}
+        attempt_final_refs = list(
+            attempt_stage.get("final_response_event_references") or []
+        )
+        response_association_basis = "TRANSACTION_OR_BRANCH_CONTEXT"
+        transaction_ownership_established = True
+        if not attempt_final_refs:
+            fallback_references = _identity_family_final_references(
+                attempt.get("initial_invite_event_reference")
+            )
+            if fallback_references:
+                attempt_final_refs = fallback_references
+                response_association_basis = "IDENTITY_AND_CSEQ_ONLY"
+                transaction_ownership_established = False
+        attempt_final_statuses = [
+            status
+            for status in (_final_status(item) for item in attempt_final_refs)
+            if status is not None and status >= 200
+        ]
+        attempt_provisional_statuses = [
+            status
+            for status in (
+                _final_status(item)
+                for item in attempt_stage.get("provisional_response_event_references")
+                or []
+            )
+            if status is not None and 100 <= status < 200
+        ]
+        attempt_has_positive = any(
+            200 <= status < 300 for status in attempt_final_statuses
+        )
+        attempt_sip_outcome = _sip_outcome_record(
+            attempt_final_statuses,
+            attempt_final_refs,
+            cancel_evidence=attempt.get("cancel_evidence") or {},
+            identity_ambiguous=not bool(attempt_group.get("grouping_accepted")),
+            other_branch_accepted=(
+                logical_has_positive.get(attempt_logical, False)
+                and not attempt_has_positive
+            ),
+            allow_contradiction=int(attempt.get("branch_count") or 0) <= 1,
+            provisional_status_codes=attempt_provisional_statuses,
+            association_basis=response_association_basis,
+            transaction_ownership_established=transaction_ownership_established,
+        )
         for corr in correlations:
             owners, exact_owners, unowned = correlation_attempt_details(corr)
             if attempt_logical not in owners:
@@ -1907,6 +2293,7 @@ def build_diagnostics(
             "initial_invite_transaction_reference": attempt.get("initial_invite_transaction_reference"),
             "initial_invite_event_reference": attempt.get("initial_invite_event_reference"),
             "invite_outcome": attempt.get("invite_outcome"),
+            "sip_final_outcome": attempt_sip_outcome,
             "signaling": {
                 "first_observed_frame": attempt.get("first_observed_frame"),
                 "last_observed_frame": attempt.get("last_observed_frame"),
@@ -1931,6 +2318,22 @@ def build_diagnostics(
                 "cancel_outcome": (attempt.get("cancel_evidence") or {}).get("outcome"),
                 "release_outcome": (attempt.get("release_evidence") or {}).get("outcome"),
                 "branch_count": int(attempt.get("branch_count") or 0),
+                "final_outcome_classification": attempt_sip_outcome["classification"],
+                "positive_final_outcome_observed": attempt_sip_outcome[
+                    "positive_final_response_observed"
+                ],
+                "negative_final_outcome_observed": attempt_sip_outcome[
+                    "negative_final_response_observed"
+                ],
+                "authentication_challenge_observed": attempt_sip_outcome[
+                    "authentication_challenge_observed"
+                ],
+                "cancel_relationship_established": attempt_sip_outcome[
+                    "cancel_relationship_established"
+                ],
+                "cancel_response_event_references": attempt_sip_outcome[
+                    "cancel_response_event_references"
+                ],
             },
             "sdp": {
                 "exchange_references": [ref for ref in exchange_refs if ref][:MAX_LIST_ITEMS],
@@ -2156,9 +2559,40 @@ def build_diagnostics(
                 if branch_offer_refs or branch_answer_refs or branch_shared_corr
                 else "SIGNALING_ONLY"
             )
+            branch_statuses = [
+                status
+                for status in (
+                    _final_status(item)
+                    for item in branch.get("response_event_references") or []
+                )
+                if status is not None and status >= 200
+            ]
+            branch_statuses.extend(
+                status
+                for status in branch.get("response_status_codes") or []
+                if isinstance(status, int) and status >= 200
+            )
+            branch_provisional_statuses = [
+                status
+                for status in branch.get("response_status_codes") or []
+                if isinstance(status, int) and 100 <= status < 200
+            ]
+            branch_sip_outcome = _sip_outcome_record(
+                branch_statuses,
+                list(branch.get("response_event_references") or []),
+                cancel_evidence=attempt.get("cancel_evidence") or {},
+                identity_ambiguous=branch.get("identity_status") != "ESTABLISHED",
+                other_branch_accepted=(
+                    logical_has_positive.get(attempt_logical, False)
+                    and not any(200 <= status < 300 for status in branch_statuses)
+                ),
+                allow_contradiction=True,
+                provisional_status_codes=branch_provisional_statuses,
+            )
             branch_records.append(
                 {
                     "attempt_reference": attempt_reference,
+                    "sip_final_outcome": branch_sip_outcome,
                     "branch_reference": branch_reference,
                     "dialog_reference": branch.get("dialog_reference"),
                     "fork_branch_reference": branch.get("fork_branch_reference"),
@@ -2335,32 +2769,6 @@ def build_diagnostics(
     )
     capture_visibility_limited = sdp_body_observed and not sdp_by_ref
 
-    def _first_non_2xx(
-        final_references: list[str],
-    ) -> dict[str, Any] | None:
-        candidates: list[tuple[int, int, str]] = []
-        for reference in final_references:
-            event = sip_by_ref.get(reference)
-            if not isinstance(event, dict):
-                continue
-            status = event.get("status_code")
-            if isinstance(status, int) and 400 <= status <= 699:
-                frame = event.get("frame_number")
-                if isinstance(frame, int):
-                    candidates.append((frame, status, reference))
-        if not candidates:
-            return None
-        frame, status, reference = min(candidates)
-        return {
-            "reason_code": "SIP_FINAL_RESPONSE_NON_2XX",
-            "status_code": status,
-            "event_reference": reference,
-            "frame_number": frame,
-            "scope": "SIP_OUTCOME_ONLY",
-            "network_root_cause_established": False,
-            "evidence_class": "OBSERVED",
-        }
-
     def _logical_rtcp_ownership(
         member_records: list[dict[str, Any]],
         source_streams: list[str],
@@ -2481,6 +2889,26 @@ def build_diagnostics(
         )
         unbound_exchange_refs = list(
             unbound_exchange_refs_by_logical.get(logical_reference, [])
+        )
+        member_branch_records = [
+            record
+            for record in branch_records
+            if record.get("attempt_reference") in members
+        ]
+        attempt_outcomes = [
+            record.get("sip_final_outcome")
+            for record in member_records
+            if isinstance(record.get("sip_final_outcome"), dict)
+        ]
+        branch_outcomes = [
+            record.get("sip_final_outcome")
+            for record in member_branch_records
+            if isinstance(record.get("sip_final_outcome"), dict)
+        ]
+        outcome_records = (
+            [outcome for outcome in branch_outcomes if outcome.get("final_status_codes")]
+            or [outcome for outcome in attempt_outcomes if outcome.get("final_status_codes")]
+            or attempt_outcomes
         )
         relevant: list[dict[str, Any]] = []
         exact: list[dict[str, Any]] = []
@@ -2722,7 +3150,14 @@ def build_diagnostics(
                         observation.get("bye_final_response_event_references") or []
                     )
         provisional_refs = sorted(set(provisional_refs))
-        final_refs = sorted(set(final_refs))
+        final_refs = sorted(
+            set(final_refs)
+            | {
+                reference
+                for outcome in outcome_records
+                for reference in outcome.get("final_response_references") or []
+            }
+        )
         ack_refs = sorted(set(ack_refs))
         observed_provisional_statuses = sorted(
             {
@@ -2753,9 +3188,48 @@ def build_diagnostics(
                 and event["status_code"] >= 200
             }
         )
-        deviation = _first_non_2xx(final_refs)
-        if deviation is not None:
-            signaling_outcome = "NON_2XX_FINAL_RESPONSE_OBSERVED"
+        logical_outcome = _logical_call_outcome(
+            attempt_outcomes,
+            branch_outcomes,
+            grouping_accepted=bool(group.get("grouping_accepted")),
+            provisional_observed=bool(provisional_statuses),
+        )
+        observed_sip_outcome = logical_outcome["observed_sip_outcome"]
+        logical_outcome_classification = logical_outcome["logical_call_outcome"]
+
+        def _outcome_boundary(
+            classification: str, reason_code: str
+        ) -> dict[str, Any] | None:
+            for outcome in outcome_records:
+                if outcome.get("classification") != classification:
+                    continue
+                references = list(outcome.get("final_response_references") or [])
+                reference = references[0] if references else None
+                frame = _frame_of(reference) if reference else None
+                statuses = list(outcome.get("final_status_codes") or [])
+                return {
+                    "reason_code": reason_code,
+                    "status_code": statuses[0] if statuses else None,
+                    "event_reference": reference,
+                    "frame_number": frame,
+                    "scope": "SIP_OUTCOME_ONLY",
+                    "network_root_cause_established": False,
+                    "evidence_class": "OBSERVED",
+                }
+            return None
+
+        violation = _outcome_boundary(
+            "SIP_PROTOCOL_VIOLATION_EVIDENCE", "SIP_PROTOCOL_VIOLATION_EVIDENCE"
+        )
+        contradiction = _outcome_boundary(
+            "SIP_PROCEDURE_CONTRADICTION_OBSERVED",
+            "SIP_PROCEDURE_CONTRADICTION_OBSERVED",
+        )
+        deviation = violation
+        if any(200 <= status < 300 for status in final_statuses) and any(
+            status >= 300 for status in final_statuses
+        ):
+            signaling_outcome = "MIXED_FINAL_RESPONSES_OBSERVED"
         elif any(200 <= status < 300 for status in final_statuses):
             signaling_outcome = "ACCEPTED_2XX_OBSERVED"
         elif final_statuses:
@@ -2764,6 +3238,165 @@ def build_diagnostics(
             signaling_outcome = "PROVISIONAL_ONLY"
         else:
             signaling_outcome = "FINAL_RESPONSE_NOT_OBSERVED"
+
+        family_key = attempt_identity_family.get(members[0]) if members else None
+        family_members = [
+            reference
+            for reference in attempt_to_logical
+            if attempt_identity_family.get(reference) == family_key
+        ] if family_key is not None else list(members)
+        family_records = [
+            record
+            for record in attempt_records
+            if record.get("attempt_reference") in family_members
+        ]
+        family_outcomes = [
+            record.get("sip_final_outcome")
+            for record in family_records
+            if isinstance(record.get("sip_final_outcome"), dict)
+        ]
+        challenge_outcomes = [
+            outcome
+            for outcome in family_outcomes
+            if outcome.get("authentication_challenge_observed")
+        ]
+        challenge_references = sorted(
+            {
+                reference
+                for outcome in challenge_outcomes
+                for reference in outcome.get("final_response_references") or []
+                if _status_of(reference) in (401, 407)
+            }
+        )
+        challenge_frames = [
+            frame
+            for frame in (_frame_of(reference) for reference in challenge_references)
+            if frame is not None
+        ]
+        retry_requests: list[str] = []
+        retry_final_statuses: list[int] = []
+        retry_logical_references: list[str] = []
+        for family_attempt in (
+            attempt_by_reference.get(reference) or {} for reference in family_members
+        ):
+            invite_reference = family_attempt.get("initial_invite_event_reference")
+            invite_event = sip_by_ref.get(invite_reference)
+            if not isinstance(invite_event, dict):
+                continue
+            invite_frame = invite_event.get("frame_number")
+            if (
+                not isinstance(invite_frame, int)
+                or not challenge_frames
+                or invite_frame <= max(challenge_frames)
+            ):
+                continue
+            headers = invite_event.get("headers") or {}
+            authorization = (headers.get("authorization") or {}).get("count") or 0
+            proxy_authorization = (
+                headers.get("proxy_authorization") or {}
+            ).get("count") or 0
+            if not (authorization or proxy_authorization):
+                continue
+            retry_outcome = next(
+                (
+                    record.get("sip_final_outcome")
+                    for record in family_records
+                    if record.get("attempt_reference")
+                    == family_attempt.get("attempt_reference")
+                ),
+                None,
+            )
+            if not isinstance(retry_outcome, dict):
+                continue
+            if not retry_outcome.get("positive_final_response_observed"):
+                continue
+            if isinstance(invite_reference, str):
+                retry_requests.append(invite_reference)
+            retry_final_statuses.extend(
+                status
+                for status in retry_outcome.get("final_status_codes") or []
+                if status >= 200
+            )
+            logical_for_retry = attempt_to_logical.get(
+                family_attempt.get("attempt_reference")
+            )
+            if isinstance(logical_for_retry, str):
+                retry_logical_references.append(logical_for_retry)
+        if challenge_outcomes:
+            invite_authentication_review = {
+                "challenge_observed": True,
+                "challenge_status_codes": sorted(
+                    {_status_of(reference) for reference in challenge_references}
+                    - {None}
+                ),
+                "challenge_event_references": challenge_references[:MAX_LIST_ITEMS],
+                "retry_observed": bool(retry_requests),
+                "retry_request_event_references": sorted(set(retry_requests))[
+                    :MAX_LIST_ITEMS
+                ],
+                "retry_final_status_codes": sorted(set(retry_final_statuses)),
+                "retry_logical_call_references": sorted(
+                    set(retry_logical_references)
+                )[:MAX_LIST_ITEMS],
+                "association_status": (
+                    "CHALLENGE_RETRY_ASSOCIATED"
+                    if retry_requests
+                    else "CHALLENGE_WITHOUT_OBSERVED_RETRY"
+                ),
+                "authorization_presence_observed": bool(retry_requests),
+                "authentication_verified": False,
+                "basis": (
+                    ["challenge_observed", "later_authorized_request_observed"]
+                    if retry_requests
+                    else ["challenge_observed", "no_later_authorized_request_observed"]
+                ),
+                "missing_evidence": (
+                    []
+                    if retry_requests
+                    else ["AUTHORIZED_RETRY_NOT_OBSERVED"]
+                ),
+                "evidence_class": "DERIVED",
+            }
+        else:
+            invite_authentication_review = {
+                "challenge_observed": False,
+                "challenge_status_codes": [],
+                "challenge_event_references": [],
+                "retry_observed": False,
+                "retry_request_event_references": [],
+                "retry_final_status_codes": [],
+                "retry_logical_call_references": [],
+                "association_status": "NOT_OBSERVED",
+                "authentication_verified": False,
+                "basis": ["no_401_or_407_invite_final_response"],
+                "missing_evidence": [],
+                "evidence_class": "DERIVED",
+            }
+
+        branch_outcome_records = [
+            {
+                "branch_reference": record.get("branch_reference"),
+                "dialog_reference": record.get("dialog_reference"),
+                "identity_status": record.get("identity_status"),
+                "classification": (record.get("sip_final_outcome") or {}).get(
+                    "classification"
+                ),
+                "final_status_codes": (record.get("sip_final_outcome") or {}).get(
+                    "final_status_codes"
+                ),
+                "final_response_references": (
+                    record.get("sip_final_outcome") or {}
+                ).get("final_response_references"),
+                "cancel_relationship_established": (
+                    record.get("sip_final_outcome") or {}
+                ).get("cancel_relationship_established"),
+                "procedure_contradictions": (
+                    record.get("sip_final_outcome") or {}
+                ).get("procedure_contradictions"),
+                "scope": "SIP_OUTCOME_ONLY",
+            }
+            for record in member_branch_records
+        ]
 
         owned_streams = [
             stream
@@ -2832,11 +3465,22 @@ def build_diagnostics(
             else None
         )
 
-        if deviation is not None:
-            boundary_classification = "OBSERVED_PROTOCOL_DEVIATION"
+        if violation is not None:
+            boundary_classification = "OBSERVED_PROTOCOL_VIOLATION"
+        elif contradiction is not None:
+            boundary_classification = "OBSERVED_SIP_PROCEDURE_CONTRADICTION"
         elif not group.get("grouping_accepted"):
             boundary_classification = "IDENTITY_AMBIGUITY"
-        elif signaling_outcome == "FINAL_RESPONSE_NOT_OBSERVED":
+        elif logical_outcome_classification == "NEGATIVE_FINAL_BRANCH_OBSERVED":
+            boundary_classification = "OBSERVED_NEGATIVE_SIP_OUTCOME"
+        elif logical_outcome_classification == "CANCELLATION_OUTCOME_OBSERVED":
+            boundary_classification = "OBSERVED_CANCELLED_SIP_OUTCOME"
+        elif logical_outcome_classification == "MIXED_FORK_OUTCOMES_OBSERVED":
+            boundary_classification = "OBSERVED_MIXED_SIP_OUTCOMES"
+        elif signaling_outcome in (
+            "FINAL_RESPONSE_NOT_OBSERVED",
+            "PROVISIONAL_ONLY",
+        ):
             boundary_classification = (
                 "CAPTURE_VISIBILITY_LIMITATION"
                 if capture_visibility_limited
@@ -2855,15 +3499,27 @@ def build_diagnostics(
         else:
             boundary_classification = "NO_ABNORMAL_EVIDENCE_OBSERVED"
 
+        missing_boundary_classes = {
+            "MISSING_OBSERVATION",
+            "CAPTURE_VISIBILITY_LIMITATION",
+            "UNSUPPORTED_PROCEDURE",
+            "EXTRACTION_FAILURE",
+            "IDENTITY_AMBIGUITY",
+        }
         first_missing_boundary = None
-        if boundary_classification != "NO_ABNORMAL_EVIDENCE_OBSERVED" and deviation is None:
+        if (
+            boundary_classification in missing_boundary_classes
+            and violation is None
+            and contradiction is None
+        ):
             first_missing_boundary = {
                 "reason_code": (
                     ownership_reasons[0]
                     if ownership_reasons
                     and ownership_status != "LOGICAL_CALL_MEDIA_OWNED"
                     else "SIP_FINAL_RESPONSE_NOT_OBSERVED"
-                    if signaling_outcome == "FINAL_RESPONSE_NOT_OBSERVED"
+                    if signaling_outcome
+                    in ("FINAL_RESPONSE_NOT_OBSERVED", "PROVISIONAL_ONLY")
                     else "LOGICAL_CALL_MEDIA_CHAIN_INCOMPLETE"
                 ),
                 "evidence_status": boundary_classification,
@@ -2909,9 +3565,29 @@ def build_diagnostics(
             diagnostic_completeness = "INSUFFICIENT"
 
         candidate_explanations: list[str] = []
-        if deviation is not None:
+        if logical_outcome_classification == "NEGATIVE_FINAL_BRANCH_OBSERVED":
             candidate_explanations.append(
-                "The captured IMS call received an explicit non-2xx SIP final response."
+                "The captured SIP transaction received an explicit negative final response; the reason is not established by the status code alone."
+            )
+        if logical_outcome_classification == "CANCELLATION_OUTCOME_OBSERVED":
+            candidate_explanations.append(
+                "A matching CANCEL and 487 indicate normal INVITE termination processing; the cause of the cancellation is not observed."
+            )
+        if logical_outcome_classification == "MIXED_FORK_OUTCOMES_OBSERVED":
+            candidate_explanations.append(
+                "Independent fork branches have different final outcomes; the logical call is not collapsed into success or failure."
+            )
+        if invite_authentication_review["challenge_observed"]:
+            candidate_explanations.append(
+                "A 401 or 407 is an authentication challenge; it is not proof of an authentication failure."
+            )
+        if violation is not None:
+            candidate_explanations.append(
+                "A final response carries message-syntax evidence that contradicts RFC 3261."
+            )
+        if contradiction is not None:
+            candidate_explanations.append(
+                "Conflicting final responses were observed for one proven transaction or branch."
             )
         if capture_visibility_limited:
             candidate_explanations.append(
@@ -2928,6 +3604,31 @@ def build_diagnostics(
             candidate_explanations.append(
                 "No evidence-supported abnormality is present within the observed capture scope."
             )
+        hypotheses: list[str] = []
+        if (
+            signaling_outcome in ("FINAL_RESPONSE_NOT_OBSERVED", "PROVISIONAL_ONLY")
+            and capture_visibility_limited
+        ):
+            hypotheses.append(
+                "HYPOTHESIS: the response direction may lie outside the capture view; unconfirmed."
+            )
+
+        next_checks = _unique(
+            [
+                item
+                for outcome in outcome_records
+                for item in outcome.get("next_checks") or []
+            ]
+        )[:MAX_DIAGNOSTIC_ITEMS]
+        if diagnostic_completeness != "COMPLETE":
+            next_checks.extend(
+                [
+                    "Provide SDP/RTP correspondence that excludes every competing logical call and branch.",
+                    "Provide the missing SDP answer or RTP source-stream evidence for this logical call.",
+                    "Provide a capture view that exposes the encrypted or unobserved signaling leg.",
+                ]
+            )
+        next_checks = _unique(next_checks)[:MAX_DIAGNOSTIC_ITEMS]
 
         supporting_refs = _unique(
             [
@@ -2958,6 +3659,10 @@ def build_diagnostics(
                 "bye_final_response_event_references": sorted(bye_response_refs)[:MAX_LIST_ITEMS],
                 "release_event_references": sorted(release_refs)[:MAX_LIST_ITEMS],
                 "outcome": signaling_outcome,
+                "observed_sip_outcome": observed_sip_outcome,
+                "logical_call_outcome": logical_outcome_classification,
+                "invite_authentication_review": invite_authentication_review,
+                "branch_outcomes": branch_outcome_records[:MAX_LIST_ITEMS],
                 "fork_branch_references": group.get("member_dialog_references"),
             },
             "sdp_signaling": {
@@ -3035,11 +3740,17 @@ def build_diagnostics(
             },
             "diagnostic_result": {
                 "signaling_outcome": signaling_outcome,
+                "observed_sip_outcome": observed_sip_outcome,
+                "logical_call_outcome": logical_outcome_classification,
+                "sip_outcome_component_counts": logical_outcome[
+                    "component_outcome_counts"
+                ],
                 "sdp_association_outcome": sdp_association_outcome,
                 "media_transport_ownership_outcome": ownership_status,
                 "rtp_evidence_outcome": rtp_evidence_outcome,
                 "rtcp_evidence_outcome": rtcp_evidence["ownership_status"],
-                "first_supported_protocol_deviation": deviation,
+                "first_supported_protocol_deviation": violation,
+                "first_observed_procedure_contradiction": contradiction,
                 "first_missing_evidence_boundary": first_missing_boundary,
                 "boundary_classification": boundary_classification,
                 "identity_ambiguity_present": not bool(group.get("grouping_accepted")),
@@ -3055,6 +3766,10 @@ def build_diagnostics(
                 ),
                 "last_supported_observation": last_supported_observation,
                 "supporting_source_references": supporting_refs,
+                "invite_authentication_review": invite_authentication_review,
+                "branch_outcomes": branch_outcome_records[:MAX_LIST_ITEMS],
+                "hypotheses": hypotheses[:MAX_DIAGNOSTIC_ITEMS],
+                "next_checks": next_checks,
                 "candidate_explanations": candidate_explanations[:MAX_DIAGNOSTIC_ITEMS],
                 "excluded_interpretations": [
                     "A missing observation is not automatically a network failure",
@@ -3129,8 +3844,19 @@ def build_diagnostics(
                     if boundary_classification == "NO_ABNORMAL_EVIDENCE_OBSERVED"
                     else {
                         "reason_code": (
-                            deviation.get("reason_code")
-                            if deviation is not None
+                            violation.get("reason_code")
+                            if violation is not None
+                            else contradiction.get("reason_code")
+                            if contradiction is not None
+                            else "SIP_NEGATIVE_FINAL_OUTCOME_OBSERVED"
+                            if logical_outcome_classification
+                            == "NEGATIVE_FINAL_BRANCH_OBSERVED"
+                            else "SIP_CANCELLED_INVITE_OUTCOME_OBSERVED"
+                            if logical_outcome_classification
+                            == "CANCELLATION_OUTCOME_OBSERVED"
+                            else "SIP_FORK_BRANCH_NEGATIVE_OUTCOME_OBSERVED"
+                            if logical_outcome_classification
+                            == "MIXED_FORK_OUTCOMES_OBSERVED"
                             else first_missing_boundary.get("reason_code")
                             if first_missing_boundary is not None
                             else "LOGICAL_CALL_MEDIA_CHAIN_INCOMPLETE"
@@ -3153,6 +3879,8 @@ def build_diagnostics(
     logical_ownership_counts: dict[str, int] = defaultdict(int)
     boundary_classification_counts: dict[str, int] = defaultdict(int)
     diagnostic_completeness_counts: dict[str, int] = defaultdict(int)
+    logical_call_outcome_counts: dict[str, int] = defaultdict(int)
+    sip_outcome_classification_counts: dict[str, int] = defaultdict(int)
     for record in logical_records:
         logical_ownership_counts[record["ownership_status"]] += 1
         review = record.get("diagnostic_review") or {}
@@ -3163,6 +3891,24 @@ def build_diagnostics(
         diagnostic_completeness_counts[
             str(result.get("diagnostic_completeness_status"))
         ] += 1
+        logical_call_outcome_counts[
+            str(result.get("logical_call_outcome"))
+        ] += 1
+        sip_outcome_classification_counts[
+            str(result.get("observed_sip_outcome"))
+        ] += 1
+    for attempt_record in attempt_records:
+        outcome = attempt_record.get("sip_final_outcome") or {}
+        if outcome.get("classification"):
+            sip_outcome_classification_counts[
+                str(outcome["classification"])
+            ] += 1
+    for branch_record in branch_records:
+        outcome = branch_record.get("sip_final_outcome") or {}
+        if outcome.get("classification"):
+            sip_outcome_classification_counts[
+                str(outcome["classification"])
+            ] += 1
 
     return {
         "analysis_name": ANALYSIS_NAME,
@@ -3193,6 +3939,12 @@ def build_diagnostics(
         ),
         "logical_call_diagnostic_completeness_counts": dict(
             sorted(diagnostic_completeness_counts.items())
+        ),
+        "logical_call_outcome_counts": dict(
+            sorted(logical_call_outcome_counts.items())
+        ),
+        "sip_outcome_classification_counts": dict(
+            sorted(sip_outcome_classification_counts.items())
         ),
         "capture_visibility_limited": capture_visibility_limited,
         "logical_call_grouping": {
@@ -3307,9 +4059,11 @@ def build_diagnostics(
     }
 
 
-def _sha256(path: Path) -> str:
+def _sha256(path: Path) -> str | None:
     import hashlib
 
+    if not path.is_file():
+        return None
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):

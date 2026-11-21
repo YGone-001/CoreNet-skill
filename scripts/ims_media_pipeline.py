@@ -733,15 +733,7 @@ def execute_media_pipeline(
 
     diagnostics_path = media_dir / "ims-call-diagnostics.json"
     call_diagnostics: dict[str, Any] = {}
-    if (
-        sip_events.is_file()
-        and ims_session.is_file()
-        and sdp_path.is_file()
-        and signaling_path.is_file()
-        and correlation_path.is_file()
-        and rtp_path.is_file()
-        and stream_path.is_file()
-    ):
+    if sip_events.is_file() and ims_session.is_file():
         try:
             call_diagnostics = ims_call_diagnostics.build_diagnostics(
                 capture=capture,
@@ -1001,6 +993,12 @@ def execute_media_pipeline(
         ) or {},
         "logical_call_diagnostic_completeness_counts": call_diagnostics.get(
             "logical_call_diagnostic_completeness_counts"
+        ) or {},
+        "logical_call_outcome_counts": call_diagnostics.get(
+            "logical_call_outcome_counts"
+        ) or {},
+        "sip_outcome_classification_counts": call_diagnostics.get(
+            "sip_outcome_classification_counts"
         ) or {},
         "accepted_logical_call_count": call_diagnostics.get(
             "accepted_logical_call_count", 0

@@ -13,9 +13,11 @@ All-bindings removal requires exactly one sole RFC 3261 wildcard `Contact: *` wi
 fail closed. A supplied Contact targeted by `expires=0` remains Contact-scoped, a
 Contact-specific expiration overrides the default `Expires` header, and `Expires: 0`
 without a Contact does not establish de-registration. Each removal observation is bound to its own
-REGISTER transaction and final response. A Challenge→Retry association requires a
-later authorized REGISTER after the observed challenge response in capture-local
-evidence order. Bounded publications conserve total/published/omitted counts, cross-source
+REGISTER transaction and final response. A 401 or 407 is an authentication challenge,
+not a terminal registration failure; it becomes a challenge→retry association only when
+a later authorized REGISTER follows the observed challenge response in capture-local
+evidence order. A challenge without an observed retry remains a bounded negative or
+incomplete observation, never an inferred credential failure. Bounded publications conserve total/published/omitted counts, cross-source
 SIP/Diameter rows remain source-local unless common capture provenance is verified,
 and CLI output destinations cannot alias inputs or each other. The Skill does not
 analyze IMS sessions, media, SDP, RTP, Rx, Sh or call outcomes.

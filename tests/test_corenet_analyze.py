@@ -5217,5 +5217,65 @@ class AttachS6aProjectionAccountingTests(WorkflowTestCase):
         )
 
 
+class ImsRegistrationOutcomeSummaryTests(unittest.TestCase):
+    def test_challenge_retry_association_is_not_terminal_rejection(self) -> None:
+        document = {
+            "registration_attempts": [
+                {
+                    "attempt_reference": "sip-registration:cap.pcapng:1.1",
+                    "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+                    "sip_outcome": "SUCCESS_RESPONSE_OBSERVED",
+                    "authentication_evidence_status": "CHALLENGE_RETRY_ASSOCIATED",
+                    "challenge_retry_association": {
+                        "status": "CHALLENGE_RETRY_ASSOCIATED"
+                    },
+                    "challenge_event_references": ["sip-event:cap.pcapng:2.1"],
+                    "retry_event_references": ["sip-event:cap.pcapng:4.1"],
+                    "final_response_event_references": ["sip-event:cap.pcapng:5.1"],
+                    "missing_evidence": [],
+                    "conflict_findings": [],
+                }
+            ]
+        }
+        summary = MODULE._ims_registration_evidence(document)
+        self.assertEqual(summary["attempt_count"], 1)
+        self.assertEqual(summary["challenge_event_count"], 1)
+        self.assertEqual(summary["retry_event_count"], 1)
+        self.assertEqual(summary["challenge_retry_associated_count"], 1)
+        self.assertEqual(summary["terminal_rejection_count"], 0)
+        self.assertEqual(summary["success_response_count"], 1)
+        self.assertEqual(
+            summary["registration_attempt_outcomes"][0][
+                "authentication_evidence_status"
+            ],
+            "CHALLENGE_RETRY_ASSOCIATED",
+        )
+
+    def test_terminal_rejection_is_counted_without_retry_association(self) -> None:
+        document = {
+            "registration_attempts": [
+                {
+                    "attempt_reference": "sip-registration:cap.pcapng:1.1",
+                    "registration_type": "INITIAL_REGISTRATION_CANDIDATE",
+                    "sip_outcome": "NEGATIVE_RESPONSE_OBSERVED",
+                    "authentication_evidence_status": "CHALLENGE_WITHOUT_OBSERVED_RETRY",
+                    "challenge_retry_association": {
+                        "status": "CHALLENGE_WITHOUT_OBSERVED_RETRY"
+                    },
+                    "challenge_event_references": ["sip-event:cap.pcapng:2.1"],
+                    "retry_event_references": [],
+                    "final_response_event_references": ["sip-event:cap.pcapng:2.1"],
+                    "missing_evidence": [],
+                    "conflict_findings": [],
+                }
+            ]
+        }
+        summary = MODULE._ims_registration_evidence(document)
+        self.assertEqual(summary["challenge_without_retry_count"], 1)
+        self.assertEqual(summary["terminal_rejection_count"], 1)
+        self.assertEqual(summary["negative_response_count"], 1)
+        self.assertEqual(summary["success_response_count"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1618,6 +1618,18 @@ def _render_ims_media(lines: list[str], media: dict[str, Any]) -> None:
             f"boundary={_value(result.get('boundary_classification'))} / "
             f"completeness={_value(result.get('diagnostic_completeness_status'))}"
         )
+        lines.append(
+            f"    sip outcome   : {_value(result.get('observed_sip_outcome'))} / "
+            f"logical_call={_value(result.get('logical_call_outcome'))} / "
+            f"auth={_value((result.get('invite_authentication_review') or {}).get('association_status'))}"
+        )
+        for branch_outcome in (result.get("branch_outcomes") or [])[:6]:
+            lines.append(
+                f"      branch outcome: {_value(branch_outcome.get('branch_reference'))} "
+                f"{_value(branch_outcome.get('classification'))} "
+                f"statuses={branch_outcome.get('final_status_codes') or []} "
+                f"cancel={_value(branch_outcome.get('cancel_relationship_established'))}"
+            )
         deviation = result.get("first_supported_protocol_deviation") or {}
         if deviation:
             lines.append(
@@ -1641,6 +1653,10 @@ def _render_ims_media(lines: list[str], media: dict[str, Any]) -> None:
             )
         for item in (result.get("candidate_explanations") or [])[:2]:
             lines.append(f"    candidate     : {scrub_free_text(item)}")
+        for item in (result.get("hypotheses") or [])[:2]:
+            lines.append(f"    hypothesis    : {scrub_free_text(item)}")
+        for item in (result.get("next_checks") or [])[:3]:
+            lines.append(f"    next check    : {scrub_free_text(item)}")
     duplicate = media.get("duplicate_observation_investigation") or {}
     if duplicate:
         lines.append(
@@ -1832,10 +1848,25 @@ def render_text_report(report: dict[str, Any]) -> str:
             f"{_value(registration.get('attempt_count'))} attempt(s), "
             f"registration types {', '.join(registration.get('registration_types') or []) or 'none'}"
         )
+        lines.append(
+            f"  Registration auth: challenges={_value(registration.get('challenge_event_count'))}, "
+            f"challenge-retry-associated={_value(registration.get('challenge_retry_associated_count'))}, "
+            f"challenge-without-retry={_value(registration.get('challenge_without_retry_count'))}, "
+            f"terminal-rejections={_value(registration.get('terminal_rejection_count'))}, "
+            f"success-responses={_value(registration.get('success_response_count'))}"
+        )
         if registration.get("attempt_references"):
             lines.append(
                 "    references   : "
                 + ", ".join(registration.get("attempt_references") or [])
+            )
+        for item in (registration.get("registration_attempt_outcomes") or [])[:6]:
+            lines.append(
+                f"    register     : {_value(item.get('attempt_reference'))} / "
+                f"{_value(item.get('sip_outcome'))} / "
+                f"auth={_value(item.get('authentication_evidence_status'))} / "
+                f"challenge={len(item.get('challenge_event_references') or [])} / "
+                f"retry={len(item.get('retry_event_references') or [])}"
             )
         lines.append(
             f"  Session         : {_value(session.get('analysis_status'))}, "
@@ -1851,6 +1882,11 @@ def render_text_report(report: dict[str, Any]) -> str:
         lines.append(
             "  Cross-protocol  : NOT_ESTABLISHED "
             "(SIP registration, Diameter Cx/Dx and SIP session inventories remain independent)"
+        )
+        lines.append(
+            f"  IMS attribution : {_value(evidence.get('ims_attribution_status'))}; "
+            f"SIP-only observation={'yes' if evidence.get('sip_only_observation') else 'no'}; "
+            f"basis {', '.join(evidence.get('ims_attribution_basis') or []) or 'none'}"
         )
         for item in (evidence.get("limitations") or [])[:MAX_LIST_ITEMS]:
             lines.append(f"    limitation   : {scrub_free_text(item)}")
@@ -5994,6 +6030,58 @@ def _ims_registration_evidence(document: dict[str, Any] | None) -> dict[str, Any
             "cross_protocol_association": "NOT_ESTABLISHED",
         }
     attempts = [item for item in document.get("registration_attempts") or [] if isinstance(item, dict)]
+    authentication_statuses: dict[str, int] = {}
+    sip_outcomes: dict[str, int] = {}
+    for item in attempts:
+        status = item.get("authentication_evidence_status")
+        if isinstance(status, str):
+            authentication_statuses[status] = authentication_statuses.get(status, 0) + 1
+        outcome = item.get("sip_outcome")
+        if isinstance(outcome, str):
+            sip_outcomes[outcome] = sip_outcomes.get(outcome, 0) + 1
+    challenge_event_count = sum(
+        len(item.get("challenge_event_references") or []) for item in attempts
+    )
+    retry_event_count = sum(
+        len(item.get("retry_event_references") or []) for item in attempts
+    )
+    terminal_rejections = [
+        item
+        for item in attempts
+        if item.get("sip_outcome") == "NEGATIVE_RESPONSE_OBSERVED"
+        and item.get("authentication_evidence_status")
+        != "CHALLENGE_RETRY_ASSOCIATED"
+    ]
+    attempt_outcomes = [
+        {
+            "attempt_reference": item.get("attempt_reference"),
+            "registration_type": item.get("registration_type"),
+            "sip_outcome": item.get("sip_outcome"),
+            "authentication_evidence_status": item.get(
+                "authentication_evidence_status"
+            ),
+            "challenge_retry_status": (
+                item.get("challenge_retry_association") or {}
+            ).get("status"),
+            "challenge_event_references": list(
+                item.get("challenge_event_references") or []
+            )[:MAX_IMS_REFERENCES],
+            "retry_event_references": list(
+                item.get("retry_event_references") or []
+            )[:MAX_IMS_REFERENCES],
+            "final_response_event_references": list(
+                item.get("final_response_event_references") or []
+            )[:MAX_IMS_REFERENCES],
+            "deregistration": item.get("deregistration"),
+            "missing_evidence": list(item.get("missing_evidence") or [])[
+                :MAX_IMS_REFERENCES
+            ],
+            "conflict_findings": list(item.get("conflict_findings") or [])[
+                :MAX_IMS_REFERENCES
+            ],
+        }
+        for item in attempts[:MAX_IMS_REFERENCES]
+    ]
     return {
         "analysis_status": "COMPLETED" if attempts else "INSUFFICIENT_EVIDENCE",
         "attempt_count": len(attempts),
@@ -6009,6 +6097,30 @@ def _ims_registration_evidence(document: dict[str, Any] | None) -> dict[str, Any
                 if item.get("registration_type")
             }
         ),
+        "success_response_count": sip_outcomes.get("SUCCESS_RESPONSE_OBSERVED", 0),
+        "negative_response_count": sip_outcomes.get("NEGATIVE_RESPONSE_OBSERVED", 0),
+        "open_in_capture_count": sip_outcomes.get("OPEN_IN_CAPTURE", 0),
+        "ambiguous_outcome_count": sip_outcomes.get("AMBIGUOUS", 0),
+        "incomplete_evidence_count": sip_outcomes.get("INCOMPLETE_EVIDENCE", 0),
+        "challenge_event_count": challenge_event_count,
+        "retry_event_count": retry_event_count,
+        "challenge_retry_associated_count": authentication_statuses.get(
+            "CHALLENGE_RETRY_ASSOCIATED", 0
+        ),
+        "challenge_without_retry_count": authentication_statuses.get(
+            "CHALLENGE_WITHOUT_OBSERVED_RETRY", 0
+        ),
+        "retry_without_challenge_count": authentication_statuses.get(
+            "RETRY_WITHOUT_OBSERVED_CHALLENGE", 0
+        ),
+        "authentication_unproved_count": authentication_statuses.get(
+            "AUTHENTICATION_OUTCOME_UNPROVED", 0
+        ),
+        "terminal_rejection_count": len(terminal_rejections),
+        "authentication_evidence_status_counts": dict(
+            sorted(authentication_statuses.items())
+        ),
+        "registration_attempt_outcomes": attempt_outcomes,
         "cross_protocol_association": "NOT_ESTABLISHED",
     }
 
@@ -6530,6 +6642,19 @@ endpoint_key_file=identity_key_file,
         "diameter_ims": diameter_ims_evidence,
         "media": media_evidence,
         "cross_protocol_association": "NOT_ESTABLISHED",
+        "sip_only_observation": bool(
+            sip_status == "SUCCESS"
+            and registration_evidence.get("attempt_count", 0) == 0
+            and diameter_counts.get("observation_count", 0) == 0
+        ),
+        "ims_attribution_status": (
+            "SUSPECTED" if sip_status == "SUCCESS" else "NOT_ESTABLISHED"
+        ),
+        "ims_attribution_basis": (
+            ["sip_observed"]
+            + (["no_ims_registration_attempt"] if registration_evidence.get("attempt_count", 0) == 0 else [])
+            + (["no_diameter_cx_dx_observation"] if diameter_counts.get("observation_count", 0) == 0 else [])
+        ),
         "analysis_status": execution_status,
         "limitations": limitations,
     }

@@ -32,6 +32,9 @@ def sip_event(
     vias: list[str] | None = None,
     body_present: bool = False,
     content_type: str | None = None,
+    authorization_count: int = 0,
+    proxy_authorization_count: int = 0,
+    integrity_findings: list[str] | None = None,
 ) -> dict:
     return {
         "source_reference": f"sip-event:{CAP}:{frame}.1",
@@ -50,6 +53,8 @@ def sip_event(
                 "count": 1,
             },
             "content_type": content_type,
+            "authorization": {"count": authorization_count},
+            "proxy_authorization": {"count": proxy_authorization_count},
         },
         "call_id_reference": call_id,
         "from_tag_reference": from_tag,
@@ -57,6 +62,7 @@ def sip_event(
         "via_branch_references": vias or [],
         "identity_reference_status": "ESTABLISHED",
         "identity_reference_scope": "CAPTURE_SHA256_SCOPED_HMAC_SHA256",
+        "integrity_findings": integrity_findings or [],
         "body_present": body_present,
     }
 
@@ -159,9 +165,12 @@ def attempt(
     answer_frames: list[int] | None = None,
     ack_frames: list[int] | None = None,
     branches: list[dict] | None = None,
+    provisional_frames: list[int] | None = None,
+    cancel_evidence: dict | None = None,
 ) -> dict:
     answer_frames = answer_frames or []
     ack_frames = ack_frames or []
+    provisional_frames = provisional_frames or []
     return {
         "attempt_reference": f"ims-session:{CAP}:{frame}.1",
         "initial_invite_transaction_reference": f"sip-transaction:{CAP}:request:{frame}.1",
@@ -170,7 +179,9 @@ def attempt(
         "first_observed_frame": frame,
         "last_observed_frame": max([frame, *answer_frames, *ack_frames]),
         "stage_evidence": {
-            "provisional_response_event_references": [],
+            "provisional_response_event_references": [
+                f"sip-event:{CAP}:{item}.1" for item in provisional_frames
+            ],
             "final_response_event_references": [
                 f"sip-event:{CAP}:{item}.1" for item in answer_frames
             ],
@@ -183,7 +194,19 @@ def attempt(
                 f"sip-event:{CAP}:{item}.1" for item in ack_frames
             ]
         },
-        "cancel_evidence": {"outcome": "NO_CANCEL_OBSERVED"},
+        "cancel_evidence": cancel_evidence
+        or {
+            "outcome": "NO_CANCEL_OBSERVED",
+            "association_status": "NOT_OBSERVED",
+            "cancel_transaction_references": [],
+            "cancel_request_event_references": [],
+            "cancel_final_response_event_references": [],
+            "cancel_final_response_status_codes": [],
+            "invite_final_response_status": None,
+            "response_sequence_observed": False,
+            "missing_evidence": [],
+            "conflict_findings": [],
+        },
         "release_evidence": {"outcome": "NO_BYE_OBSERVED"},
         "branch_count": len(branches or []),
         "branches": branches or [],
@@ -197,6 +220,7 @@ def branch(
     answer_frames: list[int] | None = None,
     ack_frames: list[int] | None = None,
     bye_frames: list[int] | None = None,
+    response_status_codes: list[int] | None = None,
 ) -> dict:
     answer_frames = answer_frames or []
     ack_frames = ack_frames or []
@@ -226,7 +250,11 @@ def branch(
         "response_event_references": [
             f"sip-event:{CAP}:{item}.1" for item in answer_frames
         ],
-        "response_status_codes": [200 for _ in answer_frames],
+        "response_status_codes": (
+            response_status_codes
+            if response_status_codes is not None
+            else [200 for _ in answer_frames]
+        ),
         "outcome": "ACCEPTED_2XX",
         "ack_event_references": [f"sip-event:{CAP}:{item}.1" for item in ack_frames],
         "ack_status": "OBSERVED_FOR_ALL_ACCEPTED_BRANCHES",
@@ -436,6 +464,12 @@ def run(
                     frame,
                     sip_event(frame, method="INVITE", call_id=f"call-{frame}", from_tag=f"from-{frame}"),
                 )
+        for frame, status in (response_status_by_frame or {}).items():
+            current = events.get(frame)
+            if isinstance(current, dict) and current.get("message_type") == "RESPONSE":
+                updated = dict(current)
+                updated["status_code"] = status
+                events[frame] = updated
         for frame, override in (sip_overrides or {}).items():
             events[frame] = override
         (root / "sip-events.jsonl").write_text(
@@ -1537,20 +1571,36 @@ class NegativeDiagnosticTests(unittest.TestCase):
             },
         )
 
-    def test_sip_4xx_outcome_has_exact_response_reference(self) -> None:
-        result = self._negative(486)["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
-        deviation = result["first_supported_protocol_deviation"]
-        self.assertEqual(deviation["reason_code"], "SIP_FINAL_RESPONSE_NON_2XX")
-        self.assertEqual(deviation["status_code"], 486)
-        self.assertEqual(deviation["event_reference"], f"sip-event:{CAP}:2.1")
-        self.assertEqual(deviation["frame_number"], 2)
-        self.assertEqual(result["boundary_classification"], "OBSERVED_PROTOCOL_DEVIATION")
-        self.assertFalse(deviation["network_root_cause_established"])
-
-    def test_sip_5xx_outcome_has_exact_response_reference(self) -> None:
-        result = self._negative(503)["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+    def test_sip_4xx_outcome_is_negative_not_protocol_violation(self) -> None:
+        document = self._negative(486)
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertIsNone(result["first_supported_protocol_deviation"])
         self.assertEqual(
-            result["first_supported_protocol_deviation"]["status_code"], 503
+            result["observed_sip_outcome"], "SIP_NEGATIVE_FINAL_OUTCOME_OBSERVED"
+        )
+        self.assertEqual(
+            result["logical_call_outcome"], "NEGATIVE_FINAL_BRANCH_OBSERVED"
+        )
+        self.assertEqual(
+            result["boundary_classification"], "OBSERVED_NEGATIVE_SIP_OUTCOME"
+        )
+        outcome = document["attempts"][0]["sip_final_outcome"]
+        self.assertEqual(outcome["final_status_codes"], [486])
+        self.assertEqual(
+            outcome["final_response_references"], [f"sip-event:{CAP}:2.1"]
+        )
+        self.assertFalse(outcome["reason_established"])
+        self.assertFalse(outcome["timeout_inferred"])
+
+    def test_sip_5xx_outcome_is_negative_not_protocol_violation(self) -> None:
+        document = self._negative(503)
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertIsNone(result["first_supported_protocol_deviation"])
+        self.assertEqual(
+            document["attempts"][0]["sip_final_outcome"]["final_status_codes"], [503]
+        )
+        self.assertEqual(
+            result["observed_sip_outcome"], "SIP_NEGATIVE_FINAL_OUTCOME_OBSERVED"
         )
 
     def test_missing_sdp_answer_is_not_network_failure(self) -> None:
@@ -1703,6 +1753,399 @@ class RtpPacketIdentityBoundaryTests(unittest.TestCase):
         self.assertEqual(document["potential_retransmission_event_count"], 0)
         self.assertTrue(
             all(group.get("retransmission_established") is False for group in document["groups"])
+        )
+
+
+class SipOutcomeSemanticsTests(unittest.TestCase):
+    def _cancel(self) -> dict:
+        return {
+            "outcome": "CANCEL_INVITE_SEQUENCE_OBSERVED",
+            "association_status": "ASSOCIATED",
+            "cancel_transaction_references": [
+                f"sip-transaction:{CAP}:request:3.1"
+            ],
+            "cancel_request_event_references": [f"sip-event:{CAP}:3.1"],
+            "cancel_final_response_event_references": [f"sip-event:{CAP}:4.1"],
+            "cancel_final_response_status_codes": [200],
+            "invite_final_response_status": 487,
+            "response_sequence_observed": True,
+            "missing_evidence": [],
+            "conflict_findings": [],
+        }
+
+    def test_cancel_then_487_is_normal_cancellation_not_violation(self) -> None:
+        document = run(
+            attempts=[
+                attempt(1, answer_frames=[5], cancel_evidence=self._cancel())
+            ],
+            exchanges=[],
+            sdp_messages=[sdp_message(1)],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            response_status_by_frame={5: 487},
+            sip_overrides={
+                1: sip_event(1, "INVITE", call_id="call-1", from_tag="from-1"),
+                2: sip_event(2, status=100, call_id="call-1", from_tag="from-1"),
+                3: sip_event(3, "CANCEL", call_id="call-1", from_tag="from-1"),
+                4: sip_event(4, status=200, call_id="call-1", from_tag="from-1"),
+                5: sip_event(5, status=487, call_id="call-1", from_tag="from-1"),
+            },
+        )
+        attempt_outcome = document["attempts"][0]["sip_final_outcome"]
+        self.assertEqual(
+            attempt_outcome["classification"],
+            "SIP_CANCELLED_INVITE_OUTCOME_OBSERVED",
+        )
+        self.assertTrue(attempt_outcome["cancel_relationship_established"])
+        self.assertEqual(
+            attempt_outcome["cancel_request_event_references"],
+            [f"sip-event:{CAP}:3.1"],
+        )
+        self.assertEqual(
+            attempt_outcome["cancel_response_event_references"],
+            [f"sip-event:{CAP}:4.1"],
+        )
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertIsNone(result["first_supported_protocol_deviation"])
+        self.assertEqual(
+            result["boundary_classification"],
+            "OBSERVED_CANCELLED_SIP_OUTCOME",
+        )
+        self.assertEqual(
+            result["observed_sip_outcome"],
+            "SIP_CANCELLED_INVITE_OUTCOME_OBSERVED",
+        )
+
+    def test_487_without_established_cancel_is_negative_only(self) -> None:
+        document = run(
+            attempts=[
+                attempt(1, answer_frames=[2], cancel_evidence={
+                    "outcome": "CANCEL_ASSOCIATION_NOT_ESTABLISHED",
+                    "association_status": "NOT_ESTABLISHED",
+                    "cancel_transaction_references": [],
+                    "cancel_request_event_references": [],
+                    "cancel_final_response_event_references": [],
+                    "cancel_final_response_status_codes": [],
+                    "invite_final_response_status": 487,
+                    "response_sequence_observed": False,
+                    "missing_evidence": [],
+                    "conflict_findings": [],
+                })
+            ],
+            exchanges=[],
+            sdp_messages=[],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            response_status_by_frame={2: 487},
+        )
+        outcome = document["attempts"][0]["sip_final_outcome"]
+        self.assertEqual(
+            outcome["classification"], "SIP_NEGATIVE_FINAL_OUTCOME_OBSERVED"
+        )
+        self.assertFalse(outcome["cancel_relationship_established"])
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertIsNone(result["first_supported_protocol_deviation"])
+        self.assertEqual(
+            result["boundary_classification"], "OBSERVED_NEGATIVE_SIP_OUTCOME"
+        )
+
+    def test_487_and_200_in_different_forks_are_mixed_not_failed(self) -> None:
+        document = run(
+            attempts=[
+                attempt(
+                    1,
+                    answer_frames=[2, 6],
+                    branches=[
+                        branch(f"sip-dialog:{CAP}:2.1", answer_frames=[2]),
+                        branch(
+                            f"sip-dialog:{CAP}:6.1",
+                            answer_frames=[6],
+                            response_status_codes=[487],
+                        ),
+                    ],
+                )
+            ],
+            exchanges=[
+                exchange(1, branch_reference=f"sip-dialog:{CAP}:2.1", offer_frame=1, answer_frame=2),
+                exchange(
+                    1,
+                    branch_reference=f"sip-dialog:{CAP}:6.1",
+                    offer_frame=1,
+                    answer_frame=6,
+                    association_status="INSUFFICIENT_EVIDENCE",
+                ),
+            ],
+            sdp_messages=[sdp_message(1), sdp_message(2), sdp_message(6)],
+            correlations=[
+                correlation(
+                    "sdp-rtp-transport:synthetic-call.pcapng:1.1.0",
+                    offer_frames=[1],
+                    answer_frames=[2],
+                )
+            ],
+            rtp_events=[rtp_event(f"rtp-packet:{CAP}:4.1", 4, sequence=1)],
+            streams=[stream()],
+            response_status_by_frame={6: 487},
+        )
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertEqual(
+            result["logical_call_outcome"], "MIXED_FORK_OUTCOMES_OBSERVED"
+        )
+        self.assertTrue(result["branch_outcomes"])
+        classifications = {
+            outcome["classification"] for outcome in result["branch_outcomes"]
+        }
+        self.assertIn("SIP_POSITIVE_FINAL_OUTCOME_OBSERVED", classifications)
+        self.assertIn(
+            "SIP_FORK_BRANCH_NEGATIVE_OUTCOME_OBSERVED", classifications
+        )
+        self.assertIsNone(result["first_supported_protocol_deviation"])
+        self.assertEqual(
+            result["boundary_classification"], "OBSERVED_MIXED_SIP_OUTCOMES"
+        )
+
+    def test_conflicting_final_responses_in_one_branch_are_contradiction(self) -> None:
+        document = run(
+            attempts=[
+                attempt(
+                    1,
+                    answer_frames=[2, 6],
+                    branches=[
+                        branch(
+                            f"sip-dialog:{CAP}:2.1",
+                            answer_frames=[2, 6],
+                            response_status_codes=[200, 487],
+                        )
+                    ],
+                )
+            ],
+            exchanges=[
+                exchange(1, branch_reference=f"sip-dialog:{CAP}:2.1", offer_frame=1, answer_frame=2)
+            ],
+            sdp_messages=[sdp_message(1), sdp_message(2), sdp_message(6)],
+            correlations=[
+                correlation(
+                    "sdp-rtp-transport:synthetic-call.pcapng:1.1.0",
+                    offer_frames=[1],
+                    answer_frames=[2],
+                )
+            ],
+            rtp_events=[rtp_event(f"rtp-packet:{CAP}:4.1", 4, sequence=1)],
+            streams=[stream()],
+            response_status_by_frame={6: 487},
+        )
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertIsNone(result["first_supported_protocol_deviation"])
+        self.assertIsNotNone(result["first_observed_procedure_contradiction"])
+        self.assertEqual(
+            result["boundary_classification"],
+            "OBSERVED_SIP_PROCEDURE_CONTRADICTION",
+        )
+        self.assertEqual(
+            result["observed_sip_outcome"], "SIP_PROCEDURE_CONTRADICTION_OBSERVED"
+        )
+
+    def test_403_404_486_503_are_negative_outcomes_without_root_cause(self) -> None:
+        for status in (403, 404, 486, 503):
+            with self.subTest(status=status):
+                document = self._negative_status(status)
+                outcome = document["attempts"][0]["sip_final_outcome"]
+                self.assertEqual(
+                    outcome["classification"],
+                    "SIP_NEGATIVE_FINAL_OUTCOME_OBSERVED",
+                )
+                self.assertFalse(outcome["reason_established"])
+                self.assertFalse(outcome["timeout_inferred"])
+                self.assertTrue(outcome["next_checks"])
+                result = document["logical_calls"][0]["diagnostic_review"][
+                    "diagnostic_result"
+                ]
+                self.assertIsNone(result["first_supported_protocol_deviation"])
+                self.assertEqual(
+                    result["boundary_classification"],
+                    "OBSERVED_NEGATIVE_SIP_OUTCOME",
+                )
+
+    def _negative_status(self, status: int) -> dict:
+        return run(
+            attempts=[attempt(1, answer_frames=[2])],
+            exchanges=[],
+            sdp_messages=[],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            response_status_by_frame={2: status},
+        )
+
+    def test_protocol_violation_requires_malformed_response_evidence(self) -> None:
+        document = run(
+            attempts=[attempt(1, answer_frames=[2])],
+            exchanges=[],
+            sdp_messages=[],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            response_status_by_frame={2: 486},
+            sip_overrides={
+                2: sip_event(
+                    2,
+                    status=486,
+                    call_id="call-1",
+                    from_tag="from-1",
+                    integrity_findings=["INVALID_STATUS_CODE"],
+                )
+            },
+        )
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertIsNotNone(result["first_supported_protocol_deviation"])
+        self.assertEqual(
+            result["boundary_classification"], "OBSERVED_PROTOCOL_VIOLATION"
+        )
+        self.assertEqual(
+            result["observed_sip_outcome"], "SIP_PROTOCOL_VIOLATION_EVIDENCE"
+        )
+
+    def test_invite_407_with_authorized_retry_is_associated(self) -> None:
+        document = run(
+            attempts=[
+                attempt(
+                    1,
+                    answer_frames=[2],
+                    branches=[
+                        branch(
+                            f"sip-event:{CAP}:2.1",
+                            identity="INSUFFICIENT_EVIDENCE",
+                            answer_frames=[2],
+                            response_status_codes=[407],
+                        )
+                    ],
+                ),
+                attempt(10, answer_frames=[11]),
+            ],
+            exchanges=[],
+            sdp_messages=[],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            response_status_by_frame={2: 407, 11: 200},
+            sip_overrides={
+                1: sip_event(1, "INVITE", call_id="call-a", from_tag="from-a", cseq=1),
+                2: sip_event(2, status=407, call_id="call-a", from_tag="from-a", to_tag="to-a", cseq=1),
+                10: sip_event(
+                    10,
+                    "INVITE",
+                    call_id="call-a",
+                    from_tag="from-a",
+                    to_tag="to-a",
+                    cseq=2,
+                    authorization_count=1,
+                ),
+                11: sip_event(11, status=200, call_id="call-a", from_tag="from-a", to_tag="to-a", cseq=2),
+            },
+        )
+        review = next(
+            document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"][
+                "invite_authentication_review"
+            ]
+            for record in document["logical_calls"]
+            if record["member_ims_attempt_references"][0]
+            == f"ims-session:{CAP}:1.1"
+        )
+        self.assertTrue(review["challenge_observed"])
+        self.assertTrue(review["retry_observed"])
+        self.assertEqual(review["association_status"], "CHALLENGE_RETRY_ASSOCIATED")
+        self.assertEqual(
+            review["retry_request_event_references"], [f"sip-event:{CAP}:10.1"]
+        )
+        self.assertEqual(review["retry_final_status_codes"], [200])
+        self.assertFalse(review["authentication_verified"])
+
+    def test_invite_407_without_retry_is_not_authentication_failure(self) -> None:
+        document = run(
+            attempts=[attempt(1, answer_frames=[2])],
+            exchanges=[],
+            sdp_messages=[],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            response_status_by_frame={2: 407},
+        )
+        review = document["logical_calls"][0]["diagnostic_review"][
+            "diagnostic_result"
+        ]["invite_authentication_review"]
+        self.assertTrue(review["challenge_observed"])
+        self.assertFalse(review["retry_observed"])
+        self.assertEqual(
+            review["association_status"], "CHALLENGE_WITHOUT_OBSERVED_RETRY"
+        )
+        self.assertFalse(review["authentication_verified"])
+
+    def test_observed_408_is_not_a_locally_inferred_timeout(self) -> None:
+        observed = self._negative_status(408)
+        outcome = observed["attempts"][0]["sip_final_outcome"]
+        self.assertEqual(outcome["final_status_codes"], [408])
+        self.assertFalse(outcome["timeout_inferred"])
+        absent = run(
+            attempts=[attempt(1)],
+            exchanges=[],
+            sdp_messages=[],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            sip_overrides={
+                1: sip_event(1, "INVITE", call_id="call-1", from_tag="from-1"),
+                2: sip_event(2, status=100, call_id="call-1", from_tag="from-1"),
+            },
+        )
+        absent_outcome = absent["attempts"][0]["sip_final_outcome"]
+        self.assertEqual(
+            absent_outcome["classification"], "SIP_FINAL_OUTCOME_NOT_OBSERVED"
+        )
+        self.assertFalse(absent_outcome["timeout_inferred"])
+
+    def test_180_without_final_is_provisional_only(self) -> None:
+        document = run(
+            attempts=[attempt(1, provisional_frames=[2])],
+            exchanges=[],
+            sdp_messages=[],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            sip_overrides={
+                1: sip_event(1, "INVITE", call_id="call-1", from_tag="from-1"),
+                2: sip_event(2, status=180, call_id="call-1", from_tag="from-1"),
+            },
+        )
+        result = document["logical_calls"][0]["diagnostic_review"]["diagnostic_result"]
+        self.assertEqual(result["logical_call_outcome"], "PROVISIONAL_ONLY")
+        self.assertEqual(
+            result["observed_sip_outcome"], "SIP_FINAL_OUTCOME_NOT_OBSERVED"
+        )
+        self.assertEqual(result["boundary_classification"], "MISSING_OBSERVATION")
+
+    def test_multiple_independent_calls_keep_mixed_outcomes_separate(self) -> None:
+        document = run(
+            attempts=[attempt(1, answer_frames=[2]), attempt(20, answer_frames=[21])],
+            exchanges=[],
+            sdp_messages=[],
+            correlations=[],
+            rtp_events=[],
+            streams=[],
+            response_status_by_frame={21: 486},
+        )
+        by_member = {
+            record["member_ims_attempt_references"][0]: record[
+                "diagnostic_review"
+            ]["diagnostic_result"]["logical_call_outcome"]
+            for record in document["logical_calls"]
+        }
+        self.assertEqual(
+            by_member[f"ims-session:{CAP}:1.1"], "ACCEPTED_INVITE_BRANCH_OBSERVED"
+        )
+        self.assertEqual(
+            by_member[f"ims-session:{CAP}:20.1"], "NEGATIVE_FINAL_BRANCH_OBSERVED"
         )
 
 

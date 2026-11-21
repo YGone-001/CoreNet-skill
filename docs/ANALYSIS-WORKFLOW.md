@@ -415,6 +415,40 @@ with the last supported evidence reference, first missing or abnormal boundary, 
 codes, excluded interpretations, additional evidence needed and per-branch ownership
 scope. Detailed source artifacts remain available locally in the run directory.
 
+### SIP final-response outcomes
+
+SIP final responses are classified as observed procedure outcomes before any
+boundary is selected:
+
+- `SIP_POSITIVE_FINAL_OUTCOME_OBSERVED`: at least one accepted 2xx final response.
+- `SIP_NEGATIVE_FINAL_OUTCOME_OBSERVED`: an explicit 3xx-6xx final response.
+- `SIP_AUTHENTICATION_CHALLENGE_OBSERVED`: 401 or 407 without a proven accepted
+  response in the same transaction.
+- `SIP_CANCELLED_INVITE_OUTCOME_OBSERVED`: a proven ASSOCIATED CANCEL transaction with
+  its own 200 response and the matching INVITE 487.
+- `SIP_FORK_BRANCH_NEGATIVE_OUTCOME_OBSERVED`: a negative branch alongside an accepted
+  branch of the same logical call.
+- `SIP_PROCEDURE_CONTRADICTION_OBSERVED`: conflicting final responses for one proven
+  transaction or branch.
+- `SIP_PROTOCOL_VIOLATION_EVIDENCE`: a final response with explicit message-syntax
+  evidence contradicting an applicable protocol rule.
+- `SIP_FINAL_OUTCOME_NOT_OBSERVED`: no final response is present in the capture.
+- `SIP_OUTCOME_IDENTITY_AMBIGUOUS`: final responses exist but identity is not accepted.
+
+A negative response is not a protocol violation. A matching CANCEL and 487 is normal
+INVITE termination processing. A 401 or 407 is an authentication challenge, not an
+authentication failure. Fork branches keep independent positive, negative and
+cancelled outcomes; the logical call is `MIXED_FORK_OUTCOMES_OBSERVED` when accepted
+and non-accepted branches coexist. An absent response is a missing observation, not a
+locally inferred timeout; an observed 408 is retained as an explicit response.
+
+The `diagnostic_result` also publishes `logical_call_outcome`, branch outcome records,
+`first_observed_procedure_contradiction`, a bounded `invite_authentication_review`
+(challenge, later authorized request, retry final response), hypotheses, and next
+checks. `first_supported_protocol_deviation` is populated only by explicit protocol
+violation evidence; negative, cancelled and mixed outcomes remain separate observed
+fields.
+
 ### Per-call failure-boundary review
 
 Each logical call publishes an ordered `diagnostic_review` covering SIP signaling
@@ -427,9 +461,14 @@ components, receiver-reported measurements).
 
 The `diagnostic_result` keeps the boundary classes distinct:
 
-- `OBSERVED_PROTOCOL_DEVIATION`: a supported deviation such as a non-2xx final SIP
-  response, with its exact event and frame reference. A SIP outcome never by itself
-  establishes a network-function root cause.
+- `OBSERVED_PROTOCOL_VIOLATION`: explicit message-syntax evidence contradicting an
+  applicable protocol rule, with its exact event and frame reference.
+- `OBSERVED_SIP_PROCEDURE_CONTRADICTION`: conflicting final responses for one proven
+  transaction or branch.
+- `OBSERVED_NEGATIVE_SIP_OUTCOME`: an explicit non-2xx final response that is not a
+  proven cancellation.
+- `OBSERVED_CANCELLED_SIP_OUTCOME`: a proven CANCEL-to-487 termination sequence.
+- `OBSERVED_MIXED_SIP_OUTCOMES`: accepted and non-accepted fork branches coexist.
 - `MISSING_OBSERVATION`: an expected observation is absent from the capture.
 - `CAPTURE_VISIBILITY_LIMITATION`: evidence is present but cannot be extracted from the
   available capture view, such as encrypted or inaccessible signaling.

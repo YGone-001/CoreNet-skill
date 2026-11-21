@@ -39,7 +39,10 @@ Keep these dimensions separate:
 - ACK evidence: observed for all accepted branches, missing for an accepted branch or
   not applicable.
 - CANCEL evidence: request, response, association and INVITE final response remain
-  separate.
+  separate. A proven associated CANCEL with its own 200 response and a matching INVITE
+  487 is normal INVITE termination processing, not a protocol violation or network
+  failure; a 487 without a proven CANCEL relationship stays an independent negative
+  response observation.
 - Release evidence: BYE request, response, missing response or negative response.
 - Capture completeness: complete or partial; missing evidence is never timeout proof.
 

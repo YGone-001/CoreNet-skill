@@ -210,6 +210,15 @@ ordered evidence review with `signaling_outcome`, `sdp_association_outcome`,
 `boundary_classification`, a first supported protocol deviation, a first missing-evidence
 boundary, the last supported observation and traceable source references.
 
+SIP final responses are classified before any diagnostic boundary. A 4xx, 5xx or
+6xx response is an observed negative SIP outcome, not a protocol violation; a matching
+CANCEL transaction with its own 200 response and an INVITE 487 are normal termination
+processing; a 401 or 407 is an authentication challenge; and forked branches keep
+independent positive, negative or cancelled outcomes. A protocol violation is
+published only with explicit contradictory protocol evidence. Generic SIP captures
+remain SIP-only: IMS attribution stays `SUSPECTED` or `NOT_ESTABLISHED`, and no IMS
+registration, media session, RTP delivery or two-way audio is fabricated.
+
 RTP duplicate identity is derived from complete RTP packet bytes through a
 capture-scoped keyed HMAC. `MULTI_VANTAGE_SUPPORTED` additionally requires a compatible
 inner transport path and differing capture-view evidence; byte-identical packets in
