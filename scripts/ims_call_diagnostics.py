@@ -1142,11 +1142,12 @@ def build_diagnostics(
             frame = _frame_of(reference)
             if frame is not None:
                 owned_frames.append((frame, "SDP", reference))
-        for corr in exact_correlations:
-            for reference in corr.get("rtp_event_references") or []:
-                frame = _frame_of(reference)
-                if frame is not None:
-                    owned_frames.append((frame, "RTP", reference))
+        if not ownership_ambiguous:
+            for corr in exact_correlations:
+                for reference in corr.get("rtp_event_references") or []:
+                    frame = _frame_of(reference)
+                    if frame is not None:
+                        owned_frames.append((frame, "RTP", reference))
         if owned_frames:
             frame, stage, reference = max(owned_frames, key=lambda item: (item[0], item[2]))
             attempt_record["diagnostic"]["last_supported_evidence"] = {

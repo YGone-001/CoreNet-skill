@@ -844,6 +844,23 @@ class DiagnosticIntegrityTests(unittest.TestCase):
             document["duplicate_observation_investigation"]["multi_vantage_event_count"], 1
         )
 
+    def test_ambiguous_attempt_last_evidence_is_not_candidate_rtp(self) -> None:
+        document = run(
+            attempts=[attempt(1, answer_frames=[2], branches=[branch(f"sip-dialog:{CAP}:2.1", answer_frames=[2])])],
+            exchanges=[exchange(1, branch_reference=f"sip-dialog:{CAP}:2.1", offer_frame=1, answer_frame=2)],
+            sdp_messages=[sdp_message(1), sdp_message(2)],
+            correlations=[
+                correlation("sdp-rtp-transport:synthetic-call.pcapng:1.1.0", offer_frames=[1], answer_frames=[2]),
+                correlation("sdp-rtp-transport:synthetic-call.pcapng:20.1.0", offer_frames=[20], answer_frames=[21]),
+            ],
+            rtp_events=[rtp_event(f"rtp-packet:{CAP}:200.1", 200, sequence=1)],
+            streams=[stream()],
+        )
+        attempt_record = document["attempts"][0]
+        self.assertEqual(attempt_record["evidence_status"], "AMBIGUOUS_OWNERSHIP")
+        last = attempt_record["diagnostic"]["last_supported_evidence"]
+        self.assertNotEqual(last.get("stage"), "RTP")
+
     def test_privacy_no_raw_endpoint_payload_or_key(self) -> None:
         document = simple_chain()
         text = json.dumps(document)
